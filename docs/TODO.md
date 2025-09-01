@@ -34,7 +34,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] lumi-tests samples for positive and negative cases.
 
 2.5 Error Coverage (Optional)
-- [ ] Improve parse error messages/spans where useful.
+- [x] Improve parse error messages/spans where useful.
 - [x] More negative tests (unknown idents, reserved keywords).
 
 ## Phase 3 — Typer & IR (Next)

@@ -43,10 +43,34 @@ fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
         kw("Bool").to(Type::Bool),
     ))
     .padded()
+    .labelled("type")
 }
 
 fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
     ident_start()
+        .then(ident_continue().repeated().collect::<String>())
+        .map(|(h, rest)| {
+            let mut s = String::with_capacity(1 + rest.len());
+            s.push(h);
+            s.push_str(&rest);
+            s
+        })
+        .try_map(|s: String, span| match s.as_str() {
+            "fn" | "pure" | "mut" | "io" | "Int" | "Bool" | "true" | "false" => Err(Rich::custom(
+                span,
+                format!("`{s}` is a reserved keyword"),
+            )),
+            _ => Ok(s),
+        })
+        .padded()
+        .labelled("identifier")
+}
+
+fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
+    // Use an explicit charset to produce a clearer expectation than a generic filter.
+    let start = one_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+        .labelled("function name");
+    start
         .then(ident_continue().repeated().collect::<String>())
         .map(|(h, rest)| {
             let mut s = String::with_capacity(1 + rest.len());
@@ -70,6 +94,7 @@ fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         .unwrapped()
         .map(Expr::Int)
         .padded()
+        .labelled("int literal")
 }
 
 fn bool_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
@@ -77,20 +102,27 @@ fn bool_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         kw("true").to(Expr::Bool(true)),
         kw("false").to(Expr::Bool(false)),
     ))
+    .labelled("bool literal")
 }
 
 fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {
         let call_args = expr
             .clone()
-            .separated_by(just(',').padded())
+            .separated_by(just(',').padded().labelled("comma"))
             .collect::<Vec<_>>()
-            .delimited_by(just('(').padded(), just(')').padded());
+            .delimited_by(
+                just('(').padded().labelled("'('") ,
+                just(')').padded().labelled("')'")
+            );
 
         let atom = choice((
             int_lit(),
             bool_lit(),
-            expr.clone().delimited_by(just('(').padded(), just(')').padded()),
+            expr.clone().delimited_by(
+                just('(').padded().labelled("'('") ,
+                just(')').padded().labelled("')'")
+            ),
             ident_p()
                 .then(call_args.or_not())
                 .map(|(name, args)| match args {
@@ -99,6 +131,7 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }),
         ))
         .padded()
+        .labelled("expression")
         .boxed();
 
         // multiplicative (*, /)
@@ -130,6 +163,7 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         add
     })
     .padded()
+    .labelled("expression")
 }
 
 fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
@@ -142,17 +176,20 @@ fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
 
 fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
     param_p()
-        .separated_by(just(',').padded())
+        .separated_by(just(',').padded().labelled("comma"))
         .allow_trailing()
         .collect::<Vec<_>>() // required in chumsky 0.10
-        .delimited_by(just('(').padded(), just(')').padded())
+        .delimited_by(
+            just('(').padded().labelled("'('") ,
+            just(')').padded().labelled("')'")
+        )
 }
 
 fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
     effect_p()
         .or_not()
         .then_ignore(kw("fn"))
-        .then(ident_p())
+        .then(func_name_p())
         .then(params_p())
         .then_ignore(just("->").padded())
         .then(ty_p())
@@ -177,10 +214,23 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
-        errs.into_iter()
+        errs
+            .into_iter()
             .map(|e| {
                 let span = e.span();
-                format!("error at {}..{}: {}", span.start, span.end, e)
+                // Collect expected labels/tokens to enrich the message.
+                let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+                if expected.is_empty() {
+                    format!("error at {}..{}: {}", span.start, span.end, e)
+                } else {
+                    format!(
+                        "error at {}..{}: {}; expected: {}",
+                        span.start,
+                        span.end,
+                        e,
+                        expected.join(", ")
+                    )
+                }
             })
             .collect::<Vec<_>>()
             .join("\n")

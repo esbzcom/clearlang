@@ -8,3 +8,7 @@ wasm-encoder = "0.238"
 anyhow = "1"
 lumi-ir = { path = "../ir" }
 lumi-ast = { path = "../ast" }
+
+[dev-dependencies]
+wasmtime = "15"
+lumi-parser = { path = "../parser" }

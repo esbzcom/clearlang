@@ -1,7 +1,8 @@
 # lumi-lang
 
-Lumi is a dependently-typed programming language that compiles to WebAssembly.  
-It aims to be *simple like Python* but *safe like SPARK Ada*, with refinement types, contracts, and an effect system to eliminate entire classes of bugs at compile time.
+Lumi is a dependently-typed programming language that compiles to WebAssembly.
+It aims to be simple like Python and safe like SPARK Ada, with refinement types,
+contracts, and an effect system to eliminate entire classes of bugs at compile time.
 
 ---
 
@@ -57,17 +58,28 @@ It aims to be *simple like Python* but *safe like SPARK Ada*, with refinement ty
 ## ✅ Current Status
 
 - Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
-- CLI has subcommands:
-  - `emit-hello` to write `hello.wasm`
-  - `parse <file>` to parse a Lumi source and print the AST (Phase 2)
-- Parser is working (functions, calls, arithmetic); tests cover arithmetic, calls, and errors.  
-- Next step: implement **typer** and IR lowering.  
+- Phase 2 in progress: parser supports functions, parameters, Int/Bool, binary ops, and calls.
+- CLI subcommands:
+  - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
+  - `parse <file>` — parses a Lumi source and prints the AST.
+  - `build <file> -o <out.wasm>` — minimal source→Wasm (currently supports only `fn main() -> Int { <int> }`).
+- Tests cover arithmetic, call expressions, and error cases.
 
 ## 🏃 How To Run
 
-- Build and run tests for codegen: `cargo test -p codegen-wasm`
-- Emit hello.wasm (Phase 1): `cargo run -p cli -- emit-hello -o hello.wasm`
-- Parse a Lumi file (Phase 2): `cargo run -p cli -- parse path/to/file.lumi`
+- Codegen tests: `cargo test -p lumi-codegen-wasm`
+- Parser tests: `cargo test -p lumi-parser`
+- Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
+- Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
+- Build (very minimal, constant main):
+  - `cargo run -p lumi-cli -- build lumi-tests/08_main_const.lumi -o tmp/prog.wasm`
+  - Run: `wasmtime --invoke main tmp/prog.wasm`
+
+## lumi-tests Samples
+
+- Location: `lumi-tests/`
+- Parse a sample: `cargo run -p lumi-cli -- parse lumi-tests/01_hello.lumi`
+- See `lumi-tests/README.md` for a full list and commands (includes a negative case `06_trailing_call_comma.lumi` that should fail to parse).
 
 ---
 
@@ -84,5 +96,5 @@ Lumi aspires to be:
 
 ## 🔒 License
 
-Currently **private, all rights reserved**.  
-A suitable open-source license (e.g., MIT or Apache-2.0) may be applied when Lumi is released publicly.
+Currently private, all rights reserved.  
+An open-source license (e.g., MIT or Apache-2.0) may be applied when Lumi is released publicly.

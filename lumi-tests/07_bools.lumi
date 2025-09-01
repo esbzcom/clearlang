@@ -1,0 +1,3 @@
+pure fn yes() -> Bool { true }
+pure fn no() -> Bool { false }
+

@@ -7,3 +7,4 @@ edition = "2021"
 wasm-encoder = "0.238"
 anyhow = "1"
 lumi-ir = { path = "../ir" }
+lumi-ast = { path = "../ast" }

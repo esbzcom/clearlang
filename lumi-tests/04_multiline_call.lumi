@@ -1,0 +1,10 @@
+pure fn add(x: Int, y: Int) -> Int { x + y }
+fn main() -> Int {
+    add(
+        10,
+        (2
+            + 3)
+        * 4
+    )
+}
+

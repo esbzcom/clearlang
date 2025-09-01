@@ -1,0 +1,3 @@
+pure fn add(a: Int, b: Int) -> Int { a + b }
+fn main() -> Int { add(1, 2,) } // Intentional: trailing comma in call args should parse-error
+

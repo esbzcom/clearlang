@@ -1,0 +1,4 @@
+pure fn add(x: Int, y: Int) -> Int { x + y }
+pure fn mul(x: Int, y: Int) -> Int { x * y }
+fn main() -> Int { add(1, mul(2, 3)) }
+

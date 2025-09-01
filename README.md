@@ -97,6 +97,18 @@ Lumi pursues defense-in-depth with three complementary safety layers:
   - Run: `wasmtime --invoke main tmp/arith.wasm`
   - Validate: `wasm-tools validate tmp/arith.wasm`
 
+## Git Hooks (Pre-Commit)
+
+- Enable hooks in this repo: `git config core.hooksPath .githooks`
+- The pre-commit hook runs:
+  - `cargo fmt --all -- --check`
+  - `cargo clippy --workspace --all-targets -D warnings`
+  - `cargo test --workspace`
+- Skip toggles:
+  - `SKIP_PRECOMMIT=1` (skip everything)
+  - `SKIP_FMT=1`, `SKIP_CLIPPY=1`, `SKIP_TESTS=1` (skip specific steps)
+- Bypass once: `git commit -n -m "msg"`
+
 ## lumi-tests Samples
 
 - Location: `lumi-tests/`

@@ -17,55 +17,88 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 2 — Parser (Current)
 
-- [x] Parse functions, params (allow trailing), Int/Bool, literals, calls.
-- [x] Operator precedence: `* /` > `+ -`.
-- [x] Tests for valid/invalid calls (missing/trailing commas).
-- [x] CLI `parse` subcommand to pretty‑print AST.
-- [x] End‑to‑end smoke via const‑eval build path (temporary).
+2.1 Syntax & Literals
+- [x] Basic syntax: functions, parameters (`name: Type`), Int/Bool types.
+- [x] Literals: integers, `true`/`false` (Bool in AST).
 
-Optional niceties
+2.2 Calls & Commas
+- [x] Function calls with comma‑separated args; missing comma errors.
+- [x] Trailing comma policy: allowed in parameter lists, disallowed in call args.
+
+2.3 Precedence & Grouping
+- [x] Operator precedence: `* /` > `+ -`; left‑associative.
+- [x] Parentheses for grouping, multi‑line formatting.
+
+2.4 Tooling & Samples
+- [x] CLI `parse` subcommand pretty‑prints AST.
+- [x] lumi-tests samples for positive and negative cases.
+
+2.5 Error Coverage (Optional)
 - [ ] Improve parse error messages/spans where useful.
-- [ ] Add more negative tests (unknown idents, reserved keywords).
+- [ ] More negative tests (unknown idents, reserved keywords).
 
 ## Phase 3 — Typer & IR (Next)
 
-Typer
-- [ ] Function environment: collect signatures (name, params, ret, effect).
-- [ ] Type rules for `Int`, `Bool`, `+ - * /`, variables, and calls.
+3.1 Typer Core
+- [ ] Function env: collect signatures (name, params, ret, effect).
+- [ ] Rules for `Int`/`Bool`, variables, `+ - * /`, and calls.
 - [ ] Arity/return checks; unknown function errors with spans.
-- [ ] Effects (stub): accept `Effect::None|Pure`; reject `Bool` arithmetic.
 
-IR
-- [ ] Define minimal SSA‑like IR in `crates/ir` (Function, Block, Instr, Type).
+3.2 Effects (Stub)
+- [ ] Accept `Effect::None|Pure` initially; plan enforcement later.
+- [ ] Reject Bool arithmetic; ensure function bodies match return types.
+
+3.3 IR Shape
+- [ ] Minimal SSA‑like IR in `crates/ir` (Function, Block, Instr, Type).
 - [ ] Instrs: `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, `Ret`.
-- [ ] Lower AST → IR (guided by typer results), preserve names minimally.
 
-Integration
+3.4 Lowering
+- [ ] Lower AST → IR guided by typer; preserve minimal names/locals.
+
+3.5 Integration
 - [ ] CLI `build`: parse → type‑check → lower to IR → emit Wasm.
-- [ ] Codegen (replace const‑eval): map IR to Wasm (integers + calls first).
-- [ ] Keep const‑eval behind a feature flag (optional) for quick tests.
+- [ ] Codegen replaces const‑eval; keep const‑eval behind a feature flag (optional).
 
-Tests
-- [ ] Typer error tests: unknown function, arity mismatch, type mismatch.
-- [ ] IR/codegen e2e: expect outputs for `01_hello`, `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
+3.6 Tests
+- [ ] Typer errors: unknown function, arity mismatch, type mismatch.
+- [ ] IR/codegen e2e for `01_hello`, `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
 - [ ] Keep negative parse case `06_trailing_call_comma`.
 
-Docs
+3.7 Docs
 - [ ] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
-- [ ] Update README “Current Status” to mark Phase 3 once scaffold lands.
+- [ ] Update README “Current Status” to mark Phase 3 in progress.
 
 ## Phase 4 — Codegen IR → Wasm
 
-- [ ] Export functions, correct type signatures.
-- [ ] Encode integer ops/calls; add simple local allocation for temps.
-- [ ] Extend tests to compare outputs with expected values (Wasmtime).
+4.1 Module & Signatures
+- [ ] Types, function indices, and exports.
+
+4.2 Locals & Stack
+- [ ] Local allocation for temps; map IR values to stack ops.
+
+4.3 Ops & Calls
+- [ ] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
+
+4.4 Replace Const‑Eval
+- [ ] Switch CLI build to IR→Wasm path by default; keep const‑eval for quick checks.
+
+4.5 Tests
+- [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
 
 ## Phase 5 — Contracts & Effects (Safety)
 
-- [ ] Syntax: `require { expr }` / `ensure { expr }`, effects `pure|mut|io`.
-- [ ] Typer: enforce effects; generate VCs for contracts (placeholder).
-- [ ] Runtime: lower contracts to guards that trap on violation.
-- [ ] Optionally emit verification metadata (custom sections) for future proofs.
+5.1 Syntax
+- [ ] `require { expr }` / `ensure { expr }`, effects `pure|mut|io`.
+
+5.2 Typer Rules
+- [ ] Enforce effects and basic purity constraints.
+- [ ] Generate placeholders for verification conditions (VCs).
+
+5.3 Runtime Guards
+- [ ] Lower contracts to guards that trap on violation.
+
+5.4 Metadata & Proofs
+- [ ] Emit custom sections for contracts/effects/VCs; plan `lumiverify`.
 
 ## Safety & Tooling
 

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[pre-commit] Running workspace tests (use SKIP_PRECOMMIT=1 to skip)"
+
+if [[ "${SKIP_PRECOMMIT:-}" == "1" ]]; then
+  echo "[pre-commit] Skipped by SKIP_PRECOMMIT=1"
+  exit 0
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "[pre-commit] cargo not found; skipping Rust checks"
+  exit 0
+fi
+
+echo "[pre-commit] cargo test --workspace"
+cargo test --workspace
+
+echo "[pre-commit] OK"
+exit 0
+

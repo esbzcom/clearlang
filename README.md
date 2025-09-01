@@ -66,6 +66,25 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `build <file> -o <out.wasm>` — const-eval source→Wasm for Int programs (no Booleans yet).
 - Tests cover arithmetic, call expressions, and error cases.
 
+## Safety Levels
+
+Lumi pursues defense-in-depth with three complementary safety layers:
+
+1) Compile Time
+- Types/effects: ill-typed or effect-unsafe programs are rejected.
+- Contracts: `require`/`ensure` planned with verification conditions; in early phases, compile to runtime checks.
+- Proofs (later): generate and optionally discharge SMT obligations; ship proof artifacts.
+
+2) Load Time
+- Wasm validation: `wasm-tools validate out.wasm` and Wasmtime module validation.
+- Policy checks: deny disallowed imports; require metadata/custom sections when applicable.
+- Proof-carrying code (later): `lumiverify` checks proof sections before instantiation.
+
+3) Runtime
+- Contract guards trap deterministically on violation (when compiled in).
+- Sandboxing: Wasm memory isolation by default.
+- Host limits: Wasmtime fuel/epoch deadlines, memory/table caps to prevent hangs/DoS.
+
 ## 🏃 How To Run
 
 - Codegen tests: `cargo test -p lumi-codegen-wasm`
@@ -76,6 +95,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `cargo run -p lumi-cli -- build lumi-tests/01_hello.lumi -o tmp/hello_prog.wasm`
   - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
   - Run: `wasmtime --invoke main tmp/arith.wasm`
+  - Validate: `wasm-tools validate tmp/arith.wasm`
 
 ## lumi-tests Samples
 

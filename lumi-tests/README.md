@@ -10,6 +10,7 @@ Quick Start
 - Parse AST (01_hello.lumi): `cargo run -p lumi-cli -- parse lumi-tests/01_hello.lumi`
 - Emit hello Wasm (Phase 1 demo): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
 - Run hello with Wasmtime: `wasmtime --invoke main tmp/hello.wasm`
+  - Validate: `wasm-tools validate tmp/hello.wasm`
 
 Notes
 - The parser currently supports: functions, Int/Bool types, integer and boolean literals, variables, function calls, and binary ops `+ - * /` with standard precedence. Trailing commas are allowed in parameter lists, but not in call argument lists.
@@ -32,7 +33,14 @@ Build From Source (const-eval subset)
   - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
   - `cargo run -p lumi-cli -- build lumi-tests/03_nested_calls.lumi -o tmp/nested.wasm`
   - Run: `wasmtime --invoke main tmp/arith.wasm`
+  - Validate: `wasm-tools validate tmp/arith.wasm`
   - Note: `07_bools.lumi` is not supported by const-eval codegen yet (non-Int return).
+
+Safety Notes
+
+- Compile time: parser + (upcoming) typer/contracts reject unsafe programs.
+- Load time: always validate generated Wasm (`wasm-tools validate tmp/*.wasm`).
+- Runtime: contract checks (when enabled) trap on violation; Wasmtime sandboxing + resource limits recommended.
 
 Test End-to-End (parser → codegen → run)
 

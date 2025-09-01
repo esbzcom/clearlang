@@ -1,1 +1,2 @@
-﻿pub struct PlaceHolder;
+﻿#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaceHolder;

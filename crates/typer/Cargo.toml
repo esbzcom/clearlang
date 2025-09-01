@@ -7,3 +7,6 @@ edition = "2021"
 lumi-ast = { path = "../ast" }
 lumi-ir  = { path = "../ir" }
 anyhow = "1"
+
+[dev-dependencies]
+lumi-parser = { path = "../parser" }

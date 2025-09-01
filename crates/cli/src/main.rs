@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use lumi_codegen_wasm::{emit_from_ast, emit_trivial_main};
+use lumi_typer::check as type_check;
 use lumi_parser::parse as parse_src;
 
 #[derive(Parser, Debug)]
@@ -69,6 +70,8 @@ fn main() -> Result<()> {
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
             let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
+            // Phase 3.1: type-check before codegen (const-eval path still in use)
+            type_check(&ast).context("type-check failed")?;
             let bytes = emit_from_ast(&ast).context("codegen failed")?;
             if let Some(parent) = out.parent() {
                 if !parent.as_os_str().is_empty() {

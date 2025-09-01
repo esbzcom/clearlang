@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-wasm-encoder = "0.219"
+wasm-encoder = "0.238"
 anyhow = "1"
 lumi-ir = { path = "../ir" }

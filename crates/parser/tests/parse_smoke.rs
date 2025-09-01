@@ -110,7 +110,7 @@ fn errors_on_missing_closing_paren_in_call() {
 
     let err = parse(src).expect_err("should fail on missing ')'");
     // Optionally assert error span/message if your parser exposes it.
-    // assert!(format!("{err:?}").contains("')'"));
+    assert!(format!("{err:?}").contains("')'"));
 }
 
 #[test]

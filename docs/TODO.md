@@ -36,8 +36,11 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 2.5 Error Coverage (Optional)
 - [x] Improve parse error messages/spans where useful.
 - [x] More negative tests (unknown idents, reserved keywords).
+ - [ ] Carry source spans in AST for typer errors (future improvement).
 
 ## Phase 3 — Typer & IR (Next)
+
+→ Next focus: 3.3 IR Shape, 3.4 Lowering, 3.5 Integration (replace const‑eval in the build path).
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -46,11 +49,12 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 3.2 Effects (Stub)
 - [ ] Accept `Effect::None|Pure` initially; plan enforcement later.
-- [ ] Reject Bool arithmetic; ensure function bodies match return types.
+ - [x] Reject Bool arithmetic; ensure function bodies match return types.
 
 3.3 IR Shape
-- [ ] Minimal SSA‑like IR in `crates/ir` (Function, Block, Instr, Type).
-- [ ] Instrs: `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, `Ret`.
+- [x] Minimal SSA‑like IR in `crates/ir` (Function, Instr, Type; single block for now).
+- [x] Instrs: `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, `Ret`.
+ - [x] Unit tests: construct simple functions and call variants.
 
 3.4 Lowering
 - [ ] Lower AST → IR guided by typer; preserve minimal names/locals.
@@ -58,6 +62,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 3.5 Integration
 - [ ] CLI `build`: parse → type‑check → lower to IR → emit Wasm.
 - [ ] Codegen replaces const‑eval; keep const‑eval behind a feature flag (optional).
+ - [ ] Add `--validate` flag to run `wasm-tools validate` on outputs.
 
 3.6 Tests
 - [ ] Typer errors: unknown function, arity mismatch, type mismatch.
@@ -81,6 +86,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 4.4 Replace Const‑Eval
 - [ ] Switch CLI build to IR→Wasm path by default; keep const‑eval for quick checks.
+ - [ ] Remove const‑eval fallback once IR path is stable (optional cleanup).
 
 4.5 Tests
 - [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
@@ -106,6 +112,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [ ] Add CI to run `cargo test` across workspace; run pipeline tests.
 - [ ] Document Wasmtime fuel/epoch/memory limits for runtime safety.
 - [ ] Add `--contracts=runtime|hybrid|static` flag design (future).
+- [ ] Enable Wasmtime fuel/epoch limits in IT tests for runtime bounding.
+ - [x] Document pre-commit hook usage in README; provide skip toggles.
 
 ## Developer Experience
 

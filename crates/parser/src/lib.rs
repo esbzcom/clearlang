@@ -84,7 +84,6 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         let call_args = expr
             .clone()
             .separated_by(just(',').padded())
-            .allow_trailing()
             .collect::<Vec<_>>()
             .delimited_by(just('(').padded(), just(')').padded());
 

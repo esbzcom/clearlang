@@ -2,6 +2,19 @@
 
 A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
+## Phase 0 — Workspace & Toolchain (Done)
+
+- [x] Set up Rust toolchain and Cargo workspace.
+- [x] Add crates: `cli`, `parser`, `ast`, `typer`, `ir`, `codegen-wasm`.
+- [x] Install and use Wasmtime and `wasm-tools` locally.
+
+## Phase 1 — Hello WASM (Done)
+
+- [x] Implement `emit_trivial_main` producing `main() -> i32` returning 42.
+- [x] Add CLI `emit-hello` subcommand writing `hello.wasm` (creates parent dirs).
+- [x] Validate with `wasm-tools validate` and run with Wasmtime.
+- [x] Add tests to check Wasm header/export and `i32.const 42`.
+
 ## Phase 2 — Parser (Current)
 
 - [x] Parse functions, params (allow trailing), Int/Bool, literals, calls.
@@ -72,4 +85,3 @@ Docs
 - [ ] WASI `print` intrinsic (Phase 7) for observable output.
 - [ ] Arrays + while loops with invariants (Phase 6).
 - [ ] Proof‑carrying Wasm prototype (`lumiverify`) (Phase 9).
-

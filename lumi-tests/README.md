@@ -25,10 +25,18 @@ Test Files
 - `07_bools.lumi`: boolean literals and pure functions returning Bool.
 - `08_main_const.lumi`: minimal program that can be compiled to Wasm (constant main).
 
-Build From Source (minimal subset)
+Build From Source (const-eval subset)
 
-- Compile constant main: `cargo run -p lumi-cli -- build lumi-tests/08_main_const.lumi -o tmp/prog.wasm`
-- Run with Wasmtime: `wasmtime --invoke main tmp/prog.wasm`
+- Build and run a few samples (Int-returning only):
+  - `cargo run -p lumi-cli -- build lumi-tests/01_hello.lumi -o tmp/hello_prog.wasm`
+  - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
+  - `cargo run -p lumi-cli -- build lumi-tests/03_nested_calls.lumi -o tmp/nested.wasm`
+  - Run: `wasmtime --invoke main tmp/arith.wasm`
+  - Note: `07_bools.lumi` is not supported by const-eval codegen yet (non-Int return).
+
+Test End-to-End (parser → codegen → run)
+
+- Run integration test: `cargo test -p lumi-codegen-wasm --test full_pipeline`
 
 Run With Node.js (hello example)
 

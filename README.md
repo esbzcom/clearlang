@@ -59,10 +59,11 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 - Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
 - Phase 2 in progress: parser supports functions, parameters, Int/Bool, binary ops, and calls.
+- Temporary build path uses const-eval to produce Wasm for Int-returning programs (supports literals, `+ - * /`, variables/params, and function calls).
 - CLI subcommands:
   - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
   - `parse <file>` — parses a Lumi source and prints the AST.
-  - `build <file> -o <out.wasm>` — minimal source→Wasm (currently supports only `fn main() -> Int { <int> }`).
+  - `build <file> -o <out.wasm>` — const-eval source→Wasm for Int programs (no Booleans yet).
 - Tests cover arithmetic, call expressions, and error cases.
 
 ## 🏃 How To Run
@@ -71,9 +72,10 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 - Parser tests: `cargo test -p lumi-parser`
 - Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
 - Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
-- Build (very minimal, constant main):
-  - `cargo run -p lumi-cli -- build lumi-tests/08_main_const.lumi -o tmp/prog.wasm`
-  - Run: `wasmtime --invoke main tmp/prog.wasm`
+- Build (const-eval: Int-returning programs with `+ - * /` and calls):
+  - `cargo run -p lumi-cli -- build lumi-tests/01_hello.lumi -o tmp/hello_prog.wasm`
+  - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
+  - Run: `wasmtime --invoke main tmp/arith.wasm`
 
 ## lumi-tests Samples
 

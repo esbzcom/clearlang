@@ -15,7 +15,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Validate with `wasm-tools validate` and run with Wasmtime.
 - [x] Add tests to check Wasm header/export and `i32.const 42`.
 
-## Phase 2 — Parser (Current)
+## Phase 2 — Parser (Done)
 
 2.1 Syntax & Literals
 - [x] Basic syntax: functions, parameters (`name: Type`), Int/Bool types.
@@ -40,9 +40,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 ## Phase 3 — Typer & IR (Next)
 
 3.1 Typer Core
-- [ ] Function env: collect signatures (name, params, ret, effect).
-- [ ] Rules for `Int`/`Bool`, variables, `+ - * /`, and calls.
-- [ ] Arity/return checks; unknown function errors with spans.
+- [x] Function env: collect signatures (name, params, ret, effect).
+- [x] Rules for `Int`/`Bool`, variables, `+ - * /`, and calls.
+- [x] Arity/return checks; unknown function errors with spans.
 
 3.2 Effects (Stub)
 - [ ] Accept `Effect::None|Pure` initially; plan enforcement later.

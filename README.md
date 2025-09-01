@@ -56,9 +56,18 @@ It aims to be *simple like Python* but *safe like SPARK Ada*, with refinement ty
 
 ## ✅ Current Status
 
-- Parser prototype is working (can parse function calls and nested expressions).  
-- Tests cover arithmetic, call expressions, and error cases.  
+- Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
+- CLI has subcommands:
+  - `emit-hello` to write `hello.wasm`
+  - `parse <file>` to parse a Lumi source and print the AST (Phase 2)
+- Parser is working (functions, calls, arithmetic); tests cover arithmetic, calls, and errors.  
 - Next step: implement **typer** and IR lowering.  
+
+## 🏃 How To Run
+
+- Build and run tests for codegen: `cargo test -p codegen-wasm`
+- Emit hello.wasm (Phase 1): `cargo run -p cli -- emit-hello -o hello.wasm`
+- Parse a Lumi file (Phase 2): `cargo run -p cli -- parse path/to/file.lumi`
 
 ---
 

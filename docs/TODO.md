@@ -36,7 +36,6 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 2.5 Error Coverage (Optional)
 - [x] Improve parse error messages/spans where useful.
 - [x] More negative tests (unknown idents, reserved keywords).
- - [ ] Carry source spans in AST for typer errors (future improvement).
 
 ## Phase 3 — Typer & IR (Next)
 
@@ -48,7 +47,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Arity/return checks; unknown function errors with spans.
 
 3.2 Effects (Stub)
-- [ ] Accept `Effect::None|Pure` initially; plan enforcement later.
+ - [x] Accept `Effect::None|Pure` initially; plan enforcement later.
  - [x] Reject Bool arithmetic; ensure function bodies match return types.
 
 3.3 IR Shape
@@ -72,6 +71,12 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 3.7 Docs
 - [ ] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
 - [ ] Update README “Current Status” to mark Phase 3 in progress.
+
+3.8 Diagnostics & Spans
+- [ ] Attach source spans in AST via chumsky (`map_with_span`) for identifiers and expressions.
+- [ ] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
+- [ ] Add tests that assert span presence/format in error messages.
+- [ ] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
 
 ## Phase 4 — Codegen IR → Wasm
 

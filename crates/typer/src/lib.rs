@@ -1,5 +1,5 @@
 ﻿use anyhow::{bail, Context, Result};
-use lumi_ast::{BinOp, Expr, Func, Param, Program, Type};
+use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type};
 use lumi_ir::PlaceHolder;
 use std::collections::HashMap;
 
@@ -23,7 +23,14 @@ pub fn check(ast: &Program) -> Result<PlaceHolder> {
 }
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {
-    // Effects stub: accept any for now (Effect::None/Pure/Mut/Io)
+    // Effects stub (Phase 3.2): accept None|Pure; reject Mut/Io for now
+    match f.effect {
+        Effect::None | Effect::Pure => {}
+        Effect::Mut | Effect::Io => bail!(
+            "effect `{}` not supported yet; use `pure` or omit",
+            match f.effect { Effect::Mut => "mut", Effect::Io => "io", _ => unreachable!() }
+        ),
+    }
     let mut env: HashMap<&str, Type> = HashMap::new();
     for p in &f.params {
         if env.insert(p.name.as_str(), p.ty).is_some() {

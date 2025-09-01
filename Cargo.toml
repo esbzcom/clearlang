@@ -1,0 +1,3 @@
+﻿[workspace]
+members = ["crates/cli","crates/parser","crates/ast","crates/typer","crates/ir","crates/codegen-wasm"]
+resolver = "2"

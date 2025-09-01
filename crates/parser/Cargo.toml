@@ -1,0 +1,8 @@
+﻿[package]
+name = "lumi-parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chumsky = "0.10.1"
+lumi-ast = { path = "../ast" }

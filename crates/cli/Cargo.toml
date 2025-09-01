@@ -1,0 +1,12 @@
+﻿[package]
+name = "lumi-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+lumi-parser = { path = "../parser" }
+lumi-typer  = { path = "../typer" }
+lumi-ir     = { path = "../ir" }
+lumi-codegen-wasm = { path = "../codegen-wasm" }

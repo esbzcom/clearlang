@@ -1,0 +1,9 @@
+﻿[package]
+name = "lumi-typer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumi-ast = { path = "../ast" }
+lumi-ir  = { path = "../ir" }
+anyhow = "1"

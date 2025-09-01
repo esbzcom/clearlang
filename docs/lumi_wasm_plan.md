@@ -83,3 +83,16 @@ This is a step-by-step roadmap to implement the Lumi language, compile it to Web
 - Language supports: `pure|mut|io`, contracts, while-loops, arrays, WASI printing.
 - Path to solver integration later.
 
+---
+
+## Safety Model Checklist
+
+- Compile Time
+  - Type/effect checks reject unsafe programs.
+  - Contracts lower to guards early; later, emit verification conditions and proofs.
+- Load Time
+  - Validate Wasm bytes (`wasm-tools validate`, Wasmtime module validation).
+  - Optional `lumiverify` verifies proof/metadata custom sections.
+- Runtime
+  - Contract guards trap deterministically on violation.
+  - Wasm sandboxing; enable fuel/epoch/memory limits in host.

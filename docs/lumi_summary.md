@@ -167,3 +167,10 @@ Lumi aims to be:
 - **Proof-oriented** (bugs prevented at compile time).  
 - Suitable for **web apps, mobile apps, and smart contracts**.
 
+---
+
+## 10. Safety Levels (Defense-in-Depth)
+
+- Compile Time: types/effects and contracts; generate verification conditions; early phases use runtime guards for contracts.
+- Load Time: validate Wasm on load; enforce import/metadata policies; optional proof-carrying verification (`lumiverify`).
+- Runtime: contract guards trap on violation; Wasm sandboxing + host resource limits (fuel, memory, epoch deadlines).

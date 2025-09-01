@@ -48,3 +48,11 @@ Goal: **prevent bugs at compile time, enforce invariants at runtime, and run saf
 
 **Simple like Python. Safe like SPARK Ada. Portable via WASM.**  
 A platform for **provably correct apps and smart contracts**.
+
+---
+
+## Safety Model (Compile, Load, Run)
+
+- Compile Time: types/effects reject unsafe code; contracts (`require`/`ensure`) produce verification conditions and/or runtime guards; optional proofs shipped alongside binaries.
+- Load Time: validate Wasm bytes (`wasm-tools validate` / Wasmtime); enforce policy on imports/metadata; optional proof-carrying verification via a `lumiverify` tool.
+- Runtime: contract guards trap deterministically when enabled; Wasm sandboxing ensures memory isolation; host limits (fuel, epoch deadlines, memory caps) mitigate DoS.

@@ -35,7 +35,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 2.5 Error Coverage (Optional)
 - [ ] Improve parse error messages/spans where useful.
-- [ ] More negative tests (unknown idents, reserved keywords).
+- [x] More negative tests (unknown idents, reserved keywords).
 
 ## Phase 3 — Typer & IR (Next)
 

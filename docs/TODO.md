@@ -39,7 +39,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.3 IR Shape, 3.4 Lowering, 3.5 Integration (replace const‑eval in the build path).
+→ Next focus: 3.5 Integration (replace const‑eval in the build path).
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -172,7 +172,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.3 IR Shape, 3.4 Lowering, 3.5 Integration (replace const-eval in the build path).
+→ Next focus: 3.5 Integration (replace const-eval in the build path).
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).

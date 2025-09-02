@@ -1,13 +1,14 @@
-﻿use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type};
-use lumi_ir::PlaceHolder;
+use lumi_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Module, Value};
 use std::collections::HashMap;
 
 type FnSig<'a> = (&'a [Param], Type);
 
-/// Type-check the Lumi AST and return a placeholder IR on success.
-/// Phase 3.1: checks Int/Bool, variables, calls, binops, arity, and returns.
-pub fn check(ast: &Program) -> Result<PlaceHolder> {
+/// Type-check the Lumi AST and return a lowered IR module on success.
+/// Phase 3.1–3.4: checks Int/Bool, variables, calls, binops, arity, and returns,
+/// then lowers AST → IR using a simple SSA-like scheme.
+pub fn check(ast: &Program) -> Result<Module> {
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
     for f in &ast.funcs {
         if fns.insert(f.name.as_str(), (&f.params, f.ret)).is_some() {
@@ -19,7 +20,12 @@ pub fn check(ast: &Program) -> Result<PlaceHolder> {
         check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
     }
 
-    Ok(PlaceHolder)
+    // Lowering (Phase 3.4): convert each checked function into IR
+    let mut module = Module::default();
+    for f in &ast.funcs {
+        module.funcs.push(lower_func(f, &fns)?);
+    }
+    Ok(module)
 }
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {
@@ -117,3 +123,97 @@ fn show_ty(t: Type) -> &'static str {
         Type::Bool => "Bool",
     }
 }
+
+// ---------------- Lowering (Phase 3.4) ----------------
+
+fn ir_ty(t: Type) -> IrType {
+    match t {
+        Type::Int => IrType::Int,
+        Type::Bool => IrType::Bool,
+    }
+}
+
+struct LowerCtx<'a> {
+    next: u32,
+    env: HashMap<&'a str, Value>,
+    fns: HashMap<&'a str, FnSig<'a>>, // for call return types
+    body: Vec<Instr>,
+}
+
+fn lower_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<IrFunction> {
+    // Reserve SSA ids for parameters in order
+    let mut env: HashMap<&str, Value> = HashMap::new();
+    for (i, p) in f.params.iter().enumerate() {
+        env.insert(p.name.as_str(), Value(i as u32));
+    }
+    let mut ctx = LowerCtx {
+        next: f.params.len() as u32,
+        env,
+        fns: fns.clone(),
+        body: Vec::new(),
+    };
+
+    let ret_val = lower_expr(&mut ctx, &f.body)?;
+    ctx.body.push(Instr::Ret { val: ret_val });
+
+    Ok(IrFunction {
+        name: f.name.clone(),
+        params: f.params.iter().map(|p| ir_ty(p.ty)).collect(),
+        ret: Some(ir_ty(f.ret)),
+        body: ctx.body,
+    })
+}
+
+fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
+    Ok(match e {
+        Expr::Int(n) => {
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: *n });
+            dst
+        }
+        Expr::Bool(b) => {
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });
+            dst
+        }
+        Expr::Var(name) => *ctx
+            .env
+            .get(name.as_str())
+            .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name)))?,
+        Expr::Bin { op, lhs, rhs } => {
+            let lv = lower_expr(ctx, lhs)?;
+            let rv = lower_expr(ctx, rhs)?;
+            let dst = fresh(ctx);
+            let irop = match op {
+                BinOp::Add => BinOpIR::Add,
+                BinOp::Sub => BinOpIR::Sub,
+                BinOp::Mul => BinOpIR::Mul,
+                BinOp::Div => BinOpIR::Div,
+            };
+            ctx.body.push(Instr::IBin { dst, op: irop, lhs: lv, rhs: rv });
+            dst
+        }
+        Expr::Call { callee, args } => {
+            let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
+            let argv = argv?;
+            // Decide whether the call yields a value based on callee's return type
+            let (_params, _ret_ty) = ctx
+                .fns
+                .get(callee.as_str())
+                .copied()
+                .ok_or_else(|| anyhow::anyhow!(format!("unknown function `{}`", callee)))?;
+            let dst = fresh(ctx);
+            // Current language always returns a value; keep Some(dst)
+            let dst_opt = Some(dst);
+            ctx.body.push(Instr::Call { dst: dst_opt, callee: callee.clone(), args: argv });
+            dst
+        }
+    })
+}
+
+fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
+    let v = Value(ctx.next);
+    ctx.next += 1;
+    v
+}
+

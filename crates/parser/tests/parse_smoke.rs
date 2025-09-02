@@ -141,7 +141,7 @@ fn errors_on_trailing_comma_in_call_if_disallowed() {
 #[ignore] // enable after typer is in place
 fn typer_errors_on_arity_mismatch() {
     // Parser should accept; typer should reject wrong arity.
-    let src = r#"
+    let _src = r#"
         fn main() -> Int { add(1) }
         pure fn add(x: Int, y: Int) -> Int { x + y }
     "#;
@@ -154,7 +154,7 @@ fn typer_errors_on_arity_mismatch() {
 #[test]
 #[ignore] // enable after typer is in place
 fn typer_errors_on_unknown_function() {
-    let src = r#"
+    let _src = r#"
         fn main() -> Int { missing(1, 2) }
     "#;
 

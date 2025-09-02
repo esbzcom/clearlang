@@ -6,3 +6,9 @@
 - Updated `docs/TODO.md` to mark 3.4 complete and set next focus to 3.5 Integration.
 - Next: wire CLI build to the IR path (parse → type → lower → IR→Wasm), adapt codegen to accept IR, and add `--validate`.
 
+## Session 2025-09-02 — Follow-up
+
+- Created `docs/rollout/DEVPLAN.md` detailing Phase 3.5 integration steps (CLI wiring, IR→Wasm mapping, tests).
+- Updated `docs/TODO.md` Next focus to Phase 3.5 and referenced DEVPLAN for details.
+- Kept `docs/rollout` artifacts ignored in git except `codex-session-history.md` and the new `DEVPLAN.md`.
+- Ready to implement CLI Build path switch to IR→Wasm and add `--validate` flag.

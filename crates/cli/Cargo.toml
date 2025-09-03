@@ -2,6 +2,7 @@
 name = "lumi-cli"
 version = "0.1.0"
 edition = "2021"
+autobins = false
 
 [dependencies]
 anyhow = "1"
@@ -17,3 +18,7 @@ predicates = "3"
 tempfile = "3"
 wasmtime = "15"
 wasmparser = "0.219"
+
+[[bin]]
+name = "lumi"
+path = "src/main.rs"

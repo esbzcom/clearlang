@@ -65,9 +65,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
  
 
 3.6 Tests
-- [ ] Typer errors: unknown function, arity mismatch, type mismatch.
-- [x] IR/codegen e2e for `01_hello`, `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
-- [x] Keep negative parse case `06_trailing_call_comma`.
+- [x] Typer errors: unknown function, arity mismatch, type mismatch.
+ - [x] IR/codegen e2e for `01_hello`, `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
+ - [x] Keep negative parse case `06_trailing_call_comma`.
 
 3.7 Docs
 - [ ] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
@@ -199,9 +199,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
  - [ ] See `docs/rollout/DEVPLAN.md` for implementation steps.
 
 3.6 Tests
-- [ ] Typer errors: unknown function, arity mismatch, type mismatch.
-- [x] IR/codegen e2e for `01_hello`, `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
-- [x] Keep negative parse case `06_trailing_call_comma`.
+- [x] Typer errors: unknown function, arity mismatch, type mismatch.
+ - [x] IR/codegen e2e for `01_hello`, `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
+ - [x] Keep negative parse case `06_trailing_call_comma`.
 
 3.7 Docs
 - [ ] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).

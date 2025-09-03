@@ -5,7 +5,7 @@ use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
     Module, TypeSection, ValType,
 };
-use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule};
+use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 
 /// Emit a minimal Wasm module exporting `main() -> i32` that returns 42.
 pub fn emit_trivial_main() -> Result<Vec<u8>> {

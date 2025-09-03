@@ -12,3 +12,11 @@
 - Updated `docs/TODO.md` Next focus to Phase 3.5 and referenced DEVPLAN for details.
 - Kept `docs/rollout` artifacts ignored in git except `codex-session-history.md` and the new `DEVPLAN.md`.
 - Ready to implement CLI Build path switch to IR→Wasm and add `--validate` flag.
+
+## Session 2025-09-03 — Phase 3.5 Done
+
+- Wired CLI build to IR path: parse → type → lower → IR→Wasm; added `--validate`.
+- Implemented IR→Wasm for `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, and `Ret` (Int/Bool→i32).
+- Added `run` subcommand (embedded Wasmtime) to execute Wasm: `lumi run out.wasm`.
+- Added initial IR pipeline test; README updated with CLI and Windows instructions.
+- TODO updated: Phase 3.5 complete; Next focus on 3.6 Tests and 3.8 Diagnostics & Spans.

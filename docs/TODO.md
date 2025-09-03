@@ -39,7 +39,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.5 Integration (replace const‑eval in the build path).
+→ Next focus: 3.6 Tests and 3.8 Diagnostics & Spans; prep Phase 4.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -62,7 +62,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] CLI `build`: parse → type‑check → lower to IR → emit Wasm.
 - [x] Codegen replaces const‑eval; keep const‑eval behind a feature flag (optional).
  - [x] Add `--validate` flag to run `wasm-tools validate` on outputs.
- - [ ] See `docs/rollout/DEVPLAN.md` for implementation steps.
+ 
 
 3.6 Tests
 - [ ] Typer errors: unknown function, arity mismatch, type mismatch.

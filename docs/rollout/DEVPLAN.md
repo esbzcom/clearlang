@@ -23,3 +23,22 @@ Next Actions
 - Implement IR→Wasm encoder entry accepting `lumi_ir::Module`.
 - Update `lumi-cli build` to use typer output (IR) and call new encoder.
 - Add `--validate` and basic logging.
+
+---
+
+# Next Steps (Post 3.5)
+
+Testing (Phase 3.6)
+- Add IR pipeline tests for samples: `02_arith`, `03_nested_calls`, `04_multiline_call`, `05_trailing_param_comma`.
+- Keep `06_trailing_call_comma` as a negative parse case (no IR/codegen).
+
+Diagnostics & Spans (Phase 3.8)
+- Attach source spans in AST (identifiers, expressions) using chumsky `map_with_span`.
+- Propagate spans into typer errors: unknown var/fn, arity, return/type mismatch.
+- Add tests asserting span presence/format in error messages.
+
+Codegen Extensions (Phase 4)
+- Functions & exports: function index mapping; export `main` (done), extend for more exports.
+- Locals/stack: refine local allocation strategy if/when multi-block IR arrives.
+- Ops: maintain `IConst`, `IBin`, `Call`, `Ret`; add void-return support and drop unused call results.
+- Validation: keep `--validate` path; consider adding CI validation step.

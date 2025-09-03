@@ -74,6 +74,7 @@ fn main() -> Result<()> {
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
             let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
+            eprintln!("parsed {}", file.display());
             println!("{:#?}", ast);
         }
         Commands::Build { file, out, validate } => {
@@ -85,7 +86,9 @@ fn main() -> Result<()> {
             let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
             // Phase 3.5: type-check and lower to IR, then codegen IR → Wasm
             let ir = type_check(&ast).context("type-check failed")?;
+            eprintln!("type-checked and lowered to IR");
             let bytes = emit_from_ir(&ir).context("codegen (IR→Wasm) failed")?;
+            eprintln!("generated Wasm ({} bytes)", bytes.len());
             if let Some(parent) = out.parent() {
                 if !parent.as_os_str().is_empty() {
                     fs::create_dir_all(parent)

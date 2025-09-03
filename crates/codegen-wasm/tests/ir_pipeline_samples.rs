@@ -42,6 +42,8 @@ fn ir_pipeline_samples() {
         Case { file: "04_multiline_call.lumi", parse_ok: true,  expected: Some(30) },
         Case { file: "05_trailing_param_comma.lumi", parse_ok: true,  expected: Some(3) },
         Case { file: "06_trailing_call_comma.lumi", parse_ok: false, expected: None },
+        Case { file: "07_bools.lumi", parse_ok: true,  expected: None }, // no main export expected
+        Case { file: "08_main_const.lumi", parse_ok: true,  expected: Some(42) },
     ];
 
     for c in cases {        
@@ -54,19 +56,24 @@ fn ir_pipeline_samples() {
         }
 
         let ast = parsed.expect("parse ok");
-        match c.expected {
-            Some(expect) => {
-                let ir = check(&ast).expect("type-check+lower ok");
-                let wasm = emit_from_ir(&ir).expect("codegen (IR) ok");
-                let out = run_wasm_and_get_i32_result(&wasm);
-                assert_eq!(out, expect, "output mismatch for {}", c.file);
-            }
-            None => {
-                // Not expected to run to a value in this phase
-                // e.g., parse errors or missing/unsupported main
-                assert!(true);
-            }
+        if let Some(expect) = c.expected {
+            let ir = check(&ast).expect("type-check+lower ok");
+            let wasm = emit_from_ir(&ir).expect("codegen (IR) ok");
+            let out = run_wasm_and_get_i32_result(&wasm);
+            assert_eq!(out, expect, "output mismatch for {}", c.file);
+        } else {
+            // Expected to parse but not have a main export (e.g., 07_bools)
+            let ir = check(&ast).expect("type-check+lower ok");
+            let wasm = emit_from_ir(&ir).expect("codegen (IR) ok");
+            let engine = wasmtime::Engine::default();
+            let module = wasmtime::Module::from_binary(&engine, &wasm).expect("module from bytes");
+            let mut store = wasmtime::Store::new(&engine, ());
+            let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+            assert!(
+                instance.get_typed_func::<(), i32>(&mut store, "main").is_err(),
+                "module should not export main for {}",
+                c.file
+            );
         }
     }
 }
-

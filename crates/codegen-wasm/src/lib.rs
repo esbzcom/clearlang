@@ -5,6 +5,7 @@ use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
     Module, TypeSection, ValType,
 };
+use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule};
 
 /// Emit a minimal Wasm module exporting `main() -> i32` that returns 42.
 pub fn emit_trivial_main() -> Result<Vec<u8>> {
@@ -147,4 +148,102 @@ fn eval_expr_int(
             eval_expr_int(&f.body, funs, &new_env, depth + 1)
         }
     }
+}
+
+// ---------------- IR → Wasm (Phase 3.5 input, Phase 4 encoding) ----------------
+
+/// Emit Wasm from IR (supports IConst, IBin, Call, Ret; Int/Bool as i32)
+pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
+    let mut module = Module::new();
+
+    // Build function types, map names to indices
+    let mut types = TypeSection::new();
+    let mut fn_index_by_name = std::collections::HashMap::new();
+    for (i, f) in ir.funcs.iter().enumerate() {
+        fn_index_by_name.insert(f.name.as_str(), i as u32);
+        let params: Vec<ValType> = f.params.iter().map(|_| ValType::I32).collect();
+        let results: Vec<ValType> = match f.ret { Some(_) => vec![ValType::I32], None => vec![] };
+        types.ty().function(params, results);
+    }
+    module.section(&types);
+
+    // Function section
+    let mut functions = FunctionSection::new();
+    for i in 0..ir.funcs.len() {
+        functions.function(i as u32);
+    }
+    module.section(&functions);
+
+    // Export main if present
+    if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
+        let mut exports = ExportSection::new();
+        exports.export("main", ExportKind::Func, i as u32);
+        module.section(&exports);
+    }
+
+    // Code section: encode each function body
+    let mut codes = CodeSection::new();
+    for f in &ir.funcs {
+        let func = encode_ir_function(f, &fn_index_by_name)?;
+        codes.function(&func);
+    }
+    module.section(&codes);
+
+    Ok(module.finish())
+}
+
+fn encode_ir_function<'a>(f: &IrFunction, fn_indices: &std::collections::HashMap<&'a str, u32>) -> Result<Function> {
+    // Compute locals: values >= params are locals; params are indices 0..P-1
+    let params_len = f.params.len() as u32;
+    let mut max_id = params_len.saturating_sub(1);
+    for ins in &f.body {
+        match ins {
+            IrInstr::IConst { dst, .. } => max_id = max_id.max(dst.0),
+            IrInstr::IBin { dst, lhs, rhs, .. } => {
+                max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
+            }
+            IrInstr::Call { dst, args, .. } => {
+                if let Some(d) = dst { max_id = max_id.max(d.0); }
+                for a in args { max_id = max_id.max(a.0); }
+            }
+            IrInstr::Ret { val } => max_id = max_id.max(val.0),
+        }
+    }
+    let locals_count = max_id.saturating_add(1).saturating_sub(params_len);
+    let locals = if locals_count > 0 { vec![(locals_count, ValType::I32)] } else { Vec::new() };
+    let mut fenc = Function::new(locals);
+    let mut insts = fenc.instructions();
+
+    for ins in &f.body {
+        match ins {
+            IrInstr::IConst { dst, n, .. } => {
+                insts.i32_const(*n as i32);
+                insts.local_set(dst.0);
+            }
+            IrInstr::IBin { dst, op, lhs, rhs } => {
+                insts.local_get(lhs.0);
+                insts.local_get(rhs.0);
+                match op {
+                    BinOpIR::Add => insts.i32_add(),
+                    BinOpIR::Sub => insts.i32_sub(),
+                    BinOpIR::Mul => insts.i32_mul(),
+                    BinOpIR::Div => insts.i32_div_s(),
+                };
+                insts.local_set(dst.0);
+            }
+            IrInstr::Call { dst, callee, args } => {
+                for a in args { insts.local_get(a.0); }
+                let idx = *fn_indices
+                    .get(callee.as_str())
+                    .ok_or_else(|| anyhow::anyhow!(format!("unknown callee `{}`", callee)))?;
+                insts.call(idx);
+                if let Some(d) = dst { insts.local_set(d.0); }
+            }
+            IrInstr::Ret { val } => {
+                insts.local_get(val.0);
+            }
+        }
+    }
+    insts.end();
+    Ok(fenc)
 }

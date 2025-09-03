@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use lumi_codegen_wasm::{emit_from_ast, emit_trivial_main};
+use lumi_codegen_wasm::{emit_from_ast, emit_from_ir, emit_trivial_main};
 use lumi_typer::check as type_check;
 use lumi_parser::parse as parse_src;
 use wasmtime as wt;
@@ -38,6 +38,9 @@ enum Commands {
         /// Output wasm file path
         #[arg(short, long, default_value = "out.wasm")]
         out: PathBuf,
+        /// Validate output with `wasm-tools validate`
+        #[arg(long, default_value_t = false)]
+        validate: bool,
     },
     /// Run a compiled Wasm module (calls an exported function)
     Run {
@@ -73,16 +76,16 @@ fn main() -> Result<()> {
             let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
             println!("{:#?}", ast);
         }
-        Commands::Build { file, out } => {
+        Commands::Build { file, out, validate } => {
             let mut s = String::new();
             fs::File::open(&file)
                 .with_context(|| format!("opening {}", file.display()))?
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
             let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
-            // Phase 3.1: type-check before codegen (const-eval path still in use)
-            type_check(&ast).context("type-check failed")?;
-            let bytes = emit_from_ast(&ast).context("codegen failed")?;
+            // Phase 3.5: type-check and lower to IR, then codegen IR → Wasm
+            let ir = type_check(&ast).context("type-check failed")?;
+            let bytes = emit_from_ir(&ir).context("codegen (IR→Wasm) failed")?;
             if let Some(parent) = out.parent() {
                 if !parent.as_os_str().is_empty() {
                     fs::create_dir_all(parent)
@@ -91,6 +94,18 @@ fn main() -> Result<()> {
             }
             fs::write(&out, bytes).with_context(|| format!("writing {}", out.display()))?;
             eprintln!("wrote {}", out.display());
+            if validate {
+                // Best-effort validation using external `wasm-tools`
+                let status = std::process::Command::new("wasm-tools")
+                    .arg("validate")
+                    .arg(&out)
+                    .status();
+                match status {
+                    Ok(s) if s.success() => eprintln!("validated {}", out.display()),
+                    Ok(s) => anyhow::bail!("wasm-tools validate failed with status {:?}", s.code()),
+                    Err(e) => anyhow::bail!("failed to run wasm-tools: {}", e),
+                }
+            }
         }
         Commands::Run { file, invoke } => {
             // Minimal embedded Wasmtime runner for zero-arg i32 functions

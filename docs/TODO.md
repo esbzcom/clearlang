@@ -59,9 +59,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Lower AST → IR guided by typer; preserve minimal names/locals.
 
 3.5 Integration
-- [ ] CLI `build`: parse → type‑check → lower to IR → emit Wasm.
-- [ ] Codegen replaces const‑eval; keep const‑eval behind a feature flag (optional).
- - [ ] Add `--validate` flag to run `wasm-tools validate` on outputs.
+- [x] CLI `build`: parse → type‑check → lower to IR → emit Wasm.
+- [x] Codegen replaces const‑eval; keep const‑eval behind a feature flag (optional).
+ - [x] Add `--validate` flag to run `wasm-tools validate` on outputs.
  - [ ] See `docs/rollout/DEVPLAN.md` for implementation steps.
 
 3.6 Tests
@@ -193,9 +193,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Lower AST → IR guided by typer; preserve minimal names/locals.
 
 3.5 Integration
-- [ ] CLI `build`: parse + type-check + lower to IR + emit Wasm.
-- [ ] Codegen replaces const-eval; keep const-eval behind a feature flag (optional).
- - [ ] Add `--validate` flag to run `wasm-tools validate` on outputs.
+- [x] CLI `build`: parse + type-check + lower to IR + emit Wasm.
+- [x] Codegen replaces const-eval; keep const-eval behind a feature flag (optional).
+ - [x] Add `--validate` flag to run `wasm-tools validate` on outputs.
  - [ ] See `docs/rollout/DEVPLAN.md` for implementation steps.
 
 3.6 Tests

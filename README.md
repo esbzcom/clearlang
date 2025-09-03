@@ -59,7 +59,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 - Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
 - Phase 3 in progress: parser supports functions, Int/Bool, binops, and calls; typer validates programs and lowers AST→IR (SSA-like) returning an IR `Module`.
-- Build path currently uses const-eval for Int-returning programs (supports literals, `+ - * /`, variables/params, and function calls). Phase 3.5 switches build to IR→Wasm.
+- Build path uses IR→Wasm by default (supports literals, `+ - * /`, variables/params, and function calls). Use `--validate` to run `wasm-tools validate`.
 - CLI subcommands:
   - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
   - `parse <file>` — parses a Lumi source and prints the AST.

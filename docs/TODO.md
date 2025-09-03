@@ -70,8 +70,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
  - [x] Keep negative parse case `06_trailing_call_comma`.
 
 3.7 Docs
-- [ ] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
-- [ ] Update README “Current Status” to mark Phase 3 in progress.
+- [x] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
+- [x] Update README “Current Status” to mark Phase 3 in progress.
 
 3.8 Diagnostics & Spans
 - [ ] Attach source spans in AST via chumsky (`map_with_span`) for identifiers and expressions.

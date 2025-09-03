@@ -83,6 +83,11 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `lumi build examples/add.lumi -o out/add.wasm --validate`
   - `lumi run out/add.wasm`  (invokes `main` returning i32)
 
+## Docs
+
+- Typing rules (Phase 3): [docs/typing.md](docs/typing.md)
+- IR shape and encoding (Phase 3.x): [docs/ir.md](docs/ir.md)
+
 ## Safety Levels
 
 Lumi pursues defense-in-depth with three complementary safety layers:

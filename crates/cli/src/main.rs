@@ -102,7 +102,7 @@ fn main() -> Result<()> {
                 .context("instantiating module")?;
             // For now, expect a zero-arg i32 function (e.g., main)
             let func = instance
-                .get_typed_func::<(), i32, _>(&mut store, &invoke)
+                .get_typed_func::<(), i32>(&mut store, &invoke)
                 .with_context(|| format!("export `{}` not found or wrong type", invoke))?;
             let result = func.call(&mut store, ()).context("invoking function")?;
             println!("{}", result);

@@ -72,6 +72,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `emit-hello`: emits a trivial Wasm with `main() -> i32` returning 42.
   - `parse <FILE>`: parses and pretty-prints the AST for a Lumi source file.
   - `build <FILE>`: compiles a Lumi source file end‑to‑end to Wasm.
+  - `run <FILE> [--invoke <name>]`: runs a Wasm file (default export: `main`).
 - Build pipeline: Parse → Type‑check → Lower to IR → Codegen IR→Wasm → write `-o` output.
 - Flags:
   - `-o, --out <PATH>`: output Wasm path; creates parent directories if needed.
@@ -80,6 +81,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `lumi emit-hello -o tmp/hello.wasm`
   - `lumi parse examples/add.lumi`
   - `lumi build examples/add.lumi -o out/add.wasm --validate`
+  - `lumi run out/add.wasm`  (invokes `main` returning i32)
 
 ## Safety Levels
 

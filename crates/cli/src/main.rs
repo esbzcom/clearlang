@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use lumi_codegen_wasm::{emit_from_ast, emit_trivial_main};
 use lumi_typer::check as type_check;
 use lumi_parser::parse as parse_src;
+use wasmtime as wt;
 
 #[derive(Parser, Debug)]
 #[command(name = "lumi", version, about = "Lumi CLI", long_about = None)]
@@ -37,6 +38,15 @@ enum Commands {
         /// Output wasm file path
         #[arg(short, long, default_value = "out.wasm")]
         out: PathBuf,
+    },
+    /// Run a compiled Wasm module (calls an exported function)
+    Run {
+        /// Input Wasm file
+        #[arg(value_name = "FILE")] 
+        file: PathBuf,
+        /// Export to invoke (default: main)
+        #[arg(long, default_value = "main")]
+        invoke: String,
     },
 }
 
@@ -81,6 +91,21 @@ fn main() -> Result<()> {
             }
             fs::write(&out, bytes).with_context(|| format!("writing {}", out.display()))?;
             eprintln!("wrote {}", out.display());
+        }
+        Commands::Run { file, invoke } => {
+            // Minimal embedded Wasmtime runner for zero-arg i32 functions
+            let engine = wt::Engine::default();
+            let module = wt::Module::from_file(&engine, &file)
+                .with_context(|| format!("loading {}", file.display()))?;
+            let mut store = wt::Store::new(&engine, ());
+            let instance = wt::Instance::new(&mut store, &module, &[])
+                .context("instantiating module")?;
+            // For now, expect a zero-arg i32 function (e.g., main)
+            let func = instance
+                .get_typed_func::<(), i32, _>(&mut store, &invoke)
+                .with_context(|| format!("export `{}` not found or wrong type", invoke))?;
+            let result = func.call(&mut store, ()).context("invoking function")?;
+            println!("{}", result);
         }
     }
     Ok(())

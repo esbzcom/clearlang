@@ -58,13 +58,28 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 ## ✅ Current Status
 
 - Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
-- Phase 2 in progress: parser supports functions, parameters, Int/Bool, binary ops, and calls.
-- Temporary build path uses const-eval to produce Wasm for Int-returning programs (supports literals, `+ - * /`, variables/params, and function calls).
+- Phase 3 in progress: parser supports functions, Int/Bool, binops, and calls; typer validates programs and lowers AST→IR (SSA-like) returning an IR `Module`.
+- Build path currently uses const-eval for Int-returning programs (supports literals, `+ - * /`, variables/params, and function calls). Phase 3.5 switches build to IR→Wasm.
 - CLI subcommands:
   - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
   - `parse <file>` — parses a Lumi source and prints the AST.
-  - `build <file> -o <out.wasm>` — const-eval source→Wasm for Int programs (no Booleans yet).
+  - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file; IR→Wasm path will be default after Phase 3.5.
 - Tests cover arithmetic, call expressions, and error cases.
+
+## CLI
+
+- Commands:
+  - `emit-hello`: emits a trivial Wasm with `main() -> i32` returning 42.
+  - `parse <FILE>`: parses and pretty-prints the AST for a Lumi source file.
+  - `build <FILE>`: compiles a Lumi source file end‑to‑end to Wasm.
+- Build pipeline: Parse → Type‑check → Lower to IR → Codegen IR→Wasm → write `-o` output.
+- Flags:
+  - `-o, --out <PATH>`: output Wasm path; creates parent directories if needed.
+  - `--validate`: run `wasm-tools validate` on the produced Wasm (optional).
+- Usage:
+  - `lumi emit-hello -o tmp/hello.wasm`
+  - `lumi parse examples/add.lumi`
+  - `lumi build examples/add.lumi -o out/add.wasm --validate`
 
 ## Safety Levels
 
@@ -96,6 +111,20 @@ Lumi pursues defense-in-depth with three complementary safety layers:
   - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
   - Run: `wasmtime --invoke main tmp/arith.wasm`
   - Validate: `wasm-tools validate tmp/arith.wasm`
+
+### Windows (Build & Run)
+
+- Prereqs: Install Rust (MSVC toolchain) and VS Build Tools (C++ workload).
+- Build release binary:
+  - `cargo build -p lumi-cli --release`
+  - Output: `target\release\lumi.exe`
+- Install to PATH (optional):
+  - `cargo install --path crates/cli --bin lumi`
+  - Ensure `%USERPROFILE%\.cargo\bin` is on PATH.
+- Usage:
+  - `lumi emit-hello -o tmp\hello.wasm`
+  - `lumi parse examples\add.lumi`
+  - `lumi build examples\add.lumi -o out\add.wasm --validate`
 
 ## Git Hooks (Pre-Commit)
 
@@ -230,6 +259,20 @@ Lumi pursues defense-in-depth with three complementary safety layers:
   - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
   - Run: `wasmtime --invoke main tmp/arith.wasm`
   - Validate: `wasm-tools validate tmp/arith.wasm`
+
+### Windows (Build & Run)
+
+- Prereqs: Install Rust (MSVC toolchain) and VS Build Tools (C++ workload).
+- Build release binary:
+  - `cargo build -p lumi-cli --release`
+  - Output: `target\release\lumi.exe`
+- Install to PATH (optional):
+  - `cargo install --path crates/cli --bin lumi`
+  - Ensure `%USERPROFILE%\.cargo\bin` is on PATH.
+- Usage:
+  - `lumi emit-hello -o tmp\hello.wasm`
+  - `lumi parse examples\add.lumi`
+  - `lumi build examples\add.lumi -o out\add.wasm --validate`
 
 ## Git Hooks (Pre-Commit)
 

@@ -106,6 +106,8 @@ Lumi pursues defense-in-depth with three complementary safety layers:
 
 - Codegen tests: `cargo test -p lumi-codegen-wasm`
 - Parser tests: `cargo test -p lumi-parser`
+- All tests (workspace): `cargo test --workspace`
+- IT tests (full pipeline): `cargo test -p lumi-codegen-wasm --test full_pipeline`
 - Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
 - Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
 - Build (const-eval: Int-returning programs with `+ - * /` and calls):
@@ -254,6 +256,8 @@ Lumi pursues defense-in-depth with three complementary safety layers:
 
 - Codegen tests: `cargo test -p lumi-codegen-wasm`
 - Parser tests: `cargo test -p lumi-parser`
+- All tests (workspace): `cargo test --workspace`
+- IT tests (full pipeline): `cargo test -p lumi-codegen-wasm --test full_pipeline`
 - Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
 - Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
 - Build (const-eval: Int-returning programs with `+ - * /` and calls):

@@ -31,12 +31,19 @@ This is a step-by-step roadmap to implement the Lumi language, compile it to Web
 - Lower AST → IR.  
 - ✅ Output: IR validated for type safety.
 
-### Phase 4 — Codegen IR → WASM
-- Translate IR into valid WASM with `wasm-encoder`.  
-- Export functions.  
-- ✅ Output: `.lumi` programs run as `.wasm` modules.
+### Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs
+- Add namespaced call syntax (e.g., `std::str::len`, `std::list::push`).  
+- Parse/type String literals (single + multi-line) and basic `Str` rules.  
+- Provide List/Set/Map/Option/Result signatures for type-checking (no runtime yet).  
+- ✅ Output: richer front-end with no runtime changes; clean APIs without global prefixes.
 
-### Phase 5 — Contracts & Effects
+### Phase 5 — Codegen IR → WASM
+- Translate IR into valid WASM with `wasm-encoder`.  
+- Deduplicate function type signatures; calls use callee indices.  
+- Introduce linear memory/runtime: Strings as (ptr,len); List<T> with grow/realloc.  
+- ✅ Output: `.lumi` programs run as `.wasm` modules with strings/lists supported.
+
+### Phase 6 — Contracts & Effects
 - Extend AST with `pure|mut|io` and `require`/`ensure`.  
 - Type checker enforces purity/effect rules.  
 - Compile contracts into runtime guards (`if … unreachable`).  

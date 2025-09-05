@@ -92,15 +92,18 @@ fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     text::int(10)
         .from_str::<i64>()
         .unwrapped()
-        .map_with_span(|n, s| Expr::Int(n, Span { start: s.start, end: s.end }))
+        .map_with(|n, e| {
+            let sp: chumsky::span::SimpleSpan<usize> = e.span();
+            Expr::Int(n, Span { start: sp.start, end: sp.end })
+        })
         .padded()
         .labelled("int literal")
 }
 
 fn bool_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     choice((
-        kw("true").map_with_span(|_, s| Expr::Bool(true, Span { start: s.start, end: s.end })),
-        kw("false").map_with_span(|_, s| Expr::Bool(false, Span { start: s.start, end: s.end })),
+        kw("true").map_with(|_, e| { let sp: chumsky::span::SimpleSpan<usize> = e.span(); Expr::Bool(true, Span { start: sp.start, end: sp.end }) }),
+        kw("false").map_with(|_, e| { let sp: chumsky::span::SimpleSpan<usize> = e.span(); Expr::Bool(false, Span { start: sp.start, end: sp.end }) }),
     ))
     .labelled("bool literal")
 }
@@ -125,9 +128,12 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             ),
             ident_p()
                 .then(call_args.or_not())
-                .map_with_span(|(name, args), s| match args {
-                    Some(args) => Expr::Call { callee: name, args, span: Span { start: s.start, end: s.end } },
-                    None => Expr::Var(name, Span { start: s.start, end: s.end }),
+                .map_with(|(name, args), e| {
+                    let sp: chumsky::span::SimpleSpan<usize> = e.span();
+                    match args {
+                        Some(args) => Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } },
+                        None => Expr::Var(name, Span { start: sp.start, end: sp.end }),
+                    }
                 }),
         ))
         .padded()

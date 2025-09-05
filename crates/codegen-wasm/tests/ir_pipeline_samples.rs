@@ -41,6 +41,8 @@ fn ir_pipeline_samples() {
         Case { file: "03_nested_calls.lumi", parse_ok: true,  expected: Some(7) },
         Case { file: "04_multiline_call.lumi", parse_ok: true,  expected: Some(30) },
         Case { file: "05_trailing_param_comma.lumi", parse_ok: true,  expected: Some(3) },
+        Case { file: "09_large_arith.lumi", parse_ok: true,  expected: Some(28) },
+        Case { file: "12_zero_arg_fn.lumi", parse_ok: true,  expected: Some(7) },
         Case { file: "06_trailing_call_comma.lumi", parse_ok: false, expected: None },
         Case { file: "07_bools.lumi", parse_ok: true,  expected: None }, // no main export expected
         Case { file: "08_main_const.lumi", parse_ok: true,  expected: Some(42) },

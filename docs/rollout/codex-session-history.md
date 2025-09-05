@@ -27,3 +27,11 @@
 - Strengthened typer negative tests: arity (too many/zero‑arg), binop operand types, duplicate functions, arg type mismatches.
 - Added simple stage logs to `lumi-cli build` (parsed/type‑checked/IR/Wasm bytes/validated).
 - Updated TODO: mark all 3.6 items complete; set next focus to 3.8 Diagnostics & Spans and Phase 4 prep.
+
+## Session 2025-09-03 — Phase 3.8 Done; 3.9 Planned
+
+- Added source spans to AST via chumsky and propagated into typer errors; messages now include `at start..end`.
+- Adjusted lowering and const-eval to new Expr shapes; added span-aware typer tests.
+- Extended tests and samples; added CLI parse/build/run smoke tests and failure cases.
+- Introduced `--debug-names` flag and CodegenOpts to optionally emit Wasm name section.
+- TODO updated: 3.8 marked complete; added Phase 3.9 (polish/optimizations) and set Next focus to 3.9 then Phase 4.

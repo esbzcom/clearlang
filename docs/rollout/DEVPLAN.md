@@ -59,6 +59,35 @@ Tests
 CLI
 - Optionally print spans in errors (e.g., `in file:line:col: message`).
 
+---
+
+# Phase 3.9 — Polish & Low‑impact Optimizations
+
+Goals
+- Improve performance and ergonomics without changing language surface.
+
+Codegen (IR → Wasm)
+- Deduplicate function signatures in the type section (build a map of (params, ret) → type index).
+- Switch call encoding to use callee indices from IR to avoid name→index lookups during encoding.
+- Add optional name section emission (done) controlled by a CLI flag (`--debug-names`).
+
+IR
+- Change `Instr::Call { callee: String }` to use `callee: u32` (function index) once a stable index ordering is established.
+- Provide a lowering pass that resolves names to indices based on the module’s function table.
+
+Parser/Typer micro‑polish
+- Preallocate HashMaps/Vecs using known capacities (params.len(), funcs.len()).
+- Simplify identifier construction with direct `collect::<String>()` where possible.
+
+Tests & CI
+- Reuse a shared Wasmtime `Engine` in tests via `once_cell` to speed up module compilation.
+- Keep IR pipeline and CLI smoke tests; expand only as needed.
+
+Build Profiles & DX
+- Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
+- Gate build stage logs behind `--verbose` to reduce default noise.
+
+
 Codegen Extensions (Phase 4)
 - Functions & exports: function index mapping; export `main` (done), extend for more exports.
 - Locals/stack: refine local allocation strategy if/when multi-block IR arrives.

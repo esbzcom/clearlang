@@ -3,7 +3,7 @@ use lumi_ast::{Expr, Func, Program, Type};
 use std::collections::HashMap;
 use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
-    Module, TypeSection, ValType,
+    Module, TypeSection, ValType, NameSection, NameMap,
 };
 use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 
@@ -153,7 +153,15 @@ fn eval_expr_int(
 // ---------------- IR → Wasm (Phase 3.5 input, Phase 4 encoding) ----------------
 
 /// Emit Wasm from IR (supports IConst, IBin, Call, Ret; Int/Bool as i32)
-pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
+pub struct CodegenOpts {
+    pub debug_names: bool,
+}
+
+impl Default for CodegenOpts {
+    fn default() -> Self { CodegenOpts { debug_names: false } }
+}
+
+pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
     let mut module = Module::new();
 
     // Build function types, map names to indices
@@ -189,7 +197,23 @@ pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
     }
     module.section(&codes);
 
+    // Optional debug name section
+    if opts.debug_names {
+        let mut names = NameSection::new();
+        let mut fn_names = NameMap::new();
+        for (i, f) in ir.funcs.iter().enumerate() {
+            fn_names.append(i as u32, &f.name);
+        }
+        names.functions(&fn_names);
+        module.section(&names);
+    }
+
     Ok(module.finish())
+}
+
+// Backwards-compatible helper with default options
+pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
+    emit_from_ir_with_opts(ir, CodegenOpts::default())
 }
 
 fn encode_ir_function<'a>(f: &IrFunction, fn_indices: &std::collections::HashMap<&'a str, u32>) -> Result<Function> {

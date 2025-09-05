@@ -77,6 +77,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 - Flags:
   - `-o, --out <PATH>`: output Wasm path; creates parent directories if needed.
   - `--validate`: run `wasm-tools validate` on the produced Wasm (optional).
+  - `--debug-names`: include a Wasm name section with function names.
 - Usage:
   - `lumi emit-hello -o tmp/hello.wasm`
   - `lumi parse examples/add.lumi`

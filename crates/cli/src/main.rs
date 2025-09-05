@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use lumi_codegen_wasm::{emit_from_ir, emit_trivial_main};
+use lumi_codegen_wasm::{emit_from_ir, emit_trivial_main, emit_from_ir_with_opts, CodegenOpts};
 use lumi_typer::check as type_check;
 use lumi_parser::parse as parse_src;
 use wasmtime as wt;
@@ -41,6 +41,9 @@ enum Commands {
         /// Validate output with `wasm-tools validate`
         #[arg(long, default_value_t = false)]
         validate: bool,
+        /// Include debug names in Wasm (name section)
+        #[arg(long, default_value_t = false)]
+        debug_names: bool,
     },
     /// Run a compiled Wasm module (calls an exported function)
     Run {
@@ -77,7 +80,7 @@ fn main() -> Result<()> {
             eprintln!("parsed {}", file.display());
             println!("{:#?}", ast);
         }
-        Commands::Build { file, out, validate } => {
+        Commands::Build { file, out, validate, debug_names } => {
             let mut s = String::new();
             fs::File::open(&file)
                 .with_context(|| format!("opening {}", file.display()))?
@@ -87,7 +90,8 @@ fn main() -> Result<()> {
             // Phase 3.5: type-check and lower to IR, then codegen IR → Wasm
             let ir = type_check(&ast).context("type-check failed")?;
             eprintln!("type-checked and lowered to IR");
-            let bytes = emit_from_ir(&ir).context("codegen (IR→Wasm) failed")?;
+            let bytes = emit_from_ir_with_opts(&ir, CodegenOpts { debug_names })
+                .context("codegen (IR→Wasm) failed")?;
             eprintln!("generated Wasm ({} bytes)", bytes.len());
             if let Some(parent) = out.parent() {
                 if !parent.as_os_str().is_empty() {

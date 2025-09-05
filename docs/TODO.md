@@ -39,7 +39,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.8 Diagnostics & Spans; prep Phase 4.
+→ Next focus: Phase 4 — Codegen polish and tests.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -74,10 +74,10 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Update README “Current Status” to mark Phase 3 in progress.
 
 3.8 Diagnostics & Spans
-- [ ] Attach source spans in AST via chumsky (`map_with_span`) for identifiers and expressions.
-- [ ] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
-- [ ] Add tests that assert span presence/format in error messages.
-- [ ] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
+- [x] Attach source spans in AST via chumsky for identifiers and expressions.
+- [x] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
+- [x] Add tests that assert span presence/format in error messages.
+- [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
 
 ## Phase 4 — Codegen IR → Wasm
 
@@ -173,7 +173,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.8 Diagnostics & Spans; prep Phase 4.
+→ Next focus: Phase 4 — Codegen polish and tests.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -204,14 +204,14 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
  - [x] Keep negative parse case `06_trailing_call_comma`.
 
 3.7 Docs
-- [ ] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
-- [ ] Update README "Current Status" to mark Phase 3 in progress.
+- [x] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
+- [x] Update README "Current Status" to mark Phase 3 in progress.
 
 3.8 Diagnostics & Spans
-- [ ] Attach source spans in AST via chumsky (`map_with_span`) for identifiers and expressions.
-- [ ] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
-- [ ] Add tests that assert span presence/format in error messages.
-- [ ] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
+- [x] Attach source spans in AST via chumsky for identifiers and expressions.
+- [x] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
+- [x] Add tests that assert span presence/format in error messages.
+- [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
 
 ## Phase 4 — Codegen IR → Wasm
 
@@ -257,7 +257,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Developer Experience
 
-- [ ] Simple tracing/logging for pipeline stages in CLI.
+- [x] Simple tracing/logging for pipeline stages in CLI.
 - [ ] Add `cargo xtask` or Makefile for common flows (build/validate/run).
 - [ ] Consistent error types and messages across crates.
 

@@ -39,7 +39,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.9 Polish & Low‑impact Optimizations; then Phase 4.
+→ Next focus: Phase 4 — Namespacing + Strings (parse/type) + Std Collections stubs; then Phase 5 runtime.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -79,49 +79,66 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Add tests that assert span presence/format in error messages.
 - [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
 
-## Phase 3.9 — Polish & Low‑impact Optimizations
+## Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations
 
-- [x] Optional Wasm name section for function names (`--debug-names`).
-- [ ] Deduplicate function signatures in Type section (reuse type indices).
-- [ ] Lower callee names to indices in IR to avoid name lookups in codegen.
-- [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
-- [ ] Simplify identifier building in parser (collect into String directly).
-- [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
-- [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
-- [ ] Gate build stage logs behind `--verbose` (keep default quieter).
-- [ ] (Future) Skip `local.set` for dead values once we track liveness.
+- 4.1 Namespacing (no tech debt)
+  - [ ] Add namespaced call syntax (paths): `std::str::len(s)`, `std::list::push(l,x)`, `std::map::get(m,k)`, `std::set::contains(s,x)`.
+  - [ ] Parser/typer support for path calls (no global function prefixes).
 
-## Phase 4 — Codegen IR → Wasm
+- 4.2 Strings (parse/type only)
+  - [ ] Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.
+  - [ ] Typer: make `Str` first‑class; allow equality and concatenation in `std::str`.
+  - [ ] Tests: single‑line, multi‑line, escapes, span diagnostics.
 
-4.1 Module & Signatures
+- 4.3 Std Collections (type stubs only)
+  - [ ] Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.
+  - [ ] Provide minimal namespaced APIs (signatures for typer):
+        `std::list::{new,with_capacity,len,get,set,push,pop,slice}`;
+        `std::set::{new,len,insert,remove,contains}`;
+        `std::map::{new,len,insert,remove,get,contains}`.
+  - [ ] No codegen/runtime yet; only enable type‑checking.
+
+- 4.4 Small Optimizations & DX
+  - [x] Optional Wasm name section for function names (`--debug-names`).
+  - [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
+  - [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+  - [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
+  - [ ] Gate build stage logs behind `--verbose` (keep default quieter).
+  
+
+## Phase 5 — Codegen IR → Wasm
+
+5.1 Module & Signatures
 - [ ] Types, function indices, and exports.
+- [ ] Deduplicate function signatures in the Wasm Type section (reuse type indices).
 
-4.2 Locals & Stack
+5.2 Locals & Stack
 - [ ] Local allocation for temps; map IR values to stack ops.
 
-4.3 Ops & Calls
+5.3 Ops & Calls
 - [ ] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
+- [ ] Switch calls to use callee indices; update IR lowering accordingly (resolve names to indices).
 
-4.4 Replace Const‑Eval
+5.4 Replace Const‑Eval
 - [ ] Switch CLI build to IR→Wasm path by default; keep const‑eval for quick checks.
  - [ ] Remove const‑eval fallback once IR path is stable (optional cleanup).
 
-4.5 Tests
+5.5 Tests
 - [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
 
-## Phase 5 — Contracts & Effects (Safety)
+## Phase 6 — Contracts & Effects (Safety)
 
-5.1 Syntax
+6.1 Syntax
 - [ ] `require { expr }` / `ensure { expr }`, effects `pure|mut|io`.
 
-5.2 Typer Rules
+6.2 Typer Rules
 - [ ] Enforce effects and basic purity constraints.
 - [ ] Generate placeholders for verification conditions (VCs).
 
-5.3 Runtime Guards
+6.3 Runtime Guards
 - [ ] Lower contracts to guards that trap on violation.
 
-5.4 Metadata & Proofs
+6.4 Metadata & Proofs
 - [ ] Emit custom sections for contracts/effects/VCs; plan `lumiverify`.
 
 ## Safety & Tooling
@@ -141,9 +158,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Nice‑to‑Have (Backlog)
 
-- [ ] WASI `print` intrinsic (Phase 7) for observable output.
-- [ ] Arrays + while loops with invariants (Phase 6).
-- [ ] Proof‑carrying Wasm prototype (`lumiverify`) (Phase 9).
+- [ ] WASI `print` intrinsic (Phase 8) for observable output.
+- [ ] Arrays + while loops with invariants (Phase 7).
+- [ ] Proof‑carrying Wasm prototype (`lumiverify`) (Phase 10).
 # Lumi TODO
 
 A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
@@ -185,7 +202,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: 3.9 Polish & Low‑impact Optimizations; then Phase 4.
+→ Next focus: Phase 4 — Namespacing + Strings (parse/type) + Std Collections stubs; then Phase 5 runtime.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -225,49 +242,73 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Add tests that assert span presence/format in error messages.
 - [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
 
-## Phase 3.9 — Polish & Low‑impact Optimizations
+## Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations
 
-- [x] Optional Wasm name section for function names (`--debug-names`).
-- [ ] Deduplicate function signatures in Type section (reuse type indices).
-- [ ] Lower callee names to indices in IR to avoid name lookups in codegen.
-- [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
-- [ ] Simplify identifier building in parser (collect into String directly).
-- [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
-- [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
-- [ ] Gate build stage logs behind `--verbose` (keep default quieter).
-- [ ] (Future) Skip `local.set` for dead values once we track liveness.
+- 4.1 Namespacing (no tech debt)
+  - [ ] 4.1.1 Add namespaced call syntax (paths): `std::str::len(s)`, `std::list::push(l,x)`, `std::map::get(m,k)`, `std::set::contains(s,x)`.
+  - [ ] 4.1.2 Parser/typer support for path calls (no global function prefixes).
 
-## Phase 4 — Codegen IR → Wasm
+- 4.2 Strings (parse/type only)
+  - [ ] 4.2.1 Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.
+  - [ ] 4.2.2 Typer: make `Str` first‑class; allow equality and concatenation in `std::str`.
+  - [ ] 4.2.3 Tests: single‑line, multi‑line, escapes, span diagnostics.
 
-4.1 Module & Signatures
-- [ ] Types, function indices, and exports.
+- 4.3 Std Collections (type stubs only)
+  - [ ] 4.3.1 Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.
+  - [ ] 4.3.2 Provide minimal namespaced APIs (signatures for typer):
+        `std::list::{new,with_capacity,len,get,set,push,pop,slice}`;
+        `std::set::{new,len,insert,remove,contains}`;
+        `std::map::{new,len,insert,remove,get,contains}`.
+  - [ ] 4.3.3 No codegen/runtime yet; only enable type‑checking.
 
-4.2 Locals & Stack
+- 4.4 Small Optimizations & DX
+  - [x] 4.4.1 Optional Wasm name section for function names (`--debug-names`).
+  - [ ] 4.4.2 Preallocate HashMaps/Vecs in typer/parser based on known capacities.
+  - [ ] 4.4.3 Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+  - [ ] 4.4.4 Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
+  - [ ] 4.4.5 Gate build stage logs behind `--verbose` (keep default quieter).
+  - [ ] 4.4.6 Deduplicate function signatures in Type section (reuse type indices).
+  - [ ] 4.4.7 Lower call `callee` from names to indices in IR; adjust codegen to use indices (no hash lookups).
+
+## Phase 5 — Codegen IR → Wasm
+
+## Phase 5 — Codegen IR → Wasm
+
+5.1 Module & Signatures
+- [ ] Types, function indices, and exports; ensure function type signatures are deduplicated.
+
+5.2 Locals & Stack
 - [ ] Local allocation for temps; map IR values to stack ops.
 
-4.3 Ops & Calls
-- [ ] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
+5.3 Ops & Calls
+- [ ] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT. Calls use callee indices.
 
-4.4 Replace Const-Eval
-- [ ] Switch CLI build to IR→Wasm path by default; keep const-eval for quick checks.
- - [ ] Remove const-eval fallback once IR path is stable (optional cleanup).
+5.4 Replace Const‑Eval
+- [ ] Switch CLI build to IR→Wasm path by default; keep const‑eval for quick checks.
+ - [ ] Remove const‑eval fallback once IR path is stable (optional cleanup).
 
-4.5 Tests
+5.6 Memory & Runtime (Strings + Collections)
+- [ ] Introduce linear memory and minimal allocator (bump/realloc) in codegen runtime.
+- [ ] Strings: represent as (ptr,len); literals as data segments; implement `std::str::{len,eq,concat}`.
+- [ ] List: implement `List<T>` with grow/realloc; `new/with_capacity/len/get/set/push/pop`.
+- [ ] Set/Map: plan hashing and table layout; stage implementation after List stabilizes.
+
+5.5 Tests
 - [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
 
-## Phase 5 — Contracts & Effects (Safety)
+## Phase 6 — Contracts & Effects (Safety)
 
-5.1 Syntax
+6.1 Syntax
 - [ ] `require { expr }` / `ensure { expr }`, effects `pure|mut|io`.
 
-5.2 Typer Rules
+6.2 Typer Rules
 - [ ] Enforce effects and basic purity constraints.
 - [ ] Generate placeholders for verification conditions (VCs).
 
-5.3 Runtime Guards
+6.3 Runtime Guards
 - [ ] Lower contracts to guards that trap on violation.
 
-5.4 Metadata & Proofs
+6.4 Metadata & Proofs
 - [ ] Emit custom sections for contracts/effects/VCs; plan `lumiverify`.
 
 ## Safety & Tooling
@@ -287,6 +328,6 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Nice-to-Have (Backlog)
 
-- [ ] WASI `print` intrinsic (Phase 7) for observable output.
-- [ ] Arrays + while loops with invariants (Phase 6).
-- [ ] Proof-carrying Wasm prototype (`lumiverify`) (Phase 9).
+- [ ] WASI `print` intrinsic (Phase 8) for observable output.
+- [ ] Arrays + while loops with invariants (Phase 7).
+- [ ] Proof-carrying Wasm prototype (`lumiverify`) (Phase 10).

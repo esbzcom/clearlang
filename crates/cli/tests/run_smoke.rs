@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use std::path::PathBuf;
+use predicates::prelude::PredicateBooleanExt;
 
 fn sample(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../lumi-tests").join(name)

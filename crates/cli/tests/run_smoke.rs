@@ -49,3 +49,35 @@ fn build_and_run_samples() {
         .stdout(predicates::str::contains("7\n"));
 }
 
+#[test]
+fn parse_command_prints_ast() {
+    let sample = sample("01_hello.lumi");
+    Command::cargo_bin("lumi").unwrap()
+        .args(["parse"])
+        .arg(&sample)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("add2").and(predicates::str::contains("main")));
+}
+
+#[test]
+fn build_fails_on_parse_error() {
+    let out = tempfile::tempdir().unwrap().path().join("bad.wasm");
+    Command::cargo_bin("lumi").unwrap()
+        .args(["build"])
+        .arg(sample("06_trailing_call_comma.lumi"))
+        .args(["-o"]).arg(&out)
+        .assert()
+        .failure();
+}
+
+#[test]
+fn build_fails_on_type_error() {
+    let out = tempfile::tempdir().unwrap().path().join("type_err.wasm");
+    Command::cargo_bin("lumi").unwrap()
+        .args(["build"])
+        .arg(sample("14_arity_mismatch.lumi"))
+        .args(["-o"]).arg(&out)
+        .assert()
+        .failure();
+}

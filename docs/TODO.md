@@ -39,7 +39,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: Phase 4 — Codegen polish and tests.
+→ Next focus: 3.9 Polish & Low‑impact Optimizations; then Phase 4.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -78,6 +78,18 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
 - [x] Add tests that assert span presence/format in error messages.
 - [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
+
+## Phase 3.9 — Polish & Low‑impact Optimizations
+
+- [x] Optional Wasm name section for function names (`--debug-names`).
+- [ ] Deduplicate function signatures in Type section (reuse type indices).
+- [ ] Lower callee names to indices in IR to avoid name lookups in codegen.
+- [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
+- [ ] Simplify identifier building in parser (collect into String directly).
+- [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+- [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
+- [ ] Gate build stage logs behind `--verbose` (keep default quieter).
+- [ ] (Future) Skip `local.set` for dead values once we track liveness.
 
 ## Phase 4 — Codegen IR → Wasm
 
@@ -173,7 +185,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 3 — Typer & IR (Next)
 
-→ Next focus: Phase 4 — Codegen polish and tests.
+→ Next focus: 3.9 Polish & Low‑impact Optimizations; then Phase 4.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -212,6 +224,18 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
 - [x] Add tests that assert span presence/format in error messages.
 - [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
+
+## Phase 3.9 — Polish & Low‑impact Optimizations
+
+- [x] Optional Wasm name section for function names (`--debug-names`).
+- [ ] Deduplicate function signatures in Type section (reuse type indices).
+- [ ] Lower callee names to indices in IR to avoid name lookups in codegen.
+- [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
+- [ ] Simplify identifier building in parser (collect into String directly).
+- [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+- [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
+- [ ] Gate build stage logs behind `--verbose` (keep default quieter).
+- [ ] (Future) Skip `local.set` for dead values once we track liveness.
 
 ## Phase 4 — Codegen IR → Wasm
 

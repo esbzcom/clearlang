@@ -61,35 +61,36 @@ CLI
 
 ---
 
-# Phase 3.9 — Polish & Low‑impact Optimizations
+# Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs + Small DX
 
 Goals
-- Improve performance and ergonomics without changing language surface.
+- Introduce namespaced call syntax (std::…) to avoid global prefixes without a full module system.
+- Add String literal parsing (incl. multi-line) and basic `Str` typing; no runtime yet.
+- Provide List/Set/Map signatures (type-checking only) to unblock user code; defer runtime to Phase 5.
+- Apply small DX optimizations that don’t change semantics.
 
-Codegen (IR → Wasm)
-- Deduplicate function signatures in the type section (build a map of (params, ret) → type index).
-- Switch call encoding to use callee indices from IR to avoid name→index lookups during encoding.
-- Add optional name section emission (done) controlled by a CLI flag (`--debug-names`).
+Work Items
+- Namespacing: parser/typer accept path calls: `std::str::len`, `std::list::push`, `std::map::get`, `std::set::contains`.
+- Strings: `Type::Str`, `Expr::Str` with escapes and multi-line; typer rules for eq/concat in `std::str`; tests (escapes/spans).
+- Collections: define `List<T>`, `Set<T>`, `Map<K,V>`, `Option<T>`, `Result<T,E>`; expose minimal `std::list`, `std::set`, `std::map` APIs to typer.
+- DX: preallocation in parser/typer; shared Wasmtime Engine in tests; release profile tuning; verbose-gated logs.
 
-IR
-- Change `Instr::Call { callee: String }` to use `callee: u32` (function index) once a stable index ordering is established.
-- Provide a lowering pass that resolves names to indices based on the module’s function table.
+Out of Scope (moved to Phase 5)
+- Any IR/codegen changes (type dedup, callee indices, memory/runtime).
 
-Parser/Typer micro‑polish
-- Preallocate HashMaps/Vecs using known capacities (params.len(), funcs.len()).
-- Simplify identifier construction with direct `collect::<String>()` where possible.
+---
 
-Tests & CI
-- Reuse a shared Wasmtime `Engine` in tests via `once_cell` to speed up module compilation.
-- Keep IR pipeline and CLI smoke tests; expand only as needed.
+# Phase 5 — Codegen IR→Wasm Plan (Types/Indices/Ops/Memory)
 
-Build Profiles & DX
-- Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
-- Gate build stage logs behind `--verbose` to reduce default noise.
+Goals
+- Polish IR→Wasm codegen and introduce linear memory/runtime for Strings and List; prepare for Set/Map.
 
+Work Items
+- Module & signatures: deduplicate function type signatures in Wasm Type section.
+- Calls: switch to callee indices (resolve names during lowering); remove name→index lookups in codegen.
+- Memory/runtime: add a minimal allocator (bump/realloc). Strings as (ptr,len) with data segments; List<T> with grow/realloc.
+- Ops: continue `IConst`, `IBin`, `Call`, `Ret`; add void-return and drop unused call results where applicable.
+- Validation: maintain `--validate`; consider CI integration.
 
-Codegen Extensions (Phase 4)
-- Functions & exports: function index mapping; export `main` (done), extend for more exports.
-- Locals/stack: refine local allocation strategy if/when multi-block IR arrives.
-- Ops: maintain `IConst`, `IBin`, `Call`, `Ret`; add void-return support and drop unused call results.
-- Validation: keep `--validate` path; consider adding CI validation step.
+Tests
+- E2E IR/codegen tests covering added memory/runtime behaviors; CLI smoke remains green.

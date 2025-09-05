@@ -35,3 +35,10 @@
 - Extended tests and samples; added CLI parse/build/run smoke tests and failure cases.
 - Introduced `--debug-names` flag and CodegenOpts to optionally emit Wasm name section.
 - TODO updated: 3.8 marked complete; added Phase 3.9 (polish/optimizations) and set Next focus to 3.9 then Phase 4.
+
+## Session 2025-09-03 — Plan Reshuffle to Phase 4/5
+
+- Simplified roadmap: split oversized 3.9 into a dedicated Phase 4 and bumped Codegen to Phase 5.
+- Phase 4 now covers: namespacing (std::path calls), Strings (parse/type, incl. multi-line), std collections stubs (List/Set/Map) and small DX.
+- Phase 5 now covers: IR→Wasm codegen polish (type dedup), callee indices, memory/runtime for Strings + List first, then Set/Map.
+- Cleaned TODO duplication; kept a single numbered Phase 4–6 plan; README roadmap/status updated accordingly.

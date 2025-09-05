@@ -1,4 +1,7 @@
-﻿#[derive(Debug, Clone)]
+﻿#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span { pub start: usize, pub end: usize }
+
+#[derive(Debug, Clone)]
 pub struct Program {
     pub funcs: Vec<Func>,
 }
@@ -26,11 +29,11 @@ pub enum Type { Int, Bool }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Int(i64),
-    Bool(bool),
-    Var(String),
-    Bin { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr> },
-    Call { callee: String, args: Vec<Expr> },
+    Int(i64, Span),
+    Bool(bool, Span),
+    Var(String, Span),
+    Bin { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr>, span: Span },
+    Call { callee: String, args: Vec<Expr>, span: Span },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -101,13 +101,13 @@ fn eval_expr_int(
         bail!("call depth limit exceeded");
     }
     match e {
-        Expr::Int(n) => Ok(*n),
-        Expr::Bool(_) => bail!("bool not supported in arithmetic evaluator"),
-        Expr::Var(name) => env
+        Expr::Int(n, _) => Ok(*n),
+        Expr::Bool(_, _) => bail!("bool not supported in arithmetic evaluator"),
+        Expr::Var(name, _) => env
             .get(name.as_str())
             .copied()
             .ok_or_else(|| anyhow::anyhow!("unbound variable `{}`", name)),
-        Expr::Bin { op, lhs, rhs } => {
+        Expr::Bin { op, lhs, rhs, .. } => {
             let l = eval_expr_int(lhs, funs, env, depth + 1)?;
             let r = eval_expr_int(rhs, funs, env, depth + 1)?;
             use lumi_ast::BinOp::*;
@@ -125,7 +125,7 @@ fn eval_expr_int(
             };
             Ok(v)
         }
-        Expr::Call { callee, args } => {
+        Expr::Call { callee, args, .. } => {
             let f = funs
                 .get(callee.as_str())
                 .copied()

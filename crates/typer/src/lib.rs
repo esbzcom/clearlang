@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type};
+use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type, Span};
 use lumi_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Module, Value};
 use std::collections::HashMap;
 
@@ -46,8 +46,15 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
 
     let body_ty = type_of(&f.body, &env, fns, 0)?;
     if body_ty != f.ret {
+        // Try to use the body's span to annotate the mismatch
+        let (s, e) = match &f.body {
+            Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
+            Expr::Bin { span, .. } | Expr::Call { span, .. } => (span.start, span.end),
+        };
         bail!(
-            "return type mismatch: declared `{}`, found `{}`",
+            "at {}..{}: return type mismatch: declared `{}`, found `{}`",
+            s,
+            e,
             show_ty(f.ret),
             show_ty(body_ty)
         );
@@ -65,29 +72,31 @@ fn type_of<'a>(
         bail!("type-check recursion limit exceeded");
     }
     match e {
-        Expr::Int(_) => Ok(Type::Int),
-        Expr::Bool(_) => Ok(Type::Bool),
-        Expr::Var(name) => env
+        Expr::Int(_, _) => Ok(Type::Int),
+        Expr::Bool(_, _) => Ok(Type::Bool),
+        Expr::Var(name, sp) => env
             .get(name.as_str())
             .copied()
-            .with_context(|| format!("unknown variable `{}`", name)),
-        Expr::Bin { op, lhs, rhs } => {
+            .ok_or_else(|| anyhow::anyhow!(format!("at {}..{}: unknown variable `{}`", sp.start, sp.end, name))),
+        Expr::Bin { op, lhs, rhs, span } => {
             let lt = type_of(lhs, env, fns, depth + 1)?;
             let rt = type_of(rhs, env, fns, depth + 1)?;
-            ensure_int(lt, "left operand")?;
-            ensure_int(rt, "right operand")?;
+            ensure_int(lt, "left operand", Some(*span))?;
+            ensure_int(rt, "right operand", Some(*span))?;
             match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => Ok(Type::Int),
             }
         }
-        Expr::Call { callee, args } => {
+        Expr::Call { callee, args, span } => {
             let (params, ret) = fns
                 .get(callee.as_str())
                 .copied()
-                .with_context(|| format!("unknown function `{}`", callee))?;
+                .ok_or_else(|| anyhow::anyhow!(format!("at {}..{}: unknown function `{}`", span.start, span.end, callee)))?;
             if params.len() != args.len() {
                 bail!(
-                    "arity mismatch calling `{}`: expected {}, found {}",
+                    "at {}..{}: arity mismatch calling `{}`: expected {}, found {}",
+                    span.start,
+                    span.end,
                     callee,
                     params.len(),
                     args.len()
@@ -97,7 +106,9 @@ fn type_of<'a>(
                 let at = type_of(a, env, fns, depth + 1)?;
                 if p.ty != at {
                     bail!(
-                        "arg {} type mismatch calling `{}`: expected `{}`, found `{}`",
+                        "at {}..{}: arg {} type mismatch calling `{}`: expected `{}`, found `{}`",
+                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.start },
+                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.end },
                         i,
                         callee,
                         show_ty(p.ty),
@@ -110,9 +121,13 @@ fn type_of<'a>(
     }
 }
 
-fn ensure_int(ty: Type, what: &str) -> Result<()> {
+fn ensure_int(ty: Type, what: &str, span: Option<Span>) -> Result<()> {
     if ty != Type::Int {
-        bail!("{} must be Int, found `{}`", what, show_ty(ty));
+        if let Some(sp) = span {
+            bail!("at {}..{}: {} must be Int, found `{}`", sp.start, sp.end, what, show_ty(ty));
+        } else {
+            bail!("{} must be Int, found `{}`", what, show_ty(ty));
+        }
     }
     Ok(())
 }
@@ -166,21 +181,21 @@ fn lower_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<IrFu
 
 fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
     Ok(match e {
-        Expr::Int(n) => {
+        Expr::Int(n, _) => {
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: *n });
             dst
         }
-        Expr::Bool(b) => {
+        Expr::Bool(b, _) => {
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });
             dst
         }
-        Expr::Var(name) => *ctx
+        Expr::Var(name, _) => *ctx
             .env
             .get(name.as_str())
             .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name)))?,
-        Expr::Bin { op, lhs, rhs } => {
+        Expr::Bin { op, lhs, rhs, .. } => {
             let lv = lower_expr(ctx, lhs)?;
             let rv = lower_expr(ctx, rhs)?;
             let dst = fresh(ctx);
@@ -193,7 +208,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             ctx.body.push(Instr::IBin { dst, op: irop, lhs: lv, rhs: rv });
             dst
         }
-        Expr::Call { callee, args } => {
+        Expr::Call { callee, args, .. } => {
             let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
             let argv = argv?;
             // Decide whether the call yields a value based on callee's return type
@@ -216,4 +231,3 @@ fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
     ctx.next += 1;
     v
 }
-

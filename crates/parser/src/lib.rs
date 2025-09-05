@@ -92,15 +92,15 @@ fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     text::int(10)
         .from_str::<i64>()
         .unwrapped()
-        .map(Expr::Int)
+        .map_with_span(|n, s| Expr::Int(n, Span { start: s.start, end: s.end }))
         .padded()
         .labelled("int literal")
 }
 
 fn bool_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     choice((
-        kw("true").to(Expr::Bool(true)),
-        kw("false").to(Expr::Bool(false)),
+        kw("true").map_with_span(|_, s| Expr::Bool(true, Span { start: s.start, end: s.end })),
+        kw("false").map_with_span(|_, s| Expr::Bool(false, Span { start: s.start, end: s.end })),
     ))
     .labelled("bool literal")
 }
@@ -125,9 +125,9 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             ),
             ident_p()
                 .then(call_args.or_not())
-                .map(|(name, args)| match args {
-                    Some(args) => Expr::Call { callee: name, args },
-                    None => Expr::Var(name),
+                .map_with_span(|(name, args), s| match args {
+                    Some(args) => Expr::Call { callee: name, args, span: Span { start: s.start, end: s.end } },
+                    None => Expr::Var(name, Span { start: s.start, end: s.end }),
                 }),
         ))
         .padded()
@@ -135,14 +135,24 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         .boxed();
 
         // multiplicative (*, /)
+        fn span_of(e: &Expr) -> (usize, usize) {
+            match e {
+                Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
+                Expr::Bin { span, .. } | Expr::Call { span, .. } => (span.start, span.end),
+            }
+        }
+
         let mul = atom.clone().foldl(
             (one_of("*/").padded().then(atom.clone().boxed())).repeated(),
             |lhs, (op, rhs)| {
                 let op = if op == '*' { BinOp::Mul } else { BinOp::Div };
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
                 Expr::Bin {
                     op,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
                 }
             },
         );
@@ -152,10 +162,13 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             (one_of("+-").padded().then(mul.clone().boxed())).repeated(),
             |lhs, (op, rhs)| {
                 let op = if op == '+' { BinOp::Add } else { BinOp::Sub };
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
                 Expr::Bin {
                     op,
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
                 }
             },
         );

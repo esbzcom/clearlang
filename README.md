@@ -47,11 +47,12 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 2. **Phase 1** — Hello WASM (emit trivial `main = 42`).  
 3. **Phase 2** — Parser: AST with functions, expressions, binary ops.  
 4. **Phase 3** — Typer & IR: SSA-like intermediate representation.  
-5. **Phase 4** — Codegen: IR → WASM.  
-6. **Phase 5** — Effects & contracts (`pure|mut|io`, `require`, `ensure`).  
-7. **Phase 6** — Arrays & while-loops with invariants.  
-8. **Phase 7** — WASI I/O (`print`).  
-9. **Phase 8 (optional)** — SMT solver integration for proofs.  
+5. **Phase 4** — Namespacing + Strings (parse/type) + Std Collections stubs + small DX.  
+6. **Phase 5** — Codegen: IR → WASM (types/indices, ops, memory/runtime).  
+7. **Phase 6** — Effects & contracts (`pure|mut|io`, `require`, `ensure`).  
+8. **Phase 7** — Arrays & while-loops with invariants.  
+9. **Phase 8** — WASI I/O (`print`).  
+10. **Phase 9 (optional)** — Proof-carrying Wasm / SMT integration.  
 
 ---
 
@@ -63,7 +64,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 - CLI subcommands:
   - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
   - `parse <file>` — parses a Lumi source and prints the AST.
-  - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file; IR→Wasm path will be default after Phase 3.5.
+  - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file (IR→Wasm path by default).
 - Tests cover arithmetic, call expressions, and error cases.
 
 ## CLI
@@ -220,23 +221,24 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 2. **Phase 1** — Hello WASM (emit trivial `main = 42`).  
 3. **Phase 2** — Parser: AST with functions, expressions, binary ops.  
 4. **Phase 3** — Typer & IR: SSA-like intermediate representation.  
-5. **Phase 4** — Codegen: IR → WASM.  
-6. **Phase 5** — Effects & contracts (`pure|mut|io`, `require`, `ensure`).  
-7. **Phase 6** — Arrays & while-loops with invariants.  
-8. **Phase 7** — WASI I/O (`print`).  
-9. **Phase 8 (optional)** — SMT solver integration for proofs.  
+5. **Phase 4** — Namespacing + Strings (parse/type) + Std Collections stubs + small DX.  
+6. **Phase 5** — Codegen: IR → WASM (types/indices, ops, memory/runtime).  
+7. **Phase 6** — Effects & contracts (`pure|mut|io`, `require`, `ensure`).  
+8. **Phase 7** — Arrays & while-loops with invariants.  
+9. **Phase 8** — WASI I/O (`print`).  
+10. **Phase 9 (optional)** — Proof-carrying Wasm / SMT integration.  
 
 ---
 
 ## Current Status
 
 - Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
-- Phase 2 in progress: parser supports functions, parameters, Int/Bool, binary ops, and calls.
-- Temporary build path uses const-eval to produce Wasm for Int-returning programs (supports literals, `+ - * /`, variables/params, and function calls).
+- Phase 3 in progress: parser supports functions, Int/Bool, binops, and calls; typer validates programs and lowers AST→IR (SSA-like) returning an IR `Module`.
+- Build path uses IR→Wasm by default (supports literals, `+ - * /`, variables/params, and function calls). Use `--validate` to run `wasm-tools validate`.
 - CLI subcommands:
   - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
   - `parse <file>` — parses a Lumi source and prints the AST.
-  - `build <file> -o <out.wasm>` — const-eval source → Wasm for Int programs (no Booleans yet).
+  - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file (IR→Wasm path by default).
 - Tests cover arithmetic, call expressions, and error cases.
 
 ## Safety Levels

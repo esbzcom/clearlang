@@ -76,3 +76,15 @@ fn function_missing_param_parens_mentions_open_paren() {
     let err = parse(src).expect_err("should fail without parameter parentheses");
     assert!(err.contains("'('"), "error should mention opening paren label, got: {err}");
 }
+
+#[test]
+fn errors_on_colon_return_type_hint_uses_arrow() {
+    let src = r#"
+        pure function id(x: Int): Int { x }
+    "#;
+    let err = parse(src).expect_err("should fail on ':' return type");
+    assert!(
+        err.contains("use '->'"),
+        "expected hint to use '->' for return types, got: {err}"
+    );
+}

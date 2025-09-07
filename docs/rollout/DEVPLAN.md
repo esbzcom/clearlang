@@ -121,6 +121,25 @@ Status
 - [x] Typer: `Str` is first-class (params/returns, literals type to `Str`).
 - [x] Built-ins: `std::str::{len, concat, eq}` (type stubs) wired in typer.
 - [x] Tests: parser (escapes, multi-line, invalid escape) and typer (Str echo, spanful mismatch).
+- [x] Syntax cleanup: `function` keyword only (removed `fn`).
+- [x] Parser UX: hint when `:` is used for return types (suggest `->`).
 
 Notes
 - Codegen/runtime for `Str` deferred to Phase 5; lowering uses a placeholder.
+
+---
+
+# Phase 4.3 — Collections (Type Stubs) Plan
+
+Goals
+- Prepare collections in the typer while keeping the language simple; avoid committing to generics prematurely.
+
+Scope (type-only)
+- Design minimal signatures for `std::list`, `std::set`, `std::map` to enable type-checking in examples.
+- Defer `Option<T>`/`Result<T,E>` and full generics until ADTs + `match` land (simplicity over partial features).
+
+Work Items
+- Draft a brief design note for parametric types and `match` (timing and shape).
+- Option A (strict): keep collections deferred; add friendly error stubs explaining “collections require generics; planned in Phase X”.
+- Option B (demo-only): add monomorphic preview signatures (e.g., `std::str::split(Str) -> ListStr`) for early demos; clearly marked temporary.
+- Add typer tests validating unknown-collection calls produce helpful errors (if Option A).

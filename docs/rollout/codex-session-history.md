@@ -60,3 +60,13 @@
 - Typer recognizes `Str` as first-class; lowering uses a placeholder until Phase 5 runtime.
 - Added parser tests (escapes, multi-line, invalid escape) and typer tests (Str echo, spanful mismatches).
 - Added lumi-tests `15_str_literal.lumi` (parse/type only) and `16_namespaced_call.lumi` (parse-only) and updated `full_pipeline` to include them.
+
+## Session 2025-09-07 — Function-only Syntax, Hints, and CLI polish
+
+- Syntax: removed `fn`; `function` is now the exclusive keyword for definitions. Updated parser, tests, samples, and docs.
+- Parser UX: added a friendly hint when `:` is used for return types (suggests using `->`).
+- Parser DX: completed module split (`tokens`, `types`, `literals`, `path`, `expr`, `func`, `program`).
+- Typer: added `std::str` built-in type stubs (`len/concat/eq`).
+- CLI bin name: tests reference `lumi` (not `lumi-cli`); docs updated accordingly.
+- CLI build: enforces presence of `main() -> Int` and fails on missing/wrong signature.
+- Samples: added `17_hello_str.lumi` (parse/type only) and migrated all samples to `function`.

@@ -6,8 +6,8 @@ Scope
 
 Types
 - Primitive types: `Int`, `Bool`.
-- Functions: `fn name(params) -> Ret` (also accepts `function` instead of `fn`); params are `(name: Type)` pairs.
- - Strings: `Str` is a primitive type (Phase 4.2 parse/type).
+- Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.
+- Strings: `Str` is a primitive type (Phase 4.2 parse/type).
 
 Namespacing (::)
 - Calls may use namespaced paths in callee position: `ident ("::" ident)* "(" args ")"`.
@@ -21,9 +21,9 @@ Strings (Str)
 - Multi-line: allowed — line breaks within the quotes are part of the value until the closing `"`.
 - Types: `Str` is first-class in parameters and return positions. String literals type to `Str`.
 - Examples:
-  - `pure fn literal() -> Str { "hello" }`
-  - `pure fn poem() -> Str { "Roses are red\nViolets are blue" }`
-  - `pure fn echo(s: Str) -> Str { s }`
+  - `pure function literal() -> Str { "hello" }`
+  - `pure function poem() -> Str { "Roses are red\nViolets are blue" }`
+  - `pure function echo(s: Str) -> Str { s }`
 - Not yet: `std::str` built-ins (`len/concat/eq`) are planned as type stubs next; runtime/codegen for strings arrives in Phase 5.
 
 Effects (stub)

@@ -66,7 +66,7 @@ fn parses_multi_line_and_spaces_in_calls() {
                 * 4
             )
         }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     let prog = parse(src).expect("should parse");

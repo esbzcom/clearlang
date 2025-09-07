@@ -103,6 +103,12 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 - SSA‑like IR: each temporary is assigned once; straightforward dataflow makes analysis and verification simpler.
 - Namespacing with `::`: avoids conflicts with `:` (types) and `.` (future members/floats), and keeps grammar unambiguous.
 
+## Design Philosophy
+
+- Simple Is Best: prefer one obvious way to do things (single keyword `function`, explicit `name: Type`, `->` for returns, no synonyms or implicit conversions).
+- Provable by Construction: keep semantics small and deterministic so properties can be stated and proven (progress/preservation, IR→Wasm mapping, contracts/effects later).
+- AI‑Friendly and Verifiable: canonical syntax, helpful diagnostics, and stable machine‑readable outputs to support generation and automated repair.
+
 ## Formal Assurance Path (Overview)
 
 - Type soundness today: well‑typed programs on the current subset don’t get stuck (progress/preservation).

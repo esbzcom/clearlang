@@ -92,6 +92,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Tests: single‑line, multi‑line, escapes, span diagnostics.
   - [x] DX: Split parser into modules to unblock strings and path growth (`tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; `lib.rs` wires them).
   - [x] Syntax: adopt `function` keyword exclusively (remove `fn`); update parser, tests, and docs for clarity and readability.
+  - [ ] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
+  - [ ] Rename Str→String: one‑shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
 
 - 4.3 Std Collections (type stubs only)
   - [ ] Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.

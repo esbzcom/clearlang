@@ -53,3 +53,10 @@
 
 - Added typer negative test to confirm unknown namespaced callees yield clear spanful errors.
 - Updated TODO to mark 4.1 fully done (parser + typer acceptance of namespaced callees).
+
+## Session 2025-09-07 — Phase 4.2 (Strings) Parse/Type
+
+- Introduced `Type::Str` and `Expr::Str` with escapes and multi-line support in parser.
+- Typer recognizes `Str` as first-class; lowering uses a placeholder until Phase 5 runtime.
+- Added parser tests (escapes, multi-line, invalid escape) and typer tests (Str echo, spanful mismatches).
+- Added lumi-tests `15_str_literal.lumi` (parse/type only) and `16_namespaced_call.lumi` (parse-only) and updated `full_pipeline` to include them.

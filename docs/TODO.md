@@ -86,9 +86,11 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Typer: accept namespaced callees as exact names (parser done; built-ins via 4.3).
 
 - 4.2 Strings (parse/type only)
-  - [ ] Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.
-  - [ ] Typer: make `Str` first‑class; allow equality and concatenation in `std::str`.
-  - [ ] Tests: single‑line, multi‑line, escapes, span diagnostics.
+  - [x] Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.
+  - [ ] Typer: `std::str` built‑ins (len/concat/eq) for strings.
+  - [x] Typer: make `Str` first‑class in params/returns and literals.
+  - [x] Tests: single‑line, multi‑line, escapes, span diagnostics.
+  - [ ] DX: Split parser into modules to unblock strings and path growth (`tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; `lib.rs` wires them).
 
 - 4.3 Std Collections (type stubs only)
   - [ ] Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.
@@ -97,6 +99,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
         `std::set::{new,len,insert,remove,contains}`;
         `std::map::{new,len,insert,remove,get,contains}`.
   - [ ] No codegen/runtime yet; only enable type‑checking.
+  - [ ] DX: Split typer — move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
 
 - 4.4 Small Optimizations & DX
   - [x] Optional Wasm name section for function names (`--debug-names`).
@@ -104,9 +107,13 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
   - [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
   - [ ] Gate build stage logs behind `--verbose` (keep default quieter).
+  - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
   
 
 ## Phase 5 — Codegen IR → Wasm
+
+DX Prep
+- [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
 
 5.1 Module & Signatures
 - [ ] Types, function indices, and exports.

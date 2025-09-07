@@ -74,6 +74,9 @@ Work Items
 - Strings: `Type::Str`, `Expr::Str` with escapes and multi-line; typer rules for eq/concat in `std::str`; tests (escapes/spans).
 - Collections: define `List<T>`, `Set<T>`, `Map<K,V>`, `Option<T>`, `Result<T,E>`; expose minimal `std::list`, `std::set`, `std::map` APIs to typer.
 - DX: preallocation in parser/typer; shared Wasmtime Engine in tests; release profile tuning; verbose-gated logs.
+ - DX (parser split): extract `tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; wire via `lib.rs` (do before/with Strings).
+ - DX (typer split): separate typing rules (`check.rs`) from IR lowering (`lower.rs`) to prep for `Str` and collections.
+ - DX (CLI refactor): when adding `--verbose`, split subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 
 Out of Scope (moved to Phase 5)
 - Any IR/codegen changes (type dedup, callee indices, memory/runtime).
@@ -86,6 +89,7 @@ Goals
 - Polish IR→Wasm codegen and introduce linear memory/runtime for Strings and List; prepare for Set/Map.
 
 Work Items
+- DX (codegen split): organize into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + evaluator), and `ir.rs` (IR encoder); re-export in `lib.rs`.
 - Module & signatures: deduplicate function type signatures in Wasm Type section.
 - Calls: switch to callee indices (resolve names during lowering); remove name→index lookups in codegen.
 - Memory/runtime: add a minimal allocator (bump/realloc). Strings as (ptr,len) with data segments; List<T> with grow/realloc.
@@ -106,3 +110,16 @@ Status
 Notes
 - Variables remain simple identifiers (no `::`).
 - Bare paths like `a::b` without `(...)` are rejected (call syntax only).
+
+---
+
+# Phase 4.2 — Strings Progress
+
+Status
+- [x] AST/Parser: `Type::Str` and `Expr::Str` with escapes and multi-line literals.
+- [x] Typer: `Str` is first-class (params/returns, literals type to `Str`).
+- [ ] Built-ins: `std::str::{len, concat, eq}` (type stubs) — planned in 4.3.
+- [x] Tests: parser (escapes, multi-line, invalid escape) and typer (Str echo, spanful mismatch).
+
+Notes
+- Codegen/runtime for `Str` deferred to Phase 5; lowering uses a placeholder.

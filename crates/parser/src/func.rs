@@ -46,7 +46,7 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         )
         .then(ty_p())
         .then(expr_p().delimited_by(just('{').padded(), just('}').padded()))
-        .map(|((((eff_opt, name), params), ret), body)| Func {
+        .map(|(((((eff_opt, name), params), _arrow_ok), ret), body)| Func {
             effect: eff_opt.unwrap_or(Effect::None),
             name,
             params,

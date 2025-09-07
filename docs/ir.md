@@ -3,6 +3,7 @@
 Overview
 - Minimal SSA-like IR used between the typer and Wasm codegen.
 - Single block per function in Phase 3.x; control flow is linear.
+ - Deterministic mapping to Wasm enables translation validation and future proofs.
 
 Core Types
 - `IrType`: `Int`, `Bool` (both lower to Wasm `i32`; Bool uses 0/1).
@@ -38,7 +39,10 @@ IR → Wasm (Phase 3.5 subset)
   - `Ret` → `local.get v` (implicit function return at end)
 - Exports: `main` is exported when present.
 
+Verification Notes
+- Instruction-by-instruction simulation: each IR op corresponds to a small Wasm sequence.
+- Translation validation: run an IR interpreter and the Wasm instance on the same inputs to check for equal results (testing aid ahead of full proofs).
+
 Planned Extensions
 - Void-returning functions, dropping unused call results.
 - Multi-block/control flow in later phases.
-

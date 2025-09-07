@@ -67,6 +67,10 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file (IR→Wasm path by default).
 - Tests cover arithmetic, call expressions, and error cases.
 
+### Phase 4 Highlights (In Progress)
+- Namespacing syntax: call callees may be paths with `::` (e.g., `std::str::len(s)`). Variables/definitions remain simple identifiers.
+- Strings (parse/type): `Str` is a primitive type. String literals support escapes (`\n`, `\t`, `\r`, `\"`, `\\`, `\0`) and multi‑line until the closing quote. Built‑ins like `std::str::{len,concat,eq}` are planned next.
+
 ## CLI
 
 - Commands:
@@ -89,6 +93,21 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 - Typing rules (Phase 3): [docs/typing.md](docs/typing.md)
 - IR shape and encoding (Phase 3.x): [docs/ir.md](docs/ir.md)
+
+## Design Notes (Why Lumi Is Easy to Reason About)
+
+- Small, explicit core: simple expressions, explicit types (`Int|Bool|Str`), fixed arity, no overloading.
+- Purity‑first: functions are pure by default; effects are explicit (`pure|mut|io`).
+- Deterministic pipeline: Parse → Type → Lower to SSA‑like IR → Wasm codegen; clear, spanful diagnostics on errors.
+- SSA‑like IR: each temporary is assigned once; straightforward dataflow makes analysis and verification simpler.
+- Namespacing with `::`: avoids conflicts with `:` (types) and `.` (future members/floats), and keeps grammar unambiguous.
+
+## Formal Assurance Path (Overview)
+
+- Type soundness today: well‑typed programs on the current subset don’t get stuck (progress/preservation).
+- Translation validation: compare IR interpreter vs Wasm execution for the same inputs (test harness), moving towards formal proof of IR→Wasm correctness.
+- Contracts (planned): `require`/`ensure` with verification conditions; start with integers/booleans, extend as runtime support grows.
+- Clear semantics: document integer ops (overflow, division), evaluation order, and string encoding to support proofs.
 
 ## Safety Levels
 

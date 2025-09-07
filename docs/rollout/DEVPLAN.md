@@ -158,7 +158,7 @@ Syntax (initial)
 - Grammar sketch (single-expression bodies for now):
 
   ```
-  function inc(x: Int) -> Int pure
+  pure function inc(x: Int) -> Int
     require { x >= 0 }
     ensure  { result >= x }
   {

@@ -88,3 +88,17 @@ fn errors_on_colon_return_type_hint_uses_arrow() {
         "expected hint to use '->' for return types, got: {err}"
     );
 }
+
+#[test]
+fn rejects_trailing_effect_after_signature() {
+    // Effect keywords must precede `function`. A trailing `pure` after the
+    // return type should fail to parse (body must start with '{').
+    let src = r#"
+        function inc(x: Int) -> Int pure { x + 1 }
+    "#;
+    let err = parse(src).expect_err("should reject trailing effect after signature");
+    assert!(
+        err.contains("'{'") || err.contains("expected"),
+        "error should indicate the body opening '{{' or a parse expectation, got: {err}"
+    );
+}

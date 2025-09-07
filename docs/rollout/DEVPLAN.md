@@ -118,7 +118,7 @@ Notes
 Status
 - [x] AST/Parser: `Type::Str` and `Expr::Str` with escapes and multi-line literals.
 - [x] Typer: `Str` is first-class (params/returns, literals type to `Str`).
-- [ ] Built-ins: `std::str::{len, concat, eq}` (type stubs) — planned in 4.3.
+- [x] Built-ins: `std::str::{len, concat, eq}` (type stubs) wired in typer.
 - [x] Tests: parser (escapes, multi-line, invalid escape) and typer (Str echo, spanful mismatch).
 
 Notes

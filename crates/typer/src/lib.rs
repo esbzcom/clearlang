@@ -10,6 +10,35 @@ type FnSig<'a> = (&'a [Param], Type);
 /// then lowers AST → IR using a simple SSA-like scheme.
 pub fn check(ast: &Program) -> Result<Module> {
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
+
+    // Phase 4.2 — Built-in type stubs (namespaced): std::str::{len, concat, eq}
+    // Keep the owning storage alive for the duration of this function
+    let mut builtin_sigs: Vec<(String, Vec<Param>, Type)> = Vec::new();
+    builtin_sigs.push((
+        "std::str::len".to_string(),
+        vec![Param { name: "s".to_string(), ty: Type::Str }],
+        Type::Int,
+    ));
+    builtin_sigs.push((
+        "std::str::concat".to_string(),
+        vec![
+            Param { name: "a".to_string(), ty: Type::Str },
+            Param { name: "b".to_string(), ty: Type::Str },
+        ],
+        Type::Str,
+    ));
+    builtin_sigs.push((
+        "std::str::eq".to_string(),
+        vec![
+            Param { name: "a".to_string(), ty: Type::Str },
+            Param { name: "b".to_string(), ty: Type::Str },
+        ],
+        Type::Bool,
+    ));
+    for (name, params, ret) in &builtin_sigs {
+        fns.insert(name.as_str(), (&params[..], *ret));
+    }
+
     for f in &ast.funcs {
         if fns.insert(f.name.as_str(), (&f.params, f.ret)).is_some() {
             bail!("duplicate function `{}`", f.name);

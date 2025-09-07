@@ -87,7 +87,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 - 4.2 Strings (parse/type only)
   - [x] Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.
-  - [ ] Typer: `std::str` built‑ins (len/concat/eq) for strings.
+  - [x] Typer: `std::str` built‑ins (len/concat/eq) for strings.
   - [x] Typer: make `Str` first‑class in params/returns and literals.
   - [x] Tests: single‑line, multi‑line, escapes, span diagnostics.
   - [ ] DX: Split parser into modules to unblock strings and path growth (`tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; `lib.rs` wires them).

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use lumi_codegen_wasm::{emit_from_ir, emit_trivial_main, emit_from_ir_with_opts, CodegenOpts};
+use lumi_codegen_wasm::{emit_trivial_main, emit_from_ir_with_opts, CodegenOpts};
 use lumi_typer::check as type_check;
 use lumi_parser::parse as parse_src;
 use wasmtime as wt;

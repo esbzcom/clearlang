@@ -25,7 +25,7 @@
 
 - Added IR pipeline e2e tests for samples 01–05; confirmed 06 fails to parse; 07 parses but no main export; 08 returns 42.
 - Strengthened typer negative tests: arity (too many/zero‑arg), binop operand types, duplicate functions, arg type mismatches.
-- Added simple stage logs to `lumi-cli build` (parsed/type‑checked/IR/Wasm bytes/validated).
+- Added simple stage logs to `lumi build` (parsed/type‑checked/IR/Wasm bytes/validated).
 - Updated TODO: mark all 3.6 items complete; set next focus to 3.8 Diagnostics & Spans and Phase 4 prep.
 
 ## Session 2025-09-03 — Phase 3.8 Done; 3.9 Planned

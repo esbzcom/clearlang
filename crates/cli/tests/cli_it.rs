@@ -23,7 +23,7 @@ fn wasmtime_run(bytes: &[u8]) -> i32 {
 #[test]
 fn parse_command_succeeds_on_hello() {
     let input = repo_sample("01_hello.lumi");
-    let mut cmd = Command::cargo_bin("lumi-cli").expect("bin");
+    let mut cmd = Command::cargo_bin("lumi").expect("bin");
     cmd.args(["parse"]).arg(&input);
     cmd.assert().success().stdout(predicate::str::contains("Program"));
 }
@@ -32,7 +32,7 @@ fn parse_command_succeeds_on_hello() {
 fn emit_hello_writes_valid_wasm_and_runs() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("hello.wasm");
-    let mut cmd = Command::cargo_bin("lumi-cli").unwrap();
+    let mut cmd = Command::cargo_bin("lumi").unwrap();
     cmd.args(["emit-hello", "-o"]).arg(&out);
     cmd.assert().success();
 
@@ -59,7 +59,7 @@ fn build_and_run_samples() {
     for (file, expect) in cases {
         let tmp = tempdir().unwrap();
         let out = tmp.path().join("out.wasm");
-        let mut cmd = Command::cargo_bin("lumi-cli").unwrap();
+        let mut cmd = Command::cargo_bin("lumi").unwrap();
         cmd.args(["build"]) // parse -> type-check -> const-eval emit
             .arg(repo_sample(file))
             .args(["-o"])
@@ -76,7 +76,7 @@ fn build_and_run_samples() {
 
 #[test]
 fn parse_failure_exits_nonzero() {
-    let mut cmd = Command::cargo_bin("lumi-cli").unwrap();
+    let mut cmd = Command::cargo_bin("lumi").unwrap();
     cmd.args(["parse"]).arg(repo_sample("06_trailing_call_comma.lumi"));
     cmd.assert().failure();
 }
@@ -85,9 +85,8 @@ fn parse_failure_exits_nonzero() {
 fn build_failure_for_non_int_or_missing_main() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("bad.wasm");
-    let mut cmd = Command::cargo_bin("lumi-cli").unwrap();
+    let mut cmd = Command::cargo_bin("lumi").unwrap();
     // 07_bools has no main; codegen should fail
     cmd.args(["build"]).arg(repo_sample("07_bools.lumi")).args(["-o"]).arg(&out);
     cmd.assert().failure();
 }
-

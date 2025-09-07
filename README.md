@@ -135,7 +135,7 @@ Lumi pursues defense-in-depth with three complementary safety layers:
 - Parser tests: `cargo test -p lumi-parser`
 - All tests (workspace): `cargo test --workspace`
 - IT tests (full pipeline): `cargo test -p lumi-codegen-wasm --test full_pipeline`
-- Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
+- Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm` (binary name: `lumi`)
 - Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
 - Build (const-eval: Int-returning programs with `+ - * /` and calls):
   - `cargo run -p lumi-cli -- build lumi-tests/01_hello.lumi -o tmp/hello_prog.wasm`
@@ -147,7 +147,7 @@ Lumi pursues defense-in-depth with three complementary safety layers:
 
 - Prereqs: Install Rust (MSVC toolchain) and VS Build Tools (C++ workload).
 - Build release binary:
-  - `cargo build -p lumi-cli --release`
+  - `cargo build -p lumi-cli --release` (binary name: `lumi`)
   - Output: `target\release\lumi.exe`
 - Install to PATH (optional):
   - `cargo install --path crates/cli --bin lumi`

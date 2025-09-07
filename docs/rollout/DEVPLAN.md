@@ -21,7 +21,7 @@ Testing
 
 Next Actions
 - Implement IR→Wasm encoder entry accepting `lumi_ir::Module`.
-- Update `lumi-cli build` to use typer output (IR) and call new encoder.
+- Update `lumi build` to use typer output (IR) and call new encoder.
 - Add `--validate` and basic logging.
 
 ---

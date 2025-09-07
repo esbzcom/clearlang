@@ -69,7 +69,8 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 ### Phase 4 Highlights (In Progress)
 - Namespacing syntax: call callees may be paths with `::` (e.g., `std::str::len(s)`). Variables/definitions remain simple identifiers.
-- Strings (parse/type): `Str` is a primitive type. String literals support escapes (`\n`, `\t`, `\r`, `\"`, `\\`, `\0`) and multi‑line until the closing quote. Built‑ins like `std::str::{len,concat,eq}` are planned next.
+- Strings (parse/type): `Str` is a primitive type. String literals support escapes (`\\n`, `\\t`, `\\r`, `\\\"`, `\\\\`, `\\0`) and multi‑line until the closing quote. Built‑ins like `std::str::{len,concat,eq}` are planned next.
+- Function syntax: `fn` or `function` are both accepted for defining functions.
 
 ## CLI
 

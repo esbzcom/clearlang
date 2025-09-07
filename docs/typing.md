@@ -6,7 +6,7 @@ Scope
 
 Types
 - Primitive types: `Int`, `Bool`.
-- Functions: `fn name(params) -> Ret` where params are `(name: Type)` pairs.
+- Functions: `fn name(params) -> Ret` (also accepts `function` instead of `fn`); params are `(name: Type)` pairs.
  - Strings: `Str` is a primitive type (Phase 4.2 parse/type).
 
 Namespacing (::)

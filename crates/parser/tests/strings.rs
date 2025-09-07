@@ -9,6 +9,14 @@ fn parses_string_literal_simple() {
 }
 
 #[test]
+fn parses_string_with_escaped_quote_and_backslash() {
+    let src = r#"
+        fn main() -> Str { "He said: \"hi\" \\ path" }
+    "#;
+    let _ = parse(src).expect("parse ok");
+}
+
+#[test]
 fn parses_multiline_string_literal() {
     let src = r#"
         fn main() -> Str { "line1
@@ -23,4 +31,12 @@ fn errors_on_unclosed_string() {
         fn main() -> Str { "unterminated }
     "#;
     let _ = parse(src).expect_err("should fail on unclosed string");
+}
+
+#[test]
+fn errors_on_invalid_escape() {
+    let src = r#"
+        fn main() -> Str { "bad: \x" }
+    "#;
+    let _ = parse(src).expect_err("should fail on invalid escape");
 }

@@ -42,3 +42,10 @@ fn typer_errors_on_type_mismatch_in_binop() {
     assert!(format!("{err:#}").contains("must be Int"));
 }
 
+#[test]
+fn accepts_str_echo() {
+    let src = r#"
+        pure fn echo(s: Str) -> Str { s }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("type-check ok");
+}

@@ -85,3 +85,34 @@ fn errors_on_unknown_namespaced_function() {
     assert!(s.contains("std::str::len"), "unexpected: {s}");
     assert!(s.contains("at ") && s.contains(".."), "missing span: {s}");
 }
+
+// Return type mismatch: declared Str, body Int
+#[test]
+fn errors_on_return_type_mismatch_str_decl_int_body() {
+    let src = r#"
+        pure fn bad() -> Str { 123 }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail return type mismatch (Str vs Int)");
+    let s = format!("{err:#}");
+    assert!(s.contains("return type mismatch"));
+    assert!(s.contains("Str"));
+    assert!(s.contains("Int"));
+    assert!(s.contains("at ") && s.contains(".."));
+}
+
+// Arg type mismatch using Str
+#[test]
+fn errors_on_arg_type_mismatch_with_str() {
+    let src = r#"
+        pure fn add(x: Int, y: Int) -> Int { x + y }
+        fn main() -> Int { add("hi", 2) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail arg type mismatch with Str");
+    let s = format!("{err:#}");
+    assert!(s.contains("type mismatch"));
+    assert!(s.contains("Str"));
+    assert!(s.contains("Int"));
+    assert!(s.contains("at ") && s.contains(".."));
+}

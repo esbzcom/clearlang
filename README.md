@@ -6,346 +6,157 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 ---
 
-## ✨ Core Ideas
+## Core Ideas
 
-- **Dependent / refinement types**  
-  Encode logical properties directly in types, e.g.  
-  ```lumi
-  type Nat = Int where n >= 0
-  ```
-- **Contracts (`require` / `ensure`)**  
-  Preconditions and postconditions that must be provable or enforced at runtime.
-- **Effect system** (`pure`, `mut`, `io`)  
-  Separates pure math, local mutation, and I/O.
-- **Totality**  
-  Pure functions must terminate; loops require invariants or bounds.
-- **Resource / linear types**  
-  Guarantee safe handling of resources (e.g., no double-spend in crypto).
+- Dependent/refinement types: encode logical properties in types (e.g., `type Nat = Int where n >= 0`).
+- Contracts (`require`/`ensure`): pre/postconditions proved statically or guarded at runtime.
+- Effects (`pure`, `mut`, `io`): clearly separate pure computation, local mutation, and I/O.
+- Totality: pure functions must terminate; loops require invariants or bounds.
+- Resource/linear discipline: avoid misuse (e.g., double-spend) by construction.
 
 ---
 
-## 🚀 Applications
+## Applications
 
-- **Safe app backends** — Lumi logic compiled to WASM, UI in React/Swift/Kotlin.  
-- **Smart contracts** — strong invariants (no negative balances, total supply preserved, no reentrancy).  
-- **High-assurance systems** — finance, medical, aerospace, where bugs are unacceptable.  
-
----
-
-## 🔧 Implementation Strategy
-
-- **Target:** WebAssembly (portable across web, mobile, blockchain).  
-- **Compiler Host:** Rust (performance, safety, WASM tooling).  
-- **Parser:** [chumsky](https://github.com/zesterer/chumsky) combinator parser.  
-- **Codegen:** [`wasm-encoder`](https://github.com/bytecodealliance/wasm-tools).  
+- Safe app backends: Lumi logic to Wasm; UI in React/Swift/Kotlin.
+- Smart contracts: invariants like non-negative balances and preserved totals.
+- High-assurance systems: finance, medical, aerospace where bugs are unacceptable.
 
 ---
 
-## 📚 Roadmap
+## Implementation Strategy
 
-1. **Phase 0** — Setup workspace (Rust, Wasmtime, wasm-tools).  
-2. **Phase 1** — Hello WASM (emit trivial `main = 42`).  
-3. **Phase 2** — Parser: AST with functions, expressions, binary ops.  
-4. **Phase 3** — Typer & IR: SSA-like intermediate representation.  
-5. **Phase 4** — Namespacing + Strings (parse/type) + Std Collections stubs + small DX.  
-6. **Phase 5** — Codegen: IR → WASM (types/indices, ops, memory/runtime).  
-7. **Phase 6** — Effects & contracts (`pure|mut|io`, `require`, `ensure`).  
-8. **Phase 7** — Arrays & while-loops with invariants.  
-9. **Phase 8** — WASI I/O (`print`).  
-10. **Phase 9 (optional)** — Proof-carrying Wasm / SMT integration.  
+- Target: WebAssembly (portable across web, mobile, blockchain).
+- Compiler host: Rust (performance, safety, WASM tooling).
+- Parser: chumsky (combinator parser).
+- Codegen: wasm-encoder.
 
 ---
 
-## ✅ Current Status
+## Roadmap
 
-- Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
-- Phase 3 in progress: parser supports functions, Int/Bool, binops, and calls; typer validates programs and lowers AST→IR (SSA-like) returning an IR `Module`.
-- Build path uses IR→Wasm by default (supports literals, `+ - * /`, variables/params, and function calls). Use `--validate` to run `wasm-tools validate`.
-- CLI subcommands:
-  - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
-  - `parse <file>` — parses a Lumi source and prints the AST.
-  - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file (IR→Wasm path by default).
-- Tests cover arithmetic, call expressions, and error cases.
+1. Phase 0 - Setup workspace (Rust, Wasmtime, wasm-tools).
+2. Phase 1 - Hello Wasm (emit trivial `main = 42`).
+3. Phase 2 - Parser: functions, expressions, binary ops.
+4. Phase 3 - Typer & IR: SSA-like intermediate representation.
+5. Phase 4 - Namespacing + Strings (parse/type) + Std Collections stubs + small DX.
+6. Phase 5 - Codegen: IR + Wasm (types/indices, ops, memory/runtime).
+7. Phase 6 - Effects & contracts (`pure|mut|io`, `require`, `ensure`).
+8. Phase 7 - Arrays & while-loops with invariants.
+9. Phase 8 - WASI I/O (`print`).
+10. Phase 9 (optional) - Proof-carrying Wasm / SMT integration.
 
-### Phase 4 Highlights (In Progress)
-- Namespacing syntax: call callees may be paths with `::` (e.g., `std::str::len(s)`). Variables/definitions remain simple identifiers.
-- Strings (parse/type): `Str` is a primitive type. String literals support escapes (`\\n`, `\\t`, `\\r`, `\\\"`, `\\\\`, `\\0`) and multi‑line until the closing quote. Built‑ins like `std::str::{len,concat,eq}` are planned next.
-- Function syntax: use `function` to define functions.
+---
+
+## Current Status
+
+- Phase 1 complete: minimal Wasm module exporting `main() -> i32` returning `42`.
+- Phase 3 complete: typer validates programs and lowers to IR (SSA-like).
+- Phase 4 in progress:
+  - 4.1 Namespacing: path-call syntax `seg::seg::name(args...)` supported.
+  - 4.2 Strings (parse/type): `Str` literals (escapes, multi-line); `std::str::{len, concat, eq}` stubs in typer.
+  - Next: 4.3 Collections (type stubs) and 4.4 DX improvements.
+- Build path uses IR+Wasm by default. Use `--validate` to run `wasm-tools validate`.
+
+---
 
 ## CLI
 
 - Commands:
   - `emit-hello`: emits a trivial Wasm with `main() -> i32` returning 42.
   - `parse <FILE>`: parses and pretty-prints the AST for a Lumi source file.
-  - `build <FILE>`: compiles a Lumi source file end‑to‑end to Wasm.
+  - `build <FILE> [--out <PATH>] [--validate] [--debug-names]`: compiles to Wasm via IR.
   - `run <FILE> [--invoke <name>]`: runs a Wasm file (default export: `main`).
-- Build pipeline: Parse → Type‑check → Lower to IR → Codegen IR→Wasm → write `-o` output.
+- Build pipeline: Parse -> Type-check -> Lower to IR -> Codegen (IR->Wasm) -> write output.
 - Flags:
   - `-o, --out <PATH>`: output Wasm path; creates parent directories if needed.
   - `--validate`: run `wasm-tools validate` on the produced Wasm (optional).
   - `--debug-names`: include a Wasm name section with function names.
-- Usage:
+- Examples:
   - `lumi emit-hello -o tmp/hello.wasm`
-  - `lumi parse examples/add.lumi`
-  - `lumi build examples/add.lumi -o out/add.wasm --validate`
-  - `lumi run out/add.wasm`  (invokes `main` returning i32)
+  - `lumi parse lumi-tests/01_hello.lumi`
+  - `lumi build lumi-tests/02_arith.lumi -o out/arith.wasm --validate`
+  - `lumi run out/arith.wasm`
+
+---
 
 ## Docs
 
-- Typing rules (Phase 3): [docs/typing.md](docs/typing.md)
-- IR shape and encoding (Phase 3.x): [docs/ir.md](docs/ir.md)
+- Typing rules: `docs/typing.md`
+- IR shape and encoding: `docs/ir.md`
 
-## Design Notes (Why Lumi Is Easy to Reason About)
-
-- Small, explicit core: simple expressions, explicit types (`Int|Bool|Str`), fixed arity, no overloading.
-- Purity‑first: functions are pure by default; effects are explicit (`pure|mut|io`).
-- Deterministic pipeline: Parse → Type → Lower to SSA‑like IR → Wasm codegen; clear, spanful diagnostics on errors.
-- SSA‑like IR: each temporary is assigned once; straightforward dataflow makes analysis and verification simpler.
-- Namespacing with `::`: avoids conflicts with `:` (types) and `.` (future members/floats), and keeps grammar unambiguous.
+---
 
 ## Design Philosophy
 
-- Simple Is Best: prefer one obvious way to do things (single keyword `function`, explicit `name: Type`, `->` for returns, no synonyms or implicit conversions).
-- Provable by Construction: keep semantics small and deterministic so properties can be stated and proven (progress/preservation, IR→Wasm mapping, contracts/effects later).
-- AI‑Friendly and Verifiable: canonical syntax, helpful diagnostics, and stable machine‑readable outputs to support generation and automated repair.
+- Simple Is Best: one obvious way; avoid premature features/complexity.
+- Prove Correct: small steps with tests; explicit types and spans.
+- AI-Friendly: consistent, structured errors; stable CLI and predictable outputs.
 
-## Formal Assurance Path (Overview)
-
-- Type soundness today: well‑typed programs on the current subset don’t get stuck (progress/preservation).
-- Translation validation: compare IR interpreter vs Wasm execution for the same inputs (test harness), moving towards formal proof of IR→Wasm correctness.
-- Contracts (planned): `require`/`ensure` with verification conditions; start with integers/booleans, extend as runtime support grows.
-- Clear semantics: document integer ops (overflow, division), evaluation order, and string encoding to support proofs.
+---
 
 ## Safety Levels
 
-Lumi pursues defense-in-depth with three complementary safety layers:
-
 1) Compile Time
 - Types/effects: ill-typed or effect-unsafe programs are rejected.
-- Contracts: `require`/`ensure` planned with verification conditions; in early phases, compile to runtime checks.
-- Proofs (later): generate and optionally discharge SMT obligations; ship proof artifacts.
+- Contracts (planned): `require`/`ensure` with verification; runtime guards early on.
 
 2) Load Time
 - Wasm validation: `wasm-tools validate out.wasm` and Wasmtime module validation.
 - Policy checks: deny disallowed imports; require metadata/custom sections when applicable.
-- Proof-carrying code (later): `lumiverify` checks proof sections before instantiation.
 
 3) Runtime
 - Contract guards trap deterministically on violation (when compiled in).
 - Sandboxing: Wasm memory isolation by default.
-- Host limits: Wasmtime fuel/epoch deadlines, memory/table caps to prevent hangs/DoS.
-
-## 🏃 How To Run
-
-- Codegen tests: `cargo test -p lumi-codegen-wasm`
-- Parser tests: `cargo test -p lumi-parser`
-- All tests (workspace): `cargo test --workspace`
-- IT tests (full pipeline): `cargo test -p lumi-codegen-wasm --test full_pipeline`
-- Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm` (binary name: `lumi`)
-- Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
-- Build (const-eval: Int-returning programs with `+ - * /` and calls):
-  - `cargo run -p lumi-cli -- build lumi-tests/01_hello.lumi -o tmp/hello_prog.wasm`
-  - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
-  - Run: `wasmtime --invoke main tmp/arith.wasm`
-  - Validate: `wasm-tools validate tmp/arith.wasm`
-
-### Windows (Build & Run)
-
-- Prereqs: Install Rust (MSVC toolchain) and VS Build Tools (C++ workload).
-- Build release binary:
-  - `cargo build -p lumi-cli --release` (binary name: `lumi`)
-  - Output: `target\release\lumi.exe`
-- Install to PATH (optional):
-  - `cargo install --path crates/cli --bin lumi`
-  - Ensure `%USERPROFILE%\.cargo\bin` is on PATH.
-- Usage:
-  - `lumi emit-hello -o tmp\hello.wasm`
-  - `lumi parse examples\add.lumi`
-  - `lumi build examples\add.lumi -o out\add.wasm --validate`
-
-## Git Hooks (Pre-Commit)
-
-- Enable hooks in this repo: `git config core.hooksPath .githooks`
-- The pre-commit hook runs:
-  - `cargo fmt --all -- --check`
-  - `cargo clippy --workspace --all-targets -D warnings`
-  - `cargo test --workspace`
-- Skip toggles:
-  - `SKIP_PRECOMMIT=1` (skip everything)
-  - `SKIP_FMT=1`, `SKIP_CLIPPY=1`, `SKIP_TESTS=1` (skip specific steps)
-- Bypass once: `git commit -n -m "msg"`
-
-## lumi-tests Samples
-
-- Location: `lumi-tests/`
-- Parse a sample: `cargo run -p lumi-cli -- parse lumi-tests/01_hello.lumi`
-- See `lumi-tests/README.md` for a full list and commands (includes a negative case `06_trailing_call_comma.lumi` that should fail to parse).
+- Host limits: Wasmtime fuel/epoch deadlines, memory/table caps.
 
 ---
-
-## 📖 Vision
-
-Lumi aspires to be:
-
-- **Simple** — approachable syntax like Python.  
-- **Safe** — formal guarantees like SPARK Ada.  
-- **Portable** — runs anywhere via WebAssembly.  
-- **Proof-oriented** — bugs prevented at compile time, not found at runtime.  
-
----
-
-## 🔒 License
-
-Currently private, all rights reserved.  
-An open-source license (e.g., MIT or Apache-2.0) may be applied when Lumi is released publicly.
-# lumi-lang
-
-Lumi is a dependently-typed programming language that compiles to WebAssembly.
-It aims to be simple like Python and safe like SPARK Ada, with refinement types,
-contracts, and an effect system to eliminate entire classes of bugs at compile time.
-
----
-
-## Core Ideas
-
-- **Dependent / refinement types**  
-  Encode logical properties directly in types, e.g.  
-  ```lumi
-  type Nat = Int where n >= 0
-  ```
-- **Contracts (`require` / `ensure`)**  
-  Preconditions and postconditions that must be provable or enforced at runtime.
-- **Effect system** (`pure`, `mut`, `io`)  
-  Separates pure math, local mutation, and I/O.
-- **Totality**  
-  Pure functions must terminate; loops require invariants or bounds.
-- **Resource / linear types**  
-  Guarantee safe handling of resources (e.g., no double-spend in crypto).
-
----
-
-## Applications
-
-- **Safe app backends** — Lumi logic compiled to WASM, UI in React/Swift/Kotlin.  
-- **Smart contracts** — strong invariants (no negative balances, total supply preserved, no reentrancy).  
-- **High-assurance systems** — finance, medical, aerospace, where bugs are unacceptable.  
-
----
-
-## Implementation Strategy
-
-- **Target:** WebAssembly (portable across web, mobile, blockchain).  
-- **Compiler Host:** Rust (performance, safety, WASM tooling).  
-- **Parser:** [chumsky](https://github.com/zesterer/chumsky) combinator parser.  
-- **Codegen:** [`wasm-encoder`](https://github.com/bytecodealliance/wasm-tools).  
-
----
-
-## Roadmap
-
-1. **Phase 0** — Setup workspace (Rust, Wasmtime, wasm-tools).  
-2. **Phase 1** — Hello WASM (emit trivial `main = 42`).  
-3. **Phase 2** — Parser: AST with functions, expressions, binary ops.  
-4. **Phase 3** — Typer & IR: SSA-like intermediate representation.  
-5. **Phase 4** — Namespacing + Strings (parse/type) + Std Collections stubs + small DX.  
-6. **Phase 5** — Codegen: IR → WASM (types/indices, ops, memory/runtime).  
-7. **Phase 6** — Effects & contracts (`pure|mut|io`, `require`, `ensure`).  
-8. **Phase 7** — Arrays & while-loops with invariants.  
-9. **Phase 8** — WASI I/O (`print`).  
-10. **Phase 9 (optional)** — Proof-carrying Wasm / SMT integration.  
-
----
-
-## Current Status
-
-- Phase 1 complete: emits a minimal Wasm module exporting `main() -> i32` that returns `42`.
-- Phase 3 in progress: parser supports functions, Int/Bool, binops, and calls; typer validates programs and lowers AST→IR (SSA-like) returning an IR `Module`.
-- Build path uses IR→Wasm by default (supports literals, `+ - * /`, variables/params, and function calls). Use `--validate` to run `wasm-tools validate`.
-- CLI subcommands:
-  - `emit-hello` — writes a trivial Wasm (`main -> i32 42`).
-  - `parse <file>` — parses a Lumi source and prints the AST.
-  - `build <file> -o <out.wasm> [--validate]` — compiles a Lumi file (IR→Wasm path by default).
-- Tests cover arithmetic, call expressions, and error cases.
-
-## Safety Levels
-
-Lumi pursues defense-in-depth with three complementary safety layers:
-
-1) Compile Time
-- Types/effects: ill-typed or effect-unsafe programs are rejected.
-- Contracts: `require`/`ensure` planned with verification conditions; in early phases, compile to runtime checks.
-- Proofs (later): generate and optionally discharge SMT obligations; ship proof artifacts.
-
-2) Load Time
-- Wasm validation: `wasm-tools validate out.wasm` and Wasmtime module validation.
-- Policy checks: deny disallowed imports; require metadata/custom sections when applicable.
-- Proof-carrying code (later): `lumiverify` checks proof sections before instantiation.
-
-3) Runtime
-- Contract guards trap deterministically on violation (when compiled in).
-- Sandboxing: Wasm memory isolation by default.
-- Host limits: Wasmtime fuel/epoch deadlines, memory/table caps to prevent hangs/DoS.
 
 ## How To Run
 
 - Codegen tests: `cargo test -p lumi-codegen-wasm`
 - Parser tests: `cargo test -p lumi-parser`
 - All tests (workspace): `cargo test --workspace`
-- IT tests (full pipeline): `cargo test -p lumi-codegen-wasm --test full_pipeline`
-- Emit hello.wasm (Phase 1): `cargo run -p lumi-cli -- emit-hello -o tmp/hello.wasm`
-- Parse a Lumi file (Phase 2): `cargo run -p lumi-cli -- parse path/to/file.lumi`
-- Build (const-eval: Int-returning programs with `+ - * /` and calls):
+- Full pipeline test: `cargo test -p lumi-codegen-wasm --test full_pipeline`
+- Build and run samples:
   - `cargo run -p lumi-cli -- build lumi-tests/01_hello.lumi -o tmp/hello_prog.wasm`
-  - `cargo run -p lumi-cli -- build lumi-tests/02_arith.lumi -o tmp/arith.wasm`
-  - Run: `wasmtime --invoke main tmp/arith.wasm`
-  - Validate: `wasm-tools validate tmp/arith.wasm`
+  - `wasmtime --invoke main tmp/hello_prog.wasm`
 
-### Windows (Build & Run)
+### Windows
 
-- Prereqs: Install Rust (MSVC toolchain) and VS Build Tools (C++ workload).
-- Build release binary:
-  - `cargo build -p lumi-cli --release`
-  - Output: `target\release\lumi.exe`
-- Install to PATH (optional):
-  - `cargo install --path crates/cli --bin lumi`
-  - Ensure `%USERPROFILE%\.cargo\bin` is on PATH.
-- Usage:
-  - `lumi emit-hello -o tmp\hello.wasm`
-  - `lumi parse examples\add.lumi`
-  - `lumi build examples\add.lumi -o out\add.wasm --validate`
+- Prereqs: Install Rust (MSVC) and VS Build Tools (C++ workload).
+- Build release: `cargo build -p lumi-cli --release` -> `target\release\lumi.exe`
+- Install to PATH (optional): `cargo install --path crates/cli --bin lumi`
+
+---
 
 ## Git Hooks (Pre-Commit)
 
-- Enable hooks in this repo: `git config core.hooksPath .githooks`
-- The pre-commit hook runs:
-  - `cargo fmt --all -- --check`
-  - `cargo clippy --workspace --all-targets -D warnings`
-  - `cargo test --workspace`
-- Skip toggles:
-  - `SKIP_PRECOMMIT=1` (skip everything)
-  - `SKIP_FMT=1`, `SKIP_CLIPPY=1`, `SKIP_TESTS=1` (skip specific steps)
-- Bypass once: `git commit -n -m "msg"`
+- Enable hooks: `git config core.hooksPath .githooks`
+- Hook runs: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`
+- Skip toggles: `SKIP_PRECOMMIT=1`, `SKIP_FMT=1`, `SKIP_CLIPPY=1`, `SKIP_TESTS=1`
+
+---
 
 ## lumi-tests Samples
 
 - Location: `lumi-tests/`
-- Parse a sample: `cargo run -p lumi-cli -- parse lumi-tests/01_hello.lumi`
-- See `lumi-tests/README.md` for a full list and commands (includes a negative case `06_trailing_call_comma.lumi` that should fail to parse).
+- Quick parse: `cargo run -p lumi-cli -- parse lumi-tests/01_hello.lumi`
+- Includes a negative case: `lumi-tests/06_trailing_call_comma.lumi`
 
 ---
 
 ## Vision
 
-Lumi aspires to be:
-
-- **Simple** — approachable syntax like Python.  
-- **Safe** — formal guarantees like SPARK Ada.  
-- **Portable** — runs anywhere via WebAssembly.  
-- **Proof-oriented** — bugs prevented at compile time, not found at runtime.  
+- Simple - approachable syntax.
+- Safe - formal guarantees.
+- Portable - runs anywhere via WebAssembly.
+- Proof-oriented - prevent bugs before they run.
 
 ---
 
 ## License
 
-Currently private, all rights reserved.  
+Currently private, all rights reserved.
 An open-source license (e.g., MIT or Apache-2.0) may be applied when Lumi is released publicly.
+

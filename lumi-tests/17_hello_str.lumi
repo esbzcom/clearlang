@@ -1,0 +1,2 @@
+fn main() -> Str { "Hello, world!" }
+

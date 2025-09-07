@@ -25,6 +25,9 @@ Test Files
 - `06_trailing_call_comma.lumi`: trailing comma in call args (should fail to parse).
 - `07_bools.lumi`: boolean literals and pure functions returning Bool.
 - `08_main_const.lumi`: minimal program that can be compiled to Wasm (constant main).
+- `15_str_literal.lumi`: defines a function returning `Str` (parse/type only).
+- `16_namespaced_call.lumi`: demonstrates namespaced callee syntax (parse-only).
+- `17_hello_str.lumi`: hello world returning a `Str` from `main` (parse/type only; codegen in Phase 5).
 
 Build From Source (const-eval subset)
 

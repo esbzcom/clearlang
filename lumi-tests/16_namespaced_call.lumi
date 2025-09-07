@@ -1,4 +1,1 @@
-// Phase 4.1 — Namespaced call syntax in callee position
-// Parser accepts; const-eval/codegen not supported for unknown namespaced callee
 fn main() -> Int { std::math::add(1, 2) }
-

@@ -74,6 +74,7 @@ fn type_of<'a>(
     match e {
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
+        Expr::Str(_, _) => Ok(Type::Str),
         Expr::Var(name, sp) => env
             .get(name.as_str())
             .copied()
@@ -136,6 +137,7 @@ fn show_ty(t: Type) -> &'static str {
     match t {
         Type::Int => "Int",
         Type::Bool => "Bool",
+        Type::Str => "Str",
     }
 }
 
@@ -145,6 +147,7 @@ fn ir_ty(t: Type) -> IrType {
     match t {
         Type::Int => IrType::Int,
         Type::Bool => IrType::Bool,
+        Type::Str => IrType::Int, // placeholder until strings have a runtime representation
     }
 }
 
@@ -180,33 +183,40 @@ fn lower_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<IrFu
 }
 
 fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
-    Ok(match e {
+    match e {
         Expr::Int(n, _) => {
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: *n });
-            dst
+            Ok(dst)
         }
         Expr::Bool(b, _) => {
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });
-            dst
+            Ok(dst)
         }
-        Expr::Var(name, _) => *ctx
+        Expr::Str(_, _) => {
+            // Placeholder: represent strings as 0 until runtime is implemented (Phase 5)
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: 0 });
+            Ok(dst)
+        }
+        Expr::Var(name, _) => ctx
             .env
             .get(name.as_str())
-            .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name)))?,
+            .copied()
+            .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name))),
         Expr::Bin { op, lhs, rhs, .. } => {
             let lv = lower_expr(ctx, lhs)?;
             let rv = lower_expr(ctx, rhs)?;
             let dst = fresh(ctx);
             let irop = match op {
                 BinOp::Add => BinOpIR::Add,
-                BinOp::Sub => BinOpIR::Sub,
-                BinOp::Mul => BinOpIR::Mul,
-                BinOp::Div => BinOpIR::Div,
+                BinOpIR::Sub => BinOpIR::Sub,
+                BinOpIR::Mul => BinOpIR::Mul,
+                BinOpIR::Div => BinOpIR::Div,
             };
             ctx.body.push(Instr::IBin { dst, op: irop, lhs: lv, rhs: rv });
-            dst
+            Ok(dst)
         }
         Expr::Call { callee, args, .. } => {
             let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
@@ -221,9 +231,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             // Current language always returns a value; keep Some(dst)
             let dst_opt = Some(dst);
             ctx.body.push(Instr::Call { dst: dst_opt, callee: callee.clone(), args: argv });
-            dst
+            Ok(dst)
         }
-    })
+    }
 }
 
 fn fresh(ctx: &mut LowerCtx<'_>) -> Value {

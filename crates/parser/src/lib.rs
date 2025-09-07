@@ -41,6 +41,7 @@ fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
     choice((
         kw("Int").to(Type::Int),
         kw("Bool").to(Type::Bool),
+        kw("Str").to(Type::Str),
     ))
     .padded()
     .labelled("type")
@@ -126,6 +127,28 @@ fn bool_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     .labelled("bool literal")
 }
 
+fn str_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
+    // Simple string literal with escapes; allows multi-line until closing quote
+    let escape = just('\\').ignore_then(choice((
+        just('\\').to('\\'),
+        just('"').to('"'),
+        just('n').to('\n'),
+        just('t').to('\t'),
+        just('r').to('\r'),
+        just('0').to('\0'),
+    )));
+    let normal = any().filter(|c: &char| *c != '"' && *c != '\\');
+    just('"')
+        .ignore_then(escape.or(normal).repeated().collect::<String>())
+        .then_ignore(just('"'))
+        .map_with(|s, e| {
+            let sp: chumsky::span::SimpleSpan<usize> = e.span();
+            Expr::Str(s, Span { start: sp.start, end: sp.end })
+        })
+        .padded()
+        .labelled("string literal")
+}
+
 fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {
         let call_args = expr
@@ -153,6 +176,7 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         let atom = choice((
             int_lit(),
             bool_lit(),
+            str_lit(),
             expr.clone().delimited_by(
                 just('(').padded().labelled("'('") ,
                 just(')').padded().labelled("')'")

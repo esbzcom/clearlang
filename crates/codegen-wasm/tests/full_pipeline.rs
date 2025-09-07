@@ -54,6 +54,9 @@ fn pipeline_expected_outputs() {
     for c in cases {        
         let src = read_sample(c.file);
         let parsed = parse(&src);
+        if let Err(ref e) = parsed {
+            eprintln!("parse error for {}: {}", c.file, e);
+        }
 
         if !c.parse_ok {
             assert!(parsed.is_err(), "parse should fail for {}", c.file);
@@ -68,11 +71,12 @@ fn pipeline_expected_outputs() {
                 assert_eq!(out, expect, "output mismatch for {}", c.file);
             }
             None => {
-                assert!(
-                    emit_from_ast(&ast).is_err(),
-                    "codegen should not yet support {}",
-                    c.file
-                );
+                match emit_from_ast(&ast) {
+                    Ok(_) => panic!("codegen should not yet support {}", c.file),
+                    Err(err) => {
+                        eprintln!("expected codegen error for {}: {}", c.file, err);
+                    }
+                }
             }
         }
     }

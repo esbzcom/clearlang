@@ -37,9 +37,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Improve parse error messages/spans where useful.
 - [x] More negative tests (unknown idents, reserved keywords).
 
-## Phase 3 — Typer & IR (Next)
+## Phase 3 — Typer & IR (Done)
 
-→ Next focus: Phase 4 — Namespacing + Strings (parse/type) + Std Collections stubs; then Phase 5 runtime.
+→ Current focus: Phase 4.3 — Std Collections (type stubs) and 4.4 — DX; next: Phase 5 — Codegen/Strings runtime.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).

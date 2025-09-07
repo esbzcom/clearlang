@@ -94,3 +94,15 @@ Work Items
 
 Tests
 - E2E IR/codegen tests covering added memory/runtime behaviors; CLI smoke remains green.
+
+---
+
+# Phase 4.1 — Namespacing Progress
+
+Status
+- [x] Parser: accept namespaced call syntax `seg::seg::name(args...)`.
+- [ ] Typer: wire namespaced calls to built-in signatures (tracked under Phase 4.3).
+
+Notes
+- Variables remain simple identifiers (no `::`).
+- Bare paths like `a::b` without `(...)` are rejected (call syntax only).

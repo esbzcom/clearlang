@@ -8,6 +8,13 @@ Types
 - Primitive types: `Int`, `Bool`.
 - Functions: `fn name(params) -> Ret` where params are `(name: Type)` pairs.
 
+Namespacing (::)
+- Calls may use namespaced paths in callee position: `ident ("::" ident)* "(" args ")"`.
+- Example: `std::str::len(s)`, `std::list::push(l, x)`, `std::map::get(m, k)`.
+- Variables and function definitions remain simple identifiers (no `::` in names).
+- Bare paths without `()` (e.g., `std::str::len`) are not expressions and are rejected.
+- Rationale: `::` avoids conflicts with `:` (types) and `.` (future member/method and floats), and is familiar for compile-time paths.
+
 Effects (stub)
 - Accepted: `None` (omitted effect) and `pure`.
 - Rejected: `mut`, `io` (these error with a clear message in this phase).
@@ -42,4 +49,3 @@ Lowering Note (Phase 3.4)
 
 Planned (Phase 3.8)
 - Attach source spans to AST nodes and carry them into typer errors for precise diagnostics.
-

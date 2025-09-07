@@ -42,3 +42,9 @@
 - Phase 4 now covers: namespacing (std::path calls), Strings (parse/type, incl. multi-line), std collections stubs (List/Set/Map) and small DX.
 - Phase 5 now covers: IR→Wasm codegen polish (type dedup), callee indices, memory/runtime for Strings + List first, then Set/Map.
 - Cleaned TODO duplication; kept a single numbered Phase 4–6 plan; README roadmap/status updated accordingly.
+
+## Session 2025-09-07 — Phase 4.1 Start
+
+- Implemented parser support for namespaced path calls (e.g., `std::str::len(x)`), keeping variables as simple identifiers.
+- Added parser tests for namespaced calls and a negative case for bare paths without args.
+- Updated DEVPLAN with Phase 4.1 progress notes; typer/built-in wiring to follow in 4.3.

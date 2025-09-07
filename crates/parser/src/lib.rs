@@ -66,6 +66,24 @@ fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
         .labelled("identifier")
 }
 
+// Parse a namespaced path like `std::str::len` and return it as a single String.
+// This is only used for callees in function calls; variables remain simple idents.
+fn path_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
+    ident_p()
+        .then(
+            (just("::").padded().ignore_then(ident_p()))
+                .repeated()
+                .collect::<Vec<_>>()
+        )
+        .map(|(head, tail)| {
+            if tail.is_empty() { return head; }
+            let mut s = head;
+            for part in tail { s.push_str("::"); s.push_str(&part); }
+            s
+        })
+        .padded()
+}
+
 fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
     // Use an explicit charset to produce a clearer expectation than a generic filter.
     let start = one_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
@@ -119,6 +137,19 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 just(')').padded().labelled("')'")
             );
 
+        // Prefer parsing a namespaced call when parentheses follow a path
+        let call_expr = path_name_p()
+            .then(call_args.clone())
+            .map_with(|(name, args), e| {
+                let sp: chumsky::span::SimpleSpan<usize> = e.span();
+                Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } }
+            });
+
+        let var_expr = ident_p().map_with(|name, e| {
+            let sp: chumsky::span::SimpleSpan<usize> = e.span();
+            Expr::Var(name, Span { start: sp.start, end: sp.end })
+        });
+
         let atom = choice((
             int_lit(),
             bool_lit(),
@@ -126,15 +157,8 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 just('(').padded().labelled("'('") ,
                 just(')').padded().labelled("')'")
             ),
-            ident_p()
-                .then(call_args.or_not())
-                .map_with(|(name, args), e| {
-                    let sp: chumsky::span::SimpleSpan<usize> = e.span();
-                    match args {
-                        Some(args) => Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } },
-                        None => Expr::Var(name, Span { start: sp.start, end: sp.end }),
-                    }
-                }),
+            call_expr,
+            var_expr,
         ))
         .padded()
         .labelled("expression")

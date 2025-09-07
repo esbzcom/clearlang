@@ -191,7 +191,7 @@ fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         // multiplicative (*, /)
         fn span_of(e: &Expr) -> (usize, usize) {
             match e {
-                Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
+                Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Str(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
                 Expr::Bin { span, .. } | Expr::Call { span, .. } => (span.start, span.end),
             }
         }

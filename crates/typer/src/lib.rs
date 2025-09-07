@@ -48,7 +48,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     if body_ty != f.ret {
         // Try to use the body's span to annotate the mismatch
         let (s, e) = match &f.body {
-            Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
+            Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Str(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
             Expr::Bin { span, .. } | Expr::Call { span, .. } => (span.start, span.end),
         };
         bail!(
@@ -108,8 +108,8 @@ fn type_of<'a>(
                 if p.ty != at {
                     bail!(
                         "at {}..{}: arg {} type mismatch calling `{}`: expected `{}`, found `{}`",
-                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.start },
-                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.end },
+                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Str(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.start },
+                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Str(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.end },
                         i,
                         callee,
                         show_ty(p.ty),
@@ -211,9 +211,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             let dst = fresh(ctx);
             let irop = match op {
                 BinOp::Add => BinOpIR::Add,
-                BinOpIR::Sub => BinOpIR::Sub,
-                BinOpIR::Mul => BinOpIR::Mul,
-                BinOpIR::Div => BinOpIR::Div,
+                BinOp::Sub => BinOpIR::Sub,
+                BinOp::Mul => BinOpIR::Mul,
+                BinOp::Div => BinOpIR::Div,
             };
             ctx.body.push(Instr::IBin { dst, op: irop, lhs: lv, rhs: rv });
             Ok(dst)

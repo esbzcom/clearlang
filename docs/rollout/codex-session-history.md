@@ -48,3 +48,8 @@
 - Implemented parser support for namespaced path calls (e.g., `std::str::len(x)`), keeping variables as simple identifiers.
 - Added parser tests for namespaced calls and a negative case for bare paths without args.
 - Updated DEVPLAN with Phase 4.1 progress notes; typer/built-in wiring to follow in 4.3.
+
+## Session 2025-09-07 — Phase 4.1 Complete
+
+- Added typer negative test to confirm unknown namespaced callees yield clear spanful errors.
+- Updated TODO to mark 4.1 fully done (parser + typer acceptance of namespaced callees).

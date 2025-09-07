@@ -83,7 +83,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 - 4.1 Namespacing (no tech debt)
   - [x] Add namespaced call syntax (paths): `std::str::len(s)`, `std::list::push(l,x)`, `std::map::get(m,k)`, `std::set::contains(s,x)`.
-  - [ ] Typer: accept namespaced callees as exact names (parser done; built-ins via 4.3).
+  - [x] Typer: accept namespaced callees as exact names (parser done; built-ins via 4.3).
 
 - 4.2 Strings (parse/type only)
   - [ ] Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.

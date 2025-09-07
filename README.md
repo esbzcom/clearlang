@@ -8,7 +8,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 ## Core Ideas
 
-- Dependent/refinement types: encode logical properties in types (e.g., `type Nat = Int where n >= 0`).
+- Dependently-typed core + refinement types: types can depend on values; encode logical properties in types (e.g., `type Nat = Int where n >= 0`).
 - Contracts (`require`/`ensure`): pre/postconditions proved statically or guarded at runtime.
 - Effects (`pure`, `mut`, `io`): clearly separate pure computation, local mutation, and I/O.
 - Totality: pure functions must terminate; loops require invariants or bounds.
@@ -159,4 +159,3 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 Currently private, all rights reserved.
 An open-source license (e.g., MIT or Apache-2.0) may be applied when Lumi is released publicly.
-

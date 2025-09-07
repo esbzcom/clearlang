@@ -53,7 +53,7 @@ fn errors_on_binop_right_operand_non_int() {
 fn errors_on_duplicate_function_names() {
     let src = r#"
         pure function f(a: Int) -> Int { a }
-        fn f(b: Int) -> Int { b }
+        function f(b: Int) -> Int { b }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail duplicate function name");

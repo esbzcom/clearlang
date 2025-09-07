@@ -2,9 +2,9 @@ use lumi_parser::parse;
 
 #[test]
 fn errors_on_reserved_keyword_as_func_name() {
-    // Using a reserved keyword `fn` as an identifier should fail to parse.
+    // Using a reserved keyword `function` as an identifier should fail to parse.
     let src = r#"
-        pure function fn(a: Int) -> Int { a }
+        pure function function(a: Int) -> Int { a }
     "#;
     parse(src).expect_err("should reject reserved keyword as function name");
 }

@@ -58,7 +58,7 @@ fn parses_nested_calls_and_precedence() {
 #[test]
 fn parses_multi_line_and_spaces_in_calls() {
     let src = r#"
-        fn main() -> Int {
+        function main() -> Int {
             add(
                 10,
                 (2

@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use lumi_codegen_wasm::{emit_trivial_main, emit_from_ir_with_opts, CodegenOpts};
 use lumi_typer::check as type_check;
+use lumi_ir::IrType;
 use lumi_parser::parse as parse_src;
 use wasmtime as wt;
 
@@ -90,6 +91,15 @@ fn main() -> Result<()> {
             // Phase 3.5: type-check and lower to IR, then codegen IR → Wasm
             let ir = type_check(&ast).context("type-check failed")?;
             eprintln!("type-checked and lowered to IR");
+            // Require a main function returning Int (phase constraint)
+            match ir.funcs.iter().find(|f| f.name == "main") {
+                Some(f) => {
+                    if f.ret != Some(IrType::Int) || !f.params.is_empty() {
+                        anyhow::bail!("only `main() -> Int` is supported in this phase");
+                    }
+                }
+                None => anyhow::bail!("missing `main` function"),
+            }
             let bytes = emit_from_ir_with_opts(&ir, CodegenOpts { debug_names })
                 .context("codegen (IR→Wasm) failed")?;
             eprintln!("generated Wasm ({} bytes)", bytes.len());

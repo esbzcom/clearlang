@@ -68,7 +68,7 @@ fn accepts_simple_recursion_typewise() {
 #[test]
 fn accepts_none_and_pure_effects() {
     let src = r#"
-        fn id(x: Int) -> Int { x }
+        function id(x: Int) -> Int { x }
         pure function pid(x: Int) -> Int { x }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
@@ -78,13 +78,13 @@ fn accepts_none_and_pure_effects() {
 #[test]
 fn rejects_mut_and_io_effects() {
     let src_mut = r#"
-        mut fn f(x: Int) -> Int { x }
+        mut function f(x: Int) -> Int { x }
     "#;
     let err = check(&parse(src_mut).expect("parsed")).expect_err("mut not allowed");
     assert!(format!("{err:#}").contains("effect `mut`"));
 
     let src_io = r#"
-        io fn g(x: Int) -> Int { x }
+        io function g(x: Int) -> Int { x }
     "#;
     let err = check(&parse(src_io).expect("parsed")).expect_err("io not allowed");
     assert!(format!("{err:#}").contains("effect `io`"));

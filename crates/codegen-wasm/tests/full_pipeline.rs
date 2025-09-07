@@ -47,6 +47,8 @@ fn pipeline_expected_outputs() {
         Case { file: "12_zero_arg_fn.lumi", parse_ok: true,  expected: Some(7) },
         Case { file: "13_bool_arith_invalid.lumi", parse_ok: true,  expected: None },
         Case { file: "14_arity_mismatch.lumi", parse_ok: true,  expected: None },
+        Case { file: "15_str_literal.lumi", parse_ok: true,  expected: None },
+        Case { file: "16_namespaced_call.lumi", parse_ok: true,  expected: None },
     ];
 
     for c in cases {        

@@ -1,0 +1,3 @@
+// Phase 4.2 — String literal parse/type only (no codegen)
+pure fn greeting() -> Str { "hello\nworld" }
+

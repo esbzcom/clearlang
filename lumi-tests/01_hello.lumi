@@ -1,3 +1,2 @@
-pure fn add2(a: Int, b: Int) -> Int { a + b }
-fn main() -> Int { add2(20, 22) }
-
+pure function add2(a: Int, b: Int) -> Int { a + b }
+function main() -> Int { add2(20, 22) }

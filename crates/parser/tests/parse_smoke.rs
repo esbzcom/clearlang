@@ -3,8 +3,8 @@ use lumi_parser::parse;
 #[test]
 fn parses_add2_and_main() {
     let src = r#"
-        pure fn add2(a: Int, b: Int) -> Int { a + b }
-        fn main() -> Int { add2(20, 22) }
+        pure function add2(a: Int, b: Int) -> Int { a + b }
+        function main() -> Int { add2(20, 22) }
     "#;
     let ast = parse(src).expect("parse ok");
     assert_eq!(ast.funcs.len(), 2);
@@ -14,7 +14,7 @@ fn parses_add2_and_main() {
 
 #[test]
 fn parses_add() {
-    let src = "pure fn add(x: Int, y: Int) -> Int { x + y }";
+    let src = "pure function add(x: Int, y: Int) -> Int { x + y }";
     let prog = parse(src).expect("should parse");
     assert_eq!(prog.funcs.len(), 1);
     assert_eq!(prog.funcs[0].name, "add");
@@ -23,8 +23,8 @@ fn parses_add() {
 #[test]
 fn parses_call_expr() {
     let src = r#"
-        fn main() -> Int { add(1, (2 + 3) * 4) }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1, (2 + 3) * 4) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
     let prog = parse(src).expect("should parse");
     assert_eq!(prog.funcs.len(), 2);
@@ -33,10 +33,10 @@ fn parses_call_expr() {
 #[test]
 fn parses_nested_calls_and_precedence() {
     let src = r#"
-        fn main() -> Int {
+        function main() -> Int {
             add(1, add(2, 3) * 4 + (5 * add(6, 7)))
         }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     let prog = parse(src).expect("should parse");
@@ -78,10 +78,10 @@ fn parses_call_chain_as_argument() {
     // If your language allows using call results inside other calls
     // e.g., f(g(h(1,2), 3), 4)
     let src = r#"
-        fn main() -> Int { f(g(h(1, 2), 3), 4) }
-        pure fn f(a: Int, b: Int) -> Int { a + b }
-        pure fn g(a: Int, b: Int) -> Int { a * b }
-        pure fn h(a: Int, b: Int) -> Int { a - b }
+        function main() -> Int { f(g(h(1, 2), 3), 4) }
+        pure function f(a: Int, b: Int) -> Int { a + b }
+        pure function g(a: Int, b: Int) -> Int { a * b }
+        pure function h(a: Int, b: Int) -> Int { a - b }
     "#;
 
     let prog = parse(src).expect("should parse");
@@ -92,8 +92,8 @@ fn parses_call_chain_as_argument() {
 fn parses_multiple_args_and_parentheses() {
     // Stress commas/parentheses and precedence: add(1, (2 + 3) * (4 + 5))
     let src = r#"
-        fn main() -> Int { add(1, (2 + 3) * (4 + 5)) }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1, (2 + 3) * (4 + 5)) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     parse(src).expect("should parse");
@@ -104,8 +104,8 @@ fn parses_multiple_args_and_parentheses() {
 #[test]
 fn errors_on_missing_closing_paren_in_call() {
     let src = r#"
-        fn main() -> Int { add(1, 2 }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1, 2 }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     let err = parse(src).expect_err("should fail on missing ')'");
@@ -116,8 +116,8 @@ fn errors_on_missing_closing_paren_in_call() {
 #[test]
 fn errors_on_missing_comma_between_args() {
     let src = r#"
-        fn main() -> Int { add(1 2) }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1 2) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     parse(src).expect_err("should fail on missing comma");
@@ -128,8 +128,8 @@ fn errors_on_missing_comma_between_args() {
 fn errors_on_trailing_comma_in_call_if_disallowed() {
     // Enable this only if your grammar forbids trailing commas.
     let src = r#"
-        fn main() -> Int { add(1, 2,) }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1, 2,) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     let _ = parse(src).expect_err("should fail on trailing comma (if not supported)");
@@ -142,8 +142,8 @@ fn errors_on_trailing_comma_in_call_if_disallowed() {
 fn typer_errors_on_arity_mismatch() {
     // Parser should accept; typer should reject wrong arity.
     let _src = r#"
-        fn main() -> Int { add(1) }
-        pure fn add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
 
     // let prog = parse(src).expect("parsed");
@@ -155,7 +155,7 @@ fn typer_errors_on_arity_mismatch() {
 #[ignore] // enable after typer is in place
 fn typer_errors_on_unknown_function() {
     let _src = r#"
-        fn main() -> Int { missing(1, 2) }
+        function main() -> Int { missing(1, 2) }
     "#;
 
     // let prog = parse(src).expect("parsed");

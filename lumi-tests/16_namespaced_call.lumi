@@ -1,1 +1,1 @@
-fn main() -> Int { std::math::add(1, 2) }
+function main() -> Int { std::math::add(1, 2) }

@@ -1,5 +1,5 @@
-pure fn add(x: Int, y: Int) -> Int { x + y }
-fn main() -> Int {
+pure function add(x: Int, y: Int) -> Int { x + y }
+function main() -> Int {
     add(
         10,
         (2
@@ -7,4 +7,3 @@ fn main() -> Int {
         * 4
     )
 }
-

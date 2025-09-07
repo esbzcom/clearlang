@@ -1,3 +1,2 @@
-pure fn f() -> Int { 5 }
-fn main() -> Int { f() + 2 }
-
+pure function f() -> Int { 5 }
+function main() -> Int { f() + 2 }

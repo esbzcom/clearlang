@@ -5,8 +5,8 @@ use lumi_typer::check;
 #[test]
 fn errors_on_arity_mismatch_too_many_args() {
     let src = r#"
-        pure fn add(a: Int, b: Int) -> Int { a + b }
-        fn main() -> Int { add(1, 2, 3) }
+        pure function add(a: Int, b: Int) -> Int { a + b }
+        function main() -> Int { add(1, 2, 3) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail arity check (too many)");
@@ -17,8 +17,8 @@ fn errors_on_arity_mismatch_too_many_args() {
 #[test]
 fn errors_on_arity_mismatch_zero_arg_fn_called_with_arg() {
     let src = r#"
-        pure fn f() -> Int { 1 }
-        fn main() -> Int { f(1) }
+        pure function f() -> Int { 1 }
+        function main() -> Int { f(1) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail arity check (zero-arg)");
@@ -29,7 +29,7 @@ fn errors_on_arity_mismatch_zero_arg_fn_called_with_arg() {
 #[test]
 fn errors_on_return_type_mismatch_int_decl_bool_body() {
     let src = r#"
-        pure fn bad() -> Int { true }
+        pure function bad() -> Int { true }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail return type mismatch");
@@ -40,7 +40,7 @@ fn errors_on_return_type_mismatch_int_decl_bool_body() {
 #[test]
 fn errors_on_binop_right_operand_non_int() {
     let src = r#"
-        pure fn bad(a: Int) -> Int { a + true }
+        pure function bad(a: Int) -> Int { a + true }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail right operand int check");
@@ -52,7 +52,7 @@ fn errors_on_binop_right_operand_non_int() {
 #[test]
 fn errors_on_duplicate_function_names() {
     let src = r#"
-        pure fn f(a: Int) -> Int { a }
+        pure function f(a: Int) -> Int { a }
         fn f(b: Int) -> Int { b }
     "#;
     let ast = parse(src).expect("parsed");
@@ -64,8 +64,8 @@ fn errors_on_duplicate_function_names() {
 #[test]
 fn errors_on_second_arg_type_mismatch() {
     let src = r#"
-        pure fn add(x: Int, y: Int) -> Int { x + y }
-        fn main() -> Int { add(1, true) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1, true) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail arg type mismatch");
@@ -76,7 +76,7 @@ fn errors_on_second_arg_type_mismatch() {
 #[test]
 fn errors_on_unknown_namespaced_function() {
     let src = r#"
-        fn main() -> Int { std::foo::bar(42) }
+        function main() -> Int { std::foo::bar(42) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail unknown namespaced function");
@@ -90,7 +90,7 @@ fn errors_on_unknown_namespaced_function() {
 #[test]
 fn errors_on_return_type_mismatch_str_decl_int_body() {
     let src = r#"
-        pure fn bad() -> Str { 123 }
+        pure function bad() -> Str { 123 }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail return type mismatch (Str vs Int)");
@@ -105,8 +105,8 @@ fn errors_on_return_type_mismatch_str_decl_int_body() {
 #[test]
 fn errors_on_arg_type_mismatch_with_str() {
     let src = r#"
-        pure fn add(x: Int, y: Int) -> Int { x + y }
-        fn main() -> Int { add("hi", 2) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add("hi", 2) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail arg type mismatch with Str");

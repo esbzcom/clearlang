@@ -5,7 +5,7 @@ use lumi_typer::check;
 #[test]
 fn accepts_bool_return_function() {
     let src = r#"
-        pure fn t() -> Bool { true }
+        pure function t() -> Bool { true }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
@@ -14,7 +14,7 @@ fn accepts_bool_return_function() {
 #[test]
 fn errors_on_return_type_mismatch() {
     let src = r#"
-        pure fn bad() -> Bool { 1 }
+        pure function bad() -> Bool { 1 }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail return type mismatch");
@@ -25,7 +25,7 @@ fn errors_on_return_type_mismatch() {
 #[test]
 fn errors_on_unknown_variable() {
     let src = r#"
-        pure fn f(a: Int) -> Int { a + b }
+        pure function f(a: Int) -> Int { a + b }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail unknown variable");
@@ -36,8 +36,8 @@ fn errors_on_unknown_variable() {
 #[test]
 fn errors_on_call_arg_type_mismatch() {
     let src = r#"
-        pure fn id(x: Int) -> Int { x }
-        fn main() -> Int { id(true) }
+        pure function id(x: Int) -> Int { x }
+        function main() -> Int { id(true) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail arg type mismatch");
@@ -48,7 +48,7 @@ fn errors_on_call_arg_type_mismatch() {
 #[test]
 fn errors_on_duplicate_parameter_names() {
     let src = r#"
-        pure fn f(a: Int, a: Int) -> Int { a }
+        pure function f(a: Int, a: Int) -> Int { a }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail duplicate parameter");
@@ -59,7 +59,7 @@ fn errors_on_duplicate_parameter_names() {
 #[test]
 fn accepts_simple_recursion_typewise() {
     let src = r#"
-        pure fn loop1(n: Int) -> Int { loop1(n) }
+        pure function loop1(n: Int) -> Int { loop1(n) }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
@@ -69,7 +69,7 @@ fn accepts_simple_recursion_typewise() {
 fn accepts_none_and_pure_effects() {
     let src = r#"
         fn id(x: Int) -> Int { x }
-        pure fn pid(x: Int) -> Int { x }
+        pure function pid(x: Int) -> Int { x }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }

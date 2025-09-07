@@ -16,8 +16,8 @@ fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {
 #[test]
 fn ir_pipeline_hello() {
     let src = r#"
-        pure fn add2(a: Int, b: Int) -> Int { a + b }
-        fn main() -> Int { add2(20, 22) }
+        pure function add2(a: Int, b: Int) -> Int { a + b }
+        function main() -> Int { add2(20, 22) }
     "#;
     let ast = parse(src).expect("parse ok");
     let ir = check(&ast).expect("type-check+lower ok");
@@ -25,4 +25,3 @@ fn ir_pipeline_hello() {
     let out = run_wasm_and_get_i32_result(&wasm);
     assert_eq!(out, 42);
 }
-

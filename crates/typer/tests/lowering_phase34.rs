@@ -6,7 +6,7 @@ use lumi_ir::{Instr, IrType, BinOpIR, Value};
 #[test]
 fn lowers_add_function() {
     let src = r#"
-        pure fn add(a: Int, b: Int) -> Int { a + b }
+        pure function add(a: Int, b: Int) -> Int { a + b }
     "#;
     let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
     assert_eq!(m.funcs.len(), 1);
@@ -34,8 +34,8 @@ fn lowers_add_function() {
 #[test]
 fn lowers_call_and_const() {
     let src = r#"
-        pure fn id(x: Int) -> Int { x }
-        fn main() -> Int { id(42) }
+        pure function id(x: Int) -> Int { x }
+        function main() -> Int { id(42) }
     "#;
     let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
     assert_eq!(m.funcs.len(), 2);
@@ -61,4 +61,3 @@ fn lowers_call_and_const() {
     }
     matches!(&main.body[2], Instr::Ret { val: Value(1) });
 }
-

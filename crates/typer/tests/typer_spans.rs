@@ -5,7 +5,7 @@ use lumi_typer::check;
 #[test]
 fn errors_include_span_unknown_var() {
     let src = r#"
-        pure fn f(a: Int) -> Int { a + b }
+        pure function f(a: Int) -> Int { a + b }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail unknown variable");
@@ -18,8 +18,8 @@ fn errors_include_span_unknown_var() {
 #[test]
 fn errors_include_span_call_arity() {
     let src = r#"
-        pure fn add(x: Int, y: Int) -> Int { x + y }
-        fn main() -> Int { add(1) }
+        pure function add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail arity mismatch");
@@ -28,4 +28,3 @@ fn errors_include_span_call_arity() {
     assert!(s.contains("at "));
     assert!(s.contains(".."));
 }
-

@@ -27,7 +27,7 @@ fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
 pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
     effect_p()
         .or_not()
-        .then_ignore(choice((kw("fn"), kw("function"))))
+        .then_ignore(kw("function"))
         .then(func_name_p())
         .then(params_p())
         .then_ignore(just("->").padded())

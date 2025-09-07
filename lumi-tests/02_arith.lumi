@@ -1,2 +1,1 @@
-fn main() -> Int { (2 + 3) * 4 - 5 }
-
+function main() -> Int { (2 + 3) * 4 - 5 }

@@ -1,1 +1,1 @@
-pure fn greeting() -> Str { "hello\nworld" }
+pure function greeting() -> Str { "hello\nworld" }

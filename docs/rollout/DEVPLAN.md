@@ -204,3 +204,38 @@ Testing & Acceptance Criteria
 
 Out of Scope (Phase 6 follow-ups)
 - Loops/arrays/invariants, effectful VCs, interprocedural postcondition propagation, solver integration and proof re-checker.
+
+---
+
+# Phase 6 — Proof Signatures & Anchoring (Design)
+
+Principles
+- Simple Is Best: start with offline, file-level signatures; defer blockchain anchoring.
+- Prove Correct: signatures cover the exact bytes of VCs/proofs and the Wasm module; verification re-checks proofs, then signatures.
+- AI-Friendly: canonical JSON for payloads, stable schema and codes.
+
+Signing Scope & Payloads
+- Scopes: `proofs` (all VC+proof artifacts), `module` (Wasm bytes), or `both`.
+- Canonical payload (JSON, JCS canonicalization):
+  - `{ module_hash, proofs_hash, toolchain, timestamp, scope }`
+  - Hashes: SHA-256 over exact byte sequences; `module_hash` over `.wasm` bytes; `proofs_hash` over concatenated VC/proof artifacts in lexicographic `vc_id` order.
+- Signature object:
+  - `{ alg: "Ed25519", key_id, payload_hash, sig, signer_meta }`.
+
+CLI Additions
+- Build/sign:
+  - `lumi build file.lumi --emit-vcs vcs.json [--emit-proof proofs/] --sign --key key.pem --key-id KEY --sign-scope proofs|module|both --sig-out sig.json`
+- Verify:
+  - `lumi verify out.wasm --sig sig.json --pubkey pub.pem [--vcs vcs.json] [--proofs proofs/]`
+  - Steps: validate Wasm → optionally re-check proofs → verify signature over declared scope.
+
+PCW Section (extend)
+- `lumi.proof` v1 adds `signatures: [{ alg, key_id, payload_hash, sig, scope }]` and `module_hash` fields.
+- Keep embeddings optional and gated behind flags; default remains off.
+
+Anchoring (Optional, later)
+- Registry: post `sha256(signature_object)` to an on-chain registry (EVM suggested) with a URI to artifacts (IPFS/https). Not in Phase 6 scope.
+
+Acceptance
+- Deterministic `module_hash` reproducible across machines.
+- `lumi verify` validates signature and (when artifacts are provided) re-checks proofs before accepting.

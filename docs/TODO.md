@@ -1,45 +1,45 @@
-# Lumi TODO
+﻿# Lumi TODO
 
-A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
+A focused, actionable checklist to move from Phase 2 â†’ Phase 3 and beyond.
 
-## Phase 0 — Workspace & Toolchain (Done)
+## Phase 0 â€” Workspace & Toolchain (Done)
 
 - [x] Set up Rust toolchain and Cargo workspace.
 - [x] Add crates: `cli`, `parser`, `ast`, `typer`, `ir`, `codegen-wasm`.
 - [x] Install and use Wasmtime and `wasm-tools` locally.
 
-## Phase 1 — Hello WASM (Done)
+## Phase 1 â€” Hello WASM (Done)
 
 - [x] Implement `emit_trivial_main` producing `main() -> i32` returning 42.
 - [x] Add CLI `emit-hello` subcommand writing `hello.wasm` (creates parent dirs).
 - [x] Validate with `wasm-tools validate` and run with Wasmtime.
 - [x] Add tests to check Wasm header/export and `i32.const 42`.
 
-## Phase 2 — Parser (Done)
+## Phase 2 â€” Parser (Done)
 
 2.1 Syntax & Literals
 - [x] Basic syntax: functions, parameters (`name: Type`), Int/Bool types.
 - [x] Literals: integers, `true`/`false` (Bool in AST).
 
 2.2 Calls & Commas
-- [x] Function calls with comma‑separated args; missing comma errors.
+- [x] Function calls with commaâ€‘separated args; missing comma errors.
 - [x] Trailing comma policy: allowed in parameter lists, disallowed in call args.
 
 2.3 Precedence & Grouping
-- [x] Operator precedence: `* /` > `+ -`; left‑associative.
-- [x] Parentheses for grouping, multi‑line formatting.
+- [x] Operator precedence: `* /` > `+ -`; leftâ€‘associative.
+- [x] Parentheses for grouping, multiâ€‘line formatting.
 
 2.4 Tooling & Samples
-- [x] CLI `parse` subcommand pretty‑prints AST.
+- [x] CLI `parse` subcommand prettyâ€‘prints AST.
 - [x] lumi-tests samples for positive and negative cases.
 
 2.5 Error Coverage (Optional)
 - [x] Improve parse error messages/spans where useful.
 - [x] More negative tests (unknown idents, reserved keywords).
 
-## Phase 3 — Typer & IR (Done)
+## Phase 3 â€” Typer & IR (Done)
 
-→ Current focus: Phase 4.3 — Std Collections (type stubs) and 4.4 — DX; next: Phase 5 — Codegen/Strings runtime.
+â†’ Current focus: Phase 4.3 â€” Std Collections (type stubs) and 4.4 â€” DX; next: Phase 5 â€” Codegen/Strings runtime.
 
 3.1 Typer Core
 - [x] Function env: collect signatures (name, params, ret, effect).
@@ -51,16 +51,16 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
  - [x] Reject Bool arithmetic; ensure function bodies match return types.
 
 3.3 IR Shape
-- [x] Minimal SSA‑like IR in `crates/ir` (Function, Instr, Type; single block for now).
+- [x] Minimal SSAâ€‘like IR in `crates/ir` (Function, Instr, Type; single block for now).
 - [x] Instrs: `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, `Ret`.
  - [x] Unit tests: construct simple functions and call variants.
 
 3.4 Lowering
-- [x] Lower AST → IR guided by typer; preserve minimal names/locals.
+- [x] Lower AST â†’ IR guided by typer; preserve minimal names/locals.
 
 3.5 Integration
-- [x] CLI `build`: parse → type‑check → lower to IR → emit Wasm.
-- [x] Codegen replaces const‑eval; keep const‑eval behind a feature flag (optional).
+- [x] CLI `build`: parse â†’ typeâ€‘check â†’ lower to IR â†’ emit Wasm.
+- [x] Codegen replaces constâ€‘eval; keep constâ€‘eval behind a feature flag (optional).
  - [x] Add `--validate` flag to run `wasm-tools validate` on outputs.
  
 
@@ -71,29 +71,29 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 3.7 Docs
 - [x] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
-- [x] Update README “Current Status” to mark Phase 3 in progress.
+- [x] Update README â€œCurrent Statusâ€ to mark Phase 3 in progress.
 
 3.8 Diagnostics & Spans
 - [x] Attach source spans in AST via chumsky for identifiers and expressions.
 - [x] Propagate spans into typer errors (unknown var/fn, arity, return/type mismatch).
 - [x] Add tests that assert span presence/format in error messages.
-- [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
+- [x] Gate Phase 4 switch (IRâ†’Wasm as default) on basic span coverage to avoid tech debt.
 
-## Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations
+## Phase 4 â€” Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations
 
 - 4.1 Namespacing (no tech debt)
   - [x] Add namespaced call syntax (paths): `std::str::len(s)`, `std::list::push(l,x)`, `std::map::get(m,k)`, `std::set::contains(s,x)`.
   - [x] Typer: accept namespaced callees as exact names (parser done; built-ins via 4.3).
 
 - 4.2 Strings (parse/type only)
-  - [x] Add `Type::Str` and `Expr::Str` with escapes and multi‑line string literal support.
-  - [x] Typer: `std::str` built‑ins (len/concat/eq) for strings.
-  - [x] Typer: make `Str` first‑class in params/returns and literals.
-  - [x] Tests: single‑line, multi‑line, escapes, span diagnostics.
+  - [x] Add `Type::Str` and `Expr::Str` with escapes and multiâ€‘line string literal support.
+  - [x] Typer: `std::str` builtâ€‘ins (len/concat/eq) for strings.
+  - [x] Typer: make `Str` firstâ€‘class in params/returns and literals.
+  - [x] Tests: singleâ€‘line, multiâ€‘line, escapes, span diagnostics.
   - [x] DX: Split parser into modules to unblock strings and path growth (`tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; `lib.rs` wires them).
   - [x] Syntax: adopt `function` keyword exclusively (remove `fn`); update parser, tests, and docs for clarity and readability.
   - [ ] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
-  - [ ] Rename Str→String: one‑shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
+  - [ ] Rename Strâ†’String: oneâ€‘shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
 
 - 4.3 Std Collections (type stubs only)
   - [ ] Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.
@@ -101,8 +101,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
         `std::list::{new,with_capacity,len,get,set,push,pop,slice}`;
         `std::set::{new,len,insert,remove,contains}`;
         `std::map::{new,len,insert,remove,get,contains}`.
-  - [ ] No codegen/runtime yet; only enable type‑checking.
-  - [ ] DX: Split typer — move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
+  - [ ] No codegen/runtime yet; only enable typeâ€‘checking.
+  - [ ] DX: Split typer â€” move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
 
 - 4.4 Small Optimizations & DX
   - [x] Optional Wasm name section for function names (`--debug-names`).
@@ -113,10 +113,10 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
   
 
-## Phase 5 — Codegen IR → Wasm
+## Phase 5 â€” Codegen IR â†’ Wasm
 
 DX Prep
-- [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
+- [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IRâ†’Wasm encoder); re-export from `lib.rs`.
 
 5.1 Module & Signatures
 - [ ] Types, function indices, and exports.
@@ -129,9 +129,9 @@ DX Prep
 - [ ] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
 - [ ] Switch calls to use callee indices; update IR lowering accordingly (resolve names to indices).
 
-5.4 Replace Const‑Eval
-- [ ] Switch CLI build to IR→Wasm path by default; keep const‑eval for quick checks.
- - [ ] Remove const‑eval fallback once IR path is stable (optional cleanup).
+5.4 Replace Constâ€‘Eval
+- [ ] Switch CLI build to IRâ†’Wasm path by default; keep constâ€‘eval for quick checks.
+ - [ ] Remove constâ€‘eval fallback once IR path is stable (optional cleanup).
 
 5.5 Tests
 - [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
@@ -143,13 +143,20 @@ DX Prep
 
 6.2 Typer Rules
 - [ ] Enforce effects and basic purity constraints.
-- [ ] Generate placeholders for verification conditions (VCs).
+- [ ] Allow multiple `require`/`ensure` (conjoined semantics).
+- [ ] Generate Verification Conditions (VCs) for pure, expression-bodied functions.
+- [ ] CLI: `--emit-vcs` outputs stable JSON (function, vc_id, pre, post, smt2, status).
 
 6.3 Runtime Guards
 - [ ] Lower contracts to guards that trap on violation.
 
 6.4 Metadata & Proofs
-- [ ] Emit custom sections for contracts/effects/VCs; plan `lumiverify`.
+- [ ] Emit `lumi.proof` custom section v1 (contracts/effects/VCs; optional proofs).
+- [ ] Add offline signatures (Ed25519):
+      - CLI build flags: `--sign --key --key-id --sign-scope proofs|module|both --sig-out`.
+      - CLI verify: `lumi verify --sig --pubkey [--vcs --proofs]`.
+- [ ] Canonical payloads (JCS) with SHA-256 hashes: `module_hash`, `proofs_hash`.
+- [ ] Plan `lumiverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
 
 ## Safety & Tooling
 
@@ -166,8 +173,9 @@ DX Prep
 - [ ] Add `cargo xtask` or Makefile for common flows (build/validate/run).
 - [ ] Consistent error types and messages across crates.
 
-## Nice‑to‑Have (Backlog)
+## Nice-to-Have (Backlog)
 
 - [ ] WASI `print` intrinsic (Phase 8) for observable output.
 - [ ] Arrays + while loops with invariants (Phase 7).
-- [ ] Proof‑carrying Wasm prototype (`lumiverify`) (Phase 10).
+- [ ] Proof-carrying Wasm prototype (`lumiverify`) (Phase 10).
+- [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).

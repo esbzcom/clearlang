@@ -74,7 +74,8 @@ Work Items
 - Strings: `Type::Str`, `Expr::Str` with escapes and multi-line; typer rules for eq/concat in `std::str`; tests (escapes/spans).
 - Collections: define `List<T>`, `Set<T>`, `Map<K,V>`, `Option<T>`, `Result<T,E>`; expose minimal `std::list`, `std::set`, `std::map` APIs to typer.
 - DX: preallocation in parser/typer; shared Wasmtime Engine in tests; release profile tuning; verbose-gated logs.
- - DX (parser split): extract `tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; wire via `lib.rs` (do before/with Strings).
+- DX (parser split): extract `tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; wire via `lib.rs` (do before/with Strings).
+   - Status: completed.
  - DX (typer split): separate typing rules (`check.rs`) from IR lowering (`lower.rs`) to prep for `Str` and collections.
  - DX (CLI refactor): when adding `--verbose`, split subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 

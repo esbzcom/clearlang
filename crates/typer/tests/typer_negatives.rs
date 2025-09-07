@@ -76,13 +76,13 @@ fn errors_on_second_arg_type_mismatch() {
 #[test]
 fn errors_on_unknown_namespaced_function() {
     let src = r#"
-        fn main() -> Int { std::str::len(42) }
+        fn main() -> Int { std::foo::bar(42) }
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail unknown namespaced function");
     let s = format!("{err:#}");
     assert!(s.contains("unknown function"), "unexpected: {s}");
-    assert!(s.contains("std::str::len"), "unexpected: {s}");
+    assert!(s.contains("std::foo::bar"), "unexpected: {s}");
     assert!(s.contains("at ") && s.contains(".."), "missing span: {s}");
 }
 

@@ -106,6 +106,18 @@ impl TyperError {
             0,
         )
     }
+
+    pub fn collections_unavailable(callee: &str, span: Span) -> Self {
+        Self::new(
+            "T101",
+            format!(
+                "at {}..{}: collections require generics/ADTs; `{}` is planned in later Phase 4.3 slices",
+                span.start, span.end, callee
+            ),
+            span.start,
+            span.end,
+        )
+    }
 }
 
 impl std::fmt::Display for TyperError {

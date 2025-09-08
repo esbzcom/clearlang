@@ -97,9 +97,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 - 4.3 Std Collections (staged, type-only)
   - 4.3A — Collections Strict Errors (Option A)
-    - [ ] Typer: detect `std::list/*`, `std::set/*`, `std::map/*` and emit one clear, spanful error
-          (e.g., code `T101` "collections require generics/ADTs; planned in Phase X").
-    - [ ] Tests: calls parse; type errors return stable JSON (`--json-errors`) with code and spans.
+    - [x] Typer: detect `std::list/*`, `std::set/*`, `std::map/*` and emit one clear, spanful error
+          (code `T101` "collections require generics/ADTs; planned in later slices").
+    - [x] Tests: calls parse; type errors return stable JSON (`--json-errors`) with code and spans.
   - 4.3B — Parametric Types + Minimal ADTs + `match` (built-ins only)
     - [ ] Parser: accept `Option<T>` and `Result<T,E>` types; add minimal `match` for these two ADTs.
     - [ ] Tests: constructors and simple matches parse.

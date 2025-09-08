@@ -85,6 +85,10 @@ fn type_of<'a>(
             }
         }
         Expr::Call { callee, args, span } => {
+            // Phase 4.3A — Collections (strict errors): emit a single friendly error
+            if callee.starts_with("std::list::") || callee.starts_with("std::set::") || callee.starts_with("std::map::") {
+                return Err(TyperError::collections_unavailable(callee, *span).into());
+            }
             let (params, ret) = fns
                 .get(callee.as_str())
                 .copied()

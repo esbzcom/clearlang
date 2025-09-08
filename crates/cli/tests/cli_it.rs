@@ -137,3 +137,25 @@ fn type_error_reports_json_with_span_and_code() {
     assert!(e0.get("start").and_then(|n| n.as_u64()).is_some());
     assert!(e0.get("end").and_then(|n| n.as_u64()).is_some());
 }
+
+#[test]
+fn collections_error_reports_t101_in_json() {
+    // A program that calls a collections function should yield T101 via --json-errors
+    let src = r#"
+        function main() -> Int { std::map::len(0) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad_collections.lumi");
+    std::fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("lumi").unwrap();
+    cmd.args(["--json-errors", "build"]).arg(&file).args(["-o"]).arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors array");
+    assert!(!errs.is_empty());
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T101"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}

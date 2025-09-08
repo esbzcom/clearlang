@@ -134,6 +134,6 @@ fn type_error_reports_json_with_span_and_code() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T003"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
     // Span presence
-    assert!(e0.get("start").and_then(|n| n.as_u64()).unwrap_or(0) >= 0);
-    assert!(e0.get("end").and_then(|n| n.as_u64()).unwrap_or(0) >= 0);
+    assert!(e0.get("start").and_then(|n| n.as_u64()).is_some());
+    assert!(e0.get("end").and_then(|n| n.as_u64()).is_some());
 }

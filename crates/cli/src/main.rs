@@ -330,3 +330,61 @@ fn extract_function_name(s: &str) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_span_parses_basic_pattern() {
+        let s = "some error at 12..34: details here";
+        assert_eq!(extract_span(s), Some((12, 34)));
+    }
+
+    #[test]
+    fn classify_type_error_maps_codes_and_spans() {
+        // unknown function → T001
+        let s1 = "at 5..8: unknown function `foo`";
+        let (c1, st1, en1, f1) = classify_type_error(s1);
+        assert_eq!(c1, "T001");
+        assert_eq!((st1, en1), (5, 8));
+        assert!(f1.is_none());
+
+        // arity mismatch with function context → T002 + function name
+        let s2 = "in function `main`\nat 1..2: arity mismatch calling `add`: expected 2, found 1";
+        let (c2, st2, en2, f2) = classify_type_error(s2);
+        assert_eq!(c2, "T002");
+        assert_eq!((st2, en2), (1, 2));
+        assert_eq!(f2.as_deref(), Some("main"));
+
+        // arg type mismatch → T003
+        let s3 = "at 10..12: arg 1 type mismatch calling `f`: expected `Int`, found `String`";
+        let (c3, st3, en3, _) = classify_type_error(s3);
+        assert_eq!(c3, "T003");
+        assert_eq!((st3, en3), (10, 12));
+
+        // return type mismatch → T004
+        let s4 = "at 20..21: return type mismatch: declared `Int`, found `Bool`";
+        let (c4, st4, en4, _) = classify_type_error(s4);
+        assert_eq!(c4, "T004");
+        assert_eq!((st4, en4), (20, 21));
+
+        // int operand expected → T005
+        let s5 = "at 30..31: left operand must be Int, found `Bool`";
+        let (c5, st5, en5, _) = classify_type_error(s5);
+        assert_eq!(c5, "T005");
+        assert_eq!((st5, en5), (30, 31));
+
+        // unknown variable → T006
+        let s6 = "at 40..41: unknown variable `x`";
+        let (c6, st6, en6, _) = classify_type_error(s6);
+        assert_eq!(c6, "T006");
+        assert_eq!((st6, en6), (40, 41));
+
+        // fallback → T000, no span
+        let s7 = "unexpected other error format";
+        let (c7, st7, en7, _) = classify_type_error(s7);
+        assert_eq!(c7, "T000");
+        assert_eq!((st7, en7), (0, 0));
+    }
+}

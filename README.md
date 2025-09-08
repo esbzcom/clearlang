@@ -54,7 +54,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 - Phase 3 complete: typer validates programs and lowers to IR (SSA-like).
 - Phase 4 in progress:
   - 4.1 Namespacing: path-call syntax `seg::seg::name(args...)` supported.
-  - 4.2 Strings (parse/type): `Str` literals (escapes, multi-line); `std::str::{len, concat, eq}` stubs in typer.
+  - 4.2 Strings (parse/type): `String` literals (escapes, multi-line); `std::str::{len, concat, eq}` stubs in typer.
   - Next: 4.3 Collections (type stubs) and 4.4 DX improvements.
 - Build path uses IR+Wasm by default. Use `--validate` to run `wasm-tools validate`.
 

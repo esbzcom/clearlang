@@ -86,22 +86,22 @@ fn errors_on_unknown_namespaced_function() {
     assert!(s.contains("at ") && s.contains(".."), "missing span: {s}");
 }
 
-// Return type mismatch: declared Str, body Int
+// Return type mismatch: declared String, body Int
 #[test]
 fn errors_on_return_type_mismatch_str_decl_int_body() {
     let src = r#"
-        pure function bad() -> Str { 123 }
+        pure function bad() -> String { 123 }
     "#;
     let ast = parse(src).expect("parsed");
-    let err = check(&ast).expect_err("should fail return type mismatch (Str vs Int)");
+    let err = check(&ast).expect_err("should fail return type mismatch (String vs Int)");
     let s = format!("{err:#}");
     assert!(s.contains("return type mismatch"));
-    assert!(s.contains("Str"));
+    assert!(s.contains("String"));
     assert!(s.contains("Int"));
     assert!(s.contains("at ") && s.contains(".."));
 }
 
-// Arg type mismatch using Str
+// Arg type mismatch using String
 #[test]
 fn errors_on_arg_type_mismatch_with_str() {
     let src = r#"
@@ -109,10 +109,10 @@ fn errors_on_arg_type_mismatch_with_str() {
         function main() -> Int { add("hi", 2) }
     "#;
     let ast = parse(src).expect("parsed");
-    let err = check(&ast).expect_err("should fail arg type mismatch with Str");
+    let err = check(&ast).expect_err("should fail arg type mismatch with String");
     let s = format!("{err:#}");
     assert!(s.contains("type mismatch"));
-    assert!(s.contains("Str"));
+    assert!(s.contains("String"));
     assert!(s.contains("Int"));
     assert!(s.contains("at ") && s.contains(".."));
 }

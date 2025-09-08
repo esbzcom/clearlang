@@ -39,9 +39,8 @@ pub(crate) fn str_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         .then_ignore(just('"'))
         .map_with(|s, e| {
             let sp: chumsky::span::SimpleSpan<usize> = e.span();
-            Expr::Str(s, Span { start: sp.start, end: sp.end })
+            Expr::String(s, Span { start: sp.start, end: sp.end })
         })
         .padded()
         .labelled("string literal")
 }
-

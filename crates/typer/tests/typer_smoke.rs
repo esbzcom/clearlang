@@ -45,7 +45,7 @@ fn typer_errors_on_type_mismatch_in_binop() {
 #[test]
 fn accepts_str_echo() {
     let src = r#"
-        pure function echo(s: Str) -> Str { s }
+        pure function echo(s: String) -> String { s }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }

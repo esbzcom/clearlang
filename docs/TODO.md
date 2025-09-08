@@ -86,14 +86,14 @@ A focused, actionable checklist to move from Phase 2 â†’ Phase 3 and beyond
   - [x] Typer: accept namespaced callees as exact names (parser done; built-ins via 4.3).
 
 - 4.2 Strings (parse/type only)
-  - [x] Add `Type::Str` and `Expr::Str` with escapes and multiâ€‘line string literal support.
+  - [x] Add `Type::String` and `Expr::String` with escapes and multiâ€‘line string literal support.
   - [x] Typer: `std::str` builtâ€‘ins (len/concat/eq) for strings.
-  - [x] Typer: make `Str` firstâ€‘class in params/returns and literals.
+  - [x] Typer: make `String` firstâ€‘class in params/returns and literals.
   - [x] Tests: singleâ€‘line, multiâ€‘line, escapes, span diagnostics.
   - [x] DX: Split parser into modules to unblock strings and path growth (`tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; `lib.rs` wires them).
   - [x] Syntax: adopt `function` keyword exclusively (remove `fn`); update parser, tests, and docs for clarity and readability.
   - [ ] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
-  - [ ] Rename Strâ†’String: oneâ€‘shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
+  - [x] Rename Str → String: one-shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
 
 - 4.3 Std Collections (type stubs only)
   - [ ] Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.
@@ -113,7 +113,7 @@ A focused, actionable checklist to move from Phase 2 â†’ Phase 3 and beyond
   - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
   
 
-## Phase 5 â€” Codegen IR â†’ Wasm
+## Phase 5 — Codegen IR → Wasm
 
 DX Prep
 - [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IRâ†’Wasm encoder); re-export from `lib.rs`.

@@ -70,3 +70,12 @@
 - CLI bin name: tests reference `lumi` (not `lumi-cli`); docs updated accordingly.
 - CLI build: enforces presence of `main() -> Int` and fails on missing/wrong signature.
 - Samples: added `17_hello_str.lumi` (parse/type only) and migrated all samples to `function`.
+
+## Session 2025-09-08 — Phase 4.2 Rename Str → String
+
+- Renamed the string type from `Str` to `String` across AST (`Type::String`, `Expr::String`), parser, typer, tests, and samples.
+- Updated error messages and tests to expect `String` in diagnostics.
+- Left built-in namespace as `std::str::{len, concat, eq}` (no runtime change yet).
+- Updated docs: `docs/typing.md`, README status, and `docs/lumi_*` summaries to use `String`.
+- Marked TODO item “Rename Str→String” as done; adjusted DEVPLAN terminology accordingly.
+- Note: transitional hint for `Str` usage is not added yet (optional). Parser will now expect `String` in type positions.

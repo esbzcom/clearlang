@@ -1,1 +1,1 @@
-pure function greeting() -> Str { "hello\nworld" }
+pure function greeting() -> String { "hello\nworld" }

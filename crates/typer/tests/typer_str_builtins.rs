@@ -4,7 +4,7 @@ use lumi_typer::check;
 #[test]
 fn typer_accepts_std_str_len() {
     let src = r#"
-        pure function size(s: Str) -> Int { std::str::len(s) }
+        pure function size(s: String) -> Int { std::str::len(s) }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
@@ -12,7 +12,7 @@ fn typer_accepts_std_str_len() {
 #[test]
 fn typer_accepts_std_str_concat() {
     let src = r#"
-        pure function greet(name: Str) -> Str { std::str::concat("Hello, ", name) }
+        pure function greet(name: String) -> String { std::str::concat("Hello, ", name) }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
@@ -20,7 +20,7 @@ fn typer_accepts_std_str_concat() {
 #[test]
 fn typer_accepts_std_str_eq() {
     let src = r#"
-        pure function same(a: Str, b: Str) -> Bool { std::str::eq(a, b) }
+        pure function same(a: String, b: String) -> Bool { std::str::eq(a, b) }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
@@ -34,13 +34,13 @@ fn typer_rejects_std_str_len_wrong_arg_type() {
     let err = check(&ast).expect_err("should fail type mismatch for len");
     let s = format!("{err:#}");
     assert!(s.contains("type mismatch"));
-    assert!(s.contains("Str"));
+    assert!(s.contains("String"));
 }
 
 #[test]
 fn typer_rejects_std_str_concat_arity() {
     let src = r#"
-        pure function bad() -> Str { std::str::concat("hi") }
+        pure function bad() -> String { std::str::concat("hi") }
     "#;
     let ast = parse(src).expect("parse ok");
     let err = check(&ast).expect_err("should fail arity mismatch for concat");

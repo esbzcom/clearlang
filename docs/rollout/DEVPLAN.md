@@ -65,18 +65,18 @@ CLI
 
 Goals
 - Introduce namespaced call syntax (std::…) to avoid global prefixes without a full module system.
-- Add String literal parsing (incl. multi-line) and basic `Str` typing; no runtime yet.
+- Add String literal parsing (incl. multi-line) and basic `String` typing; no runtime yet.
 - Provide List/Set/Map signatures (type-checking only) to unblock user code; defer runtime to Phase 5.
 - Apply small DX optimizations that don’t change semantics.
 
 Work Items
 - Namespacing: parser/typer accept path calls: `std::str::len`, `std::list::push`, `std::map::get`, `std::set::contains`.
-- Strings: `Type::Str`, `Expr::Str` with escapes and multi-line; typer rules for eq/concat in `std::str`; tests (escapes/spans).
+- Strings: `Type::String`, `Expr::String` with escapes and multi-line; typer rules for eq/concat in `std::str`; tests (escapes/spans).
 - Collections: define `List<T>`, `Set<T>`, `Map<K,V>`, `Option<T>`, `Result<T,E>`; expose minimal `std::list`, `std::set`, `std::map` APIs to typer.
 - DX: preallocation in parser/typer; shared Wasmtime Engine in tests; release profile tuning; verbose-gated logs.
 - DX (parser split): extract `tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; wire via `lib.rs` (do before/with Strings).
    - Status: completed.
- - DX (typer split): separate typing rules (`check.rs`) from IR lowering (`lower.rs`) to prep for `Str` and collections.
+- DX (typer split): separate typing rules (`check.rs`) from IR lowering (`lower.rs`) to prep for `String` and collections.
  - DX (CLI refactor): when adding `--verbose`, split subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 
 Out of Scope (moved to Phase 5)
@@ -117,15 +117,15 @@ Notes
 # Phase 4.2 — Strings Progress
 
 Status
-- [x] AST/Parser: `Type::Str` and `Expr::Str` with escapes and multi-line literals.
-- [x] Typer: `Str` is first-class (params/returns, literals type to `Str`).
+- [x] AST/Parser: `Type::String` and `Expr::String` with escapes and multi-line literals.
+- [x] Typer: `String` is first-class (params/returns, literals type to `String`).
 - [x] Built-ins: `std::str::{len, concat, eq}` (type stubs) wired in typer.
-- [x] Tests: parser (escapes, multi-line, invalid escape) and typer (Str echo, spanful mismatch).
+- [x] Tests: parser (escapes, multi-line, invalid escape) and typer (String echo, spanful mismatch).
 - [x] Syntax cleanup: `function` keyword only (removed `fn`).
 - [x] Parser UX: hint when `:` is used for return types (suggest `->`).
 
 Notes
-- Codegen/runtime for `Str` deferred to Phase 5; lowering uses a placeholder.
+- Codegen/runtime for `String` deferred to Phase 5; lowering uses a placeholder.
 
 ---
 
@@ -141,7 +141,7 @@ Scope (type-only)
 Work Items
 - Draft a brief design note for parametric types and `match` (timing and shape).
 - Option A (strict): keep collections deferred; add friendly error stubs explaining “collections require generics; planned in Phase X”.
-- Option B (demo-only): add monomorphic preview signatures (e.g., `std::str::split(Str) -> ListStr`) for early demos; clearly marked temporary.
+- Option B (demo-only): add monomorphic preview signatures (e.g., `std::str::split(String) -> ListString`) for early demos; clearly marked temporary.
 - Add typer tests validating unknown-collection calls produce helpful errors (if Option A).
 
 ---

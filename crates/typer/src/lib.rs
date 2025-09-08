@@ -16,22 +16,22 @@ pub fn check(ast: &Program) -> Result<Module> {
     let mut builtin_sigs: Vec<(String, Vec<Param>, Type)> = Vec::new();
     builtin_sigs.push((
         "std::str::len".to_string(),
-        vec![Param { name: "s".to_string(), ty: Type::Str }],
+        vec![Param { name: "s".to_string(), ty: Type::String }],
         Type::Int,
     ));
     builtin_sigs.push((
         "std::str::concat".to_string(),
         vec![
-            Param { name: "a".to_string(), ty: Type::Str },
-            Param { name: "b".to_string(), ty: Type::Str },
+            Param { name: "a".to_string(), ty: Type::String },
+            Param { name: "b".to_string(), ty: Type::String },
         ],
-        Type::Str,
+        Type::String,
     ));
     builtin_sigs.push((
         "std::str::eq".to_string(),
         vec![
-            Param { name: "a".to_string(), ty: Type::Str },
-            Param { name: "b".to_string(), ty: Type::Str },
+            Param { name: "a".to_string(), ty: Type::String },
+            Param { name: "b".to_string(), ty: Type::String },
         ],
         Type::Bool,
     ));
@@ -77,7 +77,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     if body_ty != f.ret {
         // Try to use the body's span to annotate the mismatch
         let (s, e) = match &f.body {
-            Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::Str(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
+            Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
             Expr::Bin { span, .. } | Expr::Call { span, .. } => (span.start, span.end),
         };
         bail!(
@@ -103,7 +103,7 @@ fn type_of<'a>(
     match e {
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
-        Expr::Str(_, _) => Ok(Type::Str),
+        Expr::String(_, _) => Ok(Type::String),
         Expr::Var(name, sp) => env
             .get(name.as_str())
             .copied()
@@ -137,8 +137,8 @@ fn type_of<'a>(
                 if p.ty != at {
                     bail!(
                         "at {}..{}: arg {} type mismatch calling `{}`: expected `{}`, found `{}`",
-                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Str(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.start },
-                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::Str(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.end },
+                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::String(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.start },
+                        match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::String(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => sp.end },
                         i,
                         callee,
                         show_ty(p.ty),
@@ -166,7 +166,7 @@ fn show_ty(t: Type) -> &'static str {
     match t {
         Type::Int => "Int",
         Type::Bool => "Bool",
-        Type::Str => "Str",
+        Type::String => "String",
     }
 }
 
@@ -176,7 +176,7 @@ fn ir_ty(t: Type) -> IrType {
     match t {
         Type::Int => IrType::Int,
         Type::Bool => IrType::Bool,
-        Type::Str => IrType::Int, // placeholder until strings have a runtime representation
+        Type::String => IrType::Int, // placeholder until strings have a runtime representation
     }
 }
 
@@ -223,7 +223,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });
             Ok(dst)
         }
-        Expr::Str(_, _) => {
+        Expr::String(_, _) => {
             // Placeholder: represent strings as 0 until runtime is implemented (Phase 5)
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: 0 });

@@ -97,7 +97,7 @@ This document summarizes the full discussion about designing the **Lumi** langua
 
 ### Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs
 - Add namespaced call syntax (e.g., `std::str::len`, `std::list::push`).  
-- Parse/type String literals (single + multi-line) and basic `Str` rules.  
+- Parse/type String literals (single + multi-line) and basic `String` rules.  
 - Provide List/Set/Map/Option/Result signatures for type-checking (no runtime yet).  
 - ✅ Output: richer front-end with no runtime changes; clean APIs without global prefixes.
 

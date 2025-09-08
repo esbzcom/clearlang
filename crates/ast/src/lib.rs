@@ -25,13 +25,13 @@ pub struct Param {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Type { Int, Bool, Str }
+pub enum Type { Int, Bool, String }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
     Int(i64, Span),
     Bool(bool, Span),
-    Str(String, Span),
+    String(String, Span),
     Var(String, Span),
     Bin { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr>, span: Span },
     Call { callee: String, args: Vec<Expr>, span: Span },

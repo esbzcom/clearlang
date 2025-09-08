@@ -16,9 +16,8 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
     choice((
         kw("Int").to(Type::Int),
         kw("Bool").to(Type::Bool),
-        kw("Str").to(Type::Str),
+        kw("String").to(Type::String),
     ))
     .padded()
     .labelled("type")
 }
-

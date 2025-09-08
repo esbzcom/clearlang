@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::tempdir;
+use serde_json::Value;
 
 fn repo_sample(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../lumi-tests").join(name)
@@ -77,8 +78,19 @@ fn build_and_run_samples() {
 #[test]
 fn parse_failure_exits_nonzero() {
     let mut cmd = Command::cargo_bin("lumi").unwrap();
-    cmd.args(["parse"]).arg(repo_sample("06_trailing_call_comma.lumi"));
-    cmd.assert().failure();
+    cmd.args(["--json-errors", "parse"]).arg(repo_sample("06_trailing_call_comma.lumi"));
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors array");
+    assert!(!errs.is_empty());
+    let first = &errs[0];
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("P001"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("parse"));
+    assert!(first.get("message").and_then(|s| s.as_str()).unwrap_or("").contains("error"));
+    // start/end should be present (>= 0)
+    assert!(first.get("start").and_then(|n| n.as_u64()).is_some());
+    assert!(first.get("end").and_then(|n| n.as_u64()).is_some());
 }
 
 #[test]
@@ -87,6 +99,41 @@ fn build_failure_for_non_int_or_missing_main() {
     let out = tmp.path().join("bad.wasm");
     let mut cmd = Command::cargo_bin("lumi").unwrap();
     // 07_bools has no main; codegen should fail
-    cmd.args(["build"]).arg(repo_sample("07_bools.lumi")).args(["-o"]).arg(&out);
-    cmd.assert().failure();
+    cmd.args(["--json-errors", "build"]).arg(repo_sample("07_bools.lumi")).args(["-o"]).arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    // Missing main should map to C002
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C002"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn type_error_reports_json_with_span_and_code() {
+    // Create a small source with a type mismatch: add(1, true)
+    let src = r#"
+        pure function add(x: Int, y: Int) -> Int { x + y }
+        function main() -> Int { add(1, true) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad.lumi");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("lumi").unwrap();
+    cmd.args(["--json-errors", "build"]).arg(&file).args(["-o"]).arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    // Arg type mismatch should map to T003
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T003"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+    // Span presence
+    assert!(e0.get("start").and_then(|n| n.as_u64()).unwrap_or(0) >= 0);
+    assert!(e0.get("end").and_then(|n| n.as_u64()).unwrap_or(0) >= 0);
 }

@@ -300,14 +300,17 @@ fn extract_span(s: &str) -> Option<(usize, usize)> {
 }
 
 fn classify_type_error(s: &str) -> (&'static str, usize, usize, Option<String>) {
+    // Order matters: match more specific phrases before general ones
     let code = if s.contains("unknown function") {
         "T001"
     } else if s.contains("arity mismatch") {
         "T002"
-    } else if s.contains("type mismatch") {
-        "T003"
     } else if s.contains("return type mismatch") {
+        // Must come before generic "type mismatch"
         "T004"
+    } else if s.contains("type mismatch") {
+        // Covers arg type mismatch and other generic type mismatches
+        "T003"
     } else if s.contains("must be Int") {
         "T005"
     } else if s.contains("unknown variable") {

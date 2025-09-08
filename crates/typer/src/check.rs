@@ -11,7 +11,7 @@ type FnSig<'a> = (&'a [Param], Type);
 pub fn check(ast: &Program) -> Result<Module> {
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
-    let mut builtins = builtin_sigs();
+    let builtins = builtin_sigs();
     for (name, params, ret) in &builtins {
         fns.insert(name.as_str(), (&params[..], *ret));
     }

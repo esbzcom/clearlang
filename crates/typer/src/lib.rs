@@ -212,10 +212,12 @@ fn type_of<'a>(
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
         Expr::String(_, _) => Ok(Type::String),
-        Expr::Var(name, sp) => env
-            .get(name.as_str())
-            .copied()
-            .ok_or_else(|| TyperError::unknown_variable(name, *sp).into()),
+        Expr::Var(name, sp) => Ok(
+            env
+                .get(name.as_str())
+                .copied()
+                .ok_or_else(|| TyperError::unknown_variable(name, *sp))?
+        ),
         Expr::Bin { op, lhs, rhs, span } => {
             let lt = type_of(lhs, env, fns, depth + 1)?;
             let rt = type_of(rhs, env, fns, depth + 1)?;
@@ -229,7 +231,7 @@ fn type_of<'a>(
             let (params, ret) = fns
                 .get(callee.as_str())
                 .copied()
-                .ok_or_else(|| TyperError::unknown_function(callee, *span).into())?;
+                .ok_or_else(|| TyperError::unknown_function(callee, *span))?;
             if params.len() != args.len() {
                 return Err(TyperError::arity_mismatch(callee, params.len(), args.len(), *span).into());
             }

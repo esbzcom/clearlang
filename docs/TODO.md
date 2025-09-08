@@ -1,6 +1,6 @@
 ﻿# Lumi TODO
 
-A focused, actionable checklist to move from Phase 2 â†’ Phase 3 and beyond.
+A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 ## Phase 0 â€” Workspace & Toolchain (Done)
 
@@ -92,7 +92,7 @@ A focused, actionable checklist to move from Phase 2 â†’ Phase 3 and beyond
   - [x] Tests: singleâ€‘line, multiâ€‘line, escapes, span diagnostics.
   - [x] DX: Split parser into modules to unblock strings and path growth (`tokens.rs`, `types.rs`, `literals.rs`, `path.rs`, `expr.rs`, `func.rs`, `program.rs`; `lib.rs` wires them).
   - [x] Syntax: adopt `function` keyword exclusively (remove `fn`); update parser, tests, and docs for clarity and readability.
-  - [ ] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
+  - [x] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
   - [x] Rename Str → String: one-shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
 
 - 4.3 Std Collections (type stubs only)

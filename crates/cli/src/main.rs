@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use lumi_codegen_wasm::{emit_trivial_main, emit_from_ir_with_opts, CodegenOpts};
 use lumi_typer::{check as type_check, TyperError};
 use lumi_ir::IrType;
-use lumi_parser::parse as parse_src;
+use lumi_parser::{parse as parse_src, parse_errors as parse_src_errs, ParserError as ParserErr};
 use wasmtime as wt;
 use serde::Serialize;
 
@@ -99,15 +99,18 @@ fn main() -> Result<()> {
                 .with_context(|| format!("opening {}", file.display()))?
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
-            let ast = match parse_src(&s) {
-                Ok(ast) => ast,
-                Err(e) => {
-                    if cli.json_errors {
-                        emit_parse_json_errors(&file, &e);
+            let ast = if cli.json_errors {
+                match parse_src_errs(&s) {
+                    Ok(ast) => ast,
+                    Err(errs) => {
+                        emit_parse_structured_json_errors(&file, &errs);
                         std::process::exit(1);
-                    } else {
-                        return Err(anyhow::anyhow!("parse failed: {}", e));
                     }
+                }
+            } else {
+                match parse_src(&s) {
+                    Ok(ast) => ast,
+                    Err(e) => return Err(anyhow::anyhow!("parse failed: {}", e)),
                 }
             };
             eprintln!("parsed {}", file.display());
@@ -119,15 +122,18 @@ fn main() -> Result<()> {
                 .with_context(|| format!("opening {}", file.display()))?
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
-            let ast = match parse_src(&s) {
-                Ok(ast) => ast,
-                Err(e) => {
-                    if cli.json_errors {
-                        emit_parse_json_errors(&file, &e);
+            let ast = if cli.json_errors {
+                match parse_src_errs(&s) {
+                    Ok(ast) => ast,
+                    Err(errs) => {
+                        emit_parse_structured_json_errors(&file, &errs);
                         std::process::exit(1);
-                    } else {
-                        return Err(anyhow::anyhow!("parse failed: {}", e));
                     }
+                }
+            } else {
+                match parse_src(&s) {
+                    Ok(ast) => ast,
+                    Err(e) => return Err(anyhow::anyhow!("parse failed: {}", e)),
                 }
             };
             // Phase 3.5: type-check and lower to IR, then codegen IR → Wasm
@@ -236,32 +242,19 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn emit_parse_json_errors(file: &PathBuf, err: &str) {
-    // Split multi-line parse error string; each line contains: "error at S..E: ..."
-    let mut items = Vec::new();
-    for line in err.lines() {
-        if let Some((start, end)) = extract_span(line) {
-            items.push(JsonErrorItem {
-                code: "P001",
-                stage: "parse",
-                message: line.trim().to_string(),
-                file: file.display().to_string(),
-                start,
-                end,
-                function: None,
-            });
-        } else {
-            items.push(JsonErrorItem {
-                code: "P001",
-                stage: "parse",
-                message: line.trim().to_string(),
-                file: file.display().to_string(),
-                start: 0,
-                end: 0,
-                function: None,
-            });
-        }
-    }
+fn emit_parse_structured_json_errors(file: &PathBuf, errs: &[ParserErr]) {
+    let items: Vec<JsonErrorItem> = errs
+        .iter()
+        .map(|e| JsonErrorItem {
+            code: e.code,
+            stage: "parse",
+            message: e.message.clone(),
+            file: file.display().to_string(),
+            start: e.start,
+            end: e.end,
+            function: None,
+        })
+        .collect();
     let out = JsonError { ok: false, errors: items };
     println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }

@@ -36,3 +36,40 @@ pub fn parse(src: &str) -> Result<Program, String> {
     })
 }
 
+// Structured parser error for machine-readable diagnostics
+#[derive(Debug, Clone)]
+pub struct ParserError {
+    pub code: &'static str,
+    pub message: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+// Parse returning structured errors (preferred for --json-errors)
+pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
+    match program_p().parse(src).into_result() {
+        Ok(ast) => Ok(ast),
+        Err(errs) => {
+            let items: Vec<ParserError> = errs
+                .into_iter()
+                .map(|e| {
+                    let span = e.span();
+                    let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+                    let msg = if expected.is_empty() {
+                        format!("error at {}..{}: {}", span.start, span.end, e)
+                    } else {
+                        format!(
+                            "error at {}..{}: {}; expected: {}",
+                            span.start,
+                            span.end,
+                            e,
+                            expected.join(", ")
+                        )
+                    };
+                    ParserError { code: "P001", message: msg, start: span.start, end: span.end }
+                })
+                .collect();
+            Err(items)
+        }
+    }
+}

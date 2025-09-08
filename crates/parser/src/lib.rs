@@ -11,4 +11,4 @@ mod expr;
 mod func;
 mod program;
 
-pub use program::parse;
+pub use program::{parse, parse_errors, ParserError};

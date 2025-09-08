@@ -1,8 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
-use crate::check::show_ty; // keep visibility consistent if needed
 use lumi_ast::{BinOp, Expr, Func, Type};
-use lumi_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Module, Value};
+use lumi_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Value};
 
 type FnSig<'a> = (&'a [lumi_ast::Param], Type);
 
@@ -99,4 +98,3 @@ fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
     ctx.next += 1;
     v
 }
-

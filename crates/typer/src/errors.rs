@@ -1,4 +1,4 @@
-use crate::show_ty;
+use crate::check::show_ty;
 use lumi_ast::{Effect, Span, Type};
 
 #[derive(Debug, Clone)]
@@ -115,4 +115,3 @@ impl std::fmt::Display for TyperError {
 }
 
 impl std::error::Error for TyperError {}
-

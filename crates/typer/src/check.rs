@@ -1,10 +1,10 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use crate::errors::TyperError;
 use crate::lower::{lower_func};
 use crate::builtins::builtin_sigs;
 use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type, Span};
-use lumi_ir::{IrType, Module};
+use lumi_ir::Module;
 
 type FnSig<'a> = (&'a [Param], Type);
 
@@ -118,4 +118,3 @@ pub(crate) fn show_ty(t: Type) -> &'static str {
         Type::String => "String",
     }
 }
-

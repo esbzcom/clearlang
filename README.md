@@ -83,9 +83,24 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 ## Docs
 
-- Typing rules: `docs/typing.md`
-- IR shape and encoding: `docs/ir.md`
-- Diagnostics JSON: see `--json-errors` in CLI; codes include P001 (parse), T001–T006 (type), C001–C002 (build).
+- Typing rules: [docs/typing.md](docs/typing.md)
+- IR shape and encoding: [docs/ir.md](docs/ir.md)
+- Diagnostics JSON: [docs/diagnostics.md](docs/diagnostics.md)
+- Style & naming: [docs/style.md](docs/style.md)
+
+---
+
+## Naming Conventions
+
+- Functions/modules: lower_snake_case (AI-friendly, unambiguous).
+  - Examples: `std::str::parse_int`, `std::str::len`, `std::map::get`.
+- Types/ADTs: PascalCase.
+  - Examples: `Int`, `Bool`, `String`, `List<T>`, `Map<K,V>`, `Option<T>`, `Result<T,E>`.
+- Type parameters: single uppercase letters (`T`, `K`, `V`, `E`).
+- No overloading: one name → one meaning (simplifies tooling and diagnostics).
+
+See `docs/style.md` for the full style guide.
+
 
 ---
 

@@ -9,10 +9,14 @@ use lumi_typer::check as type_check;
 use lumi_ir::IrType;
 use lumi_parser::parse as parse_src;
 use wasmtime as wt;
+use serde::Serialize;
 
 #[derive(Parser, Debug)]
 #[command(name = "lumi", version, about = "Lumi CLI", long_about = None)]
 struct Cli {
+    /// Emit machine-readable JSON errors instead of human text
+    #[arg(long, global = true, default_value_t = false)]
+    json_errors: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -57,6 +61,24 @@ enum Commands {
     },
 }
 
+#[derive(Serialize)]
+struct JsonError {
+    ok: bool,
+    errors: Vec<JsonErrorItem>,
+}
+
+#[derive(Serialize)]
+struct JsonErrorItem {
+    code: &'static str,
+    stage: &'static str,
+    message: String,
+    file: String,
+    start: usize,
+    end: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    function: Option<String>,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
@@ -77,7 +99,17 @@ fn main() -> Result<()> {
                 .with_context(|| format!("opening {}", file.display()))?
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
-            let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
+            let ast = match parse_src(&s) {
+                Ok(ast) => ast,
+                Err(e) => {
+                    if cli.json_errors {
+                        emit_parse_json_errors(&file, &e);
+                        std::process::exit(1);
+                    } else {
+                        return Err(anyhow::anyhow!("parse failed: {}", e));
+                    }
+                }
+            };
             eprintln!("parsed {}", file.display());
             println!("{:#?}", ast);
         }
@@ -87,18 +119,66 @@ fn main() -> Result<()> {
                 .with_context(|| format!("opening {}", file.display()))?
                 .read_to_string(&mut s)
                 .with_context(|| format!("reading {}", file.display()))?;
-            let ast = parse_src(&s).map_err(|e| anyhow::anyhow!("parse failed: {}", e))?;
+            let ast = match parse_src(&s) {
+                Ok(ast) => ast,
+                Err(e) => {
+                    if cli.json_errors {
+                        emit_parse_json_errors(&file, &e);
+                        std::process::exit(1);
+                    } else {
+                        return Err(anyhow::anyhow!("parse failed: {}", e));
+                    }
+                }
+            };
             // Phase 3.5: type-check and lower to IR, then codegen IR → Wasm
-            let ir = type_check(&ast).context("type-check failed")?;
+            let ir = match type_check(&ast) {
+                Ok(ir) => ir,
+                Err(e) => {
+                    if cli.json_errors {
+                        emit_type_json_error(&file, &format!("{e:#}"));
+                        std::process::exit(1);
+                    } else {
+                        return Err(e.context("type-check failed"));
+                    }
+                }
+            };
             eprintln!("type-checked and lowered to IR");
             // Require a main function returning Int (phase constraint)
             match ir.funcs.iter().find(|f| f.name == "main") {
                 Some(f) => {
                     if f.ret != Some(IrType::Int) || !f.params.is_empty() {
-                        anyhow::bail!("only `main() -> Int` is supported in this phase");
+                        if cli.json_errors {
+                            emit_single_json_error(
+                                "C001",
+                                "build",
+                                "only `main() -> Int` is supported in this phase",
+                                &file,
+                                0,
+                                0,
+                                None,
+                            );
+                            std::process::exit(1);
+                        } else {
+                            anyhow::bail!("only `main() -> Int` is supported in this phase");
+                        }
                     }
                 }
-                None => anyhow::bail!("missing `main` function"),
+                None => {
+                    if cli.json_errors {
+                        emit_single_json_error(
+                            "C002",
+                            "build",
+                            "missing `main` function",
+                            &file,
+                            0,
+                            0,
+                            None,
+                        );
+                        std::process::exit(1);
+                    } else {
+                        anyhow::bail!("missing `main` function")
+                    }
+                },
             }
             let bytes = emit_from_ir_with_opts(&ir, CodegenOpts { debug_names })
                 .context("codegen (IR→Wasm) failed")?;
@@ -141,4 +221,112 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn emit_parse_json_errors(file: &PathBuf, err: &str) {
+    // Split multi-line parse error string; each line contains: "error at S..E: ..."
+    let mut items = Vec::new();
+    for line in err.lines() {
+        if let Some((start, end)) = extract_span(line) {
+            items.push(JsonErrorItem {
+                code: "P001",
+                stage: "parse",
+                message: line.trim().to_string(),
+                file: file.display().to_string(),
+                start,
+                end,
+                function: None,
+            });
+        } else {
+            items.push(JsonErrorItem {
+                code: "P001",
+                stage: "parse",
+                message: line.trim().to_string(),
+                file: file.display().to_string(),
+                start: 0,
+                end: 0,
+                function: None,
+            });
+        }
+    }
+    let out = JsonError { ok: false, errors: items };
+    println!("{}", serde_json::to_string_pretty(&out).unwrap());
+}
+
+fn emit_type_json_error(file: &PathBuf, err_pretty: &str) {
+    let (code, start, end, func_opt) = classify_type_error(err_pretty);
+    emit_single_json_error(code, "type", err_pretty.trim(), file, start, end, func_opt);
+}
+
+fn emit_single_json_error(
+    code: &'static str,
+    stage: &'static str,
+    message: &str,
+    file: &PathBuf,
+    start: usize,
+    end: usize,
+    function: Option<String>,
+) {
+    let item = JsonErrorItem {
+        code,
+        stage,
+        message: message.to_string(),
+        file: file.display().to_string(),
+        start,
+        end,
+        function,
+    };
+    let out = JsonError { ok: false, errors: vec![item] };
+    println!("{}", serde_json::to_string_pretty(&out).unwrap());
+}
+
+fn extract_span(s: &str) -> Option<(usize, usize)> {
+    // Look for "at S..E:" pattern
+    if let Some(idx) = s.find("at ") {
+        let rest = &s[idx + 3..];
+        let mut parts = rest.split("..");
+        if let (Some(a), Some(brest)) = (parts.next(), parts.next()) {
+            let mut bchars = brest.chars();
+            let mut num = String::new();
+            for ch in bchars.by_ref() {
+                if ch.is_ascii_digit() { num.push(ch); } else { break; }
+            }
+            if let (Ok(st), Ok(en)) = (a.trim().parse::<usize>(), num.parse::<usize>()) {
+                return Some((st, en));
+            }
+        }
+    }
+    None
+}
+
+fn classify_type_error(s: &str) -> (&'static str, usize, usize, Option<String>) {
+    let code = if s.contains("unknown function") {
+        "T001"
+    } else if s.contains("arity mismatch") {
+        "T002"
+    } else if s.contains("type mismatch") {
+        "T003"
+    } else if s.contains("return type mismatch") {
+        "T004"
+    } else if s.contains("must be Int") {
+        "T005"
+    } else if s.contains("unknown variable") {
+        "T006"
+    } else {
+        "T000"
+    };
+    let span = extract_span(s).unwrap_or((0, 0));
+    let func = extract_function_name(s);
+    (code, span.0, span.1, func)
+}
+
+fn extract_function_name(s: &str) -> Option<String> {
+    // Errors may include context lines like: "in function `name`"
+    if let Some(idx) = s.find("in function `") {
+        let rest = &s[idx + "in function `".len()..];
+        if let Some(end) = rest.find('`') {
+            return Some(rest[..end].to_string());
+        }
+    }
+    None
 }

@@ -95,14 +95,26 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
   - [x] Rename Str → String: one-shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
 
-- 4.3 Std Collections (type stubs only)
-  - [ ] Introduce core types: `List<T>`, `Set<T>`, `Map<K,V>`, plus `Option<T>`/`Result<T,E>`.
-  - [ ] Provide minimal namespaced APIs (signatures for typer):
-        `std::list::{new,with_capacity,len,get,set,push,pop,slice}`;
-        `std::set::{new,len,insert,remove,contains}`;
-        `std::map::{new,len,insert,remove,get,contains}`.
-  - [ ] No codegen/runtime yet; only enable typeâ€‘checking.
-  - [ ] DX: Split typer â€” move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
+- 4.3 Std Collections (staged, type-only)
+  - 4.3A — Collections Strict Errors (Option A)
+    - [ ] Typer: detect `std::list/*`, `std::set/*`, `std::map/*` and emit one clear, spanful error
+          (e.g., code `T101` "collections require generics/ADTs; planned in Phase X").
+    - [ ] Tests: calls parse; type errors return stable JSON (`--json-errors`) with code and spans.
+  - 4.3B — Parametric Types + Minimal ADTs + `match` (built-ins only)
+    - [ ] Parser: accept `Option<T>` and `Result<T,E>` types; add minimal `match` for these two ADTs.
+    - [ ] Tests: constructors and simple matches parse.
+  - 4.3C — Option/Result Typing Rules
+    - [ ] Typer: rules for `Option`/`Result` constructors and `match`; no codegen/runtime yet.
+    - [ ] Tests: functions returning `Option<String>` / `Result<Int,E>`; spanful diagnostics.
+  - 4.3D — Collections Signatures (type-only)
+    - [ ] Provide namespaced APIs using Option/Result:
+          `std::list::{new,len,push,pop} (pop -> Option<T>)`;
+          `std::set::{new,len,insert,remove,contains}`;
+          `std::map::{new,len,insert,remove,get (-> Option<V>), contains}`.
+  - 4.3E — Docs/DX
+    - [ ] Document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`),
+          dual-API guidance (precondition vs Option/Result), and JSON error codes.
+  - [ ] DX: Split typer — move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
 
 - 4.4 Small Optimizations & DX
   - [x] Optional Wasm name section for function names (`--debug-names`).

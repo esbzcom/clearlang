@@ -10,6 +10,8 @@ fn ir_ty(t: Type) -> IrType {
         Type::Int => IrType::Int,
         Type::Bool => IrType::Bool,
         Type::String => IrType::Int, // placeholder until strings have a runtime representation
+        Type::Option(_) => IrType::Int,
+        Type::Result(_, _) => IrType::Int,
     }
 }
 
@@ -59,6 +61,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: 0 });
             Ok(dst)
+        }
+        Expr::Match { .. } => {
+            anyhow::bail!("match expression not supported in lowering yet")
         }
         Expr::Var(name, _) => ctx
             .env

@@ -69,6 +69,9 @@ fn type_of<'a>(
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
         Expr::String(_, _) => Ok(Type::String),
+        Expr::Match { span, .. } => {
+            return Err(TyperError::new("T012", "match not supported in typer yet".to_string(), span.start, span.end).into());
+        }
         Expr::Var(name, sp) => Ok(
             env
                 .get(name.as_str())
@@ -120,5 +123,7 @@ pub(crate) fn show_ty(t: Type) -> &'static str {
         Type::Int => "Int",
         Type::Bool => "Bool",
         Type::String => "String",
+        Type::Option(_) => "Option",
+        Type::Result(_, _) => "Result",
     }
 }

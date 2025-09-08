@@ -3,7 +3,7 @@ use crate::ErrTy;
 use crate::literals::{int_lit, bool_lit, str_lit};
 use crate::path::path_name_p;
 use crate::tokens::ident_p;
-use lumi_ast::{Expr, BinOp, Span};
+use lumi_ast::{Expr, BinOp, Span, MatchPat, MatchArm};
 
 pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {
@@ -29,6 +29,37 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             Expr::Var(name, Span { start: sp.start, end: sp.end })
         });
 
+        // match expression: match <expr> { <pat> => <expr>, ... }
+        let some_pat = just("Some").padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(ident_p())
+            .then_ignore(just(')').padded())
+            .map(MatchPat::Some);
+        let none_pat = just("None").padded().to(MatchPat::None);
+        let ok_pat = just("Ok").padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(ident_p())
+            .then_ignore(just(')').padded())
+            .map(MatchPat::Ok);
+        let err_pat = just("Err").padded()
+            .ignore_then(just('(').padded())
+            .ignore_then(ident_p())
+            .then_ignore(just(')').padded())
+            .map(MatchPat::Err);
+        let pat = choice((some_pat, none_pat, ok_pat, err_pat)).labelled("match pattern");
+        let arm = pat.then_ignore(just("=>").padded()).then(expr.clone()).map(|(p, e)| MatchArm { pat: p, expr: e });
+        let arms = arm
+            .separated_by(just(',').padded())
+            .collect::<Vec<_>>()
+            .delimited_by(just('{').padded(), just('}').padded());
+        let match_expr = just("match").padded()
+            .ignore_then(expr.clone())
+            .then(arms)
+            .map_with(|(scrut, arms), e| {
+                let sp = e.span();
+                Expr::Match { scrutinee: Box::new(scrut), arms, span: Span { start: sp.start, end: sp.end } }
+            });
+
         let atom = choice((
             int_lit(),
             bool_lit(),
@@ -37,6 +68,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 just('(').padded().labelled("'('") ,
                 just(')').padded().labelled("')'")
             ),
+            match_expr,
             call_expr,
             var_expr,
         ))
@@ -48,7 +80,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         fn span_of(e: &Expr) -> (usize, usize) {
             match e {
                 Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
-                Expr::Bin { span, .. } | Expr::Call { span, .. } => (span.start, span.end),
+                Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } => (span.start, span.end),
             }
         }
 

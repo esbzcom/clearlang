@@ -24,8 +24,14 @@ pub struct Param {
     pub ty: Type,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Type { Int, Bool, String }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Type {
+    Int,
+    Bool,
+    String,
+    Option(Box<Type>),
+    Result(Box<Type>, Box<Type>),
+}
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -35,7 +41,14 @@ pub enum Expr {
     Var(String, Span),
     Bin { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr>, span: Span },
     Call { callee: String, args: Vec<Expr>, span: Span },
+    Match { scrutinee: Box<Expr>, arms: Vec<MatchArm>, span: Span },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp { Add, Sub, Mul, Div }
+
+#[derive(Debug, Clone)]
+pub enum MatchPat { Some(String), None, Ok(String), Err(String) }
+
+#[derive(Debug, Clone)]
+pub struct MatchArm { pub pat: MatchPat, pub expr: Expr }

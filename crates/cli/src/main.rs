@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use lumi_codegen_wasm::{emit_trivial_main, emit_from_ir_with_opts, CodegenOpts};
-use lumi_typer::check as type_check;
+use lumi_typer::{check as type_check, TyperError};
 use lumi_ir::IrType;
 use lumi_parser::parse as parse_src;
 use wasmtime as wt;
@@ -135,7 +135,20 @@ fn main() -> Result<()> {
                 Ok(ir) => ir,
                 Err(e) => {
                     if cli.json_errors {
-                        emit_type_json_error(&file, &format!("{e:#}"));
+                        if let Some(te) = e.downcast_ref::<TyperError>() {
+                            emit_single_json_error(
+                                te.code,
+                                "type",
+                                &te.message,
+                                &file,
+                                te.start,
+                                te.end,
+                                None,
+                            );
+                        } else {
+                            // Fallback to best-effort string classification
+                            emit_type_json_error(&file, &format!("{e:#}"));
+                        }
                         std::process::exit(1);
                     } else {
                         return Err(e.context("type-check failed"));

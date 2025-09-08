@@ -72,6 +72,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `-o, --out <PATH>`: output Wasm path; creates parent directories if needed.
   - `--validate`: run `wasm-tools validate` on the produced Wasm (optional).
   - `--debug-names`: include a Wasm name section with function names.
+  - `--json-errors`: emit machine-readable JSON on parse/type/build failures (stable codes + spans).
 - Examples:
   - `lumi emit-hello -o tmp/hello.wasm`
   - `lumi parse lumi-tests/01_hello.lumi`
@@ -84,6 +85,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 - Typing rules: `docs/typing.md`
 - IR shape and encoding: `docs/ir.md`
+- Diagnostics JSON: see `--json-errors` in CLI; codes include P001 (parse), T001–T006 (type), C001–C002 (build).
 
 ---
 

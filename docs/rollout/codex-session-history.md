@@ -79,3 +79,13 @@
 - Updated docs: `docs/typing.md`, README status, and `docs/lumi_*` summaries to use `String`.
 - Marked TODO item “Rename Str→String” as done; adjusted DEVPLAN terminology accordingly.
 - Note: transitional hint for `Str` usage is not added yet (optional). Parser will now expect `String` in type positions.
+
+## Session 2025-09-08 — JSON Errors & Typer Split
+
+- Added `--json-errors` (global CLI flag) to emit machine-readable diagnostics with stable codes and spans.
+- Introduced structured errors:
+  - ParserError (code P001) with `start/end` spans per error.
+  - TyperError (codes T001–T006, T008–T011) with `start/end` spans; preserves human messages.
+- CLI now downcasts and emits JSON directly from structured errors; removed brittle string matching for parse/type.
+- Added CLI integration tests for JSON shape and codes (parse failure P001, missing main C002, arg type mismatch T003).
+- DevX: split `lumi-typer` into modules: `errors`, `builtins`, `check`, `lower`; `lib.rs` re-exports `check()` and `TyperError`.

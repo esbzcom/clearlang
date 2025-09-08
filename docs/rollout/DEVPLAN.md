@@ -123,6 +123,9 @@ Status
 - [x] Tests: parser (escapes, multi-line, invalid escape) and typer (String echo, spanful mismatch).
 - [x] Syntax cleanup: `function` keyword only (removed `fn`).
 - [x] Parser UX: hint when `:` is used for return types (suggest `->`).
+- [x] CLI/Diagnostics: add `--json-errors` with stable codes (P001, T001–T006, C001–C002) and spans.
+- [x] Structured errors: introduce `ParserError` and `TyperError` with codes/spans; CLI emits JSON directly.
+- [x] DX: Split `lumi-typer` into modules (`errors`, `builtins`, `check`, `lower`) keeping `check()` public.
 
 Notes
 - Codegen/runtime for `String` deferred to Phase 5; lowering uses a placeholder.

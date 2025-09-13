@@ -89,3 +89,31 @@
 - CLI now downcasts and emits JSON directly from structured errors; removed brittle string matching for parse/type.
 - Added CLI integration tests for JSON shape and codes (parse failure P001, missing main C002, arg type mismatch T003).
 - DevX: split `lumi-typer` into modules: `errors`, `builtins`, `check`, `lower`; `lib.rs` re-exports `check()` and `TyperError`.
+
+## Session 2025-09-13 — Roadmap Alignment, ADT Parsing, Return keyword
+
+- Roadmap/TODO alignment:
+  - Renumbered Phase 4.3A–E into numbered 4.3–4.7 and moved Small DX to 4.8.
+  - Reordered later phases: Resource/Linear Types to Phase 7, Totality & Loops to Phase 8, Refinement Types to Phase 9.
+  - Added Phase 5.6 Strings Runtime and Phase 4.9 Return (expression form).
+  - Updated README Project Status and added a "Current Capabilities" snapshot.
+- Typer fixes:
+  - Removed `Type: Copy` assumption; replaced `.copied()` with `.cloned()` and cloned values at map boundaries.
+  - Covered `Expr::Match` and `Expr::Return` in exhaustiveness matches; improved spans in error reporting.
+  - Collections calls now emit T101 with wording updated to "Phase 4.x slices".
+- Parser work (Phase 4.4):
+  - Implemented constructors in expressions: `Some(...)`, `None`, `Ok(...)`, `Err(...)`.
+  - `match` syntax already present; added tests for constructors and match negatives.
+  - Boxed parsers to satisfy chumsky Clone bounds in recursive positions.
+- Return keyword (Phase 4.9 minimal):
+  - Added `Expr::Return { expr }` to AST and parsing of `return expr`.
+  - Typer treats it as the inner expression's type; lowering keeps expression-bodied semantics.
+  - Const-eval handles `return` by evaluating inner expr.
+  - Added sample `lumi-tests/18_return_simple.lumi` and included in CLI IT.
+- Docs updated: TODO, typing.md (match rules plan; return semantics), README status.
+
+Next actions
+- Phase 4.5: Implement typing rules for `Option`/`Result` + `match` (T201–T205), with tests; keep codegen deferred.
+- Phase 4.10 (new): Add expression-form `if/else` with `else if`/`elif` chaining; enforce branch type unification; parser + typer + tests.
+- Phase 5.6: Strings runtime (ptr+len), implement `std::str` ops; add e2e tests.
+- Plan multi-statement blocks (`let`, expr statements, `return;`) after 4.10; update IR for basic control flow when enabling early returns.

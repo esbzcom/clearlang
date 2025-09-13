@@ -130,6 +130,17 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Lowering: treat `return e` as `e` in expression-bodied functions (final Ret unchanged).
   - [x] Const-eval: handle `return` by evaluating inner expr.
   - [x] Tests: add `lumi-tests/18_return_simple.lumi` and include in CLI IT.
+
+- 4.10 Conditionals (expr-form if/else chain)
+  - [ ] Parser: `if cond { ... } (else if|elif cond { ... })* else { ... }`.
+  - [ ] Typer: `cond: Bool` per arm; all branches unify to a single result type.
+  - [ ] Tests: multi-branch chains; require final `else` in expression form.
+  - [ ] Design note: allow `elif` as alias; desugar to nested `if`.
+
+- 4.11 ADT Ergonomics (sugar)
+  - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
+  - [ ] `??` coalescing for Option (sugar for `unwrap_or`).
+  - [ ] `?` try operator for Option/Result (propagate early) — design behind a flag.
   
 
 ## Phase 5 — Codegen IR → Wasm

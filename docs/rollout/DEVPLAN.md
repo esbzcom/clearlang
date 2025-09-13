@@ -242,3 +242,31 @@ Anchoring (Optional, later)
 Acceptance
 - Deterministic `module_hash` reproducible across machines.
 - `lumi verify` validates signature and (when artifacts are provided) re-checks proofs before accepting.
+
+---
+
+# Near-Term Next Steps (Post 4.9)
+
+Focus 1 — Phase 4.5: ADT Typing + Match
+- Implement typing rules for `Option<T>` and `Result<T,E>` constructors.
+- Add minimal `match` typing over Option/Result:
+  - Enforce exhaustiveness; bind payloads with correct types.
+  - Error codes: T201 (non-exhaustive), T202 (duplicate arm), T203 (invalid scrutinee), T204 (arm type mismatch), T205 (binder conflicts).
+- Tests: positive (Some/None, Ok/Err) and negative cases per code.
+- Codegen: keep lowering deferred until basic control flow is introduced; diagnose unsupported in codegen path if surfaced.
+
+Focus 2 — Phase 4.10: If/Else (Expression Form)
+- Parser: `if cond { ... } (else if cond2 { ... })* else { ... }`; accept `elif` as alias for `else if`.
+- Typer: require `Bool` conditions; unify branch result types.
+- Tests: expression-form chains; require final else in expression contexts.
+- Desugar: represent as nested If AST or keep dedicated node; lower later to IR `If/Else`.
+
+Focus 3 — Phase 5.6: Strings Runtime
+- Define String ABI (ptr+len, utf-8) and minimal allocator.
+- Implement `std::str::{len, concat, eq}` via intrinsics/runtime.
+- E2E tests across samples; keep validation via wasmparser/wasmtime.
+
+Prep — Blocks & Early Return (Post 4.10)
+- Design multi-statement blocks: `let`, expr statements, `return;`.
+- IR additions for basic structured control flow (`If/Else`, block join via locals).
+- Gradually enable early returns inside blocks; keep expression-form compatibility.

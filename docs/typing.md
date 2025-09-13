@@ -60,3 +60,28 @@ Lowering Note (Phase 3.4)
 
 Planned (Phase 3.8)
 - Attach source spans to AST nodes and carry them into typer errors for precise diagnostics.
+
+Match (Option/Result) — Minimal Typing (Phase 4.4–4.5)
+- Scope: Only `Option<T>` and `Result<T,E>` scrutinees; no guards; one pattern binder per arm.
+- Exhaustiveness:
+  - Option: require exactly two arms: `Some(x)` and `None` (order irrelevant). Error if missing/duplicate.
+  - Result: require exactly two arms: `Ok(x)` and `Err(e)` (order irrelevant). Error if missing/duplicate.
+- Bindings:
+  - `Some(x)` binds `x: T` when scrutinee has type `Option<T>`.
+  - `Ok(x)` binds `x: T`, `Err(e)` binds `e: E` when scrutinee has type `Result<T,E>`.
+  - Pattern binders must not shadow existing parameters/locals; emit a clear error on shadowing.
+- Arm typing:
+  - Type each arm under its extended environment; both arms must synthesize the same result type `R`.
+  - The overall `match` expression has type `R`.
+- Invalid scrutinee:
+  - Matching on non-`Option`/`Result` types is rejected with a targeted error.
+
+Proposed typer error codes (JSON-stable):
+- T201: non-exhaustive `match` (missing arm for Option/Result).
+- T202: duplicate or conflicting arm (e.g., two `Some` arms).
+- T203: invalid scrutinee type for `match` (expected `Option`/`Result`).
+- T204: arm result type mismatch (arms do not agree on a single type).
+- T205: pattern binder conflicts with an existing name in scope (shadowing).
+
+Notes
+- Parsing exists for `match` in expressions; typing initially emits a clear “not supported yet” error code (T012). The above replaces that once enabled.

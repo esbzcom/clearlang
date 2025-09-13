@@ -41,6 +41,7 @@ pub enum Expr {
     Var(String, Span),
     Bin { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr>, span: Span },
     Call { callee: String, args: Vec<Expr>, span: Span },
+    Return { expr: Box<Expr>, span: Span },
     Match { scrutinee: Box<Expr>, arms: Vec<MatchArm>, span: Span },
 }
 

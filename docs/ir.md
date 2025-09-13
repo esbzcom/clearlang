@@ -46,3 +46,23 @@ Verification Notes
 Planned Extensions
 - Void-returning functions, dropping unused call results.
 - Multi-block/control flow in later phases.
+
+Match Lowering Plan (Phase 5+)
+- Goal: Support `match` over `Option`/`Result` after introducing basic control flow.
+- IR additions (minimal):
+  - `Br(u32)`/`BrIf(u32)` and block annotations, or a simple structured form:
+    - `Block { label, body }`, `If { cond, then_body, else_body }`.
+  - Temporary assignment across branches (SSA join): introduce an explicit `Phi { dst, a: Value, b: Value }` or, simpler, use a pre-allocated `dst` with both branches `local.set dst` then fallthrough uses `dst`.
+- Lowering sketch for Option:
+  - Evaluate scrutinee to a tuple-like runtime form (placeholder: i32 tag + i32 payload pointer/value when available). In Phase 5, use a stub: Option encoded as i32 (0 = None, 1 = Some) with a separate value (future work for non-int payloads).
+  - Emit `If` on tag: in `then` (Some), bind payload and lower arm; in `else` (None), lower other arm.
+  - Store both arm results to the same destination value; continue with that value.
+- Lowering sketch for Result:
+  - Similar to Option; use tag (0 = Ok, 1 = Err) + payload slot; branch and assign a single destination.
+- Wasm mapping:
+  - Map `If`/`Block` to Wasm structured control flow (`if`, `else`, `end`).
+  - Use function locals for branch results; emit `local.set dst` in both branches and `local.get dst` at join.
+- Constraints:
+  - Strings and non-i32 payloads require a well-defined runtime representation (arrives with Strings Runtime). Until then, restrict match lowering to scrutinees/arms producing `Int`/`Bool`.
+- Testing:
+  - Add small e2e cases for `Option<Int>` and `Result<Int,Int>` returning `Int`.

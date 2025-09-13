@@ -52,6 +52,11 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: *n });
             Ok(dst)
         }
+        Expr::Return { expr, .. } => {
+            // For expression-bodied functions, `return e` is equivalent to `e`.
+            // Lower inner expression; the enclosing function appends the Ret.
+            lower_expr(ctx, expr)
+        }
         Expr::Bool(b, _) => {
             let dst = fresh(ctx);
             ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });

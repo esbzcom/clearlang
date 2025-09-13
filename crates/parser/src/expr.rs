@@ -38,6 +38,14 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             Expr::Var(name, Span { start: sp.start, end: sp.end })
         });
 
+        // return expression
+        let ret_expr = just("return").padded()
+            .ignore_then(expr.clone())
+            .map_with(|e_inner, e| {
+                let sp = e.span();
+                Expr::Return { expr: Box::new(e_inner), span: Span { start: sp.start, end: sp.end } }
+            });
+
         // match expression: match <expr> { <pat> => <expr>, ... }
         let some_pat = just("Some").padded()
             .ignore_then(just('(').padded())
@@ -77,6 +85,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 just('(').padded().labelled("'('") ,
                 just(')').padded().labelled("')'")
             ),
+            ret_expr,
             match_expr,
             ctor_call,
             call_expr,

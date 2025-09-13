@@ -49,7 +49,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     if body_ty != f.ret {
         let sp = match &f.body {
             Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-            Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } => *span,
+            Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } | Expr::Return { span, .. } => *span,
         };
         return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
     }
@@ -78,6 +78,10 @@ fn type_of<'a>(
                 .cloned()
                 .ok_or_else(|| TyperError::unknown_variable(name, *sp))?
         ),
+        Expr::Return { expr, .. } => {
+            let t = type_of(expr, env, fns, depth + 1)?;
+            Ok(t)
+        }
         Expr::Bin { op, lhs, rhs, span } => {
             let lt = type_of(lhs, env, fns, depth + 1)?;
             let rt = type_of(rhs, env, fns, depth + 1)?;

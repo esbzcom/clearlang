@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 use crate::ErrTy;
 use crate::literals::{int_lit, bool_lit, str_lit};
 use crate::path::path_name_p;
-use crate::tokens::ident_p;
+use crate::tokens::{ident_p, ctor_name_p};
 use lumi_ast::{Expr, BinOp, Span, MatchPat, MatchArm};
 
 pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
@@ -20,6 +20,15 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         let call_expr = path_name_p()
             .then(call_args.clone())
             .map_with(|(name, args), e| {
+                let sp: chumsky::span::SimpleSpan<usize> = e.span();
+                Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } }
+            });
+
+        // Constructors: Some(x), Ok(x), Err(e); None (with or without parentheses)
+        let ctor_call = ctor_name_p()
+            .then(call_args.clone().or_not())
+            .map_with(|(name, maybe_args), e| {
+                let args = maybe_args.unwrap_or_default();
                 let sp: chumsky::span::SimpleSpan<usize> = e.span();
                 Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } }
             });
@@ -69,6 +78,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 just(')').padded().labelled("')'")
             ),
             match_expr,
+            ctor_call,
             call_expr,
             var_expr,
         ))

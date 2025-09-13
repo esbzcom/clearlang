@@ -24,6 +24,18 @@ pub(crate) fn kw<'a>(s: &'static str) -> impl Parser<'a, &'a str, &'static str, 
         .boxed()
 }
 
+// Reserved constructor names for ADTs used in expressions and patterns
+pub(crate) fn ctor_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
+    choice((
+        just("Some").to("Some"),
+        just("None").to("None"),
+        just("Ok").to("Ok"),
+        just("Err").to("Err"),
+    ))
+    .map(|s: &str| s.to_string())
+    .padded()
+}
+
 pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
     ident_start()
         .then(ident_continue().repeated().collect::<String>())

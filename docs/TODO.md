@@ -100,7 +100,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
         (code `T101` "collections require generics/ADTs; planned in later slices").
   - [x] Tests: calls parse; type errors return stable JSON (`--json-errors`) with code and spans.
 - 4.4 Parametric Types + Minimal ADTs + `match` (built-ins only)
-  - [ ] Parser: accept `Option<T>` and `Result<T,E>` types; add minimal `match` for these two ADTs.
+  - [x] Parser: accept `Option<T>` and `Result<T,E>` types; add minimal `match` for these two ADTs.
   - [ ] Tests: constructors and simple matches parse.
 - 4.5 Option/Result Typing Rules
   - [ ] Typer: rules for `Option`/`Result` constructors and `match`; no codegen/runtime yet.

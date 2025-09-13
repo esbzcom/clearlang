@@ -103,8 +103,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Parser: accept `Option<T>` and `Result<T,E>` types; add minimal `match` for these two ADTs.
   - [x] Tests: constructors and simple matches parse.
 - 4.5 Option/Result Typing Rules
-  - [ ] Typer: rules for `Option`/`Result` constructors and `match`; no codegen/runtime yet.
-  - [ ] Tests: functions returning `Option<String>` / `Result<Int,E>`; spanful diagnostics.
+  - [x] Typer: rules for `Option`/`Result` `match` (exhaustiveness, binders, arm type unification); partial constructors support (`Some(expr)`); no codegen/runtime yet.
+  - [x] Tests: typer-only tests for `Option`/`Result` matches and errors (T201–T205); Option constructors (`Some`) and identity.
 - 4.6 Collections Signatures (type-only)
   - [ ] Provide namespaced APIs using Option/Result:
         `std::list::{new,len,push,pop} (pop -> Option<T>)`;

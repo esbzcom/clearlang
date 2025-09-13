@@ -30,6 +30,12 @@ Effects (stub)
 - Accepted: `None` (omitted effect) and `pure`.
 - Rejected: `mut`, `io` (these error with a clear message in this phase).
 
+Return (expression form)
+- Syntax: `return expr` inside an expression-bodied function.
+- Semantics (Phase 4.9 minimal): equivalent to evaluating `expr` as the function body’s value.
+- Typing: `expr` must type to the function’s declared return type (enforced at the body level).
+- Notes: This is a stepping stone before multi-statement blocks; early returns inside blocks will arrive with statements/control flow.
+
 Typing Environment
 - A function environment is built from top-level declarations: name → (params, return type).
 - Per-function, a local environment maps parameter names to their types; duplicate parameter names are rejected.

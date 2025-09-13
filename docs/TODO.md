@@ -122,6 +122,14 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
   - [ ] Gate build stage logs behind `--verbose` (keep default quieter).
   - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
+ 
+- 4.9 Return (expression form)
+  - [x] AST: add `Expr::Return { expr, span }`.
+  - [x] Parser: reserve `return`; parse `return expr`.
+  - [x] Typer: type-check `return expr` as inner type; include in spans.
+  - [x] Lowering: treat `return e` as `e` in expression-bodied functions (final Ret unchanged).
+  - [x] Const-eval: handle `return` by evaluating inner expr.
+  - [x] Tests: add `lumi-tests/18_return_simple.lumi` and include in CLI IT.
   
 
 ## Phase 5 — Codegen IR → Wasm

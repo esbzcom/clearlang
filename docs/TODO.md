@@ -186,6 +186,14 @@ DX Prep
 - [ ] Generate Verification Conditions (VCs) for pure, expression-bodied functions.
 - [ ] CLI: `--emit-vcs` outputs stable JSON (function, vc_id, pre, post, smt2, status).
 
+6.3 Mutable Collections (effects)
+- [ ] Add effect-gated mutable variants for collections (initial sketch, no runtime yet):
+  - `std::list::{push_mut(l: List<T>, x: T) -> Unit, insert_mut(l: List<T>, x: T, i: Int) -> Unit, remove_mut(l: List<T>, i: Int) -> Option<T>, pop_mut(l: List<T>) -> Option<T>, clear_mut(l: List<T>) -> Unit}`.
+  - `std::set::{insert_mut(s: Set<T>, x: T) -> Bool, remove_mut(s: Set<T>, x: T) -> Bool, clear_mut(s: Set<T>) -> Unit}`.
+  - `std::map::{insert_mut(m: Map<K,V>, k: K, v: V) -> Option<V>, remove_mut(m: Map<K,V>, k: K) -> Option<V>, clear_mut(m: Map<K,V>) -> Unit}`.
+- [ ] Type system: restrict usage of `*_mut` to functions with `mut` effect; pure code continues using immutable APIs.
+- [ ] Tests: typer-only coverage that `*_mut` require `mut` effect and have correct signatures.
+
 6.3 Runtime Guards
 - [ ] Lower contracts to guards that trap on violation.
 
@@ -206,6 +214,11 @@ DX Prep
 7.2 Typing Rules
 - [ ] Linear usage checking: every resource is consumed exactly once; no double-use.
 - [ ] Function signatures express resource flow (in/out/borrow) as needed.
+
+7.3 Aliasing & In-Place Updates
+- [ ] Ownership/aliasing rules to guarantee unique access for in-place updates.
+- [ ] Freeze/thaw design sketch (optional): safe conversion between immutable and uniquely-owned mutable states.
+- [ ] Update mutable collection ops to leverage unique ownership (no hidden aliasing).
 
 7.3 Tests & Docs
 - [ ] Unit tests for moves, drops, and invalid double-use.

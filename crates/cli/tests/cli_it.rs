@@ -56,6 +56,7 @@ fn build_and_run_samples() {
         ("04_multiline_call.lumi", 30),
         ("05_trailing_param_comma.lumi", 3),
         ("08_main_const.lumi", 42),
+        ("18_return_simple.lumi", 42),
     ];
     for (file, expect) in cases {
         let tmp = tempdir().unwrap();

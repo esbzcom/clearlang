@@ -98,8 +98,14 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         // Helper to compute a span for composite expressions
         fn span_of(e: &Expr) -> (usize, usize) {
             match e {
-                Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => (sp.start, sp.end),
-                Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } => (span.start, span.end),
+                Expr::Int(_, sp)
+                | Expr::Bool(_, sp)
+                | Expr::String(_, sp)
+                | Expr::Var(_, sp) => (sp.start, sp.end),
+                Expr::Bin { span, .. }
+                | Expr::Call { span, .. }
+                | Expr::Match { span, .. }
+                | Expr::Return { span, .. } => (span.start, span.end),
             }
         }
 

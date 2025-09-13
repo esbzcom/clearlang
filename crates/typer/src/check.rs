@@ -114,7 +114,8 @@ fn type_of<'a>(
                         | Expr::Var(_, sp)
                         | Expr::Bin { span: sp, .. }
                         | Expr::Call { span: sp, .. }
-                        | Expr::Match { span: sp, .. } => *sp,
+                        | Expr::Match { span: sp, .. }
+                        | Expr::Return { span: sp, .. } => *sp,
                     };
                     return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }

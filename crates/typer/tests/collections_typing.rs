@@ -70,9 +70,30 @@ fn set_contains_types() {
 }
 
 #[test]
+fn set_len_and_insert_remove_types() {
+    let src = r#"
+        pure function s_len(s: Set<Int>) -> Int { std::set::len(s) }
+        pure function s_ins(s: Set<Int>) -> Set<Int> { std::set::insert(s, 1) }
+        pure function s_rm(s: Set<Int>) -> Set<Int> { std::set::remove(s, 1) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
 fn map_get_types() {
     let src = r#"
         function g(m: Map<Int, String>) -> Option<String> { std::map::get(m, 1) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn map_len_and_contains_and_insert_remove_types() {
+    let src = r#"
+        function m_len(m: Map<Int, String>) -> Int { std::map::len(m) }
+        function m_con(m: Map<Int, String>) -> Bool { std::map::contains(m, 1) }
+        function m_ins(m: Map<Int, String>) -> Map<Int, String> { std::map::insert(m, 1, "v") }
+        function m_rm(m: Map<Int, String>) -> Map<Int, String> { std::map::remove(m, 1) }
     "#;
     type_ok(src);
 }
@@ -99,6 +120,43 @@ fn map_get_key_mismatch() {
         function bad(m: Map<Int, String>) -> Option<String> { std::map::get(m, "key") }
     "#;
     type_err_code(src, "T208");
+}
+
+#[test]
+fn set_insert_element_mismatch() {
+    let src = r#"
+        function bad(s: Set<Int>) -> Set<Int> { std::set::insert(s, true) }
+    "#;
+    type_err_code(src, "T208");
+}
+
+#[test]
+fn map_insert_key_value_mismatch() {
+    let src1 = r#"
+        function badk(m: Map<Int, String>) -> Map<Int, String> { std::map::insert(m, "k", "v") }
+    "#;
+    type_err_code(src1, "T208");
+    let src2 = r#"
+        function badv(m: Map<Int, String>) -> Map<Int, String> { std::map::insert(m, 1, 2) }
+    "#;
+    type_err_code(src2, "T208");
+}
+
+#[test]
+fn expected_collection_kind_errors() {
+    // Passing non-collection to collection APIs should error with T207
+    let src1 = r#"
+        function bad(x: Int) -> Int { std::list::len(x) }
+    "#;
+    type_err_code(src1, "T207");
+    let src2 = r#"
+        function bad(x: Int) -> Int { std::set::len(x) }
+    "#;
+    type_err_code(src2, "T207");
+    let src3 = r#"
+        function bad(x: Int) -> Int { std::map::len(x) }
+    "#;
+    type_err_code(src3, "T207");
 }
 
 #[test]

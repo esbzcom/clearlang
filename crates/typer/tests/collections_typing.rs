@@ -38,6 +38,30 @@ fn list_pop_types() {
 }
 
 #[test]
+fn list_get_types() {
+    let src = r#"
+        pure function get0(l: List<Int>) -> Option<Int> { std::list::get(l, 0) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn list_insert_types() {
+    let src = r#"
+        pure function ins(l: List<Int>) -> List<Int> { std::list::insert(l, 1, 0) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn list_remove_types() {
+    let src = r#"
+        pure function rm(l: List<Int>) -> List<Int> { std::list::remove(l, 0) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
 fn set_contains_types() {
     let src = r#"
         function c(s: Set<String>) -> Bool { std::set::contains(s, "hi") }
@@ -62,6 +86,14 @@ fn list_push_element_mismatch() {
 }
 
 #[test]
+fn list_index_type_mismatch() {
+    let src = r#"
+        function bad(l: List<Int>) -> Option<Int> { std::list::get(l, true) }
+    "#;
+    type_err_code(src, "T005");
+}
+
+#[test]
 fn map_get_key_mismatch() {
     let src = r#"
         function bad(m: Map<Int, String>) -> Option<String> { std::map::get(m, "key") }
@@ -76,4 +108,3 @@ fn new_cannot_infer() {
     "#;
     type_err_code(src, "T206");
 }
-

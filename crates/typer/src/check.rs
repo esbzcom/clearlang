@@ -272,6 +272,19 @@ fn type_collection_call<'a>(
             let lty = arg_ty(0)?;
             if let Type::List(_) = lty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("List", lty, span).into()) }
         }
+        "std::list::get" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            let lty = arg_ty(0)?;
+            let ity = arg_ty(1)?;
+            if ity != Type::Int {
+                let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s };
+                return Err(TyperError::int_operand("index", ity, Some(sp)).into());
+            }
+            match lty {
+                Type::List(inner) => Ok(Some(Type::Option(inner))),
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
         "std::list::push" => {
             if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
             let lty = arg_ty(0)?;
@@ -282,6 +295,40 @@ fn type_collection_call<'a>(
                     if aty != letxty { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(letxty, aty, sp).into()); }
                     Ok(Some(Type::List(Box::new(*inner))))
                 }
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
+        "std::list::insert" => {
+            if args.len() != 3 { return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into()); }
+            let lty = arg_ty(0)?;
+            match lty {
+                Type::List(inner) => {
+                    let elem_expected: Type = (*inner).clone();
+                    let aty_elem = arg_ty(1)?;
+                    if aty_elem != elem_expected {
+                        let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s };
+                        return Err(TyperError::element_type_mismatch(elem_expected, aty_elem, sp).into());
+                    }
+                    let ity = arg_ty(2)?;
+                    if ity != Type::Int {
+                        let sp = match &args[2] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s };
+                        return Err(TyperError::int_operand("index", ity, Some(sp)).into());
+                    }
+                    Ok(Some(Type::List(Box::new(*inner))))
+                }
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
+        "std::list::remove" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            let lty = arg_ty(0)?;
+            let ity = arg_ty(1)?;
+            if ity != Type::Int {
+                let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s };
+                return Err(TyperError::int_operand("index", ity, Some(sp)).into());
+            }
+            match lty {
+                Type::List(inner) => Ok(Some(Type::List(inner))),
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }

@@ -106,10 +106,13 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Typer: rules for `Option`/`Result` `match` (exhaustiveness, binders, arm type unification); partial constructors support (`Some(expr)`); no codegen/runtime yet.
   - [x] Tests: typer-only tests for `Option`/`Result` matches and errors (T201–T205); Option constructors (`Some`) and identity.
 - 4.6 Collections Signatures (type-only)
-  - [ ] Provide namespaced APIs using Option/Result:
-        `std::list::{new,len,push,pop} (pop -> Option<T>)`;
-        `std::set::{new,len,insert,remove,contains}`;
-        `std::map::{new,len,insert,remove,get (-> Option<V>), contains}`.
+  - [x] Provide namespaced APIs using Option/Result (type-check only):
+        `std::list::{len,push,pop}` (pop -> Option<T>); `new` present but requires inference → emits T206.
+        `std::set::{len,insert,remove,contains}`.
+        `std::map::{len,insert,remove,get (-> Option<V>), contains}`.
+  - [x] Parser: add `List<T>`, `Set<T>`, `Map<K,V>` types.
+  - [x] Typer: enforce element/key/value types; dedicated errors T206–T208.
+  - [x] Tests: typer-only tests for positive and negative cases.
 - 4.7 Collections Docs/DX
   - [ ] Document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`),
         dual-API guidance (precondition vs Option/Result), and JSON error codes.

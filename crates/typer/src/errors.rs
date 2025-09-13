@@ -170,6 +170,37 @@ impl TyperError {
             span.end,
         )
     }
+
+    // Collections typing (Phase 4.6)
+    pub fn cannot_infer_collection(span: Span, kind: &str) -> Self {
+        Self::new(
+            "T206",
+            format!("at {}..{}: cannot infer element type for {}::new()", span.start, span.end, kind),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn expected_collection(kind: &str, found: Type, span: Span) -> Self {
+        Self::new(
+            "T207",
+            format!("at {}..{}: expected {} argument, found `{}`", span.start, span.end, kind, show_ty(found)),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn element_type_mismatch(expected: Type, found: Type, span: Span) -> Self {
+        Self::new(
+            "T208",
+            format!(
+                "at {}..{}: element type mismatch: expected `{}`, found `{}`",
+                span.start, span.end, show_ty(expected), show_ty(found)
+            ),
+            span.start,
+            span.end,
+        )
+    }
 }
 
 impl std::fmt::Display for TyperError {

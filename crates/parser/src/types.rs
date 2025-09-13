@@ -19,6 +19,23 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             kw("Bool").to(Type::Bool),
             kw("String").to(Type::String),
         ));
+        let list_t = kw("List")
+            .ignore_then(just('<').padded())
+            .ignore_then(ty.clone())
+            .then_ignore(just('>').padded())
+            .map(|t| Type::List(Box::new(t)));
+        let set_t = kw("Set")
+            .ignore_then(just('<').padded())
+            .ignore_then(ty.clone())
+            .then_ignore(just('>').padded())
+            .map(|t| Type::Set(Box::new(t)));
+        let map_t = kw("Map")
+            .ignore_then(just('<').padded())
+            .ignore_then(ty.clone())
+            .then_ignore(just(',').padded())
+            .then(ty.clone())
+            .then_ignore(just('>').padded())
+            .map(|(k, v)| Type::Map(Box::new(k), Box::new(v)));
         let option = kw("Option")
             .ignore_then(just('<').padded())
             .ignore_then(ty.clone())
@@ -31,7 +48,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then(ty.clone())
             .then_ignore(just('>').padded())
             .map(|(ok, err)| Type::Result(Box::new(ok), Box::new(err)));
-        choice((option, result, base))
+        choice((option, result, list_t, set_t, map_t, base))
             .boxed()
             .padded()
             .labelled("type")

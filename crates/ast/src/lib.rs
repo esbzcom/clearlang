@@ -31,6 +31,9 @@ pub enum Type {
     String,
     Option(Box<Type>),
     Result(Box<Type>, Box<Type>),
+    List(Box<Type>),
+    Set(Box<Type>),
+    Map(Box<Type>, Box<Type>),
 }
 
 #[derive(Debug, Clone)]

@@ -215,9 +215,9 @@ fn type_of<'a>(
             }
         }
         Expr::Call { callee, args, span } => {
-            // Phase 4.3A — Collections (strict errors): emit a single friendly error
-            if callee.starts_with("std::list::") || callee.starts_with("std::set::") || callee.starts_with("std::map::") {
-                return Err(TyperError::collections_unavailable(callee, *span).into());
+            // Phase 4.6 — Collections signatures (type-only)
+            if let Some(t) = type_collection_call(callee, args, env, fns, depth, *span)? {
+                return Ok(t);
             }
             // Phase 4.5 — ADT constructors (partial): Some(T) infers Option<T>
             if callee == "Some" {
@@ -254,6 +254,115 @@ fn type_of<'a>(
     }
 }
 
+fn type_collection_call<'a>(
+    callee: &str,
+    args: &'a [Expr],
+    env: &HashMap<&'a str, Type>,
+    fns: &HashMap<&'a str, FnSig<'a>>,
+    depth: usize,
+    span: Span,
+) -> Result<Option<Type>> {
+    // Helper to get type of an expression
+    let mut arg_ty = |i: usize| -> Result<Type> { type_of(&args[i], env, fns, depth + 1) };
+
+    match callee {
+        // List
+        "std::list::len" => {
+            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            let lty = arg_ty(0)?;
+            if let Type::List(_) = lty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("List", lty, span).into()) }
+        }
+        "std::list::push" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            let lty = arg_ty(0)?;
+            match lty {
+                Type::List(inner) => {
+                    letxty: Type = (*inner).clone();
+                    let aty = arg_ty(1)?;
+                    if aty != letxty { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(letxty, aty, sp).into()); }
+                    Ok(Some(Type::List(Box::new(*inner))))
+                }
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
+        "std::list::pop" => {
+            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            let lty = arg_ty(0)?;
+            match lty {
+                Type::List(inner) => Ok(Some(Type::Option(inner))),
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
+        "std::list::new" => {
+            return Err(TyperError::cannot_infer_collection(span, "std::list").into());
+        }
+
+        // Set
+        "std::set::len" => {
+            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            let sty = arg_ty(0)?;
+            if let Type::Set(_) = sty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("Set", sty, span).into()) }
+        }
+        "std::set::contains" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            match arg_ty(0)? {
+                Type::Set(inner) => { let aty = arg_ty(1)?; if aty != *inner { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*inner, aty, sp).into()); } Ok(Some(Type::Bool)) }
+                other => Err(TyperError::expected_collection("Set", other, span).into()),
+            }
+        }
+        "std::set::insert" | "std::set::remove" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            match arg_ty(0)? {
+                Type::Set(inner) => { let aty = arg_ty(1)?; if aty != *inner { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*inner, aty, sp).into()); } Ok(Some(Type::Set(inner))) }
+                other => Err(TyperError::expected_collection("Set", other, span).into()),
+            }
+        }
+        "std::set::new" => { return Err(TyperError::cannot_infer_collection(span, "std::set").into()); }
+
+        // Map
+        "std::map::len" => {
+            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            let mty = arg_ty(0)?;
+            if let Type::Map(_, _) = mty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("Map", mty, span).into()) }
+        }
+        "std::map::contains" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            match arg_ty(0)? {
+                Type::Map(k, _v) => { let aty = arg_ty(1)?; if aty != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty, sp).into()); } Ok(Some(Type::Bool)) }
+                other => Err(TyperError::expected_collection("Map", other, span).into()),
+            }
+        }
+        "std::map::get" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            match arg_ty(0)? {
+                Type::Map(k, v) => { let aty = arg_ty(1)?; if aty != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty, sp).into()); } Ok(Some(Type::Option(v))) }
+                other => Err(TyperError::expected_collection("Map", other, span).into()),
+            }
+        }
+        "std::map::insert" => {
+            if args.len() != 3 { return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into()); }
+            match arg_ty(0)? {
+                Type::Map(k, v) => {
+                    let aty_k = arg_ty(1)?; if aty_k != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty_k, sp).into()); }
+                    let aty_v = arg_ty(2)?; if aty_v != *v { let sp = match &args[2] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*v, aty_v, sp).into()); }
+                    Ok(Some(Type::Map(k, v)))
+                }
+                other => Err(TyperError::expected_collection("Map", other, span).into()),
+            }
+        }
+        "std::map::remove" => {
+            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            match arg_ty(0)? {
+                Type::Map(k, v) => { let aty = arg_ty(1)?; if aty != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty, sp).into()); } Ok(Some(Type::Map(k, v))) }
+                other => Err(TyperError::expected_collection("Map", other, span).into()),
+            }
+        }
+        "std::map::new" => { return Err(TyperError::cannot_infer_collection(span, "std::map").into()); }
+
+        _ => Ok(None),
+    }
+}
+
 fn ensure_int(ty: Type, what: &str, span: Option<Span>) -> Result<()> {
     if ty != Type::Int {
         return Err(TyperError::int_operand(what, ty, span).into());
@@ -268,5 +377,8 @@ pub(crate) fn show_ty(t: Type) -> &'static str {
         Type::String => "String",
         Type::Option(_) => "Option",
         Type::Result(_, _) => "Result",
+        Type::List(_) => "List",
+        Type::Set(_) => "Set",
+        Type::Map(_, _) => "Map",
     }
 }

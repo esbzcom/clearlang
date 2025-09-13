@@ -111,7 +111,7 @@ impl TyperError {
         Self::new(
             "T101",
             format!(
-                "at {}..{}: collections require generics/ADTs; `{}` is planned in later Phase 4.3 slices",
+                "at {}..{}: collections require generics/ADTs; `{}` is planned in later Phase 4.x slices",
                 span.start, span.end, callee
             ),
             span.start,

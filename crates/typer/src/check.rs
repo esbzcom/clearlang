@@ -92,7 +92,7 @@ fn type_of<'a>(
         Expr::Match { scrutinee, arms, span } => {
             let scrut_ty = type_of(scrutinee, env, fns, depth + 1)?;
             // Helper to get arm expr span
-            let mut span_of = |ex: &Expr| -> Span {
+            let span_of = |ex: &Expr| -> Span {
                 match ex {
                     Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
                     Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } | Expr::Return { span, .. } => *span,

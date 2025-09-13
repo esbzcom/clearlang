@@ -227,5 +227,14 @@ Lumi aims to be:
 
 ## 5. Project Status
 
-- Current focus: Phase 4.3–4.7 — Std Collections (type-only) and 4.8 — DX; next: Phase 5 — Codegen/Strings runtime.
+- Current focus: Phase 4.3–4.7 — Std Collections (type-only) and 4.8 — DX; 4.9 — Return (expr form) landed; next: Phase 5 — Codegen/Strings runtime.
 - Full roadmap and checklist: see `docs/TODO.md`.
+
+---
+
+## 6. Current Capabilities (Subset)
+
+- Parsing: Int/Bool/String, namespaced calls, Option/Result types and constructors, `match` syntax, `return expr`.
+- Typing: Int/Bool/String, binops and calls; collections guarded with friendly error (T101); `match` typing planned (Phase 4.5).
+- Codegen: IR→Wasm for Int/Bool; zero-arg `main() -> Int`; optional debug names.
+- CLI: `parse`/`build`/`run`, `--json-errors` (stable error codes and spans), Wasm validation option.

@@ -21,6 +21,7 @@ pub(crate) fn kw<'a>(s: &'static str) -> impl Parser<'a, &'a str, &'static str, 
             }
         })
         .padded()
+        .boxed()
 }
 
 pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {

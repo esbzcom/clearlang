@@ -32,6 +32,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then_ignore(just('>').padded())
             .map(|(ok, err)| Type::Result(Box::new(ok), Box::new(err)));
         choice((option, result, base))
+            .boxed()
             .padded()
             .labelled("type")
     })

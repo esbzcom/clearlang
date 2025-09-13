@@ -13,11 +13,11 @@ pub fn check(ast: &Program) -> Result<Module> {
 
     let builtins = builtin_sigs();
     for (name, params, ret) in &builtins {
-        fns.insert(name.as_str(), (&params[..], *ret));
+        fns.insert(name.as_str(), (&params[..], ret.clone()));
     }
 
     for f in &ast.funcs {
-        if fns.insert(f.name.as_str(), (&f.params, f.ret)).is_some() {
+        if fns.insert(f.name.as_str(), (&f.params, f.ret.clone())).is_some() {
             return Err(TyperError::duplicate_function(&f.name).into());
         }
     }
@@ -40,7 +40,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     }
     let mut env: HashMap<&str, Type> = HashMap::new();
     for p in &f.params {
-        if env.insert(p.name.as_str(), p.ty).is_some() {
+        if env.insert(p.name.as_str(), p.ty.clone()).is_some() {
             return Err(TyperError::duplicate_parameter(&p.name).into());
         }
     }
@@ -49,9 +49,9 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     if body_ty != f.ret {
         let sp = match &f.body {
             Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-            Expr::Bin { span, .. } | Expr::Call { span, .. } => *span,
+            Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } => *span,
         };
-        return Err(TyperError::return_type_mismatch(f.ret, body_ty, sp).into());
+        return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
     }
     Ok(())
 }
@@ -75,7 +75,7 @@ fn type_of<'a>(
         Expr::Var(name, sp) => Ok(
             env
                 .get(name.as_str())
-                .copied()
+                .cloned()
                 .ok_or_else(|| TyperError::unknown_variable(name, *sp))?
         ),
         Expr::Bin { op, lhs, rhs, span } => {
@@ -94,16 +94,25 @@ fn type_of<'a>(
             }
             let (params, ret) = fns
                 .get(callee.as_str())
-                .copied()
+                .cloned()
                 .ok_or_else(|| TyperError::unknown_function(callee, *span))?;
             if params.len() != args.len() {
                 return Err(TyperError::arity_mismatch(callee, params.len(), args.len(), *span).into());
             }
             for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
                 let at = type_of(a, env, fns, depth + 1)?;
-                if p.ty != at {
-                    let sp = match a { Expr::Int(_, sp)|Expr::Bool(_, sp)|Expr::String(_, sp)|Expr::Var(_, sp)|Expr::Bin{ span: sp, .. }|Expr::Call{ span: sp, .. } => *sp };
-                    return Err(TyperError::arg_type_mismatch(i, callee, p.ty, at, sp).into());
+                let expected = p.ty.clone();
+                if expected != at {
+                    let sp = match a {
+                        Expr::Int(_, sp)
+                        | Expr::Bool(_, sp)
+                        | Expr::String(_, sp)
+                        | Expr::Var(_, sp)
+                        | Expr::Bin { span: sp, .. }
+                        | Expr::Call { span: sp, .. }
+                        | Expr::Match { span: sp, .. } => *sp,
+                    };
+                    return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }
             }
             Ok(ret)

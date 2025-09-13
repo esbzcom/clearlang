@@ -104,6 +104,7 @@ fn eval_expr_int(
         Expr::Int(n, _) => Ok(*n),
         Expr::Bool(_, _) => bail!("bool not supported in arithmetic evaluator"),
         Expr::String(_, _) => bail!("string not supported in arithmetic evaluator"),
+        Expr::Match { .. } => bail!("match not supported in arithmetic evaluator"),
         Expr::Var(name, _) => env
             .get(name.as_str())
             .copied()

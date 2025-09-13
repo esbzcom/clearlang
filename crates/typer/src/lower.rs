@@ -39,8 +39,8 @@ pub(crate) fn lower_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> 
 
     Ok(IrFunction {
         name: f.name.clone(),
-        params: f.params.iter().map(|p| ir_ty(p.ty)).collect(),
-        ret: Some(ir_ty(f.ret)),
+        params: f.params.iter().map(|p| ir_ty(p.ty.clone())).collect(),
+        ret: Some(ir_ty(f.ret.clone())),
         body: ctx.body,
     })
 }
@@ -89,7 +89,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             let (_params, _ret_ty) = ctx
                 .fns
                 .get(callee.as_str())
-                .copied()
+                .cloned()
                 .ok_or_else(|| anyhow::anyhow!(format!("unknown function `{}`", callee)))?;
             let dst = fresh(ctx);
             ctx.body.push(Instr::Call { dst: Some(dst), callee: callee.clone(), args: argv });

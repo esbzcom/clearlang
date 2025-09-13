@@ -263,7 +263,7 @@ fn type_collection_call<'a>(
     span: Span,
 ) -> Result<Option<Type>> {
     // Helper to get type of an expression
-    let mut arg_ty = |i: usize| -> Result<Type> { type_of(&args[i], env, fns, depth + 1) };
+    let arg_ty = |i: usize| -> Result<Type> { type_of(&args[i], env, fns, depth + 1) };
 
     match callee {
         // List
@@ -290,7 +290,7 @@ fn type_collection_call<'a>(
             let lty = arg_ty(0)?;
             match lty {
                 Type::List(inner) => {
-                    letxty: Type = (*inner).clone();
+                    let letxty: Type = (*inner).clone();
                     let aty = arg_ty(1)?;
                     if aty != letxty { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(letxty, aty, sp).into()); }
                     Ok(Some(Type::List(Box::new(*inner))))

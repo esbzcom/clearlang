@@ -140,8 +140,8 @@ fn type_error_reports_json_with_span_and_code() {
 }
 
 #[test]
-fn collections_error_reports_t101_in_json() {
-    // A program that calls a collections function should yield T101 via --json-errors
+fn collections_error_reports_collection_kind_error_in_json() {
+    // Calling a collection API with wrong kind should yield T207 via --json-errors
     let src = r#"
         function main() -> Int { std::map::len(0) }
     "#;
@@ -157,6 +157,6 @@ fn collections_error_reports_t101_in_json() {
     let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors array");
     assert!(!errs.is_empty());
     let e0 = &errs[0];
-    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T101"));
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T207"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
 }

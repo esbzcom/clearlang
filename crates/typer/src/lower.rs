@@ -12,6 +12,7 @@ fn ir_ty(t: Type) -> IrType {
         Type::String => IrType::Int, // placeholder until strings have a runtime representation
         Type::Option(_) => IrType::Int,
         Type::Result(_, _) => IrType::Int,
+        Type::List(_) | Type::Set(_) | Type::Map(_, _) => IrType::Int,
     }
 }
 

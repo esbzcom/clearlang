@@ -394,9 +394,10 @@ fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
         insts.local_get(5);
         insts.local_get(2);
         insts.i32_ge_u();
-        insts.if_(BlockType::Result(ValType::I32));
+        insts.if_(BlockType::Empty);
           insts.i32_const(1);
-          insts.br(1);
+          // break to outer block (depth: if=0, loop=1, block=2)
+          insts.br(2);
         insts.end();
         // if (load8(pa+i) != load8(pb+i)) { return 0 }
         insts.local_get(3); insts.local_get(5); insts.i32_add();
@@ -404,9 +405,9 @@ fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
         insts.local_get(4); insts.local_get(5); insts.i32_add();
         insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
         insts.i32_ne();
-        insts.if_(BlockType::Result(ValType::I32));
+        insts.if_(BlockType::Empty);
           insts.i32_const(0);
-          insts.br(1);
+          insts.br(2);
         insts.end();
         // i++ ; continue
         insts.local_get(5); insts.i32_const(1); insts.i32_add(); insts.local_set(5);

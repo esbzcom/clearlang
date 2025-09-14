@@ -69,9 +69,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });
             Ok(dst)
         }
-        Expr::String(_, _) => {
+        Expr::String(s, _) => {
             let dst = fresh(ctx);
-            ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: 0 });
+            ctx.body.push(Instr::IStringConst { dst, s: s.clone() });
             Ok(dst)
         }
         Expr::Match { .. } => {

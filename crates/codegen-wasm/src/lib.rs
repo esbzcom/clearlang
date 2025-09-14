@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
     Module, TypeSection, ValType, NameSection, NameMap, MemorySection, MemoryType, MemArg,
+    DataSection, DataSegment, ConstExpr,
 };
 use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 
@@ -168,6 +169,25 @@ impl Default for CodegenOpts {
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
     let mut module = Module::new();
 
+    // String pool: collect unique string literals and assign memory offsets
+    let mut str_pool: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    let mut cur_off: u32 = 0;
+    for f in &ir.funcs {
+        for ins in &f.body {
+            if let IrInstr::IStringConst { s, .. } = ins {
+                if !str_pool.contains_key(s) {
+                    let len = s.as_bytes().len() as u32;
+                    let off = cur_off;
+                    // size = 4(header) + len; align next to 4 bytes
+                    let size = 4 + len;
+                    let next = (off + size + 3) & !3;
+                    str_pool.insert(s.clone(), off);
+                    cur_off = next;
+                }
+            }
+        }
+    }
+
     // Build function types with deduplication, and record each function's type index
     #[derive(Hash, Eq, PartialEq, Clone)]
     struct SigKey { params: usize, has_ret: bool }
@@ -212,13 +232,29 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     });
     module.section(&memories);
 
+    // Data section for string literals
+    if !str_pool.is_empty() {
+        let mut data = DataSection::new();
+        // Sort by offset for deterministic emission
+        let mut items: Vec<(u32, &String)> = str_pool.iter().map(|(s, off)| (*off, s)).collect();
+        items.sort_by_key(|(off, _)| *off);
+        for (off, s) in items {
+            let bytes = s.as_bytes();
+            let mut init = Vec::with_capacity(4 + bytes.len());
+            init.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+            init.extend_from_slice(bytes);
+            data.segment(DataSegment::active(0, &ConstExpr::i32_const(off as i32), init));
+        }
+        module.section(&data);
+    }
+
     // Code section: encode each function body
     let mut codes = CodeSection::new();
     for f in &ir.funcs {
         // Encode intrinsics with custom bodies; other functions from IR
         let func = match f.name.as_str() {
             "std::str::len" => encode_intrinsic_str_len(f)?,
-            _ => encode_ir_function(f)?,
+            _ => encode_ir_function(f, &str_pool)?,
         };
         codes.function(&func);
     }
@@ -243,13 +279,14 @@ pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
     emit_from_ir_with_opts(ir, CodegenOpts::default())
 }
 
-fn encode_ir_function(f: &IrFunction) -> Result<Function> {
+fn encode_ir_function(f: &IrFunction, strs: &std::collections::HashMap<String, u32>) -> Result<Function> {
     // Compute locals: values >= params are locals; params are indices 0..P-1
     let params_len = f.params.len() as u32;
     let mut max_id = params_len.saturating_sub(1);
     for ins in &f.body {
         match ins {
             IrInstr::IConst { dst, .. } => max_id = max_id.max(dst.0),
+            IrInstr::IStringConst { dst, .. } => max_id = max_id.max(dst.0),
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
@@ -269,6 +306,12 @@ fn encode_ir_function(f: &IrFunction) -> Result<Function> {
         match ins {
             IrInstr::IConst { dst, n, .. } => {
                 insts.i32_const(*n as i32);
+                insts.local_set(dst.0);
+            }
+            IrInstr::IStringConst { dst, s } => {
+                let off = strs.get(s)
+                    .ok_or_else(|| anyhow::anyhow!(format!("missing string offset for literal")))?;
+                insts.i32_const(*off as i32);
                 insts.local_set(dst.0);
             }
             IrInstr::IBin { dst, op, lhs, rhs } => {

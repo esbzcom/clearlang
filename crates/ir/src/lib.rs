@@ -19,6 +19,8 @@ pub enum BinOpIR { Add, Sub, Mul, Div }
 pub enum Instr {
     // v = const n
     IConst { dst: Value, ty: IrType, n: i64 },
+    // v = address of string literal (allocated in data segment at codegen)
+    IStringConst { dst: Value, s: String },
     // v = bin lhs op rhs
     IBin { dst: Value, op: BinOpIR, lhs: Value, rhs: Value },
     // v? = call callee_idx(args) — callee is a function index in the module

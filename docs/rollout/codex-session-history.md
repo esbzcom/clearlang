@@ -7,6 +7,22 @@
 - Updated TODO: marked typer DX split done under 4.7; refined docs to mention T206/T207; added diagnostics bullet under 4.10; kept remaining 4.7 docs tasks open.
 - Next: write 4.7 docs, then implement 4.10 parser/typer/tests with JSON diagnostics and spans.
 
+## Session 2025-09-14 — Phase 4.7 docs, 4.10 conditionals, roadmap tidy
+
+- Implemented expression-form conditionals:
+  - AST: added `Expr::If { cond, then_br, else_br, span }`.
+  - Parser: `if { } (else if { })* else { }` with required final else; removed `elif` alias.
+  - Typer: enforced `cond: Bool`; unified branch types; added `T301` (BranchTypeMismatch); reused `T003` for non-bool cond.
+  - Tests: parser edge cases (else-if alias, missing else, multiline); typer unification and errors; CLI JSON test for T301.
+- Completed Phase 4.7 docs/DX:
+  - Added `docs/collections.md` (List/Set/Map APIs, typing rules, T206/T207/T208 examples).
+  - Updated diagnostics with T206–T208; appended collections summary to typing.md.
+- Roadmap updates:
+  - Marked 4.10 done; removed `elif`; marked Phase 4 as (Done).
+  - Moved remaining 4.8 items to later phases: verbose logs to 5.0; shared Wasmtime Engine reuse to 5.5; prealloc/release profile to Developer Experience.
+  - Moved 4.11 ADT ergonomics to Phase 5.7.
+  - Introduced 5.0 Codegen Layout & DX and renumbered tasks accordingly.
+
 ## Session 2025-09-14 — Phase 4.7 Docs/DX
 
 - Added `docs/collections.md` covering naming, APIs (List/Set/Map), and stable diagnostics T206/T207/T208 with examples and typing rules.

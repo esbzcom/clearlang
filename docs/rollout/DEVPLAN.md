@@ -271,7 +271,7 @@ Focus 3 — Phase 5.6: Strings Runtime
 # Phase DEVPLAN — Next Steps (2025-09-14)
 
 Scope
-- Consolidate immediate work: 4.7 Docs/DX, 4.10 Conditionals, 5.x IR → Wasm, 5.6 Strings runtime, 4.8 DX.
+- Consolidate immediate work: 5.0 Codegen Layout & DX, 5.1–5.5 IR → Wasm, 5.6 Strings runtime.
 
 4.7 Collections Docs/DX
 - Docs: document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`), dual-API guidance (precondition vs `Option`/`Result`), and stable error codes T206 “new requires inference” and T207 “expected collection kind”.
@@ -279,17 +279,17 @@ Scope
 - Deliverables: update `docs/typing.md`; consider adding `docs/collections.md` with API/diagnostics overview.
 
 4.10 Conditionals (expr-form if/else)
-- Parser: `if cond { ... } (else if|elif cond { ... })* else { ... }`; require final `else` in expression form.
-- Typer: enforce `cond: Bool` per arm; unify branch result type.
-- Diagnostics: reserve P010 (MissingElseForExprIf) and T301 (BranchTypeMismatch); include spans in JSON.
-- Tests: multi-branch chains; negative cases for missing else and mismatched branches.
+- Status: Implemented. Parser requires final `else` (no `elif` alias). Typer enforces `Bool` cond and branch unification; T301 added.
 
 Phase 5 IR → Wasm
-- 5.1 Types, function indices, and export `main`.
-- 5.2 Locals for SSA temps; map IR values to stack ops.
-- 5.3 Encode `IConst`, `IBin`, `Call`, `Ret`; switch to callee indices.
-- 5.4 Make IR→Wasm default; keep const-eval behind a flag.
-- 5.5 Extend e2e tests; run `wasm-tools validate` and/or Wasmtime execution.
+- 5.0 Codegen Layout & DX
+  - Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
+  - Add `--verbose` and gate stage logs; refactor CLI into `commands/{emit_hello,parse,build,run}.rs` with small helpers.
+- 5.1 Types/Indices/Exports: define module types, function indices; export `main` if present; deduplicate function signatures.
+- 5.2 Locals & Stack: allocate locals for SSA temps; map IR values to stack ops.
+- 5.3 Ops & Calls: encode `IConst`, `IBin`, `Call`, `Ret`; switch calls to callee indices.
+- 5.4 Replace Const-Eval: make IR→Wasm default; keep const-eval as an optional flag initially.
+- 5.5 Tests: extend e2e; run `wasm-tools validate` and Wasmtime execution; reuse a shared Wasmtime Engine.
 - Proof: document small-step simulation for arithmetic/call subset.
 
 5.6 Strings Runtime

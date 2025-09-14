@@ -145,6 +145,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 5.0 Codegen Layout & DX
 - [ ] Gate build stage logs behind `--verbose` (keep default quieter).
 - [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
+ - [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 
 - [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 5.1 Module & Signatures

@@ -168,9 +168,10 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 5.6 Strings Runtime
 - [x] Define String memory model (ptr + len; utf-8 bytes).
 - [x] Implement `std::str::len` intrinsic and memory scaffolding.
-- [ ] Implement `std::str::{concat, eq}` intrinsics.
-- [ ] Provide a minimal bump allocator for concat.
-- [ ] Add e2e tests for string ops; document runtime model.
+- [x] Implement `std::str::eq` intrinsic (byte-wise compare).
+- [x] Provide a minimal bump allocator (global heap_ptr) for concat.
+- [x] Implement `std::str::concat` intrinsic (copy bytes; aligned bump).
+- [x] Add e2e tests for string ops (len, eq, concat).
 
 5.7 ADT Ergonomics (sugar)
 - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.

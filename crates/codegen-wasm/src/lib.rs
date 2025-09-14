@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
     Module, TypeSection, ValType, NameSection, NameMap, MemorySection, MemoryType, MemArg,
-    DataSection, DataSegment, ConstExpr,
+    DataSection, ConstExpr,
 };
 use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 

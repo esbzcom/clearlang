@@ -62,7 +62,8 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
 
 pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
     // Params: a: i32, b: i32; Return: i32 (ptr)
-    let locals: Vec<(u32, ValType)> = vec![(5, ValType::I32)];
+    // Locals: len_a(2), len_b(3), total(4), dest(5), pa(6), pb(7)
+    let locals: Vec<(u32, ValType)> = vec![(6, ValType::I32)];
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
     // len_a = load32(a); len_b = load32(b)

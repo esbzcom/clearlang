@@ -149,6 +149,9 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
+            IrInstr::ISelect { dst, cond, then_v, else_v } => {
+                max_id = max_id.max(dst.0).max(cond.0).max(then_v.0).max(else_v.0);
+            }
             IrInstr::Call { dst, args, .. } => {
                 if let Some(d) = dst { max_id = max_id.max(d.0); }
                 for a in args { max_id = max_id.max(a.0); }
@@ -182,6 +185,17 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                     BinOpIR::Mul => insts.i32_mul(),
                     BinOpIR::Div => insts.i32_div_s(),
                 };
+                insts.local_set(dst.0);
+            }
+            IrInstr::ISelect { dst, cond, then_v, else_v } => {
+                // Structured if/else expression: push result on stack, then set dst
+                insts.local_get(cond.0);
+                // if (result i32) then_val else else_val
+                insts.if_(wasm_encoder::BlockType::Result(ValType::I32));
+                insts.local_get(then_v.0);
+                insts.else_();
+                insts.local_get(else_v.0);
+                insts.end();
                 insts.local_set(dst.0);
             }
             IrInstr::Call { dst, callee, args } => {

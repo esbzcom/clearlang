@@ -23,6 +23,8 @@ pub enum Instr {
     IStringConst { dst: Value, s: String },
     // v = bin lhs op rhs
     IBin { dst: Value, op: BinOpIR, lhs: Value, rhs: Value },
+    // v = if cond then then_v else else_v (expression form)
+    ISelect { dst: Value, cond: Value, then_v: Value, else_v: Value },
     // v? = call callee_idx(args) — callee is a function index in the module
     Call { dst: Option<Value>, callee: u32, args: Vec<Value> },
     // return v

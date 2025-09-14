@@ -3,7 +3,7 @@ use lumi_ast::{Expr, Func, Program, Type};
 use std::collections::HashMap;
 use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
-    Module, TypeSection, ValType, NameSection, NameMap,
+    Module, TypeSection, ValType, NameSection, NameMap, MemorySection, MemoryType, MemArg,
 };
 use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 
@@ -202,10 +202,24 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         module.section(&exports);
     }
 
+    // Memory section (prepare for string runtime); 1 page minimum
+    let mut memories = MemorySection::new();
+    memories.memory(MemoryType {
+        minimum: 1,
+        maximum: None,
+        memory64: false,
+        shared: false,
+    });
+    module.section(&memories);
+
     // Code section: encode each function body
     let mut codes = CodeSection::new();
     for f in &ir.funcs {
-        let func = encode_ir_function(f)?;
+        // Encode intrinsics with custom bodies; other functions from IR
+        let func = match f.name.as_str() {
+            "std::str::len" => encode_intrinsic_str_len(f)?,
+            _ => encode_ir_function(f)?,
+        };
         codes.function(&func);
     }
     module.section(&codes);
@@ -278,6 +292,18 @@ fn encode_ir_function(f: &IrFunction) -> Result<Function> {
             }
         }
     }
+    insts.end();
+    Ok(fenc)
+}
+
+fn encode_intrinsic_str_len(f: &IrFunction) -> Result<Function> {
+    // Expect exactly one param (i32 ptr) and i32 return
+    let locals: Vec<(u32, ValType)> = Vec::new();
+    let mut fenc = Function::new(locals);
+    let mut insts = fenc.instructions();
+    // load len := i32.load align=4 offset=0 from local 0 pointer
+    insts.local_get(0);
+    insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
     insts.end();
     Ok(fenc)
 }

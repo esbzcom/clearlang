@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::errors::TyperError;
 use crate::lower::lower_func;
 use crate::builtins::builtin_sigs;
@@ -26,16 +26,38 @@ pub fn check(ast: &Program) -> Result<Module> {
         check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
     }
 
-    // Map user-defined function names to indices (order as in AST)
-    let mut user_indices: HashMap<&str, u32> = HashMap::new();
+    // Collect used intrinsics
+    let used_intrinsics = collect_used_intrinsics(ast);
+
+    // Order of function indices: all user-defined first, then intrinsics used (stable order)
+    let mut fn_indices: HashMap<&str, u32> = HashMap::new();
     for (i, f) in ast.funcs.iter().enumerate() {
-        user_indices.insert(f.name.as_str(), i as u32);
+        fn_indices.insert(f.name.as_str(), i as u32);
+    }
+    // Stable intrinsic order
+    let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
+    let mut intrinsic_defs: Vec<lumi_ir::Function> = Vec::new();
+    for name in intrinsic_order.iter() {
+        if used_intrinsics.contains(*name) {
+            let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
+            fn_indices.insert(name, idx);
+            // Define IR function signature for the intrinsic
+            let (params, ret) = match *name {
+                "std::str::len" => (vec![lumi_ir::IrType::Int], Some(lumi_ir::IrType::Int)),
+                "std::str::eq" => (vec![lumi_ir::IrType::Int, lumi_ir::IrType::Int], Some(lumi_ir::IrType::Bool)),
+                "std::str::concat" => (vec![lumi_ir::IrType::Int, lumi_ir::IrType::Int], Some(lumi_ir::IrType::Int)),
+                _ => (vec![], None),
+            };
+            intrinsic_defs.push(lumi_ir::Function { name: (*name).to_string(), params, ret, body: vec![] });
+        }
     }
 
     let mut module = Module::default();
     for f in &ast.funcs {
-        module.funcs.push(lower_func(f, &fns, &user_indices)?);
+        module.funcs.push(lower_func(f, &fns, &fn_indices)?);
     }
+    // Append intrinsic function declarations at the end
+    module.funcs.extend(intrinsic_defs.into_iter());
     Ok(module)
 }
 
@@ -272,6 +294,35 @@ fn type_of<'a>(
             Ok(ret)
         }
     }
+}
+
+fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
+    let mut set: HashSet<&'static str> = HashSet::new();
+    fn walk_expr<'a>(e: &'a Expr, set: &mut HashSet<&'static str>) {
+        match e {
+            Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+            Expr::Return { expr, .. } => walk_expr(expr, set),
+            Expr::Bin { lhs, rhs, .. } => { walk_expr(lhs, set); walk_expr(rhs, set); }
+            Expr::If { cond, then_br, else_br, .. } => { walk_expr(cond, set); walk_expr(then_br, set); walk_expr(else_br, set); }
+            Expr::Match { scrutinee, arms, .. } => {
+                walk_expr(scrutinee, set);
+                for arm in arms { walk_expr(&arm.expr, set); }
+            }
+            Expr::Call { callee, args, .. } => {
+                match callee.as_str() {
+                    "std::str::len" => { set.insert("std::str::len"); }
+                    "std::str::eq" => { set.insert("std::str::eq"); }
+                    "std::str::concat" => { set.insert("std::str::concat"); }
+                    _ => {}
+                }
+                for a in args { walk_expr(a, set); }
+            }
+        }
+    }
+    for f in &ast.funcs {
+        walk_expr(&f.body, &mut set);
+    }
+    set
 }
 
 fn type_collection_call<'a>(

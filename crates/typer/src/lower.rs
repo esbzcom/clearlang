@@ -20,14 +20,14 @@ pub(crate) struct LowerCtx<'a> {
     pub next: u32,
     pub env: HashMap<&'a str, Value>,
     pub fns: HashMap<&'a str, FnSig<'a>>, // for call return types
-    pub user_fn_indices: HashMap<&'a str, u32>, // for resolving callee indices
+    pub fn_indices: HashMap<&'a str, u32>, // for resolving callee indices (user + intrinsics)
     pub body: Vec<Instr>,
 }
 
 pub(crate) fn lower_func<'a>(
     f: &'a Func,
     fns: &HashMap<&'a str, FnSig<'a>>,
-    user_fn_indices: &HashMap<&'a str, u32>,
+    fn_indices: &HashMap<&'a str, u32>,
 ) -> Result<IrFunction> {
     let mut env: HashMap<&str, Value> = HashMap::new();
     for (i, p) in f.params.iter().enumerate() {
@@ -37,7 +37,7 @@ pub(crate) fn lower_func<'a>(
         next: f.params.len() as u32,
         env,
         fns: fns.clone(),
-        user_fn_indices: user_fn_indices.clone(),
+        fn_indices: fn_indices.clone(),
         body: Vec::new(),
     };
 
@@ -106,18 +106,13 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                 .get(callee.as_str())
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!(format!("unknown function `{}`", callee)))?;
-            // If callee is user-defined, emit a Call with its index; otherwise, emit a placeholder const.
-            if let Some(idx) = ctx.user_fn_indices.get(callee.as_str()).copied() {
+            // If callee is known (user or intrinsic), emit a Call with its index
+            if let Some(idx) = ctx.fn_indices.get(callee.as_str()).copied() {
                 let dst = fresh(ctx);
                 ctx.body.push(Instr::Call { dst: Some(dst), callee: idx, args: argv });
                 Ok(dst)
             } else {
-                // Built-ins/external: lower to a placeholder constant according to return type
-                let dst = fresh(ctx);
-                let ity = ir_ty(ret_ty);
-                let n = match ity { IrType::Int | IrType::Bool => 0 };
-                ctx.body.push(Instr::IConst { dst, ty: ity, n });
-                Ok(dst)
+                anyhow::bail!(format!("unknown function `{}`", callee))
             }
         }
     }

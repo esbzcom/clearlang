@@ -122,8 +122,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
   - 4.8 Small Optimizations & DX
     - [x] Optional Wasm name section for function names (`--debug-names`).
-    - [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
-    - [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
+    - [ ] Moved: see 5.0 (verbose logs), 5.5 (shared Wasmtime Engine), and Developer Experience (preallocations + release profile tuning).
   - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
  
 - 4.9 Return (expression form)
@@ -271,6 +270,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [ ] Simple tracing/logging for pipeline stages in CLI.
 - [ ] Add `cargo xtask` or Makefile for common flows (build/validate/run).
 - [ ] Consistent error types and messages across crates.
+- [ ] Preallocate HashMaps/Vecs in typer/parser where sizes are known (e.g., builtins+funcs, params per function).
+- [ ] Release profile tuning in top-level Cargo.toml: `lto = "thin"`, `codegen-units = 1` (optionally `strip = "symbols"`).
 
 ## Nice-to-Have (Backlog)
 

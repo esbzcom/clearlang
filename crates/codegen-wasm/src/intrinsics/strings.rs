@@ -13,31 +13,31 @@ pub fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
 }
 
 pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
-    // Robust byte-wise equality: compare lengths, then decrementing length while advancing pointers
     // Locals: len(2), pa(3), pb(4), res(5)
     let locals: Vec<(u32, ValType)> = vec![(4, ValType::I32)];
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
-    // len_a = load32(a); len_b = load32(b)
+
+    // if (len_a != len_b) return 0
     insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
     insts.local_get(1); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
     insts.i32_ne();
     insts.if_(BlockType::Result(ValType::I32));
-      // lengths differ → false
       insts.i32_const(0);
     insts.else_();
-      // len = len_a (we still have it on stack? No; reload)
+      // len = len_a; pa = a+4; pb = b+4; res = 1
       insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(2);
-      // pa = a + 4; pb = b + 4; res = 1
       insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(3);
       insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
       insts.i32_const(1); insts.local_set(5);
-      // block { loop { if (len == 0) break; if (*pa != *pb) { res = 0; break; } pa++; pb++; len--; } }
+
+      // block { loop { ... } }
       insts.block(BlockType::Empty);
       insts.loop_(BlockType::Empty);
-        // if (len == 0) break;
+        // if (len == 0) break block;
         insts.local_get(2); insts.i32_eqz(); insts.br_if(1);
-        // if (load8(pa) != load8(pb)) { res = 0; break; }
+
+        // if (*pa != *pb) { res = 0; break block; }
         insts.local_get(3);
         insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
         insts.local_get(4);
@@ -45,18 +45,21 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
         insts.i32_ne();
         insts.if_(BlockType::Empty);
           insts.i32_const(0); insts.local_set(5);
-          insts.br(1);
+          insts.br(2); // <-- fix: exit loop *and* the surrounding block
         insts.end();
-        // pa++; pb++; len--
+
+        // pa++; pb++; len--;
         insts.local_get(3); insts.i32_const(1); insts.i32_add(); insts.local_set(3);
         insts.local_get(4); insts.i32_const(1); insts.i32_add(); insts.local_set(4);
         insts.local_get(2); insts.i32_const(1); insts.i32_sub(); insts.local_set(2);
-        insts.br(0);
+
+        insts.br(0); // continue loop
       insts.end(); // loop
       insts.end(); // block
+
       insts.local_get(5);
-    insts.end(); // if
-    insts.end();
+    insts.end(); // if (with result)
+    insts.end(); // end function body
     Ok(fenc)
 }
 

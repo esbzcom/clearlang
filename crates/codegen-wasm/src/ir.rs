@@ -197,4 +197,3 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
     insts.end();
     Ok(fenc)
 }
-

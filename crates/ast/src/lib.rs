@@ -46,6 +46,7 @@ pub enum Expr {
     Call { callee: String, args: Vec<Expr>, span: Span },
     Return { expr: Box<Expr>, span: Span },
     Match { scrutinee: Box<Expr>, arms: Vec<MatchArm>, span: Span },
+    If { cond: Box<Expr>, then_br: Box<Expr>, else_br: Box<Expr>, span: Span },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

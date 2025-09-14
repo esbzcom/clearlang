@@ -201,6 +201,19 @@ impl TyperError {
             span.end,
         )
     }
+
+    // Phase 4.10 — Conditionals typing diagnostics
+    pub fn branch_type_mismatch(expected: Type, found: Type, span: Span) -> Self {
+        Self::new(
+            "T301",
+            format!(
+                "at {}..{}: branch type mismatch: expected `{}`, found `{}`",
+                span.start, span.end, show_ty(expected), show_ty(found)
+            ),
+            span.start,
+            span.end,
+        )
+    }
 }
 
 impl std::fmt::Display for TyperError {

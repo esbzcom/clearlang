@@ -46,6 +46,35 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 Expr::Return { expr: Box::new(e_inner), span: Span { start: sp.start, end: sp.end } }
             });
 
+        // block expression: { expr }
+        let block_expr = expr
+            .clone()
+            .delimited_by(just('{').padded(), just('}').padded())
+            .boxed();
+
+        // if/else expression: if cond { then } (else if|elif cond { then })* else { else }
+        // Build nested If nodes from right to left to preserve associativity.
+        let elif_kw = just("elif").padded().to(()).or(just("else").padded().ignore_then(just("if").padded()).to(()));
+        let if_head = just("if").padded()
+            .ignore_then(expr.clone())
+            .then(block_expr.clone());
+        let elif_chain = (elif_kw.ignore_then(expr.clone()).then(block_expr.clone()))
+            .repeated()
+            .collect::<Vec<_>>();
+        let if_expr = if_head
+            .then(elif_chain)
+            .then_ignore(just("else").padded())
+            .then(block_expr.clone())
+            .map_with(|(((cond0, then0), mut elifs), else_br), e| {
+                let sp = e.span();
+                // Start from final else branch and fold the chain right-to-left
+                let mut acc = else_br;
+                while let Some((c, t)) = elifs.pop() {
+                    acc = Expr::If { cond: Box::new(c), then_br: Box::new(t), else_br: Box::new(acc), span: Span { start: sp.start, end: sp.end } };
+                }
+                Expr::If { cond: Box::new(cond0), then_br: Box::new(then0), else_br: Box::new(acc), span: Span { start: sp.start, end: sp.end } }
+            });
+
         // match expression: match <expr> { <pat> => <expr>, ... }
         let some_pat = just("Some").padded()
             .ignore_then(just('(').padded())
@@ -87,6 +116,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             ),
             ret_expr,
             match_expr,
+            if_expr,
             ctor_call,
             call_expr,
             var_expr,
@@ -105,7 +135,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 Expr::Bin { span, .. }
                 | Expr::Call { span, .. }
                 | Expr::Match { span, .. }
-                | Expr::Return { span, .. } => (span.start, span.end),
+                | Expr::Return { span, .. }
+                | Expr::If { span, .. } => (span.start, span.end),
             }
         }
 

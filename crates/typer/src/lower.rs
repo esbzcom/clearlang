@@ -71,6 +71,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         Expr::Match { .. } => {
             anyhow::bail!("match expression not supported in lowering yet")
         }
+        Expr::If { .. } => {
+            anyhow::bail!("if expression not supported in lowering yet")
+        }
         Expr::Var(name, _) => ctx
             .env
             .get(name.as_str())

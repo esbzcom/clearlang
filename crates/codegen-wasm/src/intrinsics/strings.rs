@@ -13,48 +13,49 @@ pub fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
 }
 
 pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
-    // Robust byte-wise equality: compare lengths, then bytes
-    // Locals: len_a(2), len_b(3), pa(4), pb(5), i(6), res(7)
-    let locals: Vec<(u32, ValType)> = vec![(6, ValType::I32)];
+    // Robust byte-wise equality: compare lengths, then decrementing length while advancing pointers
+    // Locals: len(2), pa(3), pb(4), res(5)
+    let locals: Vec<(u32, ValType)> = vec![(4, ValType::I32)];
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
     // len_a = load32(a); len_b = load32(b)
-    insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(2);
-    insts.local_get(1); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(3);
-    // res = 1 by default
-    insts.i32_const(1); insts.local_set(7);
-    // block { if (len_a != len_b) { res = 0; br 0 } ...compare... }
-    insts.block(BlockType::Empty);
-      insts.local_get(2); insts.local_get(3); insts.i32_ne();
-      insts.if_(BlockType::Empty);
-        insts.i32_const(0); insts.local_set(7);
-        insts.br(0);
-      insts.end();
-      // pa = a + 4; pb = b + 4; i = 0
-      insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
-      insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(5);
-      insts.i32_const(0); insts.local_set(6);
-      // loop { if (i >= len_a) break; if (pa[i] != pb[i]) { res=0; break; } i++; }
+    insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.local_get(1); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.i32_ne();
+    insts.if_(BlockType::Result(ValType::I32));
+      // lengths differ → false
+      insts.i32_const(0);
+    insts.else_();
+      // len = len_a (we still have it on stack? No; reload)
+      insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(2);
+      // pa = a + 4; pb = b + 4; res = 1
+      insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(3);
+      insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
+      insts.i32_const(1); insts.local_set(5);
+      // block { loop { if (len == 0) break; if (*pa != *pb) { res = 0; break; } pa++; pb++; len--; } }
+      insts.block(BlockType::Empty);
       insts.loop_(BlockType::Empty);
-        // if (i >= len_a) break;
-        insts.local_get(6); insts.local_get(2); insts.i32_ge_u(); insts.br_if(1);
-        // if (load8(pa+i) != load8(pb+i)) { res = 0; break; }
-        insts.local_get(4); insts.local_get(6); insts.i32_add();
+        // if (len == 0) break;
+        insts.local_get(2); insts.i32_eqz(); insts.br_if(1);
+        // if (load8(pa) != load8(pb)) { res = 0; break; }
+        insts.local_get(3);
         insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
-        insts.local_get(5); insts.local_get(6); insts.i32_add();
+        insts.local_get(4);
         insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
         insts.i32_ne();
         insts.if_(BlockType::Empty);
-          insts.i32_const(0); insts.local_set(7);
+          insts.i32_const(0); insts.local_set(5);
           insts.br(1);
         insts.end();
-        // i++
-        insts.local_get(6); insts.i32_const(1); insts.i32_add(); insts.local_set(6);
+        // pa++; pb++; len--
+        insts.local_get(3); insts.i32_const(1); insts.i32_add(); insts.local_set(3);
+        insts.local_get(4); insts.i32_const(1); insts.i32_add(); insts.local_set(4);
+        insts.local_get(2); insts.i32_const(1); insts.i32_sub(); insts.local_set(2);
         insts.br(0);
       insts.end(); // loop
-    insts.end(); // block
-    // return res
-    insts.local_get(7);
+      insts.end(); // block
+      insts.local_get(5);
+    insts.end(); // if
     insts.end();
     Ok(fenc)
 }

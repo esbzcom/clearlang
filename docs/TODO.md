@@ -158,8 +158,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Switch calls to use callee indices; update IR lowering accordingly (resolve names to indices).
 
 5.4 Replace Const-Eval
-- [ ] Switch CLI build to IR→Wasm path by default; keep const-eval for quick checks.
-- [ ] Remove const-eval fallback once IR path is stable (optional cleanup).
+- [x] Switch CLI build to IR→Wasm path by default; keep const-eval for quick checks.
+- [x] Remove const-eval fallback once IR path is stable (cleanup).
 
 5.5 Tests
 - [ ] Extend e2e tests to verify outputs across samples via Wasmtime.

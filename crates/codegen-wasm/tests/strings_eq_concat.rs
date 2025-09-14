@@ -38,3 +38,52 @@ fn str_concat_then_len() {
     assert_eq!(run_main_i32(&wasm), 3);
 }
 
+#[test]
+fn str_eq_empty_and_multibyte() {
+    // Empty strings
+    let src1 = r#" function main() -> Bool { std::str::eq("", "") } "#;
+    let ast1 = parse(src1).expect("parse ok");
+    let ir1 = check(&ast1).expect("type-check+lower ok");
+    let wasm1 = emit_from_ir(&ir1).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm1), 1);
+
+    let src2 = r#" function main() -> Bool { std::str::eq("", "a") } "#;
+    let ast2 = parse(src2).expect("parse ok");
+    let ir2 = check(&ast2).expect("type-check+lower ok");
+    let wasm2 = emit_from_ir(&ir2).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm2), 0);
+
+    // Multibyte: "é" is two bytes in UTF-8
+    let src3 = r#" function main() -> Bool { std::str::eq("é", "é") } "#;
+    let ast3 = parse(src3).expect("parse ok");
+    let ir3 = check(&ast3).expect("type-check+lower ok");
+    let wasm3 = emit_from_ir(&ir3).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm3), 1);
+
+    let src4 = r#" function main() -> Bool { std::str::eq("é", "e") } "#;
+    let ast4 = parse(src4).expect("parse ok");
+    let ir4 = check(&ast4).expect("type-check+lower ok");
+    let wasm4 = emit_from_ir(&ir4).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm4), 0);
+}
+
+#[test]
+fn str_concat_edge_cases_len() {
+    let src1 = r#" function main() -> Int { std::str::len(std::str::concat("", "x")) } "#;
+    let ast1 = parse(src1).expect("parse ok");
+    let ir1 = check(&ast1).expect("type-check+lower ok");
+    let wasm1 = emit_from_ir(&ir1).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm1), 1);
+
+    let src2 = r#" function main() -> Int { std::str::len(std::str::concat("é", "")) } "#;
+    let ast2 = parse(src2).expect("parse ok");
+    let ir2 = check(&ast2).expect("type-check+lower ok");
+    let wasm2 = emit_from_ir(&ir2).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm2), 2);
+
+    let src3 = r#" function main() -> Int { std::str::len(std::str::concat("é", "é")) } "#;
+    let ast3 = parse(src3).expect("parse ok");
+    let ir3 = check(&ast3).expect("type-check+lower ok");
+    let wasm3 = emit_from_ir(&ir3).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm3), 4);
+}

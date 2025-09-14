@@ -144,14 +144,14 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 5.0 Codegen Layout & DX
 - [x] Gate build stage logs behind `--verbose` (keep default quieter).
-- [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
+- [x] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `intrinsics/strings.rs` (string intrinsics), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
  - [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 5.1 Module & Signatures
 - [x] Types, function indices, and exports.
 - [x] Deduplicate function signatures in the Wasm Type section (reuse type indices).
 
 5.2 Locals & Stack
-- [ ] Local allocation for temps; map IR values to stack ops.
+- [x] Local allocation for temps; map IR values to stack ops.
 
 5.3 Ops & Calls
 - [x] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
@@ -162,15 +162,15 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Remove const-eval fallback once IR path is stable (cleanup).
 
 5.5 Tests
-- [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
+- [x] Extend e2e tests to verify outputs across samples via Wasmtime (IR pipeline samples; strings len/eq/concat).
 - [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
 
 5.6 Strings Runtime
 - [x] Define String memory model (ptr + len; utf-8 bytes).
 - [x] Implement `std::str::len` intrinsic and memory scaffolding.
-- [x] Implement `std::str::eq` intrinsic (byte-wise compare).
+- [x] Implement `std::str::eq` intrinsic (byte-wise compare; length-decrementing loop).
 - [x] Provide a minimal bump allocator (global heap_ptr) for concat.
-- [x] Implement `std::str::concat` intrinsic (copy bytes; aligned bump).
+- [x] Implement `std::str::concat` intrinsic (header write; memory.copy for bytes; aligned bump).
 - [x] Add e2e tests for string ops (len, eq, concat).
 
 5.7 ADT Ergonomics (sugar)

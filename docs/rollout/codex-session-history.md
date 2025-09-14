@@ -148,6 +148,29 @@ Next actions
 - Phase 5.6: Strings runtime (ptr+len), implement `std::str` ops; add e2e tests.
 - Plan multi-statement blocks (`let`, expr statements, `return;`) after 4.10; update IR for basic control flow when enabling early returns.
 
+## Session 2025-09-14 — Phase 5 Codegen + Strings Runtime
+
+- IR/Codegen tech-debt cleanup:
+  - Switched IR `Call` to callee indices; resolved during lowering; codegen calls by index.
+  - Deduplicated Wasm function type signatures; functions reference shared type indices.
+  - Added global `--verbose` in CLI and gated stage logs; default quieter.
+- Strings runtime (5.6):
+  - Added linear memory (min 1 page) and a mutable global bump pointer `heap_ptr`.
+  - Lowered string literals to IR `IStringConst` and emitted data segments with 4‑byte length header + UTF‑8 bytes.
+  - Implemented intrinsics: `std::str::len` (load length), `std::str::eq` (byte‑wise robust compare), and `std::str::concat` (header write + memory.copy for bytes; aligned heap update).
+- Refactor (5.0): split `codegen-wasm` into modules:
+  - `trivial.rs` (emit_trivial_main), `ir.rs` (IR→Wasm encoder), and `intrinsics/strings.rs` (string intrinsics); `lib.rs` re‑exports.
+- Removed legacy AST const‑eval path and its test; IR→Wasm is the sole codegen path.
+- Tests:
+  - Added e2e tests for strings: len, eq (literals, concat vs literal, empty/multibyte), concat+len edge cases.
+  - Kept IR pipeline sample coverage for lumi-tests.
+
+Next
+- Implement IR lowering + Wasm encoding for expression‑form `if/else`; add e2e tests.
+- CLI refactor: move subcommands under `commands/`; keep `--verbose` gating and JSON errors stable.
+- Test DX: reuse a shared Wasmtime `Engine` across tests to speed up.
+- Consider bounds/defensive guards in intrinsics to harden against malformed inputs.
+
 ## Session 2025-09-14 — Phase 5 Tech Debt Cleanup
 
 - Implemented Wasm function type deduplication in encoder to reuse identical signatures.

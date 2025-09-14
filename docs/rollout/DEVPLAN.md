@@ -90,15 +90,16 @@ Goals
 - Polish IR→Wasm codegen and introduce linear memory/runtime for Strings and List; prepare for Set/Map.
 
 Work Items
-- DX (codegen split): organize into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + evaluator), and `ir.rs` (IR encoder); re-export in `lib.rs`.
+- [done] DX (codegen split): organize into `trivial.rs` (emit_trivial_main), `intrinsics/strings.rs` (string intrinsics), and `ir.rs` (IR encoder); re-export in `lib.rs`.
 - [done] Module & signatures: deduplicate function type signatures in Wasm Type section.
 - [done] Calls: switch to callee indices (resolve names during lowering); remove name→index lookups in codegen.
-- Memory/runtime: add a minimal allocator (bump/realloc). Strings as (ptr,len) with data segments; List<T> with grow/realloc.
+- [done] Strings runtime basics: linear memory, string data segments, and global `heap_ptr` (bump allocator).
+- [done] Intrinsics: `std::str::{len, eq, concat}` (robust eq; concat via memory.copy); tests added.
 - Ops: continue `IConst`, `IBin`, `Call`, `Ret`; add void-return and drop unused call results where applicable.
 - Validation: maintain `--validate`; consider CI integration.
 
 Tests
-- E2E IR/codegen tests covering added memory/runtime behaviors; CLI smoke remains green.
+- E2E IR/codegen tests covering strings len/eq/concat and samples; CLI smoke remains green.
 
 ---
 

@@ -33,3 +33,42 @@ fn if_branch_mismatch_errors() {
     type_err_code(src, "T301");
 }
 
+#[test]
+fn non_bool_condition_errors() {
+    let src = r#"
+        function f() -> Int { if 1 { 1 } else { 2 } }
+    "#;
+    type_err_code(src, "T003");
+}
+
+#[test]
+fn non_bool_condition_in_elif_errors() {
+    let src = r#"
+        function f(b: Bool) -> Int { if b { 1 } else if 1 { 2 } else { 3 } }
+    "#;
+    type_err_code(src, "T003");
+}
+
+#[test]
+fn unify_string_branches() {
+    let src = r#"
+        pure function f(b: Bool) -> String { if b { "a" } else { "b" } }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn unify_option_branches() {
+    let src = r#"
+        pure function f(b: Bool) -> Option<Int> { if b { Some(1) } else { Some(0) } }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn chain_unify_ints() {
+    let src = r#"
+        pure function f(b1: Bool, b2: Bool) -> Int { if b1 { 1 } elif b2 { 1 } else { 1 } }
+    "#;
+    type_ok(src);
+}

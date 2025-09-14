@@ -160,3 +160,24 @@ fn collections_error_reports_collection_kind_error_in_json() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T207"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
 }
+
+#[test]
+fn if_branch_mismatch_reports_t301_in_json() {
+    let src = r#"
+        function main() -> Int { if true { 1 } else { false } }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad_if.lumi");
+    std::fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("lumi").unwrap();
+    cmd.args(["--json-errors", "build"]).arg(&file).args(["-o"]).arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors array");
+    assert!(!errs.is_empty());
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T301"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}

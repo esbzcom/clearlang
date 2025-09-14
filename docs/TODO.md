@@ -137,10 +137,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Tests: add `lumi-tests/18_return_simple.lumi` and include in CLI IT.
 
 - 4.10 Conditionals (expr-form if/else chain)
-  - [x] Parser: `if cond { ... } (else if|elif cond { ... })* else { ... }`.
+  - [x] Parser: `if cond { ... } (else if cond { ... })* else { ... }` (no `elif` alias).
   - [x] Typer: `cond: Bool` per arm; all branches unify to a single result type.
   - [x] Tests: multi-branch chains; require final `else` in expression form.
-  - [x] Design note: allow `elif` as alias; desugar to nested `if`.
   - [x] Diagnostics: reserve codes P010 (MissingElseForExprIf) and T301 (BranchTypeMismatch);
         include spans in JSON and add tests.
 

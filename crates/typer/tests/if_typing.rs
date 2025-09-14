@@ -42,7 +42,7 @@ fn non_bool_condition_errors() {
 }
 
 #[test]
-fn non_bool_condition_in_elif_errors() {
+fn non_bool_condition_in_else_if_errors() {
     let src = r#"
         function f(b: Bool) -> Int { if b { 1 } else if 1 { 2 } else { 3 } }
     "#;
@@ -68,7 +68,7 @@ fn unify_option_branches() {
 #[test]
 fn chain_unify_ints() {
     let src = r#"
-        pure function f(b1: Bool, b2: Bool) -> Int { if b1 { 1 } elif b2 { 1 } else { 1 } }
+        pure function f(b1: Bool, b2: Bool) -> Int { if b1 { 1 } else if b2 { 1 } else { 1 } }
     "#;
     type_ok(src);
 }

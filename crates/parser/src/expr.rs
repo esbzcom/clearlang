@@ -52,9 +52,9 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             .delimited_by(just('{').padded(), just('}').padded())
             .boxed();
 
-        // if/else expression: if cond { then } (else if|elif cond { then })* else { else }
+        // if/else expression: if cond { then } (else if cond { then })* else { else }
         // Build nested If nodes from right to left to preserve associativity.
-        let elif_kw = just("elif").padded().to(()).or(just("else").padded().ignore_then(just("if").padded()).to(()));
+        let elif_kw = just("else").padded().ignore_then(just("if").padded()).to(());
         let if_head = just("if").padded()
             .ignore_then(expr.clone())
             .then(block_expr.clone());

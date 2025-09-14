@@ -14,7 +14,7 @@ fn parses_simple_if_else() {
 fn parses_else_if_chain() {
     let src = r#"
         function f(x: Int) -> Int {
-            if x { 1 } elif x { 2 } else { 3 }
+            if x { 1 } else if x { 2 } else { 3 }
         }
     "#;
     // Note: typer will enforce Bool conds; parser accepts the shape.
@@ -40,11 +40,11 @@ fn errors_without_else_in_expression_form() {
 }
 
 #[test]
-fn errors_without_else_with_elif_chain() {
+fn errors_without_else_with_else_if_chain() {
     let src = r#"
-        function main() -> Int { if true { 1 } elif false { 2 } }
+        function main() -> Int { if true { 1 } else if false { 2 } }
     "#;
-    let _ = parse(src).expect_err("missing final else with elif chain should error");
+    let _ = parse(src).expect_err("missing final else with else-if chain should error");
 }
 
 #[test]

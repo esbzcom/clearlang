@@ -115,8 +115,9 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Tests: typer-only tests for positive and negative cases.
 - 4.7 Collections Docs/DX
   - [ ] Document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`),
-        dual-API guidance (precondition vs Option/Result), and JSON error codes.
-  - [ ] DX: Split typer — move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
+        dual-API guidance (precondition vs Option/Result), and JSON error codes
+        (include T206 “new requires inference” and T207 “expected collection kind”).
+  - [x] DX: Split typer - move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
 
 - 4.8 Small Optimizations & DX
   - [x] Optional Wasm name section for function names (`--debug-names`).
@@ -139,6 +140,8 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [ ] Typer: `cond: Bool` per arm; all branches unify to a single result type.
   - [ ] Tests: multi-branch chains; require final `else` in expression form.
   - [ ] Design note: allow `elif` as alias; desugar to nested `if`.
+  - [ ] Diagnostics: reserve codes P010 (MissingElseForExprIf) and T301 (BranchTypeMismatch);
+        include spans in JSON and add tests.
 
 - 4.11 ADT Ergonomics (sugar)
   - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.

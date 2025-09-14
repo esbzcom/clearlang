@@ -1,5 +1,12 @@
 # Codex Session Summary
 
+## Session 2025-09-14 — Phase DEVPLAN planning + docs/TODO updates
+
+- Reviewed TODO, rollout notes, and recent commits; aligned next steps with Phase DEVPLAN focus.
+- Updated DEVPLAN with next steps for 4.7 Docs/DX, 4.10 Conditionals, Phase 5 IR → Wasm, and 5.6 Strings runtime; added cross-cutting provability/AI‑Friendly items and reserved error codes (P010, T301, R001–R002).
+- Updated TODO: marked typer DX split done under 4.7; refined docs to mention T206/T207; added diagnostics bullet under 4.10; kept remaining 4.7 docs tasks open.
+- Next: write 4.7 docs, then implement 4.10 parser/typer/tests with JSON diagnostics and spans.
+
 - Implemented AST→IR lowering (Phase 3.4) in `lumi-typer`; `check` now returns an IR `Module`.
 - Added lowering tests validating param SSA ids, const, binops, calls, and final `Ret`.
 - Cleaned up parser tests by silencing unused variable warnings in ignored typer-bound cases.

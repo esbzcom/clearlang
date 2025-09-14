@@ -264,7 +264,47 @@ Focus 2 — Phase 4.10: If/Else (Expression Form)
 Focus 3 — Phase 5.6: Strings Runtime
 - Define String ABI (ptr+len, utf-8) and minimal allocator.
 - Implement `std::str::{len, concat, eq}` via intrinsics/runtime.
-- E2E tests across samples; keep validation via wasmparser/wasmtime.
+ - E2E tests across samples; keep validation via wasmparser/wasmtime.
+
+---
+
+# Phase DEVPLAN — Next Steps (2025-09-14)
+
+Scope
+- Consolidate immediate work: 4.7 Docs/DX, 4.10 Conditionals, 5.x IR → Wasm, 5.6 Strings runtime, 4.8 DX.
+
+4.7 Collections Docs/DX
+- Docs: document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`), dual-API guidance (precondition vs `Option`/`Result`), and stable error codes T206 “new requires inference” and T207 “expected collection kind”.
+- DX: confirm `lumi-typer` split (`errors`, `builtins`, `check`, `lower`); keep `lib.rs` re-exports minimal and stable.
+- Deliverables: update `docs/typing.md`; consider adding `docs/collections.md` with API/diagnostics overview.
+
+4.10 Conditionals (expr-form if/else)
+- Parser: `if cond { ... } (else if|elif cond { ... })* else { ... }`; require final `else` in expression form.
+- Typer: enforce `cond: Bool` per arm; unify branch result type.
+- Diagnostics: reserve P010 (MissingElseForExprIf) and T301 (BranchTypeMismatch); include spans in JSON.
+- Tests: multi-branch chains; negative cases for missing else and mismatched branches.
+
+Phase 5 IR → Wasm
+- 5.1 Types, function indices, and export `main`.
+- 5.2 Locals for SSA temps; map IR values to stack ops.
+- 5.3 Encode `IConst`, `IBin`, `Call`, `Ret`; switch to callee indices.
+- 5.4 Make IR→Wasm default; keep const-eval behind a flag.
+- 5.5 Extend e2e tests; run `wasm-tools validate` and/or Wasmtime execution.
+- Proof: document small-step simulation for arithmetic/call subset.
+
+5.6 Strings Runtime
+- Model: `String = (ptr:i32, len:i32)` UTF‑8; immutability invariant.
+- Intrinsics: `std::str::{len, concat, eq}`; define traps and error codes R001 (OOM), R002 (InvalidUtf8, if relevant).
+- Allocator: simple bump allocator; monotonic bump invariant.
+- Tests: e2e string ops; property tests (concat length, eq properties).
+- Docs: add `docs/runtime.md` with invariants and memory model.
+
+4.8 Optimizations & DX
+- Preallocate parser/typer maps/vecs; reuse shared Wasmtime `Engine`; add `[profile.release]` tuning; micro-benchmarks.
+
+Cross-Cutting (Provable + AI‑Friendly)
+- Maintain stable JSON diagnostics with codes and spans.
+- For each feature, update `docs/typing.md` with formal rules and a brief preservation/progress sketch; link to test IDs.
 
 Prep — Blocks & Early Return (Post 4.10)
 - Design multi-statement blocks: `let`, expr statements, `return;`.

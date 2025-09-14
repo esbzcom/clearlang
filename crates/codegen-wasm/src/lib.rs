@@ -230,7 +230,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let heap_start = (cur_off + 3) & !3;
     let mut globals = GlobalSection::new();
     // global 0: (mut i32) heap_ptr
-    globals.global(GlobalType { val_type: ValType::I32, mutable: true }, &ConstExpr::i32_const(heap_start as i32));
+    globals.global(GlobalType { val_type: ValType::I32, mutable: true, shared: false }, &ConstExpr::i32_const(heap_start as i32));
     module.section(&globals);
 
     // Export main if present
@@ -372,47 +372,48 @@ fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
     insts.local_get(0);
     insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
     insts.local_set(2);
-    // if (len != load32(b)) return 0;
+    // if (len != load32(b)) then { result 0 } else { compute compare and leave result on stack }
     insts.local_get(2);
     insts.local_get(1);
     insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
     insts.i32_ne();
     insts.if_(BlockType::Result(ValType::I32));
-    insts.i32_const(0);
-    insts.end();
-    // Else branch: equal lengths
+      // then → lengths differ → false
+      insts.i32_const(0);
     insts.else_();
-    // pa = a + 4; pb = b + 4; i = 0
-    insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(3);
-    insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
-    insts.i32_const(0); insts.local_set(5);
-    // block (result i32) { loop { if (i >= len) break with 1; if (pa[i] != pb[i]) break with 0; i++; continue; } }
-    insts.block(BlockType::Result(ValType::I32));
-    insts.loop_(BlockType::Empty);
-    // if (i >= len) { return 1 }
-    insts.local_get(5);
-    insts.local_get(2);
-    insts.i32_ge_u();
-    insts.if_(BlockType::Result(ValType::I32));
-    insts.i32_const(1);
-    insts.br(1);
-    insts.end();
-    // if (load8(pa+i) != load8(pb+i)) { return 0 }
-    insts.local_get(3); insts.local_get(5); insts.i32_add();
-    insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
-    insts.local_get(4); insts.local_get(5); insts.i32_add();
-    insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
-    insts.i32_ne();
-    insts.if_(BlockType::Result(ValType::I32));
-    insts.i32_const(0);
-    insts.br(1);
-    insts.end();
-    // i++ ; continue
-    insts.local_get(5); insts.i32_const(1); insts.i32_add(); insts.local_set(5);
-    insts.br(0);
-    // end loop and block
-    insts.end(); // loop
-    insts.end(); // block
+      // else → equal lengths: byte-wise compare
+      // pa = a + 4; pb = b + 4; i = 0
+      insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(3);
+      insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
+      insts.i32_const(0); insts.local_set(5);
+      // block (result i32) { loop { if (i >= len) break with 1; if (pa[i] != pb[i]) break with 0; i++; continue; } }
+      insts.block(BlockType::Result(ValType::I32));
+      insts.loop_(BlockType::Empty);
+        // if (i >= len) { return 1 }
+        insts.local_get(5);
+        insts.local_get(2);
+        insts.i32_ge_u();
+        insts.if_(BlockType::Result(ValType::I32));
+          insts.i32_const(1);
+          insts.br(1);
+        insts.end();
+        // if (load8(pa+i) != load8(pb+i)) { return 0 }
+        insts.local_get(3); insts.local_get(5); insts.i32_add();
+        insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
+        insts.local_get(4); insts.local_get(5); insts.i32_add();
+        insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
+        insts.i32_ne();
+        insts.if_(BlockType::Result(ValType::I32));
+          insts.i32_const(0);
+          insts.br(1);
+        insts.end();
+        // i++ ; continue
+        insts.local_get(5); insts.i32_const(1); insts.i32_add(); insts.local_set(5);
+        insts.br(0);
+      // end loop and block
+      insts.end(); // loop
+      insts.end(); // block leaves result on stack
+    insts.end(); // end if (leaves i32 on stack)
     insts.end();
     Ok(fenc)
 }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use wasm_encoder::{
     CodeSection, ExportKind, ExportSection, Function, FunctionSection,
     Module, TypeSection, ValType, NameSection, NameMap, MemorySection, MemoryType, MemArg,
-    DataSection, ConstExpr,
+    DataSection, ConstExpr, GlobalSection, GlobalType, BlockType,
 };
 use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 
@@ -226,6 +226,13 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     });
     module.section(&memories);
 
+    // Global bump allocator pointer initialized after string data
+    let heap_start = (cur_off + 3) & !3;
+    let mut globals = GlobalSection::new();
+    // global 0: (mut i32) heap_ptr
+    globals.global(GlobalType { val_type: ValType::I32, mutable: true }, &ConstExpr::i32_const(heap_start as i32));
+    module.section(&globals);
+
     // Export main if present
     if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
         let mut exports = ExportSection::new();
@@ -241,6 +248,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         // Encode intrinsics with custom bodies; other functions from IR
         let func = match f.name.as_str() {
             "std::str::len" => encode_intrinsic_str_len(f)?,
+            "std::str::eq" => encode_intrinsic_str_eq(f)?,
             _ => encode_ir_function(f, &str_pool)?,
         };
         codes.function(&func);
@@ -350,6 +358,61 @@ fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
     // load len := i32.load align=4 offset=0 from local 0 pointer
     insts.local_get(0);
     insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.end();
+    Ok(fenc)
+}
+
+fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
+    // Params: a: i32, b: i32; Return: i32 (0/1)
+    // Locals: len (2), pa (3), pb (4), i (5) -> 4 locals
+    let locals: Vec<(u32, ValType)> = vec![(4, ValType::I32)];
+    let mut fenc = Function::new(locals);
+    let mut insts = fenc.instructions();
+    // len = load32(a)
+    insts.local_get(0);
+    insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.local_set(2);
+    // if (len != load32(b)) return 0;
+    insts.local_get(2);
+    insts.local_get(1);
+    insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.i32_ne();
+    insts.if_(BlockType::Result(ValType::I32));
+    insts.i32_const(0);
+    insts.end();
+    // Else branch: equal lengths
+    insts.else_();
+    // pa = a + 4; pb = b + 4; i = 0
+    insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(3);
+    insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
+    insts.i32_const(0); insts.local_set(5);
+    // block (result i32) { loop { if (i >= len) break with 1; if (pa[i] != pb[i]) break with 0; i++; continue; } }
+    insts.block(BlockType::Result(ValType::I32));
+    insts.loop_(BlockType::Empty);
+    // if (i >= len) { return 1 }
+    insts.local_get(5);
+    insts.local_get(2);
+    insts.i32_ge_u();
+    insts.if_(BlockType::Result(ValType::I32));
+    insts.i32_const(1);
+    insts.br(1);
+    insts.end();
+    // if (load8(pa+i) != load8(pb+i)) { return 0 }
+    insts.local_get(3); insts.local_get(5); insts.i32_add();
+    insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
+    insts.local_get(4); insts.local_get(5); insts.i32_add();
+    insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
+    insts.i32_ne();
+    insts.if_(BlockType::Result(ValType::I32));
+    insts.i32_const(0);
+    insts.br(1);
+    insts.end();
+    // i++ ; continue
+    insts.local_get(5); insts.i32_const(1); insts.i32_add(); insts.local_set(5);
+    insts.br(0);
+    // end loop and block
+    insts.end(); // loop
+    insts.end(); // block
     insts.end();
     Ok(fenc)
 }

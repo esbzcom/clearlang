@@ -20,9 +20,9 @@ Testing
 - Keep negative parse case `06_trailing_call_comma`.
 
 Next Actions
-- Implement IR→Wasm encoder entry accepting `lumi_ir::Module`.
-- Update `lumi build` to use typer output (IR) and call new encoder.
-- Add `--validate` and basic logging.
+- [done] Implement IR→Wasm encoder entry accepting `lumi_ir::Module`.
+- [done] Update `lumi build` to use typer output (IR) and call new encoder.
+- [done] Add `--validate` and gate stage logs behind `--verbose`.
 
 ---
 
@@ -91,8 +91,8 @@ Goals
 
 Work Items
 - DX (codegen split): organize into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + evaluator), and `ir.rs` (IR encoder); re-export in `lib.rs`.
-- Module & signatures: deduplicate function type signatures in Wasm Type section.
-- Calls: switch to callee indices (resolve names during lowering); remove name→index lookups in codegen.
+- [done] Module & signatures: deduplicate function type signatures in Wasm Type section.
+- [done] Calls: switch to callee indices (resolve names during lowering); remove name→index lookups in codegen.
 - Memory/runtime: add a minimal allocator (bump/realloc). Strings as (ptr,len) with data segments; List<T> with grow/realloc.
 - Ops: continue `IConst`, `IBin`, `Call`, `Ret`; add void-return and drop unused call results where applicable.
 - Validation: maintain `--validate`; consider CI integration.

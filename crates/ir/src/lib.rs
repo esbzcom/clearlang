@@ -21,8 +21,8 @@ pub enum Instr {
     IConst { dst: Value, ty: IrType, n: i64 },
     // v = bin lhs op rhs
     IBin { dst: Value, op: BinOpIR, lhs: Value, rhs: Value },
-    // v? = call callee(args)
-    Call { dst: Option<Value>, callee: String, args: Vec<Value> },
+    // v? = call callee_idx(args) — callee is a function index in the module
+    Call { dst: Option<Value>, callee: u32, args: Vec<Value> },
     // return v
     Ret { val: Value },
 }

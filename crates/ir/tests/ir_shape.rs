@@ -32,9 +32,9 @@ fn ir_builds_const_add_ret() {
 fn ir_call_instr_variants() {
     let a = Value(0);
     let res = Value(1);
-    let call_void = Instr::Call { dst: None, callee: "puts".into(), args: vec![a] };
-    let call_val = Instr::Call { dst: Some(res), callee: "id".into(), args: vec![a] };
+    // Callee indices are function indices in the module (e.g., 0 = first function)
+    let call_void = Instr::Call { dst: None, callee: 0, args: vec![a] };
+    let call_val = Instr::Call { dst: Some(res), callee: 1, args: vec![a] };
     matches!(call_void, Instr::Call { dst: None, .. });
     matches!(call_val, Instr::Call { dst: Some(_), .. });
 }
-

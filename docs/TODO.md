@@ -143,21 +143,19 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 ## Phase 5 — Codegen IR → Wasm
 
 5.0 Codegen Layout & DX
-- [ ] Gate build stage logs behind `--verbose` (keep default quieter).
+- [x] Gate build stage logs behind `--verbose` (keep default quieter).
 - [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
  - [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
-
-- [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 5.1 Module & Signatures
-- [ ] Types, function indices, and exports.
-- [ ] Deduplicate function signatures in the Wasm Type section (reuse type indices).
+- [x] Types, function indices, and exports.
+- [x] Deduplicate function signatures in the Wasm Type section (reuse type indices).
 
 5.2 Locals & Stack
 - [ ] Local allocation for temps; map IR values to stack ops.
 
 5.3 Ops & Calls
-- [ ] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
-- [ ] Switch calls to use callee indices; update IR lowering accordingly (resolve names to indices).
+- [x] Encode `IConst`, `IBin`, and `Call` to Wasm; verify results in IT.
+- [x] Switch calls to use callee indices; update IR lowering accordingly (resolve names to indices).
 
 5.4 Replace Const-Eval
 - [ ] Switch CLI build to IR→Wasm path by default; keep const-eval for quick checks.
@@ -168,7 +166,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
 
 5.6 Strings Runtime
-- [ ] Define String memory model (ptr + len; utf-8 bytes).
+- [x] Define String memory model (ptr + len; utf-8 bytes).
 - [ ] Implement `std::str::{len, concat, eq}` via intrinsics or a small runtime.
 - [ ] Provide a minimal bump allocator or reuse host env for concat.
 - [ ] Add e2e tests for string ops; document runtime model.

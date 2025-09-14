@@ -1,4 +1,4 @@
-# lumi-lang
+﻿# lumi-lang
 
 Lumi is a dependently-typed programming language that compiles to WebAssembly.
 It aims to be simple like Python and safe like SPARK Ada, with refinement types,
@@ -98,36 +98,4 @@ See `docs/style.md` for the full style guide.
 
 - Prereqs: Install Rust (MSVC) and VS Build Tools (C++ workload).
 - Build release: `cargo build -p lumi-cli --release` -> `target\release\lumi.exe`
-- Install to PATH (optional): `cargo install --path crates/cli --bin lumi`
-
----
-
-## Git Hooks (Pre-Commit)
-
-- Enable hooks: `git config core.hooksPath .githooks`
-- Hook runs: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -D warnings`, `cargo test --workspace`
-- Skip toggles: `SKIP_PRECOMMIT=1`, `SKIP_FMT=1`, `SKIP_CLIPPY=1`, `SKIP_TESTS=1`
-
----
-
-## lumi-tests Samples
-
-- Location: `lumi-tests/`
-- Quick parse: `cargo run -p lumi-cli -- parse lumi-tests/01_hello.lumi`
-- Includes a negative case: `lumi-tests/06_trailing_call_comma.lumi`
-
----
-
-## Vision
-
-- Simple - approachable syntax.
-- Safe - formal guarantees.
-- Portable - runs anywhere via WebAssembly.
-- Proof-oriented - prevent bugs before they run.
-
----
-
-## License
-
-Currently private, all rights reserved.
-An open-source license (e.g., MIT or Apache-2.0) may be applied when Lumi is released publicly.
+...

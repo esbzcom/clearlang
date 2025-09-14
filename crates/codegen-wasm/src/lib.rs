@@ -168,21 +168,30 @@ impl Default for CodegenOpts {
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
     let mut module = Module::new();
 
-    // Build function types, map names to indices
+    // Build function types with deduplication, and record each function's type index
+    #[derive(Hash, Eq, PartialEq, Clone)]
+    struct SigKey { params: usize, has_ret: bool }
     let mut types = TypeSection::new();
-    let mut fn_index_by_name = std::collections::HashMap::new();
-    for (i, f) in ir.funcs.iter().enumerate() {
-        fn_index_by_name.insert(f.name.as_str(), i as u32);
-        let params: Vec<ValType> = f.params.iter().map(|_| ValType::I32).collect();
-        let results: Vec<ValType> = match f.ret { Some(_) => vec![ValType::I32], None => vec![] };
-        types.ty().function(params, results);
+    let mut sig_to_tyidx = std::collections::HashMap::<SigKey, u32>::new();
+    let mut fn_type_indices: Vec<u32> = Vec::with_capacity(ir.funcs.len());
+    for f in &ir.funcs {
+        let key = SigKey { params: f.params.len(), has_ret: f.ret.is_some() };
+        let ty_idx = if let Some(idx) = sig_to_tyidx.get(&key) { *idx } else {
+            let params: Vec<ValType> = f.params.iter().map(|_| ValType::I32).collect();
+            let results: Vec<ValType> = match f.ret { Some(_) => vec![ValType::I32], None => vec![] };
+            let idx = sig_to_tyidx.len() as u32; // next index
+            types.ty().function(params, results);
+            sig_to_tyidx.insert(key, idx);
+            idx
+        };
+        fn_type_indices.push(ty_idx);
     }
     module.section(&types);
 
-    // Function section
+    // Function section references the deduplicated type indices per function
     let mut functions = FunctionSection::new();
-    for i in 0..ir.funcs.len() {
-        functions.function(i as u32);
+    for ty_idx in &fn_type_indices {
+        functions.function(*ty_idx);
     }
     module.section(&functions);
 
@@ -196,7 +205,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     // Code section: encode each function body
     let mut codes = CodeSection::new();
     for f in &ir.funcs {
-        let func = encode_ir_function(f, &fn_index_by_name)?;
+        let func = encode_ir_function(f)?;
         codes.function(&func);
     }
     module.section(&codes);
@@ -220,7 +229,7 @@ pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
     emit_from_ir_with_opts(ir, CodegenOpts::default())
 }
 
-fn encode_ir_function<'a>(f: &IrFunction, fn_indices: &std::collections::HashMap<&'a str, u32>) -> Result<Function> {
+fn encode_ir_function(f: &IrFunction) -> Result<Function> {
     // Compute locals: values >= params are locals; params are indices 0..P-1
     let params_len = f.params.len() as u32;
     let mut max_id = params_len.saturating_sub(1);
@@ -261,10 +270,7 @@ fn encode_ir_function<'a>(f: &IrFunction, fn_indices: &std::collections::HashMap
             }
             IrInstr::Call { dst, callee, args } => {
                 for a in args { insts.local_get(a.0); }
-                let idx = *fn_indices
-                    .get(callee.as_str())
-                    .ok_or_else(|| anyhow::anyhow!(format!("unknown callee `{}`", callee)))?;
-                insts.call(idx);
+                insts.call(*callee);
                 if let Some(d) = dst { insts.local_set(d.0); }
             }
             IrInstr::Ret { val } => {

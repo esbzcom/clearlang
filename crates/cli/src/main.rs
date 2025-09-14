@@ -17,6 +17,9 @@ struct Cli {
     /// Emit machine-readable JSON errors instead of human text
     #[arg(long, global = true, default_value_t = false)]
     json_errors: bool,
+    /// Emit verbose stage logs
+    #[arg(long, global = true, default_value_t = false)]
+    verbose: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -113,7 +116,7 @@ fn main() -> Result<()> {
                     Err(e) => return Err(anyhow::anyhow!("parse failed: {}", e)),
                 }
             };
-            eprintln!("parsed {}", file.display());
+            if cli.verbose { eprintln!("parsed {}", file.display()); }
             println!("{:#?}", ast);
         }
         Commands::Build { file, out, validate, debug_names } => {
@@ -161,7 +164,7 @@ fn main() -> Result<()> {
                     }
                 }
             };
-            eprintln!("type-checked and lowered to IR");
+            if cli.verbose { eprintln!("type-checked and lowered to IR"); }
             // Require a main function returning Int (phase constraint)
             match ir.funcs.iter().find(|f| f.name == "main") {
                 Some(f) => {
@@ -201,7 +204,7 @@ fn main() -> Result<()> {
             }
             let bytes = emit_from_ir_with_opts(&ir, CodegenOpts { debug_names })
                 .context("codegen (IR→Wasm) failed")?;
-            eprintln!("generated Wasm ({} bytes)", bytes.len());
+            if cli.verbose { eprintln!("generated Wasm ({} bytes)", bytes.len()); }
             if let Some(parent) = out.parent() {
                 if !parent.as_os_str().is_empty() {
                     fs::create_dir_all(parent)
@@ -209,7 +212,7 @@ fn main() -> Result<()> {
                 }
             }
             fs::write(&out, bytes).with_context(|| format!("writing {}", out.display()))?;
-            eprintln!("wrote {}", out.display());
+            if cli.verbose { eprintln!("wrote {}", out.display()); }
             if validate {
                 // Best-effort validation using external `wasm-tools`
                 let status = std::process::Command::new("wasm-tools")
@@ -217,7 +220,7 @@ fn main() -> Result<()> {
                     .arg(&out)
                     .status();
                 match status {
-                    Ok(s) if s.success() => eprintln!("validated {}", out.display()),
+                    Ok(s) if s.success() => if cli.verbose { eprintln!("validated {}", out.display()) },
                     Ok(s) => anyhow::bail!("wasm-tools validate failed with status {:?}", s.code()),
                     Err(e) => anyhow::bail!("failed to run wasm-tools: {}", e),
                 }

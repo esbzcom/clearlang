@@ -147,3 +147,11 @@ Next actions
 - Phase 4.10 (new): Add expression-form `if/else` with `else if`/`elif` chaining; enforce branch type unification; parser + typer + tests.
 - Phase 5.6: Strings runtime (ptr+len), implement `std::str` ops; add e2e tests.
 - Plan multi-statement blocks (`let`, expr statements, `return;`) after 4.10; update IR for basic control flow when enabling early returns.
+
+## Session 2025-09-14 — Phase 5 Tech Debt Cleanup
+
+- Implemented Wasm function type deduplication in encoder to reuse identical signatures.
+- Switched IR `Call` from name-based to callee index; resolved indices during lowering; removed name→index lookup in codegen.
+- Added global CLI `--verbose` flag and gated build stage logs behind it; defaults to quieter output.
+- Fixed docs: removed duplicate TODO bullet; renamed `intruduction.md` to `introduction.md`.
+- Left JSON error fallback in place (pending broader structured errors coverage in future).

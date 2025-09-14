@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use crate::errors::TyperError;
-use crate::lower::{lower_func};
+use crate::lower::lower_func;
 use crate::builtins::builtin_sigs;
 use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type, Span};
 use lumi_ir::Module;
@@ -26,9 +26,15 @@ pub fn check(ast: &Program) -> Result<Module> {
         check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
     }
 
+    // Map user-defined function names to indices (order as in AST)
+    let mut user_indices: HashMap<&str, u32> = HashMap::new();
+    for (i, f) in ast.funcs.iter().enumerate() {
+        user_indices.insert(f.name.as_str(), i as u32);
+    }
+
     let mut module = Module::default();
     for f in &ast.funcs {
-        module.funcs.push(lower_func(f, &fns)?);
+        module.funcs.push(lower_func(f, &fns, &user_indices)?);
     }
     Ok(module)
 }

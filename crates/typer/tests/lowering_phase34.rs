@@ -53,7 +53,8 @@ fn lowers_call_and_const() {
     }
     match &main.body[1] {
         Instr::Call { dst, callee, args } => {
-            assert_eq!(*callee, "id".to_string());
+            // In this module, `id` is the first function, so index 0
+            assert_eq!(*callee, 0);
             assert_eq!(args.as_slice(), &[Value(0)]);
             assert_eq!(*dst, Some(Value(1)));
         }

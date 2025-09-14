@@ -215,13 +215,6 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     }
     module.section(&functions);
 
-    // Export main if present
-    if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
-        let mut exports = ExportSection::new();
-        exports.export("main", ExportKind::Func, i as u32);
-        module.section(&exports);
-    }
-
     // Memory section (prepare for string runtime); 1 page minimum
     let mut memories = MemorySection::new();
     memories.memory(MemoryType {
@@ -229,24 +222,18 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         maximum: None,
         memory64: false,
         shared: false,
+        page_size_log2: None,
     });
     module.section(&memories);
 
-    // Data section for string literals
-    if !str_pool.is_empty() {
-        let mut data = DataSection::new();
-        // Sort by offset for deterministic emission
-        let mut items: Vec<(u32, &String)> = str_pool.iter().map(|(s, off)| (*off, s)).collect();
-        items.sort_by_key(|(off, _)| *off);
-        for (off, s) in items {
-            let bytes = s.as_bytes();
-            let mut init = Vec::with_capacity(4 + bytes.len());
-            init.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
-            init.extend_from_slice(bytes);
-            data.segment(DataSegment::active(0, &ConstExpr::i32_const(off as i32), init));
-        }
-        module.section(&data);
+    // Export main if present
+    if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
+        let mut exports = ExportSection::new();
+        exports.export("main", ExportKind::Func, i as u32);
+        module.section(&exports);
     }
+
+    // (Data section for string literals will be appended after Code)
 
     // Code section: encode each function body
     let mut codes = CodeSection::new();
@@ -259,6 +246,22 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         codes.function(&func);
     }
     module.section(&codes);
+
+    // Data section for string literals (after Code as per section order)
+    if !str_pool.is_empty() {
+        let mut data = DataSection::new();
+        // Sort by offset for deterministic emission
+        let mut items: Vec<(u32, &String)> = str_pool.iter().map(|(s, off)| (*off, s)).collect();
+        items.sort_by_key(|(off, _)| *off);
+        for (off, s) in items {
+            let bytes = s.as_bytes();
+            let mut init = Vec::with_capacity(4 + bytes.len());
+            init.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+            init.extend_from_slice(bytes);
+            data.active(0, &ConstExpr::i32_const(off as i32), init);
+        }
+        module.section(&data);
+    }
 
     // Optional debug name section
     if opts.debug_names {
@@ -339,7 +342,7 @@ fn encode_ir_function(f: &IrFunction, strs: &std::collections::HashMap<String, u
     Ok(fenc)
 }
 
-fn encode_intrinsic_str_len(f: &IrFunction) -> Result<Function> {
+fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
     // Expect exactly one param (i32 ptr) and i32 return
     let locals: Vec<(u32, ValType)> = Vec::new();
     let mut fenc = Function::new(locals);

@@ -101,7 +101,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         Expr::Call { callee, args, .. } => {
             let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
             let argv = argv?;
-            let (_params, ret_ty) = ctx
+            let (_params, _ret_ty) = ctx
                 .fns
                 .get(callee.as_str())
                 .cloned()

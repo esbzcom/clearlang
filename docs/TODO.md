@@ -120,12 +120,10 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] DX: Split typer - move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
   - [x] Add `docs/collections.md` and update `docs/diagnostics.md` and `docs/typing.md`.
 
-- 4.8 Small Optimizations & DX
-  - [x] Optional Wasm name section for function names (`--debug-names`).
-  - [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
-  - [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
-  - [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
-  - [ ] Gate build stage logs behind `--verbose` (keep default quieter).
+  - 4.8 Small Optimizations & DX
+    - [x] Optional Wasm name section for function names (`--debug-names`).
+    - [ ] Preallocate HashMaps/Vecs in typer/parser based on known capacities.
+    - [ ] Add `[profile.release]` tuning (e.g., `lto = "thin"`, `codegen-units = 1`).
   - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
  
 - 4.9 Return (expression form)
@@ -143,15 +141,11 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Diagnostics: reserve codes P010 (MissingElseForExprIf) and T301 (BranchTypeMismatch);
         include spans in JSON and add tests.
 
-- 4.11 ADT Ergonomics (sugar)
-  - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
-  - [ ] `??` coalescing for Option (sugar for `unwrap_or`).
-  - [ ] `?` try operator for Option/Result (propagate early) — design behind a flag.
-  
-
+ 
 ## Phase 5 — Codegen IR → Wasm
 
-DX Prep
+5.0 Codegen Layout & DX
+- [ ] Gate build stage logs behind `--verbose` (keep default quieter).
 - [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
 
 5.1 Module & Signatures
@@ -171,12 +165,18 @@ DX Prep
 
 5.5 Tests
 - [ ] Extend e2e tests to verify outputs across samples via Wasmtime.
+- [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
 
 5.6 Strings Runtime
 - [ ] Define String memory model (ptr + len; utf-8 bytes).
 - [ ] Implement `std::str::{len, concat, eq}` via intrinsics or a small runtime.
 - [ ] Provide a minimal bump allocator or reuse host env for concat.
 - [ ] Add e2e tests for string ops; document runtime model.
+
+5.7 ADT Ergonomics (sugar)
+- [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
+- [ ] `??` coalescing for Option (sugar for `unwrap_or`).
+- [ ] `?` try operator for Option/Result (propagate early) - design behind a flag.
 
 ## Phase 6 — Contracts & Effects (Safety)
 

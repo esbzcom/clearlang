@@ -79,7 +79,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Add tests that assert span presence/format in error messages.
 - [x] Gate Phase 4 switch (IR→Wasm as default) on basic span coverage to avoid tech debt.
 
-## Phase 4 — Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations
+## Phase 4 - Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations (Done)
 
 - 4.1 Namespacing (no tech debt)
   - [x] Add namespaced call syntax (paths): `std::str::len(s)`, `std::list::push(l,x)`, `std::map::get(m,k)`, `std::set::contains(s,x)`.
@@ -122,8 +122,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
   - 4.8 Small Optimizations & DX
     - [x] Optional Wasm name section for function names (`--debug-names`).
-    - [ ] Moved: see 5.0 (verbose logs), 5.5 (shared Wasmtime Engine), and Developer Experience (preallocations + release profile tuning).
-  - [ ] DX: When adding `--verbose`, refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
+    - [x] Remaining items moved to later phases (see 5.0 verbose logs, 5.5 shared Wasmtime Engine, and Developer Experience preallocations + release profile tuning).
  
 - 4.9 Return (expression form)
   - [x] AST: add `Expr::Return { expr, span }`.
@@ -147,6 +146,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [ ] Gate build stage logs behind `--verbose` (keep default quieter).
 - [ ] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
 
+- [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 5.1 Module & Signatures
 - [ ] Types, function indices, and exports.
 - [ ] Deduplicate function signatures in the Wasm Type section (reuse type indices).

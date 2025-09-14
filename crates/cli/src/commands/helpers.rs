@@ -117,6 +117,7 @@ fn classify_type_error(s: &str) -> (&'static str, usize, usize, Option<String>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     #[test]
     fn extract_span_parses_basic_pattern() {
@@ -132,5 +133,48 @@ mod tests {
         assert_eq!((st1, en1), (5, 8));
         assert!(f1.is_none());
     }
-}
 
+    #[test]
+    fn json_single_error_shape() {
+        let item = JsonErrorItem {
+            code: "T003",
+            stage: "type",
+            message: "type mismatch".to_string(),
+            file: "file.lumi".to_string(),
+            start: 10,
+            end: 12,
+            function: Some("main".to_string()),
+        };
+        let out = JsonError { ok: false, errors: vec![item] };
+        let s = serde_json::to_string_pretty(&out).unwrap();
+        let v: Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["ok"], Value::Bool(false));
+        assert!(v["errors"].is_array());
+        assert_eq!(v["errors"].as_array().unwrap().len(), 1);
+        let e = &v["errors"][0];
+        assert_eq!(e["code"], Value::String("T003".into()));
+        assert_eq!(e["stage"], Value::String("type".into()));
+        assert_eq!(e["message"], Value::String("type mismatch".into()));
+        assert_eq!(e["file"], Value::String("file.lumi".into()));
+        assert_eq!(e["start"], Value::Number(10.into()));
+        assert_eq!(e["end"], Value::Number(12.into()));
+        assert_eq!(e["function"], Value::String("main".into()));
+    }
+
+    #[test]
+    fn json_multiple_errors_shape() {
+        let items = vec![
+            JsonErrorItem { code: "P001", stage: "parse", message: "unexpected token".into(), file: "a.lumi".into(), start: 1, end: 2, function: None },
+            JsonErrorItem { code: "T006", stage: "type", message: "unknown variable `x`".into(), file: "b.lumi".into(), start: 5, end: 6, function: Some("foo".into()) },
+        ];
+        let out = JsonError { ok: false, errors: items };
+        let s = serde_json::to_string(&out).unwrap();
+        let v: Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["ok"], Value::Bool(false));
+        let arr = v["errors"].as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0]["code"], Value::String("P001".into()));
+        assert_eq!(arr[1]["code"], Value::String("T006".into()));
+        assert_eq!(arr[1]["function"], Value::String("foo".into()));
+    }
+}

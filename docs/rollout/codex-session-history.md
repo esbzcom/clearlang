@@ -7,6 +7,13 @@
 - Updated TODO: marked typer DX split done under 4.7; refined docs to mention T206/T207; added diagnostics bullet under 4.10; kept remaining 4.7 docs tasks open.
 - Next: write 4.7 docs, then implement 4.10 parser/typer/tests with JSON diagnostics and spans.
 
+## Session 2025-09-14 — Phase 4.7 Docs/DX
+
+- Added `docs/collections.md` covering naming, APIs (List/Set/Map), and stable diagnostics T206/T207/T208 with examples and typing rules.
+- Updated `docs/diagnostics.md` to include T206–T208 and reserved P010/T301 for conditionals; kept JSON shape stable.
+- Updated `docs/typing.md` with a Collections summary section linking to collections docs.
+- Marked 4.7 docs items done in `docs/TODO.md`.
+
 - Implemented AST→IR lowering (Phase 3.4) in `lumi-typer`; `check` now returns an IR `Module`.
 - Added lowering tests validating param SSA ids, const, binops, calls, and final `Ret`.
 - Cleaned up parser tests by silencing unused variable warnings in ignored typer-bound cases.

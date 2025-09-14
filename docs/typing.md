@@ -91,3 +91,10 @@ Proposed typer error codes (JSON-stable):
 
 Notes
 - Parsing exists for `match` in expressions; typing initially emits a clear “not supported yet” error code (T012). The above replaces that once enabled.
+Collections (Type-Only Summary) — see `docs/collections.md`
+- Types: `List<T>`, `Set<T>`, `Map<K,V>`.
+- APIs (pure, type-only):
+  - List: `len(List<T>)->Int`, `get(List<T>,Int)->Option<T>`, `push(List<T>,T)->List<T>`, `insert(List<T>,T,Int)->List<T>`, `remove(List<T>,Int)->List<T>`, `pop(List<T>)->Option<T>`, `new()` → T206.
+  - Set: `len(Set<T>)->Int`, `contains(Set<T>,T)->Bool`, `insert(Set<T>,T)->Set<T>`, `remove(Set<T>,T)->Set<T>`, `new()` → T206.
+  - Map: `len(Map<K,V>)->Int`, `contains(Map<K,V>,K)->Bool`, `get(Map<K,V>,K)->Option<V>`, `insert(Map<K,V>,K,V)->Map<K,V>`, `remove(Map<K,V>,K)->Map<K,V>`, `new()` → T206.
+- Diagnostics: T206 (cannot infer `new()`), T207 (expected collection kind), T208 (element/key/value mismatch); index must be Int for list ops (T005).

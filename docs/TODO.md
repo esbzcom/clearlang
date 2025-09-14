@@ -114,10 +114,11 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Typer: enforce element/key/value types; dedicated errors T206–T208.
   - [x] Tests: typer-only tests for positive and negative cases.
 - 4.7 Collections Docs/DX
-  - [ ] Document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`),
+  - [x] Document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`),
         dual-API guidance (precondition vs Option/Result), and JSON error codes
         (include T206 “new requires inference” and T207 “expected collection kind”).
   - [x] DX: Split typer - move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
+  - [x] Add `docs/collections.md` and update `docs/diagnostics.md` and `docs/typing.md`.
 
 - 4.8 Small Optimizations & DX
   - [x] Optional Wasm name section for function names (`--debug-names`).

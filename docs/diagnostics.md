@@ -47,9 +47,18 @@ Lumi provides machine-readable diagnostics to keep tooling simple, provable, and
   - `T010`: duplicate parameter
   - `T011`: type-check recursion limit exceeded
   - `T101`: collections unavailable (std::{list,set,map} planned in Phase 4.3)
+  - `T201`–`T205`: match typing diagnostics (Option/Result)
+  - `T206`: cannot infer element type for `std::{list,set,map}::new()`
+  - `T207`: expected collection kind (wrong argument type to a collection API)
+  - `T208`: element/key/value type mismatch for collection operations
+  - `T301`: branch type mismatch in expression-form conditionals (Phase 4.10)
+  
 - Build (`Cxxx`):
   - `C001`: invalid main signature (only `main() -> Int` supported in this phase)
   - `C002`: missing `main` function
+  
+- Parse (`Pxxx`) additions:
+  - `P010`: missing `else` in expression-form `if` (Phase 4.10)
 
 ## Examples
 - Parse:

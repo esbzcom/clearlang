@@ -140,7 +140,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
         include spans in JSON and add tests.
 
  
-## Phase 5 — Codegen IR → Wasm
+## Phase 5 — Codegen IR → Wasm (Done)
 
 5.0 Codegen Layout & DX
 - [x] Gate build stage logs behind `--verbose` (keep default quieter).

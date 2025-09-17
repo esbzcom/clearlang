@@ -335,3 +335,4 @@ Proofs
 
 Design
 - Draft blocks + early return design slice (multi-statement blocks, `let`, `return;`), compatible with current expression form.
+ - Schedule ADT ergonomics as 6.5: `if let` sugar (Some/Ok) via desugar to 2-arm match; `??` and `?` after effects/contracts, behind a flag.

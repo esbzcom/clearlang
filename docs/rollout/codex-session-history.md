@@ -45,6 +45,12 @@
   - Proofs: extend value‑preservation to cover expression‑form `if/else`.
   - Design: draft blocks + early return plan (multi‑stmt, `let`, `return;`) ahead of Phase 7/8.
 
+## Session 2025-09-17 — Roadmap tidy (Phase 5 done; ADT ergonomics moved)
+
+- Marked Phase 5 as complete in `docs/TODO.md` header.
+- Moved "ADT Ergonomics (sugar)" from 5.7 to 6.5 in TODO; added a DEVPLAN note scheduling 6.5 after contracts/VCs.
+- Kept focus on Phase 6 next steps: contracts parsing, VC generation and CLI `--emit-vcs`, runtime guards, and proofs extension.
+
 ## Session 2025-09-14 — Phase DEVPLAN planning + docs/TODO updates
 
 - Reviewed TODO, rollout notes, and recent commits; aligned next steps with Phase DEVPLAN focus.

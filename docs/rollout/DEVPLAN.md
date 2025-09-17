@@ -315,3 +315,23 @@ Prep — Blocks & Early Return (Post 4.10)
 - Design multi-statement blocks: `let`, expr statements, `return;`.
 - IR additions for basic structured control flow (`If/Else`, block join via locals).
 - Gradually enable early returns inside blocks; keep expression-form compatibility.
+
+---
+
+# Phase DEVPLAN — Next Steps (2025-09-17)
+
+Focus — Phase 6 (Contracts & Effects)
+- Syntax: parse `pure`, `require { expr }`, `ensure { expr }` (expression-bodied functions first); attach spans.
+- VC Gen: for each pure expression-bodied function with pre P and post Q, generate one VC `P ⇒ Q[e/result]` in QF_LIA.
+- CLI: `lumi build file.lumi --emit-vcs out.json` writes an array matching `docs/proofs/vc-schema.md` with `status: "generated"`.
+- Tests: snapshot the JSON; include a failing ensure example and a simple inc/add.
+
+Runtime & Diagnostics
+- Strings runtime: add explicit OOM guard in bump allocator and map to R001; document R002 (InvalidUtf8) behavior.
+- Diagnostics: add unit tests for `C001` (invalid main signature) and `P010` (missing else) to keep codes/doc synced.
+
+Proofs
+- Extend value-preservation proof to cover expression-form `if/else` (ISelect lowering to typed Wasm if/else with result).
+
+Design
+- Draft blocks + early return design slice (multi-statement blocks, `let`, `return;`), compatible with current expression form.

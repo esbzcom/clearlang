@@ -163,7 +163,10 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 5.5 Tests
 - [x] Extend e2e tests to verify outputs across samples via Wasmtime (IR pipeline samples; strings len/eq/concat).
- - [x] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+- [x] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+ - [x] Verify Wasm Type section dedup via structure tests.
+ - [x] Verify `--debug-names` emits custom name section.
+ - [x] Add CLI `run` smoke test to execute `main` and assert stdout.
 
 5.6 Strings Runtime
 - [x] Define String memory model (ptr + len; utf-8 bytes).
@@ -172,14 +175,19 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Provide a minimal bump allocator (global heap_ptr) for concat.
 - [x] Implement `std::str::concat` intrinsic (header write; memory.copy for bytes; aligned bump).
 - [x] Add e2e tests for string ops (len, eq, concat).
- - [x] Add property tests for strings invariants (len/concat/eq).
+- [x] Add property tests for strings invariants (len/concat/eq).
 
-5.7 ADT Ergonomics (sugar)
-- [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
-- [ ] `??` coalescing for Option (sugar for `unwrap_or`).
-- [ ] `?` try operator for Option/Result (propagate early) - design behind a flag.
+5.7 ADT Ergonomics (sugar) — Deferred
+- [ ] Defer until after Phase 6 (Contracts) and base ADT typing/match rules are solid.
+- [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match (optional DX after Phase 6).
+- [ ] `??` coalescing for Option (sugar for `unwrap_or`) — schedule post‑Phase 6.
+- [ ] `?` try operator for Option/Result (propagate early) — design after effects/contracts to pin semantics.
 
 ## Phase 6 — Contracts & Effects (Safety)
+
+Docs & Proofs
+- [x] Draft VC JSON schema (`docs/proofs/vc-schema.md`).
+- [x] Add value-preservation proof sketch for Int/Bool arith + calls (`docs/proofs/value-preservation.md`).
 
 6.1 Syntax
 - [ ] `require { expr }` / `ensure { expr }`, effects `pure|mut|io`.
@@ -189,6 +197,11 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [ ] Allow multiple `require`/`ensure` (conjoined semantics).
 - [ ] Generate Verification Conditions (VCs) for pure, expression-bodied functions.
 - [ ] CLI: `--emit-vcs` outputs stable JSON (function, vc_id, pre, post, smt2, status).
+
+6.2.1 VC Generation (initial slice)
+- [ ] Expression-bodied `pure` only; single VC `P ⇒ Q[e/result]` (QF_LIA + Bool).
+- [ ] Stable ordering and schema matching `docs/proofs/vc-schema.md`.
+- [ ] Snapshot tests for inc/add and a failing ensure.
 
 6.3 Mutable Collections (effects)
 - [ ] Add effect-gated mutable variants for collections (initial sketch, no runtime yet):
@@ -200,6 +213,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 6.3 Runtime Guards
 - [ ] Lower contracts to guards that trap on violation.
+ - [ ] Strings runtime: add OOM guard/trap (R001); document InvalidUtf8 (R002) handling.
 
 6.4 Metadata & Proofs
 - [ ] Emit `lumi.proof` custom section v1 (contracts/effects/VCs; optional proofs).

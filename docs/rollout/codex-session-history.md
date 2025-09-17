@@ -27,6 +27,24 @@
   - `debug_names_emit_name_section`: asserts custom `name` section is present when `debug_names` is enabled.
 - Added CLI smoke test `run_subcommand_executes_main` in `crates/cli/tests/cli_it.rs` to verify `lumi run` invokes `main` and prints the result.
 
+## Session 2025-09-17 — Summary & Next Steps
+
+- Summary
+  - Phase 5 polish: added Wasm structure tests (type dedup, debug names), strings property tests, and CLI `run` smoke test.
+  - Cleaned tech debt: removed unused `lumi-ast` dep, unified DEVPLAN wording (no `elif`, require final `else`).
+  - Proof/AI artifacts: value‑preservation sketch and VC JSON schema docs added under `docs/proofs/`.
+  - Test DX: shared Wasmtime `Engine` across tests for faster runs.
+
+- Next Steps (DEVPLAN)
+  - Contracts (Phase 6):
+    - Parse `pure`, `require {}` and `ensure {}` with spans (expression‑bodied first).
+    - VC Gen: for pure expression‑bodied functions, emit a single VC `P ⇒ Q[e/result]` in QF_LIA.
+    - CLI: `--emit-vcs out.json` writes array matching `docs/proofs/vc-schema.md` (status="generated").
+  - Runtime guards: add explicit OOM trap (R001) in bump allocator; document InvalidUtf8 (R002) considerations.
+  - Diagnostics: add tests for `C001` (invalid main signature) and `P010` (missing else) to match `docs/diagnostics.md`.
+  - Proofs: extend value‑preservation to cover expression‑form `if/else`.
+  - Design: draft blocks + early return plan (multi‑stmt, `let`, `return;`) ahead of Phase 7/8.
+
 ## Session 2025-09-14 — Phase DEVPLAN planning + docs/TODO updates
 
 - Reviewed TODO, rollout notes, and recent commits; aligned next steps with Phase DEVPLAN focus.

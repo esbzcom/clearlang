@@ -177,11 +177,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Add e2e tests for string ops (len, eq, concat).
 - [x] Add property tests for strings invariants (len/concat/eq).
 
-5.7 ADT Ergonomics (sugar) — Deferred
-- [ ] Defer until after Phase 6 (Contracts) and base ADT typing/match rules are solid.
-- [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match (optional DX after Phase 6).
-- [ ] `??` coalescing for Option (sugar for `unwrap_or`) — schedule post‑Phase 6.
-- [ ] `?` try operator for Option/Result (propagate early) — design after effects/contracts to pin semantics.
+5.7 (moved) — see 6.5 ADT Ergonomics (sugar)
 
 ## Phase 6 — Contracts & Effects (Safety)
 
@@ -222,6 +218,11 @@ Docs & Proofs
       - CLI verify: `lumi verify --sig --pubkey [--vcs --proofs]`.
 - [ ] Canonical payloads (JCS) with SHA-256 hashes: `module_hash`, `proofs_hash`.
 - [ ] Plan `lumiverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
+
+6.5 ADT Ergonomics (sugar)
+- [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
+- [ ] `??` coalescing for Option (sugar for `unwrap_or`).
+- [ ] `?` try operator for Option/Result (propagate early) — design aligned with effects/contracts; behind a flag.
 
 ## Phase 7 — Resource/Linear Types
 

@@ -1,11 +1,12 @@
 use lumi_codegen_wasm::emit_from_ir;
 use lumi_parser::parse;
 use lumi_typer::check;
+mod common;
 
 fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {
-    let engine = wasmtime::Engine::default();
-    let module = wasmtime::Module::from_binary(&engine, wasm).expect("module from bytes");
-    let mut store = wasmtime::Store::new(&engine, ());
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, wasm).expect("module from bytes");
+    let mut store = wasmtime::Store::new(engine, ());
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")

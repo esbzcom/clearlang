@@ -257,7 +257,7 @@ Focus 1 — Phase 4.5: ADT Typing + Match
 - Codegen: keep lowering deferred until basic control flow is introduced; diagnose unsupported in codegen path if surfaced.
 
 Focus 2 — Phase 4.10: If/Else (Expression Form)
-- Parser: `if cond { ... } (else if cond2 { ... })* else { ... }`; accept `elif` as alias for `else if`.
+- Parser: `if cond { ... } (else if cond2 { ... })* else { ... }`; no `elif` alias; final `else` required.
 - Typer: require `Bool` conditions; unify branch result types.
 - Tests: expression-form chains; require final else in expression contexts.
 - Desugar: represent as nested If AST or keep dedicated node; lower later to IR `If/Else`.
@@ -284,7 +284,7 @@ Scope
 
 Phase 5 IR → Wasm
 - 5.0 Codegen Layout & DX
-  - Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `const_eval.rs` (emit_from_ast + eval), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
+  - Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `ir.rs` (IR→Wasm encoder), and `intrinsics/strings.rs` (string intrinsics); re-export from `lib.rs`.
   - Add `--verbose` and gate stage logs; refactor CLI into `commands/{emit_hello,parse,build,run}.rs` with small helpers.
 - 5.1 Types/Indices/Exports: define module types, function indices; export `main` if present; deduplicate function signatures.
 - 5.2 Locals & Stack: allocate locals for SSA temps; map IR values to stack ops.
@@ -298,7 +298,11 @@ Phase 5 IR → Wasm
 - Intrinsics: `std::str::{len, concat, eq}`; define traps and error codes R001 (OOM), R002 (InvalidUtf8, if relevant).
 - Allocator: simple bump allocator; monotonic bump invariant.
 - Tests: e2e string ops; property tests (concat length, eq properties).
-- Docs: add `docs/runtime.md` with invariants and memory model.
+ - Docs: ensure `docs/runtime/strings.md` captures invariants and memory model.
+
+Provability (subset)
+- Document a value-preservation proof sketch for the Int/Bool arithmetic and direct call subset: interpreter vs generated Wasm yield identical results.
+- Keep the proof AI-friendly: small-step rules, explicit assumptions, and cross-references to tests.
 
 4.8 Optimizations & DX
 - Preallocate parser/typer maps/vecs; reuse shared Wasmtime `Engine`; add `[profile.release]` tuning; micro-benchmarks.

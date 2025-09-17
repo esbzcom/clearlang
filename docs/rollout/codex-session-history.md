@@ -1,5 +1,32 @@
 # Codex Session Summary
 
+## Session 2025-09-17 — DEVPLAN sync + proofs scaffolding
+
+- Reviewed recent commits; verified Phase 5 CLI refactor landed and strings runtime docs exist.
+- Updated `docs/TODO.md` to mark CLI subcommand refactor complete (5.0 DX).
+- Updated `docs/rollout/DEVPLAN.md` to reflect current codegen layout (no `const_eval.rs`) and to reference `intrinsics/strings.rs`; added a provability note for arithmetic/call subset.
+- Added proofs docs:
+  - `docs/proofs/value-preservation.md`: subset proof sketch (Int/Bool arith + calls) with theorem statement and assumptions.
+  - `docs/proofs/vc-schema.md`: AI‑Friendly, stable JSON schema draft for `--emit-vcs` output.
+- Next actions:
+  - Implement shared Wasmtime `Engine` across tests (5.5) using `once_cell`.
+  - Add property tests for strings invariants (len/concat/eq).
+  - Begin parser design for Phase 6 contracts (`pure`, `require/ensure`) to enable VC generation.
+
+## Session 2025-09-17 — Tech Debt Cleanup + String Properties
+
+- Removed unused dependency `lumi-ast` from `crates/codegen-wasm/Cargo.toml`.
+- Aligned DEVPLAN wording for Phase 4.10 (no `elif` alias; final `else` required).
+- Added property-based tests for strings invariants in `crates/codegen-wasm/tests/strings_props.rs` using a shared Wasmtime `Engine` and `proptest`.
+- Updated TODO to mark strings property tests as complete.
+
+## Session 2025-09-17 — Phase 5 Tests (Structure + CLI run)
+
+- Added Wasm structure tests in `crates/codegen-wasm/tests/types_and_names.rs`:
+  - `type_section_is_deduplicated_by_signature`: asserts only two function types for repeated signatures.
+  - `debug_names_emit_name_section`: asserts custom `name` section is present when `debug_names` is enabled.
+- Added CLI smoke test `run_subcommand_executes_main` in `crates/cli/tests/cli_it.rs` to verify `lumi run` invokes `main` and prints the result.
+
 ## Session 2025-09-14 — Phase DEVPLAN planning + docs/TODO updates
 
 - Reviewed TODO, rollout notes, and recent commits; aligned next steps with Phase DEVPLAN focus.

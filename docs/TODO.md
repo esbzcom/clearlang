@@ -145,7 +145,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 5.0 Codegen Layout & DX
 - [x] Gate build stage logs behind `--verbose` (keep default quieter).
 - [x] Split `codegen-wasm` into `trivial.rs` (emit_trivial_main), `intrinsics/strings.rs` (string intrinsics), and `ir.rs` (IR→Wasm encoder); re-export from `lib.rs`.
- - [ ] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
+ - [x] Refactor CLI by splitting subcommands into `commands/{emit_hello,parse,build,run}.rs` and small helpers.
 5.1 Module & Signatures
 - [x] Types, function indices, and exports.
 - [x] Deduplicate function signatures in the Wasm Type section (reuse type indices).
@@ -163,7 +163,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 5.5 Tests
 - [x] Extend e2e tests to verify outputs across samples via Wasmtime (IR pipeline samples; strings len/eq/concat).
-- [ ] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
+ - [x] Reuse a shared Wasmtime `Engine` in tests (e.g., `once_cell`) to speed up instantiation.
 
 5.6 Strings Runtime
 - [x] Define String memory model (ptr + len; utf-8 bytes).
@@ -172,6 +172,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 - [x] Provide a minimal bump allocator (global heap_ptr) for concat.
 - [x] Implement `std::str::concat` intrinsic (header write; memory.copy for bytes; aligned bump).
 - [x] Add e2e tests for string ops (len, eq, concat).
+ - [x] Add property tests for strings invariants (len/concat/eq).
 
 5.7 ADT Ergonomics (sugar)
 - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.

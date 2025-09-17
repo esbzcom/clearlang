@@ -10,10 +10,12 @@ fn repo_sample(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../lumi-tests").join(name)
 }
 
+mod common;
+
 fn wasmtime_run(bytes: &[u8]) -> i32 {
-    let engine = wasmtime::Engine::default();
-    let module = wasmtime::Module::from_binary(&engine, bytes).expect("module");
-    let mut store = wasmtime::Store::new(&engine, ());
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, bytes).expect("module");
+    let mut store = wasmtime::Store::new(engine, ());
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")
@@ -27,6 +29,31 @@ fn parse_command_succeeds_on_hello() {
     let mut cmd = Command::cargo_bin("lumi").expect("bin");
     cmd.args(["parse"]).arg(&input);
     cmd.assert().success().stdout(predicate::str::contains("Program"));
+}
+
+#[test]
+fn run_subcommand_executes_main() {
+    // Minimal source that returns 42
+    let src = r#"
+        pure function add2(a: Int, b: Int) -> Int { a + b }
+        function main() -> Int { add2(40, 2) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("hello.lumi");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+
+    // Build the wasm
+    let mut build = Command::cargo_bin("lumi").expect("bin");
+    build.args(["build"]).arg(&file).args(["-o"]).arg(&out);
+    build.assert().success();
+
+    // Run it via CLI
+    let mut run = Command::cargo_bin("lumi").expect("bin");
+    run.args(["run"]).arg(&out);
+    run.assert()
+        .success()
+        .stdout(predicate::str::is_match(r"(?m)^\s*42\s*$").unwrap());
 }
 
 #[test]

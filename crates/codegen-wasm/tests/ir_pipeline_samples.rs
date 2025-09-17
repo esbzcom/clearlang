@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use lumi_codegen_wasm::emit_from_ir;
 use lumi_parser::parse;
 use lumi_typer::check;
+mod common;
 
 fn sample_path(file: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -22,9 +23,9 @@ struct Case {
 }
 
 fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {
-    let engine = wasmtime::Engine::default();
-    let module = wasmtime::Module::from_binary(&engine, wasm).expect("module from bytes");
-    let mut store = wasmtime::Store::new(&engine, ());
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, wasm).expect("module from bytes");
+    let mut store = wasmtime::Store::new(engine, ());
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")
@@ -67,9 +68,9 @@ fn ir_pipeline_samples() {
             // Expected to parse but not have a main export (e.g., 07_bools)
             let ir = check(&ast).expect("type-check+lower ok");
             let wasm = emit_from_ir(&ir).expect("codegen (IR) ok");
-            let engine = wasmtime::Engine::default();
-            let module = wasmtime::Module::from_binary(&engine, &wasm).expect("module from bytes");
-            let mut store = wasmtime::Store::new(&engine, ());
+            let engine = common::engine();
+            let module = wasmtime::Module::from_binary(engine, &wasm).expect("module from bytes");
+            let mut store = wasmtime::Store::new(engine, ());
             let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
             assert!(
                 instance.get_typed_func::<(), i32>(&mut store, "main").is_err(),

@@ -37,19 +37,59 @@ fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {
 #[test]
 fn ir_pipeline_samples() {
     let cases = [
-        Case { file: "01_hello.clear", parse_ok: true,  expected: Some(42) },
-        Case { file: "02_arith.clear", parse_ok: true,  expected: Some(15) },
-        Case { file: "03_nested_calls.clear", parse_ok: true,  expected: Some(7) },
-        Case { file: "04_multiline_call.clear", parse_ok: true,  expected: Some(30) },
-        Case { file: "05_trailing_param_comma.clear", parse_ok: true,  expected: Some(3) },
-        Case { file: "09_large_arith.clear", parse_ok: true,  expected: Some(28) },
-        Case { file: "12_zero_arg_fn.clear", parse_ok: true,  expected: Some(7) },
-        Case { file: "06_trailing_call_comma.clear", parse_ok: false, expected: None },
-        Case { file: "07_bools.clear", parse_ok: true,  expected: None }, // no main export expected
-        Case { file: "08_main_const.clear", parse_ok: true,  expected: Some(42) },
+        Case {
+            file: "01_hello.clear",
+            parse_ok: true,
+            expected: Some(42),
+        },
+        Case {
+            file: "02_arith.clear",
+            parse_ok: true,
+            expected: Some(15),
+        },
+        Case {
+            file: "03_nested_calls.clear",
+            parse_ok: true,
+            expected: Some(7),
+        },
+        Case {
+            file: "04_multiline_call.clear",
+            parse_ok: true,
+            expected: Some(30),
+        },
+        Case {
+            file: "05_trailing_param_comma.clear",
+            parse_ok: true,
+            expected: Some(3),
+        },
+        Case {
+            file: "09_large_arith.clear",
+            parse_ok: true,
+            expected: Some(28),
+        },
+        Case {
+            file: "12_zero_arg_fn.clear",
+            parse_ok: true,
+            expected: Some(7),
+        },
+        Case {
+            file: "06_trailing_call_comma.clear",
+            parse_ok: false,
+            expected: None,
+        },
+        Case {
+            file: "07_bools.clear",
+            parse_ok: true,
+            expected: None,
+        }, // no main export expected
+        Case {
+            file: "08_main_const.clear",
+            parse_ok: true,
+            expected: Some(42),
+        },
     ];
 
-    for c in cases {        
+    for c in cases {
         let src = read_sample(c.file);
         let parsed = parse(&src);
 
@@ -73,7 +113,9 @@ fn ir_pipeline_samples() {
             let mut store = wasmtime::Store::new(engine, ());
             let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
             assert!(
-                instance.get_typed_func::<(), i32>(&mut store, "main").is_err(),
+                instance
+                    .get_typed_func::<(), i32>(&mut store, "main")
+                    .is_err(),
                 "module should not export main for {}",
                 c.file
             );

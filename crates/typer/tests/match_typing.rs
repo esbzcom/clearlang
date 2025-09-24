@@ -90,4 +90,3 @@ fn option_id_function() {
     "#;
     type_ok(src);
 }
-

@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 mod commands;
-use commands::{build as cmd_build, emit_hello as cmd_emit_hello, parse as cmd_parse, run as cmd_run};
+use commands::{
+    build as cmd_build, emit_hello as cmd_emit_hello, parse as cmd_parse, run as cmd_run,
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "clearlang", version, about = "ClearLang CLI", long_about = None)]
@@ -29,13 +31,13 @@ enum Commands {
     /// Phase 2: Parse a ClearLang source file and print the AST
     Parse {
         /// Input ClearLang source file
-        #[arg(value_name = "FILE")] 
+        #[arg(value_name = "FILE")]
         file: PathBuf,
     },
     /// Compile a ClearLang source file to WASM (very minimal subset for now)
     Build {
         /// Input ClearLang source file
-        #[arg(value_name = "FILE")] 
+        #[arg(value_name = "FILE")]
         file: PathBuf,
         /// Output wasm file path
         #[arg(short, long, default_value = "out.wasm")]
@@ -50,7 +52,7 @@ enum Commands {
     /// Run a compiled Wasm module (calls an exported function)
     Run {
         /// Input Wasm file
-        #[arg(value_name = "FILE")] 
+        #[arg(value_name = "FILE")]
         file: PathBuf,
         /// Export to invoke (default: main)
         #[arg(long, default_value = "main")]
@@ -61,13 +63,30 @@ enum Commands {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Commands::EmitHello { out } => { cmd_emit_hello::run(out)?; }
-        Commands::Parse { file } => { cmd_parse::run(file, cli.json_errors, cli.verbose)?; }
-        Commands::Build { file, out, validate, debug_names } => {
-            cmd_build::run(file, out, validate, debug_names, cli.json_errors, cli.verbose)?;
+        Commands::EmitHello { out } => {
+            cmd_emit_hello::run(out)?;
         }
-        Commands::Run { file, invoke } => { cmd_run::run(file, invoke)?; }
+        Commands::Parse { file } => {
+            cmd_parse::run(file, cli.json_errors, cli.verbose)?;
+        }
+        Commands::Build {
+            file,
+            out,
+            validate,
+            debug_names,
+        } => {
+            cmd_build::run(
+                file,
+                out,
+                validate,
+                debug_names,
+                cli.json_errors,
+                cli.verbose,
+            )?;
+        }
+        Commands::Run { file, invoke } => {
+            cmd_run::run(file, invoke)?;
+        }
     }
     Ok(())
 }
- 

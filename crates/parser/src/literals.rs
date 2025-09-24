@@ -1,6 +1,6 @@
+use crate::ErrTy;
 use chumsky::prelude::*;
 use chumsky::text;
-use crate::ErrTy;
 use clg_ast::{Expr, Span};
 
 pub(crate) fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
@@ -9,7 +9,13 @@ pub(crate) fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         .unwrapped()
         .map_with(|n, e| {
             let sp: chumsky::span::SimpleSpan<usize> = e.span();
-            Expr::Int(n, Span { start: sp.start, end: sp.end })
+            Expr::Int(
+                n,
+                Span {
+                    start: sp.start,
+                    end: sp.end,
+                },
+            )
         })
         .padded()
         .labelled("int literal")
@@ -17,8 +23,26 @@ pub(crate) fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
 
 pub(crate) fn bool_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     choice((
-        just("true").padded().map_with(|_, e| { let sp: chumsky::span::SimpleSpan<usize> = e.span(); Expr::Bool(true,  Span { start: sp.start, end: sp.end }) }),
-        just("false").padded().map_with(|_, e| { let sp: chumsky::span::SimpleSpan<usize> = e.span(); Expr::Bool(false, Span { start: sp.start, end: sp.end }) }),
+        just("true").padded().map_with(|_, e| {
+            let sp: chumsky::span::SimpleSpan<usize> = e.span();
+            Expr::Bool(
+                true,
+                Span {
+                    start: sp.start,
+                    end: sp.end,
+                },
+            )
+        }),
+        just("false").padded().map_with(|_, e| {
+            let sp: chumsky::span::SimpleSpan<usize> = e.span();
+            Expr::Bool(
+                false,
+                Span {
+                    start: sp.start,
+                    end: sp.end,
+                },
+            )
+        }),
     ))
     .labelled("bool literal")
 }
@@ -39,7 +63,13 @@ pub(crate) fn str_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         .then_ignore(just('"'))
         .map_with(|s, e| {
             let sp: chumsky::span::SimpleSpan<usize> = e.span();
-            Expr::String(s, Span { start: sp.start, end: sp.end })
+            Expr::String(
+                s,
+                Span {
+                    start: sp.start,
+                    end: sp.end,
+                },
+            )
         })
         .padded()
         .labelled("string literal")

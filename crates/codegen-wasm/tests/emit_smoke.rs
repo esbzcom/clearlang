@@ -7,4 +7,3 @@ fn builds_hello_wasm_module() {
     assert!(bytes.len() > 8);
     assert_eq!(&bytes[0..4], b"\0asm");
 }
-

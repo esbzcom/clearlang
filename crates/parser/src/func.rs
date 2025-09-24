@@ -1,9 +1,9 @@
-use chumsky::prelude::*;
-use crate::ErrTy;
-use crate::tokens::{ident_p, func_name_p, kw};
-use crate::types::{effect_p, ty_p};
 use crate::expr::expr_p;
-use clg_ast::{Param, Func, Effect};
+use crate::tokens::{func_name_p, ident_p, kw};
+use crate::types::{effect_p, ty_p};
+use crate::ErrTy;
+use chumsky::prelude::*;
+use clg_ast::{Effect, Func, Param};
 
 fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
     ident_p()
@@ -19,8 +19,8 @@ fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
         .allow_trailing()
         .collect::<Vec<_>>()
         .delimited_by(
-            just('(').padded().labelled("'('") ,
-            just(')').padded().labelled("')'")
+            just('(').padded().labelled("'('"),
+            just(')').padded().labelled("')'"),
         )
 }
 
@@ -32,25 +32,25 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         .then(params_p())
         // Friendly hint: if ':' is used instead of '->' for return types, emit a targeted error
         .then(
-            choice((
-                just("->").padded().to(true),
-                just(':').padded().to(false),
-            ))
-            .try_map(|ok, span| {
-                if ok {
-                    Ok(())
-                } else {
-                    Err(Rich::custom(span, "use '->' for return types (not ':')"))
-                }
-            })
+            choice((just("->").padded().to(true), just(':').padded().to(false))).try_map(
+                |ok, span| {
+                    if ok {
+                        Ok(())
+                    } else {
+                        Err(Rich::custom(span, "use '->' for return types (not ':')"))
+                    }
+                },
+            ),
         )
         .then(ty_p())
         .then(expr_p().delimited_by(just('{').padded(), just('}').padded()))
-        .map(|(((((eff_opt, name), params), _arrow_ok), ret), body)| Func {
-            effect: eff_opt.unwrap_or(Effect::None),
-            name,
-            params,
-            ret,
-            body,
-        })
+        .map(
+            |(((((eff_opt, name), params), _arrow_ok), ret), body)| Func {
+                effect: eff_opt.unwrap_or(Effect::None),
+                name,
+                params,
+                ret,
+                body,
+            },
+        )
 }

@@ -1,6 +1,6 @@
-use chumsky::prelude::*;
-use crate::ErrTy;
 use crate::tokens::kw;
+use crate::ErrTy;
+use chumsky::prelude::*;
 use clg_ast::{Effect, Type};
 
 pub(crate) fn effect_p<'a>() -> impl Parser<'a, &'a str, Effect, ErrTy<'a>> {

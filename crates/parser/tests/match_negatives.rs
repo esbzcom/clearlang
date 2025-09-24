@@ -57,4 +57,3 @@ fn match_missing_arrow_fails() {
     "#;
     parse(src).expect_err("missing '=>' in match arm should fail");
 }
-

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use serde::Serialize;
 use clg_parser::ParserError as ParserErr;
+use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct JsonError {
@@ -34,7 +34,10 @@ pub fn emit_parse_structured_json_errors(file: &PathBuf, errs: &[ParserErr]) {
             function: None,
         })
         .collect();
-    let out = JsonError { ok: false, errors: items };
+    let out = JsonError {
+        ok: false,
+        errors: items,
+    };
     println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }
 
@@ -61,7 +64,10 @@ pub fn emit_single_json_error(
         end,
         function,
     };
-    let out = JsonError { ok: false, errors: vec![item] };
+    let out = JsonError {
+        ok: false,
+        errors: vec![item],
+    };
     println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }
 
@@ -73,7 +79,11 @@ fn extract_span(s: &str) -> Option<(usize, usize)> {
             let mut bchars = brest.chars();
             let mut num = String::new();
             for ch in bchars.by_ref() {
-                if ch.is_ascii_digit() { num.push(ch); } else { break; }
+                if ch.is_ascii_digit() {
+                    num.push(ch);
+                } else {
+                    break;
+                }
             }
             if let (Ok(st), Ok(en)) = (a.trim().parse::<usize>(), num.parse::<usize>()) {
                 return Some((st, en));
@@ -145,7 +155,10 @@ mod tests {
             end: 12,
             function: Some("main".to_string()),
         };
-        let out = JsonError { ok: false, errors: vec![item] };
+        let out = JsonError {
+            ok: false,
+            errors: vec![item],
+        };
         let s = serde_json::to_string_pretty(&out).unwrap();
         let v: Value = serde_json::from_str(&s).unwrap();
         assert_eq!(v["ok"], Value::Bool(false));
@@ -164,10 +177,29 @@ mod tests {
     #[test]
     fn json_multiple_errors_shape() {
         let items = vec![
-            JsonErrorItem { code: "P001", stage: "parse", message: "unexpected token".into(), file: "a.clear".into(), start: 1, end: 2, function: None },
-            JsonErrorItem { code: "T006", stage: "type", message: "unknown variable `x`".into(), file: "b.clear".into(), start: 5, end: 6, function: Some("foo".into()) },
+            JsonErrorItem {
+                code: "P001",
+                stage: "parse",
+                message: "unexpected token".into(),
+                file: "a.clear".into(),
+                start: 1,
+                end: 2,
+                function: None,
+            },
+            JsonErrorItem {
+                code: "T006",
+                stage: "type",
+                message: "unknown variable `x`".into(),
+                file: "b.clear".into(),
+                start: 5,
+                end: 6,
+                function: Some("foo".into()),
+            },
         ];
-        let out = JsonError { ok: false, errors: items };
+        let out = JsonError {
+            ok: false,
+            errors: items,
+        };
         let s = serde_json::to_string(&out).unwrap();
         let v: Value = serde_json::from_str(&s).unwrap();
         assert_eq!(v["ok"], Value::Bool(false));

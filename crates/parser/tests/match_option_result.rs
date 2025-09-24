@@ -25,4 +25,3 @@ fn parses_match_on_result() {
     "#;
     let _ = parse(src).expect("parse ok");
 }
-

@@ -1,9 +1,9 @@
+use crate::commands::helpers::emit_parse_structured_json_errors;
+use anyhow::{Context, Result};
+use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
-use anyhow::{Context, Result};
-use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
-use crate::commands::helpers::emit_parse_structured_json_errors;
 
 pub fn run(file: PathBuf, json_errors: bool, verbose: bool) -> Result<()> {
     let mut s = String::new();
@@ -25,8 +25,9 @@ pub fn run(file: PathBuf, json_errors: bool, verbose: bool) -> Result<()> {
             Err(e) => return Err(anyhow::anyhow!("parse failed: {}", e)),
         }
     };
-    if verbose { eprintln!("parsed {}", file.display()); }
+    if verbose {
+        eprintln!("parsed {}", file.display());
+    }
     println!("{:#?}", ast);
     Ok(())
 }
-

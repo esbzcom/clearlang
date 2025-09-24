@@ -1,5 +1,8 @@
-﻿#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Span { pub start: usize, pub end: usize }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -16,7 +19,12 @@ pub struct Func {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Effect { Pure, Mut, Io, None }
+pub enum Effect {
+    Pure,
+    Mut,
+    Io,
+    None,
+}
 
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -42,18 +50,52 @@ pub enum Expr {
     Bool(bool, Span),
     String(String, Span),
     Var(String, Span),
-    Bin { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr>, span: Span },
-    Call { callee: String, args: Vec<Expr>, span: Span },
-    Return { expr: Box<Expr>, span: Span },
-    Match { scrutinee: Box<Expr>, arms: Vec<MatchArm>, span: Span },
-    If { cond: Box<Expr>, then_br: Box<Expr>, else_br: Box<Expr>, span: Span },
+    Bin {
+        op: BinOp,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+        span: Span,
+    },
+    Call {
+        callee: String,
+        args: Vec<Expr>,
+        span: Span,
+    },
+    Return {
+        expr: Box<Expr>,
+        span: Span,
+    },
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchArm>,
+        span: Span,
+    },
+    If {
+        cond: Box<Expr>,
+        then_br: Box<Expr>,
+        else_br: Box<Expr>,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinOp { Add, Sub, Mul, Div }
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
 
 #[derive(Debug, Clone)]
-pub enum MatchPat { Some(String), None, Ok(String), Err(String) }
+pub enum MatchPat {
+    Some(String),
+    None,
+    Ok(String),
+    Err(String),
+}
 
 #[derive(Debug, Clone)]
-pub struct MatchArm { pub pat: MatchPat, pub expr: Expr }
+pub struct MatchArm {
+    pub pat: MatchPat,
+    pub expr: Expr,
+}

@@ -11,13 +11,21 @@ pub struct TyperError {
 
 impl TyperError {
     pub fn new(code: &'static str, message: String, start: usize, end: usize) -> Self {
-        TyperError { code, message, start, end }
+        TyperError {
+            code,
+            message,
+            start,
+            end,
+        }
     }
 
     pub fn unknown_function(callee: &str, span: Span) -> Self {
         Self::new(
             "T001",
-            format!("at {}..{}: unknown function `{}`", span.start, span.end, callee),
+            format!(
+                "at {}..{}: unknown function `{}`",
+                span.start, span.end, callee
+            ),
             span.start,
             span.end,
         )
@@ -35,12 +43,23 @@ impl TyperError {
         )
     }
 
-    pub fn arg_type_mismatch(i: usize, callee: &str, expected: Type, found: Type, span: Span) -> Self {
+    pub fn arg_type_mismatch(
+        i: usize,
+        callee: &str,
+        expected: Type,
+        found: Type,
+        span: Span,
+    ) -> Self {
         Self::new(
             "T003",
             format!(
                 "at {}..{}: arg {} type mismatch calling `{}`: expected `{}`, found `{}`",
-                span.start, span.end, i, callee, show_ty(expected), show_ty(found)
+                span.start,
+                span.end,
+                i,
+                callee,
+                show_ty(expected),
+                show_ty(found)
             ),
             span.start,
             span.end,
@@ -52,7 +71,10 @@ impl TyperError {
             "T004",
             format!(
                 "at {}..{}: return type mismatch: declared `{}`, found `{}`",
-                span.start, span.end, show_ty(declared), show_ty(found)
+                span.start,
+                span.end,
+                show_ty(declared),
+                show_ty(found)
             ),
             span.start,
             span.end,
@@ -65,7 +87,10 @@ impl TyperError {
                 "T005",
                 format!(
                     "at {}..{}: {} must be Int, found `{}`",
-                    sp.start, sp.end, what, show_ty(ty)
+                    sp.start,
+                    sp.end,
+                    what,
+                    show_ty(ty)
                 ),
                 sp.start,
                 sp.end,
@@ -98,7 +123,11 @@ impl TyperError {
     }
 
     pub fn effect_not_supported(effect: Effect) -> Self {
-        let eff_str = match effect { Effect::Mut => "mut", Effect::Io => "io", _ => "" };
+        let eff_str = match effect {
+            Effect::Mut => "mut",
+            Effect::Io => "io",
+            _ => "",
+        };
         Self::new(
             "T009",
             format!("effect `{}` not supported yet; use `pure` or omit", eff_str),
@@ -123,7 +152,10 @@ impl TyperError {
     pub fn match_non_exhaustive(span: Span) -> Self {
         Self::new(
             "T201",
-            format!("at {}..{}: non-exhaustive match (missing arm)", span.start, span.end),
+            format!(
+                "at {}..{}: non-exhaustive match (missing arm)",
+                span.start, span.end
+            ),
             span.start,
             span.end,
         )
@@ -132,7 +164,10 @@ impl TyperError {
     pub fn match_duplicate_arm(arm: &str, span: Span) -> Self {
         Self::new(
             "T202",
-            format!("at {}..{}: duplicate match arm `{}`", span.start, span.end, arm),
+            format!(
+                "at {}..{}: duplicate match arm `{}`",
+                span.start, span.end, arm
+            ),
             span.start,
             span.end,
         )
@@ -143,7 +178,9 @@ impl TyperError {
             "T203",
             format!(
                 "at {}..{}: invalid match scrutinee: expected `Option` or `Result`, found `{}`",
-                span.start, span.end, show_ty(found)
+                span.start,
+                span.end,
+                show_ty(found)
             ),
             span.start,
             span.end,
@@ -155,7 +192,10 @@ impl TyperError {
             "T204",
             format!(
                 "at {}..{}: match arm type mismatch: expected `{}`, found `{}`",
-                span.start, span.end, show_ty(expected), show_ty(found)
+                span.start,
+                span.end,
+                show_ty(expected),
+                show_ty(found)
             ),
             span.start,
             span.end,
@@ -165,7 +205,10 @@ impl TyperError {
     pub fn binder_conflict(name: &str, span: Span) -> Self {
         Self::new(
             "T205",
-            format!("at {}..{}: binder `{}` conflicts with an existing name", span.start, span.end, name),
+            format!(
+                "at {}..{}: binder `{}` conflicts with an existing name",
+                span.start, span.end, name
+            ),
             span.start,
             span.end,
         )
@@ -175,7 +218,10 @@ impl TyperError {
     pub fn cannot_infer_collection(span: Span, kind: &str) -> Self {
         Self::new(
             "T206",
-            format!("at {}..{}: cannot infer element type for {}::new()", span.start, span.end, kind),
+            format!(
+                "at {}..{}: cannot infer element type for {}::new()",
+                span.start, span.end, kind
+            ),
             span.start,
             span.end,
         )
@@ -184,7 +230,13 @@ impl TyperError {
     pub fn expected_collection(kind: &str, found: Type, span: Span) -> Self {
         Self::new(
             "T207",
-            format!("at {}..{}: expected {} argument, found `{}`", span.start, span.end, kind, show_ty(found)),
+            format!(
+                "at {}..{}: expected {} argument, found `{}`",
+                span.start,
+                span.end,
+                kind,
+                show_ty(found)
+            ),
             span.start,
             span.end,
         )
@@ -195,7 +247,10 @@ impl TyperError {
             "T208",
             format!(
                 "at {}..{}: element type mismatch: expected `{}`, found `{}`",
-                span.start, span.end, show_ty(expected), show_ty(found)
+                span.start,
+                span.end,
+                show_ty(expected),
+                show_ty(found)
             ),
             span.start,
             span.end,
@@ -208,7 +263,10 @@ impl TyperError {
             "T301",
             format!(
                 "at {}..{}: branch type mismatch: expected `{}`, found `{}`",
-                span.start, span.end, show_ty(expected), show_ty(found)
+                span.start,
+                span.end,
+                show_ty(expected),
+                show_ty(found)
             ),
             span.start,
             span.end,

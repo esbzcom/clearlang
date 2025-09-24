@@ -1,6 +1,6 @@
+use clg_ir::{BinOpIR, Instr, IrType, Value};
 use clg_parser::parse;
 use clg_typer::check;
-use clg_ir::{Instr, IrType, BinOpIR, Value};
 
 // Phase 3.4 — purpose: lower simple add using param SSA ids
 #[test]
@@ -39,7 +39,11 @@ fn lowers_call_and_const() {
     "#;
     let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
     assert_eq!(m.funcs.len(), 2);
-    let main = m.funcs.iter().find(|f| f.name == "main").expect("main exists");
+    let main = m
+        .funcs
+        .iter()
+        .find(|f| f.name == "main")
+        .expect("main exists");
     assert_eq!(main.params.len(), 0);
     assert_eq!(main.ret, Some(IrType::Int));
     assert_eq!(main.body.len(), 3); // const 42, call, ret

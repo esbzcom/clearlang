@@ -1,14 +1,20 @@
 use assert_cmd::Command;
-use std::path::PathBuf;
 use predicates::prelude::PredicateBooleanExt;
+use std::path::PathBuf;
 
 fn sample(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../clearlang-tests").join(name)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../clearlang-tests")
+        .join(name)
 }
 
 #[test]
 fn emit_hello_and_run() {
-    let out = tempfile::Builder::new().prefix("emit_hello_").suffix(".wasm").tempfile().unwrap();
+    let out = tempfile::Builder::new()
+        .prefix("emit_hello_")
+        .suffix(".wasm")
+        .tempfile()
+        .unwrap();
     let out_path = out.path().to_path_buf();
 
     Command::cargo_bin("clearlang")
@@ -31,29 +37,46 @@ fn emit_hello_and_run() {
 fn build_and_run_samples() {
     // 01_hello
     let out1 = tempfile::tempdir().unwrap().path().join("hello.wasm");
-    Command::cargo_bin("clearlang").unwrap()
-        .args(["build"]).arg(sample("01_hello.clear")).args(["-o"]).arg(&out1)
-        .assert().success();
-    Command::cargo_bin("clearlang").unwrap()
-        .args(["run"]).arg(&out1)
-        .assert().success()
+    Command::cargo_bin("clearlang")
+        .unwrap()
+        .args(["build"])
+        .arg(sample("01_hello.clear"))
+        .args(["-o"])
+        .arg(&out1)
+        .assert()
+        .success();
+    Command::cargo_bin("clearlang")
+        .unwrap()
+        .args(["run"])
+        .arg(&out1)
+        .assert()
+        .success()
         .stdout(predicates::str::contains("42\n"));
 
     // 12_zero_arg_fn
     let out2 = tempfile::tempdir().unwrap().path().join("zfn.wasm");
-    Command::cargo_bin("clearlang").unwrap()
-        .args(["build"]).arg(sample("12_zero_arg_fn.clear")).args(["-o"]).arg(&out2)
-        .assert().success();
-    Command::cargo_bin("clearlang").unwrap()
-        .args(["run"]).arg(&out2)
-        .assert().success()
+    Command::cargo_bin("clearlang")
+        .unwrap()
+        .args(["build"])
+        .arg(sample("12_zero_arg_fn.clear"))
+        .args(["-o"])
+        .arg(&out2)
+        .assert()
+        .success();
+    Command::cargo_bin("clearlang")
+        .unwrap()
+        .args(["run"])
+        .arg(&out2)
+        .assert()
+        .success()
         .stdout(predicates::str::contains("7\n"));
 }
 
 #[test]
 fn parse_command_prints_ast() {
     let sample = sample("01_hello.clear");
-    Command::cargo_bin("clearlang").unwrap()
+    Command::cargo_bin("clearlang")
+        .unwrap()
         .args(["parse"])
         .arg(&sample)
         .assert()
@@ -64,10 +87,12 @@ fn parse_command_prints_ast() {
 #[test]
 fn build_fails_on_parse_error() {
     let out = tempfile::tempdir().unwrap().path().join("bad.wasm");
-    Command::cargo_bin("clearlang").unwrap()
+    Command::cargo_bin("clearlang")
+        .unwrap()
         .args(["build"])
         .arg(sample("06_trailing_call_comma.clear"))
-        .args(["-o"]).arg(&out)
+        .args(["-o"])
+        .arg(&out)
         .assert()
         .failure();
 }
@@ -75,10 +100,12 @@ fn build_fails_on_parse_error() {
 #[test]
 fn build_fails_on_type_error() {
     let out = tempfile::tempdir().unwrap().path().join("type_err.wasm");
-    Command::cargo_bin("clearlang").unwrap()
+    Command::cargo_bin("clearlang")
+        .unwrap()
         .args(["build"])
         .arg(sample("14_arity_mismatch.clear"))
-        .args(["-o"]).arg(&out)
+        .args(["-o"])
+        .arg(&out)
         .assert()
         .failure();
 }

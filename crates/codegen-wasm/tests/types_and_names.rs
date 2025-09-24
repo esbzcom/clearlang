@@ -8,30 +8,46 @@ fn build_ir_module_for_types() -> ir::Module {
         name: "f1".to_string(),
         params: vec![ir::IrType::Int, ir::IrType::Int],
         ret: Some(ir::IrType::Int),
-        body: vec![ ir::Instr::Ret { val: ir::Value(0) } ],
+        body: vec![ir::Instr::Ret { val: ir::Value(0) }],
     };
     // f2: (Int, Int) -> Int  identical signature
     let f2 = ir::Function {
         name: "f2".to_string(),
         params: vec![ir::IrType::Int, ir::IrType::Int],
         ret: Some(ir::IrType::Int),
-        body: vec![ ir::Instr::Ret { val: ir::Value(1) } ],
+        body: vec![ir::Instr::Ret { val: ir::Value(1) }],
     };
     // f3: () -> Int  returns const 7
     let f3 = ir::Function {
         name: "f3".to_string(),
         params: vec![],
         ret: Some(ir::IrType::Int),
-        body: vec![ ir::Instr::IConst { dst: ir::Value(0), ty: ir::IrType::Int, n: 7 }, ir::Instr::Ret { val: ir::Value(0) } ],
+        body: vec![
+            ir::Instr::IConst {
+                dst: ir::Value(0),
+                ty: ir::IrType::Int,
+                n: 7,
+            },
+            ir::Instr::Ret { val: ir::Value(0) },
+        ],
     };
     // main: () -> Int just calls f3 or returns const
     let main = ir::Function {
         name: "main".to_string(),
         params: vec![],
         ret: Some(ir::IrType::Int),
-        body: vec![ ir::Instr::IConst { dst: ir::Value(0), ty: ir::IrType::Int, n: 42 }, ir::Instr::Ret { val: ir::Value(0) } ],
+        body: vec![
+            ir::Instr::IConst {
+                dst: ir::Value(0),
+                ty: ir::IrType::Int,
+                n: 42,
+            },
+            ir::Instr::Ret { val: ir::Value(0) },
+        ],
     };
-    ir::Module { funcs: vec![f1, f2, f3, main] }
+    ir::Module {
+        funcs: vec![f1, f2, f3, main],
+    }
 }
 
 #[test]
@@ -45,13 +61,20 @@ fn type_section_is_deduplicated_by_signature() {
             Payload::TypeSection(rdr) => {
                 // In current wasmparser, the type section yields RecGroup entries.
                 // Our encoder emits one type per group, so counting groups == types.
-                for group in rdr { let _ = group.expect("group"); ty_count += 1; }
+                for group in rdr {
+                    let _ = group.expect("group");
+                    ty_count += 1;
+                }
             }
             _ => {}
         }
     }
     // Expect only two unique func types: (i32,i32)->i32 and ()->i32
-    assert_eq!(ty_count, 2, "expected 2 deduped function types, got {}", ty_count);
+    assert_eq!(
+        ty_count, 2,
+        "expected 2 deduped function types, got {}",
+        ty_count
+    );
 }
 
 #[test]
@@ -62,8 +85,14 @@ fn debug_names_emit_name_section() {
     let mut has_name = false;
     for payload in Parser::new(0).parse_all(&wasm) {
         if let Payload::CustomSection(reader) = payload.expect("payload") {
-            if reader.name() == "name" { has_name = true; break; }
+            if reader.name() == "name" {
+                has_name = true;
+                break;
+            }
         }
     }
-    assert!(has_name, "expected custom name section when debug_names is enabled");
+    assert!(
+        has_name,
+        "expected custom name section when debug_names is enabled"
+    );
 }

@@ -12,8 +12,16 @@ fn parse_errors_returns_multiple_items_for_contrived_input() {
     match parse_errors(src) {
         Ok(_) => panic!("expected parse_errors to return Err with at least one item"),
         Err(errs) => {
-            assert!(errs.len() >= 1, "expected >= 1 parser error, got {}", errs.len());
-            let msg = errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>().join("\n");
+            assert!(
+                errs.len() >= 1,
+                "expected >= 1 parser error, got {}",
+                errs.len()
+            );
+            let msg = errs
+                .iter()
+                .map(|e| e.message.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
             // Heuristic: expect at least one helpful label such as 'comma' or a closing paren
             assert!(
                 msg.contains("comma") || msg.contains("')'") || msg.contains("expected"),

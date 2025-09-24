@@ -1,10 +1,10 @@
-use anyhow::{Context, Result};
-use std::collections::{HashMap, HashSet};
+use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
 use crate::lower::lower_func;
-use crate::builtins::builtin_sigs;
-use clg_ast::{BinOp, Effect, Expr, Func, Param, Program, Type, Span};
+use anyhow::{Context, Result};
+use clg_ast::{BinOp, Effect, Expr, Func, Param, Program, Span, Type};
 use clg_ir::Module;
+use std::collections::{HashMap, HashSet};
 
 type FnSig<'a> = (&'a [Param], Type);
 
@@ -17,7 +17,10 @@ pub fn check(ast: &Program) -> Result<Module> {
     }
 
     for f in &ast.funcs {
-        if fns.insert(f.name.as_str(), (&f.params, f.ret.clone())).is_some() {
+        if fns
+            .insert(f.name.as_str(), (&f.params, f.ret.clone()))
+            .is_some()
+        {
             return Err(TyperError::duplicate_function(&f.name).into());
         }
     }
@@ -44,11 +47,22 @@ pub fn check(ast: &Program) -> Result<Module> {
             // Define IR function signature for the intrinsic
             let (params, ret) = match *name {
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
-                "std::str::eq" => (vec![clg_ir::IrType::Int, clg_ir::IrType::Int], Some(clg_ir::IrType::Bool)),
-                "std::str::concat" => (vec![clg_ir::IrType::Int, clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::str::eq" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
+                "std::str::concat" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Int),
+                ),
                 _ => (vec![], None),
             };
-            intrinsic_defs.push(clg_ir::Function { name: (*name).to_string(), params, ret, body: vec![] });
+            intrinsic_defs.push(clg_ir::Function {
+                name: (*name).to_string(),
+                params,
+                ret,
+                body: vec![],
+            });
         }
     }
 
@@ -70,7 +84,10 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     }
 
     for f in &ast.funcs {
-        if fns.insert(f.name.as_str(), (&f.params, f.ret.clone())).is_some() {
+        if fns
+            .insert(f.name.as_str(), (&f.params, f.ret.clone()))
+            .is_some()
+        {
             return Err(TyperError::duplicate_function(&f.name).into());
         }
     }
@@ -97,7 +114,11 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     if body_ty != f.ret {
         let sp = match &f.body {
             Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-            Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } | Expr::Return { span, .. } | Expr::If { span, .. } => *span,
+            Expr::Bin { span, .. }
+            | Expr::Call { span, .. }
+            | Expr::Match { span, .. }
+            | Expr::Return { span, .. }
+            | Expr::If { span, .. } => *span,
         };
         return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
     }
@@ -111,13 +132,24 @@ fn type_of<'a>(
     depth: usize,
 ) -> Result<Type> {
     if depth > 1024 {
-        return Err(TyperError::new("T011", "type-check recursion limit exceeded".to_string(), 0, 0).into());
+        return Err(TyperError::new(
+            "T011",
+            "type-check recursion limit exceeded".to_string(),
+            0,
+            0,
+        )
+        .into());
     }
     match e {
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
         Expr::String(_, _) => Ok(Type::String),
-        Expr::If { cond, then_br, else_br, span } => {
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            span,
+        } => {
             let cty = type_of(cond, env, fns, depth + 1)?;
             if cty != Type::Bool {
                 // Reuse arg_type_mismatch with pseudo-callee `if` for stable code T003
@@ -130,13 +162,24 @@ fn type_of<'a>(
             }
             Ok(tty)
         }
-        Expr::Match { scrutinee, arms, span } => {
+        Expr::Match {
+            scrutinee,
+            arms,
+            span,
+        } => {
             let scrut_ty = type_of(scrutinee, env, fns, depth + 1)?;
             // Helper to get arm expr span
             let span_of = |ex: &Expr| -> Span {
                 match ex {
-                    Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-                    Expr::Bin { span, .. } | Expr::Call { span, .. } | Expr::Match { span, .. } | Expr::Return { span, .. } | Expr::If { span, .. } => *span,
+                    Expr::Int(_, sp)
+                    | Expr::Bool(_, sp)
+                    | Expr::String(_, sp)
+                    | Expr::Var(_, sp) => *sp,
+                    Expr::Bin { span, .. }
+                    | Expr::Call { span, .. }
+                    | Expr::Match { span, .. }
+                    | Expr::Return { span, .. }
+                    | Expr::If { span, .. } => *span,
                 }
             };
 
@@ -150,7 +193,9 @@ fn type_of<'a>(
                         match &arm.pat {
                             MatchPat::Some(name) => {
                                 if seen_some {
-                                    return Err(TyperError::match_duplicate_arm("Some", *span).into());
+                                    return Err(
+                                        TyperError::match_duplicate_arm("Some", *span).into()
+                                    );
                                 }
                                 seen_some = true;
                                 if env.contains_key(name.as_str()) {
@@ -163,7 +208,12 @@ fn type_of<'a>(
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = span_of(&arm.expr);
-                                        return Err(TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into());
+                                        return Err(TyperError::match_arm_type_mismatch(
+                                            rt.clone(),
+                                            at,
+                                            sp,
+                                        )
+                                        .into());
                                     }
                                 } else {
                                     res_ty_opt = Some(at);
@@ -171,14 +221,21 @@ fn type_of<'a>(
                             }
                             MatchPat::None => {
                                 if seen_none {
-                                    return Err(TyperError::match_duplicate_arm("None", *span).into());
+                                    return Err(
+                                        TyperError::match_duplicate_arm("None", *span).into()
+                                    );
                                 }
                                 seen_none = true;
                                 let at = type_of(&arm.expr, env, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = span_of(&arm.expr);
-                                        return Err(TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into());
+                                        return Err(TyperError::match_arm_type_mismatch(
+                                            rt.clone(),
+                                            at,
+                                            sp,
+                                        )
+                                        .into());
                                     }
                                 } else {
                                     res_ty_opt = Some(at);
@@ -186,7 +243,11 @@ fn type_of<'a>(
                             }
                             MatchPat::Ok(_) | MatchPat::Err(_) => {
                                 // Wrong arm kind for Option
-                                return Err(TyperError::match_invalid_scrutinee(scrut_ty.clone(), *span).into());
+                                return Err(TyperError::match_invalid_scrutinee(
+                                    scrut_ty.clone(),
+                                    *span,
+                                )
+                                .into());
                             }
                         }
                     }
@@ -202,46 +263,78 @@ fn type_of<'a>(
                     for arm in arms {
                         match &arm.pat {
                             MatchPat::Ok(name) => {
-                                if seen_ok { return Err(TyperError::match_duplicate_arm("Ok", *span).into()); }
+                                if seen_ok {
+                                    return Err(TyperError::match_duplicate_arm("Ok", *span).into());
+                                }
                                 seen_ok = true;
-                                if env.contains_key(name.as_str()) { return Err(TyperError::binder_conflict(name, *span).into()); }
+                                if env.contains_key(name.as_str()) {
+                                    return Err(TyperError::binder_conflict(name, *span).into());
+                                }
                                 let mut env2 = env.clone();
                                 env2.insert(name.as_str(), *ok_ty.clone());
                                 let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
-                                    if &at != rt { let sp = span_of(&arm.expr); return Err(TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into()); }
-                                } else { res_ty_opt = Some(at); }
+                                    if &at != rt {
+                                        let sp = span_of(&arm.expr);
+                                        return Err(TyperError::match_arm_type_mismatch(
+                                            rt.clone(),
+                                            at,
+                                            sp,
+                                        )
+                                        .into());
+                                    }
+                                } else {
+                                    res_ty_opt = Some(at);
+                                }
                             }
                             MatchPat::Err(name) => {
-                                if seen_err { return Err(TyperError::match_duplicate_arm("Err", *span).into()); }
+                                if seen_err {
+                                    return Err(
+                                        TyperError::match_duplicate_arm("Err", *span).into()
+                                    );
+                                }
                                 seen_err = true;
-                                if env.contains_key(name.as_str()) { return Err(TyperError::binder_conflict(name, *span).into()); }
+                                if env.contains_key(name.as_str()) {
+                                    return Err(TyperError::binder_conflict(name, *span).into());
+                                }
                                 let mut env2 = env.clone();
                                 env2.insert(name.as_str(), *err_ty.clone());
                                 let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
-                                    if &at != rt { let sp = span_of(&arm.expr); return Err(TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into()); }
-                                } else { res_ty_opt = Some(at); }
+                                    if &at != rt {
+                                        let sp = span_of(&arm.expr);
+                                        return Err(TyperError::match_arm_type_mismatch(
+                                            rt.clone(),
+                                            at,
+                                            sp,
+                                        )
+                                        .into());
+                                    }
+                                } else {
+                                    res_ty_opt = Some(at);
+                                }
                             }
                             MatchPat::Some(_) | MatchPat::None => {
-                                return Err(TyperError::match_invalid_scrutinee(scrut_ty.clone(), *span).into());
+                                return Err(TyperError::match_invalid_scrutinee(
+                                    scrut_ty.clone(),
+                                    *span,
+                                )
+                                .into());
                             }
                         }
                     }
-                    if !(seen_ok && seen_err) { return Err(TyperError::match_non_exhaustive(*span).into()); }
+                    if !(seen_ok && seen_err) {
+                        return Err(TyperError::match_non_exhaustive(*span).into());
+                    }
                     Ok(res_ty_opt.unwrap_or(Type::Int))
                 }
-                other => {
-                    Err(TyperError::match_invalid_scrutinee(other, *span).into())
-                }
+                other => Err(TyperError::match_invalid_scrutinee(other, *span).into()),
             }
         }
-        Expr::Var(name, sp) => Ok(
-            env
-                .get(name.as_str())
-                .cloned()
-                .ok_or_else(|| TyperError::unknown_variable(name, *sp))?
-        ),
+        Expr::Var(name, sp) => Ok(env
+            .get(name.as_str())
+            .cloned()
+            .ok_or_else(|| TyperError::unknown_variable(name, *sp))?),
         Expr::Return { expr, .. } => {
             let t = type_of(expr, env, fns, depth + 1)?;
             Ok(t)
@@ -262,7 +355,9 @@ fn type_of<'a>(
             }
             // Phase 4.5 — ADT constructors (partial): Some(T) infers Option<T>
             if callee == "Some" {
-                if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into()); }
+                if args.len() != 1 {
+                    return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
+                }
                 let t0 = type_of(&args[0], env, fns, depth + 1)?;
                 return Ok(Type::Option(Box::new(t0)));
             }
@@ -271,7 +366,9 @@ fn type_of<'a>(
                 .cloned()
                 .ok_or_else(|| TyperError::unknown_function(callee, *span))?;
             if params.len() != args.len() {
-                return Err(TyperError::arity_mismatch(callee, params.len(), args.len(), *span).into());
+                return Err(
+                    TyperError::arity_mismatch(callee, params.len(), args.len(), *span).into(),
+                );
             }
             for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
                 let at = type_of(a, env, fns, depth + 1)?;
@@ -302,20 +399,44 @@ fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         match e {
             Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
             Expr::Return { expr, .. } => walk_expr(expr, set),
-            Expr::Bin { lhs, rhs, .. } => { walk_expr(lhs, set); walk_expr(rhs, set); }
-            Expr::If { cond, then_br, else_br, .. } => { walk_expr(cond, set); walk_expr(then_br, set); walk_expr(else_br, set); }
-            Expr::Match { scrutinee, arms, .. } => {
+            Expr::Bin { lhs, rhs, .. } => {
+                walk_expr(lhs, set);
+                walk_expr(rhs, set);
+            }
+            Expr::If {
+                cond,
+                then_br,
+                else_br,
+                ..
+            } => {
+                walk_expr(cond, set);
+                walk_expr(then_br, set);
+                walk_expr(else_br, set);
+            }
+            Expr::Match {
+                scrutinee, arms, ..
+            } => {
                 walk_expr(scrutinee, set);
-                for arm in arms { walk_expr(&arm.expr, set); }
+                for arm in arms {
+                    walk_expr(&arm.expr, set);
+                }
             }
             Expr::Call { callee, args, .. } => {
                 match callee.as_str() {
-                    "std::str::len" => { set.insert("std::str::len"); }
-                    "std::str::eq" => { set.insert("std::str::eq"); }
-                    "std::str::concat" => { set.insert("std::str::concat"); }
+                    "std::str::len" => {
+                        set.insert("std::str::len");
+                    }
+                    "std::str::eq" => {
+                        set.insert("std::str::eq");
+                    }
+                    "std::str::concat" => {
+                        set.insert("std::str::concat");
+                    }
                     _ => {}
                 }
-                for a in args { walk_expr(a, set); }
+                for a in args {
+                    walk_expr(a, set);
+                }
             }
         }
     }
@@ -339,16 +460,34 @@ fn type_collection_call<'a>(
     match callee {
         // List
         "std::list::len" => {
-            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
             let lty = arg_ty(0)?;
-            if let Type::List(_) = lty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("List", lty, span).into()) }
+            if let Type::List(_) = lty {
+                Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("List", lty, span).into())
+            }
         }
         "std::list::get" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             let lty = arg_ty(0)?;
             let ity = arg_ty(1)?;
             if ity != Type::Int {
-                let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s };
+                let sp = match &args[1] {
+                    Expr::Int(_, s)
+                    | Expr::Bool(_, s)
+                    | Expr::String(_, s)
+                    | Expr::Var(_, s)
+                    | Expr::Bin { span: s, .. }
+                    | Expr::Call { span: s, .. }
+                    | Expr::Match { span: s, .. }
+                    | Expr::Return { span: s, .. }
+                    | Expr::If { span: s, .. } => *s,
+                };
                 return Err(TyperError::int_operand("index", ity, Some(sp)).into());
             }
             match lty {
@@ -357,32 +496,71 @@ fn type_collection_call<'a>(
             }
         }
         "std::list::push" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             let lty = arg_ty(0)?;
             match lty {
                 Type::List(inner) => {
                     let letxty: Type = (*inner).clone();
                     let aty = arg_ty(1)?;
-                    if aty != letxty { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(letxty, aty, sp).into()); }
+                    if aty != letxty {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(letxty, aty, sp).into());
+                    }
                     Ok(Some(Type::List(Box::new(*inner))))
                 }
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }
         "std::list::insert" => {
-            if args.len() != 3 { return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into()); }
+            if args.len() != 3 {
+                return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into());
+            }
             let lty = arg_ty(0)?;
             match lty {
                 Type::List(inner) => {
                     let elem_expected: Type = (*inner).clone();
                     let aty_elem = arg_ty(1)?;
                     if aty_elem != elem_expected {
-                        let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s };
-                        return Err(TyperError::element_type_mismatch(elem_expected, aty_elem, sp).into());
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(
+                            TyperError::element_type_mismatch(elem_expected, aty_elem, sp).into(),
+                        );
                     }
                     let ity = arg_ty(2)?;
                     if ity != Type::Int {
-                        let sp = match &args[2] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s };
+                        let sp = match &args[2] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
                         return Err(TyperError::int_operand("index", ity, Some(sp)).into());
                     }
                     Ok(Some(Type::List(Box::new(*inner))))
@@ -391,11 +569,23 @@ fn type_collection_call<'a>(
             }
         }
         "std::list::remove" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             let lty = arg_ty(0)?;
             let ity = arg_ty(1)?;
             if ity != Type::Int {
-                let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s };
+                let sp = match &args[1] {
+                    Expr::Int(_, s)
+                    | Expr::Bool(_, s)
+                    | Expr::String(_, s)
+                    | Expr::Var(_, s)
+                    | Expr::Bin { span: s, .. }
+                    | Expr::Call { span: s, .. }
+                    | Expr::Match { span: s, .. }
+                    | Expr::Return { span: s, .. }
+                    | Expr::If { span: s, .. } => *s,
+                };
                 return Err(TyperError::int_operand("index", ity, Some(sp)).into());
             }
             match lty {
@@ -404,7 +594,9 @@ fn type_collection_call<'a>(
             }
         }
         "std::list::pop" => {
-            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
             let lty = arg_ty(0)?;
             match lty {
                 Type::List(inner) => Ok(Some(Type::Option(inner))),
@@ -417,65 +609,206 @@ fn type_collection_call<'a>(
 
         // Set
         "std::set::len" => {
-            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
             let sty = arg_ty(0)?;
-            if let Type::Set(_) = sty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("Set", sty, span).into()) }
+            if let Type::Set(_) = sty {
+                Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("Set", sty, span).into())
+            }
         }
         "std::set::contains" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             match arg_ty(0)? {
-                Type::Set(inner) => { let aty = arg_ty(1)?; if aty != *inner { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*inner, aty, sp).into()); } Ok(Some(Type::Bool)) }
+                Type::Set(inner) => {
+                    let aty = arg_ty(1)?;
+                    if aty != *inner {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*inner, aty, sp).into());
+                    }
+                    Ok(Some(Type::Bool))
+                }
                 other => Err(TyperError::expected_collection("Set", other, span).into()),
             }
         }
         "std::set::insert" | "std::set::remove" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             match arg_ty(0)? {
-                Type::Set(inner) => { let aty = arg_ty(1)?; if aty != *inner { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*inner, aty, sp).into()); } Ok(Some(Type::Set(inner))) }
+                Type::Set(inner) => {
+                    let aty = arg_ty(1)?;
+                    if aty != *inner {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*inner, aty, sp).into());
+                    }
+                    Ok(Some(Type::Set(inner)))
+                }
                 other => Err(TyperError::expected_collection("Set", other, span).into()),
             }
         }
-        "std::set::new" => { return Err(TyperError::cannot_infer_collection(span, "std::set").into()); }
+        "std::set::new" => {
+            return Err(TyperError::cannot_infer_collection(span, "std::set").into());
+        }
 
         // Map
         "std::map::len" => {
-            if args.len() != 1 { return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into()); }
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
             let mty = arg_ty(0)?;
-            if let Type::Map(_, _) = mty { Ok(Some(Type::Int)) } else { Err(TyperError::expected_collection("Map", mty, span).into()) }
+            if let Type::Map(_, _) = mty {
+                Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("Map", mty, span).into())
+            }
         }
         "std::map::contains" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             match arg_ty(0)? {
-                Type::Map(k, _v) => { let aty = arg_ty(1)?; if aty != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty, sp).into()); } Ok(Some(Type::Bool)) }
+                Type::Map(k, _v) => {
+                    let aty = arg_ty(1)?;
+                    if aty != *k {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*k, aty, sp).into());
+                    }
+                    Ok(Some(Type::Bool))
+                }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }
         }
         "std::map::get" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             match arg_ty(0)? {
-                Type::Map(k, v) => { let aty = arg_ty(1)?; if aty != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty, sp).into()); } Ok(Some(Type::Option(v))) }
+                Type::Map(k, v) => {
+                    let aty = arg_ty(1)?;
+                    if aty != *k {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*k, aty, sp).into());
+                    }
+                    Ok(Some(Type::Option(v)))
+                }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }
         }
         "std::map::insert" => {
-            if args.len() != 3 { return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into()); }
+            if args.len() != 3 {
+                return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into());
+            }
             match arg_ty(0)? {
                 Type::Map(k, v) => {
-                    let aty_k = arg_ty(1)?; if aty_k != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty_k, sp).into()); }
-                    let aty_v = arg_ty(2)?; if aty_v != *v { let sp = match &args[2] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*v, aty_v, sp).into()); }
+                    let aty_k = arg_ty(1)?;
+                    if aty_k != *k {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*k, aty_k, sp).into());
+                    }
+                    let aty_v = arg_ty(2)?;
+                    if aty_v != *v {
+                        let sp = match &args[2] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*v, aty_v, sp).into());
+                    }
                     Ok(Some(Type::Map(k, v)))
                 }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }
         }
         "std::map::remove" => {
-            if args.len() != 2 { return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into()); }
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
             match arg_ty(0)? {
-                Type::Map(k, v) => { let aty = arg_ty(1)?; if aty != *k { let sp = match &args[1] { Expr::Int(_, s)|Expr::Bool(_, s)|Expr::String(_, s)|Expr::Var(_, s)|Expr::Bin{ span: s, .. }|Expr::Call{ span: s, .. }|Expr::Match{ span: s, .. }|Expr::Return{ span: s, .. }|Expr::If{ span: s, .. }=>*s}; return Err(TyperError::element_type_mismatch(*k, aty, sp).into()); } Ok(Some(Type::Map(k, v))) }
+                Type::Map(k, v) => {
+                    let aty = arg_ty(1)?;
+                    if aty != *k {
+                        let sp = match &args[1] {
+                            Expr::Int(_, s)
+                            | Expr::Bool(_, s)
+                            | Expr::String(_, s)
+                            | Expr::Var(_, s)
+                            | Expr::Bin { span: s, .. }
+                            | Expr::Call { span: s, .. }
+                            | Expr::Match { span: s, .. }
+                            | Expr::Return { span: s, .. }
+                            | Expr::If { span: s, .. } => *s,
+                        };
+                        return Err(TyperError::element_type_mismatch(*k, aty, sp).into());
+                    }
+                    Ok(Some(Type::Map(k, v)))
+                }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }
         }
-        "std::map::new" => { return Err(TyperError::cannot_infer_collection(span, "std::map").into()); }
+        "std::map::new" => {
+            return Err(TyperError::cannot_infer_collection(span, "std::map").into());
+        }
 
         _ => Ok(None),
     }

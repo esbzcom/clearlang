@@ -45,7 +45,10 @@ fn missing_type_in_param_shows_type_label() {
         pure function f(a: ) -> Int { 0 }
     "#;
     let err = parse(src).expect_err("should fail without a type in parameter");
-    assert!(err.contains("type"), "error should mention type label, got: {err}");
+    assert!(
+        err.contains("type"),
+        "error should mention type label, got: {err}"
+    );
 }
 
 #[test]
@@ -55,7 +58,10 @@ fn missing_comma_between_args_mentions_comma() {
         pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
     let err = parse(src).expect_err("should fail on missing comma");
-    assert!(err.contains("comma"), "error should mention comma label, got: {err}");
+    assert!(
+        err.contains("comma"),
+        "error should mention comma label, got: {err}"
+    );
 }
 
 #[test]
@@ -65,7 +71,10 @@ fn missing_closing_paren_mentions_paren() {
         pure function add(x: Int, y: Int) -> Int { x + y }
     "#;
     let err = parse(src).expect_err("should fail on missing ')'");
-    assert!(err.contains("')'"), "error should mention closing paren label, got: {err}");
+    assert!(
+        err.contains("')'"),
+        "error should mention closing paren label, got: {err}"
+    );
 }
 
 #[test]
@@ -74,7 +83,10 @@ fn function_missing_param_parens_mentions_open_paren() {
         pure function f -> Int { 0 }
     "#;
     let err = parse(src).expect_err("should fail without parameter parentheses");
-    assert!(err.contains("'('"), "error should mention opening paren label, got: {err}");
+    assert!(
+        err.contains("'('"),
+        "error should mention opening paren label, got: {err}"
+    );
 }
 
 #[test]

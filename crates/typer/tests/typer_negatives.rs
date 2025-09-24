@@ -45,7 +45,11 @@ fn errors_on_binop_right_operand_non_int() {
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail right operand int check");
     let s = format!("{err:#}");
-    assert!(s.contains("right operand must be Int"), "unexpected error: {}", s);
+    assert!(
+        s.contains("right operand must be Int"),
+        "unexpected error: {}",
+        s
+    );
 }
 
 // Duplicate function names are rejected

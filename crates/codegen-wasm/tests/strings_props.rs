@@ -10,7 +10,9 @@ fn run_main_i32(wasm: &[u8]) -> i32 {
     let module = wasmtime::Module::from_binary(engine, wasm).expect("module from bytes");
     let mut store = wasmtime::Store::new(engine, ());
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
-    let main = instance.get_typed_func::<(), i32>(&mut store, "main").expect("get main");
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
     main.call(&mut store, ()).expect("invoke main")
 }
 
@@ -29,12 +31,15 @@ fn clg_escape(s: &str) -> String {
     out
 }
 
-fn lit(s: &str) -> String { format!("\"{}\"", clg_escape(s)) }
+fn lit(s: &str) -> String {
+    format!("\"{}\"", clg_escape(s))
+}
 
 fn compile_and_run_bool_eq(a: &str, b: &str) -> i32 {
     let src = format!(
         "function main() -> Bool {{ std::str::eq({}, {}) }}",
-        lit(a), lit(b)
+        lit(a),
+        lit(b)
     );
     let ast = parse(&src).expect("parse ok");
     let ir = check(&ast).expect("type-check+lower ok");
@@ -45,7 +50,8 @@ fn compile_and_run_bool_eq(a: &str, b: &str) -> i32 {
 fn compile_and_run_len_of_concat(a: &str, b: &str) -> i32 {
     let src = format!(
         "function main() -> Int {{ std::str::len(std::str::concat({}, {})) }}",
-        lit(a), lit(b)
+        lit(a),
+        lit(b)
     );
     let ast = parse(&src).expect("parse ok");
     let ir = check(&ast).expect("type-check+lower ok");
@@ -54,9 +60,10 @@ fn compile_and_run_len_of_concat(a: &str, b: &str) -> i32 {
 }
 
 const ALPHABET: &[char] = &[
-    'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-    'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-    '0','1','2','3','4','5','6','7','8','9',' ','_','-','.',',','!','?'
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
+    '5', '6', '7', '8', '9', ' ', '_', '-', '.', ',', '!', '?',
 ];
 
 fn small_ascii_string() -> impl Strategy<Value = String> {
@@ -85,4 +92,3 @@ proptest! {
         prop_assert_eq!(out, expect);
     }
 }
-

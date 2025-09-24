@@ -7,4 +7,3 @@ fn parses_return_in_function_body() {
     "#;
     let _ = parse(src).expect("parse return body");
 }
-

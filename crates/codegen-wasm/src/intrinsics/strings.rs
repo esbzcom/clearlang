@@ -1,13 +1,17 @@
 use anyhow::Result;
-use wasm_encoder::{Function, ValType, MemArg, BlockType};
 use clg_ir::Function as IrFunction;
+use wasm_encoder::{BlockType, Function, MemArg, ValType};
 
 pub fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
     let locals: Vec<(u32, ValType)> = Vec::new();
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
     insts.local_get(0);
-    insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
     insts.end();
     Ok(fenc)
 }
@@ -19,45 +23,88 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
     let mut insts = fenc.instructions();
 
     // if (len_a != len_b) return 0
-    insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
-    insts.local_get(1); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.local_get(0);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_get(1);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
     insts.i32_ne();
     insts.if_(BlockType::Result(ValType::I32));
-      insts.i32_const(0);
+    insts.i32_const(0);
     insts.else_();
-      // len = len_a; pa = a+4; pb = b+4; res = 1
-      insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(2);
-      insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(3);
-      insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(4);
-      insts.i32_const(1); insts.local_set(5);
+    // len = len_a; pa = a+4; pb = b+4; res = 1
+    insts.local_get(0);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(2);
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(3);
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(4);
+    insts.i32_const(1);
+    insts.local_set(5);
 
-      // block { loop { ... } }
-      insts.block(BlockType::Empty);
-      insts.loop_(BlockType::Empty);
-        // if (len == 0) break block;
-        insts.local_get(2); insts.i32_eqz(); insts.br_if(1);
+    // block { loop { ... } }
+    insts.block(BlockType::Empty);
+    insts.loop_(BlockType::Empty);
+    // if (len == 0) break block;
+    insts.local_get(2);
+    insts.i32_eqz();
+    insts.br_if(1);
 
-        // if (*pa != *pb) { res = 0; break block; }
-        insts.local_get(3);
-        insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
-        insts.local_get(4);
-        insts.i32_load8_u(MemArg { align: 0, offset: 0, memory_index: 0 });
-        insts.i32_ne();
-        insts.if_(BlockType::Empty);
-          insts.i32_const(0); insts.local_set(5);
-          insts.br(2); // <-- fix: exit loop *and* the surrounding block
-        insts.end();
+    // if (*pa != *pb) { res = 0; break block; }
+    insts.local_get(3);
+    insts.i32_load8_u(MemArg {
+        align: 0,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_get(4);
+    insts.i32_load8_u(MemArg {
+        align: 0,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.i32_ne();
+    insts.if_(BlockType::Empty);
+    insts.i32_const(0);
+    insts.local_set(5);
+    insts.br(2); // <-- fix: exit loop *and* the surrounding block
+    insts.end();
 
-        // pa++; pb++; len--;
-        insts.local_get(3); insts.i32_const(1); insts.i32_add(); insts.local_set(3);
-        insts.local_get(4); insts.i32_const(1); insts.i32_add(); insts.local_set(4);
-        insts.local_get(2); insts.i32_const(1); insts.i32_sub(); insts.local_set(2);
+    // pa++; pb++; len--;
+    insts.local_get(3);
+    insts.i32_const(1);
+    insts.i32_add();
+    insts.local_set(3);
+    insts.local_get(4);
+    insts.i32_const(1);
+    insts.i32_add();
+    insts.local_set(4);
+    insts.local_get(2);
+    insts.i32_const(1);
+    insts.i32_sub();
+    insts.local_set(2);
 
-        insts.br(0); // continue loop
-      insts.end(); // loop
-      insts.end(); // block
+    insts.br(0); // continue loop
+    insts.end(); // loop
+    insts.end(); // block
 
-      insts.local_get(5);
+    insts.local_get(5);
     insts.end(); // if (with result)
     insts.end(); // end function body
     Ok(fenc)
@@ -70,31 +117,71 @@ pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
     // len_a = load32(a); len_b = load32(b)
-    insts.local_get(0); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(2);
-    insts.local_get(1); insts.i32_load(MemArg { align: 2, offset: 0, memory_index: 0 }); insts.local_set(3);
+    insts.local_get(0);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(2);
+    insts.local_get(1);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(3);
     // total = len_a + len_b
-    insts.local_get(2); insts.local_get(3); insts.i32_add(); insts.local_set(4);
+    insts.local_get(2);
+    insts.local_get(3);
+    insts.i32_add();
+    insts.local_set(4);
     // dest = heap_ptr (global 0)
-    insts.global_get(0); insts.local_set(5);
+    insts.global_get(0);
+    insts.local_set(5);
     // store header: *(dest) = total
-    insts.local_get(5); insts.local_get(4); insts.i32_store(MemArg { align: 2, offset: 0, memory_index: 0 });
+    insts.local_get(5);
+    insts.local_get(4);
+    insts.i32_store(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
     // pa = a + 4; pb = b + 4
-    insts.local_get(0); insts.i32_const(4); insts.i32_add(); insts.local_set(6);
-    insts.local_get(1); insts.i32_const(4); insts.i32_add(); insts.local_set(7);
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(6);
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(7);
     // copy first: memory.copy(dest+4, pa, len_a)
-    insts.local_get(5); insts.i32_const(4); insts.i32_add(); // dest
+    insts.local_get(5);
+    insts.i32_const(4);
+    insts.i32_add(); // dest
     insts.local_get(6); // src
     insts.local_get(2); // len
     insts.memory_copy(0, 0);
     // copy second: memory.copy(dest+4+len_a, pb, len_b)
-    insts.local_get(5); insts.i32_const(4); insts.i32_add(); insts.local_get(2); insts.i32_add();
+    insts.local_get(5);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(2);
+    insts.i32_add();
     insts.local_get(7);
     insts.local_get(3);
     insts.memory_copy(0, 0);
     // heap_ptr = align4(dest + 4 + total)
-    insts.local_get(5); insts.i32_const(4); insts.i32_add(); insts.local_get(4); insts.i32_add();
-    insts.i32_const(3); insts.i32_add();
-    insts.i32_const(-4); insts.i32_and();
+    insts.local_get(5);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(4);
+    insts.i32_add();
+    insts.i32_const(3);
+    insts.i32_add();
+    insts.i32_const(-4);
+    insts.i32_and();
     insts.global_set(0);
     // return dest
     insts.local_get(5);

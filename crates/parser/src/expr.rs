@@ -1,9 +1,9 @@
-use chumsky::prelude::*;
-use crate::ErrTy;
-use crate::literals::{int_lit, bool_lit, str_lit};
+use crate::literals::{bool_lit, int_lit, str_lit};
 use crate::path::path_name_p;
-use crate::tokens::{ident_p, ctor_name_p};
-use clg_ast::{Expr, BinOp, Span, MatchPat, MatchArm};
+use crate::tokens::{ctor_name_p, ident_p};
+use crate::ErrTy;
+use chumsky::prelude::*;
+use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Span};
 
 pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {
@@ -12,8 +12,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             .separated_by(just(',').padded().labelled("comma"))
             .collect::<Vec<_>>()
             .delimited_by(
-                just('(').padded().labelled("'('") ,
-                just(')').padded().labelled("')'")
+                just('(').padded().labelled("'('"),
+                just(')').padded().labelled("')'"),
             );
 
         // Prefer parsing a namespaced call when parentheses follow a path
@@ -21,29 +21,57 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             .then(call_args.clone())
             .map_with(|(name, args), e| {
                 let sp: chumsky::span::SimpleSpan<usize> = e.span();
-                Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } }
+                Expr::Call {
+                    callee: name,
+                    args,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
             });
 
         // Constructors: Some(x), Ok(x), Err(e); None (with or without parentheses)
-        let ctor_call = ctor_name_p()
-            .then(call_args.clone().or_not())
-            .map_with(|(name, maybe_args), e| {
-                let args = maybe_args.unwrap_or_default();
-                let sp: chumsky::span::SimpleSpan<usize> = e.span();
-                Expr::Call { callee: name, args, span: Span { start: sp.start, end: sp.end } }
-            });
+        let ctor_call =
+            ctor_name_p()
+                .then(call_args.clone().or_not())
+                .map_with(|(name, maybe_args), e| {
+                    let args = maybe_args.unwrap_or_default();
+                    let sp: chumsky::span::SimpleSpan<usize> = e.span();
+                    Expr::Call {
+                        callee: name,
+                        args,
+                        span: Span {
+                            start: sp.start,
+                            end: sp.end,
+                        },
+                    }
+                });
 
         let var_expr = ident_p().map_with(|name, e| {
             let sp: chumsky::span::SimpleSpan<usize> = e.span();
-            Expr::Var(name, Span { start: sp.start, end: sp.end })
+            Expr::Var(
+                name,
+                Span {
+                    start: sp.start,
+                    end: sp.end,
+                },
+            )
         });
 
         // return expression
-        let ret_expr = just("return").padded()
+        let ret_expr = just("return")
+            .padded()
             .ignore_then(expr.clone())
             .map_with(|e_inner, e| {
                 let sp = e.span();
-                Expr::Return { expr: Box::new(e_inner), span: Span { start: sp.start, end: sp.end } }
+                Expr::Return {
+                    expr: Box::new(e_inner),
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
             });
 
         // block expression: { expr }
@@ -54,8 +82,12 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
 
         // if/else expression: if cond { then } (else if cond { then })* else { else }
         // Build nested If nodes from right to left to preserve associativity.
-        let elif_kw = just("else").padded().ignore_then(just("if").padded()).to(());
-        let if_head = just("if").padded()
+        let elif_kw = just("else")
+            .padded()
+            .ignore_then(just("if").padded())
+            .to(());
+        let if_head = just("if")
+            .padded()
             .ignore_then(expr.clone())
             .then(block_expr.clone());
         let elif_chain = (elif_kw.ignore_then(expr.clone()).then(block_expr.clone()))
@@ -70,40 +102,70 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 // Start from final else branch and fold the chain right-to-left
                 let mut acc = else_br;
                 while let Some((c, t)) = elifs.pop() {
-                    acc = Expr::If { cond: Box::new(c), then_br: Box::new(t), else_br: Box::new(acc), span: Span { start: sp.start, end: sp.end } };
+                    acc = Expr::If {
+                        cond: Box::new(c),
+                        then_br: Box::new(t),
+                        else_br: Box::new(acc),
+                        span: Span {
+                            start: sp.start,
+                            end: sp.end,
+                        },
+                    };
                 }
-                Expr::If { cond: Box::new(cond0), then_br: Box::new(then0), else_br: Box::new(acc), span: Span { start: sp.start, end: sp.end } }
+                Expr::If {
+                    cond: Box::new(cond0),
+                    then_br: Box::new(then0),
+                    else_br: Box::new(acc),
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
             });
 
         // match expression: match <expr> { <pat> => <expr>, ... }
-        let some_pat = just("Some").padded()
+        let some_pat = just("Some")
+            .padded()
             .ignore_then(just('(').padded())
             .ignore_then(ident_p())
             .then_ignore(just(')').padded())
             .map(MatchPat::Some);
         let none_pat = just("None").padded().to(MatchPat::None);
-        let ok_pat = just("Ok").padded()
+        let ok_pat = just("Ok")
+            .padded()
             .ignore_then(just('(').padded())
             .ignore_then(ident_p())
             .then_ignore(just(')').padded())
             .map(MatchPat::Ok);
-        let err_pat = just("Err").padded()
+        let err_pat = just("Err")
+            .padded()
             .ignore_then(just('(').padded())
             .ignore_then(ident_p())
             .then_ignore(just(')').padded())
             .map(MatchPat::Err);
         let pat = choice((some_pat, none_pat, ok_pat, err_pat)).labelled("match pattern");
-        let arm = pat.then_ignore(just("=>").padded()).then(expr.clone()).map(|(p, e)| MatchArm { pat: p, expr: e });
+        let arm = pat
+            .then_ignore(just("=>").padded())
+            .then(expr.clone())
+            .map(|(p, e)| MatchArm { pat: p, expr: e });
         let arms = arm
             .separated_by(just(',').padded())
             .collect::<Vec<_>>()
             .delimited_by(just('{').padded(), just('}').padded());
-        let match_expr = just("match").padded()
+        let match_expr = just("match")
+            .padded()
             .ignore_then(expr.clone())
             .then(arms)
             .map_with(|(scrut, arms), e| {
                 let sp = e.span();
-                Expr::Match { scrutinee: Box::new(scrut), arms, span: Span { start: sp.start, end: sp.end } }
+                Expr::Match {
+                    scrutinee: Box::new(scrut),
+                    arms,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
             });
 
         let atom = choice((
@@ -111,8 +173,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             bool_lit(),
             str_lit(),
             expr.clone().delimited_by(
-                just('(').padded().labelled("'('") ,
-                just(')').padded().labelled("')'")
+                just('(').padded().labelled("'('"),
+                just(')').padded().labelled("')'"),
             ),
             ret_expr,
             match_expr,
@@ -128,10 +190,9 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         // Helper to compute a span for composite expressions
         fn span_of(e: &Expr) -> (usize, usize) {
             match e {
-                Expr::Int(_, sp)
-                | Expr::Bool(_, sp)
-                | Expr::String(_, sp)
-                | Expr::Var(_, sp) => (sp.start, sp.end),
+                Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => {
+                    (sp.start, sp.end)
+                }
                 Expr::Bin { span, .. }
                 | Expr::Call { span, .. }
                 | Expr::Match { span, .. }

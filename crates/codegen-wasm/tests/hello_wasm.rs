@@ -1,9 +1,7 @@
 use clg_codegen_wasm::emit_trivial_main;
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack
-        .windows(needle.len())
-        .any(|win| win == needle)
+    haystack.windows(needle.len()).any(|win| win == needle)
 }
 
 #[test]
@@ -23,4 +21,3 @@ fn hello_wasm_exports_main_and_returns_42() {
         "expected instruction sequence i32.const 42; end not found"
     );
 }
-

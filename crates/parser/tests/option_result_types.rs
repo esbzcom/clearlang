@@ -15,4 +15,3 @@ fn parses_nested_parametric_types() {
     "#;
     let _ = parse(src).expect("parse ok");
 }
-

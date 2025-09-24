@@ -1,6 +1,6 @@
-use chumsky::prelude::*;
-use crate::ErrTy;
 use crate::tokens::ident_p;
+use crate::ErrTy;
+use chumsky::prelude::*;
 
 // Parse a namespaced path like `std::str::len` and return it as a single String.
 // This is only used for callees in function calls; variables remain simple idents.
@@ -9,14 +9,18 @@ pub(crate) fn path_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
         .then(
             (just("::").padded().ignore_then(ident_p()))
                 .repeated()
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         )
         .map(|(head, tail)| {
-            if tail.is_empty() { return head; }
+            if tail.is_empty() {
+                return head;
+            }
             let mut s = head;
-            for part in tail { s.push_str("::"); s.push_str(&part); }
+            for part in tail {
+                s.push_str("::");
+                s.push_str(&part);
+            }
             s
         })
         .padded()
 }
-

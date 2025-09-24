@@ -2,10 +2,14 @@ use anyhow::Result;
 use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 use std::collections::HashMap;
 use wasm_encoder::{
-    CodeSection, DataSection, ExportKind, ExportSection, Function, FunctionSection, GlobalSection, GlobalType, MemorySection, MemoryType, Module, NameMap, NameSection, TypeSection, ValType, ConstExpr,
+    CodeSection, ConstExpr, DataSection, ExportKind, ExportSection, Function, FunctionSection,
+    GlobalSection, GlobalType, MemorySection, MemoryType, Module, NameMap, NameSection,
+    TypeSection, ValType,
 };
 
-use crate::intrinsics::strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len};
+use crate::intrinsics::strings::{
+    encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len,
+};
 
 pub struct CodegenOpts {
     pub debug_names: bool,
@@ -48,12 +52,18 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut sig_to_tyidx = HashMap::<SigKey, u32>::new();
     let mut fn_type_indices: Vec<u32> = Vec::with_capacity(ir.funcs.len());
     for f in &ir.funcs {
-        let key = SigKey { params: f.params.len(), has_ret: f.ret.is_some() };
+        let key = SigKey {
+            params: f.params.len(),
+            has_ret: f.ret.is_some(),
+        };
         let ty_idx = if let Some(idx) = sig_to_tyidx.get(&key) {
             *idx
         } else {
             let params: Vec<ValType> = f.params.iter().map(|_| ValType::I32).collect();
-            let results: Vec<ValType> = match f.ret { Some(_) => vec![ValType::I32], None => vec![] };
+            let results: Vec<ValType> = match f.ret {
+                Some(_) => vec![ValType::I32],
+                None => vec![],
+            };
             let idx = sig_to_tyidx.len() as u32;
             types.ty().function(params, results);
             sig_to_tyidx.insert(key, idx);
@@ -72,14 +82,27 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
 
     // Memory section (prepare for string runtime); 1 page minimum
     let mut memories = MemorySection::new();
-    memories.memory(MemoryType { minimum: 1, maximum: None, memory64: false, shared: false, page_size_log2: None });
+    memories.memory(MemoryType {
+        minimum: 1,
+        maximum: None,
+        memory64: false,
+        shared: false,
+        page_size_log2: None,
+    });
     module.section(&memories);
 
     // Global bump allocator pointer initialized after string data
     let heap_start = (cur_off + 3) & !3;
     let mut globals = GlobalSection::new();
     // global 0: (mut i32) heap_ptr
-    globals.global(GlobalType { val_type: ValType::I32, mutable: true, shared: false }, &ConstExpr::i32_const(heap_start as i32));
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(heap_start as i32),
+    );
     module.section(&globals);
 
     // Export main if present
@@ -149,18 +172,31 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
-            IrInstr::ISelect { dst, cond, then_v, else_v } => {
+            IrInstr::ISelect {
+                dst,
+                cond,
+                then_v,
+                else_v,
+            } => {
                 max_id = max_id.max(dst.0).max(cond.0).max(then_v.0).max(else_v.0);
             }
             IrInstr::Call { dst, args, .. } => {
-                if let Some(d) = dst { max_id = max_id.max(d.0); }
-                for a in args { max_id = max_id.max(a.0); }
+                if let Some(d) = dst {
+                    max_id = max_id.max(d.0);
+                }
+                for a in args {
+                    max_id = max_id.max(a.0);
+                }
             }
             IrInstr::Ret { val } => max_id = max_id.max(val.0),
         }
     }
     let locals_count = max_id.saturating_add(1).saturating_sub(params_len);
-    let locals = if locals_count > 0 { vec![(locals_count, ValType::I32)] } else { Vec::new() };
+    let locals = if locals_count > 0 {
+        vec![(locals_count, ValType::I32)]
+    } else {
+        Vec::new()
+    };
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
 
@@ -171,7 +207,8 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 insts.local_set(dst.0);
             }
             IrInstr::IStringConst { dst, s } => {
-                let off = strs.get(s)
+                let off = strs
+                    .get(s)
                     .ok_or_else(|| anyhow::anyhow!("missing string offset for literal"))?;
                 insts.i32_const(*off as i32);
                 insts.local_set(dst.0);
@@ -187,7 +224,12 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 };
                 insts.local_set(dst.0);
             }
-            IrInstr::ISelect { dst, cond, then_v, else_v } => {
+            IrInstr::ISelect {
+                dst,
+                cond,
+                then_v,
+                else_v,
+            } => {
                 // Structured if/else expression: push result on stack, then set dst
                 insts.local_get(cond.0);
                 // if (result i32) then_val else else_val
@@ -199,9 +241,13 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 insts.local_set(dst.0);
             }
             IrInstr::Call { dst, callee, args } => {
-                for a in args { insts.local_get(a.0); }
+                for a in args {
+                    insts.local_get(a.0);
+                }
                 insts.call(*callee);
-                if let Some(d) = dst { insts.local_set(d.0); }
+                if let Some(d) = dst {
+                    insts.local_set(d.0);
+                }
             }
             IrInstr::Ret { val } => {
                 insts.local_get(val.0);

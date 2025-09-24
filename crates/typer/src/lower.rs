@@ -1,7 +1,7 @@
 use anyhow::Result;
-use std::collections::HashMap;
 use clg_ast::{BinOp, Expr, Func, Type};
 use clg_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Value};
+use std::collections::HashMap;
 
 type FnSig<'a> = (&'a [clg_ast::Param], Type);
 
@@ -56,7 +56,11 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
     match e {
         Expr::Int(n, _) => {
             let dst = fresh(ctx);
-            ctx.body.push(Instr::IConst { dst, ty: IrType::Int, n: *n });
+            ctx.body.push(Instr::IConst {
+                dst,
+                ty: IrType::Int,
+                n: *n,
+            });
             Ok(dst)
         }
         Expr::Return { expr, .. } => {
@@ -66,7 +70,11 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         }
         Expr::Bool(b, _) => {
             let dst = fresh(ctx);
-            ctx.body.push(Instr::IConst { dst, ty: IrType::Bool, n: if *b { 1 } else { 0 } });
+            ctx.body.push(Instr::IConst {
+                dst,
+                ty: IrType::Bool,
+                n: if *b { 1 } else { 0 },
+            });
             Ok(dst)
         }
         Expr::String(s, _) => {
@@ -77,12 +85,22 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         Expr::Match { .. } => {
             anyhow::bail!("match expression not supported in lowering yet")
         }
-        Expr::If { cond, then_br, else_br, .. } => {
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
             let cv = lower_expr(ctx, cond)?;
             let tv = lower_expr(ctx, then_br)?;
             let ev = lower_expr(ctx, else_br)?;
             let dst = fresh(ctx);
-            ctx.body.push(Instr::ISelect { dst, cond: cv, then_v: tv, else_v: ev });
+            ctx.body.push(Instr::ISelect {
+                dst,
+                cond: cv,
+                then_v: tv,
+                else_v: ev,
+            });
             Ok(dst)
         }
         Expr::Var(name, _) => ctx
@@ -100,7 +118,12 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                 BinOp::Mul => BinOpIR::Mul,
                 BinOp::Div => BinOpIR::Div,
             };
-            ctx.body.push(Instr::IBin { dst, op: irop, lhs: lv, rhs: rv });
+            ctx.body.push(Instr::IBin {
+                dst,
+                op: irop,
+                lhs: lv,
+                rhs: rv,
+            });
             Ok(dst)
         }
         Expr::Call { callee, args, .. } => {
@@ -114,7 +137,11 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             // If callee is known (user or intrinsic), emit a Call with its index
             if let Some(idx) = ctx.fn_indices.get(callee.as_str()).copied() {
                 let dst = fresh(ctx);
-                ctx.body.push(Instr::Call { dst: Some(dst), callee: idx, args: argv });
+                ctx.body.push(Instr::Call {
+                    dst: Some(dst),
+                    callee: idx,
+                    args: argv,
+                });
                 Ok(dst)
             } else {
                 anyhow::bail!(format!("unknown function `{}`", callee))

@@ -1,6 +1,6 @@
-use chumsky::prelude::*;
-use crate::ErrTy;
 use crate::func::func_p;
+use crate::ErrTy;
+use chumsky::prelude::*;
 use clg_ast::Program;
 
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
@@ -14,8 +14,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
-        errs
-            .into_iter()
+        errs.into_iter()
             .map(|e| {
                 let span = e.span();
                 let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
@@ -66,7 +65,12 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                             expected.join(", ")
                         )
                     };
-                    ParserError { code: "P001", message: msg, start: span.start, end: span.end }
+                    ParserError {
+                        code: "P001",
+                        message: msg,
+                        start: span.start,
+                        end: span.end,
+                    }
                 })
                 .collect();
             Err(items)

@@ -1,5 +1,5 @@
-use chumsky::prelude::*;
 use crate::ErrTy;
+use chumsky::prelude::*;
 
 // Low-level identifier pieces and keywords
 pub(crate) fn ident_start<'a>() -> impl Parser<'a, &'a str, char, ErrTy<'a>> {
@@ -15,7 +15,10 @@ pub(crate) fn kw<'a>(s: &'static str) -> impl Parser<'a, &'a str, &'static str, 
         .then(ident_continue().or_not())
         .try_map(move |(kwd, next), span| {
             if next.is_some() {
-                Err(Rich::custom(span, format!("keyword `{kwd}` must be a word")))
+                Err(Rich::custom(
+                    span,
+                    format!("keyword `{kwd}` must be a word"),
+                ))
             } else {
                 Ok(s)
             }
@@ -46,10 +49,10 @@ pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
             s
         })
         .try_map(|s: String, span| match s.as_str() {
-            "function" | "pure" | "mut" | "io" | "return" | "Int" | "Bool" | "String" | "Option" | "Result" | "match" | "Some" | "None" | "Ok" | "Err" | "true" | "false" => Err(Rich::custom(
-                span,
-                format!("`{s}` is a reserved keyword"),
-            )),
+            "function" | "pure" | "mut" | "io" | "return" | "Int" | "Bool" | "String"
+            | "Option" | "Result" | "match" | "Some" | "None" | "Ok" | "Err" | "true" | "false" => {
+                Err(Rich::custom(span, format!("`{s}` is a reserved keyword")))
+            }
             _ => Ok(s),
         })
         .padded()
@@ -58,8 +61,8 @@ pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
 
 pub(crate) fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
     // Use an explicit charset to produce a clearer expectation than a generic filter.
-    let start = one_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
-        .labelled("function name");
+    let start =
+        one_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_").labelled("function name");
     start
         .then(ident_continue().repeated().collect::<String>())
         .map(|(h, rest)| {
@@ -69,10 +72,8 @@ pub(crate) fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
             s
         })
         .try_map(|s: String, span| match s.as_str() {
-            "function" | "pure" | "mut" | "io" | "return" | "Int" | "Bool" | "true" | "false" | "match" => Err(Rich::custom(
-                span,
-                format!("`{s}` is a reserved keyword"),
-            )),
+            "function" | "pure" | "mut" | "io" | "return" | "Int" | "Bool" | "true" | "false"
+            | "match" => Err(Rich::custom(span, format!("`{s}` is a reserved keyword"))),
             _ => Ok(s),
         })
         .padded()

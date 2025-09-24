@@ -31,4 +31,3 @@ fn parses_result_constructors_in_exprs() {
     "#;
     let _ = parse(src).expect("parse Ok/Err constructors");
 }
-

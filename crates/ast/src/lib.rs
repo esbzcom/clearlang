@@ -12,10 +12,19 @@ pub struct Program {
 #[derive(Debug, Clone)]
 pub struct Func {
     pub effect: Effect,
+    pub effect_span: Option<Span>,
     pub name: String,
     pub params: Vec<Param>,
     pub ret: Type,
+    pub requires: Vec<Contract>,
+    pub ensures: Vec<Contract>,
     pub body: Expr, // single-expression body for Phase 2
+}
+
+#[derive(Debug, Clone)]
+pub struct Contract {
+    pub span: Span,
+    pub expr: Expr,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

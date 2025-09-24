@@ -1,4 +1,54 @@
+use clg_ast::Effect;
 use clg_parser::parse;
+
+#[test]
+fn parses_contract_clauses() {
+    let src = r#"
+        pure function inc(x: Int) -> Int
+            require { true }
+            require { true }
+            ensure { true }
+        { x + 1 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    assert_eq!(ast.funcs.len(), 1);
+    let func = &ast.funcs[0];
+    assert_eq!(func.name, "inc");
+    assert_eq!(func.effect, Effect::Pure);
+    assert!(func.effect_span.is_some());
+    assert_eq!(func.requires.len(), 2);
+    assert_eq!(func.ensures.len(), 1);
+}
+
+
+#[test]
+fn parses_ensure_only_contract() {
+    let src = r#"
+        function health() -> Int
+            ensure { true }
+            ensure { true }
+        { 42 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    assert_eq!(ast.funcs.len(), 1);
+    let func = &ast.funcs[0];
+    assert_eq!(func.effect, Effect::None);
+    assert!(func.effect_span.is_none());
+    assert_eq!(func.requires.len(), 0);
+    assert_eq!(func.ensures.len(), 2);
+}
+
+
+#[test]
+fn parse_errors_on_missing_contract_braces() {
+    let src = r#"
+        pure function bad(x: Int) -> Int
+            require { x > 0 }
+        { x }
+    "#;
+    let err = parse(src).expect_err("missing braces around contract");
+    assert!(format!("{err}").contains("'{'"));
+}
 
 #[test]
 fn parses_add2_and_main() {

@@ -185,21 +185,25 @@ Docs & Proofs
 - [x] Draft VC JSON schema (`docs/proofs/vc-schema.md`).
 - [x] Add value-preservation proof sketch for Int/Bool arith + calls (`docs/proofs/value-preservation.md`).
 
-6.1 Syntax
-- [ ] `require { expr }` / `ensure { expr }`, effects `pure|mut|io`.
+-6.1 Syntax
+- [x] Parse `require { expr }` / `ensure { expr }` blocks with spans.
+- [x] Parse effect qualifiers (`pure|mut|io`) and reject unknown effects.
+- [x] Allow multiple `require`/`ensure` clauses and define conjoined semantics.
 
-6.2 Typer Rules
-- [ ] Enforce effects and basic purity constraints.
-- [ ] Allow multiple `require`/`ensure` (conjoined semantics).
-- [ ] Generate Verification Conditions (VCs) for pure, expression-bodied functions.
-- [ ] CLI: `--emit-vcs` outputs stable JSON (function, vc_id, pre, post, smt2, status).
+6.2 Typing & VC Generation
+- [ ] Enforce purity/effect rules in typer and reject contracts on non-`pure` functions for now.
+- [ ] Generate verification conditions for expression-bodied `pure` functions; emit single VC `P ⇒ Q[e/result]` (QF_LIA + Bool).
+- [ ] Ensure VCs are ordered deterministically and match `docs/proofs/vc-schema.md` schema.
+- [ ] CLI `--emit-vcs` flag writes JSON with `{ function, vc_id, pre, post, smt2, status }`.
+- [ ] Snapshot tests: passing (inc/add) and failing ensure cases.
+- [ ] Extend expression grammar for contracts: add comparison ops (`>`, `>=`, `<`, `<=`, `==`, `!=`), logical ops (`&&`, `||`, `!`), and ensure resulting predicates type to `Bool`.
+- [ ] Update typing/codegen to support those operators or emit clear diagnostics until codegen handles them.
 
-6.2.1 VC Generation (initial slice)
-- [ ] Expression-bodied `pure` only; single VC `P ⇒ Q[e/result]` (QF_LIA + Bool).
-- [ ] Stable ordering and schema matching `docs/proofs/vc-schema.md`.
-- [ ] Snapshot tests for inc/add and a failing ensure.
+6.3 Runtime Enforcement
+- [ ] Lower contracts to guards that trap on violation when runtime checks are enabled.
+- [ ] Strings runtime: add bump-allocator OOM trap (R001) and document/guard invalid UTF-8 (R002).
 
-6.3 Mutable Collections (effects)
+6.4 Mutable Collections (effects)
 - [ ] Add effect-gated mutable variants for collections (initial sketch, no runtime yet):
   - `std::list::{push_mut(l: List<T>, x: T) -> Unit, insert_mut(l: List<T>, x: T, i: Int) -> Unit, remove_mut(l: List<T>, i: Int) -> Option<T>, pop_mut(l: List<T>) -> Option<T>, clear_mut(l: List<T>) -> Unit}`.
   - `std::set::{insert_mut(s: Set<T>, x: T) -> Bool, remove_mut(s: Set<T>, x: T) -> Bool, clear_mut(s: Set<T>) -> Unit}`.
@@ -207,11 +211,7 @@ Docs & Proofs
 - [ ] Type system: restrict usage of `*_mut` to functions with `mut` effect; pure code continues using immutable APIs.
 - [ ] Tests: typer-only coverage that `*_mut` require `mut` effect and have correct signatures.
 
-6.3 Runtime Guards
-- [ ] Lower contracts to guards that trap on violation.
- - [ ] Strings runtime: add OOM guard/trap (R001); document InvalidUtf8 (R002) handling.
-
-6.4 Metadata & Proofs
+6.5 Proof Packaging & Signatures
 - [ ] Emit `clearlang.proof` custom section v1 (contracts/effects/VCs; optional proofs).
 - [ ] Add offline signatures (Ed25519):
       - CLI build flags: `--sign --key --key-id --sign-scope proofs|module|both --sig-out`.
@@ -219,7 +219,7 @@ Docs & Proofs
 - [ ] Canonical payloads (JCS) with SHA-256 hashes: `module_hash`, `proofs_hash`.
 - [ ] Plan `clgverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
 
-6.5 ADT Ergonomics (sugar)
+6.6 ADT Ergonomics (sugar)
 - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
 - [ ] `??` coalescing for Option (sugar for `unwrap_or`).
 - [ ] `?` try operator for Option/Result (propagate early) — design aligned with effects/contracts; behind a flag.

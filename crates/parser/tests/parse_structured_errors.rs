@@ -1,4 +1,4 @@
-use lumi_parser::parse_errors;
+use clg_parser::parse_errors;
 
 #[test]
 fn parse_errors_returns_multiple_items_for_contrived_input() {

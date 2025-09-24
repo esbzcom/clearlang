@@ -1,5 +1,5 @@
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_parser::parse;
+use clg_typer::check;
 
 // Phase 3.1 — purpose: successful type-check on Bool-returning function
 #[test]

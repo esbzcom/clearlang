@@ -1,5 +1,5 @@
 use crate::check::show_ty;
-use lumi_ast::{Effect, Span, Type};
+use clg_ast::{Effect, Span, Type};
 
 #[derive(Debug, Clone)]
 pub struct TyperError {

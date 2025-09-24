@@ -15,7 +15,7 @@
 
 ## Session 2025-09-17 — Tech Debt Cleanup + String Properties
 
-- Removed unused dependency `lumi-ast` from `crates/codegen-wasm/Cargo.toml`.
+- Removed unused dependency `clg-ast` from `crates/codegen-wasm/Cargo.toml`.
 - Aligned DEVPLAN wording for Phase 4.10 (no `elif` alias; final `else` required).
 - Added property-based tests for strings invariants in `crates/codegen-wasm/tests/strings_props.rs` using a shared Wasmtime `Engine` and `proptest`.
 - Updated TODO to mark strings property tests as complete.
@@ -25,13 +25,13 @@
 - Added Wasm structure tests in `crates/codegen-wasm/tests/types_and_names.rs`:
   - `type_section_is_deduplicated_by_signature`: asserts only two function types for repeated signatures.
   - `debug_names_emit_name_section`: asserts custom `name` section is present when `debug_names` is enabled.
-- Added CLI smoke test `run_subcommand_executes_main` in `crates/cli/tests/cli_it.rs` to verify `lumi run` invokes `main` and prints the result.
+- Added CLI smoke test `run_subcommand_executes_main` in `crates/cli/tests/cli_it.rs` to verify `clearlang run` invokes `main` and prints the result.
 
 ## Session 2025-09-17 — Summary & Next Steps
 
 - Summary
   - Phase 5 polish: added Wasm structure tests (type dedup, debug names), strings property tests, and CLI `run` smoke test.
-  - Cleaned tech debt: removed unused `lumi-ast` dep, unified DEVPLAN wording (no `elif`, require final `else`).
+  - Cleaned tech debt: removed unused `clg-ast` dep, unified DEVPLAN wording (no `elif`, require final `else`).
   - Proof/AI artifacts: value‑preservation sketch and VC JSON schema docs added under `docs/proofs/`.
   - Test DX: shared Wasmtime `Engine` across tests for faster runs.
 
@@ -81,7 +81,7 @@
 - Updated `docs/typing.md` with a Collections summary section linking to collections docs.
 - Marked 4.7 docs items done in `docs/TODO.md`.
 
-- Implemented AST→IR lowering (Phase 3.4) in `lumi-typer`; `check` now returns an IR `Module`.
+- Implemented AST→IR lowering (Phase 3.4) in `clg-typer`; `check` now returns an IR `Module`.
 - Added lowering tests validating param SSA ids, const, binops, calls, and final `Ret`.
 - Cleaned up parser tests by silencing unused variable warnings in ignored typer-bound cases.
 - Updated `docs/TODO.md` to mark 3.4 complete and set next focus to 3.5 Integration.
@@ -98,7 +98,7 @@
 
 - Wired CLI build to IR path: parse → type → lower → IR→Wasm; added `--validate`.
 - Implemented IR→Wasm for `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, and `Ret` (Int/Bool→i32).
-- Added `run` subcommand (embedded Wasmtime) to execute Wasm: `lumi run out.wasm`.
+- Added `run` subcommand (embedded Wasmtime) to execute Wasm: `clearlang run out.wasm`.
 - Added initial IR pipeline test; README updated with CLI and Windows instructions.
 - TODO updated: Phase 3.5 complete; Next focus on 3.6 Tests and 3.8 Diagnostics & Spans.
 
@@ -106,7 +106,7 @@
 
 - Added IR pipeline e2e tests for samples 01–05; confirmed 06 fails to parse; 07 parses but no main export; 08 returns 42.
 - Strengthened typer negative tests: arity (too many/zero‑arg), binop operand types, duplicate functions, arg type mismatches.
-- Added simple stage logs to `lumi build` (parsed/type‑checked/IR/Wasm bytes/validated).
+- Added simple stage logs to `clearlang build` (parsed/type‑checked/IR/Wasm bytes/validated).
 - Updated TODO: mark all 3.6 items complete; set next focus to 3.8 Diagnostics & Spans and Phase 4 prep.
 
 ## Session 2025-09-03 — Phase 3.8 Done; 3.9 Planned
@@ -140,7 +140,7 @@
 - Introduced `Type::Str` and `Expr::Str` with escapes and multi-line support in parser.
 - Typer recognizes `Str` as first-class; lowering uses a placeholder until Phase 5 runtime.
 - Added parser tests (escapes, multi-line, invalid escape) and typer tests (Str echo, spanful mismatches).
-- Added lumi-tests `15_str_literal.lumi` (parse/type only) and `16_namespaced_call.lumi` (parse-only) and updated `full_pipeline` to include them.
+- Added clearlang-tests `15_str_literal.clear` (parse/type only) and `16_namespaced_call.clear` (parse-only) and updated `full_pipeline` to include them.
 
 ## Session 2025-09-07 — Function-only Syntax, Hints, and CLI polish
 
@@ -148,16 +148,16 @@
 - Parser UX: added a friendly hint when `:` is used for return types (suggests using `->`).
 - Parser DX: completed module split (`tokens`, `types`, `literals`, `path`, `expr`, `func`, `program`).
 - Typer: added `std::str` built-in type stubs (`len/concat/eq`).
-- CLI bin name: tests reference `lumi` (not `lumi-cli`); docs updated accordingly.
+- CLI bin name: tests reference `clearlang` (not `clg-cli`); docs updated accordingly.
 - CLI build: enforces presence of `main() -> Int` and fails on missing/wrong signature.
-- Samples: added `17_hello_str.lumi` (parse/type only) and migrated all samples to `function`.
+- Samples: added `17_hello_str.clear` (parse/type only) and migrated all samples to `function`.
 
 ## Session 2025-09-08 — Phase 4.2 Rename Str → String
 
 - Renamed the string type from `Str` to `String` across AST (`Type::String`, `Expr::String`), parser, typer, tests, and samples.
 - Updated error messages and tests to expect `String` in diagnostics.
 - Left built-in namespace as `std::str::{len, concat, eq}` (no runtime change yet).
-- Updated docs: `docs/typing.md`, README status, and `docs/lumi_*` summaries to use `String`.
+- Updated docs: `docs/typing.md`, README status, and `docs/clearlang_*` summaries to use `String`.
 - Marked TODO item “Rename Str→String” as done; adjusted DEVPLAN terminology accordingly.
 - Note: transitional hint for `Str` usage is not added yet (optional). Parser will now expect `String` in type positions.
 
@@ -169,7 +169,7 @@
   - TyperError (codes T001–T006, T008–T011) with `start/end` spans; preserves human messages.
 - CLI now downcasts and emits JSON directly from structured errors; removed brittle string matching for parse/type.
 - Added CLI integration tests for JSON shape and codes (parse failure P001, missing main C002, arg type mismatch T003).
-- DevX: split `lumi-typer` into modules: `errors`, `builtins`, `check`, `lower`; `lib.rs` re-exports `check()` and `TyperError`.
+- DevX: split `clg-typer` into modules: `errors`, `builtins`, `check`, `lower`; `lib.rs` re-exports `check()` and `TyperError`.
 
 ## Session 2025-09-13 — Roadmap Alignment, ADT Parsing, Return keyword
 
@@ -190,7 +190,7 @@
   - Added `Expr::Return { expr }` to AST and parsing of `return expr`.
   - Typer treats it as the inner expression's type; lowering keeps expression-bodied semantics.
   - Const-eval handles `return` by evaluating inner expr.
-  - Added sample `lumi-tests/18_return_simple.lumi` and included in CLI IT.
+  - Added sample `clearlang-tests/18_return_simple.clear` and included in CLI IT.
 - Docs updated: TODO, typing.md (match rules plan; return semantics), README status.
 
 Next actions
@@ -214,7 +214,7 @@ Next actions
 - Removed legacy AST const‑eval path and its test; IR→Wasm is the sole codegen path.
 - Tests:
   - Added e2e tests for strings: len, eq (literals, concat vs literal, empty/multibyte), concat+len edge cases.
-  - Kept IR pipeline sample coverage for lumi-tests.
+  - Kept IR pipeline sample coverage for clearlang-tests.
 
 Next
 - Implement IR lowering + Wasm encoding for expression‑form `if/else`; add e2e tests.

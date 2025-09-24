@@ -1,7 +1,7 @@
 use chumsky::prelude::*;
 use chumsky::text;
 use crate::ErrTy;
-use lumi_ast::{Expr, Span};
+use clg_ast::{Expr, Span};
 
 pub(crate) fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     text::int(10)

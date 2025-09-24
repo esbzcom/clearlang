@@ -75,7 +75,7 @@ AI‑Friendly JSON Example
       "code": "T207",
       "stage": "type",
       "message": "at 42..56: expected List argument, found `Int`",
-      "file": "sample.lumi",
+      "file": "sample.clear",
       "start": 42,
       "end": 56
     }

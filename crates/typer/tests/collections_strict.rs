@@ -1,5 +1,5 @@
-use lumi_parser::parse;
-use lumi_typer::{check, TyperError};
+use clg_parser::parse;
+use clg_typer::{check, TyperError};
 
 #[test]
 fn collections_calls_produce_collection_kind_error() {

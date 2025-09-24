@@ -3,10 +3,10 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use lumi_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
-use lumi_typer::{check as type_check, TyperError};
-use lumi_ir::IrType;
-use lumi_parser::{parse as parse_src, parse_errors as parse_src_errs};
+use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
+use clg_typer::{check as type_check, TyperError};
+use clg_ir::IrType;
+use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 
 use crate::commands::helpers::{emit_parse_structured_json_errors, emit_single_json_error, emit_type_json_error};
 

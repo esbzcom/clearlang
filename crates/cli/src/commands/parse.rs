@@ -2,7 +2,7 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use anyhow::{Context, Result};
-use lumi_parser::{parse as parse_src, parse_errors as parse_src_errs};
+use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use crate::commands::helpers::emit_parse_structured_json_errors;
 
 pub fn run(file: PathBuf, json_errors: bool, verbose: bool) -> Result<()> {

@@ -1,14 +1,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use lumi_codegen_wasm::emit_from_ir;
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_codegen_wasm::emit_from_ir;
+use clg_parser::parse;
+use clg_typer::check;
 mod common;
 
 fn sample_path(file: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../lumi-tests")
+        .join("../../clearlang-tests")
         .join(file)
 }
 
@@ -37,16 +37,16 @@ fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {
 #[test]
 fn ir_pipeline_samples() {
     let cases = [
-        Case { file: "01_hello.lumi", parse_ok: true,  expected: Some(42) },
-        Case { file: "02_arith.lumi", parse_ok: true,  expected: Some(15) },
-        Case { file: "03_nested_calls.lumi", parse_ok: true,  expected: Some(7) },
-        Case { file: "04_multiline_call.lumi", parse_ok: true,  expected: Some(30) },
-        Case { file: "05_trailing_param_comma.lumi", parse_ok: true,  expected: Some(3) },
-        Case { file: "09_large_arith.lumi", parse_ok: true,  expected: Some(28) },
-        Case { file: "12_zero_arg_fn.lumi", parse_ok: true,  expected: Some(7) },
-        Case { file: "06_trailing_call_comma.lumi", parse_ok: false, expected: None },
-        Case { file: "07_bools.lumi", parse_ok: true,  expected: None }, // no main export expected
-        Case { file: "08_main_const.lumi", parse_ok: true,  expected: Some(42) },
+        Case { file: "01_hello.clear", parse_ok: true,  expected: Some(42) },
+        Case { file: "02_arith.clear", parse_ok: true,  expected: Some(15) },
+        Case { file: "03_nested_calls.clear", parse_ok: true,  expected: Some(7) },
+        Case { file: "04_multiline_call.clear", parse_ok: true,  expected: Some(30) },
+        Case { file: "05_trailing_param_comma.clear", parse_ok: true,  expected: Some(3) },
+        Case { file: "09_large_arith.clear", parse_ok: true,  expected: Some(28) },
+        Case { file: "12_zero_arg_fn.clear", parse_ok: true,  expected: Some(7) },
+        Case { file: "06_trailing_call_comma.clear", parse_ok: false, expected: None },
+        Case { file: "07_bools.clear", parse_ok: true,  expected: None }, // no main export expected
+        Case { file: "08_main_const.clear", parse_ok: true,  expected: Some(42) },
     ];
 
     for c in cases {        

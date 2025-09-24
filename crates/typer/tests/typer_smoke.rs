@@ -1,5 +1,5 @@
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_parser::parse;
+use clg_typer::check;
 
 #[test]
 fn accepts_simple_add_and_main() {

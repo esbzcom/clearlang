@@ -1,4 +1,4 @@
-use lumi_ir::{BinOpIR, Function, Instr, IrType, Module, Value};
+use clg_ir::{BinOpIR, Function, Instr, IrType, Module, Value};
 
 // Phase 3.3 — purpose: construct a minimal function IR with const, bin, and ret
 #[test]

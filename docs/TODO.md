@@ -1,4 +1,4 @@
-﻿# Lumi TODO
+﻿# ClearLang TODO
 
 A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
@@ -31,7 +31,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
 2.4 Tooling & Samples
 - [x] CLI `parse` subcommand pretty-prints AST.
-- [x] lumi-tests samples for positive and negative cases.
+- [x] clearlang-tests samples for positive and negative cases.
 
 2.5 Error Coverage (Optional)
 - [x] Improve parse error messages/spans where useful.
@@ -130,7 +130,7 @@ A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
   - [x] Typer: type-check `return expr` as inner type; include in spans.
   - [x] Lowering: treat `return e` as `e` in expression-bodied functions (final Ret unchanged).
   - [x] Const-eval: handle `return` by evaluating inner expr.
-  - [x] Tests: add `lumi-tests/18_return_simple.lumi` and include in CLI IT.
+  - [x] Tests: add `clearlang-tests/18_return_simple.clear` and include in CLI IT.
 
 - 4.10 Conditionals (expr-form if/else chain)
   - [x] Parser: `if cond { ... } (else if cond { ... })* else { ... }` (no `elif` alias).
@@ -212,12 +212,12 @@ Docs & Proofs
  - [ ] Strings runtime: add OOM guard/trap (R001); document InvalidUtf8 (R002) handling.
 
 6.4 Metadata & Proofs
-- [ ] Emit `lumi.proof` custom section v1 (contracts/effects/VCs; optional proofs).
+- [ ] Emit `clearlang.proof` custom section v1 (contracts/effects/VCs; optional proofs).
 - [ ] Add offline signatures (Ed25519):
       - CLI build flags: `--sign --key --key-id --sign-scope proofs|module|both --sig-out`.
-      - CLI verify: `lumi verify --sig --pubkey [--vcs --proofs]`.
+      - CLI verify: `clearlang verify --sig --pubkey [--vcs --proofs]`.
 - [ ] Canonical payloads (JCS) with SHA-256 hashes: `module_hash`, `proofs_hash`.
-- [ ] Plan `lumiverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
+- [ ] Plan `clgverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
 
 6.5 ADT Ergonomics (sugar)
 - [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
@@ -293,5 +293,5 @@ Docs & Proofs
 ## Nice-to-Have (Backlog)
 
 - [ ] WASI `print` intrinsic for observable output.
-- [ ] Proof-carrying Wasm prototype (`lumiverify`).
+- [ ] Proof-carrying Wasm prototype (`clgverify`).
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).

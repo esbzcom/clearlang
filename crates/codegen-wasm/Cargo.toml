@@ -1,17 +1,17 @@
 ﻿[package]
-name = "lumi-codegen-wasm"
+name = "clg-codegen-wasm"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 wasm-encoder = "0.238"
 anyhow = "1"
-lumi-ir = { path = "../ir" }
+clg-ir = { path = "../ir" }
 
 [dev-dependencies]
 wasmtime = "15"
-lumi-parser = { path = "../parser" }
-lumi-typer  = { path = "../typer" }
+clg-parser = { path = "../parser" }
+clg-typer  = { path = "../typer" }
 once_cell = "1"
 proptest = "1"
 wasmparser = "0.219"

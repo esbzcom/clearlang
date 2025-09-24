@@ -28,7 +28,7 @@ Side Conditions
 - No overflow signaling: source Ints are modulo 2^32 for this subset.
 
 Traceability
-- Tests referenced: `lumi-tests/02_arith`, `03_nested_calls`, `04_multiline_call`.
+- Tests referenced: `clearlang-tests/02_arith`, `03_nested_calls`, `04_multiline_call`.
 - E2E assertions compare Wasm result to interpreter result for selected inputs.
 
 Limitations

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use anyhow::{Context, Result};
-use lumi_codegen_wasm::emit_trivial_main;
+use clg_codegen_wasm::emit_trivial_main;
 
 pub fn run(out: PathBuf) -> Result<()> {
     let bytes = emit_trivial_main().context("emit trivial main wasm")?;

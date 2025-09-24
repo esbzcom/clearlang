@@ -3,7 +3,7 @@ use crate::ErrTy;
 use crate::literals::{int_lit, bool_lit, str_lit};
 use crate::path::path_name_p;
 use crate::tokens::{ident_p, ctor_name_p};
-use lumi_ast::{Expr, BinOp, Span, MatchPat, MatchArm};
+use clg_ast::{Expr, BinOp, Span, MatchPat, MatchArm};
 
 pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {

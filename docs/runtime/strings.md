@@ -41,7 +41,7 @@ Compiler Integration
 
 Testing
 - Unit: intrinsic functions on small samples; equality and length edge cases.
-- E2E: samples invoking `std::str::{len,eq,concat}` via `lumi build` + Wasmtime.
+- E2E: samples invoking `std::str::{len,eq,concat}` via `clearlang build` + Wasmtime.
 
 Proof Sketch
 - Safety: All memory accesses use bounds derived from stored `len` and the allocation invariant; `eq` only reads in‑bounds; `concat` writes to a fresh, in‑bounds allocation.

@@ -1,12 +1,12 @@
 ﻿[package]
-name = "lumi-typer"
+name = "clg-typer"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lumi-ast = { path = "../ast" }
-lumi-ir  = { path = "../ir" }
+clg-ast = { path = "../ast" }
+clg-ir  = { path = "../ir" }
 anyhow = "1"
 
 [dev-dependencies]
-lumi-parser = { path = "../parser" }
+clg-parser = { path = "../parser" }

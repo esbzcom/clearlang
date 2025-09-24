@@ -1,4 +1,4 @@
-use lumi_parser::parse;
+use clg_parser::parse;
 
 #[test]
 fn parses_return_in_function_body() {

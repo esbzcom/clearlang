@@ -3,7 +3,7 @@ use crate::ErrTy;
 use crate::tokens::{ident_p, func_name_p, kw};
 use crate::types::{effect_p, ty_p};
 use crate::expr::expr_p;
-use lumi_ast::{Param, Func, Effect};
+use clg_ast::{Param, Func, Effect};
 
 fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
     ident_p()

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use wasm_encoder::{Function, ValType, MemArg, BlockType};
-use lumi_ir::Function as IrFunction;
+use clg_ir::Function as IrFunction;
 
 pub fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
     let locals: Vec<(u32, ValType)> = Vec::new();

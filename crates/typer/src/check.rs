@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use crate::errors::TyperError;
 use crate::lower::lower_func;
 use crate::builtins::builtin_sigs;
-use lumi_ast::{BinOp, Effect, Expr, Func, Param, Program, Type, Span};
-use lumi_ir::Module;
+use clg_ast::{BinOp, Effect, Expr, Func, Param, Program, Type, Span};
+use clg_ir::Module;
 
 type FnSig<'a> = (&'a [Param], Type);
 
@@ -36,19 +36,19 @@ pub fn check(ast: &Program) -> Result<Module> {
     }
     // Stable intrinsic order
     let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
-    let mut intrinsic_defs: Vec<lumi_ir::Function> = Vec::new();
+    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::new();
     for name in intrinsic_order.iter() {
         if used_intrinsics.contains(*name) {
             let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
             fn_indices.insert(name, idx);
             // Define IR function signature for the intrinsic
             let (params, ret) = match *name {
-                "std::str::len" => (vec![lumi_ir::IrType::Int], Some(lumi_ir::IrType::Int)),
-                "std::str::eq" => (vec![lumi_ir::IrType::Int, lumi_ir::IrType::Int], Some(lumi_ir::IrType::Bool)),
-                "std::str::concat" => (vec![lumi_ir::IrType::Int, lumi_ir::IrType::Int], Some(lumi_ir::IrType::Int)),
+                "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::str::eq" => (vec![clg_ir::IrType::Int, clg_ir::IrType::Int], Some(clg_ir::IrType::Bool)),
+                "std::str::concat" => (vec![clg_ir::IrType::Int, clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 _ => (vec![], None),
             };
-            intrinsic_defs.push(lumi_ir::Function { name: (*name).to_string(), params, ret, body: vec![] });
+            intrinsic_defs.push(clg_ir::Function { name: (*name).to_string(), params, ret, body: vec![] });
         }
     }
 
@@ -140,7 +140,7 @@ fn type_of<'a>(
                 }
             };
 
-            use lumi_ast::MatchPat;
+            use clg_ast::MatchPat;
             match scrut_ty.clone() {
                 Type::Option(inner_ty) => {
                     let mut seen_some = false;

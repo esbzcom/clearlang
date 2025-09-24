@@ -1,9 +1,9 @@
 use anyhow::Result;
 use std::collections::HashMap;
-use lumi_ast::{BinOp, Expr, Func, Type};
-use lumi_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Value};
+use clg_ast::{BinOp, Expr, Func, Type};
+use clg_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Value};
 
-type FnSig<'a> = (&'a [lumi_ast::Param], Type);
+type FnSig<'a> = (&'a [clg_ast::Param], Type);
 
 fn ir_ty(t: Type) -> IrType {
     match t {

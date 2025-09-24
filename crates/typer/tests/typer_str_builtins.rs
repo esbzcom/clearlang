@@ -1,5 +1,5 @@
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_parser::parse;
+use clg_typer::check;
 
 #[test]
 fn typer_accepts_std_str_len() {

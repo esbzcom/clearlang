@@ -1,5 +1,5 @@
-use lumi_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
-use lumi_ir as ir;
+use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
+use clg_ir as ir;
 use wasmparser::{Parser, Payload};
 
 fn build_ir_module_for_types() -> ir::Module {

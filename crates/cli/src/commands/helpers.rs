@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
-use lumi_parser::ParserError as ParserErr;
+use clg_parser::ParserError as ParserErr;
 
 #[derive(Serialize)]
 pub struct JsonError {
@@ -140,7 +140,7 @@ mod tests {
             code: "T003",
             stage: "type",
             message: "type mismatch".to_string(),
-            file: "file.lumi".to_string(),
+            file: "file.clear".to_string(),
             start: 10,
             end: 12,
             function: Some("main".to_string()),
@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(e["code"], Value::String("T003".into()));
         assert_eq!(e["stage"], Value::String("type".into()));
         assert_eq!(e["message"], Value::String("type mismatch".into()));
-        assert_eq!(e["file"], Value::String("file.lumi".into()));
+        assert_eq!(e["file"], Value::String("file.clear".into()));
         assert_eq!(e["start"], Value::Number(10.into()));
         assert_eq!(e["end"], Value::Number(12.into()));
         assert_eq!(e["function"], Value::String("main".into()));
@@ -164,8 +164,8 @@ mod tests {
     #[test]
     fn json_multiple_errors_shape() {
         let items = vec![
-            JsonErrorItem { code: "P001", stage: "parse", message: "unexpected token".into(), file: "a.lumi".into(), start: 1, end: 2, function: None },
-            JsonErrorItem { code: "T006", stage: "type", message: "unknown variable `x`".into(), file: "b.lumi".into(), start: 5, end: 6, function: Some("foo".into()) },
+            JsonErrorItem { code: "P001", stage: "parse", message: "unexpected token".into(), file: "a.clear".into(), start: 1, end: 2, function: None },
+            JsonErrorItem { code: "T006", stage: "type", message: "unknown variable `x`".into(), file: "b.clear".into(), start: 5, end: 6, function: Some("foo".into()) },
         ];
         let out = JsonError { ok: false, errors: items };
         let s = serde_json::to_string(&out).unwrap();

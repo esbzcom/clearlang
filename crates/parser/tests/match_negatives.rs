@@ -1,4 +1,4 @@
-use lumi_parser::parse;
+use clg_parser::parse;
 
 #[test]
 fn match_some_without_parens_fails() {

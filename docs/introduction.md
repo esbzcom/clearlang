@@ -1,6 +1,6 @@
-﻿# lumi-lang
+# ClearLang
 
-Lumi is a dependently-typed programming language that compiles to WebAssembly.
+ClearLang is a dependently-typed programming language that compiles to WebAssembly.
 It aims to be simple like Python and safe like SPARK Ada, with refinement types,
 contracts, and an effect system to eliminate entire classes of bugs at compile time.
 
@@ -18,7 +18,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 ## Applications
 
-- Safe app backends: Lumi logic to Wasm; UI in React/Swift/Kotlin.
+- Safe app backends: ClearLang logic to Wasm; UI in React/Swift/Kotlin.
 - Smart contracts: invariants like non-negative balances and preserved totals.
 - High-assurance systems: finance, medical, aerospace where bugs are unacceptable.
 
@@ -37,7 +37,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 
 - Commands:
   - `emit-hello`: emits a trivial Wasm with `main() -> i32` returning 42.
-  - `parse <FILE>`: parses and pretty-prints the AST for a Lumi source file.
+  - `parse <FILE>`: parses and pretty-prints the AST for a ClearLang source file.
   - `build <FILE> [--out <PATH>] [--validate] [--debug-names]`: compiles to Wasm via IR.
   - `run <FILE> [--invoke <name>]`: runs a Wasm file (default export: `main`).
 - Build pipeline: Parse -> Type-check -> Lower to IR -> Codegen (IR->Wasm) -> write output.
@@ -47,10 +47,10 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `--debug-names`: include a Wasm name section with function names.
   - `--json-errors`: emit machine-readable JSON on parse/type/build failures (stable codes + spans).
 - Examples:
-  - `lumi emit-hello -o tmp/hello.wasm`
-  - `lumi parse lumi-tests/01_hello.lumi`
-  - `lumi build lumi-tests/02_arith.lumi -o out/arith.wasm --validate`
-  - `lumi run out/arith.wasm`
+  - `clearlang emit-hello -o tmp/hello.wasm`
+  - `clearlang parse clearlang-tests/01_hello.clear`
+  - `clearlang build clearlang-tests/02_arith.clear -o out/arith.wasm --validate`
+  - `clearlang run out/arith.wasm`
 
 ---
 
@@ -70,7 +70,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
 - Types/ADTs: PascalCase.
   - Examples: `Int`, `Bool`, `String`, `List<T>`, `Map<K,V>`, `Option<T>`, `Result<T,E>`.
 - Type parameters: single uppercase letters (`T`, `K`, `V`, `E`).
-- No overloading: one name → one meaning (simplifies tooling and diagnostics).
+- No overloading: one name ? one meaning (simplifies tooling and diagnostics).
 
 See `docs/style.md` for the full style guide.
 
@@ -97,5 +97,5 @@ See `docs/style.md` for the full style guide.
 ### Windows
 
 - Prereqs: Install Rust (MSVC) and VS Build Tools (C++ workload).
-- Build release: `cargo build -p lumi-cli --release` -> `target\release\lumi.exe`
+- Build release: `cargo build -p clg-cli --release` -> `target\release\clearlang.exe`
 ...

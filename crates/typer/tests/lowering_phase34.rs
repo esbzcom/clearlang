@@ -1,6 +1,6 @@
-use lumi_parser::parse;
-use lumi_typer::check;
-use lumi_ir::{Instr, IrType, BinOpIR, Value};
+use clg_parser::parse;
+use clg_typer::check;
+use clg_ir::{Instr, IrType, BinOpIR, Value};
 
 // Phase 3.4 — purpose: lower simple add using param SSA ids
 #[test]

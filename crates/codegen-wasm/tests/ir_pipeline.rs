@@ -1,6 +1,6 @@
-use lumi_codegen_wasm::emit_from_ir;
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_codegen_wasm::emit_from_ir;
+use clg_parser::parse;
+use clg_typer::check;
 mod common;
 
 fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {

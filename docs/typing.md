@@ -1,4 +1,4 @@
-# Lumi Typing Rules (Phase 3)
+# ClearLang Typing Rules (Phase 3)
 
 Scope
 - Phase 3.1–3.2 implemented rules: base types (Int, Bool), variables, binary ops, function calls, returns, and effects stub.

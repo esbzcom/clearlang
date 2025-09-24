@@ -6,7 +6,7 @@ mod commands;
 use commands::{build as cmd_build, emit_hello as cmd_emit_hello, parse as cmd_parse, run as cmd_run};
 
 #[derive(Parser, Debug)]
-#[command(name = "lumi", version, about = "Lumi CLI", long_about = None)]
+#[command(name = "clearlang", version, about = "ClearLang CLI", long_about = None)]
 struct Cli {
     /// Emit machine-readable JSON errors instead of human text
     #[arg(long, global = true, default_value_t = false)]
@@ -26,15 +26,15 @@ enum Commands {
         #[arg(short, long, default_value = "hello.wasm")]
         out: PathBuf,
     },
-    /// Phase 2: Parse a Lumi source file and print the AST
+    /// Phase 2: Parse a ClearLang source file and print the AST
     Parse {
-        /// Input Lumi source file
+        /// Input ClearLang source file
         #[arg(value_name = "FILE")] 
         file: PathBuf,
     },
-    /// Compile a Lumi source file to WASM (very minimal subset for now)
+    /// Compile a ClearLang source file to WASM (very minimal subset for now)
     Build {
-        /// Input Lumi source file
+        /// Input ClearLang source file
         #[arg(value_name = "FILE")] 
         file: PathBuf,
         /// Output wasm file path

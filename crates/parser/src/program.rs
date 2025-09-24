@@ -1,7 +1,7 @@
 use chumsky::prelude::*;
 use crate::ErrTy;
 use crate::func::func_p;
-use lumi_ast::Program;
+use clg_ast::Program;
 
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
     func_p()

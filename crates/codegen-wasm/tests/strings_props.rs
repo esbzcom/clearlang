@@ -1,6 +1,6 @@
-use lumi_codegen_wasm::emit_from_ir;
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_codegen_wasm::emit_from_ir;
+use clg_parser::parse;
+use clg_typer::check;
 use proptest::prelude::*;
 
 mod common;
@@ -14,7 +14,7 @@ fn run_main_i32(wasm: &[u8]) -> i32 {
     main.call(&mut store, ()).expect("invoke main")
 }
 
-fn lumi_escape(s: &str) -> String {
+fn clg_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
     for ch in s.chars() {
         match ch {
@@ -29,7 +29,7 @@ fn lumi_escape(s: &str) -> String {
     out
 }
 
-fn lit(s: &str) -> String { format!("\"{}\"", lumi_escape(s)) }
+fn lit(s: &str) -> String { format!("\"{}\"", clg_escape(s)) }
 
 fn compile_and_run_bool_eq(a: &str, b: &str) -> i32 {
     let src = format!(

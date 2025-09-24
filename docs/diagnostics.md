@@ -1,9 +1,9 @@
 # Diagnostics and JSON Errors
 
-Lumi provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
+ClearLang provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
 
 ## CLI Flag
-- `--json-errors`: when set on `lumi parse` or `lumi build`, failures are printed as JSON to stdout.
+- `--json-errors`: when set on `clearlang parse` or `clearlang build`, failures are printed as JSON to stdout.
 
 ## JSON Shape
 ```
@@ -14,7 +14,7 @@ Lumi provides machine-readable diagnostics to keep tooling simple, provable, and
       "code": "T003",
       "stage": "type",
       "message": "at 12..18: arg 1 type mismatch calling `add`: expected `Int`, found `String`",
-      "file": "path/to/file.lumi",
+      "file": "path/to/file.clear",
       "start": 12,
       "end": 18,
       "function": "main" // optional
@@ -63,11 +63,11 @@ Lumi provides machine-readable diagnostics to keep tooling simple, provable, and
 ## Examples
 - Parse:
 ```
-lumi parse bad.lumi --json-errors
+clearlang parse bad.clear --json-errors
 ```
 - Build:
 ```
-lumi build bad.lumi --json-errors -o out.wasm
+clearlang build bad.clear --json-errors -o out.wasm
 ```
 
 ## Notes

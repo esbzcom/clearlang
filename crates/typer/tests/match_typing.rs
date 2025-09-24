@@ -1,5 +1,5 @@
-use lumi_parser::parse;
-use lumi_typer::{type_check_only, TyperError};
+use clg_parser::parse;
+use clg_typer::{type_check_only, TyperError};
 
 fn type_ok(src: &str) {
     let ast = parse(src).expect("parse");

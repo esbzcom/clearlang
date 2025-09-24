@@ -1,4 +1,4 @@
-use lumi_parser::parse;
+use clg_parser::parse;
 
 #[test]
 fn parses_option_and_result_types_in_signatures() {

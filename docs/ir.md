@@ -1,4 +1,4 @@
-# Lumi IR (Phase 3.3–3.5)
+# ClearLang IR (Phase 3.3–3.5)
 
 Overview
 - Minimal SSA-like IR used between the typer and Wasm codegen.

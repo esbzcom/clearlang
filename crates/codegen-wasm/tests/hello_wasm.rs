@@ -1,4 +1,4 @@
-use lumi_codegen_wasm::emit_trivial_main;
+use clg_codegen_wasm::emit_trivial_main;
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack

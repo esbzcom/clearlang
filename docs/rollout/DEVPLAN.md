@@ -2,7 +2,7 @@
 
 Goals
 - Wire CLI `build` to: parse → type-check → lower to IR → codegen Wasm.
-- Adapt codegen to accept `lumi_ir::Module` instead of AST.
+- Adapt codegen to accept `clg_ir::Module` instead of AST.
 - Add `--validate` flag to run `wasm-tools validate` on outputs.
 
 IR→Wasm Mapping
@@ -20,8 +20,8 @@ Testing
 - Keep negative parse case `06_trailing_call_comma`.
 
 Next Actions
-- [done] Implement IR→Wasm encoder entry accepting `lumi_ir::Module`.
-- [done] Update `lumi build` to use typer output (IR) and call new encoder.
+- [done] Implement IR→Wasm encoder entry accepting `clg_ir::Module`.
+- [done] Update `clearlang build` to use typer output (IR) and call new encoder.
 - [done] Add `--validate` and gate stage logs behind `--verbose`.
 
 ---
@@ -126,7 +126,7 @@ Status
 - [x] Parser UX: hint when `:` is used for return types (suggest `->`).
 - [x] CLI/Diagnostics: add `--json-errors` with stable codes (P001, T001–T006, C001–C002) and spans.
 - [x] Structured errors: introduce `ParserError` and `TyperError` with codes/spans; CLI emits JSON directly.
-- [x] DX: Split `lumi-typer` into modules (`errors`, `builtins`, `check`, `lower`) keeping `check()` public.
+- [x] DX: Split `clg-typer` into modules (`errors`, `builtins`, `check`, `lower`) keeping `check()` public.
 
 Notes
 - Codegen/runtime for `String` deferred to Phase 5; lowering uses a placeholder.
@@ -184,7 +184,7 @@ Initial VC Rules (pure, expression-bodied)
 - Logic fragment: quantifier-free linear integer arithmetic (QF_LIA) + Bool.
 
 CLI Changes
-- `lumi build <file> [--emit-vcs <OUT>] [--emit-proof <OUT>]`:
+- `clearlang build <file> [--emit-vcs <OUT>] [--emit-proof <OUT>]`:
   - `--emit-vcs`: writes a JSON array of VCs with stable schema:
     - `{ function, pre, post, vc_id, smt2, status }`
     - `status`: "generated"|"proved"|"failed` (if solver integrated later)
@@ -192,7 +192,7 @@ CLI Changes
 - Default: do not solve; only generate VCs and write them if `--emit-vcs` is provided.
 
 Proof-Carrying Wasm (PCW) Section Layout (reserved)
-- Custom section name: `lumi.proof` (versioned):
+- Custom section name: `clearlang.proof` (versioned):
   - `version`: u32 (start at 1)
   - `functions`: [
       { `name`, `pre` (AST string), `post` (AST string), `vcs`: [ { `vc_id`, `smt2` } ], `proofs`: optional [ { `vc_id`, `format`, `bytes` } ] }
@@ -228,13 +228,13 @@ Signing Scope & Payloads
 
 CLI Additions
 - Build/sign:
-  - `lumi build file.lumi --emit-vcs vcs.json [--emit-proof proofs/] --sign --key key.pem --key-id KEY --sign-scope proofs|module|both --sig-out sig.json`
+  - `clearlang build file.clear --emit-vcs vcs.json [--emit-proof proofs/] --sign --key key.pem --key-id KEY --sign-scope proofs|module|both --sig-out sig.json`
 - Verify:
-  - `lumi verify out.wasm --sig sig.json --pubkey pub.pem [--vcs vcs.json] [--proofs proofs/]`
+  - `clearlang verify out.wasm --sig sig.json --pubkey pub.pem [--vcs vcs.json] [--proofs proofs/]`
   - Steps: validate Wasm → optionally re-check proofs → verify signature over declared scope.
 
 PCW Section (extend)
-- `lumi.proof` v1 adds `signatures: [{ alg, key_id, payload_hash, sig, scope }]` and `module_hash` fields.
+- `clearlang.proof` v1 adds `signatures: [{ alg, key_id, payload_hash, sig, scope }]` and `module_hash` fields.
 - Keep embeddings optional and gated behind flags; default remains off.
 
 Anchoring (Optional, later)
@@ -242,7 +242,7 @@ Anchoring (Optional, later)
 
 Acceptance
 - Deterministic `module_hash` reproducible across machines.
-- `lumi verify` validates signature and (when artifacts are provided) re-checks proofs before accepting.
+- `clearlang verify` validates signature and (when artifacts are provided) re-checks proofs before accepting.
 
 ---
 
@@ -276,7 +276,7 @@ Scope
 
 4.7 Collections Docs/DX
 - Docs: document naming (modules lower-case: `std::list`; types PascalCase: `List<T>`), dual-API guidance (precondition vs `Option`/`Result`), and stable error codes T206 “new requires inference” and T207 “expected collection kind”.
-- DX: confirm `lumi-typer` split (`errors`, `builtins`, `check`, `lower`); keep `lib.rs` re-exports minimal and stable.
+- DX: confirm `clg-typer` split (`errors`, `builtins`, `check`, `lower`); keep `lib.rs` re-exports minimal and stable.
 - Deliverables: update `docs/typing.md`; consider adding `docs/collections.md` with API/diagnostics overview.
 
 4.10 Conditionals (expr-form if/else)
@@ -323,7 +323,7 @@ Prep — Blocks & Early Return (Post 4.10)
 Focus — Phase 6 (Contracts & Effects)
 - Syntax: parse `pure`, `require { expr }`, `ensure { expr }` (expression-bodied functions first); attach spans.
 - VC Gen: for each pure expression-bodied function with pre P and post Q, generate one VC `P ⇒ Q[e/result]` in QF_LIA.
-- CLI: `lumi build file.lumi --emit-vcs out.json` writes an array matching `docs/proofs/vc-schema.md` with `status: "generated"`.
+- CLI: `clearlang build file.clear --emit-vcs out.json` writes an array matching `docs/proofs/vc-schema.md` with `status: "generated"`.
 - Tests: snapshot the JSON; include a failing ensure example and a simple inc/add.
 
 Runtime & Diagnostics

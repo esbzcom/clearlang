@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lumi_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
+use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 use std::collections::HashMap;
 use wasm_encoder::{
     CodeSection, DataSection, ExportKind, ExportSection, Function, FunctionSection, GlobalSection, GlobalType, MemorySection, MemoryType, Module, NameMap, NameSection, TypeSection, ValType, ConstExpr,

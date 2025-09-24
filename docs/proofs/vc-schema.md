@@ -41,14 +41,14 @@ Example
     "post": { "ast": "result >= x", "smt2": "(>= result x)" },
     "vc":   { "smt2": "(=> (>= x 0) (>= (+ x 1) x))" },
     "status": "generated",
-    "positions": { "file": "examples/inc.lumi", "pre_start": 42, "pre_end": 49, "post_start": 64, "post_end": 75 },
-    "extra": { "tool": "lumi 0.1.0", "commit": "d46d03d" }
+    "positions": { "file": "examples/inc.clear", "pre_start": 42, "pre_end": 49, "post_start": 64, "post_end": 75 },
+    "extra": { "tool": "clearlang 0.1.0", "commit": "d46d03d" }
   }
 ]
 ```
 
 CLI Contract
-- `lumi build file.lumi --emit-vcs out.json` writes exactly the array above.
+- `clearlang build file.clear --emit-vcs out.json` writes exactly the array above.
 - No solver integration in this phase; `status` is always `generated`.
 - Future: `--emit-proof proofs/` adds per-VC proof files keyed by `vc_id`.
 

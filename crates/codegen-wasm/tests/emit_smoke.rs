@@ -1,4 +1,4 @@
-use lumi_codegen_wasm::emit_trivial_main;
+use clg_codegen_wasm::emit_trivial_main;
 
 #[test]
 fn builds_hello_wasm_module() {

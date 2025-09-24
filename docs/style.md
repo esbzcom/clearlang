@@ -1,6 +1,6 @@
-# Lumi Style Guide
+# ClearLang Style Guide
 
-This guide keeps Lumi simple, provable, and AI‑friendly by standardizing naming and diagnostics.
+This guide keeps ClearLang simple, provable, and AI‑friendly by standardizing naming and diagnostics.
 
 ## Naming Conventions
 - Modules/namespaces: lower_snake_case.
@@ -25,7 +25,7 @@ Rationale: consistent casing makes code readable, errors predictable, and toolin
 
 ## Project Organization (DX)
 - Split by responsibility; keep `lib.rs` as a thin façade.
-  - Example: `lumi-typer` has `errors`, `builtins`, `check`, `lower`.
+  - Example: `clg-typer` has `errors`, `builtins`, `check`, `lower`.
 - Avoid premature features; prefer staged, testable slices in the roadmap.
 
 ## Examples

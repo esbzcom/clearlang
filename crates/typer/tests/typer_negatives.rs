@@ -1,5 +1,5 @@
-use lumi_parser::parse;
-use lumi_typer::check;
+use clg_parser::parse;
+use clg_typer::check;
 
 // Arity mismatch: too many args
 #[test]

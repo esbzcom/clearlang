@@ -1,4 +1,4 @@
-use lumi_ast::{Param, Type};
+use clg_ast::{Param, Type};
 
 pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type)> {
     let mut v = Vec::new();

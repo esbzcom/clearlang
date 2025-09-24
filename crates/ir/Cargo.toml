@@ -1,4 +1,4 @@
 ﻿[package]
-name = "lumi-ir"
+name = "clg-ir"
 version = "0.1.0"
 edition = "2021"

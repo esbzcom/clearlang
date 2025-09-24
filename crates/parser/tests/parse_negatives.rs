@@ -1,4 +1,4 @@
-use lumi_parser::parse;
+use clg_parser::parse;
 
 #[test]
 fn errors_on_reserved_keyword_as_func_name() {

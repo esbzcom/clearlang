@@ -5,8 +5,8 @@ pub struct PlaceHolder;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IrType {
-    Int,  // corresponds to Lumi Type::Int (lowered to i32 for now)
-    Bool, // corresponds to Lumi Type::Bool (lowered to i32 0/1 for now)
+    Int,  // corresponds to ClearLang Type::Int (lowered to i32 for now)
+    Bool, // corresponds to ClearLang Type::Bool (lowered to i32 0/1 for now)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

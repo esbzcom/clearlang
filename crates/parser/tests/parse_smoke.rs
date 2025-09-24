@@ -1,13 +1,13 @@
-use clg_ast::Effect;
+use clg_ast::{BinOp, Effect, Expr, UnaryOp};
 use clg_parser::parse;
 
 #[test]
 fn parses_contract_clauses() {
     let src = r#"
         pure function inc(x: Int) -> Int
-            require { true }
-            require { true }
-            ensure { true }
+            require { x < 10 && !(x == 0) }
+            require { 0 <= x }
+            ensure { result >= x && result != x }
         { x + 1 }
     "#;
     let ast = parse(src).expect("parse ok");
@@ -20,6 +20,57 @@ fn parses_contract_clauses() {
     assert_eq!(func.ensures.len(), 1);
 }
 
+#[test]
+fn parses_contract_logic_precedence() {
+    let src = r#"
+        pure function guard(x: Int, y: Int, z: Int) -> Int
+            require { x < 5 || y > 0 && !(z == 3) }
+        { x }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let expr = &ast.funcs[0].requires.first().expect("require present").expr;
+    match expr {
+        Expr::Bin {
+            op: BinOp::Or,
+            lhs,
+            rhs,
+            ..
+        } => {
+            assert!(
+                matches!(**lhs, Expr::Bin { op: BinOp::Lt, .. }),
+                "left operand should be < comparison"
+            );
+            match &**rhs {
+                Expr::Bin {
+                    op: BinOp::And,
+                    lhs: and_lhs,
+                    rhs: and_rhs,
+                    ..
+                } => {
+                    assert!(
+                        matches!(**and_lhs, Expr::Bin { op: BinOp::Gt, .. }),
+                        "AND lhs should be > comparison"
+                    );
+                    match &**and_rhs {
+                        Expr::Unary {
+                            op: UnaryOp::Not,
+                            expr: inner,
+                            ..
+                        } => {
+                            assert!(
+                                matches!(**inner, Expr::Bin { op: BinOp::Eq, .. }),
+                                "NOT should wrap equality"
+                            );
+                        }
+                        other => panic!("expected unary NOT, found {other:?}"),
+                    }
+                }
+                other => panic!("expected logical AND on right, found {other:?}"),
+            }
+        }
+        other => panic!("expected logical OR at top level, found {other:?}"),
+    }
+}
 
 #[test]
 fn parses_ensure_only_contract() {
@@ -38,12 +89,11 @@ fn parses_ensure_only_contract() {
     assert_eq!(func.ensures.len(), 2);
 }
 
-
 #[test]
 fn parse_errors_on_missing_contract_braces() {
     let src = r#"
         pure function bad(x: Int) -> Int
-            require { x > 0 }
+            require x > 0
         { x }
     "#;
     let err = parse(src).expect_err("missing braces around contract");

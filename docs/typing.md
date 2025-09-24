@@ -44,8 +44,9 @@ Typing Environment
 Expression Rules
 - Literals: `Int(n): Int`; `Bool(b): Bool`.
 - Variables: `Var(x)` has the type from the current local environment; unknown variables error.
-- Binary ops: `+ - * /` require both operands to be `Int`; result is `Int`.
-- Not yet: comparison (`>`, `>=`, `<`, `<=`, `==`) and logical (`&&`, `||`, `!`) operators are planned; until added, contract predicates should stick to arithmetic and boolean literals.
+- Arithmetic binary ops: `+ - * /` require both operands to be `Int`; result is `Int`.
+- Comparisons: `>`, `>=`, `<`, `<=`, `==`, `!=` require `Int` operands; result is `Bool`.
+- Logical operators: `&&`, `||` require `Bool` operands; unary `!` flips a `Bool`.
 - Calls: callee must exist; arity must match; each argument type must equal the parameter type; result is the callee’s return type.
 
 Functions

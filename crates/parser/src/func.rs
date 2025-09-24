@@ -78,29 +78,31 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         .then(ty_p())
         .then(clause_p)
         .then(expr_p().delimited_by(just('{').padded(), just('}').padded()))
-        .map(|((((((eff_opt, name), params), _arrow_ok), ret), clauses), body)| {
-            let (effect, effect_span) = eff_opt
-                .map(|(eff, span)| (eff, Some(span)))
-                .unwrap_or((Effect::None, None));
+        .map(
+            |((((((eff_opt, name), params), _arrow_ok), ret), clauses), body)| {
+                let (effect, effect_span) = eff_opt
+                    .map(|(eff, span)| (eff, Some(span)))
+                    .unwrap_or((Effect::None, None));
 
-            let mut requires = Vec::new();
-            let mut ensures = Vec::new();
-            for clause in clauses {
-                match clause {
-                    Clause::Require(c) => requires.push(c),
-                    Clause::Ensure(c) => ensures.push(c),
+                let mut requires = Vec::new();
+                let mut ensures = Vec::new();
+                for clause in clauses {
+                    match clause {
+                        Clause::Require(c) => requires.push(c),
+                        Clause::Ensure(c) => ensures.push(c),
+                    }
                 }
-            }
 
-            Func {
-                effect,
-                effect_span,
-                name,
-                params,
-                ret,
-                requires,
-                ensures,
-                body,
-            }
-        })
+                Func {
+                    effect,
+                    effect_span,
+                    name,
+                    params,
+                    ret,
+                    requires,
+                    ensures,
+                    body,
+                }
+            },
+        )
 }

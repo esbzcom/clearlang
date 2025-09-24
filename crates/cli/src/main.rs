@@ -48,6 +48,9 @@ enum Commands {
         /// Include debug names in Wasm (name section)
         #[arg(long, default_value_t = false)]
         debug_names: bool,
+        /// Emit verification conditions to JSON (see docs/proofs/vc-schema.md)
+        #[arg(long, value_name = "FILE")]
+        emit_vcs: Option<PathBuf>,
     },
     /// Run a compiled Wasm module (calls an exported function)
     Run {
@@ -74,12 +77,14 @@ fn main() -> Result<()> {
             out,
             validate,
             debug_names,
+            emit_vcs,
         } => {
             cmd_build::run(
                 file,
                 out,
                 validate,
                 debug_names,
+                emit_vcs,
                 cli.json_errors,
                 cli.verbose,
             )?;

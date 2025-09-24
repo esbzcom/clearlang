@@ -105,6 +105,61 @@ impl TyperError {
         }
     }
 
+    pub fn bool_operand(what: &str, ty: Type, span: Option<Span>) -> Self {
+        if let Some(sp) = span {
+            Self::new(
+                "T012",
+                format!(
+                    "at {}..{}: {} must be Bool, found `{}`",
+                    sp.start,
+                    sp.end,
+                    what,
+                    show_ty(ty)
+                ),
+                sp.start,
+                sp.end,
+            )
+        } else {
+            Self::new(
+                "T012",
+                format!("{} must be Bool, found `{}`", what, show_ty(ty)),
+                0,
+                0,
+            )
+        }
+    }
+
+    pub fn binary_operands_mismatch(op: &str, left: Type, right: Type, span: Span) -> Self {
+        Self::new(
+            "T013",
+            format!(
+                "at {}..{}: operands of `{}` must have the same type, found `{}` and `{}`",
+                span.start,
+                span.end,
+                op,
+                show_ty(left),
+                show_ty(right)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn contract_not_bool(kind: &str, ty: Type, span: Span) -> Self {
+        Self::new(
+            "T014",
+            format!(
+                "at {}..{}: `{}` must be Bool, found `{}`",
+                span.start,
+                span.end,
+                kind,
+                show_ty(ty)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn unknown_variable(name: &str, sp: Span) -> Self {
         Self::new(
             "T006",

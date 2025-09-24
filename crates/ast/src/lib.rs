@@ -74,6 +74,11 @@ pub enum Expr {
         expr: Box<Expr>,
         span: Span,
     },
+    Unary {
+        op: UnaryOp,
+        expr: Box<Expr>,
+        span: Span,
+    },
     Match {
         scrutinee: Box<Expr>,
         arms: Vec<MatchArm>,
@@ -93,6 +98,19 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Eq,
+    Neq,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOp {
+    Not,
 }
 
 #[derive(Debug, Clone)]

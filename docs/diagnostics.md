@@ -46,6 +46,9 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
   - `T009`: effect not supported (use `pure` or omit)
   - `T010`: duplicate parameter
   - `T011`: type-check recursion limit exceeded
+  - `T012`: Bool operand required (`!`, `&&`, `||` contract predicates)
+  - `T013`: operands of comparison/equality must share a type
+  - `T014`: contract predicate must be `Bool`
   - `T101`: collections unavailable (std::{list,set,map} planned in Phase 4.3)
   - `T201`–`T205`: match typing diagnostics (Option/Result)
   - `T206`: cannot infer element type for `std::{list,set,map}::new()`

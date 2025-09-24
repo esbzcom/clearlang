@@ -3,7 +3,7 @@ use crate::path::path_name_p;
 use crate::tokens::{ctor_name_p, ident_p};
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Span};
+use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Span, UnaryOp};
 
 pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {
@@ -197,13 +197,32 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 | Expr::Call { span, .. }
                 | Expr::Match { span, .. }
                 | Expr::Return { span, .. }
-                | Expr::If { span, .. } => (span.start, span.end),
+                | Expr::If { span, .. }
+                | Expr::Unary { span, .. } => (span.start, span.end),
             }
         }
 
+        let unary = just('!')
+            .padded()
+            .repeated()
+            .collect::<Vec<_>>()
+            .then(atom.clone())
+            .map_with(|(nots, expr), e| {
+                let sp = e.span();
+                nots.into_iter().fold(expr, |acc, _| Expr::Unary {
+                    op: UnaryOp::Not,
+                    expr: Box::new(acc),
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                })
+            })
+            .boxed();
+
         // multiplicative (*, /)
-        let mul = atom.clone().foldl(
-            (one_of("*/").padded().then(atom.clone().boxed())).repeated(),
+        let mul = unary.clone().foldl(
+            (one_of("*/").padded().then(unary.clone().boxed())).repeated(),
             |lhs, (op, rhs)| {
                 let op = if op == '*' { BinOp::Mul } else { BinOp::Div };
                 let (ls, _) = span_of(&lhs);
@@ -233,7 +252,71 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             },
         );
 
-        add
+        // comparison: ==, !=, <, <=, >, >= (left associative but we only allow single comparison chain)
+        let cmp_op = choice((
+            just("<=").to(BinOp::Le),
+            just(">=").to(BinOp::Ge),
+            just("==").to(BinOp::Eq),
+            just("!=").to(BinOp::Neq),
+            just('<').to(BinOp::Lt),
+            just('>').to(BinOp::Gt),
+        ))
+        .padded();
+
+        let comparison = add
+            .clone()
+            .then(cmp_op.then(add.clone()).or_not())
+            .map(|(lhs, opt)| match opt {
+                Some((op, rhs)) => {
+                    let (ls, _) = span_of(&lhs);
+                    let (_, re) = span_of(&rhs);
+                    Expr::Bin {
+                        op,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                        span: Span { start: ls, end: re },
+                    }
+                }
+                None => lhs,
+            });
+
+        let logical_and = comparison.clone().foldl(
+            just("&&")
+                .padded()
+                .to(BinOp::And)
+                .then(comparison.clone().boxed())
+                .repeated(),
+            |lhs, (op, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                Expr::Bin {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
+        let logical_or = logical_and.clone().foldl(
+            just("||")
+                .padded()
+                .to(BinOp::Or)
+                .then(logical_and.clone().boxed())
+                .repeated(),
+            |lhs, (op, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                Expr::Bin {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
+        logical_or
     })
     .padded()
     .labelled("expression")

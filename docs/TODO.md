@@ -191,13 +191,13 @@ Docs & Proofs
 - [x] Allow multiple `require`/`ensure` clauses and define conjoined semantics.
 
 6.2 Typing & VC Generation
-- [ ] Enforce purity/effect rules in typer and reject contracts on non-`pure` functions for now.
-- [ ] Generate verification conditions for expression-bodied `pure` functions; emit single VC `P ⇒ Q[e/result]` (QF_LIA + Bool).
-- [ ] Ensure VCs are ordered deterministically and match `docs/proofs/vc-schema.md` schema.
-- [ ] CLI `--emit-vcs` flag writes JSON with `{ function, vc_id, pre, post, smt2, status }`.
-- [ ] Snapshot tests: passing (inc/add) and failing ensure cases.
-- [ ] Extend expression grammar for contracts: add comparison ops (`>`, `>=`, `<`, `<=`, `==`, `!=`), logical ops (`&&`, `||`, `!`), and ensure resulting predicates type to `Bool`.
-- [ ] Update typing/codegen to support those operators or emit clear diagnostics until codegen handles them.
+- [x] Enforce purity/effect rules in typer and reject contracts on non-`pure` functions for now.
+- [x] Generate verification conditions for expression-bodied `pure` functions; emit single VC `P ⇒ Q[e/result]` (QF_LIA + Bool).
+- [x] Ensure VCs are ordered deterministically and match `docs/proofs/vc-schema.md` schema.
+- [x] CLI `--emit-vcs` flag writes JSON with `{ function, vc_id, pre, post, smt2, status }`.
+- [x] Snapshot tests: passing (inc/add) and failing ensure cases.
+- [x] Extend expression grammar for contracts: add comparison ops (`>`, `>=`, `<`, `<=`, `==`, `!=`), logical ops (`&&`, `||`, `!`), and ensure resulting predicates type to `Bool`.
+- [x] Update typing/codegen to support those operators or emit clear diagnostics until codegen handles them.
 
 6.3 Runtime Enforcement
 - [ ] Lower contracts to guards that trap on violation when runtime checks are enabled.

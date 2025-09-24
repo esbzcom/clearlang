@@ -244,3 +244,61 @@ fn if_branch_mismatch_reports_t301_in_json() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T301"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
 }
+
+#[test]
+fn build_emits_vcs_json() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("contract.clear");
+    let wasm_path = tmp.path().join("out.wasm");
+    let vcs_path = tmp.path().join("out.vc.json");
+    let src = r#"
+        pure function inc(x: Int) -> Int
+            require { 0 <= x }
+            ensure { result > x }
+        { x + 1 }
+        function main() -> Int { inc(1) }
+    "#;
+    fs::write(&src_path, src).expect("write contract");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path);
+    cmd.assert().success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    assert_eq!(arr.len(), 1);
+    let first = &arr[0];
+    assert_eq!(first.get("version").and_then(|n| n.as_u64()), Some(1));
+    assert_eq!(first.get("function").and_then(|s| s.as_str()), Some("inc"));
+    assert_eq!(
+        first.get("status").and_then(|s| s.as_str()),
+        Some("generated")
+    );
+    let pre = first
+        .get("pre")
+        .and_then(|o| o.as_object())
+        .expect("pre obj");
+    assert!(pre
+        .get("ast")
+        .and_then(|s| s.as_str())
+        .unwrap_or("")
+        .contains("<="));
+    let vc = first.get("vc").and_then(|o| o.as_object()).expect("vc obj");
+    let vc_text = vc.get("smt2").and_then(|s| s.as_str()).unwrap_or("");
+    assert!(vc_text.contains("=>"));
+    assert!(vc_text.contains("(+ x 1)"));
+    let positions = first
+        .get("positions")
+        .and_then(|o| o.as_object())
+        .expect("positions obj");
+    assert_eq!(
+        positions.get("file").and_then(|s| s.as_str()),
+        Some(src_path.to_string_lossy().as_ref())
+    );
+}

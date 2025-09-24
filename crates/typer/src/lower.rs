@@ -82,6 +82,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             ctx.body.push(Instr::IStringConst { dst, s: s.clone() });
             Ok(dst)
         }
+        Expr::Unary { .. } => {
+            anyhow::bail!("unary operators are not supported in codegen yet")
+        }
         Expr::Match { .. } => {
             anyhow::bail!("match expression not supported in lowering yet")
         }
@@ -117,6 +120,19 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                 BinOp::Sub => BinOpIR::Sub,
                 BinOp::Mul => BinOpIR::Mul,
                 BinOp::Div => BinOpIR::Div,
+                BinOp::Lt
+                | BinOp::Le
+                | BinOp::Gt
+                | BinOp::Ge
+                | BinOp::Eq
+                | BinOp::Neq
+                | BinOp::And
+                | BinOp::Or => {
+                    anyhow::bail!(
+                        "operator `{}` not supported in codegen yet",
+                        display_bin_op(*op)
+                    );
+                }
             };
             ctx.body.push(Instr::IBin {
                 dst,
@@ -147,6 +163,23 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                 anyhow::bail!(format!("unknown function `{}`", callee))
             }
         }
+    }
+}
+
+fn display_bin_op(op: BinOp) -> &'static str {
+    match op {
+        BinOp::Add => "+",
+        BinOp::Sub => "-",
+        BinOp::Mul => "*",
+        BinOp::Div => "/",
+        BinOp::Lt => "<",
+        BinOp::Le => "<=",
+        BinOp::Gt => ">",
+        BinOp::Ge => ">=",
+        BinOp::Eq => "==",
+        BinOp::Neq => "!=",
+        BinOp::And => "&&",
+        BinOp::Or => "||",
     }
 }
 

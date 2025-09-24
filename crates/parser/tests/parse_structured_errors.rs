@@ -13,7 +13,7 @@ fn parse_errors_returns_multiple_items_for_contrived_input() {
         Ok(_) => panic!("expected parse_errors to return Err with at least one item"),
         Err(errs) => {
             assert!(
-                errs.len() >= 1,
+                !errs.is_empty(),
                 "expected >= 1 parser error, got {}",
                 errs.len()
             );

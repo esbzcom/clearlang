@@ -77,7 +77,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         module.funcs.push(lower_func(f, &fns, &fn_indices)?);
     }
     // Append intrinsic function declarations at the end
-    module.funcs.extend(intrinsic_defs.into_iter());
+    module.funcs.extend(intrinsic_defs);
     let vcs = generate_vcs(ast);
     Ok(TypecheckOutput { ir: module, vcs })
 }
@@ -423,7 +423,7 @@ fn type_of<'a>(
 
 fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
     let mut set: HashSet<&'static str> = HashSet::new();
-    fn walk_expr<'a>(e: &'a Expr, set: &mut HashSet<&'static str>) {
+    fn walk_expr(e: &Expr, set: &mut HashSet<&'static str>) {
         match e {
             Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
             Expr::Return { expr, .. } => walk_expr(expr, set),
@@ -582,9 +582,7 @@ fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }
-        "std::list::new" => {
-            return Err(TyperError::cannot_infer_collection(span, "std::list").into());
-        }
+        "std::list::new" => Err(TyperError::cannot_infer_collection(span, "std::list").into()),
 
         // Set
         "std::set::len" => {
@@ -630,9 +628,7 @@ fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("Set", other, span).into()),
             }
         }
-        "std::set::new" => {
-            return Err(TyperError::cannot_infer_collection(span, "std::set").into());
-        }
+        "std::set::new" => Err(TyperError::cannot_infer_collection(span, "std::set").into()),
 
         // Map
         "std::map::len" => {
@@ -715,9 +711,7 @@ fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }
         }
-        "std::map::new" => {
-            return Err(TyperError::cannot_infer_collection(span, "std::map").into());
-        }
+        "std::map::new" => Err(TyperError::cannot_infer_collection(span, "std::map").into()),
 
         _ => Ok(None),
     }

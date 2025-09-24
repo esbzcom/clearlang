@@ -11,14 +11,9 @@ use crate::intrinsics::strings::{
     encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len,
 };
 
+#[derive(Default)]
 pub struct CodegenOpts {
     pub debug_names: bool,
-}
-
-impl Default for CodegenOpts {
-    fn default() -> Self {
-        CodegenOpts { debug_names: false }
-    }
 }
 
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
@@ -31,7 +26,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         for ins in &f.body {
             if let IrInstr::IStringConst { s, .. } = ins {
                 if !str_pool.contains_key(s) {
-                    let len = s.as_bytes().len() as u32;
+                    let len = s.len() as u32;
                     let off = cur_off;
                     let size = 4 + len; // header + bytes
                     let next = (off + size + 3) & !3; // 4-byte align

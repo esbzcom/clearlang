@@ -182,7 +182,7 @@ fn expr_to_smt2(expr: &Expr) -> String {
             BinOp::Or => format!("(or {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
         },
         Expr::Call { callee, args, .. } => {
-            let parts: Vec<String> = args.iter().map(|a| expr_to_smt2(a)).collect();
+            let parts: Vec<String> = args.iter().map(expr_to_smt2).collect();
             if parts.is_empty() {
                 format!("({})", callee)
             } else {

@@ -97,7 +97,7 @@ fn parse_errors_on_missing_contract_braces() {
         { x }
     "#;
     let err = parse(src).expect_err("missing braces around contract");
-    assert!(format!("{err}").contains("'{'"));
+    assert!(err.to_string().contains("'{'"));
 }
 
 #[test]

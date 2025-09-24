@@ -42,13 +42,13 @@ Example
     "vc":   { "smt2": "(=> (>= x 0) (>= (+ x 1) x))" },
     "status": "generated",
     "positions": { "file": "examples/inc.clear", "pre_start": 42, "pre_end": 49, "post_start": 64, "post_end": 75 },
-    "extra": { "tool": "clearlang 0.1.0", "commit": "d46d03d" }
+    "extra": { "tool": "clg 0.1.0", "commit": "d46d03d" }
   }
 ]
 ```
 
 CLI Contract
-- `clearlang build file.clear --emit-vcs out.json` writes exactly the array above.
+- `clg build file.clear --emit-vcs out.json` writes exactly the array above.
 - No solver integration in this phase; `status` is always `generated`.
 - Future: `--emit-proof proofs/` adds per-VC proof files keyed by `vc_id`.
 

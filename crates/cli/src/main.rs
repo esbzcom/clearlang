@@ -8,7 +8,7 @@ use commands::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "clearlang", version, about = "ClearLang CLI", long_about = None)]
+#[command(name = "clg", version, about = "ClearLang CLI", long_about = None)]
 struct Cli {
     /// Emit machine-readable JSON errors instead of human text
     #[arg(long, global = true, default_value_t = false)]

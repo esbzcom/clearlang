@@ -215,7 +215,7 @@ Docs & Proofs
 - [ ] Emit `clearlang.proof` custom section v1 (contracts/effects/VCs; optional proofs).
 - [ ] Add offline signatures (Ed25519):
       - CLI build flags: `--sign --key --key-id --sign-scope proofs|module|both --sig-out`.
-      - CLI verify: `clearlang verify --sig --pubkey [--vcs --proofs]`.
+      - CLI verify: `clg verify --sig --pubkey [--vcs --proofs]`.
 - [ ] Canonical payloads (JCS) with SHA-256 hashes: `module_hash`, `proofs_hash`.
 - [ ] Plan `clgverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
 

@@ -3,7 +3,7 @@
 ClearLang provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
 
 ## CLI Flag
-- `--json-errors`: when set on `clearlang parse` or `clearlang build`, failures are printed as JSON to stdout.
+- `--json-errors`: when set on `clg parse` or `clg build`, failures are printed as JSON to stdout.
 
 ## JSON Shape
 ```
@@ -63,11 +63,11 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 ## Examples
 - Parse:
 ```
-clearlang parse bad.clear --json-errors
+clg parse bad.clear --json-errors
 ```
 - Build:
 ```
-clearlang build bad.clear --json-errors -o out.wasm
+clg build bad.clear --json-errors -o out.wasm
 ```
 
 ## Notes

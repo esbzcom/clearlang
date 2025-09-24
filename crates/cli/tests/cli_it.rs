@@ -28,7 +28,7 @@ fn wasmtime_run(bytes: &[u8]) -> i32 {
 #[test]
 fn parse_command_succeeds_on_hello() {
     let input = repo_sample("01_hello.clear");
-    let mut cmd = Command::cargo_bin("clearlang").expect("bin");
+    let mut cmd = Command::cargo_bin("clg").expect("bin");
     cmd.args(["parse"]).arg(&input);
     cmd.assert()
         .success()
@@ -48,12 +48,12 @@ fn run_subcommand_executes_main() {
     let out = tmp.path().join("out.wasm");
 
     // Build the wasm
-    let mut build = Command::cargo_bin("clearlang").expect("bin");
+    let mut build = Command::cargo_bin("clg").expect("bin");
     build.args(["build"]).arg(&file).args(["-o"]).arg(&out);
     build.assert().success();
 
     // Run it via CLI
-    let mut run = Command::cargo_bin("clearlang").expect("bin");
+    let mut run = Command::cargo_bin("clg").expect("bin");
     run.args(["run"]).arg(&out);
     run.assert()
         .success()
@@ -64,7 +64,7 @@ fn run_subcommand_executes_main() {
 fn emit_hello_writes_valid_wasm_and_runs() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("hello.wasm");
-    let mut cmd = Command::cargo_bin("clearlang").unwrap();
+    let mut cmd = Command::cargo_bin("clg").unwrap();
     cmd.args(["emit-hello", "-o"]).arg(&out);
     cmd.assert().success();
 
@@ -92,7 +92,7 @@ fn build_and_run_samples() {
     for (file, expect) in cases {
         let tmp = tempdir().unwrap();
         let out = tmp.path().join("out.wasm");
-        let mut cmd = Command::cargo_bin("clearlang").unwrap();
+        let mut cmd = Command::cargo_bin("clg").unwrap();
         cmd.args(["build"]) // parse -> type-check -> const-eval emit
             .arg(repo_sample(file))
             .args(["-o"])
@@ -109,7 +109,7 @@ fn build_and_run_samples() {
 
 #[test]
 fn parse_failure_exits_nonzero() {
-    let mut cmd = Command::cargo_bin("clearlang").unwrap();
+    let mut cmd = Command::cargo_bin("clg").unwrap();
     cmd.args(["--json-errors", "parse"])
         .arg(repo_sample("06_trailing_call_comma.clear"));
     let output = cmd.assert().failure().get_output().stdout.clone();
@@ -137,7 +137,7 @@ fn parse_failure_exits_nonzero() {
 fn build_failure_for_non_int_or_missing_main() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("bad.wasm");
-    let mut cmd = Command::cargo_bin("clearlang").unwrap();
+    let mut cmd = Command::cargo_bin("clg").unwrap();
     // 07_bools has no main; codegen should fail
     cmd.args(["--json-errors", "build"])
         .arg(repo_sample("07_bools.clear"))
@@ -168,7 +168,7 @@ fn type_error_reports_json_with_span_and_code() {
     let file = tmp.path().join("bad.clear");
     fs::write(&file, src).expect("write");
     let out = tmp.path().join("out.wasm");
-    let mut cmd = Command::cargo_bin("clearlang").unwrap();
+    let mut cmd = Command::cargo_bin("clg").unwrap();
     cmd.args(["--json-errors", "build"])
         .arg(&file)
         .args(["-o"])
@@ -200,7 +200,7 @@ fn collections_error_reports_collection_kind_error_in_json() {
     let file = tmp.path().join("bad_collections.clear");
     std::fs::write(&file, src).expect("write");
     let out = tmp.path().join("out.wasm");
-    let mut cmd = Command::cargo_bin("clearlang").unwrap();
+    let mut cmd = Command::cargo_bin("clg").unwrap();
     cmd.args(["--json-errors", "build"])
         .arg(&file)
         .args(["-o"])
@@ -227,7 +227,7 @@ fn if_branch_mismatch_reports_t301_in_json() {
     let file = tmp.path().join("bad_if.clear");
     std::fs::write(&file, src).expect("write");
     let out = tmp.path().join("out.wasm");
-    let mut cmd = Command::cargo_bin("clearlang").unwrap();
+    let mut cmd = Command::cargo_bin("clg").unwrap();
     cmd.args(["--json-errors", "build"])
         .arg(&file)
         .args(["-o"])

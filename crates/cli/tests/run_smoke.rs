@@ -17,14 +17,14 @@ fn emit_hello_and_run() {
         .unwrap();
     let out_path = out.path().to_path_buf();
 
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .expect("bin")
         .args(["emit-hello", "-o"])
         .arg(&out_path)
         .assert()
         .success();
 
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .expect("bin")
         .args(["run"])
         .arg(&out_path)
@@ -37,7 +37,7 @@ fn emit_hello_and_run() {
 fn build_and_run_samples() {
     // 01_hello
     let out1 = tempfile::tempdir().unwrap().path().join("hello.wasm");
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["build"])
         .arg(sample("01_hello.clear"))
@@ -45,7 +45,7 @@ fn build_and_run_samples() {
         .arg(&out1)
         .assert()
         .success();
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["run"])
         .arg(&out1)
@@ -55,7 +55,7 @@ fn build_and_run_samples() {
 
     // 12_zero_arg_fn
     let out2 = tempfile::tempdir().unwrap().path().join("zfn.wasm");
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["build"])
         .arg(sample("12_zero_arg_fn.clear"))
@@ -63,7 +63,7 @@ fn build_and_run_samples() {
         .arg(&out2)
         .assert()
         .success();
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["run"])
         .arg(&out2)
@@ -75,7 +75,7 @@ fn build_and_run_samples() {
 #[test]
 fn parse_command_prints_ast() {
     let sample = sample("01_hello.clear");
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["parse"])
         .arg(&sample)
@@ -87,7 +87,7 @@ fn parse_command_prints_ast() {
 #[test]
 fn build_fails_on_parse_error() {
     let out = tempfile::tempdir().unwrap().path().join("bad.wasm");
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["build"])
         .arg(sample("06_trailing_call_comma.clear"))
@@ -100,7 +100,7 @@ fn build_fails_on_parse_error() {
 #[test]
 fn build_fails_on_type_error() {
     let out = tempfile::tempdir().unwrap().path().join("type_err.wasm");
-    Command::cargo_bin("clearlang")
+    Command::cargo_bin("clg")
         .unwrap()
         .args(["build"])
         .arg(sample("14_arity_mismatch.clear"))

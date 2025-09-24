@@ -23,5 +23,5 @@ wasmparser = "0.219"
 once_cell = "1"
 
 [[bin]]
-name = "clearlang"
+name = "clg"
 path = "src/main.rs"

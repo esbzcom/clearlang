@@ -25,7 +25,7 @@
 - Added Wasm structure tests in `crates/codegen-wasm/tests/types_and_names.rs`:
   - `type_section_is_deduplicated_by_signature`: asserts only two function types for repeated signatures.
   - `debug_names_emit_name_section`: asserts custom `name` section is present when `debug_names` is enabled.
-- Added CLI smoke test `run_subcommand_executes_main` in `crates/cli/tests/cli_it.rs` to verify `clearlang run` invokes `main` and prints the result.
+- Added CLI smoke test `run_subcommand_executes_main` in `crates/cli/tests/cli_it.rs` to verify `clg run` invokes `main` and prints the result.
 
 ## Session 2025-09-17 — Summary & Next Steps
 
@@ -98,7 +98,7 @@
 
 - Wired CLI build to IR path: parse → type → lower → IR→Wasm; added `--validate`.
 - Implemented IR→Wasm for `IConst`, `IBin(Add|Sub|Mul|Div)`, `Call`, and `Ret` (Int/Bool→i32).
-- Added `run` subcommand (embedded Wasmtime) to execute Wasm: `clearlang run out.wasm`.
+- Added `run` subcommand (embedded Wasmtime) to execute Wasm: `clg run out.wasm`.
 - Added initial IR pipeline test; README updated with CLI and Windows instructions.
 - TODO updated: Phase 3.5 complete; Next focus on 3.6 Tests and 3.8 Diagnostics & Spans.
 
@@ -106,7 +106,7 @@
 
 - Added IR pipeline e2e tests for samples 01–05; confirmed 06 fails to parse; 07 parses but no main export; 08 returns 42.
 - Strengthened typer negative tests: arity (too many/zero‑arg), binop operand types, duplicate functions, arg type mismatches.
-- Added simple stage logs to `clearlang build` (parsed/type‑checked/IR/Wasm bytes/validated).
+- Added simple stage logs to `clg build` (parsed/type‑checked/IR/Wasm bytes/validated).
 - Updated TODO: mark all 3.6 items complete; set next focus to 3.8 Diagnostics & Spans and Phase 4 prep.
 
 ## Session 2025-09-03 — Phase 3.8 Done; 3.9 Planned
@@ -148,7 +148,7 @@
 - Parser UX: added a friendly hint when `:` is used for return types (suggests using `->`).
 - Parser DX: completed module split (`tokens`, `types`, `literals`, `path`, `expr`, `func`, `program`).
 - Typer: added `std::str` built-in type stubs (`len/concat/eq`).
-- CLI bin name: tests reference `clearlang` (not `clg-cli`); docs updated accordingly.
+- CLI bin name: tests reference `clg` (not `clg-cli`); docs updated accordingly.
 - CLI build: enforces presence of `main() -> Int` and fails on missing/wrong signature.
 - Samples: added `17_hello_str.clear` (parse/type only) and migrated all samples to `function`.
 

@@ -47,10 +47,10 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `--debug-names`: include a Wasm name section with function names.
   - `--json-errors`: emit machine-readable JSON on parse/type/build failures (stable codes + spans).
 - Examples:
-  - `clearlang emit-hello -o tmp/hello.wasm`
-  - `clearlang parse clearlang-tests/01_hello.clear`
-  - `clearlang build clearlang-tests/02_arith.clear -o out/arith.wasm --validate`
-  - `clearlang run out/arith.wasm`
+  - `clg emit-hello -o tmp/hello.wasm`
+  - `clg parse clearlang-tests/01_hello.clear`
+  - `clg build clearlang-tests/02_arith.clear -o out/arith.wasm --validate`
+  - `clg run out/arith.wasm`
 
 ---
 
@@ -97,5 +97,5 @@ See `docs/style.md` for the full style guide.
 ### Windows
 
 - Prereqs: Install Rust (MSVC) and VS Build Tools (C++ workload).
-- Build release: `cargo build -p clg-cli --release` -> `target\release\clearlang.exe`
+- Build release: `cargo build -p clg-cli --release` -> `target\release\clg.exe`
 ...

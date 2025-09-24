@@ -21,7 +21,7 @@ Testing
 
 Next Actions
 - [done] Implement IR→Wasm encoder entry accepting `clg_ir::Module`.
-- [done] Update `clearlang build` to use typer output (IR) and call new encoder.
+- [done] Update `clg build` to use typer output (IR) and call new encoder.
 - [done] Add `--validate` and gate stage logs behind `--verbose`.
 
 ---
@@ -184,7 +184,7 @@ Initial VC Rules (pure, expression-bodied)
 - Logic fragment: quantifier-free linear integer arithmetic (QF_LIA) + Bool.
 
 CLI Changes
-- `clearlang build <file> [--emit-vcs <OUT>] [--emit-proof <OUT>]`:
+- `clg build <file> [--emit-vcs <OUT>] [--emit-proof <OUT>]`:
   - `--emit-vcs`: writes a JSON array of VCs with stable schema:
     - `{ function, pre, post, vc_id, smt2, status }`
     - `status`: "generated"|"proved"|"failed` (if solver integrated later)
@@ -228,9 +228,9 @@ Signing Scope & Payloads
 
 CLI Additions
 - Build/sign:
-  - `clearlang build file.clear --emit-vcs vcs.json [--emit-proof proofs/] --sign --key key.pem --key-id KEY --sign-scope proofs|module|both --sig-out sig.json`
+  - `clg build file.clear --emit-vcs vcs.json [--emit-proof proofs/] --sign --key key.pem --key-id KEY --sign-scope proofs|module|both --sig-out sig.json`
 - Verify:
-  - `clearlang verify out.wasm --sig sig.json --pubkey pub.pem [--vcs vcs.json] [--proofs proofs/]`
+  - `clg verify out.wasm --sig sig.json --pubkey pub.pem [--vcs vcs.json] [--proofs proofs/]`
   - Steps: validate Wasm → optionally re-check proofs → verify signature over declared scope.
 
 PCW Section (extend)
@@ -242,7 +242,7 @@ Anchoring (Optional, later)
 
 Acceptance
 - Deterministic `module_hash` reproducible across machines.
-- `clearlang verify` validates signature and (when artifacts are provided) re-checks proofs before accepting.
+- `clg verify` validates signature and (when artifacts are provided) re-checks proofs before accepting.
 
 ---
 
@@ -323,7 +323,7 @@ Prep — Blocks & Early Return (Post 4.10)
 Focus — Phase 6 (Contracts & Effects)
 - Syntax: parse `pure`, `require { expr }`, `ensure { expr }` (expression-bodied functions first); attach spans.
 - VC Gen: for each pure expression-bodied function with pre P and post Q, generate one VC `P ⇒ Q[e/result]` in QF_LIA.
-- CLI: `clearlang build file.clear --emit-vcs out.json` writes an array matching `docs/proofs/vc-schema.md` with `status: "generated"`.
+- CLI: `clg build file.clear --emit-vcs out.json` writes an array matching `docs/proofs/vc-schema.md` with `status: "generated"`.
 - Tests: snapshot the JSON; include a failing ensure example and a simple inc/add.
 
 Runtime & Diagnostics

@@ -88,7 +88,7 @@ proptest! {
     #[test]
     fn prop_concat_len_adds(a in small_ascii_string(), b in small_ascii_string()) {
         let out = compile_and_run_len_of_concat(&a, &b);
-        let expect = (a.as_bytes().len() + b.as_bytes().len()) as i32;
+        let expect = (a.len() + b.len()) as i32;
         prop_assert_eq!(out, expect);
     }
 }

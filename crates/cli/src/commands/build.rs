@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
@@ -141,7 +141,7 @@ pub fn run(
     Ok(())
 }
 
-fn write_vcs_json(vcs: &[VerificationCondition], path: &PathBuf, src: &PathBuf) -> Result<()> {
+fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Result<()> {
     use serde_json::json;
 
     if let Some(parent) = path.parent() {

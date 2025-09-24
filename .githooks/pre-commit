@@ -23,8 +23,8 @@ fi
 
 # Optional: clippy
 if [[ "${SKIP_CLIPPY:-}" != "1" ]]; then
-  echo "[pre-commit] cargo clippy --workspace --all-targets -D warnings"
-  cargo clippy --workspace --all-targets -D warnings
+  echo "[pre-commit] cargo clippy --workspace --all-targets -- -D warnings"
+  cargo clippy --workspace --all-targets -- -D warnings
 else
   echo "[pre-commit] Skipping clippy (SKIP_CLIPPY=1)"
 fi
@@ -39,3 +39,4 @@ fi
 
 echo "[pre-commit] OK"
 exit 0
+

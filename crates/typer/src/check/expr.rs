@@ -1,154 +1,10 @@
-use crate::builtins::builtin_sigs;
+use super::FnSig;
 use crate::errors::TyperError;
-use crate::lower::lower_func;
-use crate::vc::{generate_vcs, VerificationCondition};
-use anyhow::{Context, Result};
-use clg_ast::{BinOp, Effect, Expr, Func, Param, Program, Span, Type, UnaryOp};
-use clg_ir::Module;
-use std::collections::{HashMap, HashSet};
+use anyhow::Result;
+use clg_ast::{BinOp, Expr, Span, Type, UnaryOp};
+use std::collections::HashMap;
 
-type FnSig<'a> = (&'a [Param], Type);
-
-pub struct TypecheckOutput {
-    pub ir: Module,
-    pub vcs: Vec<VerificationCondition>,
-}
-
-pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
-    let mut fns: HashMap<&str, FnSig> = HashMap::new();
-
-    let builtins = builtin_sigs();
-    for (name, params, ret) in &builtins {
-        fns.insert(name.as_str(), (&params[..], ret.clone()));
-    }
-
-    for f in &ast.funcs {
-        if fns
-            .insert(f.name.as_str(), (&f.params, f.ret.clone()))
-            .is_some()
-        {
-            return Err(TyperError::duplicate_function(&f.name).into());
-        }
-    }
-
-    for f in &ast.funcs {
-        check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
-    }
-
-    // Collect used intrinsics
-    let used_intrinsics = collect_used_intrinsics(ast);
-
-    // Order of function indices: all user-defined first, then intrinsics used (stable order)
-    let mut fn_indices: HashMap<&str, u32> = HashMap::new();
-    for (i, f) in ast.funcs.iter().enumerate() {
-        fn_indices.insert(f.name.as_str(), i as u32);
-    }
-    // Stable intrinsic order
-    let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
-    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::new();
-    for name in intrinsic_order.iter() {
-        if used_intrinsics.contains(*name) {
-            let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
-            fn_indices.insert(name, idx);
-            // Define IR function signature for the intrinsic
-            let (params, ret) = match *name {
-                "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
-                "std::str::eq" => (
-                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
-                    Some(clg_ir::IrType::Bool),
-                ),
-                "std::str::concat" => (
-                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
-                    Some(clg_ir::IrType::Int),
-                ),
-                _ => (vec![], None),
-            };
-            intrinsic_defs.push(clg_ir::Function {
-                name: (*name).to_string(),
-                params,
-                ret,
-                body: vec![],
-            });
-        }
-    }
-
-    let mut module = Module::default();
-    for f in &ast.funcs {
-        module.funcs.push(lower_func(f, &fns, &fn_indices)?);
-    }
-    // Append intrinsic function declarations at the end
-    module.funcs.extend(intrinsic_defs);
-    let vcs = generate_vcs(ast);
-    Ok(TypecheckOutput { ir: module, vcs })
-}
-
-pub fn check(ast: &Program) -> Result<Module> {
-    Ok(check_with_vcs(ast)?.ir)
-}
-
-pub fn type_check_only(ast: &Program) -> Result<()> {
-    let mut fns: HashMap<&str, FnSig> = HashMap::new();
-
-    let builtins = builtin_sigs();
-    for (name, params, ret) in &builtins {
-        fns.insert(name.as_str(), (&params[..], ret.clone()));
-    }
-
-    for f in &ast.funcs {
-        if fns
-            .insert(f.name.as_str(), (&f.params, f.ret.clone()))
-            .is_some()
-        {
-            return Err(TyperError::duplicate_function(&f.name).into());
-        }
-    }
-
-    for f in &ast.funcs {
-        check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
-    }
-    Ok(())
-}
-
-fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {
-    let mut env: HashMap<&str, Type> = HashMap::new();
-    for p in &f.params {
-        if env.insert(p.name.as_str(), p.ty.clone()).is_some() {
-            return Err(TyperError::duplicate_parameter(&p.name).into());
-        }
-    }
-
-    match f.effect {
-        Effect::None | Effect::Pure => {}
-        Effect::Mut | Effect::Io => return Err(TyperError::effect_not_supported(f.effect).into()),
-    }
-
-    for req in &f.requires {
-        let ty = type_of(&req.expr, &env, fns, 0)?;
-        if ty != Type::Bool {
-            return Err(TyperError::contract_not_bool("require", ty, req.span).into());
-        }
-    }
-
-    let mut ensure_env = env.clone();
-    if !ensure_env.contains_key("result") {
-        ensure_env.insert("result", f.ret.clone());
-    }
-    for ens in &f.ensures {
-        let ty = type_of(&ens.expr, &ensure_env, fns, 0)?;
-        if ty != Type::Bool {
-            return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
-        }
-    }
-
-    let body_ty = type_of(&f.body, &env, fns, 0)?;
-    if body_ty != f.ret {
-        let sp = expr_span(&f.body);
-        return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
-    }
-    Ok(())
-}
-
-fn type_of<'a>(
+pub(super) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, Type>,
     fns: &HashMap<&'a str, FnSig<'a>>,
@@ -421,60 +277,6 @@ fn type_of<'a>(
     }
 }
 
-fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
-    let mut set: HashSet<&'static str> = HashSet::new();
-    fn walk_expr(e: &Expr, set: &mut HashSet<&'static str>) {
-        match e {
-            Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
-            Expr::Return { expr, .. } => walk_expr(expr, set),
-            Expr::Unary { expr, .. } => walk_expr(expr, set),
-            Expr::Bin { lhs, rhs, .. } => {
-                walk_expr(lhs, set);
-                walk_expr(rhs, set);
-            }
-            Expr::If {
-                cond,
-                then_br,
-                else_br,
-                ..
-            } => {
-                walk_expr(cond, set);
-                walk_expr(then_br, set);
-                walk_expr(else_br, set);
-            }
-            Expr::Match {
-                scrutinee, arms, ..
-            } => {
-                walk_expr(scrutinee, set);
-                for arm in arms {
-                    walk_expr(&arm.expr, set);
-                }
-            }
-            Expr::Call { callee, args, .. } => {
-                match callee.as_str() {
-                    "std::str::len" => {
-                        set.insert("std::str::len");
-                    }
-                    "std::str::eq" => {
-                        set.insert("std::str::eq");
-                    }
-                    "std::str::concat" => {
-                        set.insert("std::str::concat");
-                    }
-                    _ => {}
-                }
-                for a in args {
-                    walk_expr(a, set);
-                }
-            }
-        }
-    }
-    for f in &ast.funcs {
-        walk_expr(&f.body, &mut set);
-    }
-    set
-}
-
 fn type_collection_call<'a>(
     callee: &str,
     args: &'a [Expr],
@@ -731,7 +533,7 @@ fn ensure_bool(ty: Type, what: &str, span: Option<Span>) -> Result<()> {
     Ok(())
 }
 
-fn expr_span(e: &Expr) -> Span {
+pub(super) fn expr_span(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
         Expr::Bin { span, .. }

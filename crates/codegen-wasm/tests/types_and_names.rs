@@ -57,16 +57,13 @@ fn type_section_is_deduplicated_by_signature() {
     // Count number of function types actually declared in the Type section
     let mut ty_count = 0usize;
     for payload in Parser::new(0).parse_all(&wasm) {
-        match payload.expect("payload") {
-            Payload::TypeSection(rdr) => {
-                // In current wasmparser, the type section yields RecGroup entries.
-                // Our encoder emits one type per group, so counting groups == types.
-                for group in rdr {
-                    let _ = group.expect("group");
-                    ty_count += 1;
-                }
+        if let Payload::TypeSection(rdr) = payload.expect("payload") {
+            // In current wasmparser, the type section yields RecGroup entries.
+            // Our encoder emits one type per group, so counting groups == types.
+            for group in rdr {
+                let _ = group.expect("group");
+                ty_count += 1;
             }
-            _ => {}
         }
     }
     // Expect only two unique func types: (i32,i32)->i32 and ()->i32

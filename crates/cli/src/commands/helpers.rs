@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use clg_parser::ParserError as ParserErr;
 use serde::Serialize;
@@ -21,7 +21,7 @@ pub struct JsonErrorItem {
     pub function: Option<String>,
 }
 
-pub fn emit_parse_structured_json_errors(file: &PathBuf, errs: &[ParserErr]) {
+pub fn emit_parse_structured_json_errors(file: &Path, errs: &[ParserErr]) {
     let items: Vec<JsonErrorItem> = errs
         .iter()
         .map(|e| JsonErrorItem {
@@ -41,7 +41,7 @@ pub fn emit_parse_structured_json_errors(file: &PathBuf, errs: &[ParserErr]) {
     println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }
 
-pub fn emit_type_json_error(file: &PathBuf, err_pretty: &str) {
+pub fn emit_type_json_error(file: &Path, err_pretty: &str) {
     let (code, start, end, func_opt) = classify_type_error(err_pretty);
     emit_single_json_error(code, "type", err_pretty.trim(), file, start, end, func_opt);
 }
@@ -50,7 +50,7 @@ pub fn emit_single_json_error(
     code: &'static str,
     stage: &'static str,
     message: &str,
-    file: &PathBuf,
+    file: &Path,
     start: usize,
     end: usize,
     function: Option<String>,

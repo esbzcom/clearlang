@@ -200,29 +200,28 @@ Docs & Proofs
 - [x] Update typing/codegen to support those operators or emit clear diagnostics until codegen handles them.
 
 6.3 Runtime Enforcement
-- [ ] Lower contracts to guards that trap on violation when runtime checks are enabled.
-- [ ] Strings runtime: add bump-allocator OOM trap (R001) and document/guard invalid UTF-8 (R002).
+- [ ] Lower `require`/`ensure` clauses into runtime guard blocks that emit trap code `R000` on failure while preserving span info for diagnostics.
+- [ ] Extend the string allocator to raise `R001` (OOM) and reject non-UTF-8 writes with `R002`; surface both in `docs/runtime/strings.md` and CLI help.
+- [ ] Integration tests: one contract-violation sample and one forced allocator failure asserting trap codes and JSON diagnostics stay AI-friendly.
 
 6.4 Mutable Collections (effects)
-- [ ] Add effect-gated mutable variants for collections (initial sketch, no runtime yet):
-  - `std::list::{push_mut(l: List<T>, x: T) -> Unit, insert_mut(l: List<T>, x: T, i: Int) -> Unit, remove_mut(l: List<T>, i: Int) -> Option<T>, pop_mut(l: List<T>) -> Option<T>, clear_mut(l: List<T>) -> Unit}`.
-  - `std::set::{insert_mut(s: Set<T>, x: T) -> Bool, remove_mut(s: Set<T>, x: T) -> Bool, clear_mut(s: Set<T>) -> Unit}`.
-  - `std::map::{insert_mut(m: Map<K,V>, k: K, v: V) -> Option<V>, remove_mut(m: Map<K,V>, k: K) -> Option<V>, clear_mut(m: Map<K,V>) -> Unit}`.
-- [ ] Type system: restrict usage of `*_mut` to functions with `mut` effect; pure code continues using immutable APIs.
-- [ ] Tests: typer-only coverage that `*_mut` require `mut` effect and have correct signatures.
+- [ ] Finalize `mut` effect typing rules: introduce `Effect::Mut`, require it for every `*_mut` builtin, and emit deterministic error `T401` when a pure function calls them.
+- [ ] Stub `std::list/set/map::*_mut` signatures in `builtins` with TODO markers referencing future runtime slices.
+- [ ] Add typer regression tests covering accepted `mut` functions, rejected pure callers, and JSON snapshots for `T401`.
+- [ ] Document the effect policy updates in `docs/typing.md` and `docs/collections.md` (AI-friendly summary + machine-checkable table).
 
 6.5 Proof Packaging & Signatures
-- [ ] Emit `clearlang.proof` custom section v1 (contracts/effects/VCs; optional proofs).
-- [ ] Add offline signatures (Ed25519):
-      - CLI build flags: `--sign --key --key-id --sign-scope proofs|module|both --sig-out`.
-      - CLI verify: `clg verify --sig --pubkey [--vcs --proofs]`.
-- [ ] Canonical payloads (JCS) with SHA-256 hashes: `module_hash`, `proofs_hash`.
-- [ ] Plan `clgverify` tool (re-check proofs + signatures) — keep in backlog until Phase 10.
+- [ ] Define `clearlang.proof` custom section v1 layout (versioning, VC linkage, optional proofs) and document it in `docs/proofs/proof-section.md`.
+- [ ] Emit the section whenever `--emit-vcs` is used, including canonical serialization plus SHA-256 hashes for module and proof payloads (JCS encoded).
+- [ ] Implement CLI signing flow: `--sign --key --key-id --scope {module,proofs,both}` + `--sig-out`, and verification via `clg verify --sig --pubkey` with clear error codes.
+- [ ] Add integration tests that sign/verify a small module and fail gracefully when a proof hash is tampered.
+- [ ] Keep `clgverify` as a Phase 10 follow-up, noting its dependency on section/signature stability.
 
 6.6 ADT Ergonomics (sugar)
-- [ ] `if let` for `Some/Ok` single-variant handling; parser + desugar to 2-arm match.
-- [ ] `??` coalescing for Option (sugar for `unwrap_or`).
-- [ ] `?` try operator for Option/Result (propagate early) — design aligned with effects/contracts; behind a flag.
+- [ ] Draft a design note for `if let`, `??`, and `?` covering semantics, proofs, and effect awareness.
+- [ ] Implement `if let` by desugaring to two-arm `match`; update parser/typer/tests and reuse existing diagnostics.
+- [ ] Prototype `??` (Option coalesce) and `?` (Option/Result propagation) behind an experimental flag with typer checks enforcing purity/effect compatibility.
+- [ ] Document samples for each sugar and describe the VCs they generate to stay AI-friendly.
 
 ## Phase 7 — Resource/Linear Types
 
@@ -295,3 +294,4 @@ Docs & Proofs
 - [ ] WASI `print` intrinsic for observable output.
 - [ ] Proof-carrying Wasm prototype (`clgverify`).
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
+

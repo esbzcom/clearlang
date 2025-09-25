@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Func, Type};
-use clg_ir::{BinOpIR, Function as IrFunction, Instr, IrType, Value};
+use clg_ir::{BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value};
 use std::collections::HashMap;
 
 type FnSig<'a> = (&'a [clg_ast::Param], Type);
@@ -41,7 +41,32 @@ pub(crate) fn lower_func<'a>(
         body: Vec::new(),
     };
 
+    for req in &f.requires {
+        let cond = lower_expr(&mut ctx, &req.expr)?;
+        ctx.body.push(Instr::Guard {
+            cond,
+            trap: TrapCode::ContractViolation,
+            span: Some((req.span.start as u32, req.span.end as u32)),
+            detail: GuardKind::Require,
+        });
+    }
+
     let ret_val = lower_expr(&mut ctx, &f.body)?;
+
+    if !f.ensures.is_empty() {
+        ctx.env.insert("result", ret_val);
+        for ens in &f.ensures {
+            let cond = lower_expr(&mut ctx, &ens.expr)?;
+            ctx.body.push(Instr::Guard {
+                cond,
+                trap: TrapCode::ContractViolation,
+                span: Some((ens.span.start as u32, ens.span.end as u32)),
+                detail: GuardKind::Ensure,
+            });
+        }
+        ctx.env.remove("result");
+    }
+
     ctx.body.push(Instr::Ret { val: ret_val });
 
     Ok(IrFunction {
@@ -120,19 +145,14 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                 BinOp::Sub => BinOpIR::Sub,
                 BinOp::Mul => BinOpIR::Mul,
                 BinOp::Div => BinOpIR::Div,
-                BinOp::Lt
-                | BinOp::Le
-                | BinOp::Gt
-                | BinOp::Ge
-                | BinOp::Eq
-                | BinOp::Neq
-                | BinOp::And
-                | BinOp::Or => {
-                    anyhow::bail!(
-                        "operator `{}` not supported in codegen yet",
-                        display_bin_op(*op)
-                    );
-                }
+                BinOp::Lt => BinOpIR::Lt,
+                BinOp::Le => BinOpIR::Le,
+                BinOp::Gt => BinOpIR::Gt,
+                BinOp::Ge => BinOpIR::Ge,
+                BinOp::Eq => BinOpIR::Eq,
+                BinOp::Neq => BinOpIR::Neq,
+                BinOp::And => BinOpIR::And,
+                BinOp::Or => BinOpIR::Or,
             };
             ctx.body.push(Instr::IBin {
                 dst,
@@ -165,24 +185,6 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         }
     }
 }
-
-fn display_bin_op(op: BinOp) -> &'static str {
-    match op {
-        BinOp::Add => "+",
-        BinOp::Sub => "-",
-        BinOp::Mul => "*",
-        BinOp::Div => "/",
-        BinOp::Lt => "<",
-        BinOp::Le => "<=",
-        BinOp::Gt => ">",
-        BinOp::Ge => ">=",
-        BinOp::Eq => "==",
-        BinOp::Neq => "!=",
-        BinOp::And => "&&",
-        BinOp::Or => "||",
-    }
-}
-
 fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
     let v = Value(ctx.next);
     ctx.next += 1;

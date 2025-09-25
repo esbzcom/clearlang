@@ -90,7 +90,7 @@ fn main() -> Result<()> {
             )?;
         }
         Commands::Run { file, invoke } => {
-            cmd_run::run(file, invoke)?;
+            cmd_run::run(file, invoke, cli.json_errors)?;
         }
     }
     Ok(())

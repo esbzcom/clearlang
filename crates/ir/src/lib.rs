@@ -18,8 +18,47 @@ pub enum BinOpIR {
     Sub,
     Mul,
     Div,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Eq,
+    Neq,
+    And,
+    Or,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrapCode {
+    ContractViolation,
+    AllocatorOom,
+    InvalidUtf8,
+}
+
+impl TrapCode {
+    pub fn as_i32(self) -> i32 {
+        match self {
+            TrapCode::ContractViolation => 1,
+            TrapCode::AllocatorOom => 2,
+            TrapCode::InvalidUtf8 => 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GuardKind {
+    Require,
+    Ensure,
+}
+
+impl GuardKind {
+    pub fn as_i32(self) -> i32 {
+        match self {
+            GuardKind::Require => 0,
+            GuardKind::Ensure => 1,
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub enum Instr {
     // v = const n
@@ -33,12 +72,19 @@ pub enum Instr {
         dst: Value,
         s: String,
     },
-    // v = bin lhs op rhs
+    // v = bin lhs op rhs (arithmetic/comparisons/bool)
     IBin {
         dst: Value,
         op: BinOpIR,
         lhs: Value,
         rhs: Value,
+    },
+    // guard: if cond == 0 trap with code; no result value
+    Guard {
+        cond: Value,
+        trap: TrapCode,
+        span: Option<(u32, u32)>,
+        detail: GuardKind,
     },
     // v = if cond then then_v else else_v (expression form)
     ISelect {

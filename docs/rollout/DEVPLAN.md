@@ -345,3 +345,21 @@ Focus - Contracts Runtime & Effects
 - Phase 6.4: introduce `Effect::Mut`, annotate `*_mut` builtins, and surface deterministic `T401` with JSON/span coverage.
 - Update `docs/typing.md` and `docs/collections.md` with the new effect table to stay AI-friendly and machine-checkable.
 - Add a regression test covering an `R002` invalid UTF-8 failure to complement the existing `R000`/`R001` cases.
+
+# Phase DEVPLAN - Next Steps (2025-09-19)
+
+Focus - Phase 6.4 Mutable Effects and Proof Packaging Prep
+- Harden the effect lattice by defining Effect::{Pure,Mut,Io} in the typer, threading it through lowering, and refusing silent downgrades across calls and branches.
+- Implement builtin signatures for std::list/set/map::*_mut with precise pre/post conditions so diagnostics stay deterministic (T401) and AI-friendly.
+- Extend contract VC generation to require matching require guards before *_mut calls; emit stable vc_id suffixes like mut_pre to unblock proof packaging.
+
+Proof Obligations - Mathematically Provable & Prove Correct
+- Frame an effect soundness lemma stating pure functions cannot reach *_mut intrinsics; cross-link the lemma to typer rules and guard tests.
+- Update docs/typing.md and docs/collections.md with the effect lattice table, proof sketch, and SMT-friendly worked examples.
+- Add regression tests covering accepted mut functions, rejected pure callers, and VC JSON snapshots to keep outputs AI-friendly.
+
+Runway for 6.5 Proof Packaging
+- Draft docs/proofs/proof-section.md with header fields, VC linkage, and hashing notes so implementation stays proof-driven.
+- Spike a serialization helper in codegen-wasm behind #[cfg(test)] to verify canonical ordering ahead of the CLI flag.
+- Capture open questions around key storage and CLI UX to guide the --sign workflow without blocking effect work.
+

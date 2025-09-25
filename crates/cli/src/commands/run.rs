@@ -41,7 +41,7 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool) -> Result<()> {
                     return Err(anyhow!("{}{} (code {})", diag.message, span, diag.code));
                 }
             }
-            Err(trap.into())
+            Err(trap)
         }
     }
 }

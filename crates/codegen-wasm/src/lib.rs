@@ -1,4 +1,5 @@
 pub mod intrinsics {
+    pub mod runtime;
     pub mod strings;
 }
 pub mod ir;

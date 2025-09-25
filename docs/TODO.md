@@ -203,13 +203,14 @@ Docs & Proofs
 - [x] Lower `require`/`ensure` clauses into runtime guard blocks that emit trap code `R000` on failure while preserving span info for diagnostics.
 - [x] Extend the string allocator to raise `R001` (OOM) and reject non-UTF-8 writes with `R002`; surface both in `docs/runtime/strings.md` and CLI help.
 - [x] Integration tests: one contract-violation sample and one forced allocator failure asserting trap codes and JSON diagnostics stay AI-friendly.
-- [ ] Follow-up: centralize guard/trap helper scaffolding in codegen intrinsics to keep proofs/docstrings in sync as we add more runtime checks.
+- [x] Follow-up: centralize guard/trap helper scaffolding in codegen intrinsics to keep proofs/docstrings in sync as we add more runtime checks.
 
 6.4 Mutable Collections (effects)
-- [ ] Finalize `mut` effect typing rules: introduce `Effect::Mut`, require it for every `*_mut` builtin, and emit deterministic error `T401` when a pure function calls them.
-- [ ] Stub `std::list/set/map::*_mut` signatures in `builtins` with TODO markers referencing future runtime slices.
-- [ ] Add typer regression tests covering accepted `mut` functions, rejected pure callers, and JSON snapshots for `T401`.
-- [ ] Document the effect policy updates in `docs/typing.md` and `docs/collections.md` (AI-friendly summary + machine-checkable table).
+- [ ] Harden the effect lattice by defining Effect::{Pure,Mut,Io} and preventing downgrades in typer and lowering.
+- [ ] Stub std::list/set/map::*_mut builtins with explicit pre/post contracts and emit deterministic T401 when callers lack mut allowance.
+- [ ] Require paired require guards before *_mut calls; extend VC generation with stable mut_pre obligations and snapshot tests.
+- [ ] Add regression tests covering accepted mut functions, rejected pure callers, and JSON diagnostics to keep outputs AI-friendly.
+- [ ] Update docs/typing.md and docs/collections.md with the effect table, soundness sketch, and SMT-friendly examples.
 
 6.5 Proof Packaging & Signatures
 - [ ] Define `clearlang.proof` custom section v1 layout (versioning, VC linkage, optional proofs) and document it in `docs/proofs/proof-section.md`.

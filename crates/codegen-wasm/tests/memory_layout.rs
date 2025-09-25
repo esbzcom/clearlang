@@ -26,7 +26,7 @@ fn memory_pages_and_heap_ptr_fit_string_data() {
     // Compute expected size of data area (headers + bytes, aligned)
     let total = align4(4 + 40_000) + align4(4 + 40_000);
     let heap_start_expect = align4(total);
-    let min_pages_expect = ((heap_start_expect + 65535) / 65536).max(1);
+    let min_pages_expect = heap_start_expect.div_ceil(65536).max(1);
 
     let mut min_pages_found: Option<u64> = None;
     let mut heap_init_found: Option<i32> = None;
@@ -36,19 +36,18 @@ fn memory_pages_and_heap_ptr_fit_string_data() {
             Payload::MemorySection(rdr) => {
                 for mem in rdr {
                     let mem = mem.expect("memory");
-                    min_pages_found = Some(mem.initial as u64);
+                    min_pages_found = Some(mem.initial);
                 }
             }
             Payload::GlobalSection(rdr) => {
                 if heap_init_found.is_none() {
-                    for glob in rdr {
-                        let glob = glob.expect("global");
+                    if let Some(glob_res) = rdr.into_iter().next() {
+                        let glob = glob_res.expect("global");
                         let mut ops = glob.init_expr.get_operators_reader();
                         use wasmparser::Operator;
                         if let Ok(Operator::I32Const { value }) = ops.read() {
                             heap_init_found = Some(value);
                         }
-                        break;
                     }
                 }
             }

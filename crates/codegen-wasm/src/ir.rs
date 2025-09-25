@@ -7,8 +7,9 @@ use wasm_encoder::{
     NameSection, TypeSection, ValType,
 };
 
-use crate::intrinsics::strings::{
-    encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len,
+use crate::intrinsics::{
+    runtime::emit_guard_trap,
+    strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
 };
 
 pub(crate) const HEAP_PTR_GLOBAL: u32 = 0;
@@ -84,7 +85,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     // Memory section (prepare for string runtime)
     // Ensure the initial memory is large enough to hold all string data segments.
     let heap_start = (cur_off + 3) & !3; // first free address after literals, 4-byte aligned
-    let min_pages = ((heap_start + 65535) / 65536).max(1) as u64;
+    let min_pages = u64::from(heap_start).div_ceil(65536).max(1);
     let mut memories = MemorySection::new();
     memories.memory(MemoryType {
         minimum: min_pages,
@@ -304,16 +305,7 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 insts.local_get(cond.0);
                 insts.i32_eqz();
                 insts.if_(BlockType::Empty);
-                insts.i32_const(trap.as_i32());
-                insts.global_set(ERROR_CODE_GLOBAL);
-                let (start, end) = span.unwrap_or((0, 0));
-                insts.i32_const(start as i32);
-                insts.global_set(ERROR_START_GLOBAL);
-                insts.i32_const(end as i32);
-                insts.global_set(ERROR_END_GLOBAL);
-                insts.i32_const(detail.as_i32());
-                insts.global_set(ERROR_DETAIL_GLOBAL);
-                insts.unreachable();
+                emit_guard_trap(&mut insts, *trap, *span, detail.as_i32());
                 insts.end();
             }
             IrInstr::ISelect {

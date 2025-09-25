@@ -1,5 +1,11 @@
 # Codex Session Summary
 
+## Session 2025-09-19 - DEVPLAN 6.4 focus & effect proofs
+
+- Reviewed TODO and recent commits to confirm Phase 6.1-6.3 landed and guard helpers are centralized.
+- Added a Phase DEVPLAN 2025-09-19 block prioritizing Effect::{Pure,Mut,Io}, *_mut require guards, and proof packaging runway.
+- Refined TODO 6.4 tasks to capture effect lattice hardening, VC snapshots, regression coverage, and AI-friendly documentation work.
+
 ## Session 2025-09-18 - Runtime diagnostics docs + DEVPLAN
 
 - Marked Phase 6.3 runtime enforcement tasks complete in `docs/TODO.md` and logged a follow-up to dedupe guard helpers.

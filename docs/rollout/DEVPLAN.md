@@ -336,3 +336,12 @@ Proofs
 Design
 - Draft blocks + early return design slice (multi-statement blocks, `let`, `return;`), compatible with current expression form.
  - Schedule ADT ergonomics as 6.5: `if let` sugar (Some/Ok) via desugar to 2-arm match; `??` and `?` after effects/contracts, behind a flag.
+
+# Phase DEVPLAN - Next Steps (2025-09-18)
+
+Focus - Contracts Runtime & Effects
+- Centralize runtime trap metadata writes so new intrinsics stay in sync with the guard proof story.
+- Keep CLI help and docs aligned on `R000`-`R002` semantics; extend with an explicit invalid UTF-8 sample.
+- Phase 6.4: introduce `Effect::Mut`, annotate `*_mut` builtins, and surface deterministic `T401` with JSON/span coverage.
+- Update `docs/typing.md` and `docs/collections.md` with the new effect table to stay AI-friendly and machine-checkable.
+- Add a regression test covering an `R002` invalid UTF-8 failure to complement the existing `R000`/`R001` cases.

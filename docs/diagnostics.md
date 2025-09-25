@@ -59,6 +59,12 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 - Build (`Cxxx`):
   - `C001`: invalid main signature (only `main() -> Int` supported in this phase)
   - `C002`: missing `main` function
+
+- Runtime (`Rxxx`):
+  - `R000`: contract guard failed at runtime; detail differentiates `require` vs `ensure`.
+  - `R001`: string allocator ran out of memory while materializing a new `String`.
+  - `R002`: string runtime rejected a pointer/length pair that would violate UTF-8 invariants.
+  - `R999`: reserve for unexpected traps (should not appear in released builds).
   
 - Parse (`Pxxx`) additions:
   - `P010`: missing `else` in expression-form `if` (Phase 4.10)

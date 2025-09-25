@@ -47,3 +47,12 @@ Proof Sketch
 - Safety: All memory accesses use bounds derived from stored `len` and the allocation invariant; `eq` only reads in‑bounds; `concat` writes to a fresh, in‑bounds allocation.
 - Determinism: No host calls; pure arithmetic and memory ops; identical inputs yield identical outputs.
 
+## Runtime Diagnostics
+
+- Every intrinsic writes runtime metadata before trapping so tooling can read spans:
+  - `__clg_runtime_error_code`: 0 (no error), 1 (`R000` contract guard), 2 (`R001` allocator OOM), 3 (`R002` invalid UTF-8).
+  - `__clg_runtime_error_start` / `__clg_runtime_error_end`: byte offsets for the originating span when available.
+  - `__clg_runtime_error_detail`: extra context (0 for `require`, 1 for `ensure`; string intrinsics currently leave this as 0).
+- `std::str::concat` raises `R001` when the bump allocation would exceed linear memory. Start/end capture the attempted allocation bounds.
+- `std::str::{len, eq, concat}` raise `R002` when inputs fail alignment/bounds/UTF-8 checks, preventing undefined reads.
+- `clg run --json-errors` surfaces these traps as `stage: "runtime"` diagnostics with stable codes to stay AI-friendly.

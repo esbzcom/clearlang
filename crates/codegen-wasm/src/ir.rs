@@ -2,14 +2,20 @@ use anyhow::Result;
 use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 use std::collections::HashMap;
 use wasm_encoder::{
-    CodeSection, ConstExpr, DataSection, ExportKind, ExportSection, Function, FunctionSection,
-    GlobalSection, GlobalType, MemorySection, MemoryType, Module, NameMap, NameSection,
-    TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, DataSection, ExportKind, ExportSection, Function,
+    FunctionSection, GlobalSection, GlobalType, MemorySection, MemoryType, Module, NameMap,
+    NameSection, TypeSection, ValType,
 };
 
 use crate::intrinsics::strings::{
     encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len,
 };
+
+pub(crate) const HEAP_PTR_GLOBAL: u32 = 0;
+pub(crate) const ERROR_CODE_GLOBAL: u32 = 1;
+pub(crate) const ERROR_START_GLOBAL: u32 = 2;
+pub(crate) const ERROR_END_GLOBAL: u32 = 3;
+pub(crate) const ERROR_DETAIL_GLOBAL: u32 = 4;
 
 #[derive(Default)]
 pub struct CodegenOpts {
@@ -75,10 +81,13 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     }
     module.section(&functions);
 
-    // Memory section (prepare for string runtime); 1 page minimum
+    // Memory section (prepare for string runtime)
+    // Ensure the initial memory is large enough to hold all string data segments.
+    let heap_start = (cur_off + 3) & !3; // first free address after literals, 4-byte aligned
+    let min_pages = ((heap_start + 65535) / 65536).max(1) as u64;
     let mut memories = MemorySection::new();
     memories.memory(MemoryType {
-        minimum: 1,
+        minimum: min_pages,
         maximum: None,
         memory64: false,
         shared: false,
@@ -87,7 +96,6 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     module.section(&memories);
 
     // Global bump allocator pointer initialized after string data
-    let heap_start = (cur_off + 3) & !3;
     let mut globals = GlobalSection::new();
     // global 0: (mut i32) heap_ptr
     globals.global(
@@ -98,14 +106,71 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         },
         &ConstExpr::i32_const(heap_start as i32),
     );
+    // global 1: last runtime error code (0 = none)
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    // global 2: last runtime error span start
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    // global 3: last runtime error span end
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    // global 4: last runtime error detail (e.g., guard kind)
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
     module.section(&globals);
 
-    // Export main if present
+    // Export main + runtime bookkeeping globals
+    let mut exports = ExportSection::new();
     if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
-        let mut exports = ExportSection::new();
         exports.export("main", ExportKind::Func, i as u32);
-        module.section(&exports);
     }
+    exports.export("__clg_heap_ptr", ExportKind::Global, HEAP_PTR_GLOBAL);
+    exports.export(
+        "__clg_runtime_error_code",
+        ExportKind::Global,
+        ERROR_CODE_GLOBAL,
+    );
+    exports.export(
+        "__clg_runtime_error_start",
+        ExportKind::Global,
+        ERROR_START_GLOBAL,
+    );
+    exports.export(
+        "__clg_runtime_error_end",
+        ExportKind::Global,
+        ERROR_END_GLOBAL,
+    );
+    exports.export(
+        "__clg_runtime_error_detail",
+        ExportKind::Global,
+        ERROR_DETAIL_GLOBAL,
+    );
+    module.section(&exports);
 
     // Code section: encode each function body
     let mut codes = CodeSection::new();
@@ -167,6 +232,9 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
+            IrInstr::Guard { cond, .. } => {
+                max_id = max_id.max(cond.0);
+            }
             IrInstr::ISelect {
                 dst,
                 cond,
@@ -216,8 +284,37 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                     BinOpIR::Sub => insts.i32_sub(),
                     BinOpIR::Mul => insts.i32_mul(),
                     BinOpIR::Div => insts.i32_div_s(),
+                    BinOpIR::Lt => insts.i32_lt_s(),
+                    BinOpIR::Le => insts.i32_le_s(),
+                    BinOpIR::Gt => insts.i32_gt_s(),
+                    BinOpIR::Ge => insts.i32_ge_s(),
+                    BinOpIR::Eq => insts.i32_eq(),
+                    BinOpIR::Neq => insts.i32_ne(),
+                    BinOpIR::And => insts.i32_and(),
+                    BinOpIR::Or => insts.i32_or(),
                 };
                 insts.local_set(dst.0);
+            }
+            IrInstr::Guard {
+                cond,
+                trap,
+                span,
+                detail,
+            } => {
+                insts.local_get(cond.0);
+                insts.i32_eqz();
+                insts.if_(BlockType::Empty);
+                insts.i32_const(trap.as_i32());
+                insts.global_set(ERROR_CODE_GLOBAL);
+                let (start, end) = span.unwrap_or((0, 0));
+                insts.i32_const(start as i32);
+                insts.global_set(ERROR_START_GLOBAL);
+                insts.i32_const(end as i32);
+                insts.global_set(ERROR_END_GLOBAL);
+                insts.i32_const(detail.as_i32());
+                insts.global_set(ERROR_DETAIL_GLOBAL);
+                insts.unreachable();
+                insts.end();
             }
             IrInstr::ISelect {
                 dst,

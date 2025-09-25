@@ -200,9 +200,10 @@ Docs & Proofs
 - [x] Update typing/codegen to support those operators or emit clear diagnostics until codegen handles them.
 
 6.3 Runtime Enforcement
-- [ ] Lower `require`/`ensure` clauses into runtime guard blocks that emit trap code `R000` on failure while preserving span info for diagnostics.
-- [ ] Extend the string allocator to raise `R001` (OOM) and reject non-UTF-8 writes with `R002`; surface both in `docs/runtime/strings.md` and CLI help.
-- [ ] Integration tests: one contract-violation sample and one forced allocator failure asserting trap codes and JSON diagnostics stay AI-friendly.
+- [x] Lower `require`/`ensure` clauses into runtime guard blocks that emit trap code `R000` on failure while preserving span info for diagnostics.
+- [x] Extend the string allocator to raise `R001` (OOM) and reject non-UTF-8 writes with `R002`; surface both in `docs/runtime/strings.md` and CLI help.
+- [x] Integration tests: one contract-violation sample and one forced allocator failure asserting trap codes and JSON diagnostics stay AI-friendly.
+- [ ] Follow-up: centralize guard/trap helper scaffolding in codegen intrinsics to keep proofs/docstrings in sync as we add more runtime checks.
 
 6.4 Mutable Collections (effects)
 - [ ] Finalize `mut` effect typing rules: introduce `Effect::Mut`, require it for every `*_mut` builtin, and emit deterministic error `T401` when a pure function calls them.

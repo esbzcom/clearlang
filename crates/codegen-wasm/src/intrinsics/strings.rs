@@ -1,45 +1,81 @@
-use anyhow::Result;
-use clg_ir::Function as IrFunction;
+﻿use anyhow::Result;
+use clg_ir::{Function as IrFunction, TrapCode};
 use wasm_encoder::{BlockType, Function, MemArg, ValType};
 
-pub fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
-    let locals: Vec<(u32, ValType)> = Vec::new();
-    let mut fenc = Function::new(locals);
-    let mut insts = fenc.instructions();
-    insts.local_get(0);
-    insts.i32_load(MemArg {
-        align: 2,
-        offset: 0,
-        memory_index: 0,
-    });
-    insts.end();
-    Ok(fenc)
+use crate::ir::{
+    ERROR_CODE_GLOBAL,
+    ERROR_DETAIL_GLOBAL,
+    ERROR_END_GLOBAL,
+    ERROR_START_GLOBAL,
+    HEAP_PTR_GLOBAL,
+};
+
+macro_rules! emit_runtime_trap {
+    ($insts:expr, $code:expr, $start:expr, $end:expr, $detail:expr) => {{
+        let insts = &mut *$insts;
+        let code = $code;
+        let start_opt = $start;
+        let end_opt = $end;
+        let detail_val = $detail;
+        insts.i32_const(code.as_i32());
+        insts.global_set(ERROR_CODE_GLOBAL);
+        match start_opt {
+            Some(idx) => {
+                insts.local_get(idx);
+            }
+            None => {
+                insts.i32_const(0);
+            }
+        }
+        insts.global_set(ERROR_START_GLOBAL);
+        match end_opt {
+            Some(idx) => {
+                insts.local_get(idx);
+            }
+            None => {
+                insts.i32_const(0);
+            }
+        }
+        insts.global_set(ERROR_END_GLOBAL);
+        insts.i32_const(detail_val);
+        insts.global_set(ERROR_DETAIL_GLOBAL);
+        insts.unreachable();
+    }};
 }
 
-pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
-    // Locals: len(2), pa(3), pb(4), res(5)
-    let locals: Vec<(u32, ValType)> = vec![(4, ValType::I32)];
+
+
+pub fn encode_intrinsic_str_len(_f: &IrFunction) -> Result<Function> {
+    // Locals: limit(1), len(2), end(3)
+    let locals: Vec<(u32, ValType)> = vec![(3, ValType::I32)];
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
 
-    // if (len_a != len_b) return 0
+    // memory limit in bytes
+    insts.memory_size(0);
+    insts.i32_const(65536);
+    insts.i32_mul();
+    insts.local_set(1);
+
+    // pointer alignment check
     insts.local_get(0);
-    insts.i32_load(MemArg {
-        align: 2,
-        offset: 0,
-        memory_index: 0,
-    });
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), Some(0), 0);
+    insts.end();
+
+    // header within bounds (ptr + 4 <= limit)
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
     insts.local_get(1);
-    insts.i32_load(MemArg {
-        align: 2,
-        offset: 0,
-        memory_index: 0,
-    });
-    insts.i32_ne();
-    insts.if_(BlockType::Result(ValType::I32));
-    insts.i32_const(0);
-    insts.else_();
-    // len = len_a; pa = a+4; pb = b+4; res = 1
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), None, 0);
+    insts.end();
+
+    // read length
     insts.local_get(0);
     insts.i32_load(MemArg {
         align: 2,
@@ -47,14 +83,137 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
         memory_index: 0,
     });
     insts.local_set(2);
+
+    // compute end pointer ptr+4+len
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(2);
+    insts.i32_add();
+    insts.local_set(3);
+
+    // ensure data fits in memory
+    insts.local_get(3);
+    insts.local_get(1);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), Some(3), 0);
+    insts.end();
+
+    insts.local_get(2);
+    insts.end();
+    Ok(fenc)
+}
+
+pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
+    // Locals: len(2), pa(3), pb(4), res(5), limit(6), len_b(7), end(8)
+    let locals: Vec<(u32, ValType)> = vec![(7, ValType::I32)];
+    let mut fenc = Function::new(locals);
+    let mut insts = fenc.instructions();
+
+    // memory limit in bytes
+    insts.memory_size(0);
+    insts.i32_const(65536);
+    insts.i32_mul();
+    insts.local_set(6);
+
+    // Validate pointer a
+    insts.local_get(0);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), Some(0), 0);
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), None, 0);
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(2);
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(2);
+    insts.i32_add();
+    insts.local_set(8);
+
+    insts.local_get(8);
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), Some(8), 0);
+    insts.end();
+
     insts.local_get(0);
     insts.i32_const(4);
     insts.i32_add();
     insts.local_set(3);
+
+    // Validate pointer b
+    insts.local_get(1);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(1), Some(1), 0);
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(1), None, 0);
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(7);
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(7);
+    insts.i32_add();
+    insts.local_set(8);
+
+    insts.local_get(8);
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(1), Some(8), 0);
+    insts.end();
+
     insts.local_get(1);
     insts.i32_const(4);
     insts.i32_add();
     insts.local_set(4);
+
+    // Compare lengths
+    insts.local_get(2);
+    insts.local_get(7);
+    insts.i32_ne();
+    insts.if_(BlockType::Result(ValType::I32));
+    insts.i32_const(0);
+    insts.else_();
+
+    // res = 1
     insts.i32_const(1);
     insts.local_set(5);
 
@@ -83,7 +242,7 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
     insts.if_(BlockType::Empty);
     insts.i32_const(0);
     insts.local_set(5);
-    insts.br(2); // <-- fix: exit loop *and* the surrounding block
+    insts.br(2);
     insts.end();
 
     // pa++; pb++; len--;
@@ -100,23 +259,46 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
     insts.i32_sub();
     insts.local_set(2);
 
-    insts.br(0); // continue loop
-    insts.end(); // loop
-    insts.end(); // block
+    insts.br(0);
+    insts.end();
+    insts.end();
 
     insts.local_get(5);
-    insts.end(); // if (with result)
-    insts.end(); // end function body
+    insts.end();
+    insts.end();
     Ok(fenc)
 }
 
 pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
     // Params: a: i32, b: i32; Return: i32 (ptr)
-    // Locals: len_a(2), len_b(3), total(4), dest(5), pa(6), pb(7)
-    let locals: Vec<(u32, ValType)> = vec![(6, ValType::I32)];
+    // Locals: len_a(2), len_b(3), total(4), dest(5), pa(6), pb(7), end(8), limit(9)
+    let locals: Vec<(u32, ValType)> = vec![(8, ValType::I32)];
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
-    // len_a = load32(a); len_b = load32(b)
+
+    // limit = memory.size * 65536
+    insts.memory_size(0);
+    insts.i32_const(65536);
+    insts.i32_mul();
+    insts.local_set(9);
+
+    // Validate first operand string
+    insts.local_get(0);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), Some(0), 0);
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(9);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), None, 0);
+    insts.end();
+
     insts.local_get(0);
     insts.i32_load(MemArg {
         align: 2,
@@ -124,6 +306,43 @@ pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
         memory_index: 0,
     });
     insts.local_set(2);
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(2);
+    insts.i32_add();
+    insts.local_set(8);
+
+    insts.local_get(8);
+    insts.local_get(9);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(0), Some(8), 0);
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(6);
+
+    // Validate second operand string
+    insts.local_get(1);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(1), Some(1), 0);
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(9);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(1), None, 0);
+    insts.end();
+
     insts.local_get(1);
     insts.i32_load(MemArg {
         align: 2,
@@ -131,15 +350,53 @@ pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
         memory_index: 0,
     });
     insts.local_set(3);
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(3);
+    insts.i32_add();
+    insts.local_set(8);
+
+    insts.local_get(8);
+    insts.local_get(9);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::InvalidUtf8, Some(1), Some(8), 0);
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(7);
+
     // total = len_a + len_b
     insts.local_get(2);
     insts.local_get(3);
     insts.i32_add();
     insts.local_set(4);
-    // dest = heap_ptr (global 0)
-    insts.global_get(0);
+
+    // dest = heap_ptr
+    insts.global_get(HEAP_PTR_GLOBAL);
     insts.local_set(5);
-    // store header: *(dest) = total
+
+    // end pointer after write: dest + 4 + total
+    insts.local_get(5);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(4);
+    insts.i32_add();
+    insts.local_set(8);
+
+    // ensure allocation stays in bounds before writing
+    insts.local_get(8);
+    insts.local_get(9);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap!(&mut insts, TrapCode::AllocatorOom, Some(5), Some(8), 0);
+    insts.end();
+
+    // store header
     insts.local_get(5);
     insts.local_get(4);
     insts.i32_store(MemArg {
@@ -147,23 +404,16 @@ pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
         offset: 0,
         memory_index: 0,
     });
-    // pa = a + 4; pb = b + 4
-    insts.local_get(0);
-    insts.i32_const(4);
-    insts.i32_add();
-    insts.local_set(6);
-    insts.local_get(1);
-    insts.i32_const(4);
-    insts.i32_add();
-    insts.local_set(7);
-    // copy first: memory.copy(dest+4, pa, len_a)
+
+    // copy first string
     insts.local_get(5);
     insts.i32_const(4);
-    insts.i32_add(); // dest
-    insts.local_get(6); // src
-    insts.local_get(2); // len
+    insts.i32_add();
+    insts.local_get(6);
+    insts.local_get(2);
     insts.memory_copy(0, 0);
-    // copy second: memory.copy(dest+4+len_a, pb, len_b)
+
+    // copy second string
     insts.local_get(5);
     insts.i32_const(4);
     insts.i32_add();
@@ -172,19 +422,20 @@ pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
     insts.local_get(7);
     insts.local_get(3);
     insts.memory_copy(0, 0);
-    // heap_ptr = align4(dest + 4 + total)
-    insts.local_get(5);
-    insts.i32_const(4);
-    insts.i32_add();
-    insts.local_get(4);
-    insts.i32_add();
+
+    // heap_ptr = align4(end)
+    insts.local_get(8);
     insts.i32_const(3);
     insts.i32_add();
     insts.i32_const(-4);
     insts.i32_and();
-    insts.global_set(0);
+    insts.global_set(HEAP_PTR_GLOBAL);
+
     // return dest
     insts.local_get(5);
     insts.end();
     Ok(fenc)
 }
+
+
+

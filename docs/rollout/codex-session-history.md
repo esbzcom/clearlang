@@ -1,5 +1,12 @@
 # Codex Session Summary
 
+## Session 2025-09-18 - Runtime diagnostics docs + DEVPLAN
+
+- Marked Phase 6.3 runtime enforcement tasks complete in `docs/TODO.md` and logged a follow-up to dedupe guard helpers.
+- Documented runtime trap codes `R000`-`R002` in `docs/diagnostics.md` and expanded `docs/runtime/strings.md` with exported global semantics.
+- Added a Phase DEVPLAN block (2025-09-18) capturing next actions: centralize trap metadata helpers, cover `R002` in tests, and kick off 6.4 effect typing.
+- Verified CLI `run --json-errors` helpers ensure spans/detail propagate to runtime diagnostics for AI-friendly repair loops.
+
 ## Session 2025-09-17 — DEVPLAN sync + proofs scaffolding
 
 - Reviewed recent commits; verified Phase 5 CLI refactor landed and strings runtime docs exist.

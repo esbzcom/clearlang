@@ -347,8 +347,18 @@ Focus - Contracts Runtime & Effects
 - Add a regression test covering an `R002` invalid UTF-8 failure to complement the existing `R000`/`R001` cases.
 
 # Phase DEVPLAN - Next Steps (2025-09-19)
+Status (2025-09-20)
+- std::list/set/map::*_mut now require mut effect plus a matching std::<collection>::can_mut guard (T401/T402/T403).
+- VC generator emits mut_pre:* obligations so proof packaging can reference guard predicates deterministically.
+- Guard predicates are documented as pure contracts; runtime lowering keeps them stubbed until the mutable runtime is implemented.
+
+Next Steps
+- Draft the doc updates for docs/typing.md/docs/collections.md (effect lattice table, guard examples, SMT snippets).
+- Plan the runtime story for *_mut (either traps or in-place updates) before enabling build outputs that rely on mutable collections.
+- Wire guard predicates into future proof packaging so mut_pre VCs link to the guard clause by stable ID.
 
 Focus - Phase 6.4 Mutable Effects and Proof Packaging Prep
+- Status (2025-09-19): effect lattice hardened in typer; T401 regression tests cover mut builtins.
 - Harden the effect lattice by defining Effect::{Pure,Mut,Io} in the typer, threading it through lowering, and refusing silent downgrades across calls and branches.
 - Implement builtin signatures for std::list/set/map::*_mut with precise pre/post conditions so diagnostics stay deterministic (T401) and AI-friendly.
 - Extend contract VC generation to require matching require guards before *_mut calls; emit stable vc_id suffixes like mut_pre to unblock proof packaging.

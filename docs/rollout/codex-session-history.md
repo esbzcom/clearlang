@@ -1,5 +1,11 @@
 # Codex Session Summary
 
+## Session 2025-09-20 – Mut Guards & VC Hooks
+
+- Implemented guard predicates std::<collection>::can_mut and enforced matching equire { ... } clauses for _mut calls (T402/T403).
+- Extended effect checking so pure callers still trip T401 while mut functions can call _mut safely.
+- Added mut_pre:* VC generation and regression coverage to snapshot the new obligations.
+- Documented the guard workflow in TODO/DEVPLAN and stubbed lowering to keep runtime expectations explicit until mutable collections land.
 ## Session 2025-09-19 - DEVPLAN 6.4 focus & effect proofs
 
 - Reviewed TODO and recent commits to confirm Phase 6.1-6.3 landed and guard helpers are centralized.

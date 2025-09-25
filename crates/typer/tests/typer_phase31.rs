@@ -76,12 +76,11 @@ fn accepts_none_and_pure_effects() {
 
 // Phase 3.2 — purpose: reject unsupported effects Mut/Io
 #[test]
-fn rejects_mut_and_io_effects() {
+fn rejects_io_effect_only() {
     let src_mut = r#"
         mut function f(x: Int) -> Int { x }
     "#;
-    let err = check(&parse(src_mut).expect("parsed")).expect_err("mut not allowed");
-    assert!(format!("{err:#}").contains("effect `mut`"));
+    check(&parse(src_mut).expect("parsed")).expect("mut effect now allowed");
 
     let src_io = r#"
         io function g(x: Int) -> Int { x }

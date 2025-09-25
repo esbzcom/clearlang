@@ -1,5 +1,5 @@
 use clg_parser::parse;
-use clg_typer::check_with_vcs;
+use clg_typer::{check_with_vcs, generate_vcs, type_check_only};
 
 #[test]
 fn generates_vc_for_contracts() {
@@ -47,4 +47,24 @@ fn generates_multiple_vcs_for_multiple_ensures() {
     assert!(second.post.ast.contains("!="));
     assert!(first.vc_smt2.contains("=>"));
     assert!(second.vc_smt2.contains("=>"));
+}
+#[test]
+fn generates_mut_pre_vc_for_mut_calls() {
+    let src = r#"
+        mut function push(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::push_mut(l, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.function, "push");
+    assert!(vc.vc_id.starts_with("mut_pre:std::list::push_mut:"));
+    assert!(vc.pre.ast.contains("std::list::can_mut"));
+    assert!(vc.post.ast.contains("std::list::can_mut"));
+    assert!(vc.vc_smt2.contains("std::list::can_mut"));
 }

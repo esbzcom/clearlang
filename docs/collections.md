@@ -56,6 +56,13 @@ Map
   - Rule: Γ ⊢ m : Map<K,V>, Γ ⊢ k : K ⇒ Γ ⊢ remove(m,k) : Map<K,V>
 - `std::map::new()`: not yet supported — requires type inference; see T206.
 
+
+Mutable Variants & Guards (Phase 6.4)
+- Each mutating API now has a _mut variant (e.g., std::list::push_mut, std::set::remove_mut, std::map::insert_mut) that shares the same typing rule as its pure counterpart but requires the surrounding function to use the mut effect.
+- Callers must declare a guard equire { std::<collection>::can_mut(var) } for the first argument. These guard predicates are pure (Bool) and document aliasing expectations.
+- Missing guards raise T402; guards whose first argument is not a variable raise T403. Pure callers still hit T401 before guard checks.
+- VC generation emits mut_pre obligations for each _mut call so proofs can reference the guard expression directly.
+- Runtime lowering currently treats guard predicates as uninterpreted (they evaluate to 	rue until the mutable runtime exists), keeping focus on the static proof story.
 Diagnostics (Stable Codes)
 - `T206` cannot infer element type for `std::{list,set,map}::new()`
   - Example: `std::list::new()` → T206 with span on call.

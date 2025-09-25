@@ -1,4 +1,4 @@
-﻿# ClearLang TODO
+# ClearLang TODO
 
 A focused, actionable checklist to move from Phase 2 → Phase 3 and beyond.
 
@@ -206,11 +206,11 @@ Docs & Proofs
 - [x] Follow-up: centralize guard/trap helper scaffolding in codegen intrinsics to keep proofs/docstrings in sync as we add more runtime checks.
 
 6.4 Mutable Collections (effects)
-- [ ] Harden the effect lattice by defining Effect::{Pure,Mut,Io} and preventing downgrades in typer and lowering.
-- [ ] Stub std::list/set/map::*_mut builtins with explicit pre/post contracts and emit deterministic T401 when callers lack mut allowance.
-- [ ] Require paired require guards before *_mut calls; extend VC generation with stable mut_pre obligations and snapshot tests.
-- [ ] Add regression tests covering accepted mut functions, rejected pure callers, and JSON diagnostics to keep outputs AI-friendly.
-- [ ] Update docs/typing.md and docs/collections.md with the effect table, soundness sketch, and SMT-friendly examples.
+- [x] Harden the effect lattice by defining Effect::{Pure,Mut,Io} and preventing downgrades in typer and lowering.
+- [x] Stub std::list/set/map::*_mut builtins with explicit pre/post contracts and emit deterministic T401 when callers lack mut allowance.
+- [x] Require paired require guards before *_mut calls; extend VC generation with stable mut_pre obligations and snapshot tests.
+- [x] Add regression tests covering accepted mut functions, rejected pure callers, and JSON diagnostics to keep outputs AI-friendly.
+- [x] Update docs/typing.md and docs/collections.md with the effect table, soundness sketch, and SMT-friendly examples.
 
 6.5 Proof Packaging & Signatures
 - [ ] Define `clearlang.proof` custom section v1 layout (versioning, VC linkage, optional proofs) and document it in `docs/proofs/proof-section.md`.

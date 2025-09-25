@@ -1,0 +1,67 @@
+use clg_parser::parse;
+use clg_typer::type_check_only;
+
+#[test]
+fn pure_function_cannot_call_mut_builtin() {
+    let src = r#"
+        pure function bad(l: List<Int>) -> List<Int> {
+            std::list::push_mut(l, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("pure call to mut intrinsic must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `mut` effect"),
+        "expected mut effect error, got {msg}"
+    );
+}
+
+#[test]
+fn mut_function_requires_guard_for_mut_builtin() {
+    let src = r#"
+        mut function ok(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::push_mut(l, 1)
+        }
+    "#;
+    type_check_only(&parse(src).expect("parse ok")).expect("mut call should succeed");
+}
+
+#[test]
+fn mut_function_without_guard_fails() {
+    let src = r#"
+        mut function bad(l: List<Int>) -> List<Int> {
+            std::list::push_mut(l, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("missing guard must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `std::list::can_mut"),
+        "expected guard error, got {msg}"
+    );
+}
+
+#[test]
+fn pure_function_cannot_call_mut_user_function() {
+    let src = r#"
+        mut function helper(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::push_mut(l, 1)
+        }
+        pure function caller(l: List<Int>) -> List<Int> {
+            helper(l)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("pure caller must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `mut` effect"),
+        "expected mut effect error, got {msg}"
+    );
+}

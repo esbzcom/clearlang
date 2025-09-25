@@ -1,3 +1,4 @@
+use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
 use clg_ast::{BinOp, Effect, Expr, Program, Span, UnaryOp};
 
 #[derive(Debug, Clone)]
@@ -20,12 +21,6 @@ pub struct VerificationCondition {
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let mut out = Vec::new();
     for func in &program.funcs {
-        if !matches!(func.effect, Effect::None | Effect::Pure) {
-            continue;
-        }
-        if func.ensures.is_empty() {
-            continue;
-        }
         let req_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
         let pre_expr = if req_exprs.is_empty() {
             Expr::Bool(true, Span { start: 0, end: 0 })
@@ -41,27 +36,65 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
         };
         let pre_ast = expr_to_source(&pre_expr, 0);
         let pre_smt = expr_to_smt2(&pre_expr);
-        for (idx, ensure) in func.ensures.iter().enumerate() {
-            let post_ast = expr_to_source(&ensure.expr, 0);
-            let post_smt = expr_to_smt2(&ensure.expr);
-            let substituted = substitute_result(&ensure.expr, &func.body);
-            let vc_smt2 = format!("(=> {} {})", pre_smt, expr_to_smt2(&substituted));
-            out.push(VerificationCondition {
-                function: func.name.clone(),
-                vc_id: format!("vc:{}", idx),
-                pre: ContractExpr {
-                    ast: pre_ast.clone(),
-                    smt2: pre_smt.clone(),
-                    span: pre_span,
-                },
-                post: ContractExpr {
-                    ast: post_ast,
-                    smt2: post_smt,
-                    span: Some(ensure.span),
-                },
-                vc_smt2,
-                status: "generated",
-            });
+
+        if matches!(func.effect, Effect::None | Effect::Pure) && !func.ensures.is_empty() {
+            for (idx, ensure) in func.ensures.iter().enumerate() {
+                let post_ast = expr_to_source(&ensure.expr, 0);
+                let post_smt = expr_to_smt2(&ensure.expr);
+                let substituted = substitute_result(&ensure.expr, &func.body);
+                let vc_smt2 = format!("(=> {} {})", pre_smt, expr_to_smt2(&substituted));
+                out.push(VerificationCondition {
+                    function: func.name.clone(),
+                    vc_id: format!("vc:{}", idx),
+                    pre: ContractExpr {
+                        ast: pre_ast.clone(),
+                        smt2: pre_smt.clone(),
+                        span: pre_span,
+                    },
+                    post: ContractExpr {
+                        ast: post_ast,
+                        smt2: post_smt,
+                        span: Some(ensure.span),
+                    },
+                    vc_smt2,
+                    status: "generated",
+                });
+            }
+        }
+
+        let mut mut_calls: Vec<MutCall> = Vec::new();
+        collect_mut_calls(&func.body, &mut mut_calls);
+        if !mut_calls.is_empty() {
+            for (idx, call) in mut_calls.into_iter().enumerate() {
+                let Some(arg_name) = call.target else {
+                    continue;
+                };
+                let guard_span = call.span;
+                let guard_expr = Expr::Call {
+                    callee: guard_callee_for_kind(call.kind).to_string(),
+                    args: vec![Expr::Var(arg_name.clone(), guard_span)],
+                    span: guard_span,
+                };
+                let post_ast = expr_to_source(&guard_expr, 0);
+                let post_smt = expr_to_smt2(&guard_expr);
+                let vc_smt2 = format!("(=> {} {})", pre_smt, post_smt);
+                out.push(VerificationCondition {
+                    function: func.name.clone(),
+                    vc_id: format!("mut_pre:{}:{}", call.callee, idx),
+                    pre: ContractExpr {
+                        ast: pre_ast.clone(),
+                        smt2: pre_smt.clone(),
+                        span: pre_span,
+                    },
+                    post: ContractExpr {
+                        ast: post_ast,
+                        smt2: post_smt,
+                        span: Some(guard_span),
+                    },
+                    vc_smt2,
+                    status: "generated",
+                });
+            }
         }
     }
     out

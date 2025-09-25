@@ -26,9 +26,12 @@ Strings (String)
   - `pure function echo(s: String) -> String { s }`
 - Not yet: `std::str` built-ins (`len/concat/eq`) are planned as type stubs next; runtime/codegen for strings arrives in Phase 5.
 
-Effects (stub)
-- Accepted: `None` (omitted effect) and `pure`.
-- Rejected: `mut`, `io` (these error with a clear message in this phase).
+Effects
+- Lattice: `pure` < `mut` < `io`; the default (omitting the keyword) is `pure`.
+- `mut` functions may call other `mut` code and the mutable collection intrinsics; a `pure` caller triggers `T401`.
+- `io` remains reserved; using it still raises `T009` until the runtime surface is ready.
+- Mutable collection intrinsics (`std::list/set/map::*_mut`) require a guard `require { std::<collection>::can_mut(var) }` in the same function. Missing guards raise `T402`; non-variable first arguments raise `T403`.
+- Guard predicates are pure Bool-valued builtins that document aliasing requirements. They surface in VC generation as `mut_pre` obligations so proofs can reference the same guard expression.
 
 Return (expression form)
 - Syntax: `return expr` inside an expression-bodied function.
@@ -62,6 +65,7 @@ Errors (examples)
 - Return mismatch: `return type mismatch: declared 'Ty', found 'Ty'`.
 - Operand types: `left/right operand must be Int, found 'Ty'`.
 - Effects: `effect 'mut'/'io' not supported yet; use 'pure' or omit`.
+- Mutable effects: `T401` (missing `mut` effect), `T402` (missing `std::<collection>::can_mut` guard), `T403` (guard argument must be a variable).
 
 Lowering Note (Phase 3.4)
 - After successful typing, AST is lowered to IR using SSA-like `Value` ids: parameters are `Value(0..P-1)`, temporaries allocate increasing ids.

@@ -1,6 +1,6 @@
-use clg_ast::{Param, Type};
+use clg_ast::{Effect, Param, Type};
 
-pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type)> {
+pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
     vec![
         (
             "std::str::len".to_string(),
@@ -9,6 +9,7 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type)> {
                 ty: Type::String,
             }],
             Type::Int,
+            Effect::Pure,
         ),
         (
             "std::str::concat".to_string(),
@@ -23,6 +24,7 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type)> {
                 },
             ],
             Type::String,
+            Effect::Pure,
         ),
         (
             "std::str::eq".to_string(),
@@ -37,6 +39,7 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type)> {
                 },
             ],
             Type::Bool,
+            Effect::Pure,
         ),
     ]
 }

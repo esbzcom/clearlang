@@ -1,9 +1,11 @@
+use crate::check::FnSig as CheckFnSig;
+use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Func, Type};
 use clg_ir::{BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value};
 use std::collections::HashMap;
 
-type FnSig<'a> = (&'a [clg_ast::Param], Type);
+type FnSig<'a> = CheckFnSig<'a>;
 
 fn ir_ty(t: Type) -> IrType {
     match t {
@@ -163,9 +165,18 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             Ok(dst)
         }
         Expr::Call { callee, args, .. } => {
+            if guard_kind_for_callee(callee.as_str()).is_some() {
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::IConst {
+                    dst,
+                    ty: IrType::Bool,
+                    n: 1,
+                });
+                return Ok(dst);
+            }
             let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
             let argv = argv?;
-            let (_params, _ret_ty) = ctx
+            let _sig = ctx
                 .fns
                 .get(callee.as_str())
                 .cloned()

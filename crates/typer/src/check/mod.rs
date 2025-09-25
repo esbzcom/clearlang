@@ -2,18 +2,59 @@ mod expr;
 mod intrinsics;
 
 pub(crate) use self::expr::show_ty;
-use self::expr::{expr_span, type_of};
+use self::expr::{expr_span, max_effect, type_of};
 use self::intrinsics::collect_used_intrinsics;
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
+use crate::guards::{
+    collect_mut_calls, collect_mut_guards, guard_callee_for_kind, MutCall, MutGuardKey,
+};
 use crate::lower::lower_func;
 use crate::vc::{generate_vcs, VerificationCondition};
 use anyhow::{Context, Result};
-use clg_ast::{Effect, Func, Param, Program, Type};
+use clg_ast::{Effect, Expr, Func, Param, Program, Type};
 use clg_ir::Module;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-type FnSig<'a> = (&'a [Param], Type);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum EffectLevel {
+    Pure,
+    Mut,
+    Io,
+}
+
+impl EffectLevel {
+    fn join(self, other: EffectLevel) -> EffectLevel {
+        if self >= other {
+            self
+        } else {
+            other
+        }
+    }
+}
+
+pub(super) fn effect_label(level: EffectLevel) -> &'static str {
+    match level {
+        EffectLevel::Pure => "pure",
+        EffectLevel::Mut => "mut",
+        EffectLevel::Io => "io",
+    }
+}
+
+fn level_from_effect(effect: Effect) -> EffectLevel {
+    match effect {
+        Effect::None | Effect::Pure => EffectLevel::Pure,
+        Effect::Mut => EffectLevel::Mut,
+        Effect::Io => EffectLevel::Io,
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct FnSig<'a> {
+    pub params: &'a [Param],
+    pub ret: Type,
+    pub effect: EffectLevel,
+}
 
 pub struct TypecheckOutput {
     pub ir: Module,
@@ -24,13 +65,27 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();
-    for (name, params, ret) in &builtins {
-        fns.insert(name.as_str(), (&params[..], ret.clone()));
+    for (name, params, ret, eff) in &builtins {
+        fns.insert(
+            name.as_str(),
+            FnSig {
+                params: &params[..],
+                ret: ret.clone(),
+                effect: level_from_effect(*eff),
+            },
+        );
     }
 
     for f in &ast.funcs {
         if fns
-            .insert(f.name.as_str(), (&f.params, f.ret.clone()))
+            .insert(
+                f.name.as_str(),
+                FnSig {
+                    params: &f.params,
+                    ret: f.ret.clone(),
+                    effect: level_from_effect(f.effect),
+                },
+            )
             .is_some()
         {
             return Err(TyperError::duplicate_function(&f.name).into());
@@ -96,13 +151,27 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();
-    for (name, params, ret) in &builtins {
-        fns.insert(name.as_str(), (&params[..], ret.clone()));
+    for (name, params, ret, eff) in &builtins {
+        fns.insert(
+            name.as_str(),
+            FnSig {
+                params: &params[..],
+                ret: ret.clone(),
+                effect: level_from_effect(*eff),
+            },
+        );
     }
 
     for f in &ast.funcs {
         if fns
-            .insert(f.name.as_str(), (&f.params, f.ret.clone()))
+            .insert(
+                f.name.as_str(),
+                FnSig {
+                    params: &f.params,
+                    ret: f.ret.clone(),
+                    effect: level_from_effect(f.effect),
+                },
+            )
             .is_some()
         {
             return Err(TyperError::duplicate_function(&f.name).into());
@@ -123,17 +192,20 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
         }
     }
 
-    match f.effect {
-        Effect::None | Effect::Pure => {}
-        Effect::Mut | Effect::Io => return Err(TyperError::effect_not_supported(f.effect).into()),
+    if let Effect::Io = f.effect {
+        return Err(TyperError::effect_not_supported(f.effect).into());
     }
+    let allowed_effect = level_from_effect(f.effect);
 
     for req in &f.requires {
         let ty = type_of(&req.expr, &env, fns, 0)?;
         if ty != Type::Bool {
             return Err(TyperError::contract_not_bool("require", ty, req.span).into());
         }
+        max_effect(&req.expr, fns, EffectLevel::Pure)?;
     }
+
+    let guard_keys = collect_mut_guards(&f.requires);
 
     let mut ensure_env = env.clone();
     if !ensure_env.contains_key("result") {
@@ -144,12 +216,49 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
         if ty != Type::Bool {
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
         }
+        max_effect(&ens.expr, fns, EffectLevel::Pure)?;
     }
 
     let body_ty = type_of(&f.body, &env, fns, 0)?;
     if body_ty != f.ret {
         let sp = expr_span(&f.body);
         return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
+    }
+    if allowed_effect >= EffectLevel::Mut {
+        enforce_mut_guards(&f.body, &guard_keys)?;
+    }
+    max_effect(&f.body, fns, allowed_effect)?;
+    Ok(())
+}
+fn enforce_mut_guards(expr: &Expr, guards: &HashSet<MutGuardKey>) -> Result<()> {
+    let mut calls: Vec<MutCall> = Vec::new();
+    collect_mut_calls(expr, &mut calls);
+    for call in calls {
+        let guard_name = guard_callee_for_kind(call.kind);
+        let arg_name = match call.target {
+            Some(name) => name,
+            None => {
+                return Err(TyperError::mut_guard_requires_variable(
+                    call.callee.as_str(),
+                    guard_name,
+                    call.span,
+                )
+                .into());
+            }
+        };
+        let key = MutGuardKey {
+            kind: call.kind,
+            target: arg_name.clone(),
+        };
+        if !guards.contains(&key) {
+            return Err(TyperError::mut_guard_missing(
+                call.callee.as_str(),
+                guard_name,
+                &arg_name,
+                call.span,
+            )
+            .into());
+        }
     }
     Ok(())
 }

@@ -1,4 +1,4 @@
-use super::FnSig;
+use super::{effect_label, EffectLevel, FnSig};
 use crate::errors::TyperError;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Span, Type, UnaryOp};
@@ -255,7 +255,7 @@ pub(super) fn type_of<'a>(
                 let t0 = type_of(&args[0], env, fns, depth + 1)?;
                 return Ok(Type::Option(Box::new(t0)));
             }
-            let (params, ret) = fns
+            let FnSig { params, ret, .. } = fns
                 .get(callee.as_str())
                 .cloned()
                 .ok_or_else(|| TyperError::unknown_function(callee, *span))?;
@@ -288,7 +288,18 @@ fn type_collection_call<'a>(
     // Helper to get type of an expression
     let arg_ty = |i: usize| -> Result<Type> { type_of(&args[i], env, fns, depth + 1) };
 
-    match callee {
+    let normalized_callee = match callee {
+        "std::list::push_mut" => "std::list::push",
+        "std::list::insert_mut" => "std::list::insert",
+        "std::list::remove_mut" => "std::list::remove",
+        "std::list::pop_mut" => "std::list::pop",
+        "std::set::insert_mut" => "std::set::insert",
+        "std::set::remove_mut" => "std::set::remove",
+        "std::map::insert_mut" => "std::map::insert",
+        "std::map::remove_mut" => "std::map::remove",
+        other => other,
+    };
+    match normalized_callee {
         // List
         "std::list::len" => {
             if args.len() != 1 {
@@ -297,6 +308,17 @@ fn type_collection_call<'a>(
             let lty = arg_ty(0)?;
             if let Type::List(_) = lty {
                 Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("List", lty, span).into())
+            }
+        }
+        "std::list::can_mut" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let lty = arg_ty(0)?;
+            if let Type::List(_) = lty {
+                Ok(Some(Type::Bool))
             } else {
                 Err(TyperError::expected_collection("List", lty, span).into())
             }
@@ -398,6 +420,17 @@ fn type_collection_call<'a>(
                 Err(TyperError::expected_collection("Set", sty, span).into())
             }
         }
+        "std::set::can_mut" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let sty = arg_ty(0)?;
+            if let Type::Set(_) = sty {
+                Ok(Some(Type::Bool))
+            } else {
+                Err(TyperError::expected_collection("Set", sty, span).into())
+            }
+        }
         "std::set::contains" => {
             if args.len() != 2 {
                 return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
@@ -440,6 +473,17 @@ fn type_collection_call<'a>(
             let mty = arg_ty(0)?;
             if let Type::Map(_, _) = mty {
                 Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("Map", mty, span).into())
+            }
+        }
+        "std::map::can_mut" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let mty = arg_ty(0)?;
+            if let Type::Map(_, _) = mty {
+                Ok(Some(Type::Bool))
             } else {
                 Err(TyperError::expected_collection("Map", mty, span).into())
             }
@@ -516,6 +560,81 @@ fn type_collection_call<'a>(
         "std::map::new" => Err(TyperError::cannot_infer_collection(span, "std::map").into()),
 
         _ => Ok(None),
+    }
+}
+
+pub(super) fn max_effect<'a>(
+    e: &'a Expr,
+    fns: &HashMap<&'a str, FnSig<'a>>,
+    allowed: EffectLevel,
+) -> Result<EffectLevel> {
+    match e {
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {
+            Ok(EffectLevel::Pure)
+        }
+        Expr::Return { expr, .. } => max_effect(expr, fns, allowed),
+        Expr::Unary { expr, .. } => max_effect(expr, fns, allowed),
+        Expr::Bin { lhs, rhs, .. } => {
+            let left = max_effect(lhs, fns, allowed)?;
+            let right = max_effect(rhs, fns, allowed)?;
+            Ok(left.join(right))
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            let cond_eff = max_effect(cond, fns, allowed)?;
+            let then_eff = max_effect(then_br, fns, allowed)?;
+            let else_eff = max_effect(else_br, fns, allowed)?;
+            Ok(cond_eff.join(then_eff).join(else_eff))
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            let mut eff = max_effect(scrutinee, fns, allowed)?;
+            for arm in arms {
+                eff = eff.join(max_effect(&arm.expr, fns, allowed)?);
+            }
+            Ok(eff)
+        }
+        Expr::Call { callee, args, span } => {
+            let mut eff = EffectLevel::Pure;
+            for arg in args {
+                eff = eff.join(max_effect(arg, fns, allowed)?);
+            }
+            let call_eff = call_effect(callee, fns);
+            if call_eff > allowed {
+                return Err(
+                    TyperError::effect_required(callee, effect_label(call_eff), *span).into(),
+                );
+            }
+            Ok(eff.join(call_eff))
+        }
+    }
+}
+
+fn call_effect<'a>(callee: &str, fns: &HashMap<&'a str, FnSig<'a>>) -> EffectLevel {
+    if let Some(level) = builtin_effect(callee) {
+        return level;
+    }
+    fns.get(callee)
+        .map(|sig| sig.effect)
+        .unwrap_or(EffectLevel::Pure)
+}
+
+fn builtin_effect(callee: &str) -> Option<EffectLevel> {
+    match callee {
+        "std::list::push_mut"
+        | "std::list::insert_mut"
+        | "std::list::remove_mut"
+        | "std::list::pop_mut"
+        | "std::set::insert_mut"
+        | "std::set::remove_mut"
+        | "std::map::insert_mut"
+        | "std::map::remove_mut" => Some(EffectLevel::Mut),
+        _ => None,
     }
 }
 

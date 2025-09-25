@@ -44,15 +44,13 @@ fn contracts_reject_non_bool_predicates() {
 }
 
 #[test]
-fn contracts_disallow_mut_effect() {
+fn contracts_allow_mut_effect() {
     let src = r#"
-        mut function bad(x: Int) -> Int
+        mut function ok(x: Int) -> Int
             require { true }
         { x }
     "#;
-    let ast = parse(src).expect("parse ok");
-    let err = check(&ast).expect_err("mut with contract must fail");
-    assert!(format!("{err:#}").contains("effect"));
+    check(&parse(src).expect("parse ok")).expect("mut functions are allowed");
 }
 
 #[test]

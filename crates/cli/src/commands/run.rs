@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 use wasmtime as wt;
 
-use super::helpers::emit_single_json_error;
+use super::helpers::{make_single_json_error, CommandError};
 
 pub fn run(file: PathBuf, invoke: String, json_errors: bool) -> Result<()> {
     let engine = wt::Engine::default();
@@ -22,16 +22,16 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool) -> Result<()> {
         Err(trap) => {
             if let Some(diag) = extract_runtime_error(&instance, &mut store) {
                 if json_errors {
-                    emit_single_json_error(
+                    let json = make_single_json_error(
                         diag.code,
                         "runtime",
-                        &diag.message,
+                        diag.message.clone(),
                         Path::new(&file),
                         diag.start,
                         diag.end,
-                        diag.detail,
+                        diag.detail.clone(),
                     );
-                    std::process::exit(1);
+                    return Err(CommandError::json(json).into());
                 } else {
                     let span = if diag.start != 0 || diag.end != 0 {
                         format!(" at {}..{}", diag.start, diag.end)

@@ -9,7 +9,7 @@ use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use clg_typer::{check_with_vcs, TypecheckOutput, TyperError, VerificationCondition};
 
 use crate::commands::helpers::{
-    emit_parse_structured_json_errors, emit_single_json_error, emit_type_json_error,
+    extract_function_name, make_parse_json_error, make_single_json_error, CommandError,
 };
 
 pub fn run(
@@ -30,8 +30,8 @@ pub fn run(
         match parse_src_errs(&s) {
             Ok(ast) => ast,
             Err(errs) => {
-                emit_parse_structured_json_errors(&file, &errs);
-                std::process::exit(1);
+                let json = make_parse_json_error(&file, &errs);
+                return Err(CommandError::json(json).into());
             }
         }
     } else {
@@ -44,20 +44,21 @@ pub fn run(
         Ok(result) => result,
         Err(e) => {
             if json_errors {
-                if let Some(te) = e.downcast_ref::<TyperError>() {
-                    emit_single_json_error(
-                        te.code,
+                if let Some((typer, function)) = find_typer_error(&e) {
+                    let json = make_single_json_error(
+                        typer.code,
                         "type",
-                        &te.message,
+                        typer.message.clone(),
                         &file,
-                        te.start,
-                        te.end,
-                        None,
+                        typer.start,
+                        typer.end,
+                        function,
                     );
-                } else {
-                    emit_type_json_error(&file, &format!("{e:#}"));
+                    return Err(CommandError::json(json).into());
                 }
-                std::process::exit(1);
+                let json =
+                    make_single_json_error("T000", "type", format!("{e:#}"), &file, 0, 0, None);
+                return Err(CommandError::json(json).into());
             } else {
                 return Err(e.context("type-check failed"));
             }
@@ -71,16 +72,16 @@ pub fn run(
         Some(f) => {
             if f.ret != Some(IrType::Int) || !f.params.is_empty() {
                 if json_errors {
-                    emit_single_json_error(
+                    let json = make_single_json_error(
                         "C001",
                         "build",
                         "only `main() -> Int` is supported in this phase",
                         &file,
                         0,
                         0,
-                        None,
+                        Some("main".to_string()),
                     );
-                    std::process::exit(1);
+                    return Err(CommandError::json(json).into());
                 } else {
                     anyhow::bail!("only `main() -> Int` is supported in this phase");
                 }
@@ -88,7 +89,7 @@ pub fn run(
         }
         None => {
             if json_errors {
-                emit_single_json_error(
+                let json = make_single_json_error(
                     "C002",
                     "build",
                     "missing `main` function",
@@ -97,14 +98,14 @@ pub fn run(
                     0,
                     None,
                 );
-                std::process::exit(1);
+                return Err(CommandError::json(json).into());
             } else {
                 anyhow::bail!("missing `main` function")
             }
         }
     }
     let bytes = emit_from_ir_with_opts(&ir, CodegenOpts { debug_names })
-        .context("codegen (IR→Wasm) failed")?;
+        .context("codegen (IR+Wasm) failed")?;
     if verbose {
         eprintln!("generated Wasm ({} bytes)", bytes.len());
     }
@@ -185,4 +186,20 @@ fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Res
     let data = serde_json::to_vec_pretty(&serde_json::Value::Array(items))?;
     fs::write(path, data).with_context(|| format!("writing {}", path.display()))?;
     Ok(())
+}
+
+fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)> {
+    let mut function: Option<String> = None;
+    for cause in err.chain() {
+        if function.is_none() {
+            let msg = cause.to_string();
+            if let Some(name) = extract_function_name(&msg) {
+                function = Some(name);
+            }
+        }
+        if let Some(typer) = cause.downcast_ref::<TyperError>() {
+            return Some((typer, function));
+        }
+    }
+    None
 }

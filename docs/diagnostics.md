@@ -50,7 +50,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
   - `T013`: operands of comparison/equality must share a type
   - `T014`: contract predicate must be `Bool`
   - `T101`: collections unavailable (std::{list,set,map} planned in Phase 4.3)
-  - `T201`–`T205`: match typing diagnostics (Option/Result)
+  - `T201`-"`T205`: match typing diagnostics (Option/Result)
   - `T206`: cannot infer element type for `std::{list,set,map}::new()`
   - `T207`: expected collection kind (wrong argument type to a collection API)
   - `T208`: element/key/value type mismatch for collection operations
@@ -82,3 +82,6 @@ clg build bad.clear --json-errors -o out.wasm
 ## Notes
 - Human messages follow `at <start>..<end>: <message>` for consistency.
 - Codes and JSON shape are stable; text remains concise and actionable.
+
+
+

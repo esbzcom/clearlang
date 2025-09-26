@@ -1,4 +1,4 @@
-use crate::commands::helpers::emit_parse_structured_json_errors;
+use crate::commands::helpers::{make_parse_json_error, CommandError};
 use anyhow::{Context, Result};
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use std::fs;
@@ -15,8 +15,8 @@ pub fn run(file: PathBuf, json_errors: bool, verbose: bool) -> Result<()> {
         match parse_src_errs(&s) {
             Ok(ast) => ast,
             Err(errs) => {
-                emit_parse_structured_json_errors(&file, &errs);
-                std::process::exit(1);
+                let json = make_parse_json_error(&file, &errs);
+                return Err(CommandError::json(json).into());
             }
         }
     } else {

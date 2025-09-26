@@ -9,6 +9,19 @@ pub struct JsonError {
     pub errors: Vec<JsonErrorItem>,
 }
 
+impl JsonError {
+    pub fn single(item: JsonErrorItem) -> Self {
+        JsonError {
+            ok: false,
+            errors: vec![item],
+        }
+    }
+
+    pub fn to_pretty_string(&self) -> String {
+        serde_json::to_string_pretty(self).expect("serialize json error")
+    }
+}
+
 #[derive(Serialize)]
 pub struct JsonErrorItem {
     pub code: &'static str,
@@ -21,8 +34,8 @@ pub struct JsonErrorItem {
     pub function: Option<String>,
 }
 
-pub fn emit_parse_structured_json_errors(file: &Path, errs: &[ParserErr]) {
-    let items: Vec<JsonErrorItem> = errs
+pub fn make_parse_json_error(file: &Path, errs: &[ParserErr]) -> JsonError {
+    let items = errs
         .iter()
         .map(|e| JsonErrorItem {
             code: e.code,
@@ -34,66 +47,33 @@ pub fn emit_parse_structured_json_errors(file: &Path, errs: &[ParserErr]) {
             function: None,
         })
         .collect();
-    let out = JsonError {
+    JsonError {
         ok: false,
         errors: items,
-    };
-    println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    }
 }
 
-pub fn emit_type_json_error(file: &Path, err_pretty: &str) {
-    let (code, start, end, func_opt) = classify_type_error(err_pretty);
-    emit_single_json_error(code, "type", err_pretty.trim(), file, start, end, func_opt);
-}
-
-pub fn emit_single_json_error(
+pub fn make_single_json_error(
     code: &'static str,
     stage: &'static str,
-    message: &str,
+    message: impl Into<String>,
     file: &Path,
     start: usize,
     end: usize,
     function: Option<String>,
-) {
-    let item = JsonErrorItem {
+) -> JsonError {
+    JsonError::single(JsonErrorItem {
         code,
         stage,
-        message: message.to_string(),
+        message: message.into(),
         file: file.display().to_string(),
         start,
         end,
         function,
-    };
-    let out = JsonError {
-        ok: false,
-        errors: vec![item],
-    };
-    println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    })
 }
 
-fn extract_span(s: &str) -> Option<(usize, usize)> {
-    if let Some(idx) = s.find("at ") {
-        let rest = &s[idx + 3..];
-        let mut parts = rest.split("..");
-        if let (Some(a), Some(brest)) = (parts.next(), parts.next()) {
-            let mut bchars = brest.chars();
-            let mut num = String::new();
-            for ch in bchars.by_ref() {
-                if ch.is_ascii_digit() {
-                    num.push(ch);
-                } else {
-                    break;
-                }
-            }
-            if let (Ok(st), Ok(en)) = (a.trim().parse::<usize>(), num.parse::<usize>()) {
-                return Some((st, en));
-            }
-        }
-    }
-    None
-}
-
-fn extract_function_name(s: &str) -> Option<String> {
+pub fn extract_function_name(s: &str) -> Option<String> {
     if let Some(idx) = s.find("in function `") {
         let rest = &s[idx + "in function `".len()..];
         if let Some(end) = rest.find('`') {
@@ -103,110 +83,111 @@ fn extract_function_name(s: &str) -> Option<String> {
     None
 }
 
-fn classify_type_error(s: &str) -> (&'static str, usize, usize, Option<String>) {
-    let code = if s.contains("unknown function") {
-        "T001"
-    } else if s.contains("arity mismatch") {
-        "T002"
-    } else if s.contains("return type mismatch") {
-        "T004"
-    } else if s.contains("type mismatch") {
-        "T003"
-    } else if s.contains("must be Int") {
-        "T005"
-    } else if s.contains("unknown variable") {
-        "T006"
-    } else {
-        "T000"
-    };
-    let span = extract_span(s).unwrap_or((0, 0));
-    let func = extract_function_name(s);
-    (code, span.0, span.1, func)
+#[derive(Debug)]
+pub struct CommandError {
+    exit_code: i32,
+    stdout: Option<String>,
+    stderr: Option<String>,
 }
+
+impl CommandError {
+    pub fn json(json: JsonError) -> Self {
+        CommandError {
+            exit_code: 1,
+            stdout: Some(json.to_pretty_string()),
+            stderr: None,
+        }
+    }
+
+    pub fn exit_code(&self) -> i32 {
+        self.exit_code
+    }
+
+    pub fn emit(&self) {
+        if let Some(ref out) = self.stdout {
+            println!("{out}");
+        }
+        if let Some(ref err) = self.stderr {
+            eprintln!("{err}");
+        }
+    }
+}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(err) = &self.stderr {
+            write!(f, "{err}")
+        } else if let Some(out) = &self.stdout {
+            write!(f, "{out}")
+        } else {
+            write!(f, "command failed with exit code {}", self.exit_code)
+        }
+    }
+}
+
+impl std::error::Error for CommandError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::Value;
+    use std::path::PathBuf;
 
     #[test]
-    fn extract_span_parses_basic_pattern() {
-        let s = "some error at 12..34: details here";
-        assert_eq!(extract_span(s), Some((12, 34)));
-    }
-
-    #[test]
-    fn classify_type_error_maps_codes_and_spans() {
-        let s1 = "at 5..8: unknown function `foo`";
-        let (c1, st1, en1, f1) = super::classify_type_error(s1);
-        assert_eq!(c1, "T001");
-        assert_eq!((st1, en1), (5, 8));
-        assert!(f1.is_none());
+    fn extract_function_name_finds_function_context() {
+        let msg = "type error in function `foo` at 1..3";
+        assert_eq!(extract_function_name(msg).as_deref(), Some("foo"));
     }
 
     #[test]
     fn json_single_error_shape() {
-        let item = JsonErrorItem {
-            code: "T003",
-            stage: "type",
-            message: "type mismatch".to_string(),
-            file: "file.clear".to_string(),
-            start: 10,
-            end: 12,
-            function: Some("main".to_string()),
-        };
-        let out = JsonError {
-            ok: false,
-            errors: vec![item],
-        };
-        let s = serde_json::to_string_pretty(&out).unwrap();
-        let v: Value = serde_json::from_str(&s).unwrap();
+        let file = PathBuf::from("file.clear");
+        let json = make_single_json_error(
+            "T003",
+            "type",
+            "type mismatch",
+            &file,
+            10,
+            12,
+            Some("main".to_string()),
+        );
+        let v: Value = serde_json::from_str(&json.to_pretty_string()).unwrap();
         assert_eq!(v["ok"], Value::Bool(false));
-        assert!(v["errors"].is_array());
-        assert_eq!(v["errors"].as_array().unwrap().len(), 1);
-        let e = &v["errors"][0];
-        assert_eq!(e["code"], Value::String("T003".into()));
-        assert_eq!(e["stage"], Value::String("type".into()));
-        assert_eq!(e["message"], Value::String("type mismatch".into()));
-        assert_eq!(e["file"], Value::String("file.clear".into()));
-        assert_eq!(e["start"], Value::Number(10.into()));
-        assert_eq!(e["end"], Value::Number(12.into()));
-        assert_eq!(e["function"], Value::String("main".into()));
+        let errors = v["errors"].as_array().unwrap();
+        assert_eq!(errors.len(), 1);
+        let e0 = &errors[0];
+        assert_eq!(e0["code"], Value::String("T003".into()));
+        assert_eq!(e0["stage"], Value::String("type".into()));
+        assert_eq!(e0["message"], Value::String("type mismatch".into()));
+        assert_eq!(e0["file"], Value::String("file.clear".into()));
+        assert_eq!(e0["start"], Value::Number(10.into()));
+        assert_eq!(e0["end"], Value::Number(12.into()));
+        assert_eq!(e0["function"], Value::String("main".into()));
     }
 
     #[test]
     fn json_multiple_errors_shape() {
-        let items = vec![
-            JsonErrorItem {
+        let file = PathBuf::from("a.clear");
+        let errs = vec![
+            ParserErr {
                 code: "P001",
-                stage: "parse",
                 message: "unexpected token".into(),
-                file: "a.clear".into(),
                 start: 1,
                 end: 2,
-                function: None,
             },
-            JsonErrorItem {
-                code: "T006",
-                stage: "type",
-                message: "unknown variable `x`".into(),
-                file: "b.clear".into(),
-                start: 5,
-                end: 6,
-                function: Some("foo".into()),
+            ParserErr {
+                code: "P001",
+                message: "another error".into(),
+                start: 3,
+                end: 4,
             },
         ];
-        let out = JsonError {
-            ok: false,
-            errors: items,
-        };
-        let s = serde_json::to_string(&out).unwrap();
-        let v: Value = serde_json::from_str(&s).unwrap();
+        let json = make_parse_json_error(&file, &errs);
+        let v: Value = serde_json::from_str(&json.to_pretty_string()).unwrap();
         assert_eq!(v["ok"], Value::Bool(false));
         let arr = v["errors"].as_array().unwrap();
         assert_eq!(arr.len(), 2);
         assert_eq!(arr[0]["code"], Value::String("P001".into()));
-        assert_eq!(arr[1]["code"], Value::String("T006".into()));
-        assert_eq!(arr[1]["function"], Value::String("foo".into()));
+        assert_eq!(arr[0]["stage"], Value::String("parse".into()));
     }
 }

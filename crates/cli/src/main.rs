@@ -4,7 +4,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 mod commands;
 use commands::{
-    build as cmd_build, emit_hello as cmd_emit_hello, parse as cmd_parse, run as cmd_run,
+    build as cmd_build, emit_hello as cmd_emit_hello, helpers::CommandError, parse as cmd_parse,
+    run as cmd_run,
 };
 
 #[derive(Parser, Debug)]
@@ -65,33 +66,36 @@ enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    match cli.command {
-        Commands::EmitHello { out } => {
-            cmd_emit_hello::run(out)?;
-        }
-        Commands::Parse { file } => {
-            cmd_parse::run(file, cli.json_errors, cli.verbose)?;
-        }
+    let result = match cli.command {
+        Commands::EmitHello { out } => cmd_emit_hello::run(out),
+        Commands::Parse { file } => cmd_parse::run(file, cli.json_errors, cli.verbose),
         Commands::Build {
             file,
             out,
             validate,
             debug_names,
             emit_vcs,
-        } => {
-            cmd_build::run(
-                file,
-                out,
-                validate,
-                debug_names,
-                emit_vcs,
-                cli.json_errors,
-                cli.verbose,
-            )?;
-        }
-        Commands::Run { file, invoke } => {
-            cmd_run::run(file, invoke, cli.json_errors)?;
+        } => cmd_build::run(
+            file,
+            out,
+            validate,
+            debug_names,
+            emit_vcs,
+            cli.json_errors,
+            cli.verbose,
+        ),
+        Commands::Run { file, invoke } => cmd_run::run(file, invoke, cli.json_errors),
+    };
+
+    if let Err(err) = result {
+        match err.downcast::<CommandError>() {
+            Ok(cmd_err) => {
+                cmd_err.emit();
+                std::process::exit(cmd_err.exit_code());
+            }
+            Err(err) => return Err(err),
         }
     }
+
     Ok(())
 }

@@ -2,9 +2,9 @@ use anyhow::Result;
 use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
 use std::collections::HashMap;
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, DataSection, ExportKind, ExportSection, Function,
-    FunctionSection, GlobalSection, GlobalType, MemorySection, MemoryType, Module, NameMap,
-    NameSection, TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, CustomSection, DataSection, ExportKind, ExportSection,
+    Function, FunctionSection, GlobalSection, GlobalType, MemorySection, MemoryType, Module,
+    NameMap, NameSection, TypeSection, ValType,
 };
 
 use crate::intrinsics::{
@@ -21,6 +21,7 @@ pub(crate) const ERROR_DETAIL_GLOBAL: u32 = 4;
 #[derive(Default)]
 pub struct CodegenOpts {
     pub debug_names: bool,
+    pub proof_section: Option<Vec<u8>>,
 }
 
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
@@ -212,6 +213,14 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         }
         names.functions(&fn_names);
         module.section(&names);
+    }
+
+    if let Some(proof_bytes) = opts.proof_section {
+        let custom = CustomSection {
+            name: "clearlang.proof".into(),
+            data: proof_bytes.into(),
+        };
+        module.section(&custom);
     }
 
     Ok(module.finish())

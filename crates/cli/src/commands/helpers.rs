@@ -1,3 +1,5 @@
+use sha2::{Digest, Sha256};
+use std::fmt::Write;
 use std::path::Path;
 
 use clg_parser::ParserError as ParserErr;
@@ -83,6 +85,48 @@ pub fn extract_function_name(s: &str) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
+fn canonicalize_value(value: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().collect();
+            keys.sort();
+            let mut out = serde_json::Map::new();
+            for key in keys {
+                out.insert(key.clone(), canonicalize_value(&map[key]));
+            }
+            serde_json::Value::Object(out)
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(canonicalize_value).collect())
+        }
+        _ => value.clone(),
+    }
+}
+
+#[allow(dead_code)]
+pub fn canonical_json_bytes(value: &serde_json::Value) -> Vec<u8> {
+    let canonical = canonicalize_value(value);
+    serde_json::to_vec(&canonical).expect("canonical json serialization")
+}
+
+#[allow(dead_code)]
+pub fn canonical_json_string(value: &serde_json::Value) -> String {
+    String::from_utf8(canonical_json_bytes(value)).expect("utf8 canonical json")
+}
+
+#[allow(dead_code)]
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let mut out = String::with_capacity(digest.len() * 2);
+    for b in digest {
+        write!(&mut out, "{:02x}", b).expect("write hex");
+    }
+    out
+}
+
 #[derive(Debug)]
 pub struct CommandError {
     exit_code: i32,
@@ -130,7 +174,7 @@ impl std::error::Error for CommandError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
+    use serde_json::{json, Value};
     use std::path::PathBuf;
 
     #[test]
@@ -163,6 +207,22 @@ mod tests {
         assert_eq!(e0["start"], Value::Number(10.into()));
         assert_eq!(e0["end"], Value::Number(12.into()));
         assert_eq!(e0["function"], Value::String("main".into()));
+    }
+
+    #[test]
+    fn canonical_json_sorts_keys() {
+        let value = json!({"b": 1, "a": {"d": 2, "c": 3}});
+        let canonical = canonical_json_string(&value);
+        assert_eq!(canonical, "{\"a\":{\"c\":3,\"d\":2},\"b\":1}");
+    }
+
+    #[test]
+    fn sha256_hex_matches_reference() {
+        let hash = sha256_hex(b"abc");
+        assert_eq!(
+            hash,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]

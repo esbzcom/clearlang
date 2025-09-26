@@ -53,7 +53,14 @@ fn build_ir_module_for_types() -> ir::Module {
 #[test]
 fn type_section_is_deduplicated_by_signature() {
     let m = build_ir_module_for_types();
-    let wasm = emit_from_ir_with_opts(&m, CodegenOpts { debug_names: false }).expect("codegen");
+    let wasm = emit_from_ir_with_opts(
+        &m,
+        CodegenOpts {
+            debug_names: false,
+            proof_section: None,
+        },
+    )
+    .expect("codegen");
     // Count number of function types actually declared in the Type section
     let mut ty_count = 0usize;
     for payload in Parser::new(0).parse_all(&wasm) {
@@ -77,7 +84,14 @@ fn type_section_is_deduplicated_by_signature() {
 #[test]
 fn debug_names_emit_name_section() {
     let m = build_ir_module_for_types();
-    let wasm = emit_from_ir_with_opts(&m, CodegenOpts { debug_names: true }).expect("codegen");
+    let wasm = emit_from_ir_with_opts(
+        &m,
+        CodegenOpts {
+            debug_names: true,
+            proof_section: None,
+        },
+    )
+    .expect("codegen");
     // Look for a custom section named "name"
     let mut has_name = false;
     for payload in Parser::new(0).parse_all(&wasm) {
@@ -92,4 +106,28 @@ fn debug_names_emit_name_section() {
         has_name,
         "expected custom name section when debug_names is enabled"
     );
+}
+
+#[test]
+fn proof_section_is_embedded() {
+    let m = build_ir_module_for_types();
+    let wasm = emit_from_ir_with_opts(
+        &m,
+        CodegenOpts {
+            debug_names: false,
+            proof_section: Some(vec![0xAA, 0xBB, 0xCC]),
+        },
+    )
+    .expect("codegen");
+    let mut found = false;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        if let Payload::CustomSection(reader) = payload.expect("payload") {
+            if reader.name() == "clearlang.proof" {
+                assert_eq!(reader.data(), &[0xAA, 0xBB, 0xCC]);
+                found = true;
+                break;
+            }
+        }
+    }
+    assert!(found, "expected clearlang.proof custom section");
 }

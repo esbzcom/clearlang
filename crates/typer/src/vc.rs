@@ -97,6 +97,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             }
         }
     }
+    out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
 }
 

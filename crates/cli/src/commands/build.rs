@@ -104,8 +104,14 @@ pub fn run(
             }
         }
     }
-    let bytes = emit_from_ir_with_opts(&ir, CodegenOpts { debug_names })
-        .context("codegen (IR+Wasm) failed")?;
+    let bytes = emit_from_ir_with_opts(
+        &ir,
+        CodegenOpts {
+            debug_names,
+            proof_section: None,
+        },
+    )
+    .context("codegen (IR+Wasm) failed")?;
     if verbose {
         eprintln!("generated Wasm ({} bytes)", bytes.len());
     }

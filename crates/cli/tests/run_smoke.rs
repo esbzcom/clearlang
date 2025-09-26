@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use predicates::prelude::PredicateBooleanExt;
+use serde_json::Value;
 use std::path::PathBuf;
 
 fn sample(name: &str) -> PathBuf {
@@ -108,4 +109,50 @@ fn build_fails_on_type_error() {
         .arg(&out)
         .assert()
         .failure();
+}
+
+#[test]
+fn parse_json_errors_are_structured() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "parse"])
+        .arg(sample("06_trailing_call_comma.clear"))
+        .output()
+        .expect("run parse command");
+    assert!(!output.status.success(), "parse should fail");
+    let v: Value = serde_json::from_slice(&output.stdout).expect("json parse");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errors.is_empty());
+    let first = &errors[0];
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("P001"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("parse"));
+}
+
+#[test]
+fn build_json_errors_surface_type_failures() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out_path = tmp.path().join("type_err.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(sample("14_arity_mismatch.clear"))
+        .args(["-o"])
+        .arg(&out_path)
+        .output()
+        .expect("run build command");
+    assert!(!output.status.success(), "build should fail");
+    let v: Value = serde_json::from_slice(&output.stdout).expect("json parse");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errors.is_empty());
+    let first = &errors[0];
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("T002"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("type"));
 }

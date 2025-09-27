@@ -725,11 +725,15 @@ Runway for 6.5 Proof Packaging
 
 - Capture open questions around key storage and CLI UX to guide the --sign workflow without blocking effect work.
 
+## Phase 6.6 - ADT Ergonomics (Sugar)
 
+Status (2025-09-20)
+- Parser surface accepts `if let`, `??`, and `?` behind the Phase 6 experimental flag.
+- Typer enforces Option/Result flows, threads `$return`, and emits new diagnostics (T601-T613).
+- Parser/typer suites guard positive/negative cases; docs/typing.md documents the feature.
 
-
-
-
-
-
-
+Next Steps
+- Draft the design note covering desugars, VC expectations, and remaining debts.
+- Add VC snapshot coverage before graduating the sugar from experimental status.
+- Implement lowering/codegen support for `Expr::Try` and record the experimental flag policy.
+- Extend docs with worked desugar examples for `if let`, `??`, and `?`.

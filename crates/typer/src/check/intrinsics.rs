@@ -7,7 +7,7 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         match e {
             Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
             Expr::Return { expr, .. } => walk_expr(expr, set),
-            Expr::Unary { expr, .. } => walk_expr(expr, set),
+            Expr::Unary { expr, .. } | Expr::Try { expr, .. } => walk_expr(expr, set),
             Expr::Bin { lhs, rhs, .. } => {
                 walk_expr(lhs, set);
                 walk_expr(rhs, set);

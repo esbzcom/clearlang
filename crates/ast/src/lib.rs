@@ -90,6 +90,10 @@ pub enum Expr {
         else_br: Box<Expr>,
         span: Span,
     },
+    Try {
+        expr: Box<Expr>,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

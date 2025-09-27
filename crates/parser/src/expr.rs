@@ -5,6 +5,13 @@ use crate::ErrTy;
 use chumsky::prelude::*;
 use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Span, UnaryOp};
 
+#[derive(Clone)]
+enum IfLetKind {
+    OptionSome(String),
+    ResultOk(String),
+    ResultErr(String),
+}
+
 pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
     recursive(|expr| {
         let call_args = expr
@@ -79,6 +86,69 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             .clone()
             .delimited_by(just('{').padded(), just('}').padded())
             .boxed();
+
+        let if_let_pat = choice((
+            just("Some")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(ident_p())
+                .then_ignore(just(')').padded())
+                .map(IfLetKind::OptionSome),
+            just("Ok")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(ident_p())
+                .then_ignore(just(')').padded())
+                .map(IfLetKind::ResultOk),
+            just("Err")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(ident_p())
+                .then_ignore(just(')').padded())
+                .map(IfLetKind::ResultErr),
+        ));
+
+        let if_let_expr = just("if")
+            .padded()
+            .ignore_then(just("let").padded())
+            .ignore_then(if_let_pat)
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then(block_expr.clone())
+            .then_ignore(just("else").padded())
+            .then(block_expr.clone())
+            .map_with(|(((pat_kind, scrutinee), then_br), else_br), e| {
+                let sp = e.span();
+                let (success_pat, failure_pat) = match pat_kind {
+                    IfLetKind::OptionSome(name) => (MatchPat::Some(name), MatchPat::None),
+                    IfLetKind::ResultOk(name) => {
+                        let tmp = format!("__iflet_tmp{}", sp.start);
+                        (MatchPat::Ok(name), MatchPat::Err(tmp))
+                    }
+                    IfLetKind::ResultErr(name) => {
+                        let tmp = format!("__iflet_tmp{}", sp.start);
+                        (MatchPat::Err(name), MatchPat::Ok(tmp))
+                    }
+                };
+                let arms = vec![
+                    MatchArm {
+                        pat: success_pat,
+                        expr: then_br,
+                    },
+                    MatchArm {
+                        pat: failure_pat,
+                        expr: else_br,
+                    },
+                ];
+                Expr::Match {
+                    scrutinee: Box::new(scrutinee),
+                    arms,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
+            });
 
         // if/else expression: if cond { then } (else if cond { then })* else { else }
         // Build nested If nodes from right to left to preserve associativity.
@@ -168,16 +238,17 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
-        let atom = choice((
+        let atom_base = choice((
             int_lit(),
             bool_lit(),
             str_lit(),
             expr.clone().delimited_by(
                 just('(').padded().labelled("'('"),
-                just(')').padded().labelled("')'"),
+                just(')').padded().labelled(")'"),
             ),
             ret_expr,
             match_expr,
+            if_let_expr,
             if_expr,
             ctor_call,
             call_expr,
@@ -186,6 +257,31 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         .padded()
         .labelled("expression")
         .boxed();
+
+        let atom = atom_base
+            .clone()
+            .then(
+                just("??")
+                    .rewind()
+                    .to(None)
+                    .or(just('?').padded().to(Some(())))
+                    .or(empty().to(None)),
+            )
+            .map_with(|(expr_inner, maybe_try), e| {
+                if maybe_try.is_some() {
+                    let sp = e.span();
+                    Expr::Try {
+                        expr: Box::new(expr_inner),
+                        span: Span {
+                            start: sp.start,
+                            end: sp.end,
+                        },
+                    }
+                } else {
+                    expr_inner
+                }
+            })
+            .boxed();
 
         // Helper to compute a span for composite expressions
         fn span_of(e: &Expr) -> (usize, usize) {
@@ -198,7 +294,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 | Expr::Match { span, .. }
                 | Expr::Return { span, .. }
                 | Expr::If { span, .. }
-                | Expr::Unary { span, .. } => (span.start, span.end),
+                | Expr::Unary { span, .. }
+                | Expr::Try { span, .. } => (span.start, span.end),
             }
         }
 
@@ -316,7 +413,34 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             },
         );
 
-        logical_or
+        let coalesce = logical_or.clone().foldl(
+            just("??")
+                .padded()
+                .then(logical_or.clone().boxed())
+                .repeated(),
+            |lhs, (_, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                let bind = format!("__coalesce_tmp{}", ls);
+                let bind_span = Span { start: ls, end: ls };
+                Expr::Match {
+                    scrutinee: Box::new(lhs),
+                    arms: vec![
+                        MatchArm {
+                            pat: MatchPat::Some(bind.clone()),
+                            expr: Expr::Var(bind, bind_span),
+                        },
+                        MatchArm {
+                            pat: MatchPat::None,
+                            expr: rhs,
+                        },
+                    ],
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
+        coalesce
     })
     .padded()
     .labelled("expression")

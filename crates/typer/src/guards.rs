@@ -39,7 +39,7 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
             collect_guards_from_expr(lhs, out);
             collect_guards_from_expr(rhs, out);
         }
-        Expr::Unary { expr, .. } | Expr::Return { expr, .. } => {
+        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
             collect_guards_from_expr(expr, out);
         }
         Expr::If {
@@ -89,7 +89,7 @@ pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
             collect_mut_calls(lhs, out);
             collect_mut_calls(rhs, out);
         }
-        Expr::Unary { expr, .. } | Expr::Return { expr, .. } => {
+        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
             collect_mut_calls(expr, out);
         }
         Expr::If {

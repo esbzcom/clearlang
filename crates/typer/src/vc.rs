@@ -142,6 +142,10 @@ fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
             expr: Box::new(substitute_result(expr, replacement)),
             span: *span,
         },
+        Expr::Try { expr, span } => Expr::Try {
+            expr: Box::new(substitute_result(expr, replacement)),
+            span: *span,
+        },
         Expr::Match { .. } | Expr::If { .. } => expr.clone(),
     }
 }
@@ -188,6 +192,15 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
             format!("{}({})", callee, params.join(", "))
         }
         Expr::Return { expr, .. } => format!("return {}", expr_to_source(expr, 0)),
+        Expr::Try { expr, .. } => {
+            let inner = expr_to_source(expr, precedence_unary());
+            let rendered = format!("{}?", inner);
+            if precedence_unary() < parent_prec {
+                format!("({})", rendered)
+            } else {
+                rendered
+            }
+        }
         Expr::Match { .. } | Expr::If { .. } => format!("{:?}", expr),
     }
 }
@@ -224,6 +237,7 @@ fn expr_to_smt2(expr: &Expr) -> String {
             }
         }
         Expr::Return { expr, .. } => expr_to_smt2(expr),
+        Expr::Try { .. } => format!("; unsupported try {:?}", expr),
         Expr::Match { .. } | Expr::If { .. } => format!("; unsupported expr {:?}", expr),
     }
 }
@@ -259,6 +273,7 @@ fn span_of(expr: &Expr) -> Span {
         | Expr::Match { span, .. }
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
-        | Expr::Unary { span, .. } => *span,
+        | Expr::Unary { span, .. }
+        | Expr::Try { span, .. } => *span,
     }
 }

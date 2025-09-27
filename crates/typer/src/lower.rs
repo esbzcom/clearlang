@@ -115,6 +115,13 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         Expr::Match { .. } => {
             anyhow::bail!("match expression not supported in lowering yet")
         }
+        Expr::Try { span, .. } => {
+            anyhow::bail!(
+                "`?` is not supported in codegen yet ({}..{})",
+                span.start,
+                span.end
+            )
+        }
         Expr::If {
             cond,
             then_br,

@@ -1,4 +1,4 @@
-use super::{effect_label, EffectLevel, FnSig};
+use super::{effect_label, EffectLevel, FnSig, RETURN_KEY};
 use crate::errors::TyperError;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Span, Type, UnaryOp};
@@ -195,6 +195,46 @@ pub(super) fn type_of<'a>(
                 other => Err(TyperError::match_invalid_scrutinee(other, *span).into()),
             }
         }
+        Expr::Try { expr, span } => {
+            let inner = type_of(expr, env, fns, depth + 1)?;
+            let ret_ty = env
+                .get(RETURN_KEY)
+                .cloned()
+                .ok_or_else(|| TyperError::try_missing_return(*span))?;
+            match (inner, ret_ty) {
+                (Type::Option(inner_ty), Type::Option(ret_inner)) => {
+                    let found = (*inner_ty).clone();
+                    let declared = (*ret_inner).clone();
+                    if found != declared {
+                        return Err(
+                            TyperError::try_option_inner_mismatch(declared, found, *span).into(),
+                        );
+                    }
+                    Ok(found)
+                }
+                (Type::Option(_), ret_other) => {
+                    Err(TyperError::try_option_return_required(ret_other, *span).into())
+                }
+                (Type::Result(ok_ty, err_ty), Type::Result(ret_ok, ret_err)) => {
+                    let ok_found = (*ok_ty).clone();
+                    let err_found = (*err_ty).clone();
+                    let ok_decl = (*ret_ok).clone();
+                    let err_decl = (*ret_err).clone();
+                    if ok_found != ok_decl || err_found != err_decl {
+                        return Err(TyperError::try_result_mismatch(
+                            ok_decl, err_decl, ok_found, err_found, *span,
+                        )
+                        .into());
+                    }
+                    Ok(ok_found)
+                }
+                (Type::Result(_, _), ret_other) => {
+                    Err(TyperError::try_result_return_required(ret_other, *span).into())
+                }
+                (other, _) => Err(TyperError::try_input_not_option_result(other, *span).into()),
+            }
+        }
+
         Expr::Var(name, sp) => Ok(env
             .get(name.as_str())
             .cloned()
@@ -254,6 +294,67 @@ pub(super) fn type_of<'a>(
                 }
                 let t0 = type_of(&args[0], env, fns, depth + 1)?;
                 return Ok(Type::Option(Box::new(t0)));
+            }
+            if callee == "None" {
+                if !args.is_empty() {
+                    return Err(TyperError::arity_mismatch(callee, 0, args.len(), *span).into());
+                }
+                let ret_ty = env
+                    .get(RETURN_KEY)
+                    .cloned()
+                    .ok_or_else(|| TyperError::option_ctor_missing_return(*span))?;
+                return match ret_ty {
+                    Type::Option(inner) => Ok(Type::Option(inner)),
+                    other => Err(TyperError::none_return_required(other, *span).into()),
+                };
+            }
+            if callee == "Ok" {
+                if args.len() != 1 {
+                    return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
+                }
+                let arg_ty = type_of(&args[0], env, fns, depth + 1)?;
+                let ret_ty = env
+                    .get(RETURN_KEY)
+                    .cloned()
+                    .ok_or_else(|| TyperError::result_ctor_missing_return(*span))?;
+                return match ret_ty {
+                    Type::Result(ok_ty, err_ty) => {
+                        if arg_ty != *ok_ty {
+                            let sp = expr_span(&args[0]);
+                            Err(
+                                TyperError::ok_argument_mismatch((*ok_ty).clone(), arg_ty, sp)
+                                    .into(),
+                            )
+                        } else {
+                            Ok(Type::Result(ok_ty, err_ty))
+                        }
+                    }
+                    other => Err(TyperError::ok_return_required(other, *span).into()),
+                };
+            }
+            if callee == "Err" {
+                if args.len() != 1 {
+                    return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
+                }
+                let arg_ty = type_of(&args[0], env, fns, depth + 1)?;
+                let ret_ty = env
+                    .get(RETURN_KEY)
+                    .cloned()
+                    .ok_or_else(|| TyperError::result_ctor_missing_return(*span))?;
+                return match ret_ty {
+                    Type::Result(ok_ty, err_ty) => {
+                        if arg_ty != *err_ty {
+                            let sp = expr_span(&args[0]);
+                            Err(
+                                TyperError::err_argument_mismatch((*err_ty).clone(), arg_ty, sp)
+                                    .into(),
+                            )
+                        } else {
+                            Ok(Type::Result(ok_ty, err_ty))
+                        }
+                    }
+                    other => Err(TyperError::err_return_required(other, *span).into()),
+                };
             }
             let FnSig { params, ret, .. } = fns
                 .get(callee.as_str())
@@ -599,6 +700,7 @@ pub(super) fn max_effect<'a>(
             }
             Ok(eff)
         }
+        Expr::Try { expr, .. } => max_effect(expr, fns, allowed),
         Expr::Call { callee, args, span } => {
             let mut eff = EffectLevel::Pure;
             for arg in args {
@@ -660,7 +762,8 @@ pub(super) fn expr_span(e: &Expr) -> Span {
         | Expr::Match { span, .. }
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
-        | Expr::Unary { span, .. } => *span,
+        | Expr::Unary { span, .. }
+        | Expr::Try { span, .. } => *span,
     }
 }
 

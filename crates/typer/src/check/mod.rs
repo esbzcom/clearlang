@@ -16,6 +16,8 @@ use clg_ast::{Effect, Expr, Func, Param, Program, Type};
 use clg_ir::Module;
 use std::collections::{HashMap, HashSet};
 
+const RETURN_KEY: &str = "$return";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum EffectLevel {
     Pure,
@@ -186,6 +188,7 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {
     let mut env: HashMap<&str, Type> = HashMap::new();
+    env.insert(RETURN_KEY, f.ret.clone());
     for p in &f.params {
         if env.insert(p.name.as_str(), p.ty.clone()).is_some() {
             return Err(TyperError::duplicate_parameter(&p.name).into());

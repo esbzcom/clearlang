@@ -428,13 +428,13 @@ Docs & Proofs
 
 6.5 Proof Packaging & Signatures
 
-- [ ] Define `clearlang.proof` custom section v1 layout (versioning, VC linkage, optional proofs) and document it in `docs/proofs/proof-section.md`.
+- [x] Define `clearlang.proof` custom section v1 layout (versioning, VC linkage, optional proofs) and document it in `docs/proofs/proof-section.md`.
 
-- [ ] Emit the section whenever `--emit-vcs` is used, including canonical serialization plus SHA-256 hashes for module and proof payloads (JCS encoded).
+- [x] Emit the section whenever `--emit-vcs` is used, including canonical serialization plus SHA-256 hashes for module and proof payloads (JCS encoded).
 
-- [ ] Implement CLI signing flow: `--sign --key --key-id --scope {module,proofs,both}` + `--sig-out`, and verification via `clg verify --sig --pubkey` with clear error codes.
+- [x] Implement CLI signing flow: `--sign --key --key-id --scope {module,proofs,both}` + `--sig-out`, and verification via `clg verify --sig --pubkey` with clear error codes.
 
-- [ ] Add integration tests that sign/verify a small module and fail gracefully when a proof hash is tampered.
+- [x] Add integration tests that sign/verify a small module and fail gracefully when a proof hash is tampered.
 
 - [ ] Keep `clgverify` as a Phase 10 follow-up, noting its dependency on section/signature stability.
 

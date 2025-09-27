@@ -1,0 +1,156 @@
+use assert_cmd::prelude::*;
+use ed25519_dalek::SigningKey;
+use predicates::prelude::predicate;
+use predicates::prelude::PredicateBooleanExt;
+use serde_json::json;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use tempfile::tempdir;
+use wasmparser::{Parser, Payload};
+
+fn sample_source() -> &'static str {
+    r#"
+        pure function inc(x: Int) -> Int
+            require { 0 <= x }
+            ensure { result > x }
+        { x + 1 }
+        function main() -> Int { inc(1) }
+    "#
+}
+
+fn write_key_material(dir: &Path) -> (PathBuf, PathBuf) {
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let verifying = signing.verifying_key();
+    let priv_hex = hex::encode(signing.to_bytes());
+    let pub_hex = hex::encode(verifying.to_bytes());
+
+    let key_path = dir.join("key.json");
+    let pub_path = dir.join("pub.json");
+
+    let key_json = json!({
+        "scheme": "ed25519",
+        "private_key": priv_hex,
+        "public_key": pub_hex,
+    });
+    fs::write(&key_path, serde_json::to_vec_pretty(&key_json).unwrap()).unwrap();
+
+    let pub_json = json!({
+        "scheme": "ed25519",
+        "public_key": pub_hex,
+    });
+    fs::write(&pub_path, serde_json::to_vec_pretty(&pub_json).unwrap()).unwrap();
+
+    (key_path, pub_path)
+}
+
+fn build_signed_module(tmp: &Path) -> (PathBuf, PathBuf, PathBuf) {
+    let src_path = tmp.join("contract.clear");
+    fs::write(&src_path, sample_source()).unwrap();
+
+    let wasm_path = tmp.join("out.wasm");
+    let vcs_path = tmp.join("out.vc.json");
+    let sig_path = tmp.join("out.sig.json");
+    let (key_path, pub_path) = write_key_material(tmp);
+
+    let mut cmd = Command::cargo_bin("clg").expect("bin");
+    cmd.current_dir(tmp);
+    cmd.args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .arg("--sign")
+        .arg("--key")
+        .arg(&key_path)
+        .arg("--key-id")
+        .arg("test-key")
+        .arg("--scope")
+        .arg("both")
+        .arg("--sig-out")
+        .arg(&sig_path);
+    cmd.assert().success();
+
+    (wasm_path, sig_path, pub_path)
+}
+
+fn tamper_proofs_hash(module: &Path) {
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct TamperSection {
+        version: u32,
+        generated_by: String,
+        #[serde(with = "serde_bytes")]
+        module_hash: Vec<u8>,
+        #[serde(with = "serde_bytes")]
+        proofs_hash: Vec<u8>,
+        functions: serde_cbor::Value,
+    }
+
+    fn to_cbor_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
+        let mut buf = Vec::new();
+        let mut ser = serde_cbor::ser::Serializer::new(&mut buf);
+        value.serialize(&mut ser).unwrap();
+        buf
+    }
+
+    let mut module_bytes = fs::read(module).expect("read wasm");
+    let mut target: Option<(std::ops::Range<usize>, Vec<u8>)> = None;
+    for payload in Parser::new(0).parse_all(&module_bytes) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                let range = section.range();
+                target = Some((range, section.data().to_vec()));
+                break;
+            }
+        }
+    }
+    let (range, data) = target.expect("proof section not found");
+    let mut proof: TamperSection = serde_cbor::from_slice(&data).expect("decode proof");
+    assert_eq!(proof.proofs_hash.len(), 32);
+    proof.proofs_hash[0] ^= 0xFF;
+    let new_bytes = to_cbor_bytes(&proof);
+    assert_eq!(new_bytes.len(), data.len(), "proof section length changed");
+    let data_start = range.end - data.len();
+    module_bytes[data_start..range.end].copy_from_slice(&new_bytes);
+    fs::write(module, module_bytes).expect("write tampered module");
+}
+
+#[test]
+fn sign_and_verify_roundtrip() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path);
+    verify.assert().success();
+}
+
+#[test]
+fn verify_fails_when_proofs_hash_tampered() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    tamper_proofs_hash(&wasm_path);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path);
+    verify.assert().failure().stderr(
+        predicate::str::contains("module hash mismatch")
+            .or(predicate::str::contains("proofs hash mismatch")),
+    );
+}

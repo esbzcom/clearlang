@@ -3,3 +3,4 @@ pub mod emit_hello;
 pub mod helpers;
 pub mod parse;
 pub mod run;
+pub mod verify;

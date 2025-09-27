@@ -50,12 +50,12 @@ Each element in `functions` is a CBOR map with keys:
 | Key        | Type                   | Description                                           |
 |------------|------------------------|-------------------------------------------------------|
 | `name`     | text                   | Function identifier (matches Wasm export when present).|
-| `requires` | optional text          | Source text of the combined `require` clauses.        |
+| `requires` | optional proof expr map | Combined `require` clauses as a `ProofExpr`.            |
 | `ensures`  | array of ensure maps   | One per `ensure` clause.                              |
 | `vcs`      | array of VC maps       | Verification conditions emitted for the function.     |
 
-`requires` may be omitted when the precondition is `true` (no clauses). `ensures` mirrors
-the JSON structure: each map contains `ast`, `smt2`, and `span` (`{ start, end }`).
+`requires` may be omitted when the precondition is `true` (no clauses). Both `requires` and
+`ensures` use the `ProofExpr` shape (`{ ast, smt2, span? }`).
 
 ### VC Entry
 
@@ -78,8 +78,10 @@ field; it is reserved for future phases.
 
 Proof packaging relies on two SHA-256 digests:
 
-1. **Module hash (`module_hash`)**: computed over the entire Wasm binary *after* the
-   `clearlang.proof` section is appended. The hash covers the final `.wasm` bytes.
+1. **Module hash (`module_hash`)**: computed over the Wasm bytes with the `module_hash` field
+   zeroed. We first emit the section with zeroes, hash the full module, then rewrite the section
+   with the resulting digest. Verifiers repeat the hash after zeroing the field to avoid
+   self-referential cycles.
 2. **Proofs hash (`proofs_hash`)**: computed over the concatenation of each VC entry’s
    canonical CBOR encoding, ordered lexicographically by `(function.name, vc_id)`.
 
@@ -89,7 +91,8 @@ keeping the signature payload compact.
 ## Signing Payloads
 
 The signing payload is a canonical JSON document encoded with
-[JCS](https://www.rfc-editor.org/rfc/rfc8785) before hashing/signing. Shape:
+[JCS](https://www.rfc-editor.org/rfc/rfc8785) before hashing/signing. The module hash here
+uses the same zeroed-field procedure described above. Shape:
 
 ```
 {

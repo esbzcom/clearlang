@@ -2,30 +2,45 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
 use clg_ir::IrType;
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use clg_typer::{check_with_vcs, TypecheckOutput, TyperError, VerificationCondition};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 use crate::commands::helpers::{
     extract_function_name, make_parse_json_error, make_single_json_error, CommandError,
 };
+use crate::proofs::{hash_module, module_bytes_with_zeroed_hash, ProofPackage};
+use crate::signing::{self, SignScope};
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     file: PathBuf,
     out: PathBuf,
     validate: bool,
     debug_names: bool,
     emit_vcs: Option<PathBuf>,
+    sign: bool,
+    key: Option<PathBuf>,
+    key_id: Option<String>,
+    scope: SignScope,
+    sig_out: Option<PathBuf>,
     json_errors: bool,
     verbose: bool,
 ) -> Result<()> {
+    if sign && emit_vcs.is_none() {
+        anyhow::bail!("--sign requires --emit-vcs");
+    }
+
     let mut s = String::new();
     fs::File::open(&file)
         .with_context(|| format!("opening {}", file.display()))?
         .read_to_string(&mut s)
         .with_context(|| format!("reading {}", file.display()))?;
+
     let ast = if json_errors {
         match parse_src_errs(&s) {
             Ok(ast) => ast,
@@ -37,9 +52,10 @@ pub fn run(
     } else {
         match parse_src(&s) {
             Ok(ast) => ast,
-            Err(e) => return Err(anyhow::anyhow!("parse failed: {}", e)),
+            Err(e) => return Err(anyhow!("parse failed: {}", e)),
         }
     };
+
     let type_output = match check_with_vcs(&ast) {
         Ok(result) => result,
         Err(e) => {
@@ -64,10 +80,12 @@ pub fn run(
             }
         }
     };
+
     let TypecheckOutput { ir, vcs } = type_output;
     if verbose {
         eprintln!("type-checked and lowered to IR");
     }
+
     match ir.funcs.iter().find(|f| f.name == "main") {
         Some(f) => {
             if f.ret != Some(IrType::Int) || !f.params.is_empty() {
@@ -75,7 +93,7 @@ pub fn run(
                     let json = make_single_json_error(
                         "C001",
                         "build",
-                        "only `main() -> Int` is supported in this phase",
+                        "only  is supported in this phase",
                         &file,
                         0,
                         0,
@@ -83,53 +101,106 @@ pub fn run(
                     );
                     return Err(CommandError::json(json).into());
                 } else {
-                    anyhow::bail!("only `main() -> Int` is supported in this phase");
+                    anyhow::bail!("only  is supported in this phase");
                 }
             }
         }
         None => {
             if json_errors {
-                let json = make_single_json_error(
-                    "C002",
-                    "build",
-                    "missing `main` function",
-                    &file,
-                    0,
-                    0,
-                    None,
-                );
+                let json =
+                    make_single_json_error("C002", "build", "missing  function", &file, 0, 0, None);
                 return Err(CommandError::json(json).into());
             } else {
-                anyhow::bail!("missing `main` function")
+                anyhow::bail!("missing  function")
             }
         }
     }
-    let bytes = emit_from_ir_with_opts(
+
+    let toolchain = format!("clg-cli/{}", env!("CARGO_PKG_VERSION"));
+    let proof_package = emit_vcs
+        .as_ref()
+        .map(|_| ProofPackage::from_program(&ast, &vcs, toolchain.clone()));
+
+    let zero_section = proof_package
+        .as_ref()
+        .map(|pkg| pkg.encode_section(&[0u8; 32]))
+        .transpose()?;
+
+    let mut wasm_bytes = emit_from_ir_with_opts(
         &ir,
         CodegenOpts {
             debug_names,
-            proof_section: None,
+            proof_section: zero_section.clone(),
         },
     )
     .context("codegen (IR+Wasm) failed")?;
-    if verbose {
-        eprintln!("generated Wasm ({} bytes)", bytes.len());
+
+    let mut module_hash_bytes: Option<[u8; 32]> = None;
+    if let Some(pkg) = &proof_package {
+        let hash_bytes = hash_module(&wasm_bytes);
+        let proof_section = pkg.encode_section(&hash_bytes)?;
+        wasm_bytes = emit_from_ir_with_opts(
+            &ir,
+            CodegenOpts {
+                debug_names,
+                proof_section: Some(proof_section),
+            },
+        )
+        .context("codegen (IR+Wasm) failed")?;
+        let zeroed = module_bytes_with_zeroed_hash(&wasm_bytes)?;
+        module_hash_bytes = Some(hash_module(&zeroed));
     }
+
+    if verbose {
+        eprintln!("generated Wasm ({} bytes)", wasm_bytes.len());
+    }
+
     if let Some(parent) = out.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
     }
-    fs::write(&out, bytes).with_context(|| format!("writing {}", out.display()))?;
+    fs::write(&out, &wasm_bytes).with_context(|| format!("writing {}", out.display()))?;
     if verbose {
         eprintln!("wrote {}", out.display());
     }
+
     if let Some(vcs_path) = emit_vcs {
         write_vcs_json(&vcs, &vcs_path, &file)?;
         if verbose {
             eprintln!("wrote {}", vcs_path.display());
         }
     }
+
+    if sign {
+        let pkg = proof_package
+            .as_ref()
+            .ok_or_else(|| anyhow!("proof data unavailable for signing"))?;
+        let hash_bytes =
+            module_hash_bytes.ok_or_else(|| anyhow!("module hash unavailable for signing"))?;
+        let key_path = key.expect("clap ensures key when sign");
+        let key_id = key_id.expect("clap ensures key_id when sign");
+        let sig_path = sig_out.expect("clap ensures sig_out when sign");
+        let module_hash_hex = hex::encode(hash_bytes);
+        let timestamp = OffsetDateTime::now_utc()
+            .format(&Rfc3339)
+            .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string());
+        signing::sign_bundle(
+            pkg,
+            &module_hash_hex,
+            scope,
+            &key_path,
+            &key_id,
+            &sig_path,
+            &timestamp,
+        )?;
+        if verbose {
+            eprintln!("wrote {}", sig_path.display());
+            eprintln!("module hash {}", module_hash_hex);
+            eprintln!("proofs hash {}", pkg.proofs_hash_hex());
+        }
+    }
+
     if validate {
         let status = std::process::Command::new("wasm-tools")
             .arg("validate")
@@ -138,13 +209,14 @@ pub fn run(
         match status {
             Ok(s) if s.success() => {
                 if verbose {
-                    eprintln!("validated {}", out.display())
+                    eprintln!("validated {}", out.display());
                 }
             }
             Ok(s) => anyhow::bail!("wasm-tools validate failed with status {:?}", s.code()),
             Err(e) => anyhow::bail!("failed to run wasm-tools: {}", e),
         }
     }
+
     Ok(())
 }
 

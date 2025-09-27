@@ -1,8 +1,16 @@
 # Codex Session Summary
 
+## Session 2025-09-27 – Phase 6.5 Proof Packaging & Signing
+
+- Finished the `clearlang.proof` section v1 implementation: deterministic CBOR payloads, zeroed-hash rewrite, and CLI signing/verification wiring.
+- Added signing helpers (`ProofPackage`, `signing.rs`), the `clg verify` subcommand, and end-to-end tamper tests covering signature scopes.
+- Updated docs (`proof-section.md`, `TODO.md`) and rolled TODO roadmap into post-6.5 phases (11–13) for safety tooling, DX, and nice-to-have enhancements.
+- Captured upcoming work in DEVPLAN: Phase 6.6 ADT ergonomics, Phase 7 resource types, and safety/DX hardening tracks.
+
 ## Session 2025-09-20 – Mut Guards & VC Hooks
 
-- Implemented guard predicates std::<collection>::can_mut and enforced matching equire { ... } clauses for _mut calls (T402/T403).
+- Implemented guard predicates std::<collection>::can_mut and enforced matching 
+equire { ... } clauses for _mut calls (T402/T403).
 - Extended effect checking so pure callers still trip T401 while mut functions can call _mut safely.
 - Added mut_pre:* VC generation and regression coverage to snapshot the new obligations.
 - Documented the guard workflow in TODO/DEVPLAN and stubbed lowering to keep runtime expectations explicit until mutable collections land.

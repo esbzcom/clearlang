@@ -1,14 +1,8 @@
 # ClearLang TODO
 
-
-
 A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
-
-
 ## Phase 0 -" Workspace & Toolchain (Done)
-
-
 
 - [x] Set up Rust toolchain and Cargo workspace.
 
@@ -16,11 +10,7 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 - [x] Install and use Wasmtime and `wasm-tools` locally.
 
-
-
 ## Phase 1 -" Hello WASM (Done)
-
-
 
 - [x] Implement `emit_trivial_main` producing `main() -> i32` returning 42.
 
@@ -30,11 +20,7 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 - [x] Add tests to check Wasm header/export and `i32.const 42`.
 
-
-
 ## Phase 2 -" Parser (Done)
-
-
 
 2.1 Syntax & Literals
 
@@ -42,15 +28,11 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 - [x] Literals: integers, `true`/`false` (Bool in AST).
 
-
-
 2.2 Calls & Commas
 
 - [x] Function calls with comma-separated args; missing comma errors.
 
 - [x] Trailing comma policy: allowed in parameter lists, disallowed in call args.
-
-
 
 2.3 Precedence & Grouping
 
@@ -58,15 +40,11 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 - [x] Parentheses for grouping, multi-line formatting.
 
-
-
 2.4 Tooling & Samples
 
 - [x] CLI `parse` subcommand pretty-prints AST.
 
 - [x] clearlang-tests samples for positive and negative cases.
-
-
 
 2.5 Error Coverage (Optional)
 
@@ -74,15 +52,9 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 - [x] More negative tests (unknown idents, reserved keywords).
 
-
-
 ## Phase 3 -" Typer & IR (Done)
 
-
-
 Current focus: Phase 6.4 - mutable collection effects and proof packaging groundwork; next: Phase 6.5 - proof section/signature tooling.
-
-
 
 3.1 Typer Core
 
@@ -92,15 +64,11 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
 - [x] Arity/return checks; unknown function errors (spans deferred to 3.8).
 
-
-
 3.2 Effects (Stub)
 
  - [x] Accept `Effect::None|Pure` initially; plan enforcement later.
 
  - [x] Reject Bool arithmetic; ensure function bodies match return types.
-
-
 
 3.3 IR Shape
 
@@ -110,13 +78,9 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
  - [x] Unit tests: construct simple functions and call variants.
 
-
-
 3.4 Lowering
 
 - [x] Lower AST +' IR guided by typer; preserve minimal names/locals.
-
-
 
 3.5 Integration
 
@@ -126,10 +90,6 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
  - [x] Add `--validate` flag to run `wasm-tools validate` on outputs.
 
- 
-
-
-
 3.6 Tests
 
 - [x] Typer errors: unknown function, arity mismatch, type mismatch.
@@ -138,15 +98,11 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
 - [x] Keep negative parse case `06_trailing_call_comma`.
 
-
-
 3.7 Docs
 
 - [x] Add `docs/typing.md` (rules/spec) and `docs/ir.md` (IR shape).
 
 - [x] Update README "Current Status" to mark Phase 3 in progress.
-
-
 
 3.8 Diagnostics & Spans
 
@@ -158,19 +114,13 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
 - [x] Gate Phase 4 switch (IR+'Wasm as default) on basic span coverage to avoid tech debt.
 
-
-
 ## Phase 4 - Namespacing + Strings (Parse/Type) + Std Collections stubs + Small Optimizations (Done)
-
-
 
 - 4.1 Namespacing (no tech debt)
 
   - [x] Add namespaced call syntax (paths): `std::str::len(s)`, `std::list::push(l,x)`, `std::map::get(m,k)`, `std::set::contains(s,x)`.
 
   - [x] Typer: accept namespaced callees as exact names (parser done; built-ins via 4.3-"4.7).
-
-
 
 - 4.2 Strings (parse/type only)
 
@@ -189,8 +139,6 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
   - [x] CLI/Diagnostics: add `--json-errors` with short error codes (e.g., P001, T003) to support AI repair loops.
 
   - [x] Rename Str +' String: one-shot rename across AST/parser/typer/tests/docs; keep semantics unchanged.
-
-
 
 - 4.3 Collections Strict Errors (Option A)
 
@@ -240,15 +188,11 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
   - [x] Add `docs/collections.md` and update `docs/diagnostics.md` and `docs/typing.md`.
 
-
-
   - 4.8 Small Optimizations & DX
 
     - [x] Optional Wasm name section for function names (`--debug-names`).
 
     - [x] Remaining items moved to later phases (see 5.0 verbose logs, 5.5 shared Wasmtime Engine, and Developer Experience preallocations + release profile tuning).
-
- 
 
 - 4.9 Return (expression form)
 
@@ -264,8 +208,6 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
   - [x] Tests: add `clearlang-tests/18_return_simple.clear` and include in CLI IT.
 
-
-
 - 4.10 Conditionals (expr-form if/else chain)
 
   - [x] Parser: `if cond { ... } (else if cond { ... })* else { ... }` (no `elif` alias).
@@ -278,13 +220,7 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
         include spans in JSON and add tests.
 
-
-
- 
-
 ## Phase 5 -" Codegen IR +' Wasm (Done)
-
-
 
 5.0 Codegen Layout & DX
 
@@ -300,13 +236,9 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
 - [x] Deduplicate function signatures in the Wasm Type section (reuse type indices).
 
-
-
 5.2 Locals & Stack
 
 - [x] Local allocation for temps; map IR values to stack ops.
-
-
 
 5.3 Ops & Calls
 
@@ -314,15 +246,11 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
 - [x] Switch calls to use callee indices; update IR lowering accordingly (resolve names to indices).
 
-
-
 5.4 Replace Const-Eval
 
 - [x] Switch CLI build to IR+'Wasm path by default; keep const-eval for quick checks.
 
 - [x] Remove const-eval fallback once IR path is stable (cleanup).
-
-
 
 5.5 Tests
 
@@ -335,8 +263,6 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
  - [x] Verify `--debug-names` emits custom name section.
 
  - [x] Add CLI `run` smoke test to execute `main` and assert stdout.
-
-
 
 5.6 Strings Runtime
 
@@ -354,23 +280,15 @@ Current focus: Phase 6.4 - mutable collection effects and proof packaging ground
 
 - [x] Add property tests for strings invariants (len/concat/eq).
 
-
-
 5.7 (moved) -" see 6.5 ADT Ergonomics (sugar)
 
-
-
 ## Phase 6 -" Contracts & Effects (Safety)
-
-
 
 Docs & Proofs
 
 - [x] Draft VC JSON schema (`docs/proofs/vc-schema.md`).
 
 - [x] Add value-preservation proof sketch for Int/Bool arith + calls (`docs/proofs/value-preservation.md`).
-
-
 
 -6.1 Syntax
 
@@ -379,8 +297,6 @@ Docs & Proofs
 - [x] Parse effect qualifiers (`pure|mut|io`) and reject unknown effects.
 
 - [x] Allow multiple `require`/`ensure` clauses and define conjoined semantics.
-
-
 
 6.2 Typing & VC Generation
 
@@ -398,8 +314,6 @@ Docs & Proofs
 
 - [x] Update typing/codegen to support those operators or emit clear diagnostics until codegen handles them.
 
-
-
 6.3 Runtime Enforcement
 
 - [x] Lower `require`/`ensure` clauses into runtime guard blocks that emit trap code `R000` on failure while preserving span info for diagnostics.
@@ -409,8 +323,6 @@ Docs & Proofs
 - [x] Integration tests: one contract-violation sample and one forced allocator failure asserting trap codes and JSON diagnostics stay AI-friendly.
 
 - [x] Follow-up: centralize guard/trap helper scaffolding in codegen intrinsics to keep proofs/docstrings in sync as we add more runtime checks.
-
-
 
 6.4 Mutable Collections (effects)
 
@@ -424,8 +336,6 @@ Docs & Proofs
 
 - [x] Update docs/typing.md and docs/collections.md with the effect table, soundness sketch, and SMT-friendly examples.
 
-
-
 6.5 Proof Packaging & Signatures
 
 - [x] Define `clearlang.proof` custom section v1 layout (versioning, VC linkage, optional proofs) and document it in `docs/proofs/proof-section.md`.
@@ -435,10 +345,6 @@ Docs & Proofs
 - [x] Implement CLI signing flow: `--sign --key --key-id --scope {module,proofs,both}` + `--sig-out`, and verification via `clg verify --sig --pubkey` with clear error codes.
 
 - [x] Add integration tests that sign/verify a small module and fail gracefully when a proof hash is tampered.
-
-- [ ] Keep `clgverify` as a Phase 10 follow-up, noting its dependency on section/signature stability.
-
-
 
 6.6 ADT Ergonomics (sugar)
 
@@ -450,11 +356,7 @@ Docs & Proofs
 
 - [ ] Document samples for each sugar and describe the VCs they generate to stay AI-friendly.
 
-
-
 ## Phase 7 -" Resource/Linear Types
-
-
 
 7.1 Syntax & Semantics
 
@@ -462,15 +364,11 @@ Docs & Proofs
 
 - [ ] Define move-only semantics: no implicit copies; explicit `move`/`drop` as needed.
 
-
-
 7.2 Typing Rules
 
 - [ ] Linear usage checking: every resource is consumed exactly once; no double-use.
 
 - [ ] Function signatures express resource flow (in/out/borrow) as needed.
-
-
 
 7.3 Aliasing & In-Place Updates
 
@@ -480,25 +378,17 @@ Docs & Proofs
 
 - [ ] Update mutable collection ops to leverage unique ownership (no hidden aliasing).
 
-
-
 7.3 Tests & Docs
 
 - [ ] Unit tests for moves, drops, and invalid double-use.
 
 - [ ] Docs explaining how resource types prevent double-spend patterns.
 
-
-
 ## Phase 8 -" Totality & Loops with Invariants
-
-
 
 8.1 Syntax
 
 - [ ] Introduce `while` loops with required loop invariants and optional variants/measures for termination.
-
-
 
 8.2 Totality
 
@@ -506,15 +396,11 @@ Docs & Proofs
 
 - [ ] Provide diagnostics with spans for missing or non-decreasing measures.
 
-
-
 8.3 Typing & Checks
 
 - [ ] Type rules for loop invariants; ensure invariants are well-typed and refer to in-scope variables.
 
 - [ ] Guardrail: allow opting out behind a flag initially to ease migration.
-
-
 
 8.4 Tests & Docs
 
@@ -522,17 +408,11 @@ Docs & Proofs
 
 - [ ] Document totality policy and examples in `docs/typing.md`.
 
-
-
 ## Phase 9 -" Refinement Types
-
-
 
 9.1 Syntax
 
 - [ ] `type Nat = Int where n >= 0` and similar `where`-refined aliases.
-
-
 
 9.2 Typing & Constraints
 
@@ -540,19 +420,17 @@ Docs & Proofs
 
 - [ ] Interop with `require`/`ensure` from Phase 6; generate VCs for refinements.
 
-
-
 9.3 Tooling & Tests
 
 - [ ] `--emit-vcs` includes refinements in generated obligations; stable JSON.
 
 - [ ] Tests for typical refinements (non-negative, bounded ranges, simple equalities).
 
+## Phase 10 -" Proof-Carrying Wasm Verification
 
+- [ ] Ship `clgverify` verifier CLI that checks `clearlang.proof` sections + signatures now that Phase 6.5 packaging is stable.
 
-## Safety & Tooling
-
-
+## Phase 11 -" Safety & Tooling Hardening
 
 - [ ] Always validate generated Wasm: `wasm-tools validate` in CI.
 
@@ -564,13 +442,9 @@ Docs & Proofs
 
 - [ ] Enable Wasmtime fuel/epoch limits in IT tests for runtime bounding.
 
- - [x] Document pre-commit hook usage in README; provide skip toggles.
+- [x] Document pre-commit hook usage in README; provide skip toggles.
 
-
-
-## Developer Experience
-
-
+## Phase 12 -" Developer Experience
 
 - [ ] Simple tracing/logging for pipeline stages in CLI.
 
@@ -582,25 +456,8 @@ Docs & Proofs
 
 - [ ] Release profile tuning in top-level Cargo.toml: `lto = "thin"`, `codegen-units = 1` (optionally `strip = "symbols"`).
 
-
-
-## Nice-to-Have (Backlog)
-
-
+## Phase 13 -" Nice-to-Have Enhancements
 
 - [ ] WASI `print` intrinsic for observable output.
 
-- [ ] Proof-carrying Wasm prototype (`clgverify`).
-
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
-
-
-
-
-
-
-
-
-
-
-

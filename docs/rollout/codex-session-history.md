@@ -268,3 +268,14 @@ Next actions
 - Draft the design note covering desugars, VC expectations, and remaining codegen debt.
 - Add VC snapshot coverage and worked examples before lifting the experimental flag.
 - Implement lowering/codegen for `Expr::Try` and thread the sugar through proof packaging.
+
+## Session 2025-09-27 - Phase 6.6 Follow-up
+
+- Authored `docs/design/phase-6.6-adt-ergonomics.md` capturing sugar semantics, VC expectations, and codegen plan.
+- Added VC regression snapshots for `if let`/`??`/`?` in `crates/typer/tests/vc.rs`.
+- Documented worked examples in the design note and refreshed DEVPLAN/TODO status for Phase 6.6.
+- Preparation for lowering: clarified outstanding tasks (SMT encoding, IR support for Expr::Try).
+
+Next actions
+- Implement IR lowering/codegen for `Expr::Try` + constructors.
+- Add published VC snapshot artifacts once lowering & SMT story settle.

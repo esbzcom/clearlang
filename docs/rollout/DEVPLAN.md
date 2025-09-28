@@ -727,13 +727,14 @@ Runway for 6.5 Proof Packaging
 
 ## Phase 6.6 - ADT Ergonomics (Sugar)
 
-Status (2025-09-20)
+Status (2025-09-27)
 - Parser surface accepts `if let`, `??`, and `?` behind the Phase 6 experimental flag.
 - Typer enforces Option/Result flows, threads `$return`, and emits new diagnostics (T601-T613).
-- Parser/typer suites guard positive/negative cases; docs/typing.md documents the feature.
+- Parser/typer suites cover positives/negatives; VC tests exercise sugar bodies (`crates/typer/tests/vc.rs`).
+- Design note captured in `docs/design/phase-6.6-adt-ergonomics.md`; `docs/typing.md` updated with sugar summary.
 
 Next Steps
-- Draft the design note covering desugars, VC expectations, and remaining debts.
-- Add VC snapshot coverage before graduating the sugar from experimental status.
-- Implement lowering/codegen support for `Expr::Try` and record the experimental flag policy.
-- Extend docs with worked desugar examples for `if let`, `??`, and `?`.
+- Capture VC snapshots / worked examples in docs (tie to proof schema) ahead of lifting the flag.
+- Implement lowering/codegen for `Expr::Try` + constructors and document the runtime encoding.
+- Track SMT encoding for `match`/`try` to remove `; unsupported` placeholders.
+- Extend docs with end-to-end examples once lowering + VCs stabilize.

@@ -49,6 +49,48 @@ fn generates_multiple_vcs_for_multiple_ensures() {
     assert!(second.vc_smt2.contains("=>"));
 }
 #[test]
+fn generates_vc_for_if_let_sugar() {
+    let src = r#"
+        pure function default_or_zero(opt: Option<Int>) -> Int
+            ensure { result >= 0 }
+        {
+            if let Some(v) = opt { v } else { 0 }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.function, "default_or_zero");
+    assert_eq!(vc.pre.ast, "true");
+    assert!(vc.post.ast.contains(">="));
+    assert!(vc.vc_smt2.contains("=>"));
+    // Until SMT encoding for match is implemented we emit a placeholder to keep output stable.
+    assert!(vc.vc_smt2.contains("; unsupported expr"));
+}
+
+#[test]
+fn generates_vc_for_try_sugar() {
+    let src = r#"
+        pure function bump_when_positive(opt: Option<Int>) -> Option<Int>
+            ensure { result == result }
+        {
+            if opt? > 0 { Some(opt? + 1) } else { None }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.function, "bump_when_positive");
+    assert!(vc.post.ast.contains("=="));
+    assert!(vc.vc_smt2.contains("=>"));
+    // Expr::Try currently lowers to an SMT placeholder until proper encoding lands.
+    assert!(vc.vc_smt2.contains("Try"));
+}
+#[test]
 fn generates_mut_pre_vc_for_mut_calls() {
     let src = r#"
         mut function push(l: List<Int>) -> List<Int>

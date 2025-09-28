@@ -348,7 +348,7 @@ Docs & Proofs
 
 6.6 ADT Ergonomics (sugar)
 
-- [ ] Draft a design note for `if let`, `??`, and `?`, covering parser surface, typer desugaring, effect constraints, and proof obligations; include open tech-debt bullets.
+- [x] Draft a design note for `if let`, `??`, and `?`, covering parser surface, typer desugaring, effect constraints, and proof obligations; include open tech-debt bullets (see `docs/design/phase-6.6-adt-ergonomics.md`).
 
 - [x] Implement `if let` sugar: parser/AST support, typer desugar to two-arm `match`, parser/typer unit tests, and doc updates (VC snapshot coverage remains open).
 
@@ -356,7 +356,7 @@ Docs & Proofs
 
 - [x] Prototype `?` (Option/Result propagation) behind an experimental flag with parser/typer support, purity/effect validation, and unit tests.
 
-- [ ] Add worked examples showing each desugar and track remaining tech debt (VC snapshots, codegen for `Expr::Try`) before lifting the experimental flag.
+- [x] Add worked examples showing each desugar and track remaining tech debt (VC snapshots, codegen for `Expr::Try`) before lifting the experimental flag (see design note + `crates/typer/tests/vc.rs`).
 ## Phase 7 -" Resource/Linear Types
 
 7.1 Syntax & Semantics

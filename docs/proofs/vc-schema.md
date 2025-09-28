@@ -54,3 +54,28 @@ CLI Contract
 
 Compatibility
 - Stable for Phase 6; only additive changes allowed (new optional fields).
+
+## Example: ADT sugar (experimental)
+```
+[
+  {
+    "version": 1,
+    "function": "default_or_zero",
+    "vc_id": "vc:0",
+    "pre":   { "ast": "true", "smt2": "true" },
+    "post":  { "ast": "result >= 0", "smt2": "(>= result 0)" },
+    "vc":    { "smt2": "(=> true ; unsupported expr If { ... })" },
+    "status": "generated"
+  },
+  {
+    "version": 1,
+    "function": "bump_when_positive",
+    "vc_id": "vc:0",
+    "pre":   { "ast": "true", "smt2": "true" },
+    "post":  { "ast": "result == result", "smt2": "(= result result)" },
+    "vc":    { "smt2": "(=> true (= ; unsupported expr If { ... Try { ... } } ; unsupported expr If { ... Try { ... } }))" },
+    "status": "generated"
+  }
+]
+```
+Current SMT strings still contain placeholder comments because Option/Result lowering and SMT encoding are not final. Once the lowering work (Phase 6.6 follow-up) lands, these placeholders will be replaced by tagged encodings and the examples above will be updated with canonical snapshots.

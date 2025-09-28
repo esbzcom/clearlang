@@ -53,6 +53,12 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `clg build clearlang-tests/17_hello_str.clear -o out/hello_str.wasm --emit-vcs out/contracts.json`
   - `clg run out/arith.wasm`
 
+
+### ADT sugar quickstart (experimental)
+- Use `clg parse your_file.clear` to inspect sources that leverage `if let`, `??`, and postfix `?`.
+- Run `cargo test -p clg-typer --test adt_sugar` to exercise parser/typer coverage for the sugar.
+- Run `cargo test -p clg-typer --test vc` to view the generated verification conditions (currently include placeholder comments until Option/Result lowering lands).
+- `clg build` will emit a "match expression not supported" error for now; lowering/codegen support is tracked in Phase 6.6 follow-ups.
 ---
 
 ## Docs

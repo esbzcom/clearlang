@@ -205,6 +205,14 @@ ADT Ergonomics (Phase 6.6)
 - Constructors obey the same constraints: `Some(v)` infers `Option<T>`; `None` requires an `Option<_>` return site (`T607`/`T608`); `Ok(v)`/`Err(e)` require a `Result<_, _>` return site (`T609`-`T612`) and validate argument types (`T611`/`T613`).
 - Codegen for `Expr::Try` is pending; the parser/typer surface ships behind an experimental flag until lowering support lands.
 
+## Option/Result Lowering Roadmap (Phase 6.6)
+
+- **Runtime encoding**: `Option<T>`/`Result<T,E>` will lower to a `{ tag: i32, payload... }` layout once the Wasm backend grows variant support. `tag == 0` maps to `None`/`Err`, `tag == 1` to `Some`/`Ok`.
+- **Constructors**: `None`/`Some`/`Ok`/`Err` will emit the tag payload directly; builtins that currently return Option/Result will be updated to emit the same layout.
+- **`Expr::Try` lowering**: propagation will turn into tag inspection at IR level. On the failure branch (`None`/`Err`) the lowering will synthesize the return payload and emit an early `Ret`.
+- **VC + SMT**: once the runtime encoding is in place, `expr_to_smt2` will move from placeholder comments to tagged SMT expressions (e.g., algebraic datatypes or explicit tag/payload tuples).
+- **Tooling**: CLI documentation will be refreshed when lowering lands so that `clg build --emit-vcs` examples can include the sugar without relying on placeholders.
+
 Collections (Type-Only Summary) -" see `docs/collections.md`
 
 - Types: `List<T>`, `Set<T>`, `Map<K,V>`.

@@ -357,21 +357,47 @@ Docs & Proofs
 - [x] Prototype `?` (Option/Result propagation) behind an experimental flag with parser/typer support, purity/effect validation, and unit tests.
 
 - [x] Add worked examples showing each desugar and track remaining tech debt (VC snapshots, codegen for `Expr::Try`) before lifting the experimental flag (see design note + `crates/typer/tests/vc.rs`).
-## Phase 7 -" Resource/Linear Types
+- [x] Document the Option/Result lowering plan in `docs/typing.md` and related docs once the IR/runtime encoding is implemented.
 
-7.1 Syntax & Semantics
+- [x] Add VC snapshot artifacts for `if let`/`??`/`?` in `docs/proofs` after SMT encoding replaces placeholder comments (current output still notes placeholders).
+
+- [x] Update CLI/docs with end-to-end examples of the sugar (build/run/--emit-vcs) once lowering is shipped and stable (documented current workflow + limitations).
+
+## Phase 7 - Option/Result Lowering
+
+7.1 IR & Runtime Encoding
+
+- [ ] Lock in the `{ tag, payload }` layout for Option/Result variants, including enum constants, payload alignment, and panic-on-invalid-tag policy.
+- [ ] Lower `Option::{some,none}` and `Result::{ok,err}` constructors/destructors into the IR; cover pattern-match sugar rewrites and update `Expr::Try` to branch on the tag.
+- [ ] Implement `Expr::Try` early-return lowering in codegen, including nested `try` handling and exhaustivity checks, with IR/Wasm tests that cover success and propagation paths.
+
+7.2 Verification & SMT
+
+- [ ] Replace VC encodings for `if let`/`??`/`?` with the tagged layout; update the SMT translator and keep option/result axioms in one module.
+- [ ] Refresh VC regression snapshots and worked examples (`docs/proofs`) to cover both `Option` and `Result` success/failure cases.
+- [ ] Extend effect-gate and VC matrix tests so `Expr::Try` and coalescing sugar appear in unit, snapshot, and integration suites.
+
+7.3 Docs & Tooling
+
+- [ ] Update the CLI docs and `--emit-vcs` walkthrough to demonstrate lowering-enabled workflows; note how to inspect the emitted tagged encoding.
+- [ ] Revise `docs/typing.md` and the Phase 6.6 design note with the final lowering semantics, desugars, and outstanding follow-ups.
+- [ ] Remove the experimental flag for the new sugar once tests pass and release notes/README are updated.
+
+## Phase 8 - Resource/Linear Types
+
+8.1 Syntax & Semantics
 
 - [ ] Add `resource` type declarations and usage guidelines.
 
 - [ ] Define move-only semantics: no implicit copies; explicit `move`/`drop` as needed.
 
-7.2 Typing Rules
+8.2 Typing Rules
 
 - [ ] Linear usage checking: every resource is consumed exactly once; no double-use.
 
 - [ ] Function signatures express resource flow (in/out/borrow) as needed.
 
-7.3 Aliasing & In-Place Updates
+8.3 Aliasing & In-Place Updates
 
 - [ ] Ownership/aliasing rules to guarantee unique access for in-place updates.
 
@@ -379,59 +405,59 @@ Docs & Proofs
 
 - [ ] Update mutable collection ops to leverage unique ownership (no hidden aliasing).
 
-7.3 Tests & Docs
-
-- [ ] Unit tests for moves, drops, and invalid double-use.
+8.4 Tests & Docs
 
 - [ ] Docs explaining how resource types prevent double-spend patterns.
+- [ ] Unit tests for moves, drops, and invalid double-use.
 
-## Phase 8 -" Totality & Loops with Invariants
 
-8.1 Syntax
+## Phase 9 -" Totality & Loops with Invariants
+
+9.1 Syntax
 
 - [ ] Introduce `while` loops with required loop invariants and optional variants/measures for termination.
 
-8.2 Totality
+9.2 Totality
 
 - [ ] Enforce totality for `pure` functions: require structural recursion or a decreasing measure.
 
 - [ ] Provide diagnostics with spans for missing or non-decreasing measures.
 
-8.3 Typing & Checks
+9.3 Typing & Checks
 
 - [ ] Type rules for loop invariants; ensure invariants are well-typed and refer to in-scope variables.
 
 - [ ] Guardrail: allow opting out behind a flag initially to ease migration.
 
-8.4 Tests & Docs
+9.4 Tests & Docs
 
 - [ ] Positive/negative tests for loops and recursion with measures.
 
 - [ ] Document totality policy and examples in `docs/typing.md`.
 
-## Phase 9 -" Refinement Types
+## Phase 10 -" Refinement Types
 
-9.1 Syntax
+10.1 Syntax
 
 - [ ] `type Nat = Int where n >= 0` and similar `where`-refined aliases.
 
-9.2 Typing & Constraints
+10.2 Typing & Constraints
 
 - [ ] Propagate refinement constraints through expressions and function boundaries.
 
 - [ ] Interop with `require`/`ensure` from Phase 6; generate VCs for refinements.
 
-9.3 Tooling & Tests
+10.3 Tooling & Tests
 
 - [ ] `--emit-vcs` includes refinements in generated obligations; stable JSON.
 
 - [ ] Tests for typical refinements (non-negative, bounded ranges, simple equalities).
 
-## Phase 10 -" Proof-Carrying Wasm Verification
+## Phase 11 - Proof-Carrying Wasm Verification
 
 - [ ] Ship `clgverify` verifier CLI that checks `clearlang.proof` sections + signatures now that Phase 6.5 packaging is stable.
 
-## Phase 11 -" Safety & Tooling Hardening
+## Phase 12 - Safety & Tooling Hardening
 
 - [ ] Always validate generated Wasm: `wasm-tools validate` in CI.
 
@@ -445,7 +471,7 @@ Docs & Proofs
 
 - [x] Document pre-commit hook usage in README; provide skip toggles.
 
-## Phase 12 -" Developer Experience
+## Phase 13 - Developer Experience
 
 - [ ] Simple tracing/logging for pipeline stages in CLI.
 
@@ -457,8 +483,9 @@ Docs & Proofs
 
 - [ ] Release profile tuning in top-level Cargo.toml: `lto = "thin"`, `codegen-units = 1` (optionally `strip = "symbols"`).
 
-## Phase 13 -" Nice-to-Have Enhancements
+## Phase 14 - Nice-to-Have Enhancements
 
 - [ ] WASI `print` intrinsic for observable output.
 
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
+

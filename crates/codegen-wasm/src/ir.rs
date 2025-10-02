@@ -271,6 +271,9 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
             | IrInstr::VariantLoadPayloadHi { dst, variant } => {
                 max_id = max_id.max(dst.0).max(variant.0);
             }
+            IrInstr::ReturnIf { cond, ret } => {
+                max_id = max_id.max(cond.0).max(ret.0);
+            }
             IrInstr::Call { dst, args, .. } => {
                 if let Some(d) = dst {
                     max_id = max_id.max(d.0);
@@ -452,6 +455,13 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                     memory_index: 0,
                 });
                 insts.local_set(dst.0);
+            }
+            IrInstr::ReturnIf { cond, ret } => {
+                insts.local_get(cond.0);
+                insts.if_(BlockType::Empty);
+                insts.local_get(ret.0);
+                insts.return_();
+                insts.end();
             }
             IrInstr::Call { dst, callee, args } => {
                 for a in args {

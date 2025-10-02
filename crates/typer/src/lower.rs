@@ -117,12 +117,19 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         Expr::Match { .. } => {
             anyhow::bail!("match expression not supported in lowering yet")
         }
-        Expr::Try { span, .. } => {
-            anyhow::bail!(
-                "`?` is not supported in codegen yet ({}..{})",
-                span.start,
-                span.end
-            )
+        Expr::Try { expr, .. } => {
+            let variant = lower_expr(ctx, expr)?;
+            let parts = ctx.variant_destructure(variant);
+            let failure_tag = emit_int_const(ctx, 0);
+            let cond = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: cond,
+                op: BinOpIR::Eq,
+                lhs: parts.tag,
+                rhs: failure_tag,
+            });
+            ctx.body.push(Instr::ReturnIf { cond, ret: variant });
+            Ok(parts.payload_lo)
         }
         Expr::If {
             cond,

@@ -60,3 +60,42 @@ fn lowers_option_none_to_zeroed_variant() {
         other => panic!("expected VariantInit, found {other:?}"),
     }
 }
+#[test]
+fn lowers_option_try_to_return_if() {
+    let src = r#"
+        pure function inc(opt: Option<Int>) -> Option<Int> { Some(opt? + 1) }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "inc")
+        .expect("inc function present");
+
+    assert!(
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::ReturnIf { .. })),
+        "lowering must emit ReturnIf for opt? propagation"
+    );
+}
+
+#[test]
+fn lowers_result_try_to_return_if() {
+    let src = r#"
+        pure function add(res: Result<Int, Int>) -> Result<Int, Int> { Ok(res? + 1) }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "add")
+        .expect("add function present");
+
+    assert!(
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::ReturnIf { .. })),
+        "lowering must emit ReturnIf for res? propagation"
+    );
+}

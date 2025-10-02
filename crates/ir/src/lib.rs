@@ -122,6 +122,10 @@ pub enum Instr {
         variant: Value,
     },
     // v? = call callee_idx(args) - callee is a function index in the module
+    ReturnIf {
+        cond: Value,
+        ret: Value,
+    },
     Call {
         dst: Option<Value>,
         callee: u32,

@@ -50,7 +50,7 @@ This keeps diagnostics deterministic and helps AI tooling reason about variant m
 
 ## Integration Points
 - **Typer / Lowering**: future IR helpers (`ir::Variant { tag, payload_lo, payload_hi }`) must follow this layout exactly. Sugar rewrites (`if let`, `??`, `?`) emit tag comparisons against `0`/`1` only.
-- **IR helpers**: `Instr::VariantInit` constructs a variant in the canonical layout and `Instr::VariantLoadTag|PayloadLo|PayloadHi` project individual fields for destructuring.
+- **IR helpers**: `Instr::VariantInit` constructs a variant in the canonical layout, `Instr::VariantLoadTag|PayloadLo|PayloadHi` project individual fields, and `Instr::ReturnIf` performs failure-tag early returns.
 - **Codegen**: Wasm emission writes tag first, then payload words, then zeroes `reserved`. Clearing happens even when a slot already held the correct data to avoid stale bits.
 - **Proof Packaging**: hashing and canonical orderings treat the 16-byte blob as the authoritative representation of a variant value.
 - **Tooling**: `--emit-vcs` and SMT encoders can now model variants as `(tag: i32, lo: i32, hi: i32)` tuples, referencing this document.
@@ -67,3 +67,4 @@ Reserve runtime code `R003` for invalid variant tags. All trap sites (Option/Res
 - Phase 6.6 ADT ergonomics design (`docs/design/phase-6.6-adt-ergonomics.md`).
 - Runtime strings layout (`docs/runtime/strings.md`) for pointer/length conventions.
 - Typing overview (`docs/typing.md`) - updated to link to this note.
+

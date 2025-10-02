@@ -1,14 +1,14 @@
 use anyhow::Result;
-use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule};
+use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule, TrapCode};
 use std::collections::HashMap;
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, CustomSection, DataSection, ExportKind, ExportSection,
-    Function, FunctionSection, GlobalSection, GlobalType, MemorySection, MemoryType, Module,
-    NameMap, NameSection, TypeSection, ValType,
+    Function, FunctionSection, GlobalSection, GlobalType, MemArg, MemorySection, MemoryType,
+    Module, NameMap, NameSection, TypeSection, ValType,
 };
 
 use crate::intrinsics::{
-    runtime::emit_guard_trap,
+    runtime::{emit_guard_trap, emit_runtime_trap, TrapOperand},
     strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
 };
 
@@ -151,6 +151,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
         exports.export("main", ExportKind::Func, i as u32);
     }
+    exports.export("memory", ExportKind::Memory, 0);
     exports.export("__clg_heap_ptr", ExportKind::Global, HEAP_PTR_GLOBAL);
     exports.export(
         "__clg_runtime_error_code",
@@ -253,6 +254,23 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
             } => {
                 max_id = max_id.max(dst.0).max(cond.0).max(then_v.0).max(else_v.0);
             }
+            IrInstr::VariantInit {
+                dst,
+                tag,
+                payload_lo,
+                payload_hi,
+            } => {
+                max_id = max_id
+                    .max(dst.0)
+                    .max(tag.0)
+                    .max(payload_lo.0)
+                    .max(payload_hi.0);
+            }
+            IrInstr::VariantLoadTag { dst, variant }
+            | IrInstr::VariantLoadPayloadLo { dst, variant }
+            | IrInstr::VariantLoadPayloadHi { dst, variant } => {
+                max_id = max_id.max(dst.0).max(variant.0);
+            }
             IrInstr::Call { dst, args, .. } => {
                 if let Some(d) = dst {
                     max_id = max_id.max(d.0);
@@ -331,6 +349,108 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 insts.else_();
                 insts.local_get(else_v.0);
                 insts.end();
+                insts.local_set(dst.0);
+            }
+            IrInstr::VariantInit {
+                dst,
+                tag,
+                payload_lo,
+                payload_hi,
+            } => {
+                // pointer = heap_ptr
+                insts.global_get(HEAP_PTR_GLOBAL);
+                insts.local_set(dst.0);
+
+                // ensure allocation stays within memory before writing
+                insts.local_get(dst.0);
+                insts.i32_const(16);
+                insts.i32_add();
+                insts.i32_const(15);
+                insts.i32_add();
+                insts.i32_const(-16);
+                insts.i32_and();
+                insts.memory_size(0);
+                insts.i32_const(65536);
+                insts.i32_mul();
+                insts.i32_gt_u();
+                insts.if_(BlockType::Empty);
+                emit_runtime_trap(
+                    &mut insts,
+                    TrapCode::AllocatorOom,
+                    TrapOperand::local(dst.0),
+                    TrapOperand::zero(),
+                    0,
+                );
+                insts.end();
+
+                // store fields
+                insts.local_get(dst.0);
+                insts.local_get(tag.0);
+                insts.i32_store(MemArg {
+                    align: 2,
+                    offset: 0,
+                    memory_index: 0,
+                });
+
+                insts.local_get(dst.0);
+                insts.local_get(payload_lo.0);
+                insts.i32_store(MemArg {
+                    align: 2,
+                    offset: 4,
+                    memory_index: 0,
+                });
+
+                insts.local_get(dst.0);
+                insts.local_get(payload_hi.0);
+                insts.i32_store(MemArg {
+                    align: 2,
+                    offset: 8,
+                    memory_index: 0,
+                });
+
+                insts.local_get(dst.0);
+                insts.i32_const(0);
+                insts.i32_store(MemArg {
+                    align: 2,
+                    offset: 12,
+                    memory_index: 0,
+                });
+
+                // heap_ptr = align16(ptr + size)
+                insts.local_get(dst.0);
+                insts.i32_const(16);
+                insts.i32_add();
+                insts.i32_const(15);
+                insts.i32_add();
+                insts.i32_const(-16);
+                insts.i32_and();
+                insts.global_set(HEAP_PTR_GLOBAL);
+            }
+            IrInstr::VariantLoadTag { dst, variant } => {
+                insts.local_get(variant.0);
+                insts.i32_load(MemArg {
+                    align: 2,
+                    offset: 0,
+                    memory_index: 0,
+                });
+                insts.local_set(dst.0);
+            }
+            IrInstr::VariantLoadPayloadLo { dst, variant } => {
+                insts.local_get(variant.0);
+                insts.i32_load(MemArg {
+                    align: 2,
+                    offset: 4,
+                    memory_index: 0,
+                });
+                insts.local_set(dst.0);
+            }
+            IrInstr::VariantLoadPayloadHi { dst, variant } => {
+                insts.local_get(variant.0);
+                insts.i32_load(MemArg {
+                    align: 2,
+                    offset: 8,
+                    memory_index: 0,
+                });
                 insts.local_set(dst.0);
             }
             IrInstr::Call { dst, callee, args } => {

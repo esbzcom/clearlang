@@ -365,12 +365,21 @@ Docs & Proofs
 
 ## Phase 7 - Option/Result Lowering
 
-7.1 IR & Runtime Encoding
+7.1 IR & Runtime Encoding (In Progress)
 
-- [ ] Lock in the `{ tag, payload }` layout for Option/Result variants, including enum constants, payload alignment, and panic-on-invalid-tag policy.
-- [ ] Lower `Option::{some,none}` and `Result::{ok,err}` constructors/destructors into the IR; cover pattern-match sugar rewrites and update `Expr::Try` to branch on the tag.
-- [ ] Implement `Expr::Try` early-return lowering in codegen, including nested `try` handling and exhaustivity checks, with IR/Wasm tests that cover success and propagation paths.
+Spec & Layout
+- [x] Freeze the `{ tag, payload }` representation for `Option`/`Result`, including tag constants, payload alignment, and the shared panic-on-invalid-tag policy (see `docs/design/phase-7.1-option-result-runtime.md`).
+- [x] Capture the layout/invariants in a dedicated design slice (`docs/design/phase-7.1-option-result-runtime.md`) and cross-link from `docs/typing.md`.
 
+IR & Desugaring
+- [x] Introduce IR helpers for constructing and projecting tagged values (`Option::{some,none}`, `Result::{ok,err}`) and plumb them through typer lowering.
+- [ ] Rewrite the Phase 6.6 sugar (`if let`, `??`, postfix `?`) so lowering emits explicit tag checks + payload extraction ahead of IR emission.
+- [ ] Update `Expr::Try` lowering to branch on the tag, thread early-return exits, and support nested `try` without re-checking payloads.
+
+Codegen & Runtime
+- [ ] Emit Wasm for the new IR ops, writing tag/payload with proper alignment and zeroing unused payload bytes.
+- [ ] Add a shared runtime helper that traps on invalid tags and hook it into every destructor path.
+- [ ] Extend CLI integration (`clg run`) and IR unit tests to cover constructor/destructor pairs, success cases, and propagation paths.
 7.2 Verification & SMT
 
 - [ ] Replace VC encodings for `if let`/`??`/`?` with the tagged layout; update the SMT translator and keep option/result axioms in one module.
@@ -488,4 +497,5 @@ Docs & Proofs
 - [ ] WASI `print` intrinsic for observable output.
 
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
+
 

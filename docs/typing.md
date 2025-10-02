@@ -207,11 +207,11 @@ ADT Ergonomics (Phase 6.6)
 
 ## Option/Result Lowering Roadmap (Phase 6.6)
 
-- **Runtime encoding**: `Option<T>`/`Result<T,E>` will lower to a `{ tag: i32, payload... }` layout once the Wasm backend grows variant support. `tag == 0` maps to `None`/`Err`, `tag == 1` to `Some`/`Ok`.
-- **Constructors**: `None`/`Some`/`Ok`/`Err` will emit the tag payload directly; builtins that currently return Option/Result will be updated to emit the same layout.
-- **`Expr::Try` lowering**: propagation will turn into tag inspection at IR level. On the failure branch (`None`/`Err`) the lowering will synthesize the return payload and emit an early `Ret`.
-- **VC + SMT**: once the runtime encoding is in place, `expr_to_smt2` will move from placeholder comments to tagged SMT expressions (e.g., algebraic datatypes or explicit tag/payload tuples).
-- **Tooling**: CLI documentation will be refreshed when lowering lands so that `clg build --emit-vcs` examples can include the sugar without relying on placeholders.
+- **Runtime encoding**: `Option<T>`/`Result<T,E>` now target the canonical 16-byte layout in `docs/design/phase-7.1-option-result-runtime.md`. The `tag` word uses `0` for `None`/`Err` and `1` for `Some`/`Ok`; payload slots follow the `{lo, hi, reserved}` convention and stay zeroed when unused.
+- **Constructors**: `None`/`Some`/`Ok`/`Err` will write the tag and payload words directly, clearing the reserved slot so hashing and SMT stay deterministic. Builtins that return Option/Result adopt the same helper.
+- **`Expr::Try` lowering**: propagation becomes a tag inspection; `tag > 1` must trap via the shared invalid-tag helper before returning the failure payload. Success paths reuse the payload slots without extra loads.
+- **VC + SMT**: the encoder will replace placeholder comments with tuples `(tag, lo, hi)`, referencing the layout spec so proofs and automation agree on the meaning of each word.
+- **Tooling**: CLI docs and worked examples will be refreshed alongside lowering so `clg build --emit-vcs` reflects the concrete encoding rather than the experimental flag.
 
 Collections (Type-Only Summary) -" see `docs/collections.md`
 

@@ -2,7 +2,9 @@ use crate::check::FnSig as CheckFnSig;
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Func, Type};
-use clg_ir::{BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value};
+use clg_ir::{
+    BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantParts,
+};
 use std::collections::HashMap;
 
 type FnSig<'a> = CheckFnSig<'a>;
@@ -171,38 +173,126 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             });
             Ok(dst)
         }
-        Expr::Call { callee, args, .. } => {
-            if guard_kind_for_callee(callee.as_str()).is_some() {
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::IConst {
-                    dst,
-                    ty: IrType::Bool,
-                    n: 1,
-                });
-                return Ok(dst);
+        Expr::Call { callee, args, .. } => match callee.as_str() {
+            "Some" => {
+                if args.len() != 1 {
+                    anyhow::bail!("`Some` expects exactly one argument");
+                }
+                let payload = lower_expr(ctx, &args[0])?;
+                let tag = emit_int_const(ctx, 1);
+                let zero = emit_int_const(ctx, 0);
+                Ok(ctx.variant_init(tag, payload, zero))
             }
-            let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
-            let argv = argv?;
-            let _sig = ctx
-                .fns
-                .get(callee.as_str())
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!(format!("unknown function `{}`", callee)))?;
-            // If callee is known (user or intrinsic), emit a Call with its index
-            if let Some(idx) = ctx.fn_indices.get(callee.as_str()).copied() {
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::Call {
-                    dst: Some(dst),
-                    callee: idx,
-                    args: argv,
-                });
-                Ok(dst)
-            } else {
-                anyhow::bail!(format!("unknown function `{}`", callee))
+            "None" => {
+                if !args.is_empty() {
+                    anyhow::bail!("`None` does not take arguments");
+                }
+                let tag = emit_int_const(ctx, 0);
+                let zero = emit_int_const(ctx, 0);
+                Ok(ctx.variant_init(tag, zero, zero))
             }
+            "Ok" => {
+                if args.len() > 1 {
+                    anyhow::bail!("`Ok` expects at most one argument");
+                }
+                let payload = if let Some(arg) = args.first() {
+                    lower_expr(ctx, arg)?
+                } else {
+                    emit_int_const(ctx, 0)
+                };
+                let tag = emit_int_const(ctx, 1);
+                let zero = emit_int_const(ctx, 0);
+                Ok(ctx.variant_init(tag, payload, zero))
+            }
+            "Err" => {
+                if args.len() > 1 {
+                    anyhow::bail!("`Err` expects at most one argument");
+                }
+                let payload = if let Some(arg) = args.first() {
+                    lower_expr(ctx, arg)?
+                } else {
+                    emit_int_const(ctx, 0)
+                };
+                let tag = emit_int_const(ctx, 0);
+                let zero = emit_int_const(ctx, 0);
+                Ok(ctx.variant_init(tag, payload, zero))
+            }
+            _ => {
+                if guard_kind_for_callee(callee.as_str()).is_some() {
+                    let dst = fresh(ctx);
+                    ctx.body.push(Instr::IConst {
+                        dst,
+                        ty: IrType::Bool,
+                        n: 1,
+                    });
+                    return Ok(dst);
+                }
+                let argv: Result<Vec<_>> = args.iter().map(|a| lower_expr(ctx, a)).collect();
+                let argv = argv?;
+                let _sig = ctx
+                    .fns
+                    .get(callee.as_str())
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!(format!("unknown function `{}`", callee)))?;
+                if let Some(idx) = ctx.fn_indices.get(callee.as_str()).copied() {
+                    let dst = fresh(ctx);
+                    ctx.body.push(Instr::Call {
+                        dst: Some(dst),
+                        callee: idx,
+                        args: argv,
+                    });
+                    Ok(dst)
+                } else {
+                    anyhow::bail!(format!("unknown function `{}`", callee))
+                }
+            }
+        },
+    }
+}
+impl<'a> LowerCtx<'a> {
+    fn variant_init(&mut self, tag: Value, payload_lo: Value, payload_hi: Value) -> Value {
+        let dst = fresh(self);
+        self.body.push(Instr::VariantInit {
+            dst,
+            tag,
+            payload_lo,
+            payload_hi,
+        });
+        dst
+    }
+
+    #[allow(dead_code)]
+    fn variant_destructure(&mut self, variant: Value) -> VariantParts {
+        let tag = fresh(self);
+        self.body.push(Instr::VariantLoadTag { dst: tag, variant });
+        let payload_lo = fresh(self);
+        self.body.push(Instr::VariantLoadPayloadLo {
+            dst: payload_lo,
+            variant,
+        });
+        let payload_hi = fresh(self);
+        self.body.push(Instr::VariantLoadPayloadHi {
+            dst: payload_hi,
+            variant,
+        });
+        VariantParts {
+            tag,
+            payload_lo,
+            payload_hi,
         }
     }
 }
+
+fn emit_int_const(ctx: &mut LowerCtx<'_>, n: i64) -> Value {
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::IConst {
+        dst,
+        ty: IrType::Int,
+        n,
+    });
+    dst
+}
+
 fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
     let v = Value(ctx.next);
     ctx.next += 1;

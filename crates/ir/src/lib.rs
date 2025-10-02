@@ -1,7 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlaceHolder;
 
-// Phase 3.3 — Minimal IR shape (SSA‑like, single block per function for now)
+// Phase 3.3 - Minimal IR shape (SSA-like, single block per function for now)
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IrType {
@@ -11,6 +11,13 @@ pub enum IrType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Value(pub u32); // SSA value id
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VariantParts {
+    pub tag: Value,
+    pub payload_lo: Value,
+    pub payload_hi: Value,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOpIR {
@@ -59,6 +66,7 @@ impl GuardKind {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub enum Instr {
     // v = const n
@@ -93,7 +101,27 @@ pub enum Instr {
         then_v: Value,
         else_v: Value,
     },
-    // v? = call callee_idx(args) — callee is a function index in the module
+    // Variant constructor: allocate `{tag, payload_lo, payload_hi, reserved}` and return its pointer
+    VariantInit {
+        dst: Value,
+        tag: Value,
+        payload_lo: Value,
+        payload_hi: Value,
+    },
+    // Variant destructors: load individual fields
+    VariantLoadTag {
+        dst: Value,
+        variant: Value,
+    },
+    VariantLoadPayloadLo {
+        dst: Value,
+        variant: Value,
+    },
+    VariantLoadPayloadHi {
+        dst: Value,
+        variant: Value,
+    },
+    // v? = call callee_idx(args) - callee is a function index in the module
     Call {
         dst: Option<Value>,
         callee: u32,

@@ -379,7 +379,7 @@ IR & Desugaring
 Codegen & Runtime
 - [x] Emit Wasm for the new IR ops, writing tag/payload with proper alignment and zeroing unused payload bytes.
 - [x] Add a shared runtime helper that traps on invalid tags and hook it into every destructor path.
-- [ ] Extend CLI integration (`clg run`) and IR unit tests to cover constructor/destructor pairs, success cases, and propagation paths.
+- [x] Extend CLI integration (`clg run`) and IR unit tests to cover constructor/destructor pairs, success cases, and propagation paths.
 7.2 Verification & SMT
 
 - [ ] Replace VC encodings for `if let`/`??`/`?` with the tagged layout; update the SMT translator and keep option/result axioms in one module.

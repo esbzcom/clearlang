@@ -203,15 +203,15 @@ ADT Ergonomics (Phase 6.6)
 - `??` (Option coalesce) expands to a `match` on the left operand. The left side must have type `Option<T>`; the `Some` arm unwraps to `T` and the `None` arm evaluates the right operand.
 - `?` (propagation) is a postfix operator over `Option<T>` and `Result<T,E>`. The operand must have one of those types and the surrounding function must return the corresponding container. Successful typing yields the inner type (`T` or the `Ok` branch). Diagnostics: `T601`/`T604` (return type must be `Option`/`Result`), `T602` (operand not an ADT), `T603`/`T605` (inner type mismatch), `T606` (missing `$return`).
 - Constructors obey the same constraints: `Some(v)` infers `Option<T>`; `None` requires an `Option<_>` return site (`T607`/`T608`); `Ok(v)`/`Err(e)` require a `Result<_, _>` return site (`T609`-`T612`) and validate argument types (`T611`/`T613`).
-- Codegen for `Expr::Try` is pending; the parser/typer surface ships behind an experimental flag until lowering support lands.
+- Lowering and runtime coverage are live: constructors, destructors, and `Expr::Try` all target the canonical variant layout, emit the shared `R003` trap on invalid tags, and surface deterministic diagnostics. Regression coverage includes `crates/cli/tests/cli_it.rs::run_option_result_success_paths`, `crates/cli/tests/cli_it.rs::run_option_result_propagation_paths`, and `crates/cli/tests/cli_it.rs::run_reports_r003_invalid_variant_json`.
 
-## Option/Result Lowering Roadmap (Phase 6.6)
+## Option/Result Lowering Status (Phase 6.6/7.1)
 
-- **Runtime encoding**: `Option<T>`/`Result<T,E>` now target the canonical 16-byte layout in `docs/design/phase-7.1-option-result-runtime.md`. The `tag` word uses `0` for `None`/`Err` and `1` for `Some`/`Ok`; payload slots follow the `{lo, hi, reserved}` convention and stay zeroed when unused.
-- **Constructors**: `None`/`Some`/`Ok`/`Err` will write the tag and payload words directly, clearing the reserved slot so hashing and SMT stay deterministic. Builtins that return Option/Result adopt the same helper.
-- **`Expr::Try` lowering**: propagation becomes a tag inspection; `tag > 1` must trap via the shared invalid-tag helper before returning the failure payload. Success paths reuse the payload slots without extra loads.
-- **VC + SMT**: the encoder will replace placeholder comments with tuples `(tag, lo, hi)`, referencing the layout spec so proofs and automation agree on the meaning of each word.
-- **Tooling**: CLI docs and worked examples will be refreshed alongside lowering so `clg build --emit-vcs` reflects the concrete encoding rather than the experimental flag.
+- **Runtime encoding**: `Option<T>`/`Result<T,E>` reuse the canonical 16-byte layout from `docs/design/phase-7.1-option-result-runtime.md`. `VariantLoad*` guards now trap with `R003` when tags exceed `1`, keeping runtime diagnostics deterministic and AI-friendly.
+- **Constructors**: `None`/`Some`/`Ok`/`Err` write the tag and payload words directly and zero the reserved slot. The SSA structure is locked in by `crates/typer/tests/lowering_variants.rs::option_try_lowering_preserves_payload_and_propagation` and `::result_try_lowering_tracks_ok_flow`.
+- **`Expr::Try` lowering**: propagation inspects the tag, emits `ReturnIf` to forward `None`/`Err`, and reuses the payload slot when the tag signals success. The same tests assert the value IDs stay stable across constructor/destructor pairs.
+- **VC + SMT**: upcoming work replaces the placeholder comments with `(tag, lo, hi)` tuples so SMT snapshots and docs agree on the runtime contract (see TODO 7.2).
+- **Tooling**: CLI docs and the `--emit-vcs` walkthrough will be refreshed alongside the VC update to keep the examples proof-ready and machine-verifiable.
 
 Collections (Type-Only Summary) -" see `docs/collections.md`
 

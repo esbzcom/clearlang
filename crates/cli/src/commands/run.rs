@@ -62,11 +62,12 @@ fn extract_runtime_error(
     if code == 0 {
         return None;
     }
-    let start = get_global(instance, store, "__clg_runtime_error_start").unwrap_or(0) as usize;
-    let end = get_global(instance, store, "__clg_runtime_error_end").unwrap_or(0) as usize;
+
+    let mut start = get_global(instance, store, "__clg_runtime_error_start").unwrap_or(0) as usize;
+    let mut end = get_global(instance, store, "__clg_runtime_error_end").unwrap_or(0) as usize;
     let detail = get_global(instance, store, "__clg_runtime_error_detail").unwrap_or(0);
 
-    let (code_label, mut message, detail_label) = match code {
+    let (code_label, mut message, detail_label, reset_span) = match code {
         1 => {
             let label = match detail {
                 1 => "ensure",
@@ -76,24 +77,46 @@ fn extract_runtime_error(
                 "R000",
                 format!("contract `{}` guard failed", label),
                 Some(label.to_string()),
+                false,
             )
         }
         2 => (
             "R001",
             "string allocator ran out of memory".to_string(),
             None,
+            false,
         ),
         3 => (
             "R002",
             "string runtime detected invalid UTF-8 input".to_string(),
             None,
+            false,
         ),
+        4 => {
+            let kind = match detail {
+                1 => "Result",
+                _ => "Option",
+            };
+            let tag = start;
+            (
+                "R003",
+                format!("{kind} variant observed invalid tag {}", tag),
+                Some(kind.to_string()),
+                true,
+            )
+        }
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),
             None,
+            false,
         ),
     };
+
+    if reset_span {
+        start = 0;
+        end = 0;
+    }
 
     if code_label == "R000" && start == 0 && end == 0 {
         message.push_str(" (no span available)");
@@ -107,7 +130,6 @@ fn extract_runtime_error(
         detail: detail_label,
     })
 }
-
 fn get_global(instance: &wt::Instance, store: &mut wt::Store<()>, name: &str) -> Option<i32> {
     let global = instance.get_global(&mut *store, name)?;
     global.get(&mut *store).i32()

@@ -1,5 +1,6 @@
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
-use clg_ast::{BinOp, Effect, Expr, Program, Span, UnaryOp};
+use clg_ast::{BinOp, Effect, Expr, MatchArm, MatchPat, Program, Span, UnaryOp};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct ContractExpr {
@@ -35,14 +36,19 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             Some(Span { start, end })
         };
         let pre_ast = expr_to_source(&pre_expr, 0);
-        let pre_smt = expr_to_smt2(&pre_expr);
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !func.ensures.is_empty() {
             for (idx, ensure) in func.ensures.iter().enumerate() {
                 let post_ast = expr_to_source(&ensure.expr, 0);
-                let post_smt = expr_to_smt2(&ensure.expr);
                 let substituted = substitute_result(&ensure.expr, &func.body);
-                let vc_smt2 = format!("(=> {} {})", pre_smt, expr_to_smt2(&substituted));
+
+                let mut encoder = SmtEncoder::default();
+                let pre_smt = encoder.encode(&pre_expr);
+                let post_smt = encoder.encode(&ensure.expr);
+                let substituted_smt = encoder.encode(&substituted);
+                let vc_body = format!("(=> {} {})", pre_smt, substituted_smt);
+                let vc_smt2 = encoder.wrap_vc(&vc_body);
+
                 out.push(VerificationCondition {
                     function: func.name.clone(),
                     vc_id: format!("vc:{}", idx),
@@ -76,8 +82,13 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     span: guard_span,
                 };
                 let post_ast = expr_to_source(&guard_expr, 0);
-                let post_smt = expr_to_smt2(&guard_expr);
-                let vc_smt2 = format!("(=> {} {})", pre_smt, post_smt);
+
+                let mut encoder = SmtEncoder::default();
+                let pre_smt = encoder.encode(&pre_expr);
+                let post_smt = encoder.encode(&guard_expr);
+                let vc_body = format!("(=> {} {})", pre_smt, post_smt);
+                let vc_smt2 = encoder.wrap_vc(&vc_body);
+
                 out.push(VerificationCondition {
                     function: func.name.clone(),
                     vc_id: format!("mut_pre:{}:{}", call.callee, idx),
@@ -100,7 +111,6 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
 }
-
 fn fold_conjunction(mut exprs: Vec<Expr>) -> Expr {
     let mut iter = exprs.drain(..);
     let first = iter.next().expect("exprs not empty");
@@ -149,7 +159,6 @@ fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
         Expr::Match { .. } | Expr::If { .. } => expr.clone(),
     }
 }
-
 fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
     match expr {
         Expr::Int(n, _) => n.to_string(),
@@ -201,45 +210,257 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
                 rendered
             }
         }
-        Expr::Match { .. } | Expr::If { .. } => format!("{:?}", expr),
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            if arms.len() == 2 {
+                let scrutinee_src = expr_to_source(scrutinee, 0);
+                let first = match_arm_to_source(&arms[0]);
+                let second = match_arm_to_source(&arms[1]);
+                format!(
+                    "match {} {{ {} => {}, {} => {} }}",
+                    scrutinee_src, first.pat, first.body, second.pat, second.body
+                )
+            } else {
+                format!("{:?}", expr)
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            let cond_src = expr_to_source(cond, 0);
+            let then_src = expr_to_source(then_br, 0);
+            let else_src = expr_to_source(else_br, 0);
+            format!("if {} {{ {} }} else {{ {} }}", cond_src, then_src, else_src)
+        }
     }
 }
 
-fn expr_to_smt2(expr: &Expr) -> String {
-    match expr {
-        Expr::Int(n, _) => n.to_string(),
-        Expr::Bool(b, _) => b.to_string(),
-        Expr::String(s, _) => format!("\"{}\"", s),
-        Expr::Var(name, _) => name.clone(),
-        Expr::Unary { op, expr, .. } => match op {
-            UnaryOp::Not => format!("(not {})", expr_to_smt2(expr)),
-        },
-        Expr::Bin { op, lhs, rhs, .. } => match op {
-            BinOp::Add => format!("(+ {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Sub => format!("(- {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Mul => format!("(* {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Div => format!("(div {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Lt => format!("(< {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Le => format!("(<= {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Gt => format!("(> {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Ge => format!("(>= {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Eq => format!("(= {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Neq => format!("(not (= {} {}))", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::And => format!("(and {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-            BinOp::Or => format!("(or {} {})", expr_to_smt2(lhs), expr_to_smt2(rhs)),
-        },
-        Expr::Call { callee, args, .. } => {
-            let parts: Vec<String> = args.iter().map(expr_to_smt2).collect();
-            if parts.is_empty() {
-                format!("({})", callee)
-            } else {
-                format!("({} {})", callee, parts.join(" "))
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum SmtHelper {
+    VariantAccessors,
+    OptionCtor,
+    ResultCtor,
+}
+
+#[derive(Default)]
+struct SmtEncoder {
+    helpers: HashSet<SmtHelper>,
+    fresh: usize,
+}
+
+impl SmtEncoder {
+    fn encode(&mut self, expr: &Expr) -> String {
+        self.encode_inner(expr)
+    }
+
+    fn encode_inner(&mut self, expr: &Expr) -> String {
+        match expr {
+            Expr::Int(n, _) => n.to_string(),
+            Expr::Bool(b, _) => b.to_string(),
+            Expr::String(s, _) => format!("\"{}\"", s),
+            Expr::Var(name, _) => name.clone(),
+            Expr::Unary { op, expr, .. } => match op {
+                UnaryOp::Not => format!("(not {})", self.encode_inner(expr)),
+            },
+            Expr::Bin { op, lhs, rhs, .. } => match op {
+                BinOp::Add => format!("(+ {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Sub => format!("(- {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Mul => format!("(* {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Div => format!(
+                    "(div {} {})",
+                    self.encode_inner(lhs),
+                    self.encode_inner(rhs)
+                ),
+                BinOp::Lt => format!("(< {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Le => format!("(<= {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Gt => format!("(> {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Ge => format!("(>= {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Eq => format!("(= {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+                BinOp::Neq => format!(
+                    "(not (= {} {}))",
+                    self.encode_inner(lhs),
+                    self.encode_inner(rhs)
+                ),
+                BinOp::And => format!(
+                    "(and {} {})",
+                    self.encode_inner(lhs),
+                    self.encode_inner(rhs)
+                ),
+                BinOp::Or => format!("(or {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
+            },
+            Expr::Call { callee, args, .. } => self.encode_call(callee.as_str(), args),
+            Expr::Return { expr, .. } => self.encode_inner(expr),
+            Expr::Try { expr, .. } => self.encode_try(expr),
+            Expr::Match {
+                scrutinee, arms, ..
+            } => self.encode_match(scrutinee, arms),
+            Expr::If {
+                cond,
+                then_br,
+                else_br,
+                ..
+            } => format!(
+                "(ite {} {} {})",
+                self.encode_inner(cond),
+                self.encode_inner(then_br),
+                self.encode_inner(else_br)
+            ),
+        }
+    }
+
+    fn encode_call(&mut self, callee: &str, args: &[Expr]) -> String {
+        match callee {
+            "Some" => {
+                self.helpers.insert(SmtHelper::VariantAccessors);
+                self.helpers.insert(SmtHelper::OptionCtor);
+                let val = args
+                    .first()
+                    .map(|a| self.encode_inner(a))
+                    .unwrap_or_else(|| "0".to_string());
+                format!("(cl.option.mk 1 {} 0)", val)
+            }
+            "None" => {
+                self.helpers.insert(SmtHelper::VariantAccessors);
+                self.helpers.insert(SmtHelper::OptionCtor);
+                "(cl.option.mk 0 0 0)".to_string()
+            }
+            "Ok" => {
+                self.helpers.insert(SmtHelper::VariantAccessors);
+                self.helpers.insert(SmtHelper::ResultCtor);
+                let val = args
+                    .first()
+                    .map(|a| self.encode_inner(a))
+                    .unwrap_or_else(|| "0".to_string());
+                format!("(cl.result.mk 1 {} 0)", val)
+            }
+            "Err" => {
+                self.helpers.insert(SmtHelper::VariantAccessors);
+                self.helpers.insert(SmtHelper::ResultCtor);
+                let val = args
+                    .first()
+                    .map(|a| self.encode_inner(a))
+                    .unwrap_or_else(|| "0".to_string());
+                format!("(cl.result.mk 0 {} 0)", val)
+            }
+            _ => {
+                let parts: Vec<String> = args.iter().map(|a| self.encode_inner(a)).collect();
+                if parts.is_empty() {
+                    format!("({})", callee)
+                } else {
+                    format!("({} {})", callee, parts.join(" "))
+                }
             }
         }
-        Expr::Return { expr, .. } => expr_to_smt2(expr),
-        Expr::Try { .. } => format!("; unsupported try {:?}", expr),
-        Expr::Match { .. } | Expr::If { .. } => format!("; unsupported expr {:?}", expr),
     }
+
+    fn encode_try(&mut self, expr: &Expr) -> String {
+        self.helpers.insert(SmtHelper::VariantAccessors);
+        let inner = self.encode_inner(expr);
+        let tmp = self.fresh_sym("cl_try");
+        format!(
+            "(let (({} {})) (cl.variant.payload_lo {}))",
+            tmp, inner, tmp
+        )
+    }
+
+    fn encode_match(&mut self, scrutinee: &Expr, arms: &[MatchArm]) -> String {
+        if arms.len() != 2 {
+            return format!("; unsupported match {:?}", arms);
+        }
+        self.helpers.insert(SmtHelper::VariantAccessors);
+        let scrutinee_term = self.encode_inner(scrutinee);
+        let tmp = self.fresh_sym("cl_match");
+
+        let cond = self.match_condition(&tmp, &arms[0].pat);
+        let then_branch = self.match_branch(&tmp, &arms[0]);
+        let else_branch = self.match_branch(&tmp, &arms[1]);
+
+        format!(
+            "(let (({} {})) (ite {} {} {}))",
+            tmp, scrutinee_term, cond, then_branch, else_branch
+        )
+    }
+
+    fn match_condition(&mut self, scrutinee_sym: &str, pat: &MatchPat) -> String {
+        let tag_value = match pat {
+            MatchPat::Some(_) | MatchPat::Ok(_) => 1,
+            MatchPat::None | MatchPat::Err(_) => 0,
+        };
+        format!("(= (cl.variant.tag {}) {})", scrutinee_sym, tag_value)
+    }
+
+    fn match_branch(&mut self, scrutinee_sym: &str, arm: &MatchArm) -> String {
+        let body = self.encode_inner(&arm.expr);
+        match &arm.pat {
+            MatchPat::Some(name) | MatchPat::Ok(name) | MatchPat::Err(name) => {
+                let payload = format!("(cl.variant.payload_lo {})", scrutinee_sym);
+                format!("(let (({} {})) {})", name, payload, body)
+            }
+            MatchPat::None => body,
+        }
+    }
+
+    fn fresh_sym(&mut self, prefix: &str) -> String {
+        let sym = format!("{}${}", prefix, self.fresh);
+        self.fresh += 1;
+        sym
+    }
+
+    fn wrap_vc(&self, body: &str) -> String {
+        let prelude = self.helpers_prelude();
+        if prelude.is_empty() {
+            body.to_string()
+        } else {
+            format!(
+                "{}
+{}",
+                prelude, body
+            )
+        }
+    }
+
+    fn helpers_prelude(&self) -> String {
+        if self.helpers.is_empty() {
+            return String::new();
+        }
+        let mut lines = Vec::new();
+        if self.helpers.contains(&SmtHelper::VariantAccessors) {
+            lines.push("; Option/Result variants use (tag, payload_lo, payload_hi)");
+            lines.push("(declare-fun cl.variant.tag (Int) Int)");
+            lines.push("(declare-fun cl.variant.payload_lo (Int) Int)");
+            lines.push("(declare-fun cl.variant.payload_hi (Int) Int)");
+        }
+        if self.helpers.contains(&SmtHelper::OptionCtor) {
+            lines.push("(declare-fun cl.option.mk (Int Int Int) Int)");
+        }
+        if self.helpers.contains(&SmtHelper::ResultCtor) {
+            lines.push("(declare-fun cl.result.mk (Int Int Int) Int)");
+        }
+        lines.join(
+            "
+",
+        )
+    }
+}
+
+struct ArmSource {
+    pat: String,
+    body: String,
+}
+
+fn match_arm_to_source(arm: &MatchArm) -> ArmSource {
+    let pat = match &arm.pat {
+        MatchPat::Some(name) => format!("Some({})", name),
+        MatchPat::None => "None".to_string(),
+        MatchPat::Ok(name) => format!("Ok({})", name),
+        MatchPat::Err(name) => format!("Err({})", name),
+    };
+    let body = expr_to_source(&arm.expr, 0);
+    ArmSource { pat, body }
 }
 
 fn precedence_bin(op: BinOp) -> u8 {

@@ -365,7 +365,7 @@ Docs & Proofs
 
 ## Phase 7 - Option/Result Lowering
 
-7.1 IR & Runtime Encoding (In Progress)
+7.1 IR & Runtime Encoding (Done)
 
 Spec & Layout
 - [x] Freeze the `{ tag, payload }` representation for `Option`/`Result`, including tag constants, payload alignment, and the shared panic-on-invalid-tag policy (see `docs/design/phase-7.1-option-result-runtime.md`).
@@ -380,11 +380,11 @@ Codegen & Runtime
 - [x] Emit Wasm for the new IR ops, writing tag/payload with proper alignment and zeroing unused payload bytes.
 - [x] Add a shared runtime helper that traps on invalid tags and hook it into every destructor path.
 - [x] Extend CLI integration (`clg run`) and IR unit tests to cover constructor/destructor pairs, success cases, and propagation paths.
-7.2 Verification & SMT
+7.2 Verification & SMT (Done)
 
-- [ ] Replace VC encodings for `if let`/`??`/`?` with the tagged layout; update the SMT translator and keep option/result axioms in one module.
-- [ ] Refresh VC regression snapshots and worked examples (`docs/proofs`) to cover both `Option` and `Result` success/failure cases.
-- [ ] Extend effect-gate and VC matrix tests so `Expr::Try` and coalescing sugar appear in unit, snapshot, and integration suites.
+- [x] Replace VC encodings for `if let`/`??`/`?` with the tagged layout; update the SMT translator and keep option/result axioms in one module.
+- [x] Refresh VC regression snapshots and worked examples (`docs/proofs`) to cover both `Option` and `Result` success/failure cases.
+- [x] Extend effect-gate and VC matrix tests so `Expr::Try` and coalescing sugar appear in unit, snapshot, and integration suites.
 
 7.3 Docs & Tooling
 

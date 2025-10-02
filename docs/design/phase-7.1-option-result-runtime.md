@@ -59,9 +59,8 @@ This keeps diagnostics deterministic and helps AI tooling reason about variant m
 Reserve runtime code `R003` for invalid variant tags. `VariantLoadTag` now traps when `tag > 1`, calling the shared helper to emit `R003` with `{ kind: "Option"|"Result", tag }` stored in the runtime globals.
 
 ## Future Work
-- Implement the constructors/destructors and lowering helpers using this contract.
-- Extend SMT encoding so VCs reason over the explicit `(tag, lo, hi)` tuple.
-- Add Wasm regression tests that cover well-formed and invalid-tag scenarios (expecting an `R003` trap).
+- Extend SMT coverage to pointer-backed payloads once `payload_hi` carries string metadata.
+- Keep Wasm regression tests in sync as new variant intrinsics land (invalid-tag traps remain mandatory).
 
 ## References
 - Phase 6.6 ADT ergonomics design (`docs/design/phase-6.6-adt-ergonomics.md`).

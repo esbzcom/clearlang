@@ -210,8 +210,8 @@ ADT Ergonomics (Phase 6.6)
 - **Runtime encoding**: `Option<T>`/`Result<T,E>` reuse the canonical 16-byte layout from `docs/design/phase-7.1-option-result-runtime.md`. `VariantLoad*` guards now trap with `R003` when tags exceed `1`, keeping runtime diagnostics deterministic and AI-friendly.
 - **Constructors**: `None`/`Some`/`Ok`/`Err` write the tag and payload words directly and zero the reserved slot. The SSA structure is locked in by `crates/typer/tests/lowering_variants.rs::option_try_lowering_preserves_payload_and_propagation` and `::result_try_lowering_tracks_ok_flow`.
 - **`Expr::Try` lowering**: propagation inspects the tag, emits `ReturnIf` to forward `None`/`Err`, and reuses the payload slot when the tag signals success. The same tests assert the value IDs stay stable across constructor/destructor pairs.
-- **VC + SMT**: upcoming work replaces the placeholder comments with `(tag, lo, hi)` tuples so SMT snapshots and docs agree on the runtime contract (see TODO 7.2).
-- **Tooling**: CLI docs and the `--emit-vcs` walkthrough will be refreshed alongside the VC update to keep the examples proof-ready and machine-verifiable.
+- **VC + SMT**: the VC generator now emits the canonical `(tag, payload_lo, payload_hi)` encoding. SMT snapshots declare `cl.variant.{tag,payload_lo,payload_hi}` alongside `cl.option.mk`/`cl.result.mk` so Option/Result reasoning stays machine-friendly and solver-ready.
+- **Tooling**: CLI docs and the `--emit-vcs` walkthrough will be refreshed alongside proof packaging (Phase 7.3) to keep the examples proof-ready and machine-verifiable.
 
 Collections (Type-Only Summary) -" see `docs/collections.md`
 

@@ -60,22 +60,14 @@ Compatibility
 [
   {
     "version": 1,
-    "function": "default_or_zero",
-    "vc_id": "vc:0",
-    "pre":   { "ast": "true", "smt2": "true" },
-    "post":  { "ast": "result >= 0", "smt2": "(>= result 0)" },
-    "vc":    { "smt2": "(=> true ; unsupported expr If { ... })" },
-    "status": "generated"
-  },
-  {
-    "version": 1,
-    "function": "bump_when_positive",
+    "function": "pick",
     "vc_id": "vc:0",
     "pre":   { "ast": "true", "smt2": "true" },
     "post":  { "ast": "result == result", "smt2": "(= result result)" },
-    "vc":    { "smt2": "(=> true (= ; unsupported expr If { ... Try { ... } } ; unsupported expr If { ... Try { ... } }))" },
+    "vc":    { "smt2": "; Option/Result variants use (tag, payload_lo, payload_hi)\n(declare-fun cl.variant.tag (Int) Int)\n(declare-fun cl.variant.payload_lo (Int) Int)\n(declare-fun cl.variant.payload_hi (Int) Int)\n(declare-fun cl.option.mk (Int Int Int) Int)\n(=> true (= (cl.option.mk 1 (+ (let ((cl_match$0 opt)) (ite (= (cl.variant.tag cl_match$0) 1) (let ((__coalesce_tmp92 (cl.variant.payload_lo cl_match$0))) __coalesce_tmp92) 7)) 1) 0) (cl.option.mk 1 (+ (let ((cl_match$1 opt)) (ite (= (cl.variant.tag cl_match$1) 1) (let ((__coalesce_tmp92 (cl.variant.payload_lo cl_match$1))) __coalesce_tmp92) 7)) 1) 0)))" },
     "status": "generated"
   }
 ]
 ```
-Current SMT strings still contain placeholder comments because Option/Result lowering and SMT encoding are not final. Once the lowering work (Phase 6.6 follow-up) lands, these placeholders will be replaced by tagged encodings and the examples above will be updated with canonical snapshots.
+VC outputs now declare cl.variant.tag/payload accessors and cl.option.mk/cl.result.mk so the tagged layout is explicit to solvers and tooling.
+

@@ -302,6 +302,44 @@ fn build_emits_vcs_json() {
         Some(src_path.to_string_lossy().as_ref())
     );
 }
+#[test]
+fn build_emits_variant_vcs_json() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("coalesce.clear");
+    let wasm_path = tmp.path().join("coalesce.wasm");
+    let vcs_path = tmp.path().join("coalesce.vc.json");
+    let src = r#"
+        pure function pick(opt: Option<Int>) -> Option<Int>
+            ensure { result == result }
+        { Some((opt ?? 7) + 1) }
+        function main() -> Int { if let Some(v) = pick(Some(1)) { v } else { 0 } }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    assert_eq!(arr.len(), 1);
+    let vc = arr[0]
+        .get("vc")
+        .and_then(|o| o.as_object())
+        .and_then(|o| o.get("smt2"))
+        .and_then(|s| s.as_str())
+        .expect("vc smt2");
+    assert!(vc.contains("cl.variant.tag"));
+    assert!(!vc.contains("unsupported"));
+}
 
 #[test]
 fn runtime_contract_violation_reports_r000_json() {

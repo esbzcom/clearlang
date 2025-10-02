@@ -374,10 +374,10 @@ Spec & Layout
 IR & Desugaring
 - [x] Introduce IR helpers for constructing and projecting tagged values (`Option::{some,none}`, `Result::{ok,err}`) and plumb them through typer lowering.
 - [ ] Rewrite the Phase 6.6 sugar (`if let`, `??`, postfix `?`) so lowering emits explicit tag checks + payload extraction ahead of IR emission.
-- [ ] Update `Expr::Try` lowering to branch on the tag, thread early-return exits, and support nested `try` without re-checking payloads.
+- [x] Update `Expr::Try` lowering to branch on the tag, thread early-return exits, and support nested `try` without re-checking payloads.
 
 Codegen & Runtime
-- [ ] Emit Wasm for the new IR ops, writing tag/payload with proper alignment and zeroing unused payload bytes.
+- [x] Emit Wasm for the new IR ops, writing tag/payload with proper alignment and zeroing unused payload bytes.
 - [ ] Add a shared runtime helper that traps on invalid tags and hook it into every destructor path.
 - [ ] Extend CLI integration (`clg run`) and IR unit tests to cover constructor/destructor pairs, success cases, and propagation paths.
 7.2 Verification & SMT
@@ -497,5 +497,6 @@ Codegen & Runtime
 - [ ] WASI `print` intrinsic for observable output.
 
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
+
 
 

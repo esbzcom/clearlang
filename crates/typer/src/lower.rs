@@ -1,7 +1,7 @@
 use crate::check::FnSig as CheckFnSig;
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
-use clg_ast::{BinOp, Expr, Func, Type};
+use clg_ast::{BinOp, Expr, Func, MatchArm, MatchPat, Type};
 use clg_ir::{
     BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantParts,
 };
@@ -114,8 +114,14 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         Expr::Unary { .. } => {
             anyhow::bail!("unary operators are not supported in codegen yet")
         }
-        Expr::Match { .. } => {
-            anyhow::bail!("match expression not supported in lowering yet")
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            if let Some(val) = lower_match_sugar(ctx, scrutinee, arms)? {
+                Ok(val)
+            } else {
+                anyhow::bail!("match expression not supported in lowering yet")
+            }
         }
         Expr::Try { expr, .. } => {
             let variant = lower_expr(ctx, expr)?;
@@ -256,6 +262,64 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
         },
     }
 }
+fn lower_match_sugar<'a>(
+    ctx: &mut LowerCtx<'a>,
+    scrutinee: &'a Expr,
+    arms: &'a [MatchArm],
+) -> Result<Option<Value>> {
+    if arms.len() != 2 {
+        return Ok(None);
+    }
+
+    let success = &arms[0];
+    let failure = &arms[1];
+
+    let (success_tag, binder_name): (i32, Option<&str>) = match (&success.pat, &failure.pat) {
+        (MatchPat::Some(name), MatchPat::None) => (1, Some(name.as_str())),
+        (MatchPat::Ok(name), MatchPat::Err(_)) => (1, Some(name.as_str())),
+        (MatchPat::Err(name), MatchPat::Ok(_)) => (0, Some(name.as_str())),
+        _ => return Ok(None),
+    };
+
+    let variant = lower_expr(ctx, scrutinee)?;
+    let parts = ctx.variant_destructure(variant);
+    let success_tag_val = emit_int_const(ctx, success_tag as i64);
+    let cond = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: cond,
+        op: BinOpIR::Eq,
+        lhs: parts.tag,
+        rhs: success_tag_val,
+    });
+
+    let (binder_name_opt, previous) = if let Some(name) = binder_name {
+        let prev = ctx.env.insert(name, parts.payload_lo);
+        (Some(name), prev)
+    } else {
+        (None, None)
+    };
+
+    let success_val = lower_expr(ctx, &success.expr)?;
+
+    if let Some(name) = binder_name_opt {
+        if let Some(prev) = previous {
+            ctx.env.insert(name, prev);
+        } else {
+            ctx.env.remove(name);
+        }
+    }
+
+    let failure_val = lower_expr(ctx, &failure.expr)?;
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::ISelect {
+        dst,
+        cond,
+        then_v: success_val,
+        else_v: failure_val,
+    });
+    Ok(Some(dst))
+}
+
 impl<'a> LowerCtx<'a> {
     fn variant_init(&mut self, tag: Value, payload_lo: Value, payload_hi: Value) -> Value {
         let dst = fresh(self);

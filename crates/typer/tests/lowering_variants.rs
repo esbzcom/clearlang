@@ -99,3 +99,74 @@ fn lowers_result_try_to_return_if() {
         "lowering must emit ReturnIf for res? propagation"
     );
 }
+
+#[test]
+fn lowers_if_let_some_to_select() {
+    let src = r#"
+        pure function pick(opt: Option<Int>) -> Int {
+            if let Some(v) = opt { v } else { 0 }
+        }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "pick")
+        .expect("pick function present");
+
+    assert!(
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::ISelect { .. })),
+        "lowering must emit ISelect for if let Some"
+    );
+    assert!(
+        !func
+            .body
+            .iter()
+            .any(|instr| matches!(instr, Instr::ReturnIf { .. })),
+        "if let should not emit ReturnIf"
+    );
+}
+
+#[test]
+fn lowers_option_coalesce_to_select() {
+    let src = r#"
+        pure function coalesce(opt: Option<Int>) -> Int { opt ?? 7 }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "coalesce")
+        .expect("coalesce function present");
+
+    assert!(
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::ISelect { .. })),
+        "lowering must emit ISelect for ??"
+    );
+}
+
+#[test]
+fn lowers_if_let_err_to_select() {
+    let src = r#"
+        pure function pick(res: Result<Int, Int>) -> Int {
+            if let Err(e) = res { e } else { 0 }
+        }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "pick")
+        .expect("pick function present");
+
+    assert!(
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::ISelect { .. })),
+        "lowering must emit ISelect for if let Err"
+    );
+}

@@ -266,7 +266,7 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                     .max(payload_lo.0)
                     .max(payload_hi.0);
             }
-            IrInstr::VariantLoadTag { dst, variant }
+            IrInstr::VariantLoadTag { dst, variant, .. }
             | IrInstr::VariantLoadPayloadLo { dst, variant }
             | IrInstr::VariantLoadPayloadHi { dst, variant } => {
                 max_id = max_id.max(dst.0).max(variant.0);
@@ -429,7 +429,7 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 insts.i32_and();
                 insts.global_set(HEAP_PTR_GLOBAL);
             }
-            IrInstr::VariantLoadTag { dst, variant } => {
+            IrInstr::VariantLoadTag { dst, variant, kind } => {
                 insts.local_get(variant.0);
                 insts.i32_load(MemArg {
                     align: 2,
@@ -437,6 +437,19 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                     memory_index: 0,
                 });
                 insts.local_set(dst.0);
+
+                insts.local_get(dst.0);
+                insts.i32_const(2);
+                insts.i32_ge_u();
+                insts.if_(BlockType::Empty);
+                emit_runtime_trap(
+                    &mut insts,
+                    TrapCode::InvalidVariantTag,
+                    TrapOperand::local(dst.0),
+                    TrapOperand::zero(),
+                    kind.as_i32(),
+                );
+                insts.end();
             }
             IrInstr::VariantLoadPayloadLo { dst, variant } => {
                 insts.local_get(variant.0);

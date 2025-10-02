@@ -20,6 +20,12 @@ pub struct VariantParts {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VariantKind {
+    Option,
+    Result,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOpIR {
     Add,
     Sub,
@@ -40,6 +46,16 @@ pub enum TrapCode {
     ContractViolation,
     AllocatorOom,
     InvalidUtf8,
+    InvalidVariantTag,
+}
+
+impl VariantKind {
+    pub fn as_i32(self) -> i32 {
+        match self {
+            VariantKind::Option => 0,
+            VariantKind::Result => 1,
+        }
+    }
 }
 
 impl TrapCode {
@@ -48,6 +64,7 @@ impl TrapCode {
             TrapCode::ContractViolation => 1,
             TrapCode::AllocatorOom => 2,
             TrapCode::InvalidUtf8 => 3,
+            TrapCode::InvalidVariantTag => 4,
         }
     }
 }
@@ -112,6 +129,7 @@ pub enum Instr {
     VariantLoadTag {
         dst: Value,
         variant: Value,
+        kind: VariantKind,
     },
     VariantLoadPayloadLo {
         dst: Value,

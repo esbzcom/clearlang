@@ -3,7 +3,8 @@ use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Func, MatchArm, MatchPat, Type};
 use clg_ir::{
-    BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantParts,
+    BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind,
+    VariantParts,
 };
 use std::collections::HashMap;
 
@@ -26,6 +27,7 @@ pub(crate) struct LowerCtx<'a> {
     pub fns: HashMap<&'a str, FnSig<'a>>, // for call return types
     pub fn_indices: HashMap<&'a str, u32>, // for resolving callee indices (user + intrinsics)
     pub body: Vec<Instr>,
+    pub ret_ty: Type,
 }
 
 pub(crate) fn lower_func<'a>(
@@ -43,6 +45,7 @@ pub(crate) fn lower_func<'a>(
         fns: fns.clone(),
         fn_indices: fn_indices.clone(),
         body: Vec::new(),
+        ret_ty: f.ret.clone(),
     };
 
     for req in &f.requires {
@@ -124,8 +127,18 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
             }
         }
         Expr::Try { expr, .. } => {
+            let kind = match &ctx.ret_ty {
+                Type::Option(_) => VariantKind::Option,
+                Type::Result(_, _) => VariantKind::Result,
+                other => {
+                    return Err(anyhow::anyhow!(
+                        "`?` requires Option/Result return type, found {:?}",
+                        other
+                    ));
+                }
+            };
             let variant = lower_expr(ctx, expr)?;
-            let parts = ctx.variant_destructure(variant);
+            let parts = ctx.variant_destructure(variant, kind);
             let failure_tag = emit_int_const(ctx, 0);
             let cond = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -274,15 +287,16 @@ fn lower_match_sugar<'a>(
     let success = &arms[0];
     let failure = &arms[1];
 
-    let (success_tag, binder_name): (i32, Option<&str>) = match (&success.pat, &failure.pat) {
-        (MatchPat::Some(name), MatchPat::None) => (1, Some(name.as_str())),
-        (MatchPat::Ok(name), MatchPat::Err(_)) => (1, Some(name.as_str())),
-        (MatchPat::Err(name), MatchPat::Ok(_)) => (0, Some(name.as_str())),
-        _ => return Ok(None),
-    };
+    let (success_tag, binder_name, kind): (i32, Option<&str>, VariantKind) =
+        match (&success.pat, &failure.pat) {
+            (MatchPat::Some(name), MatchPat::None) => (1, Some(name.as_str()), VariantKind::Option),
+            (MatchPat::Ok(name), MatchPat::Err(_)) => (1, Some(name.as_str()), VariantKind::Result),
+            (MatchPat::Err(name), MatchPat::Ok(_)) => (0, Some(name.as_str()), VariantKind::Result),
+            _ => return Ok(None),
+        };
 
     let variant = lower_expr(ctx, scrutinee)?;
-    let parts = ctx.variant_destructure(variant);
+    let parts = ctx.variant_destructure(variant, kind);
     let success_tag_val = emit_int_const(ctx, success_tag as i64);
     let cond = fresh(ctx);
     ctx.body.push(Instr::IBin {
@@ -333,9 +347,13 @@ impl<'a> LowerCtx<'a> {
     }
 
     #[allow(dead_code)]
-    fn variant_destructure(&mut self, variant: Value) -> VariantParts {
+    fn variant_destructure(&mut self, variant: Value, kind: VariantKind) -> VariantParts {
         let tag = fresh(self);
-        self.body.push(Instr::VariantLoadTag { dst: tag, variant });
+        self.body.push(Instr::VariantLoadTag {
+            dst: tag,
+            variant,
+            kind,
+        });
         let payload_lo = fresh(self);
         self.body.push(Instr::VariantLoadPayloadLo {
             dst: payload_lo,

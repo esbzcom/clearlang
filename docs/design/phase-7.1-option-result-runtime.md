@@ -56,7 +56,7 @@ This keeps diagnostics deterministic and helps AI tooling reason about variant m
 - **Tooling**: `--emit-vcs` and SMT encoders can now model variants as `(tag: i32, lo: i32, hi: i32)` tuples, referencing this document.
 
 ## Diagnostics Mapping
-Reserve runtime code `R003` for invalid variant tags. All trap sites (Option/Result destructors, `Expr::Try`, future pattern matching) must surface `R003` with structured context `{ kind: "Option"|"Result", tag }`.
+Reserve runtime code `R003` for invalid variant tags. `VariantLoadTag` now traps when `tag > 1`, calling the shared helper to emit `R003` with `{ kind: "Option"|"Result", tag }` stored in the runtime globals.
 
 ## Future Work
 - Implement the constructors/destructors and lowering helpers using this contract.

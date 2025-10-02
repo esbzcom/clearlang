@@ -1,5 +1,7 @@
 use clg_codegen_wasm::emit_from_ir;
-use clg_ir::{Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule, Value};
+use clg_ir::{
+    Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule, Value, VariantKind,
+};
 use clg_parser::parse;
 use clg_typer::check;
 
@@ -90,4 +92,58 @@ fn trap_r001_concat_oom_and_heap_ptr_unchanged() {
 
     let heap_after = get_global(&instance, &mut store, "__clg_heap_ptr");
     assert_eq!(heap_before, heap_after, "heap_ptr must be unchanged on OOM");
+}
+
+#[test]
+fn trap_r003_invalid_tag_from_variant_load() {
+    let main_fn = IrFunction {
+        name: "main".to_string(),
+        params: vec![],
+        ret: Some(IrType::Int),
+        body: vec![
+            IrInstr::IConst {
+                dst: Value(0),
+                ty: IrType::Int,
+                n: 2,
+            },
+            IrInstr::IConst {
+                dst: Value(1),
+                ty: IrType::Int,
+                n: 0,
+            },
+            IrInstr::IConst {
+                dst: Value(2),
+                ty: IrType::Int,
+                n: 0,
+            },
+            IrInstr::VariantInit {
+                dst: Value(3),
+                tag: Value(0),
+                payload_lo: Value(1),
+                payload_hi: Value(2),
+            },
+            IrInstr::VariantLoadTag {
+                dst: Value(4),
+                variant: Value(3),
+                kind: VariantKind::Option,
+            },
+            IrInstr::Ret { val: Value(4) },
+        ],
+    };
+    let ir = IrModule {
+        funcs: vec![main_fn],
+    };
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = wasmtime::Store::new(engine, ());
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, ());
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 4, "expected R003 (InvalidVariantTag) trap code");
 }

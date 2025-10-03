@@ -1,42 +1,39 @@
 # Phase 6.6 - ADT Ergonomics Design Note
 
 ## Overview
-- **Goal**: provide lightweight surface sugar for Option/Result ergonomics (if let, ??, ?) while keeping compilation proofs and diagnostics predictable.
-- **Scope**: parser, typer, VC generation, CLI tooling. Codegen remains experimental until lowering for Expr::Try and variant data is implemented.
-- **Flagging**: all sugars remain behind the Phase 6 experimental gate until lowering and VC coverage are production ready.
+- **Goal**: provide lightweight surface sugar for Option/Result ergonomics (`if let`, `??`, postfix `?`) while keeping compilation proofs and diagnostics predictable.
+- **Scope**: parser, typer, VC generation, CLI tooling, and IR/Wasm lowering now ship together.
+- **Availability**: the sugar is enabled by default as of Phase 7.3 (no experimental switch required).
 
 ## Surface Syntax & Desugars
 | Sugar | Desugar | Notes |
 | --- | --- | --- |
-| if let Some(x) = opt { a } else { b } | match opt { Some(x) => a, None => b } | Supports Some, Ok, Err. Parser enforces explicit else. |
-| lhs ?? rhs | match lhs { Some(v) => v, None => rhs } | Chains left-associatively. Uses unique temporary binders to avoid collisions. |
-| expr? | Option: unwrap or early return None. Result: unwrap Ok or return Err. | Typing ensures operand/result alignment; lowering currently unimplemented. |
+| `if let Some(x) = opt { a } else { b }` | `match opt { Some(x) => a, None => b }` | Supports `Some`, `Ok`, `Err`. Parser enforces an explicit `else`. |
+| `lhs ?? rhs` | `match lhs { Some(v) => v, None => rhs }` | Chains left-associatively; uses temporary binders that avoid name capture. |
+| `expr?` | Option: unwrap or early-return `None`. Result: unwrap `Ok` or early-return `Err`. | Typer ensures operand/result alignment (`T601`-`T606`). |
 
 ## Typing Rules
-- if let uses existing match typing (T201-T205). Binder names are checked against scope to prevent shadowing (T205).
-- ?? requires Option<T> left operand and yields T; right operand must also type to T. Failure triggers T603 style mismatch.
-- expr?:
-  - Operand must be Option<T> or Result<T,E> (T602).
-  - Surrounding function must return Option<T> or Result<T,E> respectively (T601/T604).
-  - Inner types must match (T603/T605).
-  - Constructors (None, Ok, Err) now validate return context (T607-T613).
-- $return binding seeded in typer environments allows Expr::Try to validate the enclosing return type.
+- `if let` reuses match typing (T201?T205) and prevents binder shadowing.
+- `??` requires an `Option<T>` left operand and a right operand of type `T`; mismatches raise `T603`.
+- `expr?` validates both the operand type (`Option<T>`/`Result<T,E>`) and the surrounding return type (`T601`/`T604`).
+- Constructors (`Some`, `None`, `Ok`, `Err`) enforce return-context correctness via `T607`?`T613`.
+- The implicit `$return` binding lets the typer validate propagation sites.
 
-## Effect & Purity Considerations
-- Sugars are pure; max_effect treats Expr::Try as the effect of the operand.
-- if let/?? inherit operand effects; existing guard enforcement covers branches.
-- No additional runtime guard requirements introduced.
+## Effect & Purity
+- All sugars are pure; their effect is the effect of the operand expression.
+- Existing guard logic covers mutable intrinsics; no additional runtime guards are required.
 
 ## VC Generation
-- generate_vcs traverses Expr::Try and match to avoid panics.
-- expr_to_source renders `try` expressions as <expr>? for readability.
-- expr_to_smt2 currently emits ; unsupported try ... comments for unlowered constructs, keeping output stable while signalling missing semantics.
-- Future work: model Option/Result in SMT (e.g., algebraic datatypes or tagged pairs) once lowering/codegen is ready.
+- `generate_vcs` rewrites contracts and bodies using the canonical variant layout.
+- `SmtEncoder` emits helper declarations (`cl.variant.tag`, `.payload_lo`, `.payload_hi`, `cl.option.mk`, `cl.result.mk`) exactly when needed.
+- `Expr::Match`/`Expr::Try` appear as `let`-bound terms that check the tag (`= 0`/`= 1`) before extracting payloads.
+- Output is stable under `--emit-vcs` and validated by `crates/typer/tests/vc.rs` and `crates/cli/tests/cli_it.rs`.
 
 ## Testing Strategy
-- Parser/typer suites cover positive and negative cases for each sugar.
-- VC tests assert stable generation with sugar in bodies to prevent regressions before SMT encoding is complete.
-- CLI integration tests remain gated until lowering exists.
+- Parser/typer suites hit positive and negative cases for each sugar.
+- VC tests assert the presence of variant helpers instead of placeholder comments.
+- CLI integration (`build_emits_variant_vcs_json`) covers end-to-end builds with `--emit-vcs` and inspects the JSON structure.
+- Lowering tests (`crates/typer/tests/lowering_variants.rs`) confirm SSA stability for both Option and Result flows.
 
 ## Worked Examples
 
@@ -44,36 +41,45 @@
 ```cl
 pure function default_or_zero(opt: Option<Int>) -> Int
     ensure { result >= 0 }
-{ if let Some(v) = opt { v } else { 0 } }
+{ opt ?? 0 }
 ```
-`generate_vcs` currently emits:
+`generate_vcs` outputs:
 ```
-(=> true ; unsupported expr If { ... })
+; Option/Result variants use (tag, payload_lo, payload_hi)
+(declare-fun cl.variant.tag (Int) Int)
+(declare-fun cl.variant.payload_lo (Int) Int)
+(=> true (let ((cl_match$0 opt))
+             (ite (= (cl.variant.tag cl_match$0) 1)
+                  (let ((__coalesce_tmp0 (cl.variant.payload_lo cl_match$0)))
+                       (>= __coalesce_tmp0 0))
+                  (>= 0 0))))
 ```
-The placeholder comment keeps SMT output stable until match lowering is encoded.
 
 ### `?` propagation
 ```cl
-pure function bump_when_positive(opt: Option<Int>) -> Option<Int>
+pure function pick(opt: Option<Int>) -> Option<Int>
     ensure { result == result }
-{ if opt? > 0 { Some(opt? + 1) } else { None } }
+{ Some((opt ?? 7) + 1) }
 ```
-VC output contains the expression tree inside the existing placeholder:
+SMT output starts with the same helper declarations and then encodes the propagation:
 ```
-(=> true (= ; unsupported expr If { ... Try { ... } } ; unsupported expr If { ... Try { ... } }))
+(=> true (= (cl.option.mk 1 (+ (let ((cl_match$0 opt))
+                                   (ite (= (cl.variant.tag cl_match$0) 1)
+                                        (let ((__coalesce_tmp0 (cl.variant.payload_lo cl_match$0)))
+                                             __coalesce_tmp0)
+                                        7))
+                             1)
+                        0)
+                  (cl.option.mk 1 (+ (let ((cl_match$1 opt))
+                                        (ite (= (cl.variant.tag cl_match$1) 1)
+                                             (let ((__coalesce_tmp0 (cl.variant.payload_lo cl_match$1)))
+                                                  __coalesce_tmp0)
+                                             7))
+                                1)
+                        0)))
 ```
-These snapshots are verified by `crates/typer/tests/vc.rs`.
 
-## Codegen / Lowering Plan
-1. **Representation**: define a canonical in-memory encoding for Option<T>/Result<T,E> ({tag: i32, payload...}) in IR/Wasm.
-2. **Constructors**: lower None/Some/Ok/Err into the representation; update builtins returning Option/Result to emit the same encoding.
-3. **Expr::Try Lowering**: translate to conditional logic that inspects the tag; on None/Err, synthesize the corresponding return value and emit an Instr::Ret.
-4. **Proof Section**: extend proof packaging schema if new runtime intrinsics are required.
-5. **Validation**: add Wasm smoke tests exercising the runtime behaviour of ? under both success and early-return paths.
-- Until the above is implemented, the experimental flag should remain.
-
-## Open Follow-Ups
-- SMT encoding for match/try (avoid placeholder comments in VCs).
-- VC snapshots exercising if let, ??, and ?.
-- IR lowering/codegen implementation for Expr::Try and constructors.
-- CLI docs explaining experimental flag usage and runtime guarantees once lowering ships.
+## Status & Follow-Ups
+- Lowering, runtime encoding, and SMT integration are complete.
+- `--emit-vcs` now produces solver-friendly helpers for all Option/Result sugar.
+- Future work focuses on pointer-backed payload metadata (string `payload_hi`) and proof packaging (Phase 7.5+).

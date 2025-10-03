@@ -727,14 +727,11 @@ Runway for 6.5 Proof Packaging
 
 ## Phase 6.6 - ADT Ergonomics (Sugar)
 
-Status (2025-09-27)
-- Parser surface accepts `if let`, `??`, and `?` behind the Phase 6 experimental flag.
-- Typer enforces Option/Result flows, threads `$return`, and emits new diagnostics (T601-T613).
-- Parser/typer suites cover positives/negatives; VC tests exercise sugar bodies (`crates/typer/tests/vc.rs`).
-- Design note captured in `docs/design/phase-6.6-adt-ergonomics.md`; `docs/typing.md` updated with sugar summary.
+Status (2025-10-02)
+- Parser/typer/desugar ship by default; no experimental gate remains.
+- VC encoder emits canonical variant helpers (`cl.variant.*`, `cl.option.mk`, `cl.result.mk`), and CLI docs cover the `--emit-vcs` workflow.
+- Integration tests exercise lowering, runtime traps, and end-to-end VC JSON.
 
 Next Steps
-- Capture VC snapshots / worked examples in docs (tie to proof schema) ahead of lifting the flag.
-- Implement lowering/codegen for `Expr::Try` + constructors and document the runtime encoding.
-- Track SMT encoding for `match`/`try` to remove `; unsupported` placeholders.
-- Extend docs with end-to-end examples once lowering + VCs stabilize.
+- Carry the Option/Result story forward into pointer-backed payloads (string metadata) and proof packaging.
+- Extend docs when proof sections / signing land (Phase 7.5+) and keep VC examples in sync.

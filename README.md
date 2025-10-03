@@ -464,7 +464,7 @@ ClearLang aims to be:
 
 - Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, and contract clauses.
 
-- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing, collection APIs with structured errors, and span-rich diagnostics (Txxx codes).
+- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, and span-rich diagnostics (Txxx codes).
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 

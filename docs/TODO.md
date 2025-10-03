@@ -386,11 +386,11 @@ Codegen & Runtime
 - [x] Refresh VC regression snapshots and worked examples (`docs/proofs`) to cover both `Option` and `Result` success/failure cases.
 - [x] Extend effect-gate and VC matrix tests so `Expr::Try` and coalescing sugar appear in unit, snapshot, and integration suites.
 
-7.3 Docs & Tooling
+7.3 Docs & Tooling (Done)
 
-- [ ] Update the CLI docs and `--emit-vcs` walkthrough to demonstrate lowering-enabled workflows; note how to inspect the emitted tagged encoding.
-- [ ] Revise `docs/typing.md` and the Phase 6.6 design note with the final lowering semantics, desugars, and outstanding follow-ups.
-- [ ] Remove the experimental flag for the new sugar once tests pass and release notes/README are updated.
+- [x] Update the CLI docs and `--emit-vcs` walkthrough to demonstrate lowering-enabled workflows; note how to inspect the emitted tagged encoding.
+- [x] Revise `docs/typing.md` and the Phase 6.6 design note with the final lowering semantics, desugars, and outstanding follow-ups.
+- [x] Remove the experimental flag for the new sugar once tests pass and release notes/README are updated.
 
 ## Phase 8 - Resource/Linear Types
 

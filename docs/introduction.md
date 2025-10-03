@@ -54,11 +54,22 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `clg run out/arith.wasm`
 
 
-### ADT sugar quickstart (experimental)
-- Use `clg parse your_file.clear` to inspect sources that leverage `if let`, `??`, and postfix `?`.
-- Run `cargo test -p clg-typer --test adt_sugar` to exercise parser/typer coverage for the sugar.
-- Run `cargo test -p clg-typer --test vc` to view the generated verification conditions (currently include placeholder comments until Option/Result lowering lands).
-- `clg build` will emit a "match expression not supported" error for now; lowering/codegen support is tracked in Phase 6.6 follow-ups.
+### ADT sugar quickstart
+- Drop the snippet below into `tmp/option_flow.clear` (or any path) to try the sugar end-to-end.
+- `clg parse tmp/option_flow.clear` shows the rewritten AST.
+- `clg build tmp/option_flow.clear -o out/option_flow.wasm --emit-vcs out/option_flow.vc.json` compiles to Wasm and emits canonical VCs containing the `cl.variant.*` helpers.
+- `cargo test -p clg-typer --test vc -- --nocapture` prints the SMT fragments used by `generate_vcs`, making it easy to diff helper changes.
+- See `crates/cli/tests/cli_it.rs::build_emits_variant_vcs_json` for a CI-ready pattern.
+
+```cl
+pure function pick(opt: Option<Int>) -> Option<Int>
+    ensure { result == result }
+{ Some((opt ?? 7) + 1) }
+
+function main() -> Int {
+    if let Some(v) = pick(Some(1)) { v } else { 0 }
+}
+```
 ---
 
 ## Docs

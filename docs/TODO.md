@@ -396,28 +396,23 @@ Codegen & Runtime
 
 8.1 Syntax & Semantics
 
-- [ ] Add `resource` type declarations and usage guidelines.
-
-- [ ] Define move-only semantics: no implicit copies; explicit `move`/`drop` as needed.
+- [ ] Parse/AST support for `resource Name { fields ... drop { ... } }`, requiring an explicit drop block (empty block permitted for no-op cleanup).
+- [ ] Extend function signatures with the `consume` parameter modifier (borrows remain the default) and plumb the metadata through typer/lowering.
 
 8.2 Typing Rules
 
-- [ ] Linear usage checking: every resource is consumed exactly once; no double-use.
+- [ ] Implement linear tracking so each resource is consumed or dropped exactly once; reject implicit copies.
+- [ ] Allow immutable borrows of active resources and emit targeted diagnostics for use-after-consume or borrow-after-consume errors.
 
-- [ ] Function signatures express resource flow (in/out/borrow) as needed.
+8.3 Aliasing & Collections
 
-8.3 Aliasing & In-Place Updates
-
-- [ ] Ownership/aliasing rules to guarantee unique access for in-place updates.
-
-- [ ] Freeze/thaw design sketch (optional): safe conversion between immutable and uniquely-owned mutable states.
-
-- [ ] Update mutable collection ops to leverage unique ownership (no hidden aliasing).
+- [ ] For Phase 8.1, reject storing resources inside standard `List`/`Map`/tuple types and surface a dedicated error; design linear-aware collections as a follow-up.
+- [ ] (Optional follow-up) Sketch freeze/thaw or mutable-borrow semantics for later phases when unique aliasing is required.
 
 8.4 Tests & Docs
 
-- [ ] Docs explaining how resource types prevent double-spend patterns.
-- [ ] Unit tests for moves, drops, and invalid double-use.
+- [ ] Publish a "Resource Guide" covering built-in defaults, custom drops, consume semantics, and diagnostics.
+- [ ] Add unit/integration tests for consume success, reuse-after-consume errors, borrow checks, and container rejection.
 
 
 ## Phase 9 -" Totality & Loops with Invariants

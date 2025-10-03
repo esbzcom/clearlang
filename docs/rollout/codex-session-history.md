@@ -24,3 +24,9 @@
 - Typing overview: `docs/typing.md`
 - Layout spec: `docs/design/phase-7.1-option-result-runtime.md`
 
+## 2025-10-02 - Phase 7.3 wrap-up & Phase 8 planning
+- Defaulted ADT sugar (`if let`/`??`/`?`) and refreshed SMT encoding with canonical variant helpers.
+- Slimmed `docs/rollout/DEVPLAN.md` to a lean overview and captured Phase 8 resource plans (struct-with-drop + `consume`).
+- Updated `docs/TODO.md` to track the new resource milestones (parser/typer changes, diagnostics, test plan).
+- Next up: implement resource parsing, linear tracking, and the `consume` signature modifier.
+

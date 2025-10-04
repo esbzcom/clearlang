@@ -1,4 +1,4 @@
-use crate::tokens::kw;
+use crate::tokens::{ident_p, kw};
 use crate::ErrTy;
 use chumsky::prelude::*;
 use clg_ast::{Effect, Type};
@@ -48,9 +48,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then(ty.clone())
             .then_ignore(just('>').padded())
             .map(|(ok, err)| Type::Result(Box::new(ok), Box::new(err)));
-        choice((option, result, list_t, set_t, map_t, base))
-            .boxed()
-            .padded()
-            .labelled("type")
+        let resource = ident_p().map(Type::Resource);
+        choice((option, result, list_t, set_t, map_t, base, resource)).boxed()
     })
 }

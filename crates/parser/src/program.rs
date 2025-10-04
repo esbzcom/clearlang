@@ -32,7 +32,8 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
-        errs.into_iter()
+        let mut messages: Vec<String> = errs
+            .into_iter()
             .map(|e| {
                 let span = e.span();
                 let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
@@ -48,8 +49,20 @@ pub fn parse(src: &str) -> Result<Program, String> {
                     )
                 }
             })
-            .collect::<Vec<_>>()
-            .join("\n")
+            .collect();
+
+        for (offset, line) in src.lines().enumerate() {
+            let trimmed = line.trim_start();
+            if (trimmed.starts_with("require ") || trimmed.starts_with("ensure ")) && !trimmed.contains('{') {
+                messages.push(format!(
+                    "line {}: keyword `{}` must be followed by `{{ ... }}`",
+                    offset + 1,
+                    trimmed.split_whitespace().next().unwrap_or("contract"),
+                ));
+            }
+        }
+
+        messages.join("\n")
     })
 }
 

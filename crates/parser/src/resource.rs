@@ -24,7 +24,7 @@ fn drop_block_p<'a>() -> impl Parser<'a, &'a str, Block, ErrTy<'a>> {
             let sp = e.span();
             Stmt::Let {
                 name,
-                expr: value,
+                expr: Box::new(value),
                 span: to_span(sp),
             }
         });
@@ -35,7 +35,7 @@ fn drop_block_p<'a>() -> impl Parser<'a, &'a str, Block, ErrTy<'a>> {
         .map_with(|value, e| {
             let sp = e.span();
             Stmt::Expr {
-                expr: value,
+                expr: Box::new(value),
                 span: to_span(sp),
             }
         });
@@ -49,7 +49,7 @@ fn drop_block_p<'a>() -> impl Parser<'a, &'a str, Block, ErrTy<'a>> {
         .delimited_by(just('{').padded(), just('}').padded())
         .map_with(|(statements, tail), e| Block {
             statements,
-            tail,
+            tail: tail.map(Box::new),
             span: to_span(e.span()),
         })
 }
@@ -57,7 +57,7 @@ fn drop_block_p<'a>() -> impl Parser<'a, &'a str, Block, ErrTy<'a>> {
 fn resource_fields_p<'a>() -> impl Parser<'a, &'a str, Vec<ResourceField>, ErrTy<'a>> {
     let field = ident_p()
         .then_ignore(just(':').padded())
-        .then(ty_p())
+        .then(ty_p().padded())
         .then_ignore(just(';').padded().labelled("';'"))
         .map_with(|(name, ty), e| {
             let sp = e.span();

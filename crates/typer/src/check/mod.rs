@@ -12,7 +12,7 @@ use crate::guards::{
 use crate::lower::lower_func;
 use crate::vc::{generate_vcs, VerificationCondition};
 use anyhow::{Context, Result};
-use clg_ast::{Effect, Expr, Func, Param, Program, Type};
+use clg_ast::{Effect, Expr, Func, Param, ParamKind, Program, Type};
 use clg_ir::Module;
 use std::collections::{HashMap, HashSet};
 
@@ -56,6 +56,13 @@ pub(crate) struct FnSig<'a> {
     pub params: &'a [Param],
     pub ret: Type,
     pub effect: EffectLevel,
+}
+
+#[derive(Clone)]
+pub(crate) struct LocalBinding {
+    pub ty: Type,
+    #[allow(dead_code)]
+    pub kind: ParamKind,
 }
 
 pub struct TypecheckOutput {
@@ -187,10 +194,25 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 }
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {
-    let mut env: HashMap<&str, Type> = HashMap::new();
-    env.insert(RETURN_KEY, f.ret.clone());
+    let mut env: HashMap<&str, LocalBinding> = HashMap::new();
+    env.insert(
+        RETURN_KEY,
+        LocalBinding {
+            ty: f.ret.clone(),
+            kind: ParamKind::Borrow,
+        },
+    );
     for p in &f.params {
-        if env.insert(p.name.as_str(), p.ty.clone()).is_some() {
+        if env
+            .insert(
+                p.name.as_str(),
+                LocalBinding {
+                    ty: p.ty.clone(),
+                    kind: p.kind,
+                },
+            )
+            .is_some()
+        {
             return Err(TyperError::duplicate_parameter(&p.name).into());
         }
     }
@@ -212,7 +234,13 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
 
     let mut ensure_env = env.clone();
     if !ensure_env.contains_key("result") {
-        ensure_env.insert("result", f.ret.clone());
+        ensure_env.insert(
+            "result",
+            LocalBinding {
+                ty: f.ret.clone(),
+                kind: ParamKind::Borrow,
+            },
+        );
     }
     for ens in &f.ensures {
         let ty = type_of(&ens.expr, &ensure_env, fns, 0)?;

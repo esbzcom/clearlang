@@ -1,4 +1,4 @@
-use clg_ast::{Contract, Expr, MatchArm, Span};
+use clg_ast::{Contract, Expr, MatchArm, Span, Stmt};
 use std::collections::HashSet;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -60,6 +60,18 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
                 collect_guards_from_expr(expr, out);
             }
         }
+        Expr::Block { block } => {
+            for stmt in &block.statements {
+                match stmt {
+                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                        collect_guards_from_expr(expr.as_ref(), out);
+                    }
+                }
+            }
+            if let Some(tail) = &block.tail {
+                collect_guards_from_expr(tail.as_ref(), out);
+            }
+        }
         Expr::Call { args, .. } => {
             for arg in args {
                 collect_guards_from_expr(arg, out);
@@ -108,6 +120,18 @@ pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
             collect_mut_calls(scrutinee, out);
             for MatchArm { expr, .. } in arms {
                 collect_mut_calls(expr, out);
+            }
+        }
+        Expr::Block { block } => {
+            for stmt in &block.statements {
+                match stmt {
+                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                        collect_mut_calls(expr.as_ref(), out);
+                    }
+                }
+            }
+            if let Some(tail) = &block.tail {
+                collect_mut_calls(tail.as_ref(), out);
             }
         }
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}

@@ -1,5 +1,5 @@
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
-use clg_ast::{BinOp, Effect, Expr, MatchArm, MatchPat, Program, Span, UnaryOp};
+use clg_ast::{BinOp, Effect, Expr, MatchArm, MatchPat, Program, Span, Stmt, UnaryOp};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -156,6 +156,31 @@ fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
             expr: Box::new(substitute_result(expr, replacement)),
             span: *span,
         },
+        Expr::Block { block } => {
+            let mut new_block = block.as_ref().clone();
+            new_block.statements = block
+                .statements
+                .iter()
+                .map(|stmt| match stmt {
+                    Stmt::Let { name, expr, span } => Stmt::Let {
+                        name: name.clone(),
+                        expr: Box::new(substitute_result(expr, replacement)),
+                        span: *span,
+                    },
+                    Stmt::Expr { expr, span } => Stmt::Expr {
+                        expr: Box::new(substitute_result(expr, replacement)),
+                        span: *span,
+                    },
+                })
+                .collect();
+            new_block.tail = block
+                .tail
+                .as_ref()
+                .map(|expr| Box::new(substitute_result(expr, replacement)));
+            Expr::Block {
+                block: Box::new(new_block),
+            }
+        }
         Expr::Match { .. } | Expr::If { .. } => expr.clone(),
     }
 }
@@ -236,6 +261,24 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
             let else_src = expr_to_source(else_br, 0);
             format!("if {} {{ {} }} else {{ {} }}", cond_src, then_src, else_src)
         }
+        Expr::Block { block } => {
+            let mut parts: Vec<String> = Vec::new();
+            for stmt in &block.statements {
+                let rendered = match stmt {
+                    Stmt::Let { name, expr, .. } => {
+                        format!("let {} = {};", name, expr_to_source(expr.as_ref(), 0))
+                    }
+                    Stmt::Expr { expr, .. } => {
+                        format!("{};", expr_to_source(expr.as_ref(), 0))
+                    }
+                };
+                parts.push(rendered);
+            }
+            if let Some(tail) = &block.tail {
+                parts.push(expr_to_source(tail.as_ref(), 0));
+            }
+            format!("{{ {} }}", parts.join(" "))
+        }
     }
 }
 
@@ -309,6 +352,13 @@ impl SmtEncoder {
                 self.encode_inner(then_br),
                 self.encode_inner(else_br)
             ),
+            Expr::Block { block } => {
+                if let Some(tail) = &block.tail {
+                    self.encode_inner(tail.as_ref())
+                } else {
+                    "0".to_string()
+                }
+            }
         }
     }
 
@@ -496,5 +546,6 @@ fn span_of(expr: &Expr) -> Span {
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
         | Expr::Try { span, .. } => *span,
+        Expr::Block { block } => block.span,
     }
 }

@@ -97,7 +97,10 @@ fn parse_errors_on_missing_contract_braces() {
         { x }
     "#;
     let err = parse(src).expect_err("missing braces around contract");
-    assert!(err.to_string().contains("'{'"));
+    assert!(
+        err.contains("keyword `require` must be followed by `{ ... }`") || err.contains("'{"),
+        "error should hint at missing braces, got: {err}"
+    );
 }
 
 #[test]

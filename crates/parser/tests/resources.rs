@@ -24,7 +24,7 @@ function main() -> Int { 42 }
 
     assert_eq!(resource.drop_block.statements.len(), 1);
     match &resource.drop_block.statements[0] {
-        Stmt::Expr { expr, .. } => match expr {
+        Stmt::Expr { expr, .. } => match expr.as_ref() {
             Expr::Call { callee, args, .. } => {
                 assert_eq!(callee, "std::fs::close");
                 assert_eq!(args.len(), 1);
@@ -53,4 +53,25 @@ function main() -> Int { 0 }
     assert!(resource.fields.is_empty());
     assert!(resource.drop_block.statements.is_empty());
     assert!(resource.drop_block.tail.is_none());
+}
+
+#[test]
+fn parse_function_using_resource_type() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function take(consume handle: File) -> Int { 0 }
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    assert_eq!(ast.resources.len(), 1);
+    let func = &ast.funcs[0];
+    assert_eq!(func.name, "take");
+    assert_eq!(func.params.len(), 1);
+    assert!(matches!(
+        func.params[0].ty,
+        clg_ast::Type::Resource(ref name) if name == "File"
+    ));
 }

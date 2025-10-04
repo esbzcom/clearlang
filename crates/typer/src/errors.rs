@@ -129,6 +129,18 @@ impl TyperError {
         }
     }
 
+    pub fn block_missing_tail(span: Span) -> Self {
+        Self::new(
+            "T016",
+            format!(
+                "at {}..{}: block expression requires a tail expression",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn binary_operands_mismatch(op: &str, left: Type, right: Type, span: Span) -> Self {
         Self::new(
             "T013",

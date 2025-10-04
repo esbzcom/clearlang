@@ -16,8 +16,16 @@ fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
     kw("consume")
         .or_not()
         .then(ident_p())
-        .then_ignore(just(':').padded())
-        .then(ty_p())
+        .then_ignore(just(':').padded().labelled("':'"))
+        .then(
+            ty_p()
+                .padded()
+                .or_not()
+                .try_map(|maybe_ty, span| match maybe_ty {
+                    Some(ty) => Ok(ty),
+                    None => Err(Rich::custom(span, "expected type")),
+                }),
+        )
         .map(|((consume_kw, name), ty)| Param {
             kind: if consume_kw.is_some() {
                 ParamKind::Consume
@@ -42,8 +50,11 @@ fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
 }
 
 pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
-    let contract_block = expr_p()
-        .delimited_by(just('{').padded(), just('}').padded())
+    let contract_block = just('{')
+        .padded()
+        .labelled("'{'")
+        .ignore_then(expr_p())
+        .then_ignore(just('}').padded().labelled("'}'"))
         .map_with(|expr, e| Contract {
             span: to_span(e.span()),
             expr,
@@ -56,13 +67,35 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         Ensure(Contract),
     }
 
+    let require_kw = kw("require").then_ignore(
+        just('{').padded().labelled("'{'").rewind(),
+    );
+    let ensure_kw = kw("ensure").then_ignore(
+        just('{').padded().labelled("'{'").rewind(),
+    );
+
+    let require_clause = require_kw.ignore_then(
+        contract_block
+            .clone()
+            .or_not()
+            .try_map(|maybe, span| match maybe {
+                Some(contract) => Ok(contract),
+                None => Err(Rich::custom(span, "expected '{' to start contract block")),
+            }),
+    );
+    let ensure_clause = ensure_kw.ignore_then(
+        contract_block
+            .clone()
+            .or_not()
+            .try_map(|maybe, span| match maybe {
+                Some(contract) => Ok(contract),
+                None => Err(Rich::custom(span, "expected '{' to start contract block")),
+            }),
+    );
+
     let clause_p = choice((
-        kw("require")
-            .ignore_then(contract_block.clone())
-            .map(Clause::Require),
-        kw("ensure")
-            .ignore_then(contract_block.clone())
-            .map(Clause::Ensure),
+        require_clause.map(Clause::Require),
+        ensure_clause.map(Clause::Ensure),
     ))
     .repeated()
     .collect::<Vec<_>>();
@@ -85,9 +118,9 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
                 },
             ),
         )
-        .then(ty_p())
+        .then(ty_p().padded())
         .then(clause_p)
-        .then(expr_p().delimited_by(just('{').padded(), just('}').padded()))
+        .then(expr_p())
         .map(
             |((((((eff_opt, name), params), _arrow_ok), ret), clauses), body)| {
                 let (effect, effect_span) = eff_opt

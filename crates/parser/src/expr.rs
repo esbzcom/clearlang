@@ -1,9 +1,16 @@
 use crate::literals::{bool_lit, int_lit, str_lit};
 use crate::path::path_name_p;
-use crate::tokens::{ctor_name_p, ident_p};
+use crate::tokens::{ctor_name_p, ident_p, kw};
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Span, UnaryOp};
+use clg_ast::{BinOp, Block, Expr, MatchArm, MatchPat, Span, Stmt, UnaryOp};
+
+fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
+    Span {
+        start: sp.start,
+        end: sp.end,
+    }
+}
 
 #[derive(Clone)]
 enum IfLetKind {
@@ -81,10 +88,50 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
-        // block expression: { expr }
-        let block_expr = expr
-            .clone()
-            .delimited_by(just('{').padded(), just('}').padded())
+        // block expression: { stmt* expr? }
+        let block_core = {
+            let expr_inner = expr.clone().boxed();
+
+            let let_stmt = kw("let")
+                .ignore_then(ident_p())
+                .then_ignore(just('=').padded())
+                .then(expr_inner.clone())
+                .then_ignore(just(';').padded().labelled("';'"))
+                .map_with(|(name, value), e| {
+                    let sp = e.span();
+                    Stmt::Let {
+                        name,
+                        expr: Box::new(value),
+                        span: to_span(sp),
+                    }
+                });
+
+            let expr_stmt = expr_inner
+                .clone()
+                .then_ignore(just(';').padded().labelled("';'"))
+                .map_with(|value, e| {
+                    let sp = e.span();
+                    Stmt::Expr {
+                        expr: Box::new(value),
+                        span: to_span(sp),
+                    }
+                });
+
+            let stmts = choice((let_stmt, expr_stmt)).repeated().collect::<Vec<_>>();
+            let tail = expr_inner.or_not();
+
+            stmts
+                .then(tail)
+                .delimited_by(just('{').padded(), just('}').padded())
+                .map_with(|(statements, tail), e| Block {
+                    statements,
+                    tail: tail.map(Box::new),
+                    span: to_span(e.span()),
+                })
+        };
+
+        let block_expr = block_core
+            .map(|block| Expr::Block { block: Box::new(block) })
             .boxed();
 
         let if_let_pat = choice((
@@ -238,10 +285,19 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
+        let contract_kw_hint = choice((kw("require"), kw("ensure"))).try_map(|word, span| {
+            Err(Rich::custom(
+                span,
+                format!("keyword `{word}` must be followed by `{{ ... }}`"),
+            ))
+        });
+
         let atom_base = choice((
+            contract_kw_hint,
             int_lit(),
             bool_lit(),
             str_lit(),
+            block_expr.clone(),
             expr.clone().delimited_by(
                 just('(').padded().labelled("'('"),
                 just(')').padded().labelled(")'"),
@@ -289,6 +345,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => {
                     (sp.start, sp.end)
                 }
+                Expr::Block { block } => (block.span.start, block.span.end),
                 Expr::Bin { span, .. }
                 | Expr::Call { span, .. }
                 | Expr::Match { span, .. }

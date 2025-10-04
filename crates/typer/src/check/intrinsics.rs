@@ -1,4 +1,4 @@
-use clg_ast::{Expr, Program};
+use clg_ast::{Expr, Program, Stmt};
 use std::collections::HashSet;
 
 pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
@@ -28,6 +28,18 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                 walk_expr(scrutinee, set);
                 for arm in arms {
                     walk_expr(&arm.expr, set);
+                }
+            }
+            Expr::Block { block } => {
+                for stmt in &block.statements {
+                    match stmt {
+                        Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                            walk_expr(expr.as_ref(), set);
+                        }
+                    }
+                }
+                if let Some(tail) = &block.tail {
+                    walk_expr(tail.as_ref(), set);
                 }
             }
             Expr::Call { callee, args, .. } => {

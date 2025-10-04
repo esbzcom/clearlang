@@ -29,7 +29,7 @@ pub struct ResourceField {
 #[derive(Debug, Clone)]
 pub struct Block {
     pub statements: Vec<Stmt>,
-    pub tail: Option<Expr>,
+    pub tail: Option<Box<Expr>>,
     pub span: Span,
 }
 
@@ -37,11 +37,11 @@ pub struct Block {
 pub enum Stmt {
     Let {
         name: String,
-        expr: Expr,
+        expr: Box<Expr>,
         span: Span,
     },
     Expr {
-        expr: Expr,
+        expr: Box<Expr>,
         span: Span,
     },
 }
@@ -90,6 +90,7 @@ pub enum Type {
     Int,
     Bool,
     String,
+    Resource(String),
     Option(Box<Type>),
     Result(Box<Type>, Box<Type>),
     List(Box<Type>),
@@ -103,6 +104,9 @@ pub enum Expr {
     Bool(bool, Span),
     String(String, Span),
     Var(String, Span),
+    Block {
+        block: Box<Block>,
+    },
     Bin {
         op: BinOp,
         lhs: Box<Expr>,

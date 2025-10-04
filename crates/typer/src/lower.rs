@@ -1,7 +1,7 @@
 use crate::check::FnSig as CheckFnSig;
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
-use clg_ast::{BinOp, Expr, Func, MatchArm, MatchPat, Type};
+use clg_ast::{BinOp, Expr, Func, MatchArm, MatchPat, Stmt, Type};
 use clg_ir::{
     BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind,
     VariantParts,
@@ -15,6 +15,7 @@ fn ir_ty(t: Type) -> IrType {
         Type::Int => IrType::Int,
         Type::Bool => IrType::Bool,
         Type::String => IrType::Int, // placeholder until strings have a runtime representation
+        Type::Resource(_) => IrType::Int,
         Type::Option(_) => IrType::Int,
         Type::Result(_, _) => IrType::Int,
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => IrType::Int,
@@ -94,6 +95,40 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                 n: *n,
             });
             Ok(dst)
+        }
+        Expr::Block { block } => {
+            let mut inserted: Vec<(&str, Option<Value>)> = Vec::new();
+            let result = (|| -> Result<Value> {
+                for stmt in &block.statements {
+                    match stmt {
+                        Stmt::Let { name, expr, .. } => {
+                            let val = lower_expr(ctx, expr.as_ref())?;
+                            let key = name.as_str();
+                            let prev = ctx.env.insert(key, val);
+                            inserted.push((key, prev));
+                        }
+                        Stmt::Expr { expr, .. } => {
+                            let _ = lower_expr(ctx, expr.as_ref())?;
+                        }
+                    }
+                }
+                let tail = block
+                    .tail
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("block expressions require a tail value"))?;
+                lower_expr(ctx, tail.as_ref())
+            })();
+            for (key, prev) in inserted.into_iter().rev() {
+                match prev {
+                    Some(val) => {
+                        ctx.env.insert(key, val);
+                    }
+                    None => {
+                        ctx.env.remove(key);
+                    }
+                }
+            }
+            result
         }
         Expr::Return { expr, .. } => {
             // For expression-bodied functions, `return e` is equivalent to `e`.

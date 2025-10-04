@@ -1,3 +1,4 @@
+use clg_ast::Type;
 use clg_parser::parse;
 
 #[test]
@@ -19,12 +20,17 @@ fn errors_on_reserved_keyword_as_param_name() {
 }
 
 #[test]
-fn errors_on_unknown_type_name() {
-    // Unknown type `Foo` should fail to parse in a parameter or return type.
+fn unknown_type_name_parses_as_resource_marker() {
+    // User-defined resource types parse as plain identifiers; semantic checking
+    // will reject missing declarations later.
     let src = r#"
         pure function bad(a: Foo) -> Int { 0 }
     "#;
-    parse(src).expect_err("should reject unknown type names");
+    let ast = parse(src).expect("resource-like identifiers should parse");
+    assert!(matches!(
+        ast.funcs[0].params[0].ty,
+        Type::Resource(ref name) if name == "Foo"
+    ));
 }
 
 #[test]

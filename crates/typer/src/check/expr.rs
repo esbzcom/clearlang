@@ -1,12 +1,12 @@
-use super::{effect_label, EffectLevel, FnSig, RETURN_KEY};
+use super::{effect_label, EffectLevel, FnSig, LocalBinding, RETURN_KEY};
 use crate::errors::TyperError;
 use anyhow::Result;
-use clg_ast::{BinOp, Expr, Span, Type, UnaryOp};
+use clg_ast::{BinOp, Block, Expr, ParamKind, Span, Stmt, Type, UnaryOp};
 use std::collections::HashMap;
 
 pub(super) fn type_of<'a>(
     e: &'a Expr,
-    env: &HashMap<&'a str, Type>,
+    env: &HashMap<&'a str, LocalBinding>,
     fns: &HashMap<&'a str, FnSig<'a>>,
     depth: usize,
 ) -> Result<Type> {
@@ -23,6 +23,7 @@ pub(super) fn type_of<'a>(
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
         Expr::String(_, _) => Ok(Type::String),
+        Expr::Block { block } => type_block(block, env, fns, depth + 1),
         Expr::If {
             cond,
             then_br,
@@ -67,7 +68,13 @@ pub(super) fn type_of<'a>(
                                 }
                                 // Extend env with binder
                                 let mut env2 = env.clone();
-                                env2.insert(name.as_str(), *inner_ty.clone());
+                                env2.insert(
+                                    name.as_str(),
+                                    LocalBinding {
+                                        ty: *inner_ty.clone(),
+                                        kind: ParamKind::Borrow,
+                                    },
+                                );
                                 let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
@@ -135,7 +142,13 @@ pub(super) fn type_of<'a>(
                                     return Err(TyperError::binder_conflict(name, *span).into());
                                 }
                                 let mut env2 = env.clone();
-                                env2.insert(name.as_str(), *ok_ty.clone());
+                                env2.insert(
+                                    name.as_str(),
+                                    LocalBinding {
+                                        ty: *ok_ty.clone(),
+                                        kind: ParamKind::Borrow,
+                                    },
+                                );
                                 let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
@@ -162,7 +175,13 @@ pub(super) fn type_of<'a>(
                                     return Err(TyperError::binder_conflict(name, *span).into());
                                 }
                                 let mut env2 = env.clone();
-                                env2.insert(name.as_str(), *err_ty.clone());
+                                env2.insert(
+                                    name.as_str(),
+                                    LocalBinding {
+                                        ty: *err_ty.clone(),
+                                        kind: ParamKind::Borrow,
+                                    },
+                                );
                                 let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
@@ -197,10 +216,11 @@ pub(super) fn type_of<'a>(
         }
         Expr::Try { expr, span } => {
             let inner = type_of(expr, env, fns, depth + 1)?;
-            let ret_ty = env
+            let ret_binding = env
                 .get(RETURN_KEY)
                 .cloned()
                 .ok_or_else(|| TyperError::try_missing_return(*span))?;
+            let ret_ty = ret_binding.ty;
             match (inner, ret_ty) {
                 (Type::Option(inner_ty), Type::Option(ret_inner)) => {
                     let found = (*inner_ty).clone();
@@ -235,10 +255,10 @@ pub(super) fn type_of<'a>(
             }
         }
 
-        Expr::Var(name, sp) => Ok(env
-            .get(name.as_str())
-            .cloned()
-            .ok_or_else(|| TyperError::unknown_variable(name, *sp))?),
+        Expr::Var(name, sp) => match env.get(name.as_str()) {
+            Some(binding) => Ok(binding.ty.clone()),
+            None => Err(TyperError::unknown_variable(name, *sp).into()),
+        },
         Expr::Return { expr, .. } => {
             let t = type_of(expr, env, fns, depth + 1)?;
             Ok(t)
@@ -299,11 +319,11 @@ pub(super) fn type_of<'a>(
                 if !args.is_empty() {
                     return Err(TyperError::arity_mismatch(callee, 0, args.len(), *span).into());
                 }
-                let ret_ty = env
+                let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
                     .ok_or_else(|| TyperError::option_ctor_missing_return(*span))?;
-                return match ret_ty {
+                return match ret_binding.ty {
                     Type::Option(inner) => Ok(Type::Option(inner)),
                     other => Err(TyperError::none_return_required(other, *span).into()),
                 };
@@ -313,11 +333,11 @@ pub(super) fn type_of<'a>(
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let arg_ty = type_of(&args[0], env, fns, depth + 1)?;
-                let ret_ty = env
+                let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
                     .ok_or_else(|| TyperError::result_ctor_missing_return(*span))?;
-                return match ret_ty {
+                return match ret_binding.ty {
                     Type::Result(ok_ty, err_ty) => {
                         if arg_ty != *ok_ty {
                             let sp = expr_span(&args[0]);
@@ -337,11 +357,11 @@ pub(super) fn type_of<'a>(
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let arg_ty = type_of(&args[0], env, fns, depth + 1)?;
-                let ret_ty = env
+                let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
                     .ok_or_else(|| TyperError::result_ctor_missing_return(*span))?;
-                return match ret_ty {
+                return match ret_binding.ty {
                     Type::Result(ok_ty, err_ty) => {
                         if arg_ty != *err_ty {
                             let sp = expr_span(&args[0]);
@@ -381,7 +401,7 @@ pub(super) fn type_of<'a>(
 fn type_collection_call<'a>(
     callee: &str,
     args: &'a [Expr],
-    env: &HashMap<&'a str, Type>,
+    env: &HashMap<&'a str, LocalBinding>,
     fns: &HashMap<&'a str, FnSig<'a>>,
     depth: usize,
     span: Span,
@@ -664,12 +684,57 @@ fn type_collection_call<'a>(
     }
 }
 
+fn type_block<'a>(
+    block: &'a Block,
+    env: &HashMap<&'a str, LocalBinding>,
+    fns: &HashMap<&'a str, FnSig<'a>>,
+    depth: usize,
+) -> Result<Type> {
+    let mut inner_env = env.clone();
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { name, expr, .. } => {
+                let ty = type_of(expr.as_ref(), &inner_env, fns, depth + 1)?;
+                inner_env.insert(
+                    name.as_str(),
+                    LocalBinding {
+                        ty,
+                        kind: ParamKind::Borrow,
+                    },
+                );
+            }
+            Stmt::Expr { expr, .. } => {
+                type_of(expr.as_ref(), &inner_env, fns, depth + 1)?;
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        type_of(tail.as_ref(), &inner_env, fns, depth + 1)
+    } else {
+        Err(TyperError::block_missing_tail(block.span).into())
+    }
+}
+
 pub(super) fn max_effect<'a>(
     e: &'a Expr,
     fns: &HashMap<&'a str, FnSig<'a>>,
     allowed: EffectLevel,
 ) -> Result<EffectLevel> {
     match e {
+        Expr::Block { block } => {
+            let mut eff = EffectLevel::Pure;
+            for stmt in &block.statements {
+                match stmt {
+                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                        eff = eff.join(max_effect(expr.as_ref(), fns, allowed)?);
+                    }
+                }
+            }
+            if let Some(tail) = &block.tail {
+                eff = eff.join(max_effect(tail.as_ref(), fns, allowed)?);
+            }
+            Ok(eff)
+        }
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {
             Ok(EffectLevel::Pure)
         }
@@ -764,6 +829,7 @@ pub(super) fn expr_span(e: &Expr) -> Span {
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
         | Expr::Try { span, .. } => *span,
+        Expr::Block { block } => block.span,
     }
 }
 
@@ -772,6 +838,7 @@ pub(crate) fn show_ty(t: Type) -> &'static str {
         Type::Int => "Int",
         Type::Bool => "Bool",
         Type::String => "String",
+        Type::Resource(_) => "Resource",
         Type::Option(_) => "Option",
         Type::Result(_, _) => "Result",
         Type::List(_) => "List",

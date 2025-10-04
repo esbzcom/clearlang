@@ -396,6 +396,7 @@ Codegen & Runtime
 
 8.1 Syntax & Semantics
 
+- [ ] Add block expression/multi-statement body support (expression blocks with optional early `return`) before enabling Phase 9 totality work.
 - [ ] Parse/AST support for `resource Name { fields ... drop { ... } }`, requiring an explicit drop block (empty block permitted for no-op cleanup).
 - [ ] Extend function signatures with the `consume` parameter modifier (borrows remain the default) and plumb the metadata through typer/lowering.
 

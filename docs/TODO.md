@@ -396,8 +396,8 @@ Codegen & Runtime
 
 8.1 Syntax & Semantics
 
-- [ ] Add block expression/multi-statement body support (expression blocks with optional early `return`) before enabling Phase 9 totality work.
-- [ ] Parse/AST support for `resource Name { fields ... drop { ... } }`, requiring an explicit drop block (empty block permitted for no-op cleanup).
+- [x] Capture grammar + AST/consume plan in `docs/design/phase-8.1-resource-syntax.md` so implementation has a locked target.
+- [x] Parse/AST support for `resource Name { fields ... drop { ... } }`, requiring an explicit drop block (empty block permitted for no-op cleanup).
 - [ ] Extend function signatures with the `consume` parameter modifier (borrows remain the default) and plumb the metadata through typer/lowering.
 
 8.2 Typing Rules
@@ -418,23 +418,27 @@ Codegen & Runtime
 
 ## Phase 9 -" Totality & Loops with Invariants
 
-9.1 Syntax
+9.1 Block Expressions
+
+- [ ] Add block expression/multi-statement body support (expression blocks with optional early `return`) before enabling Phase 9 totality work.
+
+9.2 Syntax
 
 - [ ] Introduce `while` loops with required loop invariants and optional variants/measures for termination.
 
-9.2 Totality
+9.3 Totality
 
 - [ ] Enforce totality for `pure` functions: require structural recursion or a decreasing measure.
 
 - [ ] Provide diagnostics with spans for missing or non-decreasing measures.
 
-9.3 Typing & Checks
+9.4 Typing & Checks
 
 - [ ] Type rules for loop invariants; ensure invariants are well-typed and refer to in-scope variables.
 
 - [ ] Guardrail: allow opting out behind a flag initially to ease migration.
 
-9.4 Tests & Docs
+9.5 Tests & Docs
 
 - [ ] Positive/negative tests for loops and recursion with measures.
 

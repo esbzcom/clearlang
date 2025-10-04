@@ -1,14 +1,32 @@
 use crate::func::func_p;
+use crate::resource::resource_p;
 use crate::ErrTy;
 use chumsky::prelude::*;
 use clg_ast::Program;
 
+#[derive(Debug)]
+enum Item {
+    Func(clg_ast::Func),
+    Resource(clg_ast::Resource),
+}
+
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
-    func_p()
-        .repeated()
+    let item = choice((resource_p().map(Item::Resource), func_p().map(Item::Func)));
+
+    item.repeated()
         .at_least(1)
         .collect::<Vec<_>>()
-        .map(|funcs| Program { funcs })
+        .map(|items| {
+            let mut funcs = Vec::new();
+            let mut resources = Vec::new();
+            for item in items {
+                match item {
+                    Item::Func(f) => funcs.push(f),
+                    Item::Resource(r) => resources.push(r),
+                }
+            }
+            Program { resources, funcs }
+        })
         .then_ignore(end())
 }
 

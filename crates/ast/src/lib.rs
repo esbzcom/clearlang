@@ -6,7 +6,44 @@ pub struct Span {
 
 #[derive(Debug, Clone)]
 pub struct Program {
+    pub resources: Vec<Resource>,
     pub funcs: Vec<Func>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Resource {
+    pub name: String,
+    pub name_span: Span,
+    pub fields: Vec<ResourceField>,
+    pub drop_block: Block,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResourceField {
+    pub name: String,
+    pub ty: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub statements: Vec<Stmt>,
+    pub tail: Option<Expr>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub enum Stmt {
+    Let {
+        name: String,
+        expr: Expr,
+        span: Span,
+    },
+    Expr {
+        expr: Expr,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone)]

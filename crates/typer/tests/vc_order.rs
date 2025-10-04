@@ -54,6 +54,7 @@ fn vcs_are_sorted_by_function_and_id() {
     };
 
     let program = Program {
+        resources: vec![],
         funcs: vec![beta, alpha],
     };
     let vcs = generate_vcs(&program);

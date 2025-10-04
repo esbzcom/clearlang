@@ -8,6 +8,7 @@ mod func;
 mod literals;
 mod path;
 mod program;
+mod resource;
 mod tokens;
 mod types;
 

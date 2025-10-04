@@ -51,7 +51,7 @@ pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
         .try_map(|s: String, span| match s.as_str() {
             "function" | "pure" | "mut" | "io" | "return" | "let" | "Int" | "Bool" | "String"
             | "Option" | "Result" | "match" | "Some" | "None" | "Ok" | "Err" | "true" | "false"
-            | "require" | "ensure" => {
+            | "require" | "ensure" | "resource" | "drop" | "consume" => {
                 Err(Rich::custom(span, format!("`{s}` is a reserved keyword")))
             }
             _ => Ok(s),
@@ -74,7 +74,7 @@ pub(crate) fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
         })
         .try_map(|s: String, span| match s.as_str() {
             "function" | "pure" | "mut" | "io" | "return" | "let" | "Int" | "Bool" | "true"
-            | "false" | "match" | "require" | "ensure" => {
+            | "false" | "match" | "require" | "ensure" | "resource" | "drop" | "consume" => {
                 Err(Rich::custom(span, format!("`{s}` is a reserved keyword")))
             }
             _ => Ok(s),

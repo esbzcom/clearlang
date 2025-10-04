@@ -1,10 +1,11 @@
-use clg_ast::{Effect, Param, Type};
+use clg_ast::{Effect, Param, ParamKind, Type};
 
 pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
     vec![
         (
             "std::str::len".to_string(),
             vec![Param {
+                kind: ParamKind::Borrow,
                 name: "s".to_string(),
                 ty: Type::String,
             }],
@@ -15,10 +16,12 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             "std::str::concat".to_string(),
             vec![
                 Param {
+                    kind: ParamKind::Borrow,
                     name: "a".to_string(),
                     ty: Type::String,
                 },
                 Param {
+                    kind: ParamKind::Borrow,
                     name: "b".to_string(),
                     ty: Type::String,
                 },
@@ -30,10 +33,12 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             "std::str::eq".to_string(),
             vec![
                 Param {
+                    kind: ParamKind::Borrow,
                     name: "a".to_string(),
                     ty: Type::String,
                 },
                 Param {
+                    kind: ParamKind::Borrow,
                     name: "b".to_string(),
                     ty: Type::String,
                 },

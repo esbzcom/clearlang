@@ -1,5 +1,8 @@
 # Phase 8.1 – Resource Syntax & Block Expressions
 
+## Status
+- Parser/AST support for `resource` declarations and consume parameters implemented (2025-10-04).
+
 ## Goals
 - Introduce `resource` definitions with explicit `drop { ... }` blocks.
 - Allow block expressions (multi-statement bodies with optional early `return`).

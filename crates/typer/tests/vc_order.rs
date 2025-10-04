@@ -1,4 +1,4 @@
-use clg_ast::{BinOp, Contract, Effect, Expr, Func, Param, Program, Span, Type};
+use clg_ast::{BinOp, Contract, Effect, Expr, Func, Param, ParamKind, Program, Span, Type};
 use clg_typer::generate_vcs;
 
 fn span() -> Span {
@@ -40,6 +40,7 @@ fn vcs_are_sorted_by_function_and_id() {
         effect_span: None,
         name: "beta".into(),
         params: vec![Param {
+            kind: ParamKind::Borrow,
             name: "l".into(),
             ty: Type::List(Box::new(Type::Int)),
         }],

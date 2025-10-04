@@ -3,7 +3,7 @@ use crate::tokens::{func_name_p, ident_p, kw};
 use crate::types::{effect_p, ty_p};
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::{Contract, Effect, Func, Param, Span};
+use clg_ast::{Contract, Effect, Func, Param, ParamKind, Span};
 
 fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
     Span {
@@ -13,10 +13,20 @@ fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
 }
 
 fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
-    ident_p()
+    kw("consume")
+        .or_not()
+        .then(ident_p())
         .then_ignore(just(':').padded())
         .then(ty_p())
-        .map(|(name, ty)| Param { name, ty })
+        .map(|((consume_kw, name), ty)| Param {
+            kind: if consume_kw.is_some() {
+                ParamKind::Consume
+            } else {
+                ParamKind::Borrow
+            },
+            name,
+            ty,
+        })
         .padded()
 }
 

@@ -398,7 +398,7 @@ Codegen & Runtime
 
 - [x] Capture grammar + AST/consume plan in `docs/design/phase-8.1-resource-syntax.md` so implementation has a locked target.
 - [x] Parse/AST support for `resource Name { fields ... drop { ... } }`, requiring an explicit drop block (empty block permitted for no-op cleanup).
-- [ ] Extend function signatures with the `consume` parameter modifier (borrows remain the default) and plumb the metadata through typer/lowering.
+- [x] Extend function signatures with the `consume` parameter modifier (borrows remain the default) and plumb the metadata through typer/lowering.
 
 8.2 Typing Rules
 

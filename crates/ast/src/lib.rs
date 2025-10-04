@@ -72,8 +72,15 @@ pub enum Effect {
     None,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParamKind {
+    Borrow,
+    Consume,
+}
+
 #[derive(Debug, Clone)]
 pub struct Param {
+    pub kind: ParamKind,
     pub name: String,
     pub ty: Type,
 }

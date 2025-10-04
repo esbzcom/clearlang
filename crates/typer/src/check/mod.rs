@@ -2,7 +2,7 @@ mod expr;
 mod intrinsics;
 
 pub(crate) use self::expr::show_ty;
-use self::expr::{expr_span, max_effect, type_of};
+use self::expr::{expr_span, max_effect, type_of, ResourceTracker};
 use self::intrinsics::collect_used_intrinsics;
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
@@ -202,6 +202,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
             kind: ParamKind::Borrow,
         },
     );
+    let mut tracker = ResourceTracker::new();
     for p in &f.params {
         if env
             .insert(
@@ -215,6 +216,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
         {
             return Err(TyperError::duplicate_parameter(&p.name).into());
         }
+        tracker.register_param(p.name.as_str(), p.kind, &p.ty);
     }
 
     if let Effect::Io = f.effect {
@@ -223,7 +225,8 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     let allowed_effect = level_from_effect(f.effect);
 
     for req in &f.requires {
-        let ty = type_of(&req.expr, &env, fns, 0)?;
+        let mut req_tracker = tracker.clone();
+        let ty = type_of(&req.expr, &env, &mut req_tracker, fns, 0)?;
         if ty != Type::Bool {
             return Err(TyperError::contract_not_bool("require", ty, req.span).into());
         }
@@ -243,18 +246,20 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
         );
     }
     for ens in &f.ensures {
-        let ty = type_of(&ens.expr, &ensure_env, fns, 0)?;
+        let mut ensure_tracker = tracker.clone();
+        let ty = type_of(&ens.expr, &ensure_env, &mut ensure_tracker, fns, 0)?;
         if ty != Type::Bool {
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
         }
         max_effect(&ens.expr, fns, EffectLevel::Pure)?;
     }
 
-    let body_ty = type_of(&f.body, &env, fns, 0)?;
+    let body_ty = type_of(&f.body, &env, &mut tracker, fns, 0)?;
     if body_ty != f.ret {
         let sp = expr_span(&f.body);
         return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
     }
+    tracker.ensure_consumed()?;
     if allowed_effect >= EffectLevel::Mut {
         enforce_mut_guards(&f.body, &guard_keys)?;
     }

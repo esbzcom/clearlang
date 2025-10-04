@@ -4,30 +4,72 @@ use anyhow::Result;
 use clg_ast::{BinOp, Block, Expr, ParamKind, Span, Stmt, Type, UnaryOp};
 use std::collections::HashMap;
 
-#[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub(super) enum ResourceState {
     Owned,
     BorrowOnly,
     Consumed,
 }
 
-#[allow(dead_code)]
-pub(super) struct ResourceTracker {
-    states: HashMap<String, ResourceState>,
+#[derive(Clone, Debug)]
+pub(super) struct TrackedResource {
+    pub state: ResourceState,
+    pub must_consume: bool,
 }
 
-#[allow(dead_code)]
+#[derive(Clone, Debug, Default)]
+pub(super) struct ResourceTracker {
+    states: HashMap<String, TrackedResource>,
+}
+
 impl ResourceTracker {
     pub(super) fn new() -> Self {
         Self {
             states: HashMap::new(),
         }
     }
+
+    pub(super) fn register_param(&mut self, name: &str, kind: ParamKind, ty: &Type) {
+        if let Type::Resource(_) = ty {
+            let state = match kind {
+                ParamKind::Consume => ResourceState::Owned,
+                ParamKind::Borrow => ResourceState::BorrowOnly,
+            };
+            let must_consume = matches!(kind, ParamKind::Consume);
+            self.states
+                .insert(name.to_string(), TrackedResource { state, must_consume });
+        }
+    }
+
+    pub(super) fn register_local(&mut self, name: &str, ty: &Type) {
+        if let Type::Resource(_) = ty {
+            self.states.insert(
+                name.to_string(),
+                TrackedResource {
+                    state: ResourceState::Owned,
+                    must_consume: false,
+                },
+            );
+        }
+    }
+
+    pub(super) fn use_var(&mut self, _name: &str, _span: Span) -> Result<()> {
+        Ok(())
+    }
+
+    pub(super) fn consume_var(&mut self, _name: &str, _span: Span) -> Result<()> {
+        Ok(())
+    }
+
+    pub(super) fn ensure_consumed(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub(super) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig<'a>>,
     depth: usize,
 ) -> Result<Type> {
@@ -44,20 +86,20 @@ pub(super) fn type_of<'a>(
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
         Expr::String(_, _) => Ok(Type::String),
-        Expr::Block { block } => type_block(block, env, fns, depth + 1),
+        Expr::Block { block } => type_block(block, env, tracker, fns, depth + 1),
         Expr::If {
             cond,
             then_br,
             else_br,
             span,
         } => {
-            let cty = type_of(cond, env, fns, depth + 1)?;
+            let cty = type_of(cond, env, tracker, fns, depth + 1)?;
             if cty != Type::Bool {
                 // Reuse arg_type_mismatch with pseudo-callee `if` for stable code T003
                 return Err(TyperError::arg_type_mismatch(1, "if", Type::Bool, cty, *span).into());
             }
-            let tty = type_of(then_br, env, fns, depth + 1)?;
-            let ety = type_of(else_br, env, fns, depth + 1)?;
+            let tty = type_of(then_br, env, tracker, fns, depth + 1)?;
+            let ety = type_of(else_br, env, tracker, fns, depth + 1)?;
             if tty != ety {
                 return Err(TyperError::branch_type_mismatch(tty, ety, *span).into());
             }
@@ -68,7 +110,7 @@ pub(super) fn type_of<'a>(
             arms,
             span,
         } => {
-            let scrut_ty = type_of(scrutinee, env, fns, depth + 1)?;
+            let scrut_ty = type_of(scrutinee, env, tracker, fns, depth + 1)?;
             use clg_ast::MatchPat;
             match scrut_ty.clone() {
                 Type::Option(inner_ty) => {
@@ -96,7 +138,7 @@ pub(super) fn type_of<'a>(
                                         kind: ParamKind::Borrow,
                                     },
                                 );
-                                let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
+                                let at = type_of(&arm.expr, &env2, tracker, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -118,7 +160,7 @@ pub(super) fn type_of<'a>(
                                     );
                                 }
                                 seen_none = true;
-                                let at = type_of(&arm.expr, env, fns, depth + 1)?;
+                                let at = type_of(&arm.expr, env, tracker, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -170,7 +212,7 @@ pub(super) fn type_of<'a>(
                                         kind: ParamKind::Borrow,
                                     },
                                 );
-                                let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
+                                let at = type_of(&arm.expr, &env2, tracker, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -203,7 +245,7 @@ pub(super) fn type_of<'a>(
                                         kind: ParamKind::Borrow,
                                     },
                                 );
-                                let at = type_of(&arm.expr, &env2, fns, depth + 1)?;
+                                let at = type_of(&arm.expr, &env2, tracker, fns, depth + 1)?;
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -236,7 +278,7 @@ pub(super) fn type_of<'a>(
             }
         }
         Expr::Try { expr, span } => {
-            let inner = type_of(expr, env, fns, depth + 1)?;
+            let inner = type_of(expr, env, tracker, fns, depth + 1)?;
             let ret_binding = env
                 .get(RETURN_KEY)
                 .cloned()
@@ -276,16 +318,19 @@ pub(super) fn type_of<'a>(
             }
         }
 
-        Expr::Var(name, sp) => match env.get(name.as_str()) {
-            Some(binding) => Ok(binding.ty.clone()),
-            None => Err(TyperError::unknown_variable(name, *sp).into()),
-        },
+        Expr::Var(name, sp) => {
+            tracker.use_var(name, *sp)?;
+            match env.get(name.as_str()) {
+                Some(binding) => Ok(binding.ty.clone()),
+                None => Err(TyperError::unknown_variable(name, *sp).into()),
+            }
+        }
         Expr::Return { expr, .. } => {
-            let t = type_of(expr, env, fns, depth + 1)?;
+            let t = type_of(expr, env, tracker, fns, depth + 1)?;
             Ok(t)
         }
         Expr::Unary { op, expr, span } => {
-            let inner = type_of(expr, env, fns, depth + 1)?;
+            let inner = type_of(expr, env, tracker, fns, depth + 1)?;
             match op {
                 UnaryOp::Not => {
                     ensure_bool(inner, "operand", Some(*span))?;
@@ -294,8 +339,8 @@ pub(super) fn type_of<'a>(
             }
         }
         Expr::Bin { op, lhs, rhs, span } => {
-            let lt = type_of(lhs, env, fns, depth + 1)?;
-            let rt = type_of(rhs, env, fns, depth + 1)?;
+            let lt = type_of(lhs, env, tracker, fns, depth + 1)?;
+            let rt = type_of(rhs, env, tracker, fns, depth + 1)?;
             match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
                     ensure_int(lt, "left operand", Some(*span))?;
@@ -325,7 +370,7 @@ pub(super) fn type_of<'a>(
         }
         Expr::Call { callee, args, span } => {
             // Phase 4.6 — Collections signatures (type-only)
-            if let Some(t) = type_collection_call(callee, args, env, fns, depth, *span)? {
+            if let Some(t) = type_collection_call(callee, args, env, tracker, fns, depth, *span)? {
                 return Ok(t);
             }
             // Phase 4.5 — ADT constructors (partial): Some(T) infers Option<T>
@@ -333,7 +378,7 @@ pub(super) fn type_of<'a>(
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                let t0 = type_of(&args[0], env, fns, depth + 1)?;
+                let t0 = type_of(&args[0], env, tracker, fns, depth + 1)?;
                 return Ok(Type::Option(Box::new(t0)));
             }
             if callee == "None" {
@@ -353,7 +398,7 @@ pub(super) fn type_of<'a>(
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                let arg_ty = type_of(&args[0], env, fns, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, tracker, fns, depth + 1)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
@@ -377,7 +422,7 @@ pub(super) fn type_of<'a>(
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                let arg_ty = type_of(&args[0], env, fns, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, tracker, fns, depth + 1)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
@@ -407,7 +452,7 @@ pub(super) fn type_of<'a>(
                 );
             }
             for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
-                let at = type_of(a, env, fns, depth + 1)?;
+                let at = type_of(a, env, tracker, fns, depth + 1)?;
                 let expected = p.ty.clone();
                 if expected != at {
                     let sp = expr_span(a);
@@ -423,12 +468,16 @@ fn type_collection_call<'a>(
     callee: &str,
     args: &'a [Expr],
     env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig<'a>>,
     depth: usize,
     span: Span,
 ) -> Result<Option<Type>> {
     // Helper to get type of an expression
-    let arg_ty = |i: usize| -> Result<Type> { type_of(&args[i], env, fns, depth + 1) };
+    let arg_ty = |i: usize| -> Result<Type> {
+        let mut tmp = tracker.clone();
+        type_of(&args[i], env, &mut tmp, fns, depth + 1)
+    };
 
     let normalized_callee = match callee {
         "std::list::push_mut" => "std::list::push",
@@ -708,14 +757,16 @@ fn type_collection_call<'a>(
 fn type_block<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig<'a>>,
     depth: usize,
 ) -> Result<Type> {
     let mut inner_env = env.clone();
+    let mut inner_tracker = tracker.clone();
     for stmt in &block.statements {
         match stmt {
             Stmt::Let { name, expr, .. } => {
-                let ty = type_of(expr.as_ref(), &inner_env, fns, depth + 1)?;
+                let ty = type_of(expr.as_ref(), &inner_env, &mut inner_tracker, fns, depth + 1)?;
                 inner_env.insert(
                     name.as_str(),
                     LocalBinding {
@@ -725,15 +776,17 @@ fn type_block<'a>(
                 );
             }
             Stmt::Expr { expr, .. } => {
-                type_of(expr.as_ref(), &inner_env, fns, depth + 1)?;
+                type_of(expr.as_ref(), &inner_env, &mut inner_tracker, fns, depth + 1)?;
             }
         }
     }
-    if let Some(tail) = &block.tail {
-        type_of(tail.as_ref(), &inner_env, fns, depth + 1)
+    let result = if let Some(tail) = &block.tail {
+        type_of(tail.as_ref(), &inner_env, &mut inner_tracker, fns, depth + 1)
     } else {
         Err(TyperError::block_missing_tail(block.span).into())
-    }
+    };
+    *tracker = inner_tracker;
+    result
 }
 
 pub(super) fn max_effect<'a>(

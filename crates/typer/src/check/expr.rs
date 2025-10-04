@@ -4,6 +4,27 @@ use anyhow::Result;
 use clg_ast::{BinOp, Block, Expr, ParamKind, Span, Stmt, Type, UnaryOp};
 use std::collections::HashMap;
 
+#[allow(dead_code)]
+pub(super) enum ResourceState {
+    Owned,
+    BorrowOnly,
+    Consumed,
+}
+
+#[allow(dead_code)]
+pub(super) struct ResourceTracker {
+    states: HashMap<String, ResourceState>,
+}
+
+#[allow(dead_code)]
+impl ResourceTracker {
+    pub(super) fn new() -> Self {
+        Self {
+            states: HashMap::new(),
+        }
+    }
+}
+
 pub(super) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,

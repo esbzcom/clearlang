@@ -3,32 +3,27 @@ use crate::errors::TyperError;
 use anyhow::{bail, Result};
 use clg_ast::{BinOp, Block, Expr, ParamKind, Span, Stmt, Type, UnaryOp};
 use std::collections::HashMap;
-
 #[derive(Clone, Debug)]
 pub(super) enum ResourceState {
     Owned { borrows: usize },
     ActiveBorrow,
     Consumed { span: Span },
 }
-
 #[derive(Clone, Debug)]
 pub(super) struct TrackedResource {
     pub state: ResourceState,
     pub must_consume: bool,
 }
-
 #[derive(Clone, Debug, Default)]
 pub(super) struct ResourceTracker {
     states: HashMap<String, TrackedResource>,
 }
-
 impl ResourceTracker {
     pub(super) fn new() -> Self {
         Self {
             states: HashMap::new(),
         }
     }
-
     pub(super) fn register_param(&mut self, name: &str, kind: ParamKind, ty: &Type) {
         if let Type::Resource(_) = ty {
             let state = match kind {
@@ -45,7 +40,6 @@ impl ResourceTracker {
             );
         }
     }
-
     pub(super) fn register_local(&mut self, name: &str, ty: &Type) {
         if let Type::Resource(_) = ty {
             self.states.insert(
@@ -57,7 +51,39 @@ impl ResourceTracker {
             );
         }
     }
-
+    pub(super) fn retain_keys_from(&mut self, baseline: &ResourceTracker) {
+        self.states
+            .retain(|name, _| baseline.states.contains_key(name));
+    }
+    pub(super) fn merge_branch(&mut self, other: &ResourceTracker, span: Span) -> Result<()> {
+        for (name, left) in &self.states {
+            let right = other
+                .states
+                .get(name)
+                .ok_or_else(|| TyperError::resource_branch_mismatch(name, span))?;
+            if !Self::states_compatible(&left.state, &right.state)
+                || left.must_consume != right.must_consume
+            {
+                return Err(TyperError::resource_branch_mismatch(name, span).into());
+            }
+        }
+        for name in other.states.keys() {
+            if !self.states.contains_key(name) {
+                return Err(TyperError::resource_branch_mismatch(name, span).into());
+            }
+        }
+        Ok(())
+    }
+    fn states_compatible(left: &ResourceState, right: &ResourceState) -> bool {
+        match (left, right) {
+            (ResourceState::Owned { borrows: lb }, ResourceState::Owned { borrows: rb }) => {
+                lb == rb
+            }
+            (ResourceState::ActiveBorrow, ResourceState::ActiveBorrow) => true,
+            (ResourceState::Consumed { .. }, ResourceState::Consumed { .. }) => true,
+            _ => false,
+        }
+    }
     pub(super) fn use_var(&mut self, name: &str, span: Span) -> Result<()> {
         if let Some(tracked) = self.states.get(name) {
             if let ResourceState::Consumed { span: consumed_at } = tracked.state {
@@ -66,7 +92,6 @@ impl ResourceTracker {
         }
         Ok(())
     }
-
     pub(super) fn consume_var(&mut self, name: &str, span: Span) -> Result<()> {
         if let Some(tracked) = self.states.get_mut(name) {
             let mark_consumed = match &mut tracked.state {
@@ -89,7 +114,6 @@ impl ResourceTracker {
         }
         Ok(())
     }
-
     pub(super) fn borrow_var(&mut self, name: &str, span: Span) -> Result<()> {
         if let Some(tracked) = self.states.get_mut(name) {
             match &mut tracked.state {
@@ -106,7 +130,6 @@ impl ResourceTracker {
         }
         Ok(())
     }
-
     pub(super) fn release_borrow(&mut self, name: &str) -> Result<()> {
         if let Some(tracked) = self.states.get_mut(name) {
             match &mut tracked.state {
@@ -122,7 +145,6 @@ impl ResourceTracker {
         }
         Ok(())
     }
-
     pub(super) fn ensure_consumed(&self) -> Result<()> {
         for (name, tracked) in &self.states {
             if tracked.must_consume {
@@ -144,14 +166,12 @@ impl ResourceTracker {
         Ok(())
     }
 }
-
 pub(super) fn consume_var_expr(tracker: &mut ResourceTracker, expr: &Expr) -> Result<()> {
     if let Expr::Var(name, span) = expr {
         tracker.consume_var(name, *span)?;
     }
     Ok(())
 }
-
 pub(super) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,
@@ -184,11 +204,18 @@ pub(super) fn type_of<'a>(
                 // Reuse arg_type_mismatch with pseudo-callee `if` for stable code T003
                 return Err(TyperError::arg_type_mismatch(1, "if", Type::Bool, cty, *span).into());
             }
-            let tty = type_of(then_br, env, tracker, fns, depth + 1)?;
-            let ety = type_of(else_br, env, tracker, fns, depth + 1)?;
+            let baseline = tracker.clone();
+            let mut then_tracker = baseline.clone();
+            let tty = type_of(then_br, env, &mut then_tracker, fns, depth + 1)?;
+            let mut else_tracker = baseline.clone();
+            let ety = type_of(else_br, env, &mut else_tracker, fns, depth + 1)?;
             if tty != ety {
                 return Err(TyperError::branch_type_mismatch(tty, ety, *span).into());
             }
+            then_tracker.retain_keys_from(&baseline);
+            else_tracker.retain_keys_from(&baseline);
+            then_tracker.merge_branch(&else_tracker, *span)?;
+            *tracker = then_tracker;
             Ok(tty)
         }
         Expr::Match {
@@ -200,9 +227,11 @@ pub(super) fn type_of<'a>(
             use clg_ast::MatchPat;
             match scrut_ty.clone() {
                 Type::Option(inner_ty) => {
+                    let baseline = tracker.clone();
                     let mut seen_some = false;
                     let mut seen_none = false;
                     let mut res_ty_opt: Option<Type> = None;
+                    let mut branch_trackers: Vec<(ResourceTracker, Span)> = Vec::new();
                     for arm in arms {
                         match &arm.pat {
                             MatchPat::Some(name) => {
@@ -215,7 +244,6 @@ pub(super) fn type_of<'a>(
                                 if env.contains_key(name.as_str()) {
                                     return Err(TyperError::binder_conflict(name, *span).into());
                                 }
-                                // Extend env with binder
                                 let mut env2 = env.clone();
                                 env2.insert(
                                     name.as_str(),
@@ -224,7 +252,10 @@ pub(super) fn type_of<'a>(
                                         kind: ParamKind::Borrow,
                                     },
                                 );
-                                let at = type_of(&arm.expr, &env2, tracker, fns, depth + 1)?;
+                                let mut arm_tracker = baseline.clone();
+                                let at =
+                                    type_of(&arm.expr, &env2, &mut arm_tracker, fns, depth + 1)?;
+                                branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -246,7 +277,9 @@ pub(super) fn type_of<'a>(
                                     );
                                 }
                                 seen_none = true;
-                                let at = type_of(&arm.expr, env, tracker, fns, depth + 1)?;
+                                let mut arm_tracker = baseline.clone();
+                                let at = type_of(&arm.expr, env, &mut arm_tracker, fns, depth + 1)?;
+                                branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -262,7 +295,6 @@ pub(super) fn type_of<'a>(
                                 }
                             }
                             MatchPat::Ok(_) | MatchPat::Err(_) => {
-                                // Wrong arm kind for Option
                                 return Err(TyperError::match_invalid_scrutinee(
                                     scrut_ty.clone(),
                                     *span,
@@ -274,12 +306,27 @@ pub(super) fn type_of<'a>(
                     if !(seen_some && seen_none) {
                         return Err(TyperError::match_non_exhaustive(*span).into());
                     }
-                    Ok(res_ty_opt.unwrap_or(Type::Int)) // unreachable: arms non-empty
+                    let result_ty = res_ty_opt.expect("match arms must not be empty");
+                    if let Some((first_tracker, _)) = branch_trackers.first() {
+                        let mut merged = first_tracker.clone();
+                        merged.retain_keys_from(&baseline);
+                        for (branch_tracker, branch_span) in branch_trackers.iter().skip(1) {
+                            let mut filtered = branch_tracker.clone();
+                            filtered.retain_keys_from(&baseline);
+                            merged.merge_branch(&filtered, *branch_span)?;
+                        }
+                        *tracker = merged;
+                    } else {
+                        *tracker = baseline;
+                    }
+                    Ok(result_ty)
                 }
                 Type::Result(ok_ty, err_ty) => {
+                    let baseline = tracker.clone();
                     let mut seen_ok = false;
                     let mut seen_err = false;
                     let mut res_ty_opt: Option<Type> = None;
+                    let mut branch_trackers: Vec<(ResourceTracker, Span)> = Vec::new();
                     for arm in arms {
                         match &arm.pat {
                             MatchPat::Ok(name) => {
@@ -298,7 +345,10 @@ pub(super) fn type_of<'a>(
                                         kind: ParamKind::Borrow,
                                     },
                                 );
-                                let at = type_of(&arm.expr, &env2, tracker, fns, depth + 1)?;
+                                let mut arm_tracker = baseline.clone();
+                                let at =
+                                    type_of(&arm.expr, &env2, &mut arm_tracker, fns, depth + 1)?;
+                                branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -331,7 +381,10 @@ pub(super) fn type_of<'a>(
                                         kind: ParamKind::Borrow,
                                     },
                                 );
-                                let at = type_of(&arm.expr, &env2, tracker, fns, depth + 1)?;
+                                let mut arm_tracker = baseline.clone();
+                                let at =
+                                    type_of(&arm.expr, &env2, &mut arm_tracker, fns, depth + 1)?;
+                                branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                                 if let Some(rt) = &res_ty_opt {
                                     if &at != rt {
                                         let sp = expr_span(&arm.expr);
@@ -358,7 +411,20 @@ pub(super) fn type_of<'a>(
                     if !(seen_ok && seen_err) {
                         return Err(TyperError::match_non_exhaustive(*span).into());
                     }
-                    Ok(res_ty_opt.unwrap_or(Type::Int))
+                    let result_ty = res_ty_opt.expect("match arms must not be empty");
+                    if let Some((first_tracker, _)) = branch_trackers.first() {
+                        let mut merged = first_tracker.clone();
+                        merged.retain_keys_from(&baseline);
+                        for (branch_tracker, branch_span) in branch_trackers.iter().skip(1) {
+                            let mut filtered = branch_tracker.clone();
+                            filtered.retain_keys_from(&baseline);
+                            merged.merge_branch(&filtered, *branch_span)?;
+                        }
+                        *tracker = merged;
+                    } else {
+                        *tracker = baseline;
+                    }
+                    Ok(result_ty)
                 }
                 other => Err(TyperError::match_invalid_scrutinee(other, *span).into()),
             }
@@ -403,7 +469,6 @@ pub(super) fn type_of<'a>(
                 (other, _) => Err(TyperError::try_input_not_option_result(other, *span).into()),
             }
         }
-
         Expr::Var(name, sp) => {
             tracker.use_var(name, *sp)?;
             match env.get(name.as_str()) {
@@ -585,7 +650,6 @@ pub(super) fn type_of<'a>(
         }
     }
 }
-
 fn type_collection_call<'a>(
     callee: &str,
     args: &'a [Expr],
@@ -600,7 +664,6 @@ fn type_collection_call<'a>(
         let mut tmp = tracker.clone();
         type_of(&args[i], env, &mut tmp, fns, depth + 1)
     };
-
     let normalized_callee = match callee {
         "std::list::push_mut" => "std::list::push",
         "std::list::insert_mut" => "std::list::insert",
@@ -720,7 +783,6 @@ fn type_collection_call<'a>(
             }
         }
         "std::list::new" => Err(TyperError::cannot_infer_collection(span, "std::list").into()),
-
         // Set
         "std::set::len" => {
             if args.len() != 1 {
@@ -777,7 +839,6 @@ fn type_collection_call<'a>(
             }
         }
         "std::set::new" => Err(TyperError::cannot_infer_collection(span, "std::set").into()),
-
         // Map
         "std::map::len" => {
             if args.len() != 1 {
@@ -871,11 +932,9 @@ fn type_collection_call<'a>(
             }
         }
         "std::map::new" => Err(TyperError::cannot_infer_collection(span, "std::map").into()),
-
         _ => Ok(None),
     }
 }
-
 fn type_block<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
@@ -936,7 +995,6 @@ fn type_block<'a>(
     *tracker = inner_tracker;
     result
 }
-
 pub(super) fn max_effect<'a>(
     e: &'a Expr,
     fns: &HashMap<&'a str, FnSig<'a>>,
@@ -1003,7 +1061,6 @@ pub(super) fn max_effect<'a>(
         }
     }
 }
-
 fn call_effect<'a>(callee: &str, fns: &HashMap<&'a str, FnSig<'a>>) -> EffectLevel {
     if let Some(level) = builtin_effect(callee) {
         return level;
@@ -1012,7 +1069,6 @@ fn call_effect<'a>(callee: &str, fns: &HashMap<&'a str, FnSig<'a>>) -> EffectLev
         .map(|sig| sig.effect)
         .unwrap_or(EffectLevel::Pure)
 }
-
 fn builtin_effect(callee: &str) -> Option<EffectLevel> {
     match callee {
         "std::list::push_mut"
@@ -1026,21 +1082,18 @@ fn builtin_effect(callee: &str) -> Option<EffectLevel> {
         _ => None,
     }
 }
-
 fn ensure_int(ty: Type, what: &str, span: Option<Span>) -> Result<()> {
     if ty != Type::Int {
         return Err(TyperError::int_operand(what, ty, span).into());
     }
     Ok(())
 }
-
 fn ensure_bool(ty: Type, what: &str, span: Option<Span>) -> Result<()> {
     if ty != Type::Bool {
         return Err(TyperError::bool_operand(what, ty, span).into());
     }
     Ok(())
 }
-
 pub(super) fn expr_span(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
@@ -1054,7 +1107,6 @@ pub(super) fn expr_span(e: &Expr) -> Span {
         Expr::Block { block } => block.span,
     }
 }
-
 pub(crate) fn show_ty(t: Type) -> &'static str {
     match t {
         Type::Int => "Int",

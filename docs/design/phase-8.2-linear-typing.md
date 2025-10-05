@@ -1,7 +1,7 @@
 # Phase 8.2 – Linear Typing Rules
 
 ## Status
-- Draft design note created 2025-10-04; implementation pending.
+- Implemented in typer (2025-10-05): ownership tracking enforces single consume, borrows thread through blocks/branches, and diagnostics T801-T804 are live.
 
 ## Goals
 - Enforce single-consume semantics for resources: every value of a resource type must be consumed exactly once or explicitly dropped.
@@ -61,7 +61,14 @@
    - Phase 8.3 will forbid resource storage in standard collections and design alias-safe containers.
    - Later phases may introduce mutable borrows and formal proofs linking resource states to verification conditions.
 
+## Implementation Notes
+- ResourceTracker snapshots ownership state per if/match branch and merges back, emitting T804 when states diverge.
+- Diagnostics T801/T802/T803 surface use-after-consume, double consume, and consume-while-borrowed with coverage in crates/typer/tests/resource_linear.rs.
+
 ## Open Questions
 - How to surface borrow scope boundaries in the absence of lexical lifetimes? (Likely block-local enforcement for Phase 8.2.)
 - Should `drop` blocks be allowed to move fields out? Initial plan is to forbid consumes inside the drop block; revisit once linear states stabilize.
 - Interaction with contracts: ensure `require`/`ensure` expressions cannot consume resources.
+
+
+

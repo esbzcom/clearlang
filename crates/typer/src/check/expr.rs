@@ -1,14 +1,14 @@
 use super::{effect_label, EffectLevel, FnSig, LocalBinding, RETURN_KEY};
 use crate::errors::TyperError;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clg_ast::{BinOp, Block, Expr, ParamKind, Span, Stmt, Type, UnaryOp};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub(super) enum ResourceState {
-    Owned,
-    BorrowOnly,
-    Consumed,
+    Owned { borrows: usize },
+    ActiveBorrow,
+    Consumed { span: Span },
 }
 
 #[derive(Clone, Debug)]
@@ -32,12 +32,17 @@ impl ResourceTracker {
     pub(super) fn register_param(&mut self, name: &str, kind: ParamKind, ty: &Type) {
         if let Type::Resource(_) = ty {
             let state = match kind {
-                ParamKind::Consume => ResourceState::Owned,
-                ParamKind::Borrow => ResourceState::BorrowOnly,
+                ParamKind::Consume => ResourceState::Owned { borrows: 0 },
+                ParamKind::Borrow => ResourceState::ActiveBorrow,
             };
             let must_consume = matches!(kind, ParamKind::Consume);
-            self.states
-                .insert(name.to_string(), TrackedResource { state, must_consume });
+            self.states.insert(
+                name.to_string(),
+                TrackedResource {
+                    state,
+                    must_consume,
+                },
+            );
         }
     }
 
@@ -46,24 +51,105 @@ impl ResourceTracker {
             self.states.insert(
                 name.to_string(),
                 TrackedResource {
-                    state: ResourceState::Owned,
-                    must_consume: false,
+                    state: ResourceState::Owned { borrows: 0 },
+                    must_consume: true,
                 },
             );
         }
     }
 
-    pub(super) fn use_var(&mut self, _name: &str, _span: Span) -> Result<()> {
+    pub(super) fn use_var(&mut self, name: &str, span: Span) -> Result<()> {
+        if let Some(tracked) = self.states.get(name) {
+            if let ResourceState::Consumed { span: consumed_at } = tracked.state {
+                return Err(TyperError::resource_use_after_consume(name, consumed_at, span).into());
+            }
+        }
         Ok(())
     }
 
-    pub(super) fn consume_var(&mut self, _name: &str, _span: Span) -> Result<()> {
+    pub(super) fn consume_var(&mut self, name: &str, span: Span) -> Result<()> {
+        if let Some(tracked) = self.states.get_mut(name) {
+            let mark_consumed = match &mut tracked.state {
+                ResourceState::Owned { borrows } => {
+                    if *borrows > 0 {
+                        return Err(TyperError::resource_consume_borrow(name, span).into());
+                    }
+                    true
+                }
+                ResourceState::ActiveBorrow => {
+                    return Err(TyperError::resource_consume_borrow(name, span).into());
+                }
+                ResourceState::Consumed { span: first } => {
+                    return Err(TyperError::resource_double_consume(name, *first, span).into());
+                }
+            };
+            if mark_consumed {
+                tracked.state = ResourceState::Consumed { span };
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn borrow_var(&mut self, name: &str, span: Span) -> Result<()> {
+        if let Some(tracked) = self.states.get_mut(name) {
+            match &mut tracked.state {
+                ResourceState::Owned { borrows } => {
+                    *borrows += 1;
+                }
+                ResourceState::ActiveBorrow => {}
+                ResourceState::Consumed { span: consumed_at } => {
+                    return Err(
+                        TyperError::resource_use_after_consume(name, *consumed_at, span).into(),
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn release_borrow(&mut self, name: &str) -> Result<()> {
+        if let Some(tracked) = self.states.get_mut(name) {
+            match &mut tracked.state {
+                ResourceState::Owned { borrows } => {
+                    if *borrows == 0 {
+                        bail!("release_borrow called without active borrow for {}", name);
+                    }
+                    *borrows -= 1;
+                }
+                ResourceState::ActiveBorrow => {}
+                ResourceState::Consumed { .. } => {}
+            }
+        }
         Ok(())
     }
 
     pub(super) fn ensure_consumed(&self) -> Result<()> {
+        for (name, tracked) in &self.states {
+            if tracked.must_consume {
+                match &tracked.state {
+                    ResourceState::Consumed { .. } => {}
+                    ResourceState::Owned { .. } | ResourceState::ActiveBorrow => {
+                        return Err(TyperError::resource_not_consumed(name).into());
+                    }
+                }
+            }
+            if let ResourceState::Owned { borrows } = &tracked.state {
+                debug_assert_eq!(
+                    *borrows, 0,
+                    "resource {} has outstanding borrows at scope end",
+                    name
+                );
+            }
+        }
         Ok(())
     }
+}
+
+pub(super) fn consume_var_expr(tracker: &mut ResourceTracker, expr: &Expr) -> Result<()> {
+    if let Expr::Var(name, span) = expr {
+        tracker.consume_var(name, *span)?;
+    }
+    Ok(())
 }
 
 pub(super) fn type_of<'a>(
@@ -326,8 +412,11 @@ pub(super) fn type_of<'a>(
             }
         }
         Expr::Return { expr, .. } => {
-            let t = type_of(expr, env, tracker, fns, depth + 1)?;
-            Ok(t)
+            let ty = type_of(expr, env, tracker, fns, depth + 1)?;
+            if matches!(ty, Type::Resource(_)) {
+                consume_var_expr(tracker, expr.as_ref())?;
+            }
+            Ok(ty)
         }
         Expr::Unary { op, expr, span } => {
             let inner = type_of(expr, env, tracker, fns, depth + 1)?;
@@ -369,16 +458,18 @@ pub(super) fn type_of<'a>(
             }
         }
         Expr::Call { callee, args, span } => {
-            // Phase 4.6 — Collections signatures (type-only)
+            // Phase 4.6 - Collections signatures (type-only)
             if let Some(t) = type_collection_call(callee, args, env, tracker, fns, depth, *span)? {
                 return Ok(t);
             }
-            // Phase 4.5 — ADT constructors (partial): Some(T) infers Option<T>
+            // Phase 4.5 - ADT constructors (partial): Some(T) infers Option<T>
             if callee == "Some" {
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                let t0 = type_of(&args[0], env, tracker, fns, depth + 1)?;
+                let mut local_tracker = tracker.clone();
+                let t0 = type_of(&args[0], env, &mut local_tracker, fns, depth + 1)?;
+                *tracker = local_tracker;
                 return Ok(Type::Option(Box::new(t0)));
             }
             if callee == "None" {
@@ -398,12 +489,13 @@ pub(super) fn type_of<'a>(
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                let arg_ty = type_of(&args[0], env, tracker, fns, depth + 1)?;
+                let mut local_tracker = tracker.clone();
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, depth + 1)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
                     .ok_or_else(|| TyperError::result_ctor_missing_return(*span))?;
-                return match ret_binding.ty {
+                let result_ty = match ret_binding.ty {
                     Type::Result(ok_ty, err_ty) => {
                         if arg_ty != *ok_ty {
                             let sp = expr_span(&args[0]);
@@ -417,17 +509,22 @@ pub(super) fn type_of<'a>(
                     }
                     other => Err(TyperError::ok_return_required(other, *span).into()),
                 };
+                if result_ty.is_ok() {
+                    *tracker = local_tracker;
+                }
+                return result_ty;
             }
             if callee == "Err" {
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                let arg_ty = type_of(&args[0], env, tracker, fns, depth + 1)?;
+                let mut local_tracker = tracker.clone();
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, depth + 1)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
                     .ok_or_else(|| TyperError::result_ctor_missing_return(*span))?;
-                return match ret_binding.ty {
+                let result_ty = match ret_binding.ty {
                     Type::Result(ok_ty, err_ty) => {
                         if arg_ty != *err_ty {
                             let sp = expr_span(&args[0]);
@@ -441,6 +538,10 @@ pub(super) fn type_of<'a>(
                     }
                     other => Err(TyperError::err_return_required(other, *span).into()),
                 };
+                if result_ty.is_ok() {
+                    *tracker = local_tracker;
+                }
+                return result_ty;
             }
             let FnSig { params, ret, .. } = fns
                 .get(callee.as_str())
@@ -451,14 +552,35 @@ pub(super) fn type_of<'a>(
                     TyperError::arity_mismatch(callee, params.len(), args.len(), *span).into(),
                 );
             }
+            let mut local_tracker = tracker.clone();
+            let mut borrowed: Vec<String> = Vec::new();
             for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
-                let at = type_of(a, env, tracker, fns, depth + 1)?;
+                let at = type_of(a, env, &mut local_tracker, fns, depth + 1)?;
                 let expected = p.ty.clone();
                 if expected != at {
                     let sp = expr_span(a);
                     return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }
+                if matches!(expected, Type::Resource(_)) {
+                    match p.kind {
+                        ParamKind::Consume => {
+                            if let Expr::Var(arg_name, arg_span) = a {
+                                local_tracker.consume_var(arg_name, *arg_span)?;
+                            }
+                        }
+                        ParamKind::Borrow => {
+                            if let Expr::Var(arg_name, arg_span) = a {
+                                local_tracker.borrow_var(arg_name, *arg_span)?;
+                                borrowed.push(arg_name.clone());
+                            }
+                        }
+                    }
+                }
             }
+            for name in borrowed {
+                local_tracker.release_borrow(&name)?;
+            }
+            *tracker = local_tracker;
             Ok(ret)
         }
     }
@@ -766,7 +888,17 @@ fn type_block<'a>(
     for stmt in &block.statements {
         match stmt {
             Stmt::Let { name, expr, .. } => {
-                let ty = type_of(expr.as_ref(), &inner_env, &mut inner_tracker, fns, depth + 1)?;
+                let ty = type_of(
+                    expr.as_ref(),
+                    &inner_env,
+                    &mut inner_tracker,
+                    fns,
+                    depth + 1,
+                )?;
+                if matches!(ty, Type::Resource(_)) {
+                    consume_var_expr(&mut inner_tracker, expr.as_ref())?;
+                }
+                inner_tracker.register_local(name.as_str(), &ty);
                 inner_env.insert(
                     name.as_str(),
                     LocalBinding {
@@ -776,12 +908,28 @@ fn type_block<'a>(
                 );
             }
             Stmt::Expr { expr, .. } => {
-                type_of(expr.as_ref(), &inner_env, &mut inner_tracker, fns, depth + 1)?;
+                type_of(
+                    expr.as_ref(),
+                    &inner_env,
+                    &mut inner_tracker,
+                    fns,
+                    depth + 1,
+                )?;
             }
         }
     }
     let result = if let Some(tail) = &block.tail {
-        type_of(tail.as_ref(), &inner_env, &mut inner_tracker, fns, depth + 1)
+        let ty = type_of(
+            tail.as_ref(),
+            &inner_env,
+            &mut inner_tracker,
+            fns,
+            depth + 1,
+        )?;
+        if matches!(ty, Type::Resource(_)) {
+            consume_var_expr(&mut inner_tracker, tail.as_ref())?;
+        }
+        Ok(ty)
     } else {
         Err(TyperError::block_missing_tail(block.span).into())
     };

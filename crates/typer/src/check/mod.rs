@@ -2,7 +2,7 @@ mod expr;
 mod intrinsics;
 
 pub(crate) use self::expr::show_ty;
-use self::expr::{expr_span, max_effect, type_of, ResourceTracker};
+use self::expr::{consume_var_expr, expr_span, max_effect, type_of, ResourceTracker};
 use self::intrinsics::collect_used_intrinsics;
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
@@ -258,6 +258,9 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     if body_ty != f.ret {
         let sp = expr_span(&f.body);
         return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
+    }
+    if matches!(f.ret, Type::Resource(_)) {
+        consume_var_expr(&mut tracker, &f.body)?;
     }
     tracker.ensure_consumed()?;
     if allowed_effect >= EffectLevel::Mut {

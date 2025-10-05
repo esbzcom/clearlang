@@ -402,6 +402,7 @@ Codegen & Runtime
 
 8.2 Typing Rules
 
+- [x] Add an AST/Type representation for resources, teach the parser to accept it, update the typer to understand block bodies (for drops and future function bodies), and capture the linear-typing design plan.
 - [ ] Implement linear tracking so each resource is consumed or dropped exactly once; reject implicit copies.
 - [ ] Allow immutable borrows of active resources and emit targeted diagnostics for use-after-consume or borrow-after-consume errors.
 
@@ -497,6 +498,5 @@ Codegen & Runtime
 - [ ] WASI `print` intrinsic for observable output.
 
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
-
 
 

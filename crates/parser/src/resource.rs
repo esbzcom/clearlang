@@ -15,43 +15,80 @@ fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
 fn drop_block_p<'a>() -> impl Parser<'a, &'a str, Block, ErrTy<'a>> {
     let expr = expr_p().boxed();
 
-    let let_stmt = kw("let")
-        .ignore_then(ident_p())
-        .then_ignore(just('=').padded())
-        .then(expr.clone())
-        .then_ignore(just(';').padded().labelled("';'"))
-        .map_with(|(name, value), e| {
-            let sp = e.span();
-            Stmt::Let {
-                name,
-                expr: Box::new(value),
-                span: to_span(sp),
-            }
-        });
+    recursive(|block_core| {
+        let let_stmt = kw("let")
+            .ignore_then(ident_p())
+            .then_ignore(just('=').padded())
+            .then(expr.clone())
+            .then_ignore(just(';').padded().labelled("';'"))
+            .map_with(|(name, value), e| {
+                let sp = e.span();
+                Stmt::Let {
+                    name,
+                    expr: Box::new(value),
+                    span: to_span(sp),
+                }
+            })
+            .boxed();
 
-    let expr_stmt = expr
-        .clone()
-        .then_ignore(just(';').padded().labelled("';'"))
-        .map_with(|value, e| {
-            let sp = e.span();
-            Stmt::Expr {
-                expr: Box::new(value),
-                span: to_span(sp),
-            }
-        });
+        let while_stmt = kw("while")
+            .padded()
+            .ignore_then(expr.clone())
+            .then_ignore(kw("invariant").padded())
+            .then(
+                expr.clone()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .then(
+                kw("variant")
+                    .padded()
+                    .ignore_then(
+                        expr.clone()
+                            .delimited_by(just('{').padded(), just('}').padded()),
+                    )
+                    .or_not(),
+            )
+            .then(block_core.clone())
+            .map_with(|(((cond, invariant), variant), body), e| {
+                let sp = e.span();
+                Stmt::While {
+                    cond: Box::new(cond),
+                    invariant: Box::new(invariant),
+                    variant: variant.map(Box::new),
+                    body: Box::new(body),
+                    span: to_span(sp),
+                }
+            })
+            .boxed();
 
-    let stmts = choice((let_stmt, expr_stmt)).repeated().collect::<Vec<_>>();
+        let expr_stmt = expr
+            .clone()
+            .then_ignore(just(';').padded().labelled("';'"))
+            .map_with(|value, e| {
+                let sp = e.span();
+                Stmt::Expr {
+                    expr: Box::new(value),
+                    span: to_span(sp),
+                }
+            })
+            .boxed();
 
-    let tail = expr.or_not();
+        let stmts = choice((let_stmt, while_stmt, expr_stmt))
+            .repeated()
+            .collect::<Vec<_>>();
 
-    stmts
-        .then(tail)
-        .delimited_by(just('{').padded(), just('}').padded())
-        .map_with(|(statements, tail), e| Block {
-            statements,
-            tail: tail.map(Box::new),
-            span: to_span(e.span()),
-        })
+        let tail = expr.or_not();
+
+        stmts
+            .then(tail)
+            .delimited_by(just('{').padded(), just('}').padded())
+            .map_with(|(statements, tail), e| Block {
+                statements,
+                tail: tail.map(Box::new),
+                span: to_span(e.span()),
+            })
+    })
+    .boxed()
 }
 
 fn resource_fields_p<'a>() -> impl Parser<'a, &'a str, Vec<ResourceField>, ErrTy<'a>> {

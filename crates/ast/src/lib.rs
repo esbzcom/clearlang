@@ -44,6 +44,13 @@ pub enum Stmt {
         expr: Box<Expr>,
         span: Span,
     },
+    While {
+        cond: Box<Expr>,
+        invariant: Box<Expr>,
+        variant: Option<Box<Expr>>,
+        body: Box<Block>,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone)]

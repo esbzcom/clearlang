@@ -89,7 +89,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             });
 
         // block expression: { stmt* expr? }
-        let block_core = {
+        let block_core = recursive(|block_core| {
             let expr_inner = expr.clone().boxed();
 
             let let_stmt = kw("let")
@@ -104,7 +104,40 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                         expr: Box::new(value),
                         span: to_span(sp),
                     }
-                });
+                })
+                .boxed();
+
+            let while_stmt = kw("while")
+                .padded()
+                .ignore_then(expr_inner.clone())
+                .then_ignore(kw("invariant").padded())
+                .then(
+                    expr_inner
+                        .clone()
+                        .delimited_by(just('{').padded(), just('}').padded()),
+                )
+                .then(
+                    kw("variant")
+                        .padded()
+                        .ignore_then(
+                            expr_inner
+                                .clone()
+                                .delimited_by(just('{').padded(), just('}').padded()),
+                        )
+                        .or_not(),
+                )
+                .then(block_core.clone())
+                .map_with(|(((cond, invariant), variant), body), e| {
+                    let sp = e.span();
+                    Stmt::While {
+                        cond: Box::new(cond),
+                        invariant: Box::new(invariant),
+                        variant: variant.map(Box::new),
+                        body: Box::new(body),
+                        span: to_span(sp),
+                    }
+                })
+                .boxed();
 
             let expr_stmt = expr_inner
                 .clone()
@@ -115,9 +148,10 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                         expr: Box::new(value),
                         span: to_span(sp),
                     }
-                });
+                })
+                .boxed();
 
-            let stmts = choice((let_stmt, expr_stmt)).repeated().collect::<Vec<_>>();
+            let stmts = choice((let_stmt, while_stmt, expr_stmt)).repeated().collect::<Vec<_>>();
             let tail = expr_inner.or_not();
 
             stmts
@@ -128,7 +162,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                     tail: tail.map(Box::new),
                     span: to_span(e.span()),
                 })
-        };
+        })
+        .boxed();
 
         let block_expr = block_core
             .map(|block| Expr::Block {

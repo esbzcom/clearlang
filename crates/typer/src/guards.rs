@@ -60,18 +60,7 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
                 collect_guards_from_expr(expr, out);
             }
         }
-        Expr::Block { block } => {
-            for stmt in &block.statements {
-                match stmt {
-                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                        collect_guards_from_expr(expr.as_ref(), out);
-                    }
-                }
-            }
-            if let Some(tail) = &block.tail {
-                collect_guards_from_expr(tail.as_ref(), out);
-            }
-        }
+        Expr::Block { block } => collect_guards_from_block(block, out),
         Expr::Call { args, .. } => {
             for arg in args {
                 collect_guards_from_expr(arg, out);
@@ -122,19 +111,62 @@ pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
                 collect_mut_calls(expr, out);
             }
         }
-        Expr::Block { block } => {
-            for stmt in &block.statements {
-                match stmt {
-                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                        collect_mut_calls(expr.as_ref(), out);
-                    }
-                }
+        Expr::Block { block } => collect_calls_from_block(block, out),
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+    }
+}
+
+fn collect_guards_from_block(block: &clg_ast::Block, out: &mut HashSet<MutGuardKey>) {
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                collect_guards_from_expr(expr.as_ref(), out);
             }
-            if let Some(tail) = &block.tail {
-                collect_mut_calls(tail.as_ref(), out);
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_guards_from_expr(cond.as_ref(), out);
+                collect_guards_from_expr(invariant.as_ref(), out);
+                if let Some(v) = variant {
+                    collect_guards_from_expr(v.as_ref(), out);
+                }
+                collect_guards_from_block(body.as_ref(), out);
             }
         }
-        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+    }
+    if let Some(tail) = &block.tail {
+        collect_guards_from_expr(tail.as_ref(), out);
+    }
+}
+
+fn collect_calls_from_block(block: &clg_ast::Block, out: &mut Vec<MutCall>) {
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                collect_mut_calls(expr.as_ref(), out);
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_mut_calls(cond.as_ref(), out);
+                collect_mut_calls(invariant.as_ref(), out);
+                if let Some(v) = variant {
+                    collect_mut_calls(v.as_ref(), out);
+                }
+                collect_calls_from_block(body.as_ref(), out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_mut_calls(tail.as_ref(), out);
     }
 }
 

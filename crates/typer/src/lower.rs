@@ -110,6 +110,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr) -> Result<Value> {
                         Stmt::Expr { expr, .. } => {
                             let _ = lower_expr(ctx, expr.as_ref())?;
                         }
+                        Stmt::While { span, .. } => {
+                            anyhow::bail!("while loops are not lowered yet (span {}..{})", span.start, span.end);
+                        }
                     }
                 }
                 let tail = block

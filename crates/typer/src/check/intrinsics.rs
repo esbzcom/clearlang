@@ -1,8 +1,34 @@
-use clg_ast::{Expr, Program, Stmt};
+use clg_ast::{Block, Expr, Program, Stmt};
 use std::collections::HashSet;
 
 pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
     let mut set: HashSet<&'static str> = HashSet::new();
+    fn walk_block(block: &Block, set: &mut HashSet<&'static str>) {
+        for stmt in &block.statements {
+            match stmt {
+                Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                    walk_expr(expr.as_ref(), set);
+                }
+                Stmt::While {
+                    cond,
+                    invariant,
+                    variant,
+                    body,
+                    ..
+                } => {
+                    walk_expr(cond.as_ref(), set);
+                    walk_expr(invariant.as_ref(), set);
+                    if let Some(v) = variant {
+                        walk_expr(v.as_ref(), set);
+                    }
+                    walk_block(body.as_ref(), set);
+                }
+            }
+        }
+        if let Some(tail) = &block.tail {
+            walk_expr(tail.as_ref(), set);
+        }
+    }
     fn walk_expr(e: &Expr, set: &mut HashSet<&'static str>) {
         match e {
             Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
@@ -30,18 +56,7 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     walk_expr(&arm.expr, set);
                 }
             }
-            Expr::Block { block } => {
-                for stmt in &block.statements {
-                    match stmt {
-                        Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                            walk_expr(expr.as_ref(), set);
-                        }
-                    }
-                }
-                if let Some(tail) = &block.tail {
-                    walk_expr(tail.as_ref(), set);
-                }
-            }
+            Expr::Block { block } => walk_block(block, set),
             Expr::Call { callee, args, .. } => {
                 match callee.as_str() {
                     "std::str::len" => {

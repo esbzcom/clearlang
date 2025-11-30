@@ -423,7 +423,7 @@ Codegen & Runtime
 
 9.2 Syntax
 
-- [ ] Introduce `while` loops with required loop invariants and optional variants/measures for termination.
+- [x] Introduce `while` loops with required loop invariants and optional variants/measures for termination (typing only; lowering still pending).
 
 9.3 Totality
 

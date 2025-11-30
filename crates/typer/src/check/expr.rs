@@ -935,6 +935,111 @@ fn type_collection_call<'a>(
         _ => Ok(None),
     }
 }
+fn type_block_stmt<'a>(
+    block: &'a Block,
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig<'a>>,
+    depth: usize,
+) -> Result<()> {
+    let mut inner_env = env.clone();
+    let mut inner_tracker = tracker.clone();
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { name, expr, .. } => {
+                let ty = type_of(
+                    expr.as_ref(),
+                    &inner_env,
+                    &mut inner_tracker,
+                    fns,
+                    depth + 1,
+                )?;
+                if matches!(ty, Type::Resource(_)) {
+                    consume_var_expr(&mut inner_tracker, expr.as_ref())?;
+                }
+                inner_tracker.register_local(name.as_str(), &ty);
+                inner_env.insert(
+                    name.as_str(),
+                    LocalBinding {
+                        ty,
+                        kind: ParamKind::Borrow,
+                    },
+                );
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                span,
+            } => {
+                type_while_stmt(
+                    cond.as_ref(),
+                    invariant.as_ref(),
+                    variant.as_ref().map(|v| v.as_ref()),
+                    body.as_ref(),
+                    &inner_env,
+                    &mut inner_tracker,
+                    fns,
+                    depth + 1,
+                    *span,
+                )?;
+            }
+            Stmt::Expr { expr, .. } => {
+                type_of(
+                    expr.as_ref(),
+                    &inner_env,
+                    &mut inner_tracker,
+                    fns,
+                    depth + 1,
+                )?;
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        let ty = type_of(
+            tail.as_ref(),
+            &inner_env,
+            &mut inner_tracker,
+            fns,
+            depth + 1,
+        )?;
+        if matches!(ty, Type::Resource(_)) {
+            consume_var_expr(&mut inner_tracker, tail.as_ref())?;
+        }
+    }
+    *tracker = inner_tracker;
+    Ok(())
+}
+
+fn type_while_stmt<'a>(
+    cond: &'a Expr,
+    invariant: &'a Expr,
+    variant: Option<&'a Expr>,
+    body: &'a Block,
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig<'a>>,
+    depth: usize,
+    span: Span,
+) -> Result<()> {
+    let cty = type_of(cond, env, tracker, fns, depth)?;
+    ensure_bool(cty, "condition", Some(expr_span(cond)))?;
+    let inv_ty = type_of(invariant, env, tracker, fns, depth)?;
+    ensure_bool(inv_ty, "loop invariant", Some(expr_span(invariant)))?;
+    if let Some(var_expr) = variant {
+        let vty = type_of(var_expr, env, tracker, fns, depth)?;
+        ensure_int(vty, "loop variant", Some(expr_span(var_expr)))?;
+    }
+    let baseline = tracker.clone();
+    let mut body_tracker = baseline.clone();
+    type_block_stmt(body, env, &mut body_tracker, fns, depth + 1)?;
+    body_tracker.retain_keys_from(&baseline);
+    body_tracker.merge_branch(&baseline, span)?;
+    *tracker = baseline;
+    Ok(())
+}
+
 fn type_block<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
@@ -965,6 +1070,27 @@ fn type_block<'a>(
                         kind: ParamKind::Borrow,
                     },
                 );
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                span,
+            } => {
+                let baseline = inner_tracker.clone();
+                type_while_stmt(
+                    cond.as_ref(),
+                    invariant.as_ref(),
+                    variant.as_ref().map(|v| v.as_ref()),
+                    body.as_ref(),
+                    &inner_env,
+                    &mut inner_tracker,
+                    fns,
+                    depth + 1,
+                    *span,
+                )?;
+                inner_tracker = baseline;
             }
             Stmt::Expr { expr, .. } => {
                 type_of(
@@ -1000,21 +1126,40 @@ pub(super) fn max_effect<'a>(
     fns: &HashMap<&'a str, FnSig<'a>>,
     allowed: EffectLevel,
 ) -> Result<EffectLevel> {
-    match e {
-        Expr::Block { block } => {
-            let mut eff = EffectLevel::Pure;
-            for stmt in &block.statements {
-                match stmt {
-                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                        eff = eff.join(max_effect(expr.as_ref(), fns, allowed)?);
+    fn block_effect<'a>(
+        block: &'a Block,
+        fns: &HashMap<&'a str, FnSig<'a>>,
+        allowed: EffectLevel,
+    ) -> Result<EffectLevel> {
+        let mut eff = EffectLevel::Pure;
+        for stmt in &block.statements {
+            match stmt {
+                Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                    eff = eff.join(max_effect(expr.as_ref(), fns, allowed)?);
+                }
+                Stmt::While {
+                    cond,
+                    invariant,
+                    variant,
+                    body,
+                    ..
+                } => {
+                    eff = eff.join(max_effect(cond.as_ref(), fns, allowed)?);
+                    eff = eff.join(max_effect(invariant.as_ref(), fns, allowed)?);
+                    if let Some(v) = variant {
+                        eff = eff.join(max_effect(v.as_ref(), fns, allowed)?);
                     }
+                    eff = eff.join(block_effect(body.as_ref(), fns, allowed)?);
                 }
             }
-            if let Some(tail) = &block.tail {
-                eff = eff.join(max_effect(tail.as_ref(), fns, allowed)?);
-            }
-            Ok(eff)
         }
+        if let Some(tail) = &block.tail {
+            eff = eff.join(max_effect(tail.as_ref(), fns, allowed)?);
+        }
+        Ok(eff)
+    }
+    match e {
+        Expr::Block { block } => block_effect(block, fns, allowed),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {
             Ok(EffectLevel::Pure)
         }

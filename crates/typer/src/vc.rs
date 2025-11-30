@@ -156,33 +156,50 @@ fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
             expr: Box::new(substitute_result(expr, replacement)),
             span: *span,
         },
-        Expr::Block { block } => {
-            let mut new_block = block.as_ref().clone();
-            new_block.statements = block
-                .statements
-                .iter()
-                .map(|stmt| match stmt {
-                    Stmt::Let { name, expr, span } => Stmt::Let {
-                        name: name.clone(),
-                        expr: Box::new(substitute_result(expr, replacement)),
-                        span: *span,
-                    },
-                    Stmt::Expr { expr, span } => Stmt::Expr {
-                        expr: Box::new(substitute_result(expr, replacement)),
-                        span: *span,
-                    },
-                })
-                .collect();
-            new_block.tail = block
-                .tail
-                .as_ref()
-                .map(|expr| Box::new(substitute_result(expr, replacement)));
-            Expr::Block {
-                block: Box::new(new_block),
-            }
-        }
+        Expr::Block { block } => Expr::Block {
+            block: Box::new(substitute_block(block, replacement)),
+        },
         Expr::Match { .. } | Expr::If { .. } => expr.clone(),
     }
+}
+
+fn substitute_block(block: &clg_ast::Block, replacement: &Expr) -> clg_ast::Block {
+    let mut new_block = block.clone();
+    new_block.statements = block
+        .statements
+        .iter()
+        .map(|stmt| match stmt {
+            Stmt::Let { name, expr, span } => Stmt::Let {
+                name: name.clone(),
+                expr: Box::new(substitute_result(expr, replacement)),
+                span: *span,
+            },
+            Stmt::Expr { expr, span } => Stmt::Expr {
+                expr: Box::new(substitute_result(expr, replacement)),
+                span: *span,
+            },
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                span,
+            } => Stmt::While {
+                cond: Box::new(substitute_result(cond, replacement)),
+                invariant: Box::new(substitute_result(invariant, replacement)),
+                variant: variant
+                    .as_ref()
+                    .map(|v| Box::new(substitute_result(v, replacement))),
+                body: Box::new(substitute_block(body, replacement)),
+                span: *span,
+            },
+        })
+        .collect();
+    new_block.tail = block
+        .tail
+        .as_ref()
+        .map(|expr| Box::new(substitute_result(expr, replacement)));
+    new_block
 }
 fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
     match expr {
@@ -270,6 +287,30 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
                     }
                     Stmt::Expr { expr, .. } => {
                         format!("{};", expr_to_source(expr.as_ref(), 0))
+                    }
+                    Stmt::While {
+                        cond,
+                        invariant,
+                        variant,
+                        body,
+                        ..
+                    } => {
+                        let cond_src = expr_to_source(cond.as_ref(), 0);
+                        let inv_src = expr_to_source(invariant.as_ref(), 0);
+                        let var_src = variant
+                            .as_ref()
+                            .map(|v| format!(" variant {{ {} }}", expr_to_source(v.as_ref(), 0)))
+                            .unwrap_or_default();
+                        let body_src = expr_to_source(
+                            &Expr::Block {
+                                block: body.clone(),
+                            },
+                            0,
+                        );
+                        format!(
+                            "while {} invariant {{ {} }}{} {}",
+                            cond_src, inv_src, var_src, body_src
+                        )
                     }
                 };
                 parts.push(rendered);

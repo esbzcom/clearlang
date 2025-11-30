@@ -429,7 +429,7 @@ Codegen & Runtime
 
 - [x] Lowering support for `while` loops (previously typing-only) so totality checks can target runtime control flow; emit runtime guards for invariants and decreasing variants (non-negative + strictly decreasing checks).
 - [x] VC plumbing for loop invariants/variants to feed termination proofs.
-- [ ] Enforce totality for `pure` functions: require structural recursion or a decreasing measure.
+- [x] Enforce totality for `pure` functions: reject unmeasured recursion (require a structural recursion or explicit decreasing measure before lifting the restriction).
 - [ ] Provide diagnostics with spans for missing or non-decreasing measures.
 
 9.4 Typing & Checks

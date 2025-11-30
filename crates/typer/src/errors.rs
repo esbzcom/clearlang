@@ -425,6 +425,18 @@ impl TyperError {
         )
     }
 
+    pub fn recursion_requires_measure(callee: &str, span: Span) -> Self {
+        Self::new(
+            "T902",
+            format!(
+                "at {}..{}: recursive call to `{}` requires a decreasing measure for totality",
+                span.start, span.end, callee
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn resource_in_collection(found: Type, span: Option<Span>) -> Self {
         let rendered = render_type(&found);
         match span {

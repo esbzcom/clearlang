@@ -55,13 +55,15 @@ fn errors_on_duplicate_parameter_names() {
     assert!(format!("{err:#}").contains("duplicate parameter"));
 }
 
-// Phase 3.1 — purpose: recursion is allowed by the typer (no totality yet)
+// Phase 3.1 — previously allowed recursion; now totality enforcement rejects unmeasured recursion
 #[test]
 fn accepts_simple_recursion_typewise() {
     let src = r#"
         pure function loop1(n: Int) -> Int { loop1(n) }
     "#;
-    check(&parse(src).expect("parse ok")).expect("type-check ok");
+    let err = check(&parse(src).expect("parse ok"))
+        .expect_err("pure recursion without a measure should be rejected");
+    assert!(format!("{err:#}").contains("T902"));
 }
 
 // Phase 3.2 — purpose: accept None/Pure effects; reject Mut/Io for now

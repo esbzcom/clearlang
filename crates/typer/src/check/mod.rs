@@ -102,42 +102,45 @@ fn validate_no_resource_collections(program: &Program) -> Result<()> {
 
 fn enforce_totality(func: &Func) -> Result<()> {
     if matches!(func.effect, Effect::None | Effect::Pure) {
-        check_totality_expr(&func.body)?;
+        check_totality_expr(&func.body, &func.name)?;
     }
     Ok(())
 }
 
-fn check_totality_expr(expr: &Expr) -> Result<()> {
+fn check_totality_expr(expr: &Expr, self_name: &str) -> Result<()> {
     match expr {
-        Expr::Block { block } => check_totality_block(block)?,
+        Expr::Block { block } => check_totality_block(block, self_name)?,
         Expr::If {
             cond,
             then_br,
             else_br,
             ..
         } => {
-            check_totality_expr(cond)?;
-            check_totality_expr(then_br)?;
-            check_totality_expr(else_br)?;
+            check_totality_expr(cond, self_name)?;
+            check_totality_expr(then_br, self_name)?;
+            check_totality_expr(else_br, self_name)?;
         }
         Expr::Match {
             scrutinee, arms, ..
         } => {
-            check_totality_expr(scrutinee)?;
+            check_totality_expr(scrutinee, self_name)?;
             for arm in arms {
-                check_totality_expr(&arm.expr)?;
+                check_totality_expr(&arm.expr, self_name)?;
             }
         }
         Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
-            check_totality_expr(expr)?;
+            check_totality_expr(expr, self_name)?;
         }
         Expr::Bin { lhs, rhs, .. } => {
-            check_totality_expr(lhs)?;
-            check_totality_expr(rhs)?;
+            check_totality_expr(lhs, self_name)?;
+            check_totality_expr(rhs, self_name)?;
         }
-        Expr::Call { args, .. } => {
+        Expr::Call { callee, args, span } => {
+            if callee == self_name {
+                return Err(TyperError::recursion_requires_measure(callee, *span).into());
+            }
             for arg in args {
-                check_totality_expr(arg)?;
+                check_totality_expr(arg, self_name)?;
             }
         }
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
@@ -145,11 +148,11 @@ fn check_totality_expr(expr: &Expr) -> Result<()> {
     Ok(())
 }
 
-fn check_totality_block(block: &Block) -> Result<()> {
+fn check_totality_block(block: &Block, self_name: &str) -> Result<()> {
     for stmt in &block.statements {
         match stmt {
             Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                check_totality_expr(expr.as_ref())?;
+                check_totality_expr(expr.as_ref(), self_name)?;
             }
             Stmt::While {
                 cond,
@@ -161,17 +164,17 @@ fn check_totality_block(block: &Block) -> Result<()> {
                 if variant.is_none() {
                     return Err(TyperError::while_variant_required(*span).into());
                 }
-                check_totality_expr(cond.as_ref())?;
-                check_totality_expr(invariant.as_ref())?;
+                check_totality_expr(cond.as_ref(), self_name)?;
+                check_totality_expr(invariant.as_ref(), self_name)?;
                 if let Some(v) = variant {
-                    check_totality_expr(v.as_ref())?;
+                    check_totality_expr(v.as_ref(), self_name)?;
                 }
-                check_totality_block(body.as_ref())?;
+                check_totality_block(body.as_ref(), self_name)?;
             }
         }
     }
     if let Some(tail) = &block.tail {
-        check_totality_expr(tail.as_ref())?;
+        check_totality_expr(tail.as_ref(), self_name)?;
     }
     Ok(())
 }

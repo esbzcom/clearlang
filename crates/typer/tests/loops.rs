@@ -108,3 +108,21 @@ mut function main(n: Int) -> Int {
     let ast = parse(src).expect("parse succeeds");
     type_check_only(&ast).expect("type check succeeds");
 }
+
+#[test]
+fn constant_variant_is_rejected_in_pure_loop() {
+    let src = r#"
+pure function main(n: Int) -> Int {
+    while n > 0 invariant { n >= 0 } variant { 5 } {
+        n;
+    }
+    n
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(
+        message.contains("T903"),
+        "expected non-decreasing variant error, got: {message}"
+    );
+}

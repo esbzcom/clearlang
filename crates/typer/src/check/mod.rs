@@ -168,6 +168,9 @@ fn check_totality_block(block: &Block, self_name: &str) -> Result<()> {
                 check_totality_expr(invariant.as_ref(), self_name)?;
                 if let Some(v) = variant {
                     check_totality_expr(v.as_ref(), self_name)?;
+                    if let Expr::Int(_, sp) = v.as_ref() {
+                        return Err(TyperError::variant_not_decreasing(*sp).into());
+                    }
                 }
                 check_totality_block(body.as_ref(), self_name)?;
             }

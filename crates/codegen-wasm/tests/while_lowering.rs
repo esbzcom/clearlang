@@ -23,7 +23,8 @@ fn build_and_run(src: &str) -> Result<i32> {
 fn while_false_returns_tail() -> Result<()> {
     let src = r#"
 function main() -> Int {
-    while false invariant { true } variant { 0 } {
+    let m = 0;
+    while false invariant { true } variant { m } {
         1;
     }
     99
@@ -39,7 +40,8 @@ function main() -> Int {
 fn invariant_runs_even_without_iterations() {
     let src = r#"
 function main() -> Int {
-    while false invariant { false } variant { 0 } {
+    let m = 0;
+    while false invariant { false } variant { m } {
         1;
     }
     1
@@ -56,7 +58,8 @@ function main() -> Int {
 fn variant_must_decrease_each_iteration() {
     let src = r#"
 function main() -> Int {
-    while true invariant { true } variant { 1 } {
+    let m = 1;
+    while true invariant { true } variant { m } {
         0;
     }
     0

@@ -437,6 +437,18 @@ impl TyperError {
         )
     }
 
+    pub fn variant_not_decreasing(span: Span) -> Self {
+        Self::new(
+            "T903",
+            format!(
+                "at {}..{}: loop variant must decrease each iteration; constant measures are not allowed",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn resource_in_collection(found: Type, span: Option<Span>) -> Self {
         let rendered = render_type(&found);
         match span {

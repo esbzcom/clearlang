@@ -412,8 +412,8 @@ Codegen & Runtime
 
 8.4 Tests & Docs
 
-- [ ] Publish a "Resource Guide" covering built-in defaults, custom drops, consume semantics, and diagnostics.
-- [ ] Add unit/integration tests for consume success, reuse-after-consume errors, borrow checks, and container rejection.
+- [x] Publish a "Resource Guide" covering built-in defaults, custom drops, consume semantics, and diagnostics.
+- [x] Add unit/integration tests for consume success, reuse-after-consume errors, borrow checks, and container rejection.
 
 ## Phase 9 -" Totality & Loops with Invariants
 

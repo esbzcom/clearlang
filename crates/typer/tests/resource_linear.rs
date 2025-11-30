@@ -68,6 +68,39 @@ function main(consume f: File) -> File {
     assert!(message.contains("T803"), "unexpected error: {message}");
     assert!(message.contains("cannot consume borrowed resource"));
 }
+
+#[test]
+fn resource_consume_and_return_succeeds() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function take(consume f: File) -> File { f }
+
+function main(consume f: File) -> File {
+    let out = take(f);
+    out
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("type check succeeds");
+}
+
+#[test]
+fn borrowed_resource_can_be_used_without_consuming() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function size(file: File) -> Int { 0 }
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("type check succeeds");
+}
 #[test]
 fn resource_branch_mismatch_reports_t804_in_if() {
     let src = r#"

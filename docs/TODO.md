@@ -440,9 +440,9 @@ Codegen & Runtime
 
 9.5 Tests & Docs
 
-- [ ] Positive/negative tests for loops and recursion with measures.
+- [x] Positive/negative tests for loops and recursion with measures.
 
-- [ ] Document totality policy and examples in `docs/typing.md`.
+- [x] Document totality policy and examples in `docs/typing.md`.
 
 ## Phase 10 -" Refinement Types
 

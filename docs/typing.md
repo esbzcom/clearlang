@@ -66,7 +66,11 @@ Effects
 
 - Guard predicates are pure Bool-valued builtins that document aliasing requirements. They surface in VC generation as `mut_pre` obligations so proofs can reference the same guard expression.
 
-
+- Totality + loops (Phase 9)
+  - `while cond invariant { inv } variant { m } { body }` requires `cond: Bool`, `inv: Bool`, and `m: Int`.
+  - Invariants are enforced on loop entry and after each body execution; variants must stay non-negative and strictly decrease at runtime (guards trap otherwise).
+  - Pure functions must supply a decreasing measure for recursion/loops; recursive self-calls without a measure raise `T902`, missing loop variants raise `T901`, and constant variants raise `T903`.
+  - Guardrail: set `CLG_DISABLE_TOTALITY=1` to skip totality enforcement during migration/testing.
 
 Return (expression form)
 

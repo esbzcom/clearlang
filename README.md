@@ -454,18 +454,18 @@ ClearLang aims to be:
 
 ## 5. Project Status
 
-- Current focus: Phase 6.4 - mutable collection effects and proof packaging groundwork; string runtime and collection typing shipped in Phases 4-5.
-- Recently completed: span-aware typer diagnostics, JSON error plumbing through the CLI, and runtime traps for strings/contracts.
-- Full roadmap and checklist: see docs/TODO.md.
+- Current focus: Phase 9 (totality/loops) after delivering Phase 8 resource/linear types.
+- Recently completed: Phase 8 (resource syntax, consume semantics, linear tracking, collection rejection with T806, resource guide), Phase 7 Option/Result lowering, Phase 6 contracts/effects with VC emission and proof packaging.
+- Full roadmap and checklist: see `docs/TODO.md` and the resource overview in `docs/resource-guide.md`.
 
 ---
 
 ## 6. Current Capabilities (Subset)
 
-- Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, and contract clauses.
+- Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, contract clauses, resource declarations with drop blocks, and consume params.
 
-- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, and span-rich diagnostics (Txxx codes).
+- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, span-rich diagnostics (Txxx codes), and linear/resource tracking (T801–T804) with collection rejection (T806).
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 
-- CLI & tooling: `parse`/`build`/`run`, `--json-errors`, `--emit-vcs` (stable schema), and Wasmtime-backed `run`.
+- CLI & tooling: `parse`/`build`/`run`, `--json-errors`, `--emit-vcs` (stable schema + proof packaging/signing), and Wasmtime-backed `run`.

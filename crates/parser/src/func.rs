@@ -67,31 +67,21 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         Ensure(Contract),
     }
 
-    let require_kw = kw("require").then_ignore(
-        just('{').padded().labelled("'{'").rewind(),
-    );
-    let ensure_kw = kw("ensure").then_ignore(
-        just('{').padded().labelled("'{'").rewind(),
-    );
+    let require_kw = kw("require").then_ignore(just('{').padded().labelled("'{'").rewind());
+    let ensure_kw = kw("ensure").then_ignore(just('{').padded().labelled("'{'").rewind());
 
-    let require_clause = require_kw.ignore_then(
-        contract_block
-            .clone()
-            .or_not()
-            .try_map(|maybe, span| match maybe {
-                Some(contract) => Ok(contract),
-                None => Err(Rich::custom(span, "expected '{' to start contract block")),
-            }),
-    );
-    let ensure_clause = ensure_kw.ignore_then(
-        contract_block
-            .clone()
-            .or_not()
-            .try_map(|maybe, span| match maybe {
-                Some(contract) => Ok(contract),
-                None => Err(Rich::custom(span, "expected '{' to start contract block")),
-            }),
-    );
+    let require_clause = require_kw.ignore_then(contract_block.clone().or_not().try_map(
+        |maybe, span| match maybe {
+            Some(contract) => Ok(contract),
+            None => Err(Rich::custom(span, "expected '{' to start contract block")),
+        },
+    ));
+    let ensure_clause = ensure_kw.ignore_then(contract_block.clone().or_not().try_map(
+        |maybe, span| match maybe {
+            Some(contract) => Ok(contract),
+            None => Err(Rich::custom(span, "expected '{' to start contract block")),
+        },
+    ));
 
     let clause_p = choice((
         require_clause.map(Clause::Require),

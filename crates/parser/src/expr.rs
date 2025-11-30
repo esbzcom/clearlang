@@ -131,7 +131,9 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         };
 
         let block_expr = block_core
-            .map(|block| Expr::Block { block: Box::new(block) })
+            .map(|block| Expr::Block {
+                block: Box::new(block),
+            })
             .boxed();
 
         let if_let_pat = choice((

@@ -53,7 +53,9 @@ pub fn parse(src: &str) -> Result<Program, String> {
 
         for (offset, line) in src.lines().enumerate() {
             let trimmed = line.trim_start();
-            if (trimmed.starts_with("require ") || trimmed.starts_with("ensure ")) && !trimmed.contains('{') {
+            if (trimmed.starts_with("require ") || trimmed.starts_with("ensure "))
+                && !trimmed.contains('{')
+            {
                 messages.push(format!(
                     "line {}: keyword `{}` must be followed by `{{ ... }}`",
                     offset + 1,

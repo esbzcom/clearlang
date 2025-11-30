@@ -409,7 +409,7 @@ Codegen & Runtime
 8.3 Aliasing & Collections
 
 - [x] For Phase 8.1, reject storing resources inside standard `List`/`Map`/tuple types and surface a dedicated error; design linear-aware collections as a follow-up.
-- [ ] (Optional follow-up) Sketch freeze/thaw or mutable-borrow semantics for later phases when unique aliasing is required.
+- [ ] (Optional follow-up) Sketch freeze/thaw or mutable-borrow semantics for later phases when unique aliasing is required: draft a short design note covering API surface (e.g., `freeze(list)`, `thaw(list_mut)`), effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
 
 8.4 Tests & Docs
 

@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 6.4 - mutable collection effects and proof packaging groundwork; next: Phase 6.5 - proof section/signature tooling.
+Current focus: Phase 9.2 - loops with invariants and totality checks; next: Phase 9.3 - totality enforcement.
 
 3.1 Typer Core
 
@@ -419,7 +419,7 @@ Codegen & Runtime
 
 9.1 Block Expressions
 
-- [ ] Add block expression/multi-statement body support (expression blocks with optional early `return`) before enabling Phase 9 totality work.
+- [x] Add block expression/multi-statement body support (expression blocks with optional early `return`) before enabling Phase 9 totality work.
 
 9.2 Syntax
 

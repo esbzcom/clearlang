@@ -209,6 +209,9 @@ pub struct TypecheckOutput {
 }
 
 pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
+    if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
+        return fast_path_without_totality(ast);
+    }
     validate_no_resource_collections(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
@@ -299,6 +302,9 @@ pub fn check(ast: &Program) -> Result<Module> {
 }
 
 pub fn type_check_only(ast: &Program) -> Result<()> {
+    if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
+        return fast_path_without_totality(ast).map(|_| ());
+    }
     validate_no_resource_collections(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
@@ -337,6 +343,83 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
         enforce_totality(f)?;
     }
     Ok(())
+}
+
+fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
+    validate_no_resource_collections(ast)?;
+    let mut fns: HashMap<&str, FnSig> = HashMap::new();
+
+    let builtins = builtin_sigs();
+    for (name, params, ret, eff) in &builtins {
+        fns.insert(
+            name.as_str(),
+            FnSig {
+                params: &params[..],
+                ret: ret.clone(),
+                effect: level_from_effect(*eff),
+            },
+        );
+    }
+
+    for f in &ast.funcs {
+        if fns
+            .insert(
+                f.name.as_str(),
+                FnSig {
+                    params: &f.params,
+                    ret: f.ret.clone(),
+                    effect: level_from_effect(f.effect),
+                },
+            )
+            .is_some()
+        {
+            return Err(TyperError::duplicate_function(&f.name).into());
+        }
+    }
+
+    for f in &ast.funcs {
+        check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
+    }
+
+    let used_intrinsics = collect_used_intrinsics(ast);
+    let mut fn_indices: HashMap<&str, u32> = HashMap::new();
+    for (i, f) in ast.funcs.iter().enumerate() {
+        fn_indices.insert(f.name.as_str(), i as u32);
+    }
+    let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
+    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::new();
+    for name in intrinsic_order.iter() {
+        if used_intrinsics.contains(*name) {
+            let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
+            fn_indices.insert(name, idx);
+            let (params, ret) = match *name {
+                "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::str::eq" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
+                "std::str::concat" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Int),
+                ),
+                _ => (vec![], None),
+            };
+            intrinsic_defs.push(clg_ir::Function {
+                name: (*name).to_string(),
+                params,
+                ret,
+                body: vec![],
+            });
+        }
+    }
+
+    let mut module = Module::default();
+    for f in &ast.funcs {
+        module.funcs.push(lower_func(f, &fns, &fn_indices)?);
+    }
+    module.funcs.extend(intrinsic_defs);
+    let vcs = generate_vcs(ast);
+    Ok(TypecheckOutput { ir: module, vcs })
 }
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {

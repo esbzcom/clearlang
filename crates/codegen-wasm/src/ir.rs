@@ -282,6 +282,14 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                     max_id = max_id.max(a.0);
                 }
             }
+            IrInstr::BrIf { cond, .. } | IrInstr::BrIfEqz { cond, .. } => {
+                max_id = max_id.max(cond.0);
+            }
+            IrInstr::BlockBegin
+            | IrInstr::BlockEnd
+            | IrInstr::LoopBegin
+            | IrInstr::LoopEnd
+            | IrInstr::Br { .. } => {}
             IrInstr::Ret { val } => max_id = max_id.max(val.0),
         }
     }
@@ -484,6 +492,30 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 if let Some(d) = dst {
                     insts.local_set(d.0);
                 }
+            }
+            IrInstr::BlockBegin => {
+                insts.block(BlockType::Empty);
+            }
+            IrInstr::BlockEnd => {
+                insts.end();
+            }
+            IrInstr::LoopBegin => {
+                insts.loop_(BlockType::Empty);
+            }
+            IrInstr::LoopEnd => {
+                insts.end();
+            }
+            IrInstr::Br { depth } => {
+                insts.br(*depth);
+            }
+            IrInstr::BrIf { cond, depth } => {
+                insts.local_get(cond.0);
+                insts.br_if(*depth);
+            }
+            IrInstr::BrIfEqz { cond, depth } => {
+                insts.local_get(cond.0);
+                insts.i32_eqz();
+                insts.br_if(*depth);
             }
             IrInstr::Ret { val } => {
                 insts.local_get(val.0);

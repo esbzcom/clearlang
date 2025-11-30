@@ -73,6 +73,9 @@ impl TrapCode {
 pub enum GuardKind {
     Require,
     Ensure,
+    LoopInvariant,
+    LoopVariant,
+    LoopVariantProgress,
 }
 
 impl GuardKind {
@@ -80,6 +83,9 @@ impl GuardKind {
         match self {
             GuardKind::Require => 0,
             GuardKind::Ensure => 1,
+            GuardKind::LoopInvariant => 2,
+            GuardKind::LoopVariant => 3,
+            GuardKind::LoopVariantProgress => 4,
         }
     }
 }
@@ -148,6 +154,21 @@ pub enum Instr {
         dst: Option<Value>,
         callee: u32,
         args: Vec<Value>,
+    },
+    BlockBegin,
+    BlockEnd,
+    LoopBegin,
+    LoopEnd,
+    Br {
+        depth: u32,
+    },
+    BrIf {
+        cond: Value,
+        depth: u32,
+    },
+    BrIfEqz {
+        cond: Value,
+        depth: u32,
     },
     // return v
     Ret {

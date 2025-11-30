@@ -126,3 +126,27 @@ fn generates_mut_pre_vc_for_mut_calls() {
     assert!(vc.post.ast.contains("std::list::can_mut"));
     assert!(vc.vc_smt2.contains("std::list::can_mut"));
 }
+
+#[test]
+fn generates_vcs_for_loop_invariant_and_variant() {
+    let src = r#"
+        pure function countdown(n: Int) -> Int {
+            while n > 0 invariant { n >= 0 } variant { n } {
+                n;
+            }
+            n
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 3);
+    let ids: Vec<&str> = vcs.iter().map(|vc| vc.vc_id.as_str()).collect();
+    assert!(ids.iter().any(|id| id.contains("invariant")));
+    assert!(ids.iter().any(|id| id.contains("variant_nonneg")));
+    assert!(ids.iter().any(|id| id.contains("variant_decrease")));
+    assert!(vcs.iter().any(|vc| vc.post.ast.contains(">= 0")));
+    assert!(vcs
+        .iter()
+        .any(|vc| vc.vc_smt2.contains("declare-const cl.loop.variant.next.0")));
+}

@@ -19,6 +19,12 @@ pub struct VerificationCondition {
     pub status: &'static str,
 }
 
+#[derive(Debug)]
+struct LoopObligation<'a> {
+    invariant: &'a Expr,
+    variant: Option<&'a Expr>,
+}
+
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let mut out = Vec::new();
     for func in &program.funcs {
@@ -101,6 +107,87 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                         ast: post_ast,
                         smt2: post_smt,
                         span: Some(guard_span),
+                    },
+                    vc_smt2,
+                    status: "generated",
+                });
+            }
+        }
+
+        let mut loops: Vec<LoopObligation<'_>> = Vec::new();
+        collect_loops(&func.body, &mut loops);
+        for (idx, loop_ob) in loops.iter().enumerate() {
+            let mut enc_inv = SmtEncoder::default();
+            let pre_smt = enc_inv.encode(&pre_expr);
+            let inv_smt = enc_inv.encode(loop_ob.invariant);
+            let vc_body = format!("(=> {} {})", pre_smt, inv_smt);
+            let vc_smt2 = enc_inv.wrap_vc(&vc_body);
+
+            out.push(VerificationCondition {
+                function: func.name.clone(),
+                vc_id: format!("loop:{}:invariant", idx),
+                pre: ContractExpr {
+                    ast: pre_ast.clone(),
+                    smt2: pre_smt.clone(),
+                    span: pre_span,
+                },
+                post: ContractExpr {
+                    ast: expr_to_source(loop_ob.invariant, 0),
+                    smt2: inv_smt,
+                    span: Some(expr_span(loop_ob.invariant)),
+                },
+                vc_smt2,
+                status: "generated",
+            });
+
+            if let Some(var_expr) = loop_ob.variant {
+                let mut enc_var = SmtEncoder::default();
+                let pre_smt = enc_var.encode(&pre_expr);
+                let var_smt = enc_var.encode(var_expr);
+                let post_smt = format!("(>= {} 0)", var_smt);
+                let vc_body = format!("(=> {} {})", pre_smt, post_smt);
+                let vc_smt2 = enc_var.wrap_vc(&vc_body);
+                out.push(VerificationCondition {
+                    function: func.name.clone(),
+                    vc_id: format!("loop:{}:variant_nonneg", idx),
+                    pre: ContractExpr {
+                        ast: pre_ast.clone(),
+                        smt2: pre_smt.clone(),
+                        span: pre_span,
+                    },
+                    post: ContractExpr {
+                        ast: format!("{} >= 0", expr_to_source(var_expr, 0)),
+                        smt2: post_smt,
+                        span: Some(expr_span(var_expr)),
+                    },
+                    vc_smt2,
+                    status: "generated",
+                });
+
+                let mut enc_dec = SmtEncoder::default();
+                let pre_smt = enc_dec.encode(&pre_expr);
+                let var_before = enc_dec.encode(var_expr);
+                let next_sym = format!("cl.loop.variant.next.{}", idx);
+                let post_smt = format!("(< {} {})", next_sym, var_before);
+                let vc_body = format!("(=> {} {})", pre_smt, post_smt);
+                let extra = format!("(declare-const {} Int)", next_sym);
+                let vc_smt2 = enc_dec.wrap_vc_with_extra(&vc_body, Some(&extra));
+                out.push(VerificationCondition {
+                    function: func.name.clone(),
+                    vc_id: format!("loop:{}:variant_decrease", idx),
+                    pre: ContractExpr {
+                        ast: pre_ast.clone(),
+                        smt2: pre_smt.clone(),
+                        span: pre_span,
+                    },
+                    post: ContractExpr {
+                        ast: format!(
+                            "{}' < {}",
+                            expr_to_source(var_expr, 0),
+                            expr_to_source(var_expr, 0)
+                        ),
+                        smt2: post_smt,
+                        span: Some(expr_span(var_expr)),
                     },
                     vc_smt2,
                     status: "generated",
@@ -502,16 +589,22 @@ impl SmtEncoder {
     }
 
     fn wrap_vc(&self, body: &str) -> String {
+        self.wrap_vc_with_extra(body, None)
+    }
+
+    fn wrap_vc_with_extra(&self, body: &str, extra: Option<&str>) -> String {
         let prelude = self.helpers_prelude();
-        if prelude.is_empty() {
-            body.to_string()
-        } else {
-            format!(
-                "{}
-{}",
-                prelude, body
-            )
+        let mut parts: Vec<String> = Vec::new();
+        if !prelude.is_empty() {
+            parts.push(prelude);
         }
+        if let Some(extra_block) = extra {
+            if !extra_block.is_empty() {
+                parts.push(extra_block.to_string());
+            }
+        }
+        parts.push(body.to_string());
+        parts.join("\n")
     }
 
     fn helpers_prelude(&self) -> String {
@@ -552,6 +645,86 @@ fn match_arm_to_source(arm: &MatchArm) -> ArmSource {
     };
     let body = expr_to_source(&arm.expr, 0);
     ArmSource { pat, body }
+}
+
+fn collect_loops<'a>(expr: &'a Expr, out: &mut Vec<LoopObligation<'a>>) {
+    match expr {
+        Expr::Block { block } => collect_loops_block(block, out),
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_loops(cond, out);
+            collect_loops(then_br, out);
+            collect_loops(else_br, out);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_loops(scrutinee, out);
+            for arm in arms {
+                collect_loops(&arm.expr, out);
+            }
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_loops(lhs, out);
+            collect_loops(rhs, out);
+        }
+        Expr::Call { args, .. } => {
+            for arg in args {
+                collect_loops(arg, out);
+            }
+        }
+        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
+            collect_loops(expr, out);
+        }
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+    }
+}
+
+fn collect_loops_block<'a>(block: &'a clg_ast::Block, out: &mut Vec<LoopObligation<'a>>) {
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => collect_loops(expr, out),
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                out.push(LoopObligation {
+                    invariant,
+                    variant: variant.as_deref(),
+                });
+                collect_loops(cond, out);
+                collect_loops(invariant, out);
+                if let Some(v) = variant {
+                    collect_loops(v, out);
+                }
+                collect_loops_block(body, out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_loops(tail, out);
+    }
+}
+
+fn expr_span(e: &Expr) -> Span {
+    match e {
+        Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
+        Expr::Bin { span, .. }
+        | Expr::Call { span, .. }
+        | Expr::Match { span, .. }
+        | Expr::Return { span, .. }
+        | Expr::If { span, .. }
+        | Expr::Unary { span, .. }
+        | Expr::Try { span, .. } => *span,
+        Expr::Block { block } => block.span,
+    }
 }
 
 fn precedence_bin(op: BinOp) -> u8 {

@@ -1012,6 +1012,7 @@ fn type_block_stmt<'a>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn type_while_stmt<'a>(
     cond: &'a Expr,
     invariant: &'a Expr,

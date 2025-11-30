@@ -151,7 +151,9 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 })
                 .boxed();
 
-            let stmts = choice((let_stmt, while_stmt, expr_stmt)).repeated().collect::<Vec<_>>();
+            let stmts = choice((let_stmt, while_stmt, expr_stmt))
+                .repeated()
+                .collect::<Vec<_>>();
             let tail = expr_inner.or_not();
 
             stmts

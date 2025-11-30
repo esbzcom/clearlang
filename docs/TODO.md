@@ -427,8 +427,9 @@ Codegen & Runtime
 
 9.3 Totality
 
+- [ ] Lowering support for `while` loops (currently typing-only) so totality checks can target runtime control flow.
+- [ ] VC plumbing for loop invariants/variants to feed termination proofs.
 - [ ] Enforce totality for `pure` functions: require structural recursion or a decreasing measure.
-
 - [ ] Provide diagnostics with spans for missing or non-decreasing measures.
 
 9.4 Typing & Checks

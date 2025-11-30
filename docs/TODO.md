@@ -415,11 +415,6 @@ Codegen & Runtime
 - [ ] Publish a "Resource Guide" covering built-in defaults, custom drops, consume semantics, and diagnostics.
 - [ ] Add unit/integration tests for consume success, reuse-after-consume errors, borrow checks, and container rejection.
 
-8.5 Linear-Aware Collections (Future)
-
-- [ ] Sketch freeze/thaw or mutable-borrow semantics for unique aliasing: draft a short design note covering API surface (e.g., `freeze(list)`, `thaw(list_mut)`), effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
-
-
 ## Phase 9 -" Totality & Loops with Invariants
 
 9.1 Block Expressions
@@ -501,5 +496,9 @@ Codegen & Runtime
 - [ ] WASI `print` intrinsic for observable output.
 
 - [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
+
+## Phase 15 - Linear-Aware Collections (Future)
+
+- [ ] Sketch freeze/thaw or mutable-borrow semantics for unique aliasing: draft a short design note covering API surface (e.g., `freeze(list)`, `thaw(list_mut)`), effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
 
 

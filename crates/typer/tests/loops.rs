@@ -11,7 +11,7 @@ fn expect_typer_error(src: &str) -> String {
 fn loop_invariant_must_be_bool() {
     let src = r#"
 function main(n: Int) -> Int {
-    while true invariant { 1 } {
+    while true invariant { 1 } variant { n } {
         n;
     }
     0
@@ -47,7 +47,7 @@ function main(n: Int) -> Int {
 fn loop_condition_must_be_bool() {
     let src = r#"
 function main(n: Int) -> Int {
-    while n invariant { true } {
+    while n invariant { true } variant { n } {
         n;
     }
     0
@@ -69,6 +69,39 @@ function main(n: Int) -> Int {
         n;
     }
     0
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    type_check_only(&ast).expect("type check succeeds");
+}
+
+#[test]
+fn missing_variant_in_pure_loop_reports_t901() {
+    let src = r#"
+function main(n: Int) -> Int {
+    while n > 0 invariant { n >= 0 } {
+        n;
+    }
+    0
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(
+        message.contains("T901"),
+        "expected totality variant error, got: {message}"
+    );
+}
+
+#[test]
+fn mut_function_may_omit_variant_for_now() {
+    let src = r#"
+mut function main(n: Int) -> Int {
+    while n > 0 invariant { n >= 0 } {
+        n;
+    }
+    n
 }
 "#;
 

@@ -413,6 +413,18 @@ impl TyperError {
         )
     }
 
+    pub fn while_variant_required(span: Span) -> Self {
+        Self::new(
+            "T901",
+            format!(
+                "at {}..{}: while loops in pure functions require a variant (measure) for totality",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn resource_in_collection(found: Type, span: Option<Span>) -> Self {
         let rendered = render_type(&found);
         match span {

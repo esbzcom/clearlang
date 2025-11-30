@@ -12,7 +12,7 @@ use crate::guards::{
 use crate::lower::lower_func;
 use crate::vc::{generate_vcs, VerificationCondition};
 use anyhow::{Context, Result};
-use clg_ast::{Effect, Expr, Func, Param, ParamKind, Program, Type};
+use clg_ast::{Effect, Expr, Func, Param, ParamKind, Program, Span, Type};
 use clg_ir::Module;
 use std::collections::{HashMap, HashSet};
 
@@ -43,6 +43,63 @@ pub(super) fn effect_label(level: EffectLevel) -> &'static str {
     }
 }
 
+fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
+    if let Some(offending) = find_resource_collection(ty) {
+        return Err(TyperError::resource_in_collection(offending, span).into());
+    }
+    Ok(())
+}
+
+fn find_resource_collection(ty: &Type) -> Option<Type> {
+    match ty {
+        Type::List(inner) | Type::Set(inner) => {
+            if contains_resource(inner) {
+                Some(ty.clone())
+            } else {
+                None
+            }
+        }
+        Type::Map(key, val) => {
+            if contains_resource(key) || contains_resource(val) {
+                Some(ty.clone())
+            } else {
+                None
+            }
+        }
+        Type::Option(inner) => find_resource_collection(inner),
+        Type::Result(ok, err) => {
+            find_resource_collection(ok).or_else(|| find_resource_collection(err))
+        }
+        _ => None,
+    }
+}
+
+fn contains_resource(ty: &Type) -> bool {
+    match ty {
+        Type::Resource(_) => true,
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => contains_resource(inner),
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            contains_resource(ok) || contains_resource(err)
+        }
+        _ => false,
+    }
+}
+
+fn validate_no_resource_collections(program: &Program) -> Result<()> {
+    for res in &program.resources {
+        for field in &res.fields {
+            ensure_no_resource_collections(&field.ty, Some(field.span))?;
+        }
+    }
+    for func in &program.funcs {
+        ensure_no_resource_collections(&func.ret, None)?;
+        for param in &func.params {
+            ensure_no_resource_collections(&param.ty, None)?;
+        }
+    }
+    Ok(())
+}
+
 fn level_from_effect(effect: Effect) -> EffectLevel {
     match effect {
         Effect::None | Effect::Pure => EffectLevel::Pure,
@@ -71,6 +128,7 @@ pub struct TypecheckOutput {
 }
 
 pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
+    validate_no_resource_collections(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();
@@ -157,6 +215,7 @@ pub fn check(ast: &Program) -> Result<Module> {
 }
 
 pub fn type_check_only(ast: &Program) -> Result<()> {
+    validate_no_resource_collections(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();

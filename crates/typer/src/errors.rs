@@ -413,6 +413,30 @@ impl TyperError {
         )
     }
 
+    pub fn resource_in_collection(found: Type, span: Option<Span>) -> Self {
+        let rendered = render_type(&found);
+        match span {
+            Some(sp) => Self::new(
+                "T806",
+                format!(
+                    "at {}..{}: resources cannot be stored inside collections or tuples yet; found `{}`",
+                    sp.start, sp.end, rendered
+                ),
+                sp.start,
+                sp.end,
+            ),
+            None => Self::new(
+                "T806",
+                format!(
+                    "resources cannot be stored inside collections or tuples yet; found `{}`",
+                    rendered
+                ),
+                0,
+                0,
+            ),
+        }
+    }
+
     // Phase 6.6 - ADT sugar diagnostics
     pub fn try_option_return_required(found: Type, span: Span) -> Self {
         Self::new(
@@ -624,3 +648,17 @@ impl std::fmt::Display for TyperError {
 }
 
 impl std::error::Error for TyperError {}
+
+fn render_type(ty: &Type) -> String {
+    match ty {
+        Type::Int => "Int".to_string(),
+        Type::Bool => "Bool".to_string(),
+        Type::String => "String".to_string(),
+        Type::Resource(name) => name.to_string(),
+        Type::Option(inner) => format!("Option<{}>", render_type(inner)),
+        Type::Result(ok, err) => format!("Result<{}, {}>", render_type(ok), render_type(err)),
+        Type::List(inner) => format!("List<{}>", render_type(inner)),
+        Type::Set(inner) => format!("Set<{}>", render_type(inner)),
+        Type::Map(key, val) => format!("Map<{}, {}>", render_type(key), render_type(val)),
+    }
+}

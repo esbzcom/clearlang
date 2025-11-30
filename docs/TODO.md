@@ -408,7 +408,7 @@ Codegen & Runtime
 
 8.3 Aliasing & Collections
 
-- [ ] For Phase 8.1, reject storing resources inside standard `List`/`Map`/tuple types and surface a dedicated error; design linear-aware collections as a follow-up.
+- [x] For Phase 8.1, reject storing resources inside standard `List`/`Map`/tuple types and surface a dedicated error; design linear-aware collections as a follow-up.
 - [ ] (Optional follow-up) Sketch freeze/thaw or mutable-borrow semantics for later phases when unique aliasing is required.
 
 8.4 Tests & Docs

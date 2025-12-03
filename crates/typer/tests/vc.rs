@@ -150,3 +150,20 @@ fn generates_vcs_for_loop_invariant_and_variant() {
         .iter()
         .any(|vc| vc.vc_smt2.contains("declare-const cl.loop.variant.next.0")));
 }
+
+#[test]
+fn generates_vc_for_refined_alias_params_and_returns() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function inc(a: Nat) -> Nat { a + 1 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.function, "inc");
+    assert_eq!(vc.vc_id, "vc:0");
+    assert_eq!(vc.pre.ast, "a >= 0");
+    assert_eq!(vc.post.ast, "result >= 0");
+}

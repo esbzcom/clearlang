@@ -26,13 +26,45 @@ struct LoopObligation<'a> {
 }
 
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
+    let alias_map = build_alias_map(program);
     let mut out = Vec::new();
     for func in &program.funcs {
         let req_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
-        let pre_expr = if req_exprs.is_empty() {
+        let mut pre_extra: Vec<Expr> = Vec::new();
+        for param in &func.params {
+            if let Some(name) = match_alias_name(&param.ty) {
+                if let Some(alias) = alias_map.get(name) {
+                    if let Some(pred) = instantiate_alias_predicate(
+                        alias,
+                        &Expr::Var(param.name.clone(), alias.span),
+                    ) {
+                        pre_extra.push(pred);
+                    }
+                }
+            }
+        }
+
+        let mut ensures: Vec<(Expr, Span)> = func
+            .ensures
+            .iter()
+            .map(|e| (e.expr.clone(), e.span))
+            .collect();
+        if let Some(name) = match_alias_name(&func.ret) {
+            if let Some(alias) = alias_map.get(name) {
+                if let Some(pred) =
+                    instantiate_alias_predicate(alias, &Expr::Var("result".into(), alias.span))
+                {
+                    ensures.push((pred, alias.span));
+                }
+            }
+        }
+
+        let mut all_pre = req_exprs.clone();
+        all_pre.extend(pre_extra.into_iter());
+        let pre_expr = if all_pre.is_empty() {
             Expr::Bool(true, Span { start: 0, end: 0 })
         } else {
-            fold_conjunction(req_exprs.clone())
+            fold_conjunction(all_pre)
         };
         let pre_span = if func.requires.is_empty() {
             None
@@ -43,14 +75,14 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
         };
         let pre_ast = expr_to_source(&pre_expr, 0);
 
-        if matches!(func.effect, Effect::None | Effect::Pure) && !func.ensures.is_empty() {
-            for (idx, ensure) in func.ensures.iter().enumerate() {
-                let post_ast = expr_to_source(&ensure.expr, 0);
-                let substituted = substitute_result(&ensure.expr, &func.body);
+        if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {
+            for (idx, (ensure_expr, ensure_span)) in ensures.iter().enumerate() {
+                let post_ast = expr_to_source(ensure_expr, 0);
+                let substituted = substitute_result(ensure_expr, &func.body);
 
                 let mut encoder = SmtEncoder::default();
                 let pre_smt = encoder.encode(&pre_expr);
-                let post_smt = encoder.encode(&ensure.expr);
+                let post_smt = encoder.encode(ensure_expr);
                 let substituted_smt = encoder.encode(&substituted);
                 let vc_body = format!("(=> {} {})", pre_smt, substituted_smt);
                 let vc_smt2 = encoder.wrap_vc(&vc_body);
@@ -66,7 +98,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     post: ContractExpr {
                         ast: post_ast,
                         smt2: post_smt,
-                        span: Some(ensure.span),
+                        span: Some(*ensure_span),
                     },
                     vc_smt2,
                     status: "generated",
@@ -198,6 +230,125 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
 }
+
+fn match_alias_name(ty: &clg_ast::Type) -> Option<&str> {
+    if let clg_ast::Type::Resource(name) = ty {
+        Some(name.as_str())
+    } else {
+        None
+    }
+}
+
+#[derive(Clone)]
+struct AliasView<'a> {
+    binder: Option<&'a str>,
+    predicate: &'a Expr,
+    span: Span,
+}
+
+fn build_alias_map<'a>(program: &'a Program) -> std::collections::HashMap<&'a str, AliasView<'a>> {
+    program
+        .refined_aliases
+        .iter()
+        .map(|a| {
+            (
+                a.name.as_str(),
+                AliasView {
+                    binder: a.binder.as_deref(),
+                    predicate: &a.predicate,
+                    span: a.span,
+                },
+            )
+        })
+        .collect()
+}
+
+fn instantiate_alias_predicate(alias: &AliasView<'_>, replacement: &Expr) -> Option<Expr> {
+    let binder = alias.binder?;
+    Some(substitute_binder(alias.predicate, binder, replacement))
+}
+
+fn substitute_binder(expr: &Expr, binder: &str, replacement: &Expr) -> Expr {
+    match expr {
+        Expr::Var(name, _) if name == binder => replacement.clone(),
+        Expr::Var(_, _) | Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => expr.clone(),
+        Expr::Bin { op, lhs, rhs, span } => Expr::Bin {
+            op: *op,
+            lhs: Box::new(substitute_binder(lhs, binder, replacement)),
+            rhs: Box::new(substitute_binder(rhs, binder, replacement)),
+            span: *span,
+        },
+        Expr::Unary { op, expr, span } => Expr::Unary {
+            op: *op,
+            expr: Box::new(substitute_binder(expr, binder, replacement)),
+            span: *span,
+        },
+        Expr::Call { callee, args, span } => Expr::Call {
+            callee: callee.clone(),
+            args: args
+                .iter()
+                .map(|a| substitute_binder(a, binder, replacement))
+                .collect(),
+            span: *span,
+        },
+        Expr::Return { expr, span } => Expr::Return {
+            expr: Box::new(substitute_binder(expr, binder, replacement)),
+            span: *span,
+        },
+        Expr::Try { expr, span } => Expr::Try {
+            expr: Box::new(substitute_binder(expr, binder, replacement)),
+            span: *span,
+        },
+        Expr::Block { block } => Expr::Block {
+            block: Box::new(substitute_block_binder(block, binder, replacement)),
+        },
+        Expr::Match { .. } | Expr::If { .. } => expr.clone(),
+    }
+}
+
+fn substitute_block_binder(
+    block: &clg_ast::Block,
+    binder: &str,
+    replacement: &Expr,
+) -> clg_ast::Block {
+    let mut new_block = block.clone();
+    new_block.statements = block
+        .statements
+        .iter()
+        .map(|stmt| match stmt {
+            Stmt::Let { name, expr, span } => Stmt::Let {
+                name: name.clone(),
+                expr: Box::new(substitute_binder(expr, binder, replacement)),
+                span: *span,
+            },
+            Stmt::Expr { expr, span } => Stmt::Expr {
+                expr: Box::new(substitute_binder(expr, binder, replacement)),
+                span: *span,
+            },
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                span,
+            } => Stmt::While {
+                cond: Box::new(substitute_binder(cond, binder, replacement)),
+                invariant: Box::new(substitute_binder(invariant, binder, replacement)),
+                variant: variant
+                    .as_ref()
+                    .map(|v| Box::new(substitute_binder(v, binder, replacement))),
+                body: Box::new(substitute_block_binder(body, binder, replacement)),
+                span: *span,
+            },
+        })
+        .collect();
+    new_block.tail = block
+        .tail
+        .as_ref()
+        .map(|expr| Box::new(substitute_binder(expr, binder, replacement)));
+    new_block
+}
+
 fn fold_conjunction(mut exprs: Vec<Expr>) -> Expr {
     let mut iter = exprs.drain(..);
     let first = iter.next().expect("exprs not empty");

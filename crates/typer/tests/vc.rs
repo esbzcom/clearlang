@@ -167,3 +167,44 @@ fn generates_vc_for_refined_alias_params_and_returns() {
     assert_eq!(vc.pre.ast, "a >= 0");
     assert_eq!(vc.post.ast, "result >= 0");
 }
+
+#[test]
+fn propagates_refinement_through_let_bindings() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function copy(a: Nat) -> Nat {
+            let y = a;
+            y
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert!(vc.pre.ast.contains("a >= 0"));
+    assert!(vc.pre.ast.contains("y >= 0"));
+    assert!(vc.post.ast.contains("result >= 0"));
+}
+
+#[test]
+fn propagates_refinement_into_option_match_binders() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function unwrap(opt: Option<Nat>) -> Int
+            ensure { result >= 0 }
+        {
+            match opt {
+                Some(v) => v,
+                None => 0
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert!(vc.pre.ast.contains("v >= 0"));
+    assert!(vc.vc_smt2.contains("=>"));
+}

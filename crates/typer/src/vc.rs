@@ -1,3 +1,4 @@
+use crate::builtins::builtin_sigs;
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
 use clg_ast::{BinOp, Effect, Expr, MatchArm, MatchPat, Program, Span, Stmt, Type, UnaryOp};
 use std::collections::{HashMap, HashSet};
@@ -27,14 +28,14 @@ struct LoopObligation<'a> {
 
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let alias_map = build_alias_map(program);
-    let fn_aliases = build_fn_aliases(program, &alias_map);
+    let fn_sigs = build_fn_sigs(program, &alias_map);
     let mut out = Vec::new();
     for func in &program.funcs {
         let req_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
         let mut pre_extra: Vec<Expr> = Vec::new();
-        for param in &func.params {
-            if let Some(name) = match_alias_name(&param.ty) {
-                if let Some(alias) = alias_map.get(name) {
+        if let Some(sig) = fn_sigs.get(func.name.as_str()) {
+            for (param, alias_opt) in func.params.iter().zip(sig.param_aliases.iter()) {
+                if let Some(alias) = alias_opt {
                     if let Some(pred) = instantiate_alias_predicate(
                         alias,
                         &Expr::Var(param.name.clone(), alias.span),
@@ -50,8 +51,8 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             .iter()
             .map(|e| (e.expr.clone(), e.span))
             .collect();
-        if let Some(name) = match_alias_name(&func.ret) {
-            if let Some(alias) = alias_map.get(name) {
+        if let Some(sig) = fn_sigs.get(func.name.as_str()) {
+            if let Some(alias) = sig.ret_alias {
                 if let Some(pred) =
                     instantiate_alias_predicate(alias, &Expr::Var("result".into(), alias.span))
                 {
@@ -60,9 +61,20 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             }
         }
 
-        // Obligations arising from alias-typed call arguments inside the body.
+        // Obligations arising from alias flow inside the body (lets, calls, matches, etc.).
         let mut body_obligations: Vec<Expr> = Vec::new();
-        collect_refinement_obligations(&func.body, &fn_aliases, &mut body_obligations);
+        let mut env: HashMap<String, Type> = func
+            .params
+            .iter()
+            .map(|p| (p.name.clone(), p.ty.clone()))
+            .collect();
+        collect_refinement_obligations(
+            &func.body,
+            &alias_map,
+            &fn_sigs,
+            &mut env,
+            &mut body_obligations,
+        );
 
         let mut all_pre = req_exprs.clone();
         all_pre.extend(pre_extra.into_iter());
@@ -237,9 +249,12 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     out
 }
 
-fn match_alias_name(ty: &clg_ast::Type) -> Option<&str> {
-    if let clg_ast::Type::Resource(name) = ty {
-        Some(name.as_str())
+fn top_level_alias<'a>(
+    ty: &Type,
+    aliases: &'a HashMap<&'a str, AliasView<'a>>,
+) -> Option<&'a AliasView<'a>> {
+    if let Type::Resource(name) = ty {
+        aliases.get(name.as_str())
     } else {
         None
     }
@@ -252,7 +267,7 @@ struct AliasView<'a> {
     span: Span,
 }
 
-fn build_alias_map<'a>(program: &'a Program) -> std::collections::HashMap<&'a str, AliasView<'a>> {
+fn build_alias_map<'a>(program: &'a Program) -> HashMap<&'a str, AliasView<'a>> {
     program
         .refined_aliases
         .iter()
@@ -274,62 +289,78 @@ fn instantiate_alias_predicate(alias: &AliasView<'_>, replacement: &Expr) -> Opt
     Some(substitute_binder(alias.predicate, binder, replacement))
 }
 
-fn build_fn_aliases<'a>(
+#[derive(Clone)]
+struct FnSigView<'a> {
+    ret: Type,
+    param_aliases: Vec<Option<&'a AliasView<'a>>>,
+    ret_alias: Option<&'a AliasView<'a>>,
+}
+
+fn build_fn_sigs<'a>(
     program: &'a Program,
     aliases: &'a HashMap<&'a str, AliasView<'a>>,
-) -> HashMap<&'a str, Vec<Option<&'a AliasView<'a>>>> {
-    let mut map: HashMap<&'a str, Vec<Option<&'a AliasView<'a>>>> = HashMap::new();
+) -> HashMap<String, FnSigView<'a>> {
+    let mut map: HashMap<String, FnSigView<'a>> = HashMap::new();
     for func in &program.funcs {
-        let mut param_aliases = Vec::new();
-        for param in &func.params {
-            if let Type::Resource(name) = &param.ty {
-                param_aliases.push(aliases.get(name.as_str()));
-            } else {
-                param_aliases.push(None);
-            }
-        }
-        map.insert(func.name.as_str(), param_aliases);
+        let param_aliases = func
+            .params
+            .iter()
+            .map(|p| top_level_alias(&p.ty, aliases))
+            .collect();
+        let ret_alias = top_level_alias(&func.ret, aliases);
+        map.insert(
+            func.name.clone(),
+            FnSigView {
+                ret: func.ret.clone(),
+                param_aliases,
+                ret_alias,
+            },
+        );
+    }
+
+    for (name, params, ret, _) in builtin_sigs() {
+        map.entry(name.clone()).or_insert_with(|| FnSigView {
+            param_aliases: params
+                .iter()
+                .map(|p| top_level_alias(&p.ty, aliases))
+                .collect(),
+            ret: ret.clone(),
+            ret_alias: top_level_alias(&ret, aliases),
+        });
     }
     map
 }
 
 fn collect_refinement_obligations<'a>(
     expr: &'a Expr,
-    fn_aliases: &HashMap<&'a str, Vec<Option<&'a AliasView<'a>>>>,
+    aliases: &HashMap<&'a str, AliasView<'a>>,
+    fn_sigs: &HashMap<String, FnSigView<'a>>,
+    env: &mut HashMap<String, Type>,
     out: &mut Vec<Expr>,
-) {
+) -> Option<Type> {
     match expr {
-        Expr::Block { block } => {
-            for stmt in &block.statements {
-                match stmt {
-                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                        collect_refinement_obligations(expr.as_ref(), fn_aliases, out)
-                    }
-                    Stmt::While {
-                        cond,
-                        invariant,
-                        variant,
-                        body,
-                        ..
-                    } => {
-                        collect_refinement_obligations(cond.as_ref(), fn_aliases, out);
-                        collect_refinement_obligations(invariant.as_ref(), fn_aliases, out);
-                        if let Some(v) = variant {
-                            collect_refinement_obligations(v.as_ref(), fn_aliases, out);
-                        }
-                        collect_refinement_obligations(
-                            &Expr::Block {
-                                block: body.clone(),
-                            },
-                            fn_aliases,
-                            out,
-                        );
-                    }
+        Expr::Int(_, _) => Some(Type::Int),
+        Expr::Bool(_, _) => Some(Type::Bool),
+        Expr::String(_, _) => Some(Type::String),
+        Expr::Var(name, _) => env.get(name).cloned(),
+        Expr::Unary { expr, .. } => {
+            collect_refinement_obligations(expr.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            Some(Type::Bool)
+        }
+        Expr::Bin { op, lhs, rhs, .. } => {
+            collect_refinement_obligations(lhs.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            collect_refinement_obligations(rhs.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            let res_ty = match op {
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => Type::Int,
+                BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::Eq | BinOp::Neq => {
+                    Type::Bool
                 }
-            }
-            if let Some(tail) = &block.tail {
-                collect_refinement_obligations(tail.as_ref(), fn_aliases, out);
-            }
+                BinOp::And | BinOp::Or => Type::Bool,
+            };
+            Some(res_ty)
+        }
+        Expr::Block { block } => {
+            collect_block_refinements(block.as_ref(), aliases, fn_sigs, env, out)
         }
         Expr::If {
             cond,
@@ -337,42 +368,317 @@ fn collect_refinement_obligations<'a>(
             else_br,
             ..
         } => {
-            collect_refinement_obligations(cond.as_ref(), fn_aliases, out);
-            collect_refinement_obligations(then_br.as_ref(), fn_aliases, out);
-            collect_refinement_obligations(else_br.as_ref(), fn_aliases, out);
+            collect_refinement_obligations(cond.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            let mut then_env = env.clone();
+            let then_ty = collect_refinement_obligations(
+                then_br.as_ref(),
+                aliases,
+                fn_sigs,
+                &mut then_env,
+                out,
+            );
+            let mut else_env = env.clone();
+            let else_ty = collect_refinement_obligations(
+                else_br.as_ref(),
+                aliases,
+                fn_sigs,
+                &mut else_env,
+                out,
+            );
+            merge_types(then_ty, else_ty)
         }
         Expr::Match {
             scrutinee, arms, ..
         } => {
-            collect_refinement_obligations(scrutinee.as_ref(), fn_aliases, out);
-            for arm in arms {
-                collect_refinement_obligations(&arm.expr, fn_aliases, out);
+            let scrut_ty = collect_refinement_obligations(
+                scrutinee.as_ref(),
+                aliases,
+                fn_sigs,
+                &mut env.clone(),
+                out,
+            );
+            let mut arm_tys: Vec<Option<Type>> = Vec::new();
+            if let Some(Type::Option(inner_ty)) = scrut_ty.clone() {
+                for arm in arms {
+                    match &arm.pat {
+                        MatchPat::Some(name) => {
+                            let mut arm_env = env.clone();
+                            arm_env.insert(name.clone(), (*inner_ty).clone());
+                            if let Some(alias) = top_level_alias(inner_ty.as_ref(), aliases) {
+                                if let Some(pred) = instantiate_alias_predicate(
+                                    alias,
+                                    &Expr::Var(name.clone(), alias.span),
+                                ) {
+                                    out.push(pred);
+                                }
+                            }
+                            let arm_ty = collect_refinement_obligations(
+                                &arm.expr,
+                                aliases,
+                                fn_sigs,
+                                &mut arm_env,
+                                out,
+                            );
+                            arm_tys.push(arm_ty);
+                        }
+                        MatchPat::None => {
+                            let arm_ty = collect_refinement_obligations(
+                                &arm.expr,
+                                aliases,
+                                fn_sigs,
+                                &mut env.clone(),
+                                out,
+                            );
+                            arm_tys.push(arm_ty);
+                        }
+                        _ => {
+                            let arm_ty = collect_refinement_obligations(
+                                &arm.expr,
+                                aliases,
+                                fn_sigs,
+                                &mut env.clone(),
+                                out,
+                            );
+                            arm_tys.push(arm_ty);
+                        }
+                    }
+                }
+            } else if let Some(Type::Result(ok_ty, err_ty)) = scrut_ty.clone() {
+                for arm in arms {
+                    match &arm.pat {
+                        MatchPat::Ok(name) => {
+                            let mut arm_env = env.clone();
+                            arm_env.insert(name.clone(), (*ok_ty).clone());
+                            if let Some(alias) = top_level_alias(ok_ty.as_ref(), aliases) {
+                                if let Some(pred) = instantiate_alias_predicate(
+                                    alias,
+                                    &Expr::Var(name.clone(), alias.span),
+                                ) {
+                                    out.push(pred);
+                                }
+                            }
+                            let arm_ty = collect_refinement_obligations(
+                                &arm.expr,
+                                aliases,
+                                fn_sigs,
+                                &mut arm_env,
+                                out,
+                            );
+                            arm_tys.push(arm_ty);
+                        }
+                        MatchPat::Err(name) => {
+                            let mut arm_env = env.clone();
+                            arm_env.insert(name.clone(), (*err_ty).clone());
+                            if let Some(alias) = top_level_alias(err_ty.as_ref(), aliases) {
+                                if let Some(pred) = instantiate_alias_predicate(
+                                    alias,
+                                    &Expr::Var(name.clone(), alias.span),
+                                ) {
+                                    out.push(pred);
+                                }
+                            }
+                            let arm_ty = collect_refinement_obligations(
+                                &arm.expr,
+                                aliases,
+                                fn_sigs,
+                                &mut arm_env,
+                                out,
+                            );
+                            arm_tys.push(arm_ty);
+                        }
+                        _ => {
+                            let arm_ty = collect_refinement_obligations(
+                                &arm.expr,
+                                aliases,
+                                fn_sigs,
+                                &mut env.clone(),
+                                out,
+                            );
+                            arm_tys.push(arm_ty);
+                        }
+                    }
+                }
+            } else {
+                for arm in arms {
+                    let arm_ty = collect_refinement_obligations(
+                        &arm.expr,
+                        aliases,
+                        fn_sigs,
+                        &mut env.clone(),
+                        out,
+                    );
+                    arm_tys.push(arm_ty);
+                }
             }
-        }
-        Expr::Bin { lhs, rhs, .. } => {
-            collect_refinement_obligations(lhs.as_ref(), fn_aliases, out);
-            collect_refinement_obligations(rhs.as_ref(), fn_aliases, out);
-        }
-        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
-            collect_refinement_obligations(expr.as_ref(), fn_aliases, out);
+            merge_type_list(&arm_tys)
         }
         Expr::Call { callee, args, .. } => {
-            if let Some(param_aliases) = fn_aliases.get(callee.as_str()) {
-                for (arg, alias_opt) in args.iter().zip(param_aliases.iter()) {
+            if let Some(sig) = fn_sigs.get(callee.as_str()) {
+                for (arg, alias_opt) in args.iter().zip(sig.param_aliases.iter()) {
+                    collect_refinement_obligations(arg, aliases, fn_sigs, &mut env.clone(), out);
                     if let Some(alias) = alias_opt {
                         if let Some(pred) = instantiate_alias_predicate(alias, arg) {
                             out.push(pred);
                         }
                     }
-                    collect_refinement_obligations(arg, fn_aliases, out);
                 }
+                Some(sig.ret.clone())
             } else {
-                for arg in args {
-                    collect_refinement_obligations(arg, fn_aliases, out);
+                match callee.as_str() {
+                    "Some" if args.len() == 1 => {
+                        let inner_ty = collect_refinement_obligations(
+                            &args[0],
+                            aliases,
+                            fn_sigs,
+                            &mut env.clone(),
+                            out,
+                        );
+                        inner_ty.map(|ty| Type::Option(Box::new(ty)))
+                    }
+                    "Ok" if args.len() == 1 => {
+                        let ok_ty = collect_refinement_obligations(
+                            &args[0],
+                            aliases,
+                            fn_sigs,
+                            &mut env.clone(),
+                            out,
+                        );
+                        ok_ty.map(|ty| Type::Result(Box::new(ty), Box::new(Type::Int)))
+                    }
+                    "Err" if args.len() == 1 => {
+                        let err_ty = collect_refinement_obligations(
+                            &args[0],
+                            aliases,
+                            fn_sigs,
+                            &mut env.clone(),
+                            out,
+                        );
+                        err_ty.map(|ty| Type::Result(Box::new(Type::Int), Box::new(ty)))
+                    }
+                    _ => {
+                        for arg in args {
+                            collect_refinement_obligations(
+                                arg,
+                                aliases,
+                                fn_sigs,
+                                &mut env.clone(),
+                                out,
+                            );
+                        }
+                        None
+                    }
                 }
             }
         }
-        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+        Expr::Return { expr, .. } => {
+            collect_refinement_obligations(expr.as_ref(), aliases, fn_sigs, &mut env.clone(), out)
+        }
+        Expr::Try { expr, .. } => {
+            let inner = collect_refinement_obligations(expr.as_ref(), aliases, fn_sigs, env, out)?;
+            match inner {
+                Type::Option(t) => Some(*t),
+                Type::Result(ok, _) => Some(*ok),
+                other => Some(other),
+            }
+        }
+    }
+}
+
+fn collect_block_refinements<'a>(
+    block: &'a clg_ast::Block,
+    aliases: &HashMap<&'a str, AliasView<'a>>,
+    fn_sigs: &HashMap<String, FnSigView<'a>>,
+    outer_env: &mut HashMap<String, Type>,
+    out: &mut Vec<Expr>,
+) -> Option<Type> {
+    let mut env = outer_env.clone();
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { name, expr, .. } => {
+                let expr_ty = collect_refinement_obligations(
+                    expr.as_ref(),
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                );
+                if let Some(ty) = expr_ty {
+                    if let Some(alias) = top_level_alias(&ty, aliases) {
+                        if let Some(pred) =
+                            instantiate_alias_predicate(alias, &Expr::Var(name.clone(), alias.span))
+                        {
+                            out.push(pred);
+                        }
+                    }
+                    env.insert(name.clone(), ty);
+                }
+            }
+            Stmt::Expr { expr, .. } => {
+                collect_refinement_obligations(
+                    expr.as_ref(),
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                );
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_refinement_obligations(
+                    cond.as_ref(),
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                );
+                collect_refinement_obligations(
+                    invariant.as_ref(),
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                );
+                if let Some(v) = variant {
+                    collect_refinement_obligations(
+                        v.as_ref(),
+                        aliases,
+                        fn_sigs,
+                        &mut env.clone(),
+                        out,
+                    );
+                }
+                collect_block_refinements(body.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_refinement_obligations(tail.as_ref(), aliases, fn_sigs, &mut env, out)
+    } else {
+        None
+    }
+}
+
+fn merge_types(lhs: Option<Type>, rhs: Option<Type>) -> Option<Type> {
+    match (lhs, rhs) {
+        (Some(l), Some(r)) if l == r => Some(l),
+        (Some(l), None) => Some(l),
+        (None, Some(r)) => Some(r),
+        _ => None,
+    }
+}
+
+fn merge_type_list(types: &[Option<Type>]) -> Option<Type> {
+    let mut iter = types.iter().filter_map(|t| t.clone());
+    let first = iter.next()?;
+    if iter.all(|t| t == first) {
+        Some(first)
+    } else {
+        None
     }
 }
 

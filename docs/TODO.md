@@ -477,12 +477,32 @@ Codegen & Runtime
 
 10.4 VC/SMT & Tooling
 
-- [ ] Extend `--emit-vcs` schema and translator to include refinements, with stable JSON attachment points and SMT encoding for arithmetic/boolean predicates.
-- [ ] Provide worked examples/fixtures showing refinement obligations and how they compose with contracts and totality checks.
+- [ ] VC shape:
+  - [ ] Extend `--emit-vcs` JSON schema to carry refinement premises (binder names, substituted exprs, attachment points per param/return/flow).
+  - [ ] Version the schema and document backward-compat gates for consumers.
+- [ ] SMT encoding:
+  - [ ] Encode refinement predicates alongside contract predicates with stable symbol naming; include binder substitution helpers.
+  - [ ] Add SMT helpers for arithmetic/boolean predicates and any needed Option/Result axioms when refinements appear under containers.
+- [ ] Tooling integration:
+  - [ ] Update VC generator to populate the new schema fields and include refinement obligations in SMT emission order.
+  - [ ] Add CLI flags/docs clarifying how refinement VCs surface in `--emit-vcs` outputs.
+- [ ] Fixtures/examples:
+  - [ ] Add worked examples and JSON fixtures showing refinement obligations alone and combined with requires/ensures and loop invariants.
+  - [ ] Document how to read the refinement parts in `docs/proofs` and link from `docs/typing.md`.
 
 10.5 Tests
 
-- [ ] Add positive/negative tests: non-negative/bounded/equality refinements, unsat/contradictory cases, refinement preservation across calls/returns, interplay with `require`/`ensure`, loops with invariants/variants, and alias cycle handling.
+- [ ] Positive coverage:
+  - [ ] Non-negative/bounded/equality refinements over Int; preservation through locals/calls/containers.
+  - [ ] Option/Result interaction: match binders keep refinements; coalesce/try do not drop predicates.
+  - [ ] Loop/invariant usage of refined binders.
+- [ ] Negative coverage:
+  - [ ] Unsat/contradictory predicates rejected at alias definition.
+  - [ ] Refinement loss/weakening diagnostics (assignments, branch joins, rewrap without proof).
+  - [ ] Inline refinements (still disallowed), refined resources (policy), impurity-in-predicate errors.
+- [ ] VC snapshots:
+  - [ ] Add `--emit-vcs` snapshots for refined params/returns, call-site obligations, and loop/invariant combinations.
+  - [ ] Include fixtures where refinement VCs interact with requires/ensures and totality checks.
 
 ## Phase 11 - Proof-Carrying Wasm Verification
 

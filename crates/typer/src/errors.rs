@@ -189,6 +189,51 @@ impl TyperError {
         Self::new("T010", format!("duplicate parameter `{}`", name), 0, 0)
     }
 
+    pub fn duplicate_type(name: &str, span: Span) -> Self {
+        Self::new(
+            "T701",
+            format!("at {}..{}: duplicate type `{}`", span.start, span.end, name),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn type_conflicts_with_resource(name: &str, span: Span) -> Self {
+        Self::new(
+            "T702",
+            format!(
+                "at {}..{}: type `{}` conflicts with an existing resource name",
+                span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn cyclic_alias(name: &str, span: Span) -> Self {
+        Self::new(
+            "T703",
+            format!(
+                "at {}..{}: cyclic refinement alias detected involving `{}`",
+                span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn alias_predicate_not_bool(name: &str, span: Span) -> Self {
+        Self::new(
+            "T704",
+            format!(
+                "at {}..{}: refinement predicate for `{}` must be Bool",
+                span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn effect_required(callee: &str, effect: &str, span: Span) -> Self {
         Self::new(
             "T401",

@@ -43,6 +43,16 @@ pub(super) fn effect_label(level: EffectLevel) -> &'static str {
     }
 }
 
+#[derive(Clone)]
+struct AliasDef {
+    base: Type,
+    predicate: Expr,
+    binder: Option<String>,
+    span: Span,
+}
+
+type AliasMap = HashMap<String, AliasDef>;
+
 fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
     if let Some(offending) = find_resource_collection(ty) {
         return Err(TyperError::resource_in_collection(offending, span).into());
@@ -190,8 +200,8 @@ fn level_from_effect(effect: Effect) -> EffectLevel {
 }
 
 #[derive(Clone)]
-pub(crate) struct FnSig<'a> {
-    pub params: &'a [Param],
+pub(crate) struct FnSig {
+    pub params: Vec<Param>,
     pub ret: Type,
     pub effect: EffectLevel,
 }
@@ -213,6 +223,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         return fast_path_without_totality(ast);
     }
     validate_no_resource_collections(ast)?;
+    let alias_map = build_alias_map(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();
@@ -220,7 +231,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         fns.insert(
             name.as_str(),
             FnSig {
-                params: &params[..],
+                params: params.clone(),
                 ret: ret.clone(),
                 effect: level_from_effect(*eff),
             },
@@ -228,12 +239,15 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     }
 
     for f in &ast.funcs {
+        if alias_map.contains_key(f.name.as_str()) {
+            return Err(TyperError::duplicate_function(&f.name).into());
+        }
         if fns
             .insert(
                 f.name.as_str(),
                 FnSig {
-                    params: &f.params,
-                    ret: f.ret.clone(),
+                    params: resolve_params(&f.params, &alias_map)?,
+                    ret: resolve_aliases(&f.ret, &alias_map, &mut Vec::new())?,
                     effect: level_from_effect(f.effect),
                 },
             )
@@ -243,8 +257,10 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         }
     }
 
+    validate_alias_predicates(&alias_map, &fns)?;
+
     for f in &ast.funcs {
-        check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
+        check_func(f, &fns, &alias_map).with_context(|| format!("in function `{}`", f.name))?;
     }
     for f in &ast.funcs {
         enforce_totality(f)?;
@@ -306,6 +322,7 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
         return fast_path_without_totality(ast).map(|_| ());
     }
     validate_no_resource_collections(ast)?;
+    let alias_map = build_alias_map(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();
@@ -313,7 +330,7 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
         fns.insert(
             name.as_str(),
             FnSig {
-                params: &params[..],
+                params: params.clone(),
                 ret: ret.clone(),
                 effect: level_from_effect(*eff),
             },
@@ -321,12 +338,15 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     }
 
     for f in &ast.funcs {
+        if alias_map.contains_key(f.name.as_str()) {
+            return Err(TyperError::duplicate_function(&f.name).into());
+        }
         if fns
             .insert(
                 f.name.as_str(),
                 FnSig {
-                    params: &f.params,
-                    ret: f.ret.clone(),
+                    params: resolve_params(&f.params, &alias_map)?,
+                    ret: resolve_aliases(&f.ret, &alias_map, &mut Vec::new())?,
                     effect: level_from_effect(f.effect),
                 },
             )
@@ -336,8 +356,10 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
         }
     }
 
+    validate_alias_predicates(&alias_map, &fns)?;
+
     for f in &ast.funcs {
-        check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
+        check_func(f, &fns, &alias_map).with_context(|| format!("in function `{}`", f.name))?;
     }
     for f in &ast.funcs {
         enforce_totality(f)?;
@@ -347,6 +369,7 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 
 fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     validate_no_resource_collections(ast)?;
+    let alias_map = build_alias_map(ast)?;
     let mut fns: HashMap<&str, FnSig> = HashMap::new();
 
     let builtins = builtin_sigs();
@@ -354,7 +377,7 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         fns.insert(
             name.as_str(),
             FnSig {
-                params: &params[..],
+                params: params.clone(),
                 ret: ret.clone(),
                 effect: level_from_effect(*eff),
             },
@@ -362,12 +385,15 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     }
 
     for f in &ast.funcs {
+        if alias_map.contains_key(f.name.as_str()) {
+            return Err(TyperError::duplicate_function(&f.name).into());
+        }
         if fns
             .insert(
                 f.name.as_str(),
                 FnSig {
-                    params: &f.params,
-                    ret: f.ret.clone(),
+                    params: resolve_params(&f.params, &alias_map)?,
+                    ret: resolve_aliases(&f.ret, &alias_map, &mut Vec::new())?,
                     effect: level_from_effect(f.effect),
                 },
             )
@@ -377,8 +403,10 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         }
     }
 
+    validate_alias_predicates(&alias_map, &fns)?;
+
     for f in &ast.funcs {
-        check_func(f, &fns).with_context(|| format!("in function `{}`", f.name))?;
+        check_func(f, &fns, &alias_map).with_context(|| format!("in function `{}`", f.name))?;
     }
 
     let used_intrinsics = collect_used_intrinsics(ast);
@@ -422,22 +450,24 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     Ok(TypecheckOutput { ir: module, vcs })
 }
 
-fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> {
+fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap) -> Result<()> {
     let mut env: HashMap<&str, LocalBinding> = HashMap::new();
+    let ret_ty = resolve_aliases(&f.ret, aliases, &mut Vec::new())?;
     env.insert(
         RETURN_KEY,
         LocalBinding {
-            ty: f.ret.clone(),
+            ty: ret_ty.clone(),
             kind: ParamKind::Borrow,
         },
     );
     let mut tracker = ResourceTracker::new();
     for p in &f.params {
+        let resolved_ty = resolve_aliases(&p.ty, aliases, &mut Vec::new())?;
         if env
             .insert(
                 p.name.as_str(),
                 LocalBinding {
-                    ty: p.ty.clone(),
+                    ty: resolved_ty.clone(),
                     kind: p.kind,
                 },
             )
@@ -445,7 +475,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
         {
             return Err(TyperError::duplicate_parameter(&p.name).into());
         }
-        tracker.register_param(p.name.as_str(), p.kind, &p.ty);
+        tracker.register_param(p.name.as_str(), p.kind, &resolved_ty);
     }
 
     if let Effect::Io = f.effect {
@@ -484,11 +514,11 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig<'a>>) -> Result<()> 
     }
 
     let body_ty = type_of(&f.body, &env, &mut tracker, fns, 0)?;
-    if body_ty != f.ret {
+    if body_ty != ret_ty {
         let sp = expr_span(&f.body);
-        return Err(TyperError::return_type_mismatch(f.ret.clone(), body_ty, sp).into());
+        return Err(TyperError::return_type_mismatch(ret_ty.clone(), body_ty, sp).into());
     }
-    if matches!(f.ret, Type::Resource(_)) {
+    if matches!(ret_ty, Type::Resource(_)) {
         consume_var_expr(&mut tracker, &f.body)?;
     }
     tracker.ensure_consumed()?;
@@ -527,6 +557,112 @@ fn enforce_mut_guards(expr: &Expr, guards: &HashSet<MutGuardKey>) -> Result<()> 
             )
             .into());
         }
+    }
+    Ok(())
+}
+
+fn build_alias_map(program: &Program) -> Result<AliasMap> {
+    let mut aliases: AliasMap = HashMap::new();
+    // Collect resource names for conflict checks
+    let mut resource_names: HashSet<&str> = HashSet::new();
+    for res in &program.resources {
+        resource_names.insert(res.name.as_str());
+    }
+
+    for alias in &program.refined_aliases {
+        if aliases.contains_key(alias.name.as_str()) {
+            return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
+        }
+        if resource_names.contains(alias.name.as_str()) {
+            return Err(
+                TyperError::type_conflicts_with_resource(&alias.name, alias.name_span).into(),
+            );
+        }
+        let mut visited = Vec::new();
+        let resolved_base = resolve_aliases(&alias.base, &aliases, &mut visited)?;
+        ensure_no_resource_collections(&resolved_base, Some(alias.span))?;
+
+        aliases.insert(
+            alias.name.clone(),
+            AliasDef {
+                base: resolved_base,
+                predicate: alias.predicate.clone(),
+                binder: alias.binder.clone(),
+                span: alias.span,
+            },
+        );
+    }
+    Ok(aliases)
+}
+
+fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) -> Result<Type> {
+    match ty {
+        Type::Resource(name) => {
+            if let Some(def) = aliases.get(name) {
+                if visiting.iter().any(|n| n == name) {
+                    return Err(TyperError::cyclic_alias(name, def.span).into());
+                }
+                visiting.push(name.clone());
+                let resolved = resolve_aliases(&def.base, aliases, visiting)?;
+                visiting.pop();
+                Ok(resolved)
+            } else {
+                Ok(ty.clone())
+            }
+        }
+        Type::Option(inner) => Ok(Type::Option(Box::new(resolve_aliases(
+            inner, aliases, visiting,
+        )?))),
+        Type::Result(ok, err) => Ok(Type::Result(
+            Box::new(resolve_aliases(ok, aliases, visiting)?),
+            Box::new(resolve_aliases(err, aliases, visiting)?),
+        )),
+        Type::List(inner) => Ok(Type::List(Box::new(resolve_aliases(
+            inner, aliases, visiting,
+        )?))),
+        Type::Set(inner) => Ok(Type::Set(Box::new(resolve_aliases(
+            inner, aliases, visiting,
+        )?))),
+        Type::Map(k, v) => Ok(Type::Map(
+            Box::new(resolve_aliases(k, aliases, visiting)?),
+            Box::new(resolve_aliases(v, aliases, visiting)?),
+        )),
+        _ => Ok(ty.clone()),
+    }
+}
+
+fn resolve_params(params: &[Param], aliases: &AliasMap) -> Result<Vec<Param>> {
+    let mut resolved = Vec::with_capacity(params.len());
+    for p in params {
+        let mut visiting = Vec::new();
+        let ty = resolve_aliases(&p.ty, aliases, &mut visiting)?;
+        resolved.push(Param {
+            kind: p.kind,
+            name: p.name.clone(),
+            ty,
+        });
+    }
+    Ok(resolved)
+}
+
+fn validate_alias_predicates(aliases: &AliasMap, fns: &HashMap<&str, FnSig>) -> Result<()> {
+    for (name, def) in aliases {
+        let mut env: HashMap<&str, LocalBinding> = HashMap::new();
+        if let Some(binder) = def.binder.as_ref() {
+            env.insert(
+                binder.as_str(),
+                LocalBinding {
+                    ty: def.base.clone(),
+                    kind: ParamKind::Borrow,
+                },
+            );
+        }
+        let mut tracker = ResourceTracker::new();
+        let pred_ty = type_of(&def.predicate, &env, &mut tracker, fns, 0)?;
+        if pred_ty != Type::Bool {
+            return Err(TyperError::alias_predicate_not_bool(name.as_str(), def.span).into());
+        }
+        max_effect(&def.predicate, fns, EffectLevel::Pure)?;
     }
     Ok(())
 }

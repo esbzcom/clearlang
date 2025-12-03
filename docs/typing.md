@@ -250,6 +250,19 @@ Refinement Types (Phase 10.2 Syntax & AST)
 - Use-site behavior: each reference to a refined alias instantiates a fresh logical binder when generating obligations; the AST/type entry must keep the predicate attached to the alias definition so typer/VC can retrieve it.
 - Diagnostics: reject missing/empty predicates, duplicated binders, or use of effects/resources in predicates with dedicated parse/typer codes. Reserve a parse code for inline refinements to make the restriction clear and stable until lifted.
 
+Refinement Types (Phase 10.3 Typing & Propagation Plan)
+
+- Status: partial. Aliases are resolved to base types during typing, and predicates are type-checked for `Bool` and purity; obligation propagation/VC emission is still TODO. This section captures the intended typing flow.
+- Alias env: collect aliases at program load; reject name conflicts with resources/functions and ensure predicates type-check to `Bool` under a synthetic env binding the alias binder and type params. Base types must be well-formed; recursive/self-referential aliases are rejected.
+- Type recognition: when a type name matches a refined alias, treat it as the alias “nominal” type and carry its predicate alongside the base type for downstream checks. Inline refinements remain invalid.
+- Constraint propagation (typing): using a refined alias in a param/let binding/call/return attaches its predicate as an obligation scoped to that value. Substitution of the binder to the concrete value expression is deferred to VC generation; typing enforces only that the predicate is well-typed and that the base type matches usage.
+- Interactions:
+  - `require`/`ensure`: refined params/returns add obligations equivalent to extra requires/ensures; they must remain `pure`.
+  - Effects/resources: predicates must stay pure and cannot consume/borrow resources; refined types cannot wrap resources until the linear story is defined.
+  - Option/Result/sugar: refinements commute with the outer container; pattern matches must preserve or discharge refinements when projecting; dropping a refinement without proof is rejected (planned in VC step).
+  - Loops/invariants/variants: invariant expressions may reference refined binders; variant/decreasing checks must not erase refinements.
+- Future VC tie-in (10.4): each refined alias use yields a VC premise that substitutes the binder with the concrete expression; violations surface as standard VC failures rather than runtime traps.
+
 
 
 

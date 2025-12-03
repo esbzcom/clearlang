@@ -176,7 +176,7 @@ pub(super) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     depth: usize,
 ) -> Result<Type> {
     if depth > 1024 {
@@ -655,7 +655,7 @@ fn type_collection_call<'a>(
     args: &'a [Expr],
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     depth: usize,
     span: Span,
 ) -> Result<Option<Type>> {
@@ -939,7 +939,7 @@ fn type_block_stmt<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     depth: usize,
 ) -> Result<()> {
     let mut inner_env = env.clone();
@@ -1020,7 +1020,7 @@ fn type_while_stmt<'a>(
     body: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     depth: usize,
     span: Span,
 ) -> Result<()> {
@@ -1045,7 +1045,7 @@ fn type_block<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     depth: usize,
 ) -> Result<Type> {
     let mut inner_env = env.clone();
@@ -1124,12 +1124,12 @@ fn type_block<'a>(
 }
 pub(super) fn max_effect<'a>(
     e: &'a Expr,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     allowed: EffectLevel,
 ) -> Result<EffectLevel> {
     fn block_effect<'a>(
         block: &'a Block,
-        fns: &HashMap<&'a str, FnSig<'a>>,
+        fns: &HashMap<&'a str, FnSig>,
         allowed: EffectLevel,
     ) -> Result<EffectLevel> {
         let mut eff = EffectLevel::Pure;
@@ -1207,7 +1207,7 @@ pub(super) fn max_effect<'a>(
         }
     }
 }
-fn call_effect<'a>(callee: &str, fns: &HashMap<&'a str, FnSig<'a>>) -> EffectLevel {
+fn call_effect(callee: &str, fns: &HashMap<&str, FnSig>) -> EffectLevel {
     if let Some(level) = builtin_effect(callee) {
         return level;
     }

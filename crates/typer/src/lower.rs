@@ -8,7 +8,7 @@ use clg_ir::{
 };
 use std::collections::HashMap;
 
-type FnSig<'a> = CheckFnSig<'a>;
+type FnSig = CheckFnSig;
 
 fn ir_ty(t: Type) -> IrType {
     match t {
@@ -25,7 +25,7 @@ fn ir_ty(t: Type) -> IrType {
 pub(crate) struct LowerCtx<'a> {
     pub next: u32,
     pub env: HashMap<&'a str, Value>,
-    pub fns: HashMap<&'a str, FnSig<'a>>, // for call return types
+    pub fns: HashMap<&'a str, FnSig>,      // for call return types
     pub fn_indices: HashMap<&'a str, u32>, // for resolving callee indices (user + intrinsics)
     pub body: Vec<Instr>,
     pub ret_ty: Type,
@@ -33,7 +33,7 @@ pub(crate) struct LowerCtx<'a> {
 
 pub(crate) fn lower_func<'a>(
     f: &'a Func,
-    fns: &HashMap<&'a str, FnSig<'a>>,
+    fns: &HashMap<&'a str, FnSig>,
     fn_indices: &HashMap<&'a str, u32>,
 ) -> Result<IrFunction> {
     let mut env: HashMap<&str, Value> = HashMap::new();

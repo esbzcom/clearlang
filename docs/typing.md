@@ -233,6 +233,22 @@ Collections (Type-Only Summary) -" see `docs/collections.md`
 
 
 
+Refinement Types (Phase 10.1 Design & Scope)
+
+- Status: not implemented yet; this section locks the planned surface so parser/typer/VC work can start.
+- Syntax: refined aliases only (inline refinements on params/returns are deferred). Form: `type Name<T?...> = Base where binder_pred`, where `binder_pred` is a predicate over a single bound value name plus any type parameters.
+- Binder rules: the identifier used in the predicate denotes the aliased value (e.g., `n` in `type Nat = Int where n >= 0`). The binder is scoped only inside the `where` predicate and is not visible at use sites. Each use of the alias introduces a fresh logical binder.
+- Predicate well-formedness: must type-check to `Bool` using only the binder, type params, pure arithmetic/boolean ops, and pure built-ins. Effects, mutation, and resource consume ops are disallowed in predicates. Recursive/self-referential alias definitions are rejected.
+- Interaction surface: refinements compose with existing contracts (`require`/`ensure`) by adding their predicate to the obligation set when an alias is used. Totality, Option/Result sugar, and loops can reference refined types but cannot weaken them; dropping a refinement without proof will be rejected in later phases.
+- Early rejection: trivial contradictions (e.g., `false` or `n < 0 && n >= 0`) are rejected at alias definition time once a basic simplifier/SMT ping is added; otherwise predicates are carried to VC generation for discharge.
+
+Refinement Types (Phase 10.2 Syntax & AST)
+
+- Status: parser/AST implemented; typer/VC wiring is still pending. The parser accepts `type` aliases with trailing `where` predicates and stores them in `Program::refined_aliases`.
+- Grammar additions: extend type alias forms to accept a trailing `where` clause: `type Name<T? ...> = Type where Ident_pred;`. The predicate expression reuses existing expression grammar restricted to pure, terminating Boolean expressions (`Int` arithmetic/comparisons, logical ops, `true/false`, the binder ident, and type params). Inline refinements on parameters/returns remain disallowed and produce a parse error.
+- AST representation: refined-alias nodes carry `name`, optional `type_params`, `base_type`, a best-effort `binder_ident` (first variable seen in the predicate), and the `predicate_expr` (with spans preserved for the alias header and predicate). The binder is not added to the surrounding environment; it is scoped only within the predicate expression node.
+- Use-site behavior: each reference to a refined alias instantiates a fresh logical binder when generating obligations; the AST/type entry must keep the predicate attached to the alias definition so typer/VC can retrieve it.
+- Diagnostics: reject missing/empty predicates, duplicated binders, or use of effects/resources in predicates with dedicated parse/typer codes. Reserve a parse code for inline refinements to make the restriction clear and stable until lifted.
 
 
 

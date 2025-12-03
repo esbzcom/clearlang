@@ -1,3 +1,4 @@
+use crate::alias::refined_alias_p;
 use crate::func::func_p;
 use crate::resource::resource_p;
 use crate::ErrTy;
@@ -6,26 +7,37 @@ use clg_ast::Program;
 
 #[derive(Debug)]
 enum Item {
+    Alias(clg_ast::RefinedAlias),
     Func(clg_ast::Func),
     Resource(clg_ast::Resource),
 }
 
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
-    let item = choice((resource_p().map(Item::Resource), func_p().map(Item::Func)));
+    let item = choice((
+        refined_alias_p().map(Item::Alias),
+        resource_p().map(Item::Resource),
+        func_p().map(Item::Func),
+    ));
 
     item.repeated()
         .at_least(1)
         .collect::<Vec<_>>()
         .map(|items| {
+            let mut refined_aliases = Vec::new();
             let mut funcs = Vec::new();
             let mut resources = Vec::new();
             for item in items {
                 match item {
+                    Item::Alias(a) => refined_aliases.push(a),
                     Item::Func(f) => funcs.push(f),
                     Item::Resource(r) => resources.push(r),
                 }
             }
-            Program { resources, funcs }
+            Program {
+                refined_aliases,
+                resources,
+                funcs,
+            }
         })
         .then_ignore(end())
 }

@@ -5,7 +5,19 @@ pub struct Span {
 }
 
 #[derive(Debug, Clone)]
+pub struct RefinedAlias {
+    pub name: String,
+    pub name_span: Span,
+    pub type_params: Vec<String>,
+    pub base: Type,
+    pub binder: Option<String>,
+    pub predicate: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
+    pub refined_aliases: Vec<RefinedAlias>,
     pub resources: Vec<Resource>,
     pub funcs: Vec<Func>,
 }

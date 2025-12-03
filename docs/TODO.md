@@ -446,21 +446,29 @@ Codegen & Runtime
 
 ## Phase 10 -" Refinement Types
 
-10.1 Syntax
+10.1 Design & Scope
 
-- [ ] `type Nat = Int where n >= 0` and similar `where`-refined aliases.
+- [x] Draft refinement syntax/scope note: alias binder rules (`type Nat = Int where n >= 0`), how the bound name is introduced/hidden, and whether refinements are allowed inline on params/returns or only via aliases.
+- [x] Define well-formedness for nested/recursive aliases and when refinements must be simplified or rejected early (unsat/contradictory predicates).
 
-10.2 Typing & Constraints
+10.2 Syntax & AST
 
-- [ ] Propagate refinement constraints through expressions and function boundaries.
+- [x] Implement refined aliases (`type Name = T where pred`) with explicit binder semantics and AST representation that preserves predicates for later phases (parser/AST landed; typing/VC still pending).
+- [x] Decide and implement where refinements can appear (aliases only vs inline), including scoping of the refinement variable inside composite types (inline refinements parse-error; aliases stored on Program).
 
-- [ ] Interop with `require`/`ensure` from Phase 6; generate VCs for refinements.
+10.3 Typing & Constraint Propagation
 
-10.3 Tooling & Tests
+- [ ] Propagate refinement constraints through expressions, calls, and returns; specify when constraints are checked vs discharged to VCs and how alias unfolding/subtyping works.
+- [ ] Define interaction with existing features: `require`/`ensure`, effects, resources/consume, Option/Result (including sugar), loops/invariants/variants, and rules for rejecting refinement loss or impossible predicates.
 
-- [ ] `--emit-vcs` includes refinements in generated obligations; stable JSON.
+10.4 VC/SMT & Tooling
 
-- [ ] Tests for typical refinements (non-negative, bounded ranges, simple equalities).
+- [ ] Extend `--emit-vcs` schema and translator to include refinements, with stable JSON attachment points and SMT encoding for arithmetic/boolean predicates.
+- [ ] Provide worked examples/fixtures showing refinement obligations and how they compose with contracts and totality checks.
+
+10.5 Tests
+
+- [ ] Add positive/negative tests: non-negative/bounded/equality refinements, unsat/contradictory cases, refinement preservation across calls/returns, interplay with `require`/`ensure`, loops with invariants/variants, and alias cycle handling.
 
 ## Phase 11 - Proof-Carrying Wasm Verification
 

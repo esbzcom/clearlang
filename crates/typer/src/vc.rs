@@ -1,6 +1,6 @@
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
-use clg_ast::{BinOp, Effect, Expr, MatchArm, MatchPat, Program, Span, Stmt, UnaryOp};
-use std::collections::HashSet;
+use clg_ast::{BinOp, Effect, Expr, MatchArm, MatchPat, Program, Span, Stmt, Type, UnaryOp};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct ContractExpr {
@@ -27,6 +27,7 @@ struct LoopObligation<'a> {
 
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let alias_map = build_alias_map(program);
+    let fn_aliases = build_fn_aliases(program, &alias_map);
     let mut out = Vec::new();
     for func in &program.funcs {
         let req_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
@@ -59,8 +60,13 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             }
         }
 
+        // Obligations arising from alias-typed call arguments inside the body.
+        let mut body_obligations: Vec<Expr> = Vec::new();
+        collect_refinement_obligations(&func.body, &fn_aliases, &mut body_obligations);
+
         let mut all_pre = req_exprs.clone();
         all_pre.extend(pre_extra.into_iter());
+        all_pre.extend(body_obligations.into_iter());
         let pre_expr = if all_pre.is_empty() {
             Expr::Bool(true, Span { start: 0, end: 0 })
         } else {
@@ -266,6 +272,108 @@ fn build_alias_map<'a>(program: &'a Program) -> std::collections::HashMap<&'a st
 fn instantiate_alias_predicate(alias: &AliasView<'_>, replacement: &Expr) -> Option<Expr> {
     let binder = alias.binder?;
     Some(substitute_binder(alias.predicate, binder, replacement))
+}
+
+fn build_fn_aliases<'a>(
+    program: &'a Program,
+    aliases: &'a HashMap<&'a str, AliasView<'a>>,
+) -> HashMap<&'a str, Vec<Option<&'a AliasView<'a>>>> {
+    let mut map: HashMap<&'a str, Vec<Option<&'a AliasView<'a>>>> = HashMap::new();
+    for func in &program.funcs {
+        let mut param_aliases = Vec::new();
+        for param in &func.params {
+            if let Type::Resource(name) = &param.ty {
+                param_aliases.push(aliases.get(name.as_str()));
+            } else {
+                param_aliases.push(None);
+            }
+        }
+        map.insert(func.name.as_str(), param_aliases);
+    }
+    map
+}
+
+fn collect_refinement_obligations<'a>(
+    expr: &'a Expr,
+    fn_aliases: &HashMap<&'a str, Vec<Option<&'a AliasView<'a>>>>,
+    out: &mut Vec<Expr>,
+) {
+    match expr {
+        Expr::Block { block } => {
+            for stmt in &block.statements {
+                match stmt {
+                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                        collect_refinement_obligations(expr.as_ref(), fn_aliases, out)
+                    }
+                    Stmt::While {
+                        cond,
+                        invariant,
+                        variant,
+                        body,
+                        ..
+                    } => {
+                        collect_refinement_obligations(cond.as_ref(), fn_aliases, out);
+                        collect_refinement_obligations(invariant.as_ref(), fn_aliases, out);
+                        if let Some(v) = variant {
+                            collect_refinement_obligations(v.as_ref(), fn_aliases, out);
+                        }
+                        collect_refinement_obligations(
+                            &Expr::Block {
+                                block: body.clone(),
+                            },
+                            fn_aliases,
+                            out,
+                        );
+                    }
+                }
+            }
+            if let Some(tail) = &block.tail {
+                collect_refinement_obligations(tail.as_ref(), fn_aliases, out);
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_refinement_obligations(cond.as_ref(), fn_aliases, out);
+            collect_refinement_obligations(then_br.as_ref(), fn_aliases, out);
+            collect_refinement_obligations(else_br.as_ref(), fn_aliases, out);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_refinement_obligations(scrutinee.as_ref(), fn_aliases, out);
+            for arm in arms {
+                collect_refinement_obligations(&arm.expr, fn_aliases, out);
+            }
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_refinement_obligations(lhs.as_ref(), fn_aliases, out);
+            collect_refinement_obligations(rhs.as_ref(), fn_aliases, out);
+        }
+        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
+            collect_refinement_obligations(expr.as_ref(), fn_aliases, out);
+        }
+        Expr::Call { callee, args, .. } => {
+            if let Some(param_aliases) = fn_aliases.get(callee.as_str()) {
+                for (arg, alias_opt) in args.iter().zip(param_aliases.iter()) {
+                    if let Some(alias) = alias_opt {
+                        if let Some(pred) = instantiate_alias_predicate(alias, arg) {
+                            out.push(pred);
+                        }
+                    }
+                    collect_refinement_obligations(arg, fn_aliases, out);
+                }
+            } else {
+                for arg in args {
+                    collect_refinement_obligations(arg, fn_aliases, out);
+                }
+            }
+        }
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+    }
 }
 
 fn substitute_binder(expr: &Expr, binder: &str, replacement: &Expr) -> Expr {

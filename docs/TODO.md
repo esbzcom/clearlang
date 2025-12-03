@@ -458,7 +458,7 @@ Codegen & Runtime
 
 10.3 Typing & Constraint Propagation
 
-- [ ] Propagate refinement constraints through expressions, calls, and returns; specify when constraints are checked vs discharged to VCs and how alias unfolding/subtyping works (alias base resolution + predicate typing/purity checks are implemented; obligation propagation still pending; see `docs/typing.md`).
+- [x] Propagate refinement constraints through expressions, calls, and returns; specify when constraints are checked vs discharged to VCs and how alias unfolding/subtyping works (alias base resolution + predicate typing/purity checks implemented; VC obligations now emitted for params/returns and call-site arguments; see `docs/typing.md`).
 - [ ] Define interaction with existing features: `require`/`ensure`, effects, resources/consume, Option/Result (including sugar), loops/invariants/variants, and rules for rejecting refinement loss or impossible predicates (spec drafted; enforcement pending).
 
 10.4 VC/SMT & Tooling

@@ -252,7 +252,7 @@ Refinement Types (Phase 10.2 Syntax & AST)
 
 Refinement Types (Phase 10.3 Typing & Propagation Plan)
 
-- Status: partial. Aliases are resolved to base types during typing, and predicates are type-checked for `Bool` and purity; obligation propagation/VC emission is still TODO. This section captures the intended typing flow.
+- Status: partial. Aliases are resolved to base types during typing, predicates are type-checked/purity-checked, and VC generation now emits alias predicates for parameters, returns, and call-site arguments. Deeper flow-preservation (e.g., locals inferred to aliases, match projections) remains TODO.
 - Alias env: collect aliases at program load; reject name conflicts with resources/functions and ensure predicates type-check to `Bool` under a synthetic env binding the alias binder and type params. Base types must be well-formed; recursive/self-referential aliases are rejected.
 - Type recognition: when a type name matches a refined alias, treat it as the alias “nominal” type and carry its predicate alongside the base type for downstream checks. Inline refinements remain invalid.
 - Constraint propagation (typing): using a refined alias in a param/let binding/call/return attaches its predicate as an obligation scoped to that value. Substitution of the binder to the concrete value expression is deferred to VC generation; typing enforces only that the predicate is well-typed and that the base type matches usage.

@@ -506,42 +506,44 @@ Codegen & Runtime
 
 ## Phase 11 - Proof-Carrying Wasm Verification
 
-- [ ] Ship `clgverify` verifier CLI that checks `clearlang.proof` sections + signatures now that Phase 6.5 packaging is stable.
+- [ ] Verifier CLI (`clgverify`):
+  - [ ] Parse Wasm modules and extract `clearlang.proof` + signature sections.
+  - [ ] Verify module/proof hashes match the signed payload; validate signatures against provided pubkey.
+  - [ ] Return structured diagnostics (codes) on mismatch, missing sections, or signature failures.
+- [ ] Integration workflow:
+  - [ ] Add README/docs for signing/verifying flows; sample commands and expected outputs.
+  - [ ] Add regression tests: valid proof/signature passes; tampered proof/module fails with clear code; missing proof section fails.
 
 ## Phase 12 - Safety & Tooling Hardening
 
-- [ ] Always validate generated Wasm: `wasm-tools validate` in CI.
-
-- [ ] Add CI to run `cargo test` across workspace; run pipeline tests.
-
-- [ ] Document Wasmtime fuel/epoch/memory limits for runtime safety.
-
-- [ ] Add `--contracts=runtime|hybrid|static` flag design (future).
-
-- [ ] Enable Wasmtime fuel/epoch limits in IT tests for runtime bounding.
+- [ ] CI & validation:
+  - [ ] Always run `wasm-tools validate` on emitted modules in CI.
+  - [ ] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
+- [ ] Runtime bounds:
+  - [ ] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
+  - [ ] Enable fuel/epoch limits in integration tests to enforce bounded execution.
+- [ ] Contracts mode flag (design):
+  - [ ] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.
 
 - [x] Document pre-commit hook usage in README; provide skip toggles.
 
 ## Phase 13 - Developer Experience
 
-- [ ] Simple tracing/logging for pipeline stages in CLI.
-
-- [ ] Add `cargo xtask` or Makefile for common flows (build/validate/run).
-
-- [ ] Consistent error types and messages across crates.
-
-- [ ] Preallocate HashMaps/Vecs in typer/parser where sizes are known (e.g., builtins+funcs, params per function).
-
-- [ ] Release profile tuning in top-level Cargo.toml: `lto = "thin"`, `codegen-units = 1` (optionally `strip = "symbols"`).
+- [ ] Observability: simple tracing/logging for pipeline stages in CLI with verbosity levels.
+- [ ] Tooling ergonomics: add `cargo xtask` or Makefile targets for build/validate/run/emit-vcs.
+- [ ] Error hygiene: unify error types/messages across crates; document error code table.
+- [ ] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
+- [ ] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
 
 ## Phase 14 - Nice-to-Have Enhancements
 
-- [ ] WASI `print` intrinsic for observable output.
-
-- [ ] On-chain attestation (anchoring) for signatures (EVM registry + IPFS URIs).
+- [ ] WASI `print` intrinsic for observable output (design + implementation + docs/tests).
+- [ ] On-chain attestation for signatures: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
 
 ## Phase 15 - Linear-Aware Collections (Future)
 
-- [ ] Sketch freeze/thaw or mutable-borrow semantics for unique aliasing: draft a short design note covering API surface (e.g., `freeze(list)`, `thaw(list_mut)`), effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
+- [ ] Design note: freeze/thaw or mutable-borrow semantics for unique aliasing (API surface like `freeze(list)`, `thaw(list_mut)`).
+- [ ] Effects/VC plan: effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
+- [ ] Prototype plan: phased implementation steps and tests once design is locked.
 
 

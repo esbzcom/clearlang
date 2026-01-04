@@ -115,3 +115,38 @@ fn impure_refinement_predicates_are_rejected() {
     let s = format!("{err:#}");
     assert!(s.contains("T707"), "missing code T707: {s}");
 }
+
+#[test]
+fn refinement_drop_in_if_is_rejected() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function f(n: Nat) -> Int {
+            if n > 0 { n } else { 0 }
+        }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("branch refinement drop");
+    let s = format!("{err:#}");
+    assert!(s.contains("T301"), "missing code T301: {s}");
+}
+
+#[test]
+fn refinement_drop_in_option_coalesce_is_rejected() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function pick(opt: Option<Nat>) -> Int { opt ?? 0 }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("coalesce refinement drop");
+    let s = format!("{err:#}");
+    assert!(s.contains("T204"), "missing code T204: {s}");
+}
+
+#[test]
+fn refinement_drop_in_try_is_rejected() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function unwrap(opt: Option<Nat>) -> Option<Int> { opt? }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("try refinement drop");
+    let s = format!("{err:#}");
+    assert!(s.contains("T603"), "missing code T603: {s}");
+}

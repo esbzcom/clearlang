@@ -235,7 +235,7 @@ Collections (Type-Only Summary) -" see `docs/collections.md`
 
 Refinement Types (Phase 10.1 Design & Scope)
 
-- Status: not implemented yet; this section locks the planned surface so parser/typer/VC work can start.
+- Status: implemented for alias-only refinements; inline refinements on params/returns remain deferred.
 - Syntax: refined aliases only (inline refinements on params/returns are deferred). Form: `type Name<T?...> = Base where binder_pred`, where `binder_pred` is a predicate over a single bound value name plus any type parameters.
 - Binder rules: the identifier used in the predicate denotes the aliased value (e.g., `n` in `type Nat = Int where n >= 0`). The binder is scoped only inside the `where` predicate and is not visible at use sites. Each use of the alias introduces a fresh logical binder.
 - Predicate well-formedness: must type-check to `Bool` using only the binder, type params, pure arithmetic/boolean ops, and pure built-ins. Effects, mutation, and resource consume ops are disallowed in predicates. Recursive/self-referential alias definitions are rejected.
@@ -244,7 +244,7 @@ Refinement Types (Phase 10.1 Design & Scope)
 
 Refinement Types (Phase 10.2 Syntax & AST)
 
-- Status: parser/AST implemented; typer/VC wiring is still pending. The parser accepts `type` aliases with trailing `where` predicates and stores them in `Program::refined_aliases`.
+- Status: parser/AST implemented; typing and VC generation consume alias predicates. The parser accepts `type` aliases with trailing `where` predicates and stores them in `Program::refined_aliases`.
 - Grammar additions: extend type alias forms to accept a trailing `where` clause: `type Name<T? ...> = Type where Ident_pred;`. The predicate expression reuses existing expression grammar restricted to pure, terminating Boolean expressions (`Int` arithmetic/comparisons, logical ops, `true/false`, the binder ident, and type params). Inline refinements on parameters/returns remain disallowed and produce a parse error.
 - AST representation: refined-alias nodes carry `name`, optional `type_params`, `base_type`, a best-effort `binder_ident` (first variable seen in the predicate), and the `predicate_expr` (with spans preserved for the alias header and predicate). The binder is not added to the surrounding environment; it is scoped only within the predicate expression node.
 - Use-site behavior: each reference to a refined alias instantiates a fresh logical binder when generating obligations; the AST/type entry must keep the predicate attached to the alias definition so typer/VC can retrieve it.
@@ -252,16 +252,52 @@ Refinement Types (Phase 10.2 Syntax & AST)
 
 Refinement Types (Phase 10.3 Typing & Propagation Plan)
 
-- Status: partial. Aliases are resolved to base types during typing, predicates are type-checked/purity-checked, and VC generation now emits alias predicates for parameters, returns, and call-site arguments, let-bindings, and Option/Result destructuring (binders inherit the inner refinement). Flow-sensitive rejection of refinement loss and feature interactions remain open.
-- Alias env: collect aliases at program load; reject name conflicts with resources/functions and ensure predicates type-check to `Bool` under a synthetic env binding the alias binder and type params. Base types must be well-formed; recursive/self-referential aliases are rejected.
-- Type recognition: when a type name matches a refined alias, treat it as the alias nominal type and carry its predicate alongside the base type for downstream checks. Inline refinements remain invalid.
-- Constraint propagation (typing): using a refined alias in a param/let binding/call/return attaches its predicate as an obligation scoped to that value. Substitution of the binder to the concrete value expression is deferred to VC generation; typing enforces only that the predicate is well-typed and that the base type matches usage.
+- Status: implemented for alias resolution, predicate checking, obligation propagation, and refinement preservation checks. Loop/totality preservation across invariants remains to be documented.
+- Alias env: collect aliases at program load; reject name conflicts with resources/functions and ensure predicates type-check to `Bool` under a synthetic env binding the alias binder and type params. Base types must be well-formed; recursive/self-referential aliases are rejected. Refined aliases cannot wrap resource types (T706).
+- Type recognition: when a type name matches a refined alias, treat it as a nominal refined type and carry its predicate alongside the base type. Base-type checks for ops/conditions accept refined Int/Bool aliases. Inline refinements remain invalid.
+- Constraint propagation (typing): using a refined alias in a param/let binding/call/return attaches its predicate as an obligation scoped to that value. Substitution of the binder to the concrete value expression is deferred to VC generation. Typing enforces base-type compatibility and rejects refinement loss at bindings (T705); branch joins must agree on the same refined type or they fail with existing branch/match mismatch diagnostics (T301/T204).
 - Interactions:
   - `require`/`ensure`: refined params/returns add obligations equivalent to extra requires/ensures; they must remain `pure`.
-  - Effects/resources: predicates must stay pure and cannot consume/borrow resources; refined types cannot wrap resources until the linear story is defined.
-  - Option/Result/sugar: refinements commute with the outer container; pattern matches preserve refinements when projecting. Dropping a refinement without proof is still rejected conceptually but enforcement remains TODO.
+  - Effects/resources: predicates must stay pure and cannot consume/borrow resources; refined aliases cannot wrap resources (T706) and impure predicates raise T707.
+  - Option/Result/sugar: refinements commute with the outer container; pattern matches preserve refinements when projecting. Dropping refinements via constructors/coalesce/try is rejected by type mismatches (T204/T603/T605) and by refinement-loss checks at bindings (T705).
   - Loops/invariants/variants: invariant expressions may reference refined binders; variant/decreasing checks must not erase refinements (enforcement pending).
-- Future VC tie-in (10.4): each refined alias use yields a VC premise that substitutes the binder with the concrete expression; violations surface as standard VC failures rather than runtime traps.
+- Diagnostics: T705 refinement loss on bindings/calls/returns, T706 refined aliases over resources, T707 impure predicates. Existing branch/match mismatch codes surface when refinement drops across joins (T301/T204).
+- VC tie-in (10.4): each refined alias use yields a VC premise that substitutes the binder with the concrete expression; violations surface as standard VC failures rather than runtime traps.
+
+Examples
+
+Passing refinement flow:
+
+```
+type Nat = Int where n >= 0;
+
+pure function inc(n: Nat) -> Nat { n + 1 }
+```
+
+Refinement loss at a binding (T705):
+
+```
+type Nat = Int where n >= 0;
+
+pure function bad_bind(n: Nat) -> Int { n }
+```
+
+Branch join drops refinement (T301):
+
+```
+type Nat = Int where n >= 0;
+
+pure function bad_join(n: Nat) -> Int {
+    if n > 0 { n } else { 0 }
+}
+```
+
+Impure predicate (T707):
+
+```
+mut function bump(x: Int) -> Int { x + 1 }
+type Bad = Int where bump(1) > 0;
+```
 
 
 

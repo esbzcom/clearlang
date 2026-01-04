@@ -262,6 +262,7 @@ Refinement Types (Phase 10.3 Typing & Propagation Plan)
   - Option/Result/sugar: refinements commute with the outer container; pattern matches preserve refinements when projecting. Dropping refinements via constructors/coalesce/try is rejected by type mismatches (T204/T603/T605) and by refinement-loss checks at bindings (T705).
   - Loops/invariants/variants: invariant expressions may reference refined binders; variant/decreasing checks must not erase refinements (enforcement pending).
 - Diagnostics: T705 refinement loss on bindings/calls/returns, T706 refined aliases over resources, T707 impure predicates. Existing branch/match mismatch codes surface when refinement drops across joins (T301/T204).
+- VC ordering: preconditions are conjoined in source `require` order, then implicit alias-param predicates, then in-body refinement obligations. Ensure VCs follow source `ensure` order with an implicit refined-return predicate appended.
 - VC tie-in (10.4): each refined alias use yields a VC premise that substitutes the binder with the concrete expression; violations surface as standard VC failures rather than runtime traps.
 
 Examples

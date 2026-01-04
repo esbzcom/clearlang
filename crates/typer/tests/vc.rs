@@ -208,3 +208,38 @@ fn propagates_refinement_into_option_match_binders() {
     assert!(vc.pre.ast.contains("v >= 0"));
     assert!(vc.vc_smt2.contains("=>"));
 }
+
+#[test]
+fn vc_precondition_order_matches_runtime_guards() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function bump(n: Nat) -> Nat
+            require { n > 1 }
+        {
+            let y = n;
+            y
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let parts: Vec<&str> = vcs[0].pre.ast.split("&&").map(|s| s.trim()).collect();
+    assert_eq!(parts, vec!["n > 1", "n >= 0", "y >= 0"]);
+}
+
+#[test]
+fn refined_return_ensure_appends_after_explicit_ensures() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function inc(n: Nat) -> Nat
+            ensure { result > 0 }
+        { n + 1 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 2);
+    assert_eq!(vcs[0].post.ast, "result > 0");
+    assert_eq!(vcs[1].post.ast, "result >= 0");
+}

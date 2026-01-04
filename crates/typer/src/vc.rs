@@ -31,8 +31,10 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let fn_sigs = build_fn_sigs(program, &alias_map);
     let mut out = Vec::new();
     for func in &program.funcs {
-        let req_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
-        let mut pre_extra: Vec<Expr> = Vec::new();
+        // VC preconditions follow runtime guard order: requires (source order),
+        // then implicit alias predicates (params), then in-body obligations.
+        let require_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
+        let mut alias_param_preds: Vec<Expr> = Vec::new();
         if let Some(sig) = fn_sigs.get(func.name.as_str()) {
             for (param, alias_opt) in func.params.iter().zip(sig.param_aliases.iter()) {
                 if let Some(alias) = alias_opt {
@@ -40,12 +42,13 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                         alias,
                         &Expr::Var(param.name.clone(), alias.span),
                     ) {
-                        pre_extra.push(pred);
+                        alias_param_preds.push(pred);
                     }
                 }
             }
         }
 
+        // Ensure VCs follow source order, with an implicit refined-return predicate appended.
         let mut ensures: Vec<(Expr, Span)> = func
             .ensures
             .iter()
@@ -76,8 +79,8 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             &mut body_obligations,
         );
 
-        let mut all_pre = req_exprs.clone();
-        all_pre.extend(pre_extra.into_iter());
+        let mut all_pre = require_exprs.clone();
+        all_pre.extend(alias_param_preds.into_iter());
         all_pre.extend(body_obligations.into_iter());
         let pre_expr = if all_pre.is_empty() {
             Expr::Bool(true, Span { start: 0, end: 0 })

@@ -281,3 +281,36 @@ fn refined_return_ensure_appends_after_explicit_ensures() {
     assert_eq!(vcs[0].post.ast, "result > 0");
     assert_eq!(vcs[1].post.ast, "result >= 0");
 }
+
+#[test]
+fn emits_call_arg_refinement_premise() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function takes(n: Nat) -> Nat { n }
+        pure function caller(x: Int) -> Nat { takes(x + 1) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    let vc = vcs
+        .iter()
+        .find(|vc| vc.function == "caller" && vc.vc_id == "vc:0")
+        .expect("caller vc");
+    assert!(vc.pre.ast.contains("x + 1 >= 0"));
+    let call = vc
+        .refinements
+        .iter()
+        .find(|premise| match &premise.attachment.detail {
+            RefinementAttachmentDetail::Flow(detail) => {
+                matches!(detail.flow_kind, RefinementFlowKind::CallArg)
+                    && detail.callee.as_deref() == Some("takes")
+                    && detail.arg_index == Some(0)
+            }
+            _ => false,
+        });
+    let call = call.expect("call arg refinement premise");
+    assert_eq!(call.substitution.ast, "x + 1");
+    assert_eq!(call.predicate.ast, "x + 1 >= 0");
+    assert!(vc.vc_smt2.contains("define-fun cl.ref.premise.0.sub"));
+    assert!(vc.vc_smt2.contains("define-fun cl.ref.premise.0.pred"));
+}

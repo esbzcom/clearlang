@@ -23,6 +23,17 @@ fn predicate_must_be_bool() {
 }
 
 #[test]
+fn unsat_predicate_is_rejected() {
+    let src = r#"
+        type Impossible = Int where n >= 0 && n < 0;
+        pure function id(x: Impossible) -> Int { x }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("predicate unsat");
+    let s = format!("{err:#}");
+    assert!(s.contains("T708"), "missing code T708: {s}");
+}
+
+#[test]
 fn cyclic_alias_is_rejected() {
     let src = r#"
         type A = B where a >= 0;
@@ -44,6 +55,52 @@ fn alias_cannot_shadow_resource() {
     let err = check(&parse(src).expect("parse ok")).expect_err("resource conflict");
     let s = format!("{err:#}");
     assert!(s.contains("T702"), "missing code T702: {s}");
+}
+
+#[test]
+fn bounded_and_equality_refinements_typecheck() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        type Small = Int where s >= 0 && s <= 10;
+        type FortyTwo = Int where f == 42;
+        pure function id(n: Nat) -> Nat { n }
+        pure function clamp(x: Small) -> Small { x }
+        pure function meaning() -> FortyTwo { 42 }
+        function main() -> Int { id(1) + clamp(5) + meaning() }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("typecheck ok");
+}
+
+#[test]
+fn refinements_preserve_through_locals_calls_and_containers() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function add1(n: Nat) -> Nat { n + 1 }
+        pure function wrap(n: Nat) -> Option<Nat> { Some(n) }
+        pure function zero() -> Nat { 0 }
+        pure function use(x: Int) -> Nat {
+            let y = add1(x);
+            match wrap(y) {
+                Some(v) => v,
+                None => zero()
+            }
+        }
+        function main() -> Nat { use(1) }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("typecheck ok");
+}
+
+#[test]
+fn coalesce_and_try_preserve_refinements() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function zero() -> Nat { 0 }
+        pure function pick(opt: Option<Nat>) -> Nat { opt ?? zero() }
+        pure function bump(opt: Option<Nat>) -> Option<Nat> { Some(opt?) }
+        pure function okify(res: Result<Nat, Nat>) -> Result<Nat, Nat> { Ok(res?) }
+        function main() -> Int { 0 }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("typecheck ok");
 }
 
 #[test]

@@ -273,6 +273,18 @@ impl TyperError {
         )
     }
 
+    pub fn alias_predicate_unsat(name: &str, span: Span) -> Self {
+        Self::new(
+            "T708",
+            format!(
+                "at {}..{}: refinement predicate for `{}` is unsatisfiable",
+                span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn effect_required(callee: &str, effect: &str, span: Span) -> Self {
         Self::new(
             "T401",

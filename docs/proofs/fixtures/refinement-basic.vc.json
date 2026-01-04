@@ -1,31 +1,61 @@
-﻿[
+[
   {
-    "version": 2,
     "function": "inc",
-    "vc_id": "vc:0",
-    "pre": { "ast": "a >= 0", "smt2": "(>= a 0)" },
-    "post": { "ast": "result >= 0", "smt2": "(>= result 0)" },
-    "vc": { "smt2": "(=> (>= a 0) (>= (+ a 1) 0))" },
-    "status": "generated",
+    "post": {
+      "ast": "result >= 0",
+      "smt2": "(>= result 0)"
+    },
+    "pre": {
+      "ast": "a >= 0",
+      "smt2": "(>= a 0)"
+    },
     "refinements": {
       "premises": [
         {
-          "id": "ref:0",
           "alias": "Nat",
+          "attachment": {
+            "detail": {
+              "param": "a"
+            },
+            "kind": "param"
+          },
           "binder": "n",
-          "substitution": { "ast": "a", "smt2": "a" },
-          "predicate": { "ast": "a >= 0", "smt2": "(>= a 0)" },
-          "attachment": { "kind": "param", "detail": { "param": "a" } }
+          "id": "ref:0",
+          "predicate": {
+            "ast": "a >= 0",
+            "smt2": "(>= a 0)"
+          },
+          "substitution": {
+            "ast": "a",
+            "smt2": "a"
+          }
         },
         {
-          "id": "ref:1",
           "alias": "Nat",
+          "attachment": {
+            "detail": {
+              "result": "result"
+            },
+            "kind": "return"
+          },
           "binder": "n",
-          "substitution": { "ast": "result", "smt2": "result" },
-          "predicate": { "ast": "result >= 0", "smt2": "(>= result 0)" },
-          "attachment": { "kind": "return", "detail": { "result": "result" } }
+          "id": "ref:1",
+          "predicate": {
+            "ast": "result >= 0",
+            "smt2": "(>= result 0)"
+          },
+          "substitution": {
+            "ast": "result",
+            "smt2": "result"
+          }
         }
       ]
-    }
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int a)\n(define-fun cl.ref.premise.0.pred () Bool (>= a 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (>= a 0) (>= (+ a 1) 0))"
+    },
+    "vc_id": "vc:0",
+    "version": 2
   }
 ]

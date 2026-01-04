@@ -493,17 +493,17 @@ Codegen & Runtime
 
 10.5 Tests
 
-- [ ] Positive coverage:
-  - [ ] Non-negative/bounded/equality refinements over Int; preservation through locals/calls/containers.
-  - [ ] Option/Result interaction: match binders keep refinements; coalesce/try do not drop predicates.
+- [x] Positive coverage:
+  - [x] Non-negative/bounded/equality refinements over Int; preservation through locals/calls/containers.
+  - [x] Option/Result interaction: match binders keep refinements; coalesce/try do not drop predicates.
   - [x] Loop/invariant usage of refined binders.
-- [ ] Negative coverage:
-  - [ ] Unsat/contradictory predicates rejected at alias definition.
-  - [ ] Refinement loss/weakening diagnostics (assignments, branch joins, rewrap without proof).
-  - [ ] Inline refinements (still disallowed), refined resources (policy), impurity-in-predicate errors.
-- [ ] VC snapshots:
-  - [ ] Add `--emit-vcs` snapshots for refined params/returns, call-site obligations, and loop/invariant combinations.
-  - [ ] Include fixtures where refinement VCs interact with requires/ensures and totality checks.
+- [x] Negative coverage:
+  - [x] Unsat/contradictory predicates rejected at alias definition.
+  - [x] Refinement loss/weakening diagnostics (assignments, branch joins, rewrap without proof).
+  - [x] Inline refinements (still disallowed), refined resources (policy), impurity-in-predicate errors.
+- [x] VC snapshots:
+  - [x] Add `--emit-vcs` snapshots for refined params/returns, call-site obligations, and loop/invariant combinations.
+  - [x] Include fixtures where refinement VCs interact with requires/ensures and totality checks.
 
 ## Phase 11 - Proof-Carrying Wasm Verification
 

@@ -99,6 +99,7 @@ Example
 Fixtures
 - `docs/proofs/fixtures/refinement-basic.vc.json` (refinement premises only).
 - `docs/proofs/fixtures/refinement-contracts-loops.vc.json` (refinements + require/ensure + loop VCs).
+- `docs/proofs/fixtures/refinement-call-site.vc.json` (refinements + call-site obligations + require/ensure).
 
 CLI Contract
 - `clg build file.clear --emit-vcs out.json` writes exactly the array above.

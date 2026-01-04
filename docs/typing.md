@@ -240,7 +240,7 @@ Refinement Types (Phase 10.1 Design & Scope)
 - Binder rules: the identifier used in the predicate denotes the aliased value (e.g., `n` in `type Nat = Int where n >= 0`). The binder is scoped only inside the `where` predicate and is not visible at use sites. Each use of the alias introduces a fresh logical binder.
 - Predicate well-formedness: must type-check to `Bool` using only the binder, type params, pure arithmetic/boolean ops, and pure built-ins. Effects, mutation, and resource consume ops are disallowed in predicates. Recursive/self-referential alias definitions are rejected.
 - Interaction surface: refinements compose with existing contracts (`require`/`ensure`) by adding their predicate to the obligation set when an alias is used. Totality, Option/Result sugar, and loops can reference refined types but cannot weaken them; dropping a refinement without proof will be rejected in later phases.
-- Early rejection: trivial contradictions (e.g., `false` or `n < 0 && n >= 0`) are rejected at alias definition time once a basic simplifier/SMT ping is added; otherwise predicates are carried to VC generation for discharge.
+- Early rejection: trivial contradictions (e.g., `false` or `n < 0 && n >= 0`) are rejected at alias definition time (T708).
 
 Refinement Types (Phase 10.2 Syntax & AST)
 
@@ -267,7 +267,7 @@ Refinement Types (Phase 10.3 Typing & Propagation Plan)
   - Effects/resources: predicates must stay pure and cannot consume/borrow resources; refined aliases cannot wrap resources (T706) and impure predicates raise T707.
   - Option/Result/sugar: refinements commute with the outer container; pattern matches preserve refinements when projecting. Dropping refinements via constructors/coalesce/try is rejected by type mismatches (T204/T603/T605) and by refinement-loss checks at bindings (T705).
   - Loops/invariants/variants: invariant expressions may reference refined binders; loop bodies cannot rebind refined values to weaker types (T705), preserving refinements across iterations and variant checks.
-- Diagnostics: T705 refinement loss on bindings/calls/returns, T706 refined aliases over resources, T707 impure predicates. Existing branch/match mismatch codes surface when refinement drops across joins (T301/T204).
+- Diagnostics: T705 refinement loss on bindings/calls/returns, T706 refined aliases over resources, T707 impure predicates, T708 unsatisfiable predicates. Existing branch/match mismatch codes surface when refinement drops across joins (T301/T204).
 - VC ordering: preconditions are conjoined in source `require` order, then implicit alias-param predicates, then in-body refinement obligations. Ensure VCs follow source `ensure` order with an implicit refined-return predicate appended.
 - VC tie-in (10.4): each refined alias use yields a VC premise that substitutes the binder with the concrete expression; violations surface as standard VC failures rather than runtime traps. See the Phase 10.4 VC/SMT section below.
 - Migration/escape hatch: none. Refinement loss remains a hard error to keep typing and VC soundness aligned; migration requires explicit refactors instead of disabling checks.
@@ -309,7 +309,7 @@ type Bad = Int where bump(1) > 0;
 
 Refinement VC/SMT (Phase 10.4)
 
-- Refinement obligations are surfaced explicitly in `--emit-vcs` outputs and documented alongside the VC schema in `docs/proofs/vc-schema.md`. Worked fixtures live in `docs/proofs/fixtures` (see `refinement-basic.vc.json` and `refinement-contracts-loops.vc.json`).
+- Refinement obligations are surfaced explicitly in `--emit-vcs` outputs and documented alongside the VC schema in `docs/proofs/vc-schema.md`. Worked fixtures live in `docs/proofs/fixtures` (see `refinement-basic.vc.json`, `refinement-contracts-loops.vc.json`, and `refinement-call-site.vc.json`).
 
 
 

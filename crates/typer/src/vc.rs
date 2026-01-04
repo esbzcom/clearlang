@@ -11,6 +11,104 @@ pub struct ContractExpr {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExprSnapshot {
+    pub ast: String,
+    pub smt2: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum RefinementAttachmentKind {
+    Param,
+    Return,
+    Flow,
+}
+
+#[derive(Debug, Clone)]
+pub enum RefinementAttachmentDetail {
+    Param { param: String },
+    Return { result: String },
+    Flow(RefinementFlowDetail),
+}
+
+#[derive(Debug, Clone)]
+pub struct RefinementAttachment {
+    pub kind: RefinementAttachmentKind,
+    pub detail: RefinementAttachmentDetail,
+}
+
+#[derive(Debug, Clone)]
+pub enum RefinementFlowKind {
+    Let,
+    CallArg,
+    MatchBinder,
+}
+
+impl RefinementFlowKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RefinementFlowKind::Let => "let",
+            RefinementFlowKind::CallArg => "call_arg",
+            RefinementFlowKind::MatchBinder => "match_binder",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RefinementFlowDetail {
+    pub flow_kind: RefinementFlowKind,
+    pub name: Option<String>,
+    pub callee: Option<String>,
+    pub arg_index: Option<usize>,
+    pub variant: Option<String>,
+    pub arm: Option<usize>,
+}
+
+impl RefinementFlowDetail {
+    fn new(flow_kind: RefinementFlowKind) -> Self {
+        Self {
+            flow_kind,
+            name: None,
+            callee: None,
+            arg_index: None,
+            variant: None,
+            arm: None,
+        }
+    }
+}
+
+impl RefinementAttachment {
+    fn param(name: String) -> Self {
+        Self {
+            kind: RefinementAttachmentKind::Param,
+            detail: RefinementAttachmentDetail::Param { param: name },
+        }
+    }
+
+    fn result(name: String) -> Self {
+        Self {
+            kind: RefinementAttachmentKind::Return,
+            detail: RefinementAttachmentDetail::Return { result: name },
+        }
+    }
+
+    fn flow(detail: RefinementFlowDetail) -> Self {
+        Self {
+            kind: RefinementAttachmentKind::Flow,
+            detail: RefinementAttachmentDetail::Flow(detail),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RefinementPremise {
+    pub alias: String,
+    pub binder: String,
+    pub substitution: ExprSnapshot,
+    pub predicate: ExprSnapshot,
+    pub attachment: RefinementAttachment,
+}
+
+#[derive(Debug, Clone)]
 pub struct VerificationCondition {
     pub function: String,
     pub vc_id: String,
@@ -18,6 +116,7 @@ pub struct VerificationCondition {
     pub post: ContractExpr,
     pub vc_smt2: String,
     pub status: &'static str,
+    pub refinements: Vec<RefinementPremise>,
 }
 
 #[derive(Debug)]
@@ -26,46 +125,72 @@ struct LoopObligation<'a> {
     variant: Option<&'a Expr>,
 }
 
+#[derive(Clone)]
+struct RefinementObligation {
+    alias: String,
+    binder: String,
+    substitution: Expr,
+    predicate: Expr,
+    attachment: RefinementAttachment,
+}
+
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let alias_map = build_alias_map(program);
     let fn_sigs = build_fn_sigs(program, &alias_map);
     let mut out = Vec::new();
     for func in &program.funcs {
+        struct EnsureItem {
+            expr: Expr,
+            span: Span,
+            return_obligation: Option<RefinementObligation>,
+        }
+
         // VC preconditions follow runtime guard order: requires (source order),
         // then implicit alias predicates (params), then in-body obligations.
         let require_exprs: Vec<Expr> = func.requires.iter().map(|c| c.expr.clone()).collect();
-        let mut alias_param_preds: Vec<Expr> = Vec::new();
+        let mut pre_obligations: Vec<RefinementObligation> = Vec::new();
         if let Some(sig) = fn_sigs.get(func.name.as_str()) {
             for (param, alias_opt) in func.params.iter().zip(sig.param_aliases.iter()) {
                 if let Some(alias) = alias_opt {
-                    if let Some(pred) = instantiate_alias_predicate(
+                    if let Some(obligation) = make_refinement_obligation(
                         alias,
                         &Expr::Var(param.name.clone(), alias.span),
+                        RefinementAttachment::param(param.name.clone()),
                     ) {
-                        alias_param_preds.push(pred);
+                        pre_obligations.push(obligation);
                     }
                 }
             }
         }
 
         // Ensure VCs follow source order, with an implicit refined-return predicate appended.
-        let mut ensures: Vec<(Expr, Span)> = func
+        let mut ensures: Vec<EnsureItem> = func
             .ensures
             .iter()
-            .map(|e| (e.expr.clone(), e.span))
+            .map(|e| EnsureItem {
+                expr: e.expr.clone(),
+                span: e.span,
+                return_obligation: None,
+            })
             .collect();
         if let Some(sig) = fn_sigs.get(func.name.as_str()) {
             if let Some(alias) = sig.ret_alias {
-                if let Some(pred) =
-                    instantiate_alias_predicate(alias, &Expr::Var("result".into(), alias.span))
-                {
-                    ensures.push((pred, alias.span));
+                if let Some(obligation) = make_refinement_obligation(
+                    alias,
+                    &Expr::Var("result".into(), alias.span),
+                    RefinementAttachment::result("result".to_string()),
+                ) {
+                    ensures.push(EnsureItem {
+                        expr: obligation.predicate.clone(),
+                        span: alias.span,
+                        return_obligation: Some(obligation),
+                    });
                 }
             }
         }
 
         // Obligations arising from alias flow inside the body (lets, calls, matches, etc.).
-        let mut body_obligations: Vec<Expr> = Vec::new();
+        let mut body_obligations: Vec<RefinementObligation> = Vec::new();
         let mut env: HashMap<String, Type> = func
             .params
             .iter()
@@ -78,10 +203,10 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             &mut env,
             &mut body_obligations,
         );
+        pre_obligations.extend(body_obligations.into_iter());
 
         let mut all_pre = require_exprs.clone();
-        all_pre.extend(alias_param_preds.into_iter());
-        all_pre.extend(body_obligations.into_iter());
+        all_pre.extend(pre_obligations.iter().map(|ob| ob.predicate.clone()));
         let pre_expr = if all_pre.is_empty() {
             Expr::Bool(true, Span { start: 0, end: 0 })
         } else {
@@ -95,18 +220,26 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             Some(Span { start, end })
         };
         let pre_ast = expr_to_source(&pre_expr, 0);
+        let pre_premises: Vec<RefinementPremise> = pre_obligations
+            .iter()
+            .map(premise_from_obligation)
+            .collect();
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {
-            for (idx, (ensure_expr, ensure_span)) in ensures.iter().enumerate() {
-                let post_ast = expr_to_source(ensure_expr, 0);
-                let substituted = substitute_result(ensure_expr, &func.body);
+            for (idx, ensure) in ensures.iter().enumerate() {
+                let post_ast = expr_to_source(&ensure.expr, 0);
+                let substituted = substitute_result(&ensure.expr, &func.body);
 
                 let mut encoder = SmtEncoder::default();
                 let pre_smt = encoder.encode(&pre_expr);
-                let post_smt = encoder.encode(ensure_expr);
+                let post_smt = encoder.encode(&ensure.expr);
                 let substituted_smt = encoder.encode(&substituted);
                 let vc_body = format!("(=> {} {})", pre_smt, substituted_smt);
                 let vc_smt2 = encoder.wrap_vc(&vc_body);
+                let mut refinements = pre_premises.clone();
+                if let Some(obligation) = &ensure.return_obligation {
+                    refinements.push(premise_from_obligation(obligation));
+                }
 
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -119,10 +252,11 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     post: ContractExpr {
                         ast: post_ast,
                         smt2: post_smt,
-                        span: Some(*ensure_span),
+                        span: Some(ensure.span),
                     },
                     vc_smt2,
                     status: "generated",
+                    refinements,
                 });
             }
         }
@@ -147,6 +281,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let post_smt = encoder.encode(&guard_expr);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
                 let vc_smt2 = encoder.wrap_vc(&vc_body);
+                let refinements = pre_premises.clone();
 
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -163,6 +298,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     },
                     vc_smt2,
                     status: "generated",
+                    refinements,
                 });
             }
         }
@@ -175,6 +311,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             let inv_smt = enc_inv.encode(loop_ob.invariant);
             let vc_body = format!("(=> {} {})", pre_smt, inv_smt);
             let vc_smt2 = enc_inv.wrap_vc(&vc_body);
+            let refinements = pre_premises.clone();
 
             out.push(VerificationCondition {
                 function: func.name.clone(),
@@ -191,6 +328,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 },
                 vc_smt2,
                 status: "generated",
+                refinements,
             });
 
             if let Some(var_expr) = loop_ob.variant {
@@ -200,6 +338,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let post_smt = format!("(>= {} 0)", var_smt);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
                 let vc_smt2 = enc_var.wrap_vc(&vc_body);
+                let refinements = pre_premises.clone();
                 out.push(VerificationCondition {
                     function: func.name.clone(),
                     vc_id: format!("loop:{}:variant_nonneg", idx),
@@ -215,6 +354,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     },
                     vc_smt2,
                     status: "generated",
+                    refinements,
                 });
 
                 let mut enc_dec = SmtEncoder::default();
@@ -225,6 +365,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
                 let extra = format!("(declare-const {} Int)", next_sym);
                 let vc_smt2 = enc_dec.wrap_vc_with_extra(&vc_body, Some(&extra));
+                let refinements = pre_premises.clone();
                 out.push(VerificationCondition {
                     function: func.name.clone(),
                     vc_id: format!("loop:{}:variant_decrease", idx),
@@ -244,12 +385,46 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     },
                     vc_smt2,
                     status: "generated",
+                    refinements,
                 });
             }
         }
     }
     out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
+}
+
+fn snapshot_expr(expr: &Expr) -> ExprSnapshot {
+    let ast = expr_to_source(expr, 0);
+    let mut encoder = SmtEncoder::default();
+    let smt2 = encoder.encode(expr);
+    ExprSnapshot { ast, smt2 }
+}
+
+fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremise {
+    RefinementPremise {
+        alias: obligation.alias.clone(),
+        binder: obligation.binder.clone(),
+        substitution: snapshot_expr(&obligation.substitution),
+        predicate: snapshot_expr(&obligation.predicate),
+        attachment: obligation.attachment.clone(),
+    }
+}
+
+fn make_refinement_obligation(
+    alias: &AliasView<'_>,
+    replacement: &Expr,
+    attachment: RefinementAttachment,
+) -> Option<RefinementObligation> {
+    let binder = alias.binder?;
+    let predicate = substitute_binder(alias.predicate, binder, replacement);
+    Some(RefinementObligation {
+        alias: alias.name.to_string(),
+        binder: binder.to_string(),
+        substitution: replacement.clone(),
+        predicate,
+        attachment,
+    })
 }
 
 fn top_level_alias<'a>(
@@ -265,6 +440,7 @@ fn top_level_alias<'a>(
 
 #[derive(Clone)]
 struct AliasView<'a> {
+    name: &'a str,
     binder: Option<&'a str>,
     predicate: &'a Expr,
     span: Span,
@@ -278,6 +454,7 @@ fn build_alias_map<'a>(program: &'a Program) -> HashMap<&'a str, AliasView<'a>> 
             (
                 a.name.as_str(),
                 AliasView {
+                    name: a.name.as_str(),
                     binder: a.binder.as_deref(),
                     predicate: &a.predicate,
                     span: a.span,
@@ -285,11 +462,6 @@ fn build_alias_map<'a>(program: &'a Program) -> HashMap<&'a str, AliasView<'a>> 
             )
         })
         .collect()
-}
-
-fn instantiate_alias_predicate(alias: &AliasView<'_>, replacement: &Expr) -> Option<Expr> {
-    let binder = alias.binder?;
-    Some(substitute_binder(alias.predicate, binder, replacement))
 }
 
 #[derive(Clone)]
@@ -339,7 +511,7 @@ fn collect_refinement_obligations<'a>(
     aliases: &HashMap<&'a str, AliasView<'a>>,
     fn_sigs: &HashMap<String, FnSigView<'a>>,
     env: &mut HashMap<String, Type>,
-    out: &mut Vec<Expr>,
+    out: &mut Vec<RefinementObligation>,
 ) -> Option<Type> {
     match expr {
         Expr::Int(_, _) => Some(Type::Int),
@@ -402,17 +574,24 @@ fn collect_refinement_obligations<'a>(
             );
             let mut arm_tys: Vec<Option<Type>> = Vec::new();
             if let Some(Type::Option(inner_ty)) = scrut_ty.clone() {
-                for arm in arms {
+                for (arm_idx, arm) in arms.iter().enumerate() {
                     match &arm.pat {
                         MatchPat::Some(name) => {
                             let mut arm_env = env.clone();
                             arm_env.insert(name.clone(), (*inner_ty).clone());
                             if let Some(alias) = top_level_alias(inner_ty.as_ref(), aliases) {
-                                if let Some(pred) = instantiate_alias_predicate(
+                                let mut detail =
+                                    RefinementFlowDetail::new(RefinementFlowKind::MatchBinder);
+                                detail.name = Some(name.clone());
+                                detail.variant = Some("Some".to_string());
+                                detail.arm = Some(arm_idx);
+                                let attachment = RefinementAttachment::flow(detail);
+                                if let Some(obligation) = make_refinement_obligation(
                                     alias,
                                     &Expr::Var(name.clone(), alias.span),
+                                    attachment,
                                 ) {
-                                    out.push(pred);
+                                    out.push(obligation);
                                 }
                             }
                             let arm_ty = collect_refinement_obligations(
@@ -447,17 +626,24 @@ fn collect_refinement_obligations<'a>(
                     }
                 }
             } else if let Some(Type::Result(ok_ty, err_ty)) = scrut_ty.clone() {
-                for arm in arms {
+                for (arm_idx, arm) in arms.iter().enumerate() {
                     match &arm.pat {
                         MatchPat::Ok(name) => {
                             let mut arm_env = env.clone();
                             arm_env.insert(name.clone(), (*ok_ty).clone());
                             if let Some(alias) = top_level_alias(ok_ty.as_ref(), aliases) {
-                                if let Some(pred) = instantiate_alias_predicate(
+                                let mut detail =
+                                    RefinementFlowDetail::new(RefinementFlowKind::MatchBinder);
+                                detail.name = Some(name.clone());
+                                detail.variant = Some("Ok".to_string());
+                                detail.arm = Some(arm_idx);
+                                let attachment = RefinementAttachment::flow(detail);
+                                if let Some(obligation) = make_refinement_obligation(
                                     alias,
                                     &Expr::Var(name.clone(), alias.span),
+                                    attachment,
                                 ) {
-                                    out.push(pred);
+                                    out.push(obligation);
                                 }
                             }
                             let arm_ty = collect_refinement_obligations(
@@ -473,11 +659,18 @@ fn collect_refinement_obligations<'a>(
                             let mut arm_env = env.clone();
                             arm_env.insert(name.clone(), (*err_ty).clone());
                             if let Some(alias) = top_level_alias(err_ty.as_ref(), aliases) {
-                                if let Some(pred) = instantiate_alias_predicate(
+                                let mut detail =
+                                    RefinementFlowDetail::new(RefinementFlowKind::MatchBinder);
+                                detail.name = Some(name.clone());
+                                detail.variant = Some("Err".to_string());
+                                detail.arm = Some(arm_idx);
+                                let attachment = RefinementAttachment::flow(detail);
+                                if let Some(obligation) = make_refinement_obligation(
                                     alias,
                                     &Expr::Var(name.clone(), alias.span),
+                                    attachment,
                                 ) {
-                                    out.push(pred);
+                                    out.push(obligation);
                                 }
                             }
                             let arm_ty = collect_refinement_obligations(
@@ -517,11 +710,20 @@ fn collect_refinement_obligations<'a>(
         }
         Expr::Call { callee, args, .. } => {
             if let Some(sig) = fn_sigs.get(callee.as_str()) {
-                for (arg, alias_opt) in args.iter().zip(sig.param_aliases.iter()) {
+                for (idx, (arg, alias_opt)) in args.iter().zip(sig.param_aliases.iter()).enumerate()
+                {
                     collect_refinement_obligations(arg, aliases, fn_sigs, &mut env.clone(), out);
                     if let Some(alias) = alias_opt {
-                        if let Some(pred) = instantiate_alias_predicate(alias, arg) {
-                            out.push(pred);
+                        let mut detail = RefinementFlowDetail::new(RefinementFlowKind::CallArg);
+                        detail.callee = Some(callee.clone());
+                        detail.arg_index = Some(idx);
+                        if let Expr::Var(name, _) = arg {
+                            detail.name = Some(name.clone());
+                        }
+                        let attachment = RefinementAttachment::flow(detail);
+                        if let Some(obligation) = make_refinement_obligation(alias, arg, attachment)
+                        {
+                            out.push(obligation);
                         }
                     }
                 }
@@ -592,7 +794,7 @@ fn collect_block_refinements<'a>(
     aliases: &HashMap<&'a str, AliasView<'a>>,
     fn_sigs: &HashMap<String, FnSigView<'a>>,
     outer_env: &mut HashMap<String, Type>,
-    out: &mut Vec<Expr>,
+    out: &mut Vec<RefinementObligation>,
 ) -> Option<Type> {
     let mut env = outer_env.clone();
     for stmt in &block.statements {
@@ -607,10 +809,15 @@ fn collect_block_refinements<'a>(
                 );
                 if let Some(ty) = expr_ty {
                     if let Some(alias) = top_level_alias(&ty, aliases) {
-                        if let Some(pred) =
-                            instantiate_alias_predicate(alias, &Expr::Var(name.clone(), alias.span))
-                        {
-                            out.push(pred);
+                        let mut detail = RefinementFlowDetail::new(RefinementFlowKind::Let);
+                        detail.name = Some(name.clone());
+                        let attachment = RefinementAttachment::flow(detail);
+                        if let Some(obligation) = make_refinement_obligation(
+                            alias,
+                            &Expr::Var(name.clone(), alias.span),
+                            attachment,
+                        ) {
+                            out.push(obligation);
                         }
                     }
                     env.insert(name.clone(), ty);

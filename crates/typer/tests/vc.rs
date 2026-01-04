@@ -1,5 +1,8 @@
 use clg_parser::parse;
-use clg_typer::{check_with_vcs, generate_vcs, type_check_only};
+use clg_typer::{
+    check_with_vcs, generate_vcs, type_check_only, RefinementAttachmentDetail,
+    RefinementAttachmentKind, RefinementFlowKind,
+};
 
 #[test]
 fn generates_vc_for_contracts() {
@@ -166,6 +169,30 @@ fn generates_vc_for_refined_alias_params_and_returns() {
     assert_eq!(vc.vc_id, "vc:0");
     assert_eq!(vc.pre.ast, "a >= 0");
     assert_eq!(vc.post.ast, "result >= 0");
+    assert_eq!(vc.refinements.len(), 2);
+    let param = &vc.refinements[0];
+    assert_eq!(param.alias, "Nat");
+    assert_eq!(param.binder, "n");
+    assert_eq!(param.substitution.ast, "a");
+    assert_eq!(param.predicate.ast, "a >= 0");
+    assert!(matches!(
+        param.attachment.kind,
+        RefinementAttachmentKind::Param
+    ));
+    match &param.attachment.detail {
+        RefinementAttachmentDetail::Param { param } => assert_eq!(param, "a"),
+        _ => panic!("expected param attachment"),
+    }
+    let ret = &vc.refinements[1];
+    assert_eq!(ret.predicate.ast, "result >= 0");
+    assert!(matches!(
+        ret.attachment.kind,
+        RefinementAttachmentKind::Return
+    ));
+    match &ret.attachment.detail {
+        RefinementAttachmentDetail::Return { result } => assert_eq!(result, "result"),
+        _ => panic!("expected return attachment"),
+    }
 }
 
 #[test]
@@ -185,6 +212,17 @@ fn propagates_refinement_through_let_bindings() {
     assert!(vc.pre.ast.contains("a >= 0"));
     assert!(vc.pre.ast.contains("y >= 0"));
     assert!(vc.post.ast.contains("result >= 0"));
+    let has_let = vc
+        .refinements
+        .iter()
+        .any(|premise| match &premise.attachment.detail {
+            RefinementAttachmentDetail::Flow(detail) => {
+                matches!(detail.flow_kind, RefinementFlowKind::Let)
+                    && detail.name.as_deref() == Some("y")
+            }
+            _ => false,
+        });
+    assert!(has_let, "expected let flow refinement premise for y");
 }
 
 #[test]

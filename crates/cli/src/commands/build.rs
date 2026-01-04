@@ -6,7 +6,9 @@ use anyhow::{anyhow, Context, Result};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts};
 use clg_ir::IrType;
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
-use clg_typer::{check_with_vcs, TypecheckOutput, TyperError, VerificationCondition};
+use clg_typer::{
+    check_with_vcs, RefinementAttachmentDetail, TypecheckOutput, TyperError, VerificationCondition,
+};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
@@ -223,6 +225,42 @@ pub fn run(
 fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Result<()> {
     use serde_json::json;
 
+    fn refinement_attachment_json(att: &clg_typer::RefinementAttachment) -> serde_json::Value {
+        match &att.detail {
+            RefinementAttachmentDetail::Param { param } => json!({
+                "kind": "param",
+                "detail": { "param": param },
+            }),
+            RefinementAttachmentDetail::Return { result } => json!({
+                "kind": "return",
+                "detail": { "result": result },
+            }),
+            RefinementAttachmentDetail::Flow(flow) => {
+                let mut detail = serde_json::Map::new();
+                detail.insert("flow_kind".to_string(), json!(flow.flow_kind.as_str()));
+                if let Some(name) = &flow.name {
+                    detail.insert("name".to_string(), json!(name));
+                }
+                if let Some(callee) = &flow.callee {
+                    detail.insert("callee".to_string(), json!(callee));
+                }
+                if let Some(arg_index) = flow.arg_index {
+                    detail.insert("arg_index".to_string(), json!(arg_index));
+                }
+                if let Some(variant) = &flow.variant {
+                    detail.insert("variant".to_string(), json!(variant));
+                }
+                if let Some(arm) = flow.arm {
+                    detail.insert("arm".to_string(), json!(arm));
+                }
+                json!({
+                    "kind": "flow",
+                    "detail": serde_json::Value::Object(detail),
+                })
+            }
+        }
+    }
+
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
@@ -243,7 +281,7 @@ fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Res
             })),
         };
         let mut obj = serde_json::Map::new();
-        obj.insert("version".to_string(), json!(1));
+        obj.insert("version".to_string(), json!(2));
         obj.insert("function".to_string(), json!(vc.function));
         obj.insert("vc_id".to_string(), json!(vc.vc_id));
         obj.insert(
@@ -258,6 +296,35 @@ fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Res
         obj.insert("status".to_string(), json!(vc.status));
         if let Some(pos) = positions {
             obj.insert("positions".to_string(), pos);
+        }
+        if !vc.refinements.is_empty() {
+            let mut premises = Vec::with_capacity(vc.refinements.len());
+            for (idx, premise) in vc.refinements.iter().enumerate() {
+                let mut prem = serde_json::Map::new();
+                prem.insert("id".to_string(), json!(format!("ref:{}", idx)));
+                prem.insert("alias".to_string(), json!(premise.alias.as_str()));
+                prem.insert("binder".to_string(), json!(premise.binder.as_str()));
+                prem.insert(
+                    "substitution".to_string(),
+                    json!({
+                        "ast": premise.substitution.ast.as_str(),
+                        "smt2": premise.substitution.smt2.as_str(),
+                    }),
+                );
+                prem.insert(
+                    "predicate".to_string(),
+                    json!({
+                        "ast": premise.predicate.ast.as_str(),
+                        "smt2": premise.predicate.smt2.as_str(),
+                    }),
+                );
+                prem.insert(
+                    "attachment".to_string(),
+                    refinement_attachment_json(&premise.attachment),
+                );
+                premises.push(serde_json::Value::Object(prem));
+            }
+            obj.insert("refinements".to_string(), json!({ "premises": premises }));
         }
         items.push(serde_json::Value::Object(obj));
     }

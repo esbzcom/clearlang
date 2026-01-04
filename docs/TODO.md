@@ -1,6 +1,6 @@
 # ClearLang TODO
 
-A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
+A focused, actionable checklist to move from Phase 10.4 and beyond.
 
 ## Phase 0 -" Workspace & Toolchain (Done)
 
@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 2 +' Phase 3 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 9.2 - loops with invariants and totality checks; next: Phase 9.3 - totality enforcement.
+Current focus: Phase 10.4 - refinement VC/SMT integration; next: Phase 10.5 - refinement tests.
 
 3.1 Typer Core
 
@@ -290,7 +290,7 @@ Docs & Proofs
 
 - [x] Add value-preservation proof sketch for Int/Bool arith + calls (`docs/proofs/value-preservation.md`).
 
--6.1 Syntax
+6.1 Syntax
 
 - [x] Parse `require { expr }` / `ensure { expr }` blocks with spans.
 
@@ -423,7 +423,7 @@ Codegen & Runtime
 
 9.2 Syntax
 
-- [x] Introduce `while` loops with required loop invariants and optional variants/measures for termination (typing only; lowering still pending).
+- [x] Introduce `while` loops with required loop invariants and optional variants/measures for termination (typing + lowering complete).
 
 9.3 Totality
 

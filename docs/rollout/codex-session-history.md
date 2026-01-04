@@ -30,3 +30,14 @@
 - Updated `docs/TODO.md` to track the new resource milestones (parser/typer changes, diagnostics, test plan).
 - Next up: implement resource parsing, linear tracking, and the `consume` signature modifier.
 
+## 2026-01-03 - Phase 10.3 refinement completion
+- Implemented refinement-preserving shadowing checks so rebinding a refined value to a weaker type raises T705 (covers loop bodies and general blocks).
+- Defined VC pre/post ordering for refinement obligations and added ordering regression tests in `crates/typer/tests/vc.rs`.
+- Added loop/refinement regression coverage (invariant accepts refined binders; loop body cannot drop refinements) plus a shadowing-loss test.
+- Updated `docs/typing.md` with refinement preservation rules, interaction matrix, VC tie-in, and the "no escape hatch" decision.
+- Marked Phase 10.3 feature interactions, docs, and migration decisions complete in `docs/TODO.md`.
+
+## Next Focus
+- Phase 10.4: extend VC schema/SMT encoding for refinement obligations and add fixtures/examples in `docs/proofs`.
+- Phase 10.5: fill remaining refinement tests (positive/negative cases + VC snapshots).
+

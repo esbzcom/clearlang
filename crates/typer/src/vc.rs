@@ -130,6 +130,7 @@ struct RefinementObligation {
     alias: String,
     binder: String,
     substitution: Expr,
+    substitution_type: Type,
     predicate: Expr,
     attachment: RefinementAttachment,
 }
@@ -224,6 +225,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             .iter()
             .map(premise_from_obligation)
             .collect();
+        let base_refinement_prelude = refinement_prelude(&pre_obligations, None, &alias_map);
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {
             for (idx, ensure) in ensures.iter().enumerate() {
@@ -235,11 +237,18 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let post_smt = encoder.encode(&ensure.expr);
                 let substituted_smt = encoder.encode(&substituted);
                 let vc_body = format!("(=> {} {})", pre_smt, substituted_smt);
-                let vc_smt2 = encoder.wrap_vc(&vc_body);
                 let mut refinements = pre_premises.clone();
-                if let Some(obligation) = &ensure.return_obligation {
+                let refinement_prelude = if let Some(obligation) = &ensure.return_obligation {
                     refinements.push(premise_from_obligation(obligation));
-                }
+                    refinement_prelude(&pre_obligations, Some(obligation), &alias_map)
+                } else {
+                    base_refinement_prelude.clone()
+                };
+                let vc_smt2 = if refinement_prelude.is_empty() {
+                    encoder.wrap_vc(&vc_body)
+                } else {
+                    encoder.wrap_vc_with_extra(&vc_body, Some(&refinement_prelude))
+                };
 
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -280,7 +289,11 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let pre_smt = encoder.encode(&pre_expr);
                 let post_smt = encoder.encode(&guard_expr);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
-                let vc_smt2 = encoder.wrap_vc(&vc_body);
+                let vc_smt2 = if base_refinement_prelude.is_empty() {
+                    encoder.wrap_vc(&vc_body)
+                } else {
+                    encoder.wrap_vc_with_extra(&vc_body, Some(&base_refinement_prelude))
+                };
                 let refinements = pre_premises.clone();
 
                 out.push(VerificationCondition {
@@ -310,7 +323,11 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             let pre_smt = enc_inv.encode(&pre_expr);
             let inv_smt = enc_inv.encode(loop_ob.invariant);
             let vc_body = format!("(=> {} {})", pre_smt, inv_smt);
-            let vc_smt2 = enc_inv.wrap_vc(&vc_body);
+            let vc_smt2 = if base_refinement_prelude.is_empty() {
+                enc_inv.wrap_vc(&vc_body)
+            } else {
+                enc_inv.wrap_vc_with_extra(&vc_body, Some(&base_refinement_prelude))
+            };
             let refinements = pre_premises.clone();
 
             out.push(VerificationCondition {
@@ -337,7 +354,11 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let var_smt = enc_var.encode(var_expr);
                 let post_smt = format!("(>= {} 0)", var_smt);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
-                let vc_smt2 = enc_var.wrap_vc(&vc_body);
+                let vc_smt2 = if base_refinement_prelude.is_empty() {
+                    enc_var.wrap_vc(&vc_body)
+                } else {
+                    enc_var.wrap_vc_with_extra(&vc_body, Some(&base_refinement_prelude))
+                };
                 let refinements = pre_premises.clone();
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -364,7 +385,12 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let post_smt = format!("(< {} {})", next_sym, var_before);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
                 let extra = format!("(declare-const {} Int)", next_sym);
-                let vc_smt2 = enc_dec.wrap_vc_with_extra(&vc_body, Some(&extra));
+                let merged_extra = merge_extras(&[&base_refinement_prelude, &extra]);
+                let vc_smt2 = if merged_extra.is_empty() {
+                    enc_dec.wrap_vc(&vc_body)
+                } else {
+                    enc_dec.wrap_vc_with_extra(&vc_body, Some(&merged_extra))
+                };
                 let refinements = pre_premises.clone();
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -411,6 +437,69 @@ fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremi
     }
 }
 
+fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
+    match ty {
+        Type::Int => "Int",
+        Type::Bool => "Bool",
+        Type::String => "String",
+        Type::Option(_)
+        | Type::Result(_, _)
+        | Type::List(_)
+        | Type::Set(_)
+        | Type::Map(_, _)
+        | Type::Resource(_) => {
+            if let Type::Resource(name) = ty {
+                if let Some(alias) = aliases.get(name.as_str()) {
+                    return smt_sort_for_type(alias.base, aliases);
+                }
+            }
+            "Int"
+        }
+    }
+}
+
+fn refinement_prelude(
+    obligations: &[RefinementObligation],
+    extra: Option<&RefinementObligation>,
+    aliases: &HashMap<&str, AliasView<'_>>,
+) -> String {
+    let total = obligations.len() + extra.map(|_| 1).unwrap_or(0);
+    if total == 0 {
+        return String::new();
+    }
+    let mut lines = Vec::new();
+    let iter = obligations.iter().chain(extra);
+    for (idx, obligation) in iter.enumerate() {
+        let sort = smt_sort_for_type(&obligation.substitution_type, aliases);
+        let substitution = snapshot_expr(&obligation.substitution);
+        let predicate = snapshot_expr(&obligation.predicate);
+        lines.push(format!(
+            "; refinement ref:{} alias {} binder {}",
+            idx, obligation.alias, obligation.binder
+        ));
+        lines.push(format!(
+            "(define-fun cl.ref.premise.{}.sub () {} {})",
+            idx, sort, substitution.smt2
+        ));
+        lines.push(format!(
+            "(define-fun cl.ref.premise.{}.pred () Bool {})",
+            idx, predicate.smt2
+        ));
+    }
+    lines.join("\n")
+}
+
+fn merge_extras(parts: &[&str]) -> String {
+    let mut out = Vec::new();
+    for part in parts {
+        let trimmed = part.trim();
+        if !trimmed.is_empty() {
+            out.push(trimmed);
+        }
+    }
+    out.join("\n")
+}
+
 fn make_refinement_obligation(
     alias: &AliasView<'_>,
     replacement: &Expr,
@@ -422,6 +511,7 @@ fn make_refinement_obligation(
         alias: alias.name.to_string(),
         binder: binder.to_string(),
         substitution: replacement.clone(),
+        substitution_type: alias.base.clone(),
         predicate,
         attachment,
     })
@@ -441,6 +531,7 @@ fn top_level_alias<'a>(
 #[derive(Clone)]
 struct AliasView<'a> {
     name: &'a str,
+    base: &'a Type,
     binder: Option<&'a str>,
     predicate: &'a Expr,
     span: Span,
@@ -455,6 +546,7 @@ fn build_alias_map<'a>(program: &'a Program) -> HashMap<&'a str, AliasView<'a>> 
                 a.name.as_str(),
                 AliasView {
                     name: a.name.as_str(),
+                    base: &a.base,
                     binder: a.binder.as_deref(),
                     predicate: &a.predicate,
                     span: a.span,

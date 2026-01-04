@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 10.4 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 10.4 - refinement VC/SMT integration; next: Phase 10.5 - refinement tests.
+Current focus: Phase 10.5 - refinement tests; next: Phase 11 - proof-carrying Wasm verification.
 
 3.1 Typer Core
 
@@ -476,20 +476,20 @@ Codegen & Runtime
 - [x] Migration/escape hatch:
   - [x] Add a migration escape hatch flag if needed (documented) and keep off by default. (Decision: no escape hatch for refinements; enforcement stays on.)
 
-10.4 VC/SMT & Tooling
+10.4 VC/SMT & Tooling (Done)
 
-- [ ] VC shape:
-  - [x] Extend `--emit-vcs` JSON schema to carry refinement premises (binder names, substituted exprs, attachment points per param/return/flow).
-  - [x] Version the schema and document backward-compat gates for consumers.
-- [ ] SMT encoding:
-  - [ ] Encode refinement predicates alongside contract predicates with stable symbol naming; include binder substitution helpers.
-  - [ ] Add SMT helpers for arithmetic/boolean predicates and any needed Option/Result axioms when refinements appear under containers.
-- [ ] Tooling integration:
-  - [x] Update VC generator to populate the new schema fields and include refinement obligations in SMT emission order.
-  - [x] Add CLI flags/docs clarifying how refinement VCs surface in `--emit-vcs` outputs.
-- [ ] Fixtures/examples:
-  - [x] Add worked examples and JSON fixtures showing refinement obligations alone and combined with requires/ensures and loop invariants.
-  - [x] Document how to read the refinement parts in `docs/proofs` and link from `docs/typing.md`.
+  - [x] VC shape:
+    - [x] Extend `--emit-vcs` JSON schema to carry refinement premises (binder names, substituted exprs, attachment points per param/return/flow).
+    - [x] Version the schema and document backward-compat gates for consumers.
+  - [x] SMT encoding:
+    - [x] Encode refinement predicates alongside contract predicates with stable symbol naming; include binder substitution helpers.
+    - [x] Add SMT helpers for arithmetic/boolean predicates and any needed Option/Result axioms when refinements appear under containers.
+  - [x] Tooling integration:
+    - [x] Update VC generator to populate the new schema fields and include refinement obligations in SMT emission order.
+    - [x] Add CLI flags/docs clarifying how refinement VCs surface in `--emit-vcs` outputs.
+  - [x] Fixtures/examples:
+    - [x] Add worked examples and JSON fixtures showing refinement obligations alone and combined with requires/ensures and loop invariants.
+    - [x] Document how to read the refinement parts in `docs/proofs` and link from `docs/typing.md`.
 
 10.5 Tests
 

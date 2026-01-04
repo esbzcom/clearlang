@@ -77,6 +77,42 @@ function main(n: Int) -> Int {
 }
 
 #[test]
+fn loop_invariant_accepts_refined_binder() {
+    let src = r#"
+type Nat = Int where n >= 0;
+pure function main(n: Nat) -> Int {
+    while n > 0 invariant { n >= 0 } variant { n } {
+        n;
+    }
+    0
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    type_check_only(&ast).expect("type check succeeds");
+}
+
+#[test]
+fn loop_body_cannot_drop_refinement() {
+    let src = r#"
+type Nat = Int where n >= 0;
+pure function main(n: Nat) -> Int {
+    while n > 0 invariant { n >= 0 } variant { n } {
+        let n = n - 1;
+        n;
+    }
+    n
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(
+        message.contains("T705"),
+        "expected refinement loss error, got: {message}"
+    );
+}
+
+#[test]
 fn missing_variant_in_pure_loop_reports_t901() {
     let src = r#"
 function main(n: Int) -> Int {

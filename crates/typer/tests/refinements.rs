@@ -93,6 +93,20 @@ fn refined_value_cannot_flow_into_unrefined_container() {
 }
 
 #[test]
+fn refinement_drop_on_shadowing_is_rejected() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function step(n: Nat) -> Int {
+            let n = n - 1;
+            n
+        }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("refinement loss");
+    let s = format!("{err:#}");
+    assert!(s.contains("T705"), "missing code T705: {s}");
+}
+
+#[test]
 fn refined_alias_cannot_wrap_resource() {
     let src = r#"
         resource File { fd: Int; drop {} }

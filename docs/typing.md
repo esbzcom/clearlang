@@ -252,7 +252,7 @@ Refinement Types (Phase 10.2 Syntax & AST)
 
 Refinement Types (Phase 10.3 Typing & Propagation Plan)
 
-- Status: implemented for alias resolution, predicate checking, obligation propagation, and refinement preservation checks. Loop/totality preservation across invariants remains to be documented.
+- Status: implemented for alias resolution, predicate checking, obligation propagation, and refinement preservation checks, including loop invariant/variant usage.
 - Alias env: collect aliases at program load; reject name conflicts with resources/functions and ensure predicates type-check to `Bool` under a synthetic env binding the alias binder and type params. Base types must be well-formed; recursive/self-referential aliases are rejected. Refined aliases cannot wrap resource types (T706).
 - Type recognition: when a type name matches a refined alias, treat it as a nominal refined type and carry its predicate alongside the base type. Base-type checks for ops/conditions accept refined Int/Bool aliases. Inline refinements remain invalid.
 - Constraint propagation (typing): using a refined alias in a param/let binding/call/return attaches its predicate as an obligation scoped to that value. Substitution of the binder to the concrete value expression is deferred to VC generation. Typing enforces base-type compatibility and rejects refinement loss at bindings (T705); branch joins must agree on the same refined type or they fail with existing branch/match mismatch diagnostics (T301/T204).
@@ -260,7 +260,7 @@ Refinement Types (Phase 10.3 Typing & Propagation Plan)
   - `require`/`ensure`: refined params/returns add obligations equivalent to extra requires/ensures; they must remain `pure`.
   - Effects/resources: predicates must stay pure and cannot consume/borrow resources; refined aliases cannot wrap resources (T706) and impure predicates raise T707.
   - Option/Result/sugar: refinements commute with the outer container; pattern matches preserve refinements when projecting. Dropping refinements via constructors/coalesce/try is rejected by type mismatches (T204/T603/T605) and by refinement-loss checks at bindings (T705).
-  - Loops/invariants/variants: invariant expressions may reference refined binders; variant/decreasing checks must not erase refinements (enforcement pending).
+  - Loops/invariants/variants: invariant expressions may reference refined binders; loop bodies cannot rebind refined values to weaker types (T705), preserving refinements across iterations and variant checks.
 - Diagnostics: T705 refinement loss on bindings/calls/returns, T706 refined aliases over resources, T707 impure predicates. Existing branch/match mismatch codes surface when refinement drops across joins (T301/T204).
 - VC ordering: preconditions are conjoined in source `require` order, then implicit alias-param predicates, then in-body refinement obligations. Ensure VCs follow source `ensure` order with an implicit refined-return predicate appended.
 - VC tie-in (10.4): each refined alias use yields a VC premise that substitutes the binder with the concrete expression; violations surface as standard VC failures rather than runtime traps.

@@ -467,7 +467,7 @@ Codegen & Runtime
   - [x] Require obligations when re-wrapping refined values into containers (Option/Result/List/Map/Set) so predicates are not lost.
 - [ ] Feature interactions (spec + enforcement):
   - [x] `require`/`ensure`: define ordering with alias obligations and surface them in VC pre/post; ensure runtime traps and VC failures stay consistent.
-  - [ ] Loops/totality: allow invariants to mention refined binders; ensure loop bodies preserve refinements across iterations and variants do not erase them.
+  - [x] Loops/totality: allow invariants to mention refined binders; ensure loop bodies preserve refinements across iterations and variants do not erase them.
   - [x] Effects/resources: forbid impurity/consumption inside predicates; decide and implement whether refined aliases can wrap resources (likely reject with code) or must remain non-resource.
   - [x] Option/Result + sugar: ensure constructors/coalesce/try preserve refinements; add checks/VCs for re-wrapping and for dropped refinements in sugar desugars.
 - [ ] Diagnostics + docs:
@@ -496,7 +496,7 @@ Codegen & Runtime
 - [ ] Positive coverage:
   - [ ] Non-negative/bounded/equality refinements over Int; preservation through locals/calls/containers.
   - [ ] Option/Result interaction: match binders keep refinements; coalesce/try do not drop predicates.
-  - [ ] Loop/invariant usage of refined binders.
+  - [x] Loop/invariant usage of refined binders.
 - [ ] Negative coverage:
   - [ ] Unsat/contradictory predicates rejected at alias definition.
   - [ ] Refinement loss/weakening diagnostics (assignments, branch joins, rewrap without proof).

@@ -990,6 +990,14 @@ fn type_block_stmt<'a>(
                     aliases,
                     depth + 1,
                 )?;
+                if let Some(existing) = inner_env.get(name.as_str()) {
+                    if base_types_match(&existing.ty, &ty, aliases)?
+                        && refinement_loss(&ty, &existing.ty, aliases)
+                    {
+                        let sp = expr_span(expr.as_ref());
+                        return Err(TyperError::refinement_loss(existing.ty.clone(), ty, sp).into());
+                    }
+                }
                 if is_resource_type(&ty, aliases)? {
                     consume_var_expr(&mut inner_tracker, expr.as_ref())?;
                 }
@@ -1108,6 +1116,14 @@ fn type_block<'a>(
                     aliases,
                     depth + 1,
                 )?;
+                if let Some(existing) = inner_env.get(name.as_str()) {
+                    if base_types_match(&existing.ty, &ty, aliases)?
+                        && refinement_loss(&ty, &existing.ty, aliases)
+                    {
+                        let sp = expr_span(expr.as_ref());
+                        return Err(TyperError::refinement_loss(existing.ty.clone(), ty, sp).into());
+                    }
+                }
                 if is_resource_type(&ty, aliases)? {
                     consume_var_expr(&mut inner_tracker, expr.as_ref())?;
                 }

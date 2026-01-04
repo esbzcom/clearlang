@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{anyhow, Result};
 use clg_ast::Program;
+use clg_typer::RefinementAttachmentDetail;
 use clg_typer::VerificationCondition;
 use serde::{Deserialize, Serialize};
 use wasmparser::{Parser, Payload};
@@ -23,6 +24,50 @@ pub struct ProofExpr {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofRefinementExpr {
+    pub ast: String,
+    pub smt2: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofRefinementFlowDetail {
+    pub flow_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub callee: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arg_index: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arm: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", content = "detail")]
+pub enum ProofRefinementAttachment {
+    Param { param: String },
+    Return { result: String },
+    Flow(ProofRefinementFlowDetail),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofRefinementPremise {
+    pub id: String,
+    pub alias: String,
+    pub binder: String,
+    pub substitution: ProofRefinementExpr,
+    pub predicate: ProofRefinementExpr,
+    pub attachment: ProofRefinementAttachment,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofRefinements {
+    pub premises: Vec<ProofRefinementPremise>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProofProof {
     pub format: String,
     #[serde(with = "serde_bytes")]
@@ -38,6 +83,8 @@ pub struct ProofVc {
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof: Option<ProofProof>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refinements: Option<ProofRefinements>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -75,6 +122,51 @@ impl ProofPackage {
     ) -> ProofPackage {
         let mut grouped: BTreeMap<String, Vec<ProofVc>> = BTreeMap::new();
         for vc in vcs {
+            let refinements = if vc.refinements.is_empty() {
+                None
+            } else {
+                let premises = vc
+                    .refinements
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, premise)| ProofRefinementPremise {
+                        id: format!("ref:{}", idx),
+                        alias: premise.alias.clone(),
+                        binder: premise.binder.clone(),
+                        substitution: ProofRefinementExpr {
+                            ast: premise.substitution.ast.clone(),
+                            smt2: premise.substitution.smt2.clone(),
+                        },
+                        predicate: ProofRefinementExpr {
+                            ast: premise.predicate.ast.clone(),
+                            smt2: premise.predicate.smt2.clone(),
+                        },
+                        attachment: match &premise.attachment.detail {
+                            RefinementAttachmentDetail::Param { param } => {
+                                ProofRefinementAttachment::Param {
+                                    param: param.clone(),
+                                }
+                            }
+                            RefinementAttachmentDetail::Return { result } => {
+                                ProofRefinementAttachment::Return {
+                                    result: result.clone(),
+                                }
+                            }
+                            RefinementAttachmentDetail::Flow(detail) => {
+                                ProofRefinementAttachment::Flow(ProofRefinementFlowDetail {
+                                    flow_kind: detail.flow_kind.as_str().to_string(),
+                                    name: detail.name.clone(),
+                                    callee: detail.callee.clone(),
+                                    arg_index: detail.arg_index.map(|v| v as u32),
+                                    variant: detail.variant.clone(),
+                                    arm: detail.arm.map(|v| v as u32),
+                                })
+                            }
+                        },
+                    })
+                    .collect();
+                Some(ProofRefinements { premises })
+            };
             grouped
                 .entry(vc.function.clone())
                 .or_default()
@@ -85,6 +177,7 @@ impl ProofPackage {
                     vc_smt2: vc.vc_smt2.clone(),
                     status: vc.status.to_string(),
                     proof: None,
+                    refinements,
                 });
         }
 
@@ -150,7 +243,7 @@ impl ProofPackage {
 
     pub fn encode_section(&self, module_hash: &[u8; 32]) -> Result<Vec<u8>> {
         let section = ProofSection {
-            version: 1,
+            version: 2,
             generated_by: self.toolchain.clone(),
             module_hash: module_hash.to_vec(),
             proofs_hash: self.proofs_hash.to_vec(),

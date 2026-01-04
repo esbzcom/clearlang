@@ -96,6 +96,10 @@ Example
 ]
 ```
 
+Fixtures
+- `docs/proofs/fixtures/refinement-basic.vc.json` (refinement premises only).
+- `docs/proofs/fixtures/refinement-contracts-loops.vc.json` (refinements + require/ensure + loop VCs).
+
 CLI Contract
 - `clg build file.clear --emit-vcs out.json` writes exactly the array above.
 - No solver integration in this phase; `status` is always `generated`.

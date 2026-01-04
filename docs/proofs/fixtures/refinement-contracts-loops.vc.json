@@ -1,0 +1,88 @@
+﻿[
+  {
+    "version": 2,
+    "function": "countdown",
+    "vc_id": "vc:0",
+    "pre": { "ast": "n > 1 && n >= 0", "smt2": "(and (> n 1) (>= n 0))" },
+    "post": { "ast": "result >= 0", "smt2": "(>= result 0)" },
+    "vc": { "smt2": "(=> (and (> n 1) (>= n 0)) (>= result 0))" },
+    "status": "generated",
+    "refinements": {
+      "premises": [
+        {
+          "id": "ref:0",
+          "alias": "Nat",
+          "binder": "n",
+          "substitution": { "ast": "n", "smt2": "n" },
+          "predicate": { "ast": "n >= 0", "smt2": "(>= n 0)" },
+          "attachment": { "kind": "param", "detail": { "param": "n" } }
+        }
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "function": "countdown",
+    "vc_id": "loop:0:invariant",
+    "pre": { "ast": "n > 1 && n >= 0", "smt2": "(and (> n 1) (>= n 0))" },
+    "post": { "ast": "n >= 0", "smt2": "(>= n 0)" },
+    "vc": { "smt2": "(=> (and (> n 1) (>= n 0)) (>= n 0))" },
+    "status": "generated",
+    "refinements": {
+      "premises": [
+        {
+          "id": "ref:0",
+          "alias": "Nat",
+          "binder": "n",
+          "substitution": { "ast": "n", "smt2": "n" },
+          "predicate": { "ast": "n >= 0", "smt2": "(>= n 0)" },
+          "attachment": { "kind": "param", "detail": { "param": "n" } }
+        }
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "function": "countdown",
+    "vc_id": "loop:0:variant_nonneg",
+    "pre": { "ast": "n > 1 && n >= 0", "smt2": "(and (> n 1) (>= n 0))" },
+    "post": { "ast": "n >= 0", "smt2": "(>= n 0)" },
+    "vc": { "smt2": "(=> (and (> n 1) (>= n 0)) (>= n 0))" },
+    "status": "generated",
+    "refinements": {
+      "premises": [
+        {
+          "id": "ref:0",
+          "alias": "Nat",
+          "binder": "n",
+          "substitution": { "ast": "n", "smt2": "n" },
+          "predicate": { "ast": "n >= 0", "smt2": "(>= n 0)" },
+          "attachment": { "kind": "param", "detail": { "param": "n" } }
+        }
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "function": "countdown",
+    "vc_id": "loop:0:variant_decrease",
+    "pre": { "ast": "n > 1 && n >= 0", "smt2": "(and (> n 1) (>= n 0))" },
+    "post": { "ast": "n' < n", "smt2": "(< cl.loop.variant.next.0 n)" },
+    "vc": {
+      "smt2": "(declare-const cl.loop.variant.next.0 Int)\n(=> (and (> n 1) (>= n 0)) (< cl.loop.variant.next.0 n))"
+    },
+    "status": "generated",
+    "refinements": {
+      "premises": [
+        {
+          "id": "ref:0",
+          "alias": "Nat",
+          "binder": "n",
+          "substitution": { "ast": "n", "smt2": "n" },
+          "predicate": { "ast": "n >= 0", "smt2": "(>= n 0)" },
+          "attachment": { "kind": "param", "detail": { "param": "n" } }
+        }
+      ]
+    }
+  }
+]

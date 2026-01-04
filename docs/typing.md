@@ -309,7 +309,7 @@ type Bad = Int where bump(1) > 0;
 
 Refinement VC/SMT (Phase 10.4)
 
-- Refinement obligations will be surfaced explicitly in `--emit-vcs` outputs and documented alongside the VC schema in `docs/proofs/vc-schema.md`. The tracking plan and fixtures live in Phase 10.4 of `docs/TODO.md`.
+- Refinement obligations are surfaced explicitly in `--emit-vcs` outputs and documented alongside the VC schema in `docs/proofs/vc-schema.md`. Worked fixtures live in `docs/proofs/fixtures` (see `refinement-basic.vc.json` and `refinement-contracts-loops.vc.json`).
 
 
 

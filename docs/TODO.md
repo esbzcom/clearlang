@@ -479,17 +479,17 @@ Codegen & Runtime
 10.4 VC/SMT & Tooling
 
 - [ ] VC shape:
-  - [ ] Extend `--emit-vcs` JSON schema to carry refinement premises (binder names, substituted exprs, attachment points per param/return/flow).
-  - [ ] Version the schema and document backward-compat gates for consumers.
+  - [x] Extend `--emit-vcs` JSON schema to carry refinement premises (binder names, substituted exprs, attachment points per param/return/flow).
+  - [x] Version the schema and document backward-compat gates for consumers.
 - [ ] SMT encoding:
   - [ ] Encode refinement predicates alongside contract predicates with stable symbol naming; include binder substitution helpers.
   - [ ] Add SMT helpers for arithmetic/boolean predicates and any needed Option/Result axioms when refinements appear under containers.
 - [ ] Tooling integration:
-  - [ ] Update VC generator to populate the new schema fields and include refinement obligations in SMT emission order.
-  - [ ] Add CLI flags/docs clarifying how refinement VCs surface in `--emit-vcs` outputs.
+  - [x] Update VC generator to populate the new schema fields and include refinement obligations in SMT emission order.
+  - [x] Add CLI flags/docs clarifying how refinement VCs surface in `--emit-vcs` outputs.
 - [ ] Fixtures/examples:
-  - [ ] Add worked examples and JSON fixtures showing refinement obligations alone and combined with requires/ensures and loop invariants.
-  - [ ] Document how to read the refinement parts in `docs/proofs` and link from `docs/typing.md`.
+  - [x] Add worked examples and JSON fixtures showing refinement obligations alone and combined with requires/ensures and loop invariants.
+  - [x] Document how to read the refinement parts in `docs/proofs` and link from `docs/typing.md`.
 
 10.5 Tests
 

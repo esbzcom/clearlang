@@ -1,0 +1,31 @@
+﻿[
+  {
+    "version": 2,
+    "function": "inc",
+    "vc_id": "vc:0",
+    "pre": { "ast": "a >= 0", "smt2": "(>= a 0)" },
+    "post": { "ast": "result >= 0", "smt2": "(>= result 0)" },
+    "vc": { "smt2": "(=> (>= a 0) (>= (+ a 1) 0))" },
+    "status": "generated",
+    "refinements": {
+      "premises": [
+        {
+          "id": "ref:0",
+          "alias": "Nat",
+          "binder": "n",
+          "substitution": { "ast": "a", "smt2": "a" },
+          "predicate": { "ast": "a >= 0", "smt2": "(>= a 0)" },
+          "attachment": { "kind": "param", "detail": { "param": "a" } }
+        },
+        {
+          "id": "ref:1",
+          "alias": "Nat",
+          "binder": "n",
+          "substitution": { "ast": "result", "smt2": "result" },
+          "predicate": { "ast": "result >= 0", "smt2": "(>= result 0)" },
+          "attachment": { "kind": "return", "detail": { "result": "result" } }
+        }
+      ]
+    }
+  }
+]

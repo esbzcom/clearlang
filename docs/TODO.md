@@ -507,22 +507,26 @@ Codegen & Runtime
 
 ## Phase 11 - Proof-Carrying Wasm Verification
 
-- [ ] Verifier CLI (`clgverify`):
+- 11.1 Review/optimize refinement UX:
+  - [ ] [debt] Document refinement diagnostics (T701-T708) in `docs/diagnostics.md` and update `docs/typing.md` with the exact limits of shallow unsat checks.
+  - [ ] [debt] Make VC fixture snippets runnable (include `main` or note `--emit-vcs` usage constraints) in `docs/proofs/fixtures/README.md`.
+  - [ ] [debt] Extend shallow unsat detection with simple linear normalization for `n + k`/`n - k` (no SMT integration).
+- 11.2 Verifier CLI (`clgverify`):
   - [ ] Parse Wasm modules and extract `clearlang.proof` + signature sections.
   - [ ] Verify module/proof hashes match the signed payload; validate signatures against provided pubkey.
   - [ ] Return structured diagnostics (codes) on mismatch, missing sections, or signature failures.
-- [ ] Integration workflow:
+- 11.3 Integration workflow:
   - [ ] Add README/docs for signing/verifying flows; sample commands and expected outputs.
   - [ ] Add regression tests: valid proof/signature passes; tampered proof/module fails with clear code; missing proof section fails.
 
 ## Phase 12 - Safety & Tooling Hardening
 
-- [ ] CI & validation:
-  - [ ] Always run `wasm-tools validate` on emitted modules in CI.
-  - [ ] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
-- [ ] Runtime bounds:
-  - [ ] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
-  - [ ] Enable fuel/epoch limits in integration tests to enforce bounded execution.
+- [ ] [debt] CI & validation:
+  - [ ] [debt] Always run `wasm-tools validate` on emitted modules in CI.
+  - [ ] [debt] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
+- [ ] [debt] Runtime bounds:
+  - [ ] [debt] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
+  - [ ] [debt] Enable fuel/epoch limits in integration tests to enforce bounded execution.
 - [ ] Contracts mode flag (design):
   - [ ] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.
 
@@ -530,11 +534,11 @@ Codegen & Runtime
 
 ## Phase 13 - Developer Experience
 
-- [ ] Observability: simple tracing/logging for pipeline stages in CLI with verbosity levels.
-- [ ] Tooling ergonomics: add `cargo xtask` or Makefile targets for build/validate/run/emit-vcs.
-- [ ] Error hygiene: unify error types/messages across crates; document error code table.
-- [ ] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
-- [ ] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
+- [ ] [debt] Observability: simple tracing/logging for pipeline stages in CLI with verbosity levels.
+- [ ] [debt] Tooling ergonomics: add `cargo xtask` or Makefile targets for build/validate/run/emit-vcs.
+- [ ] [debt] Error hygiene: unify error types/messages across crates; document error code table.
+- [ ] [debt] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
+- [ ] [debt] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
 
 ## Phase 14 - Nice-to-Have Enhancements
 

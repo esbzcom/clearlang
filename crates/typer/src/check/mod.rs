@@ -95,6 +95,20 @@ fn contains_resource(ty: &Type) -> bool {
     }
 }
 
+fn contains_named_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
+    match ty {
+        Type::Resource(name) => resource_names.contains(name.as_str()),
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+            contains_named_resource(inner, resource_names)
+        }
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            contains_named_resource(ok, resource_names)
+                || contains_named_resource(err, resource_names)
+        }
+        _ => false,
+    }
+}
+
 fn validate_no_resource_collections(program: &Program) -> Result<()> {
     for res in &program.resources {
         for field in &res.fields {
@@ -246,8 +260,8 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
             .insert(
                 f.name.as_str(),
                 FnSig {
-                    params: resolve_params(&f.params, &alias_map)?,
-                    ret: resolve_aliases(&f.ret, &alias_map, &mut Vec::new())?,
+                    params: f.params.clone(),
+                    ret: f.ret.clone(),
                     effect: level_from_effect(f.effect),
                 },
             )
@@ -345,8 +359,8 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
             .insert(
                 f.name.as_str(),
                 FnSig {
-                    params: resolve_params(&f.params, &alias_map)?,
-                    ret: resolve_aliases(&f.ret, &alias_map, &mut Vec::new())?,
+                    params: f.params.clone(),
+                    ret: f.ret.clone(),
                     effect: level_from_effect(f.effect),
                 },
             )
@@ -392,8 +406,8 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
             .insert(
                 f.name.as_str(),
                 FnSig {
-                    params: resolve_params(&f.params, &alias_map)?,
-                    ret: resolve_aliases(&f.ret, &alias_map, &mut Vec::new())?,
+                    params: f.params.clone(),
+                    ret: f.ret.clone(),
                     effect: level_from_effect(f.effect),
                 },
             )
@@ -452,7 +466,7 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap) -> Result<()> {
     let mut env: HashMap<&str, LocalBinding> = HashMap::new();
-    let ret_ty = resolve_aliases(&f.ret, aliases, &mut Vec::new())?;
+    let ret_ty = f.ret.clone();
     env.insert(
         RETURN_KEY,
         LocalBinding {
@@ -462,12 +476,12 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
     );
     let mut tracker = ResourceTracker::new();
     for p in &f.params {
-        let resolved_ty = resolve_aliases(&p.ty, aliases, &mut Vec::new())?;
+        let resolved_ty = base_type(&p.ty, aliases)?;
         if env
             .insert(
                 p.name.as_str(),
                 LocalBinding {
-                    ty: resolved_ty.clone(),
+                    ty: p.ty.clone(),
                     kind: p.kind,
                 },
             )
@@ -485,8 +499,8 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
 
     for req in &f.requires {
         let mut req_tracker = tracker.clone();
-        let ty = type_of(&req.expr, &env, &mut req_tracker, fns, 0)?;
-        if ty != Type::Bool {
+        let ty = type_of(&req.expr, &env, &mut req_tracker, fns, aliases, 0)?;
+        if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("require", ty, req.span).into());
         }
         max_effect(&req.expr, fns, EffectLevel::Pure)?;
@@ -506,19 +520,24 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
     }
     for ens in &f.ensures {
         let mut ensure_tracker = tracker.clone();
-        let ty = type_of(&ens.expr, &ensure_env, &mut ensure_tracker, fns, 0)?;
-        if ty != Type::Bool {
+        let ty = type_of(&ens.expr, &ensure_env, &mut ensure_tracker, fns, aliases, 0)?;
+        if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
         }
         max_effect(&ens.expr, fns, EffectLevel::Pure)?;
     }
 
-    let body_ty = type_of(&f.body, &env, &mut tracker, fns, 0)?;
-    if body_ty != ret_ty {
+    let body_ty = type_of(&f.body, &env, &mut tracker, fns, aliases, 0)?;
+    if !binding_compatible(&ret_ty, &body_ty, aliases)? {
         let sp = expr_span(&f.body);
+        if base_types_match(&ret_ty, &body_ty, aliases)?
+            && refinement_loss(&ret_ty, &body_ty, aliases)
+        {
+            return Err(TyperError::refinement_loss(ret_ty.clone(), body_ty, sp).into());
+        }
         return Err(TyperError::return_type_mismatch(ret_ty.clone(), body_ty, sp).into());
     }
-    if matches!(ret_ty, Type::Resource(_)) {
+    if is_resource_type(&ret_ty, aliases)? {
         consume_var_expr(&mut tracker, &f.body)?;
     }
     tracker.ensure_consumed()?;
@@ -580,6 +599,13 @@ fn build_alias_map(program: &Program) -> Result<AliasMap> {
         }
         let mut visited = Vec::new();
         let resolved_base = resolve_aliases(&alias.base, &aliases, &mut visited)?;
+        if contains_named_resource(&resolved_base, &resource_names) {
+            return Err(TyperError::refined_resource_not_supported(
+                alias.name.as_str(),
+                alias.span,
+            )
+            .into());
+        }
         ensure_no_resource_collections(&resolved_base, Some(alias.span))?;
 
         aliases.insert(
@@ -631,18 +657,49 @@ fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) ->
     }
 }
 
-fn resolve_params(params: &[Param], aliases: &AliasMap) -> Result<Vec<Param>> {
-    let mut resolved = Vec::with_capacity(params.len());
-    for p in params {
-        let mut visiting = Vec::new();
-        let ty = resolve_aliases(&p.ty, aliases, &mut visiting)?;
-        resolved.push(Param {
-            kind: p.kind,
-            name: p.name.clone(),
-            ty,
-        });
+fn alias_name<'a>(ty: &'a Type, aliases: &'a AliasMap) -> Option<&'a str> {
+    match ty {
+        Type::Resource(name) if aliases.contains_key(name.as_str()) => Some(name.as_str()),
+        _ => None,
     }
-    Ok(resolved)
+}
+
+fn base_type(ty: &Type, aliases: &AliasMap) -> Result<Type> {
+    let mut visiting = Vec::new();
+    resolve_aliases(ty, aliases, &mut visiting)
+}
+
+fn base_types_match(expected: &Type, actual: &Type, aliases: &AliasMap) -> Result<bool> {
+    Ok(base_type(expected, aliases)? == base_type(actual, aliases)?)
+}
+
+fn is_resource_type(ty: &Type, aliases: &AliasMap) -> Result<bool> {
+    Ok(matches!(base_type(ty, aliases)?, Type::Resource(_)))
+}
+
+fn refinement_loss(expected: &Type, actual: &Type, aliases: &AliasMap) -> bool {
+    match (expected, actual) {
+        (Type::Option(exp), Type::Option(act)) => refinement_loss(exp, act, aliases),
+        (Type::Result(exp_ok, exp_err), Type::Result(act_ok, act_err)) => {
+            refinement_loss(exp_ok, act_ok, aliases) || refinement_loss(exp_err, act_err, aliases)
+        }
+        (Type::List(exp), Type::List(act)) => refinement_loss(exp, act, aliases),
+        (Type::Set(exp), Type::Set(act)) => refinement_loss(exp, act, aliases),
+        (Type::Map(exp_k, exp_v), Type::Map(act_k, act_v)) => {
+            refinement_loss(exp_k, act_k, aliases) || refinement_loss(exp_v, act_v, aliases)
+        }
+        _ => alias_name(actual, aliases).is_some() && alias_name(expected, aliases).is_none(),
+    }
+}
+
+fn binding_compatible(expected: &Type, actual: &Type, aliases: &AliasMap) -> Result<bool> {
+    if expected == actual {
+        return Ok(true);
+    }
+    if alias_name(expected, aliases).is_some() && alias_name(actual, aliases).is_none() {
+        return base_types_match(expected, actual, aliases);
+    }
+    Ok(false)
 }
 
 fn validate_alias_predicates(aliases: &AliasMap, fns: &HashMap<&str, FnSig>) -> Result<()> {
@@ -658,11 +715,18 @@ fn validate_alias_predicates(aliases: &AliasMap, fns: &HashMap<&str, FnSig>) -> 
             );
         }
         let mut tracker = ResourceTracker::new();
-        let pred_ty = type_of(&def.predicate, &env, &mut tracker, fns, 0)?;
-        if pred_ty != Type::Bool {
+        let pred_ty = type_of(&def.predicate, &env, &mut tracker, fns, aliases, 0)?;
+        if base_type(&pred_ty, aliases)? != Type::Bool {
             return Err(TyperError::alias_predicate_not_bool(name.as_str(), def.span).into());
         }
-        max_effect(&def.predicate, fns, EffectLevel::Pure)?;
+        if let Err(err) = max_effect(&def.predicate, fns, EffectLevel::Pure) {
+            if let Some(typer) = err.downcast_ref::<TyperError>() {
+                if typer.code == "T401" {
+                    return Err(TyperError::alias_predicate_impure(name.as_str(), def.span).into());
+                }
+            }
+            return Err(err);
+        }
     }
     Ok(())
 }

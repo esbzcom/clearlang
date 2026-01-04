@@ -461,18 +461,18 @@ Codegen & Runtime
 - [x] Alias collection/resolution: resolve alias bases, reject cycles/duplicates/resource conflicts, type-check predicates to Bool under binder env, and enforce predicate purity.
 - [x] Param/return/call-site obligations: emit alias predicates for params/returns and call arguments into VC pre/post sets with binder substitution.
 - [x] In-body flow preservation: carry predicates through let-bindings, alias-typed locals, call/constructor flows, and Option/Result destructuring (match/if-let/??/?), generating obligations for projected binders.
-- [ ] Refinement safety enforcement (implementation):
-  - [ ] Detect weakening when binding refined values to non-refined types (let/param/return) and emit a stable diagnostic code.
-  - [ ] Track branch joins: reject when one branch drops a refinement that another preserves.
-  - [ ] Require obligations when re-wrapping refined values into containers (Option/Result/List/Map/Set) so predicates are not lost.
+- [x] Refinement safety enforcement (implementation):
+  - [x] Detect weakening when binding refined values to non-refined types (let/param/return) and emit a stable diagnostic code.
+  - [x] Track branch joins: reject when one branch drops a refinement that another preserves.
+  - [x] Require obligations when re-wrapping refined values into containers (Option/Result/List/Map/Set) so predicates are not lost.
   - [ ] Add a migration escape hatch flag if needed (documented) and keep off by default.
 - [ ] Feature interactions (spec + enforcement):
   - [ ] `require`/`ensure`: define ordering with alias obligations and surface them in VC pre/post; ensure runtime traps and VC failures stay consistent.
-  - [ ] Effects/resources: forbid impurity/consumption inside predicates; decide and implement whether refined aliases can wrap resources (likely reject with code) or must remain non-resource.
-  - [ ] Option/Result + sugar: ensure constructors/coalesce/try preserve refinements; add checks/VCs for re-wrapping and for dropped refinements in sugar desugars.
+  - [x] Effects/resources: forbid impurity/consumption inside predicates; decide and implement whether refined aliases can wrap resources (likely reject with code) or must remain non-resource.
+  - [x] Option/Result + sugar: ensure constructors/coalesce/try preserve refinements; add checks/VCs for re-wrapping and for dropped refinements in sugar desugars.
   - [ ] Loops/totality: allow invariants to mention refined binders; ensure loop bodies preserve refinements across iterations and variants do not erase them.
 - [ ] Diagnostics + docs:
-  - [ ] Add dedicated error codes/messages for refinement loss, unsupported refined-resource combos, and impurity-in-predicate violations.
+  - [x] Add dedicated error codes/messages for refinement loss, unsupported refined-resource combos, and impurity-in-predicate violations.
   - [ ] Document the refinement preservation rules, interaction matrix, and escape hatches in `docs/typing.md` (and link from 10.4 VC section).
 
 10.4 VC/SMT & Tooling

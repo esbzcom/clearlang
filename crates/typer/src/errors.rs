@@ -234,6 +234,45 @@ impl TyperError {
         )
     }
 
+    pub fn refinement_loss(expected: Type, found: Type, span: Span) -> Self {
+        Self::new(
+            "T705",
+            format!(
+                "at {}..{}: refinement would be lost: expected `{}`, found `{}`",
+                span.start,
+                span.end,
+                render_type(&expected),
+                render_type(&found)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn refined_resource_not_supported(name: &str, span: Span) -> Self {
+        Self::new(
+            "T706",
+            format!(
+                "at {}..{}: refined alias `{}` cannot wrap resource types yet",
+                span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn alias_predicate_impure(name: &str, span: Span) -> Self {
+        Self::new(
+            "T707",
+            format!(
+                "at {}..{}: refinement predicate for `{}` must be pure",
+                span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn effect_required(callee: &str, effect: &str, span: Span) -> Self {
         Self::new(
             "T401",

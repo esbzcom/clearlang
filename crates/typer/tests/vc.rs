@@ -195,7 +195,7 @@ fn propagates_refinement_into_option_match_binders() {
             ensure { result >= 0 }
         {
             match opt {
-                Some(v) => v,
+                Some(v) => v + 0,
                 None => 0
             }
         }

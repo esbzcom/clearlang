@@ -1,6 +1,6 @@
 # ClearLang TODO
 
-A focused, actionable checklist to move from Phase 10.4 and beyond.
+A focused, actionable checklist to move from Phase 11 and beyond.
 
 ## Phase 0 -" Workspace & Toolchain (Done)
 
@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 10.4 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 10.5 - refinement tests; next: Phase 11 - proof-carrying Wasm verification.
+Current focus: Phase 11 - proof-carrying Wasm verification.
 
 3.1 Typer Core
 
@@ -511,7 +511,7 @@ Codegen & Runtime
   - [ ] [debt] Document refinement diagnostics (T701-T708) in `docs/diagnostics.md` and update `docs/typing.md` with the exact limits of shallow unsat checks.
   - [ ] [debt] Make VC fixture snippets runnable (include `main` or note `--emit-vcs` usage constraints) in `docs/proofs/fixtures/README.md`.
   - [ ] [debt] Extend shallow unsat detection with simple linear normalization for `n + k`/`n - k` (no SMT integration).
-- 11.2 Verifier CLI (`clgverify`):
+- 11.2 Verifier CLI (`clg verify`):
   - [ ] Parse Wasm modules and extract `clearlang.proof` + signature sections.
   - [ ] Verify module/proof hashes match the signed payload; validate signatures against provided pubkey.
   - [ ] Return structured diagnostics (codes) on mismatch, missing sections, or signature failures.

@@ -117,6 +117,23 @@ fn tamper_proofs_hash(module: &Path) {
     fs::write(module, module_bytes).expect("write tampered module");
 }
 
+fn tamper_signature(sig_path: &Path) {
+    let sig_bytes = fs::read(sig_path).expect("read signature");
+    let mut sig_value: serde_json::Value =
+        serde_json::from_slice(&sig_bytes).expect("decode signature json");
+    let sig = sig_value
+        .get_mut("signature")
+        .and_then(|value| value.as_str())
+        .expect("signature field");
+    let mut bytes = sig.as_bytes().to_vec();
+    if let Some(first) = bytes.first_mut() {
+        *first = if *first == b'0' { b'1' } else { b'0' };
+    }
+    let updated = String::from_utf8(bytes).expect("valid signature string");
+    sig_value["signature"] = serde_json::Value::String(updated);
+    fs::write(sig_path, serde_json::to_vec_pretty(&sig_value).unwrap()).expect("write signature");
+}
+
 fn strip_proof_section(module: &Path) {
     fn read_leb_u32(bytes: &[u8]) -> Option<(u32, usize)> {
         let mut value: u32 = 0;
@@ -183,16 +200,16 @@ fn verify_fails_when_proofs_hash_tampered() {
 
     let mut verify = Command::cargo_bin("clg").expect("bin");
     verify
-        .args(["verify"])
+        .args(["--json-errors", "verify"])
         .arg("--module")
         .arg(&wasm_path)
         .arg("--sig")
         .arg(&sig_path)
         .arg("--pubkey")
         .arg(&pub_path);
-    verify.assert().failure().stderr(
-        predicate::str::contains("module hash mismatch")
-            .or(predicate::str::contains("proofs hash mismatch")),
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V003\"")
+            .and(predicate::str::contains("hash mismatch")),
     );
 }
 
@@ -212,7 +229,28 @@ fn verify_fails_when_proof_section_missing() {
         .arg("--pubkey")
         .arg(&pub_path);
     verify.assert().failure().stdout(
-        predicate::str::contains("\"code\": \"V001\"")
+        predicate::str::contains("\"code\": \"V002\"")
             .and(predicate::str::contains("proof section not found")),
+    );
+}
+
+#[test]
+fn verify_fails_when_signature_is_invalid() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    tamper_signature(&sig_path);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V001\"")
+            .and(predicate::str::contains("signature verification failed")),
     );
 }

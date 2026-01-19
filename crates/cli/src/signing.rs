@@ -62,6 +62,50 @@ pub struct SignatureFile {
     pub payload: serde_json::Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifyErrorCode {
+    SignatureFailure,
+    ProofMissing,
+    HashMismatch,
+}
+
+impl VerifyErrorCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            VerifyErrorCode::SignatureFailure => "V001",
+            VerifyErrorCode::ProofMissing => "V002",
+            VerifyErrorCode::HashMismatch => "V003",
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct VerifyError {
+    code: VerifyErrorCode,
+    message: String,
+}
+
+impl VerifyError {
+    pub fn new(code: VerifyErrorCode, message: impl Into<String>) -> Self {
+        VerifyError {
+            code,
+            message: message.into(),
+        }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code.as_str()
+    }
+}
+
+impl std::fmt::Display for VerifyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for VerifyError {}
+
 pub fn sign_bundle(
     package: &ProofPackage,
     module_hash_hex: &str,
@@ -104,93 +148,201 @@ pub fn sign_bundle(
     Ok(())
 }
 
-pub fn verify_signature(module_path: &Path, sig_path: &Path, pubkey_path: &Path) -> Result<()> {
-    let module_bytes =
-        fs::read(module_path).with_context(|| format!("reading {}", module_path.display()))?;
-    let signature_bytes =
-        fs::read(sig_path).with_context(|| format!("reading {}", sig_path.display()))?;
-    let sig_file: SignatureFile =
-        serde_json::from_slice(&signature_bytes).context("parsing signature file")?;
+pub fn verify_signature(
+    module_path: &Path,
+    sig_path: &Path,
+    pubkey_path: &Path,
+) -> std::result::Result<(), VerifyError> {
+    let module_bytes = fs::read(module_path).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("reading {}: {err}", module_path.display()),
+        )
+    })?;
+    let signature_bytes = fs::read(sig_path).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("reading {}: {err}", sig_path.display()),
+        )
+    })?;
+    let sig_file: SignatureFile = serde_json::from_slice(&signature_bytes).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("parsing signature file: {err}"),
+        )
+    })?;
     if sig_file.signature_format.to_lowercase() != "ed25519" {
-        return Err(anyhow!(
-            "unsupported signature format: {}",
-            sig_file.signature_format
+        return Err(VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!(
+                "unsupported signature format: {}",
+                sig_file.signature_format
+            ),
         ));
     }
-    let pub_bytes =
-        fs::read(pubkey_path).with_context(|| format!("reading {}", pubkey_path.display()))?;
-    let verify_file: VerifyKeyFile =
-        serde_json::from_slice(&pub_bytes).context("parsing public key file")?;
+    let pub_bytes = fs::read(pubkey_path).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("reading {}: {err}", pubkey_path.display()),
+        )
+    })?;
+    let verify_file: VerifyKeyFile = serde_json::from_slice(&pub_bytes).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("parsing public key file: {err}"),
+        )
+    })?;
     if verify_file.scheme.to_lowercase() != "ed25519" {
-        return Err(anyhow!(
-            "unsupported public key scheme: {}",
-            verify_file.scheme
+        return Err(VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("unsupported public key scheme: {}", verify_file.scheme),
         ));
     }
-    let verifying = VerifyingKey::from_bytes(
-        &hex::decode(&verify_file.public_key)
-            .context("decoding public key hex")?
-            .try_into()
-            .map_err(|_| anyhow!("ed25519 public key must be 32 bytes"))?,
-    )?;
+    let pub_key_bytes = hex::decode(&verify_file.public_key).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("decoding public key hex: {err}"),
+        )
+    })?;
+    let verifying = VerifyingKey::from_bytes(&pub_key_bytes.try_into().map_err(|_| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            "ed25519 public key must be 32 bytes",
+        )
+    })?)
+    .map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("verifying key invalid: {err}"),
+        )
+    })?;
 
     let payload_canonical = canonical_json_string(&sig_file.payload);
-    let sig_raw = hex::decode(&sig_file.signature).context("decoding signature hex")?;
-    let signature = Signature::try_from(sig_raw.as_slice())
-        .map_err(|_| anyhow!("ed25519 signature must be 64 bytes"))?;
+    let sig_raw = hex::decode(&sig_file.signature).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("decoding signature hex: {err}"),
+        )
+    })?;
+    let signature = Signature::try_from(sig_raw.as_slice()).map_err(|_| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            "ed25519 signature must be 64 bytes",
+        )
+    })?;
     verifying
         .verify_strict(payload_canonical.as_bytes(), &signature)
-        .map_err(|_| anyhow!("signature verification failed"))?;
+        .map_err(|_| {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                "signature verification failed",
+            )
+        })?;
 
-    let zeroed_module = module_bytes_with_zeroed_hash(&module_bytes)?;
+    let zeroed_module = module_bytes_with_zeroed_hash(&module_bytes).map_err(|err| {
+        let message = err.to_string();
+        if message.contains("clearlang.proof section not found") {
+            VerifyError::new(VerifyErrorCode::ProofMissing, message)
+        } else {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                format!("canonicalizing module hash: {message}"),
+            )
+        }
+    })?;
     let computed_module_hash = sha256_hex(&zeroed_module);
 
     let payload_module_hash = sig_file
         .payload
         .get("module_hash")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("payload missing module_hash"))?;
+        .ok_or_else(|| {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                "payload missing module_hash",
+            )
+        })?;
 
     if sig_file.scope.includes_module() && payload_module_hash != computed_module_hash {
-        return Err(anyhow!("payload module hash mismatch"));
+        return Err(VerifyError::new(
+            VerifyErrorCode::HashMismatch,
+            "payload module hash mismatch",
+        ));
     }
 
     let proof_bytes = find_proof_section(&module_bytes)?;
-    let proof_section = decode_proof_section(&proof_bytes)?;
+    let proof_section = decode_proof_section(&proof_bytes).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!("decoding proof section: {err}"),
+        )
+    })?;
     if proof_section.module_hash.len() != 32 {
-        return Err(anyhow!("proof section module hash must be 32 bytes"));
+        return Err(VerifyError::new(
+            VerifyErrorCode::HashMismatch,
+            "proof section module hash must be 32 bytes",
+        ));
     }
     let section_module_hash = hex::encode(&proof_section.module_hash);
     if section_module_hash != computed_module_hash {
-        return Err(anyhow!("proof section module hash mismatch"));
+        return Err(VerifyError::new(
+            VerifyErrorCode::HashMismatch,
+            "proof section module hash mismatch",
+        ));
     }
 
     let section_proofs_hash = hex::encode(&proof_section.proofs_hash);
-    let recomputed_proofs_hash = hex::encode(proofs_hash_from_section(&proof_section)?);
+    let recomputed_proofs_hash =
+        hex::encode(proofs_hash_from_section(&proof_section).map_err(|err| {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                format!("computing proofs hash: {err}"),
+            )
+        })?);
     if section_proofs_hash != recomputed_proofs_hash {
-        return Err(anyhow!("proof section proofs hash mismatch"));
+        return Err(VerifyError::new(
+            VerifyErrorCode::HashMismatch,
+            "proof section proofs hash mismatch",
+        ));
     }
 
     let payload_proofs_hash = sig_file
         .payload
         .get("proofs_hash")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow!("payload missing proofs_hash"))?;
+        .ok_or_else(|| {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                "payload missing proofs_hash",
+            )
+        })?;
 
     if sig_file.scope.includes_proofs() && payload_proofs_hash != section_proofs_hash {
-        return Err(anyhow!("payload proofs hash mismatch"));
+        return Err(VerifyError::new(
+            VerifyErrorCode::HashMismatch,
+            "payload proofs hash mismatch",
+        ));
     }
 
     Ok(())
 }
 
-fn find_proof_section(bytes: &[u8]) -> Result<Vec<u8>> {
+fn find_proof_section(bytes: &[u8]) -> std::result::Result<Vec<u8>, VerifyError> {
     for payload in Parser::new(0).parse_all(bytes) {
-        if let Payload::CustomSection(section) = payload? {
+        let payload = payload.map_err(|err| {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                format!("parsing module: {err}"),
+            )
+        })?;
+        if let Payload::CustomSection(section) = payload {
             if section.name() == "clearlang.proof" {
                 return Ok(section.data().to_vec());
             }
         }
     }
-    Err(anyhow!("clearlang.proof section not found"))
+    Err(VerifyError::new(
+        VerifyErrorCode::ProofMissing,
+        "clearlang.proof section not found",
+    ))
 }

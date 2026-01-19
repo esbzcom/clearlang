@@ -514,8 +514,8 @@ Codegen & Runtime
 - 11.2 Verifier CLI (`clg verify`):
   - [x] Parse Wasm modules and extract the `clearlang.proof` section; read signature file payloads.
   - [x] Verify module/proof hashes match the signed payload; validate signatures against provided pubkey.
-  - [x] Return structured diagnostics (codes) on mismatch, missing sections, or signature failures (currently V001).
-  - [ ] [debt] Split verify failures into distinct codes (missing proof, hash mismatch, signature failure).
+  - [x] Return structured diagnostics (codes) on mismatch, missing sections, or signature failures.
+  - [x] Split verify failures into distinct codes (missing proof, hash mismatch, signature failure).
 - 11.3 Integration workflow:
   - [x] Add README/docs for signing/verifying flows; sample commands and expected outputs.
   - [x] Add regression tests: valid proof/signature passes; tampered proof/module fails with clear code; missing proof section fails.

@@ -10,11 +10,18 @@ pub fn run(module: PathBuf, sig: PathBuf, pubkey: PathBuf, json_errors: bool) ->
         Ok(()) => Ok(()),
         Err(err) => {
             if json_errors {
-                let json =
-                    make_single_json_error("V001", "verify", err.to_string(), &module, 0, 0, None);
+                let json = make_single_json_error(
+                    err.code(),
+                    "verify",
+                    err.to_string(),
+                    &module,
+                    0,
+                    0,
+                    None,
+                );
                 Err(CommandError::json(json).into())
             } else {
-                Err(err.context("verification failed"))
+                Err(anyhow::anyhow!(err).context("verification failed"))
             }
         }
     }

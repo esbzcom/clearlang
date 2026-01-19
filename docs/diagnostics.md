@@ -68,6 +68,11 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
   - `C001`: invalid main signature (only `main() -> Int` supported in this phase)
   - `C002`: missing `main` function
 
+- Verify (`Vxxx`):
+  - `V001`: signature failure (invalid signature or key, malformed signature file)
+  - `V002`: `clearlang.proof` section missing from module
+  - `V003`: module/proofs hash mismatch
+
 - Runtime (`Rxxx`):
   - `R000`: contract guard failed at runtime; detail differentiates `require` vs `ensure`.
   - `R001`: string allocator ran out of memory while materializing a new `String`.

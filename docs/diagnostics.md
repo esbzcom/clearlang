@@ -55,6 +55,14 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
   - `T207`: expected collection kind (wrong argument type to a collection API)
   - `T208`: element/key/value type mismatch for collection operations
   - `T301`: branch type mismatch in expression-form conditionals (Phase 4.10)
+  - `T701`: duplicate type alias
+  - `T702`: type alias conflicts with a resource name
+  - `T703`: cyclic refinement alias detected
+  - `T704`: refinement predicate must be Bool
+  - `T705`: refinement loss on binding/call/return
+  - `T706`: refined alias cannot wrap resource types
+  - `T707`: refinement predicate must be pure
+  - `T708`: refinement predicate is unsatisfiable (shallow check)
   
 - Build (`Cxxx`):
   - `C001`: invalid main signature (only `main() -> Int` supported in this phase)

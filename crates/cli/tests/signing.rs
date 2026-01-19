@@ -117,6 +117,47 @@ fn tamper_proofs_hash(module: &Path) {
     fs::write(module, module_bytes).expect("write tampered module");
 }
 
+fn strip_proof_section(module: &Path) {
+    fn read_leb_u32(bytes: &[u8]) -> Option<(u32, usize)> {
+        let mut value: u32 = 0;
+        let mut shift = 0;
+        for (idx, byte) in bytes.iter().enumerate() {
+            let low = (byte & 0x7f) as u32;
+            value |= low << shift;
+            if byte & 0x80 == 0 {
+                return Some((value, idx + 1));
+            }
+            shift += 7;
+            if shift >= 32 {
+                return None;
+            }
+        }
+        None
+    }
+
+    let mut module_bytes = fs::read(module).expect("read wasm");
+    let mut target: Option<std::ops::Range<usize>> = None;
+    for payload in Parser::new(0).parse_all(&module_bytes) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                target = Some(section.range());
+                break;
+            }
+        }
+    }
+    let range = target.expect("proof section not found");
+    let payload = &module_bytes[range.start..range.end];
+    let (name_len, name_len_bytes) = read_leb_u32(payload).expect("name length");
+    let name_start = range.start + name_len_bytes;
+    let name_end = name_start + name_len as usize;
+    let name_bytes = &mut module_bytes[name_start..name_end];
+    if let Some(last) = name_bytes.last_mut() {
+        *last = if *last == b'X' { b'Y' } else { b'X' };
+    }
+    fs::write(module, module_bytes).expect("write stripped module");
+}
+
 #[test]
 fn sign_and_verify_roundtrip() {
     let tmp = tempdir().unwrap();
@@ -152,5 +193,26 @@ fn verify_fails_when_proofs_hash_tampered() {
     verify.assert().failure().stderr(
         predicate::str::contains("module hash mismatch")
             .or(predicate::str::contains("proofs hash mismatch")),
+    );
+}
+
+#[test]
+fn verify_fails_when_proof_section_missing() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    strip_proof_section(&wasm_path);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V001\"")
+            .and(predicate::str::contains("proof section not found")),
     );
 }

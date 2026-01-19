@@ -34,6 +34,17 @@ fn unsat_predicate_is_rejected() {
 }
 
 #[test]
+fn unsat_predicate_with_offset_is_rejected() {
+    let src = r#"
+        type Impossible = Int where n + 1 >= 0 && n + 1 < 0;
+        pure function id(x: Impossible) -> Int { x }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("predicate unsat");
+    let s = format!("{err:#}");
+    assert!(s.contains("T708"), "missing code T708: {s}");
+}
+
+#[test]
 fn cyclic_alias_is_rejected() {
     let src = r#"
         type A = B where a >= 0;

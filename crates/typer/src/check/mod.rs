@@ -962,69 +962,81 @@ fn collect_constraints(expr: &Expr, binder: &str, constraints: &mut IntConstrain
 }
 
 fn comparison_constraint(op: BinOp, lhs: &Expr, rhs: &Expr, binder: &str) -> Option<IntConstraint> {
-    if let (Some(_), Some(value)) = (extract_binder(lhs, binder), extract_int(rhs)) {
-        return match op {
-            BinOp::Lt => Some(IntConstraint::Upper(IntBound {
-                value,
-                inclusive: false,
-            })),
-            BinOp::Le => Some(IntConstraint::Upper(IntBound {
-                value,
-                inclusive: true,
-            })),
-            BinOp::Gt => Some(IntConstraint::Lower(IntBound {
-                value,
-                inclusive: false,
-            })),
-            BinOp::Ge => Some(IntConstraint::Lower(IntBound {
-                value,
-                inclusive: true,
-            })),
-            BinOp::Eq => Some(IntConstraint::Eq(value)),
-            BinOp::Neq => Some(IntConstraint::Neq(value)),
-            _ => None,
-        };
+    if let (Some(offset), Some(value)) = (extract_binder_offset(lhs, binder), eval_const_int(rhs)) {
+        let target = value.checked_sub(offset)?;
+        return constraint_for_comparison(op, target);
     }
-    if let (Some(value), Some(_)) = (extract_int(lhs), extract_binder(rhs, binder)) {
-        return match op {
-            BinOp::Lt => Some(IntConstraint::Lower(IntBound {
-                value,
-                inclusive: false,
-            })),
-            BinOp::Le => Some(IntConstraint::Lower(IntBound {
-                value,
-                inclusive: true,
-            })),
-            BinOp::Gt => Some(IntConstraint::Upper(IntBound {
-                value,
-                inclusive: false,
-            })),
-            BinOp::Ge => Some(IntConstraint::Upper(IntBound {
-                value,
-                inclusive: true,
-            })),
-            BinOp::Eq => Some(IntConstraint::Eq(value)),
-            BinOp::Neq => Some(IntConstraint::Neq(value)),
-            _ => None,
-        };
+    if let (Some(value), Some(offset)) = (eval_const_int(lhs), extract_binder_offset(rhs, binder)) {
+        let target = value.checked_sub(offset)?;
+        let inverted = invert_comparison(op)?;
+        return constraint_for_comparison(inverted, target);
     }
     None
 }
 
-fn extract_binder<'a>(expr: &'a Expr, binder: &str) -> Option<&'a str> {
-    if let Expr::Var(name, _) = expr {
-        if name == binder {
-            return Some(name.as_str());
+fn constraint_for_comparison(op: BinOp, value: i64) -> Option<IntConstraint> {
+    match op {
+        BinOp::Lt => Some(IntConstraint::Upper(IntBound {
+            value,
+            inclusive: false,
+        })),
+        BinOp::Le => Some(IntConstraint::Upper(IntBound {
+            value,
+            inclusive: true,
+        })),
+        BinOp::Gt => Some(IntConstraint::Lower(IntBound {
+            value,
+            inclusive: false,
+        })),
+        BinOp::Ge => Some(IntConstraint::Lower(IntBound {
+            value,
+            inclusive: true,
+        })),
+        BinOp::Eq => Some(IntConstraint::Eq(value)),
+        BinOp::Neq => Some(IntConstraint::Neq(value)),
+        _ => None,
+    }
+}
+
+fn invert_comparison(op: BinOp) -> Option<BinOp> {
+    match op {
+        BinOp::Lt => Some(BinOp::Gt),
+        BinOp::Le => Some(BinOp::Ge),
+        BinOp::Gt => Some(BinOp::Lt),
+        BinOp::Ge => Some(BinOp::Le),
+        BinOp::Eq => Some(BinOp::Eq),
+        BinOp::Neq => Some(BinOp::Neq),
+        _ => None,
+    }
+}
+
+fn extract_binder_offset(expr: &Expr, binder: &str) -> Option<i64> {
+    match expr {
+        Expr::Var(name, _) if name == binder => Some(0),
+        Expr::Bin {
+            op: BinOp::Add,
+            lhs,
+            rhs,
+            ..
+        } => {
+            if let Some(offset) = extract_binder_offset(lhs, binder) {
+                return offset.checked_add(eval_const_int(rhs)?);
+            }
+            if let Some(offset) = extract_binder_offset(rhs, binder) {
+                return offset.checked_add(eval_const_int(lhs)?);
+            }
+            None
         }
-    }
-    None
-}
-
-fn extract_int(expr: &Expr) -> Option<i64> {
-    if let Expr::Int(value, _) = expr {
-        Some(*value)
-    } else {
-        None
+        Expr::Bin {
+            op: BinOp::Sub,
+            lhs,
+            rhs,
+            ..
+        } => {
+            let offset = extract_binder_offset(lhs, binder)?;
+            offset.checked_sub(eval_const_int(rhs)?)
+        }
+        _ => None,
     }
 }
 

@@ -454,8 +454,8 @@ ClearLang aims to be:
 
 ## 5. Project Status
 
-- Current focus: Phase 9 (totality/loops) after delivering Phase 8 resource/linear types.
-- Recently completed: Phase 8 (resource syntax, consume semantics, linear tracking, collection rejection with T806, resource guide), Phase 7 Option/Result lowering, Phase 6 contracts/effects with VC emission and proof packaging.
+- Current focus: Phase 11 (proof-carrying Wasm verification) after delivering Phase 10 refinement types.
+- Recently completed: Phase 10 (refinements and VC/SMT), Phase 9 (totality/loops), Phase 8 (resource/linear types).
 - Full roadmap and checklist: see `docs/TODO.md` and the resource overview in `docs/resource-guide.md`.
 
 ---
@@ -468,4 +468,27 @@ ClearLang aims to be:
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 
-- CLI & tooling: `parse`/`build`/`run`, `--json-errors`, `--emit-vcs` (stable schema + proof packaging/signing), and Wasmtime-backed `run`.
+- CLI & tooling: `parse`/`build`/`run`/`verify`, `--json-errors`, `--emit-vcs` (stable schema + proof packaging/signing), and Wasmtime-backed `run`.
+
+---
+
+## 7. Signing and Verifying Proofs
+
+ClearLang can embed proof metadata in a Wasm module and sign a canonical payload for offline verification.
+
+Build and sign:
+```
+clg build examples/contract.clear -o out.wasm --emit-vcs out.vc.json \
+  --sign --key keys/signing.json --key-id demo --scope both --sig-out out.sig.json
+```
+
+Verify a signed module:
+```
+clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json
+```
+
+Key files are JSON:
+```
+{"scheme":"ed25519","private_key":"<hex>","public_key":"<hex>"}
+{"scheme":"ed25519","public_key":"<hex>"}
+```

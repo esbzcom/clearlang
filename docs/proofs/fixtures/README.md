@@ -2,6 +2,16 @@
 
 These fixtures mirror `--emit-vcs` output for refined aliases.
 
+## Runnability notes
+`clg build --emit-vcs` requires a `main` entrypoint. The snippets below omit `main` for clarity.
+To regenerate a fixture, add a minimal entrypoint and emit VCs, for example:
+```
+function main() -> Int { 0 }
+```
+```
+clg build sample.clear --emit-vcs docs/proofs/fixtures/refinement-basic.vc.json -o out.wasm
+```
+
 ## refinement-basic.vc.json
 Source:
 ```

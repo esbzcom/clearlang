@@ -1,25 +1,26 @@
-# ClearLang Development Plan
+﻿# ClearLang Development Plan
 
-## Current Focus – Phase 8: Resource Types (In Design)
-- Introduce `resource Name { fields ... drop { ... } }` with explicit drop blocks, enabling deterministic cleanup and proof-friendly semantics.
-- Extend function signatures with the `consume` modifier (defaults borrow) and thread ownership metadata through parsing, typing, and lowering.
-- Enforce linear usage at the typer level: each resource is consumed or dropped exactly once; emit targeted diagnostics for reuse or borrow after consume.
-- Temporarily disallow resources inside standard `List`/`Map`/tuple aggregates and sketch follow-up designs for linear-aware collections/borrows.
-- Publish a concise "Resource Guide" plus unit/integration tests covering consume flows, borrow checks, and container rejection.
+## Current Focus - Phase 11: Proof-Carrying Wasm Verification
+- Build `clg verify`: parse Wasm, extract `clearlang.proof` + signature sections, validate hashes/signatures, and emit structured diagnostics.
+- Add end-to-end docs and runnable fixtures for signing/verifying flows (pass/fail expectations).
+- Close refinement UX debt: document T701-T708, make fixtures runnable, and add shallow linear normalization for `n + k`/`n - k`.
 
 ## Recently Completed
-- **Phase 7.3 – Option/Result rollout**: defaulted `if let`/`??`/`?` sugar, refreshed SMT encoder with canonical variant helpers, updated `--emit-vcs` docs, and tightened integration tests.
-- **Phase 7.2 – Verification & SMT**: introduced the `SmtEncoder`, canonical `(tag, payload_lo, payload_hi)` modeling, and VC schema updates.
-- **Phase 7.1 – IR & runtime encoding**: locked the 16-byte variant layout, trap helpers, and runtime documentation.
+- **Phase 10.5 - Refinement tests**: positive/negative coverage plus VC snapshots.
+- **Phase 10.4 - Refinement VC/SMT**: schema extensions, SMT encoding, and fixtures/docs updates.
+- **Phase 9 - Totality & loops**: invariants, variants, and totality enforcement with diagnostics.
 
 ## Snapshot of Earlier Milestones
+- Phase 8: resource types, linear tracking, and docs/tests.
+- Phase 7: Option/Result lowering, SMT, and proof layout.
 - Phase 6: contract syntax, VC generation, and CLI `--emit-vcs` surface.
 - Phase 5: IR/Wasm pipeline became default build path.
-- Phases 1–4: parser foundations, typer, collections stubs, and CLI plumbing.
+- Phases 1-4: parser foundations, typer, collections stubs, and CLI plumbing.
 
 ## Upcoming Phases (High-Level)
-- **Phase 9 – Totality & Loops**: require invariants for `while`, structural measures for recursion, and supporting diagnostics/tests.
-- **Phase 10 – Refinement Types**: add `type Alias = Base where predicate` syntax, propagate refinements through typing/VCs, and extend JSON schema.
+- **Phase 12 - Safety & Tooling Hardening**: CI validation, runtime bounds, contracts mode design.
+- **Phase 13 - Developer Experience**: tracing/logging, tooling ergonomics, error hygiene, perf, release profile tuning.
+- **Phase 14 - Enhancements**: WASI `print`, on-chain attestation for signatures.
 
 ### Notes
 - Historical detail from earlier phases is archived in `docs/rollout/codex-session-history.md` for reference.

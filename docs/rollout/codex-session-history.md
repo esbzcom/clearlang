@@ -37,7 +37,13 @@
 - Updated `docs/typing.md` with refinement preservation rules, interaction matrix, VC tie-in, and the "no escape hatch" decision.
 - Marked Phase 10.3 feature interactions, docs, and migration decisions complete in `docs/TODO.md`.
 
+## 2026-01-19 - Phase 11 focus alignment
+- Marked Phase 10.4/10.5 as complete in `docs/TODO.md` and shifted the roadmap focus to Phase 11 verification.
+- Normalized verifier CLI naming to `clg verify` in the TODO roadmap.
+- Updated rollout planning to target proof-carrying verification as the active phase.
+
 ## Next Focus
-- Phase 10.4: extend VC schema/SMT encoding for refinement obligations and add fixtures/examples in `docs/proofs`.
-- Phase 10.5: fill remaining refinement tests (positive/negative cases + VC snapshots).
+- Implement `clg verify`: parse Wasm, extract `clearlang.proof` + signatures, validate hashes, and emit structured diagnostics.
+- Document signing/verifying workflows with runnable fixtures and expected outputs.
+- Close refinement UX debt (T701-T708 docs, runnable fixtures notes, shallow linear normalization).
 

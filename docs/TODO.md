@@ -522,27 +522,27 @@ Codegen & Runtime
 
 ## Phase 12 - Safety & Tooling Hardening
 
-- [ ] [debt] CI & validation:
+- [x] CI & validation:
   - [x] Always run `wasm-tools validate` on emitted modules in CI.
   - [x] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
-  - [ ] [debt] Add regression coverage to ensure CI enforcement for validation and core test workflows.
-- [ ] [debt] Runtime bounds:
+  - [x] Add regression coverage to ensure CI enforcement for validation and core test workflows.
+- [x] Runtime bounds:
   - [x] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
   - [x] Enable fuel/epoch limits in integration tests to enforce bounded execution.
-  - [x] [debt] Add runtime fuel/epoch limit integration tests once limits are wired.
-- [ ] Contracts mode flag (design):
-  - [ ] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.
+  - [x] Add runtime fuel/epoch limit integration tests once limits are wired.
+- [x] Contracts mode flag (design):
+  - [x] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.
 
 - [x] Document pre-commit hook usage in README; provide skip toggles.
 
 ## Phase 13 - Developer Experience
 
-- [ ] [debt] Observability: simple tracing/logging for pipeline stages in CLI with verbosity levels.
-- [ ] [debt] Tooling ergonomics: add `cargo xtask` or Makefile targets for build/validate/run/emit-vcs.
-- [ ] [debt] Error hygiene: unify error types/messages across crates; document error code table.
-- [ ] [debt] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
-- [ ] [debt] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
-- [ ] [debt] Add perf/regression tests around allocation hot paths and release profile tuning impacts.
+- [ ] Observability: simple tracing/logging for pipeline stages in CLI with verbosity levels.
+- [ ] Tooling ergonomics: add `cargo xtask` or Makefile targets for build/validate/run/emit-vcs.
+- [ ] Error hygiene: unify error types/messages across crates; document error code table.
+- [ ] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
+- [ ] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
+- [ ] Add perf/regression tests around allocation hot paths and release profile tuning impacts.
 
 ## Phase 14 - Nice-to-Have Enhancements
 
@@ -554,5 +554,6 @@ Codegen & Runtime
 - [ ] Design note: freeze/thaw or mutable-borrow semantics for unique aliasing (API surface like `freeze(list)`, `thaw(list_mut)`).
 - [ ] Effects/VC plan: effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
 - [ ] Prototype plan: phased implementation steps and tests once design is locked.
+
 
 

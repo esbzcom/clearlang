@@ -84,15 +84,8 @@ pub fn run(
                         );
                         return Err(CommandError::json(json).into());
                     }
-                    let json = make_single_json_error(
-                        "T000",
-                        "type",
-                        format!("{e:#}"),
-                        &file,
-                        0,
-                        0,
-                        None,
-                    );
+                    let json =
+                        make_single_json_error("T000", "type", format!("{e:#}"), &file, 0, 0, None);
                     return Err(CommandError::json(json).into());
                 } else {
                     return Err(e.context("type-check failed"));

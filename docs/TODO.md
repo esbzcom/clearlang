@@ -540,9 +540,9 @@ Codegen & Runtime
 - [x] Observability:
   - [x] Add structured tracing/logging for CLI pipeline stages with duration summaries.
   - [x] Support verbosity levels (`-v`/`-vv`) and a `CLG_LOG` env override.
-- [ ] Tooling ergonomics:
-  - [ ] Add `cargo xtask` or `justfile` targets for `fmt`, `clippy`, `test`, `validate`, `emit-vcs`, and `ci`.
-  - [ ] Document local dev workflows in `docs/dev.md` (setup, wasm-tools, common commands).
+- [x] Tooling ergonomics:
+  - [x] Add `cargo xtask` or `justfile` targets for `fmt`, `clippy`, `test`, `validate`, `emit-vcs`, and `ci`.
+  - [x] Document local dev workflows in `docs/dev.md` (setup, wasm-tools, common commands).
 - [ ] Error hygiene:
   - [ ] Unify error types/messages across crates and keep JSON errors consistent.
   - [ ] Add a single error-code table and a test that ensures codes are unique and documented.

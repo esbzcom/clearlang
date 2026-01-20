@@ -59,7 +59,12 @@ impl Logger {
             return;
         }
         let duration_ms = duration.as_millis().to_string();
-        self.log(LogLevel::Info, "finish", name, &[("duration_ms", duration_ms)]);
+        self.log(
+            LogLevel::Info,
+            "finish",
+            name,
+            &[("duration_ms", duration_ms)],
+        );
     }
 
     pub fn summary(self, timings: &StageTimings) {
@@ -78,10 +83,7 @@ impl Logger {
             LogLevel::Info,
             "summary",
             "pipeline",
-            &[
-                ("total_ms", total_ms.to_string()),
-                ("stages", stages),
-            ],
+            &[("total_ms", total_ms.to_string()), ("stages", stages)],
         );
     }
 
@@ -117,7 +119,9 @@ pub struct StageTimings {
 
 impl StageTimings {
     pub fn new() -> Self {
-        StageTimings { entries: Vec::new() }
+        StageTimings {
+            entries: Vec::new(),
+        }
     }
 
     pub fn start<'a>(&'a mut self, logger: Logger, name: &'static str) -> StageGuard<'a> {

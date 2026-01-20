@@ -529,7 +529,7 @@ Codegen & Runtime
 - [ ] [debt] Runtime bounds:
   - [x] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
   - [x] Enable fuel/epoch limits in integration tests to enforce bounded execution.
-  - [ ] [debt] Add runtime fuel/epoch limit integration tests once limits are wired.
+  - [x] [debt] Add runtime fuel/epoch limit integration tests once limits are wired.
 - [ ] Contracts mode flag (design):
   - [ ] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.
 

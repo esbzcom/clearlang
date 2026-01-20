@@ -103,7 +103,7 @@ pub fn run(
                     let json = make_single_json_error(
                         "C001",
                         "build",
-                        "only  is supported in this phase",
+                        "only `main() -> Int` is supported in this phase",
                         &file,
                         0,
                         0,
@@ -111,17 +111,24 @@ pub fn run(
                     );
                     return Err(CommandError::json(json).into());
                 } else {
-                    anyhow::bail!("only  is supported in this phase");
+                    anyhow::bail!("only `main() -> Int` is supported in this phase");
                 }
             }
         }
         None => {
             if json_errors {
-                let json =
-                    make_single_json_error("C002", "build", "missing  function", &file, 0, 0, None);
+                let json = make_single_json_error(
+                    "C002",
+                    "build",
+                    "missing `main` function",
+                    &file,
+                    0,
+                    0,
+                    None,
+                );
                 return Err(CommandError::json(json).into());
             } else {
-                anyhow::bail!("missing  function")
+                anyhow::bail!("missing `main` function")
             }
         }
     }

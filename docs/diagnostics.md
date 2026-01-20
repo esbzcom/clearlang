@@ -3,10 +3,10 @@
 ClearLang provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
 
 ## CLI Flag
-- `--json-errors`: when set on `clg parse` or `clg build`, failures are printed as JSON to stdout.
+- `--json-errors`: when set on `clg parse`, `clg build`, `clg run`, or `clg verify`, failures are printed as JSON to stdout.
 
 ## JSON Shape
-```
+```json
 {
   "ok": false,
   "errors": [
@@ -26,61 +26,85 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 - `ok`: always `false` for error output.
 - `errors`: one or more error objects.
 - `code`: stable error code.
-- `stage`: one of `parse` | `type` | `build`.
+- `stage`: one of `parse` | `type` | `build` | `verify` | `runtime`.
 - `message`: concise, human-readable text.
 - `file`: input filename as provided to the CLI.
 - `start` / `end`: byte offsets in the source.
 - `function` (optional): when available, the current function context.
 
-## Codes
-- Parse (`Pxxx`):
-  - `P001`: generic parse error (may appear multiple times per file in the future).
-- Type (`Txxx`):
-  - `T001`: unknown function
-  - `T002`: arity mismatch
-  - `T003`: argument type mismatch
-  - `T004`: return type mismatch
-  - `T005`: Int operand required
-  - `T006`: unknown variable
-  - `T008`: duplicate function
-  - `T009`: effect not supported (use `pure` or omit)
-  - `T010`: duplicate parameter
-  - `T011`: type-check recursion limit exceeded
-  - `T012`: Bool operand required (`!`, `&&`, `||` contract predicates)
-  - `T013`: operands of comparison/equality must share a type
-  - `T014`: contract predicate must be `Bool`
-  - `T101`: collections unavailable (std::{list,set,map} planned in Phase 4.3)
-  - `T201`-"`T205`: match typing diagnostics (Option/Result)
-  - `T206`: cannot infer element type for `std::{list,set,map}::new()`
-  - `T207`: expected collection kind (wrong argument type to a collection API)
-  - `T208`: element/key/value type mismatch for collection operations
-  - `T301`: branch type mismatch in expression-form conditionals (Phase 4.10)
-  - `T701`: duplicate type alias
-  - `T702`: type alias conflicts with a resource name
-  - `T703`: cyclic refinement alias detected
-  - `T704`: refinement predicate must be Bool
-  - `T705`: refinement loss on binding/call/return
-  - `T706`: refined alias cannot wrap resource types
-  - `T707`: refinement predicate must be pure
-  - `T708`: refinement predicate is unsatisfiable (shallow check)
-  
-- Build (`Cxxx`):
-  - `C001`: invalid main signature (only `main() -> Int` supported in this phase)
-  - `C002`: missing `main` function
-
-- Verify (`Vxxx`):
-  - `V001`: signature failure (invalid signature or key, malformed signature file)
-  - `V002`: `clearlang.proof` section missing from module
-  - `V003`: module/proofs hash mismatch
-
-- Runtime (`Rxxx`):
-  - `R000`: contract guard failed at runtime; detail differentiates `require` vs `ensure`.
-  - `R001`: string allocator ran out of memory while materializing a new `String`.
-  - `R002`: string runtime rejected a pointer/length pair that would violate UTF-8 invariants.
-  - `R999`: reserve for unexpected traps (should not appear in released builds).
-  
-- Parse (`Pxxx`) additions:
-  - `P010`: missing `else` in expression-form `if` (Phase 4.10)
+## Error Code Table
+| Code | Stage | Meaning |
+| --- | --- | --- |
+| P001 | parse | Generic parse error. |
+| P010 | parse | Missing `else` in expression-form `if` (reserved; parser currently emits P001). |
+| T000 | type | Fallback for internal type-check failures. |
+| T001 | type | Unknown function. |
+| T002 | type | Arity mismatch. |
+| T003 | type | Argument type mismatch. |
+| T004 | type | Return type mismatch. |
+| T005 | type | Int operand required. |
+| T006 | type | Unknown variable. |
+| T008 | type | Duplicate function. |
+| T009 | type | Effect not supported (use `pure` or omit). |
+| T010 | type | Duplicate parameter. |
+| T011 | type | Type-check recursion limit exceeded. |
+| T012 | type | Bool operand required. |
+| T013 | type | Binary operands must share a type. |
+| T014 | type | Contract predicate must be Bool. |
+| T016 | type | Block expression requires a tail expression. |
+| T101 | type | Collections unavailable (generics/ADTs not implemented yet). |
+| T201 | type | Non-exhaustive match (missing arm). |
+| T202 | type | Duplicate match arm. |
+| T203 | type | Invalid match scrutinee (expected Option/Result). |
+| T204 | type | Match arm type mismatch. |
+| T205 | type | Binder conflicts with an existing name. |
+| T206 | type | Cannot infer element type for `std::{list,set,map}::new()`. |
+| T207 | type | Expected collection kind (wrong argument type to a collection API). |
+| T208 | type | Element/key/value type mismatch for collection operations. |
+| T301 | type | Branch type mismatch in expression-form `if`/`else`. |
+| T401 | type | Call requires a stronger effect. |
+| T402 | type | Missing required mut guard for a mut call. |
+| T403 | type | Mut guard requires a variable as the first argument. |
+| T601 | type | `?` requires function return type `Option<_>`. |
+| T602 | type | `?` operand must be `Option<_>` or `Result<_, _>`. |
+| T603 | type | `?` expects matching `Option` inner type. |
+| T604 | type | `?` requires function return type `Result<_, _>`. |
+| T605 | type | `?` expects matching `Result` ok/err types. |
+| T606 | type | Internal error: missing `$return` binding for `?`. |
+| T607 | type | Internal error: missing binding for Option constructor. |
+| T608 | type | `None` requires function return type `Option<_>`. |
+| T609 | type | Internal error: missing binding for Result constructor. |
+| T610 | type | `Ok` requires function return type `Result<_, _>`. |
+| T611 | type | `Ok` argument type mismatch. |
+| T612 | type | `Err` requires function return type `Result<_, _>`. |
+| T613 | type | `Err` argument type mismatch. |
+| T701 | type | Duplicate type alias. |
+| T702 | type | Type alias conflicts with a resource name. |
+| T703 | type | Cyclic refinement alias detected. |
+| T704 | type | Refinement predicate must be Bool. |
+| T705 | type | Refinement loss on binding/call/return. |
+| T706 | type | Refined alias cannot wrap resource types. |
+| T707 | type | Refinement predicate must be pure. |
+| T708 | type | Refinement predicate is unsatisfiable (shallow check). |
+| T801 | type | Resource used after consume. |
+| T802 | type | Resource consumed twice. |
+| T803 | type | Cannot consume a borrowed resource. |
+| T804 | type | Resource ownership mismatch across branches. |
+| T805 | type | Resource must be consumed before returning. |
+| T806 | type | Resources cannot be stored in collections or tuples yet. |
+| T901 | type | While loops in pure functions require a variant for totality. |
+| T902 | type | Recursive call requires a decreasing measure. |
+| T903 | type | Loop variant is not decreasing. |
+| C001 | build | Invalid main signature (only `main() -> Int` is supported in this phase). |
+| C002 | build | Missing `main` function. |
+| V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
+| V002 | verify | `clearlang.proof` section missing from module. |
+| V003 | verify | Module/proofs hash mismatch. |
+| R000 | runtime | Contract guard failed at runtime (detail indicates require/ensure). |
+| R001 | runtime | String allocator ran out of memory. |
+| R002 | runtime | String runtime rejected invalid UTF-8 input. |
+| R003 | runtime | Option/Result variant tag was invalid. |
+| R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 
 ## Examples
 - Parse:
@@ -93,8 +117,5 @@ clg build bad.clear --json-errors -o out.wasm
 ```
 
 ## Notes
-- Human messages follow `at <start>..<end>: <message>` for consistency.
+- Messages include `at <start>..<end>:` when a span is available.
 - Codes and JSON shape are stable; text remains concise and actionable.
-
-
-

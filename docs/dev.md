@@ -28,3 +28,4 @@ cargo run -p xtask -- <command>
 
 - For CLI stage logs, pass `-v`/`-vv` or set `CLG_LOG=debug`/`trace`.
 - `validate` and `ci` expect `wasm-tools` to be installed.
+- Microbenchmarks: `cargo bench -p clg-parser`, `cargo bench -p clg-typer`, `cargo bench -p clg-codegen-wasm`.

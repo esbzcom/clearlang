@@ -240,9 +240,8 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     }
     validate_no_resource_collections(ast)?;
     let alias_map = build_alias_map(ast)?;
-    let mut fns: HashMap<&str, FnSig> = HashMap::new();
-
     let builtins = builtin_sigs();
+    let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
         fns.insert(
             name.as_str(),
@@ -286,13 +285,14 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     let used_intrinsics = collect_used_intrinsics(ast);
 
     // Order of function indices: all user-defined first, then intrinsics used (stable order)
-    let mut fn_indices: HashMap<&str, u32> = HashMap::new();
+    let mut fn_indices: HashMap<&str, u32> =
+        HashMap::with_capacity(ast.funcs.len() + used_intrinsics.len());
     for (i, f) in ast.funcs.iter().enumerate() {
         fn_indices.insert(f.name.as_str(), i as u32);
     }
     // Stable intrinsic order
     let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
-    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::new();
+    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::with_capacity(used_intrinsics.len());
     for name in intrinsic_order.iter() {
         if used_intrinsics.contains(*name) {
             let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
@@ -319,7 +319,9 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         }
     }
 
-    let mut module = Module::default();
+    let mut module = Module {
+        funcs: Vec::with_capacity(ast.funcs.len() + intrinsic_defs.len()),
+    };
     for f in &ast.funcs {
         module.funcs.push(lower_func(f, &fns, &fn_indices)?);
     }
@@ -339,9 +341,8 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     }
     validate_no_resource_collections(ast)?;
     let alias_map = build_alias_map(ast)?;
-    let mut fns: HashMap<&str, FnSig> = HashMap::new();
-
     let builtins = builtin_sigs();
+    let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
         fns.insert(
             name.as_str(),
@@ -386,9 +387,8 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     validate_no_resource_collections(ast)?;
     let alias_map = build_alias_map(ast)?;
-    let mut fns: HashMap<&str, FnSig> = HashMap::new();
-
     let builtins = builtin_sigs();
+    let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
         fns.insert(
             name.as_str(),
@@ -426,12 +426,13 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     }
 
     let used_intrinsics = collect_used_intrinsics(ast);
-    let mut fn_indices: HashMap<&str, u32> = HashMap::new();
+    let mut fn_indices: HashMap<&str, u32> =
+        HashMap::with_capacity(ast.funcs.len() + used_intrinsics.len());
     for (i, f) in ast.funcs.iter().enumerate() {
         fn_indices.insert(f.name.as_str(), i as u32);
     }
     let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
-    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::new();
+    let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::with_capacity(used_intrinsics.len());
     for name in intrinsic_order.iter() {
         if used_intrinsics.contains(*name) {
             let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
@@ -457,7 +458,9 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         }
     }
 
-    let mut module = Module::default();
+    let mut module = Module {
+        funcs: Vec::with_capacity(ast.funcs.len() + intrinsic_defs.len()),
+    };
     for f in &ast.funcs {
         module.funcs.push(lower_func(f, &fns, &fn_indices)?);
     }
@@ -467,7 +470,7 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
 }
 
 fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap) -> Result<()> {
-    let mut env: HashMap<&str, LocalBinding> = HashMap::new();
+    let mut env: HashMap<&str, LocalBinding> = HashMap::with_capacity(f.params.len() + 1);
     let ret_ty = f.ret.clone();
     env.insert(
         RETURN_KEY,
@@ -476,7 +479,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
             kind: ParamKind::Borrow,
         },
     );
-    let mut tracker = ResourceTracker::new();
+    let mut tracker = ResourceTracker::with_capacity(f.params.len());
     for p in &f.params {
         let resolved_ty = base_type(&p.ty, aliases)?;
         if env
@@ -583,9 +586,9 @@ fn enforce_mut_guards(expr: &Expr, guards: &HashSet<MutGuardKey>) -> Result<()> 
 }
 
 fn build_alias_map(program: &Program) -> Result<AliasMap> {
-    let mut aliases: AliasMap = HashMap::new();
+    let mut aliases: AliasMap = HashMap::with_capacity(program.refined_aliases.len());
     // Collect resource names for conflict checks
-    let mut resource_names: HashSet<&str> = HashSet::new();
+    let mut resource_names: HashSet<&str> = HashSet::with_capacity(program.resources.len());
     for res in &program.resources {
         resource_names.insert(res.name.as_str());
     }
@@ -599,7 +602,7 @@ fn build_alias_map(program: &Program) -> Result<AliasMap> {
                 TyperError::type_conflicts_with_resource(&alias.name, alias.name_span).into(),
             );
         }
-        let mut visited = Vec::new();
+        let mut visited = Vec::with_capacity(program.refined_aliases.len());
         let resolved_base = resolve_aliases(&alias.base, &aliases, &mut visited)?;
         if contains_named_resource(&resolved_base, &resource_names) {
             return Err(TyperError::refined_resource_not_supported(
@@ -1096,7 +1099,8 @@ fn eval_const_bool(expr: &Expr) -> Option<bool> {
 
 fn validate_alias_predicates(aliases: &AliasMap, fns: &HashMap<&str, FnSig>) -> Result<()> {
     for (name, def) in aliases {
-        let mut env: HashMap<&str, LocalBinding> = HashMap::new();
+        let mut env: HashMap<&str, LocalBinding> =
+            HashMap::with_capacity(def.binder.as_ref().map(|_| 1).unwrap_or(0));
         if let Some(binder) = def.binder.as_ref() {
             env.insert(
                 binder.as_str(),

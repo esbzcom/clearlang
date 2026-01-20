@@ -27,6 +27,11 @@ impl ResourceTracker {
             states: HashMap::new(),
         }
     }
+    pub(super) fn with_capacity(capacity: usize) -> Self {
+        Self {
+            states: HashMap::with_capacity(capacity),
+        }
+    }
     pub(super) fn register_param(&mut self, name: &str, kind: ParamKind, ty: &Type) {
         if let Type::Resource(_) = ty {
             let state = match kind {

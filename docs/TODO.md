@@ -543,15 +543,15 @@ Codegen & Runtime
 - [x] Tooling ergonomics:
   - [x] Add `cargo xtask` or `justfile` targets for `fmt`, `clippy`, `test`, `validate`, `emit-vcs`, and `ci`.
   - [x] Document local dev workflows in `docs/dev.md` (setup, wasm-tools, common commands).
-- [ ] Error hygiene:
-  - [ ] Unify error types/messages across crates and keep JSON errors consistent.
-  - [ ] Add a single error-code table and a test that ensures codes are unique and documented.
-- [ ] Performance:
-  - [ ] Preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer/codegen.
-  - [ ] Add microbenchmarks for parser/typer/codegen hot paths.
-- [ ] Release profile:
-  - [ ] Set `[profile.release]` with `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"`.
-  - [ ] Add perf/regression checks for release profile tuning impacts.
+- [x] Error hygiene:
+  - [x] Unify error types/messages across crates and keep JSON errors consistent.
+  - [x] Add a single error-code table and a test that ensures codes are unique and documented.
+- [x] Performance:
+  - [x] Preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer/codegen.
+  - [x] Add microbenchmarks for parser/typer/codegen hot paths.
+- [x] Release profile:
+  - [x] Set `[profile.release]` with `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"`.
+  - [x] Add perf/regression checks for release profile tuning impacts.
 
 ## Phase 14 - Nice-to-Have Enhancements
 

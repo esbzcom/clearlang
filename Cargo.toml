@@ -1,3 +1,8 @@
-﻿[workspace]
+[workspace]
 members = ["crates/cli","crates/parser","crates/ast","crates/typer","crates/ir","crates/codegen-wasm","xtask"]
 resolver = "2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

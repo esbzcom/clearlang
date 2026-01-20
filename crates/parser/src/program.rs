@@ -23,9 +23,9 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
         .at_least(1)
         .collect::<Vec<_>>()
         .map(|items| {
-            let mut refined_aliases = Vec::new();
-            let mut funcs = Vec::new();
-            let mut resources = Vec::new();
+            let mut refined_aliases = Vec::with_capacity(items.len());
+            let mut funcs = Vec::with_capacity(items.len());
+            let mut resources = Vec::with_capacity(items.len());
             for item in items {
                 match item {
                     Item::Alias(a) => refined_aliases.push(a),
@@ -44,36 +44,42 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
-        let mut messages: Vec<String> = errs
-            .into_iter()
-            .map(|e| {
-                let span = e.span();
-                let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
-                if expected.is_empty() {
-                    format!("error at {}..{}: {}", span.start, span.end, e)
-                } else {
-                    format!(
-                        "error at {}..{}: {}; expected: {}",
-                        span.start,
-                        span.end,
-                        e,
-                        expected.join(", ")
-                    )
-                }
-            })
-            .collect();
+        let mut messages: Vec<String> = Vec::with_capacity(errs.len() + 1);
+        for e in errs {
+            let span = e.span();
+            let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+            let msg = if expected.is_empty() {
+                format!("at {}..{}: error: {}", span.start, span.end, e)
+            } else {
+                format!(
+                    "at {}..{}: error: {}; expected: {}",
+                    span.start,
+                    span.end,
+                    e,
+                    expected.join(", ")
+                )
+            };
+            messages.push(msg);
+        }
 
-        for (offset, line) in src.lines().enumerate() {
-            let trimmed = line.trim_start();
+        let mut offset = 0usize;
+        for line in src.split_inclusive('\n') {
+            let line_no_nl = line.strip_suffix('\n').unwrap_or(line);
+            let line_text = line_no_nl.strip_suffix('\r').unwrap_or(line_no_nl);
+            let trimmed = line_text.trim_start();
             if (trimmed.starts_with("require ") || trimmed.starts_with("ensure "))
                 && !trimmed.contains('{')
             {
+                let keyword = trimmed.split_whitespace().next().unwrap_or("contract");
+                let leading = line_text.len().saturating_sub(trimmed.len());
+                let start = offset + leading;
+                let end = start + keyword.len();
                 messages.push(format!(
-                    "line {}: keyword `{}` must be followed by `{{ ... }}`",
-                    offset + 1,
-                    trimmed.split_whitespace().next().unwrap_or("contract"),
+                    "at {}..{}: error: keyword `{}` must be followed by `{{ ... }}`",
+                    start, end, keyword
                 ));
             }
+            offset += line.len();
         }
 
         messages.join("\n")
@@ -94,30 +100,52 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
     match program_p().parse(src).into_result() {
         Ok(ast) => Ok(ast),
         Err(errs) => {
-            let items: Vec<ParserError> = errs
-                .into_iter()
-                .map(|e| {
-                    let span = e.span();
-                    let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
-                    let msg = if expected.is_empty() {
-                        format!("error at {}..{}: {}", span.start, span.end, e)
-                    } else {
-                        format!(
-                            "error at {}..{}: {}; expected: {}",
-                            span.start,
-                            span.end,
-                            e,
-                            expected.join(", ")
-                        )
-                    };
-                    ParserError {
+            let mut items: Vec<ParserError> = Vec::with_capacity(errs.len() + 1);
+            for e in errs {
+                let span = e.span();
+                let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+                let msg = if expected.is_empty() {
+                    format!("at {}..{}: error: {}", span.start, span.end, e)
+                } else {
+                    format!(
+                        "at {}..{}: error: {}; expected: {}",
+                        span.start,
+                        span.end,
+                        e,
+                        expected.join(", ")
+                    )
+                };
+                items.push(ParserError {
+                    code: "P001",
+                    message: msg,
+                    start: span.start,
+                    end: span.end,
+                });
+            }
+            let mut offset = 0usize;
+            for line in src.split_inclusive('\n') {
+                let line_no_nl = line.strip_suffix('\n').unwrap_or(line);
+                let line_text = line_no_nl.strip_suffix('\r').unwrap_or(line_no_nl);
+                let trimmed = line_text.trim_start();
+                if (trimmed.starts_with("require ") || trimmed.starts_with("ensure "))
+                    && !trimmed.contains('{')
+                {
+                    let keyword = trimmed.split_whitespace().next().unwrap_or("contract");
+                    let leading = line_text.len().saturating_sub(trimmed.len());
+                    let start = offset + leading;
+                    let end = start + keyword.len();
+                    items.push(ParserError {
                         code: "P001",
-                        message: msg,
-                        start: span.start,
-                        end: span.end,
-                    }
-                })
-                .collect();
+                        message: format!(
+                            "at {}..{}: error: keyword `{}` must be followed by `{{ ... }}`",
+                            start, end, keyword
+                        ),
+                        start,
+                        end,
+                    });
+                }
+                offset += line.len();
+            }
             Err(items)
         }
     }

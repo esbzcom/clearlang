@@ -28,7 +28,15 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut module = Module::new();
 
     // String pool: collect unique string literals and assign memory offsets
-    let mut str_pool: HashMap<String, u32> = HashMap::new();
+    let mut estimated_strings = 0usize;
+    for f in &ir.funcs {
+        estimated_strings += f
+            .body
+            .iter()
+            .filter(|ins| matches!(ins, IrInstr::IStringConst { .. }))
+            .count();
+    }
+    let mut str_pool: HashMap<String, u32> = HashMap::with_capacity(estimated_strings);
     let mut cur_off: u32 = 0;
     for f in &ir.funcs {
         for ins in &f.body {
@@ -52,7 +60,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         has_ret: bool,
     }
     let mut types = TypeSection::new();
-    let mut sig_to_tyidx = HashMap::<SigKey, u32>::new();
+    let mut sig_to_tyidx = HashMap::<SigKey, u32>::with_capacity(ir.funcs.len());
     let mut fn_type_indices: Vec<u32> = Vec::with_capacity(ir.funcs.len());
     for f in &ir.funcs {
         let key = SigKey {

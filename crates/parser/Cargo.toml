@@ -6,3 +6,10 @@ edition = "2021"
 [dependencies]
 chumsky = "0.10.1"
 clg-ast = { path = "../ast" }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "parser"
+harness = false

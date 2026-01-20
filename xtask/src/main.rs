@@ -39,6 +39,7 @@ fn main() -> Result<(), String> {
                 ],
             )?;
             cargo_cmd(&root, &["test", "--workspace"])?;
+            cargo_cmd(&root, &["build", "--release", "-p", "clg-cli"])?;
             validate_samples(&root)?;
         }
         "help" | "-h" | "--help" => {

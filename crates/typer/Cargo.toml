@@ -10,3 +10,8 @@ anyhow = "1"
 
 [dev-dependencies]
 clg-parser = { path = "../parser" }
+criterion = "0.5"
+
+[[bench]]
+name = "typer"
+harness = false

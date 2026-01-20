@@ -523,8 +523,8 @@ Codegen & Runtime
 ## Phase 12 - Safety & Tooling Hardening
 
 - [ ] [debt] CI & validation:
-  - [ ] [debt] Always run `wasm-tools validate` on emitted modules in CI.
-  - [ ] [debt] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
+  - [x] Always run `wasm-tools validate` on emitted modules in CI.
+  - [x] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
   - [ ] [debt] Add regression coverage to ensure CI enforcement for validation and core test workflows.
 - [ ] [debt] Runtime bounds:
   - [ ] [debt] Document Wasmtime fuel/epoch/memory limits and recommended defaults.

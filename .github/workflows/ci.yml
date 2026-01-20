@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install wasm-tools
+        run: cargo install wasm-tools --locked
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Validate emitted Wasm
+        run: |
+          set -euo pipefail
+          mkdir -p tmp/ci
+          samples=(
+            01_hello.clear
+            02_arith.clear
+            03_nested_calls.clear
+            04_multiline_call.clear
+            05_trailing_param_comma.clear
+            08_main_const.clear
+            18_return_simple.clear
+          )
+          for sample in "${samples[@]}"; do
+            out="tmp/ci/${sample%.clear}.wasm"
+            cargo run -p clg-cli -- build "clearlang-tests/${sample}" -o "${out}"
+            wasm-tools validate "${out}"
+          done
+          cargo run -p clg-cli -- emit-hello -o tmp/ci/emit_hello.wasm
+          wasm-tools validate tmp/ci/emit_hello.wasm

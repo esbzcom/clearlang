@@ -3,13 +3,21 @@ use std::path::{Path, PathBuf};
 use wasmtime as wt;
 
 use super::helpers::{make_single_json_error, CommandError};
+use crate::logging::{Logger, StageTimings};
 
-pub fn run(file: PathBuf, invoke: String, json_errors: bool) -> Result<()> {
+pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> Result<()> {
+    let mut timings = StageTimings::new();
     let engine = wt::Engine::default();
-    let module = wt::Module::from_file(&engine, &file)
-        .with_context(|| format!("loading {}", file.display()))?;
+    let module = {
+        let _stage = timings.start(logger, "load_module");
+        wt::Module::from_file(&engine, &file)
+            .with_context(|| format!("loading {}", file.display()))?
+    };
     let mut store = wt::Store::new(&engine, ());
-    let instance = wt::Instance::new(&mut store, &module, &[]).context("instantiating module")?;
+    let instance = {
+        let _stage = timings.start(logger, "instantiate");
+        wt::Instance::new(&mut store, &module, &[]).context("instantiating module")?
+    };
     let func = instance
         .get_typed_func::<(), i32>(&mut store, &invoke)
         .with_context(|| format!("export `{}` not found or wrong type", invoke))?;
@@ -17,6 +25,7 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool) -> Result<()> {
     match func.call(&mut store, ()) {
         Ok(result) => {
             println!("{}", result);
+            logger.summary(&timings);
             Ok(())
         }
         Err(trap) => {

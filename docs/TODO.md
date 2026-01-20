@@ -537,12 +537,21 @@ Codegen & Runtime
 
 ## Phase 13 - Developer Experience
 
-- [ ] Observability: simple tracing/logging for pipeline stages in CLI with verbosity levels.
-- [ ] Tooling ergonomics: add `cargo xtask` or Makefile targets for build/validate/run/emit-vcs.
-- [ ] Error hygiene: unify error types/messages across crates; document error code table.
-- [ ] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
-- [ ] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
-- [ ] Add perf/regression tests around allocation hot paths and release profile tuning impacts.
+- [x] Observability:
+  - [x] Add structured tracing/logging for CLI pipeline stages with duration summaries.
+  - [x] Support verbosity levels (`-v`/`-vv`) and a `CLG_LOG` env override.
+- [ ] Tooling ergonomics:
+  - [ ] Add `cargo xtask` or `justfile` targets for `fmt`, `clippy`, `test`, `validate`, `emit-vcs`, and `ci`.
+  - [ ] Document local dev workflows in `docs/dev.md` (setup, wasm-tools, common commands).
+- [ ] Error hygiene:
+  - [ ] Unify error types/messages across crates and keep JSON errors consistent.
+  - [ ] Add a single error-code table and a test that ensures codes are unique and documented.
+- [ ] Performance:
+  - [ ] Preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer/codegen.
+  - [ ] Add microbenchmarks for parser/typer/codegen hot paths.
+- [ ] Release profile:
+  - [ ] Set `[profile.release]` with `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"`.
+  - [ ] Add perf/regression checks for release profile tuning impacts.
 
 ## Phase 14 - Nice-to-Have Enhancements
 

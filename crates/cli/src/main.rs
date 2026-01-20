@@ -1,14 +1,16 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 mod commands;
+mod logging;
 mod proofs;
 mod signing;
 use commands::{
     build as cmd_build, emit_hello as cmd_emit_hello, helpers::CommandError, parse as cmd_parse,
     run as cmd_run, verify as cmd_verify,
 };
+use logging::Logger;
 use signing::SignScope;
 
 #[derive(Parser, Debug)]
@@ -17,9 +19,9 @@ struct Cli {
     /// Emit machine-readable JSON errors instead of human text
     #[arg(long, global = true, default_value_t = false)]
     json_errors: bool,
-    /// Emit verbose stage logs
-    #[arg(long, global = true, default_value_t = false)]
-    verbose: bool,
+    /// Increase verbosity (-v, -vv) for stage logs
+    #[arg(short, long, action = ArgAction::Count, global = true, default_value_t = 0)]
+    verbose: u8,
     #[command(subcommand)]
     command: Commands,
 }
@@ -96,9 +98,10 @@ enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let logger = Logger::from_env(cli.verbose);
     let result = match cli.command {
-        Commands::EmitHello { out } => cmd_emit_hello::run(out),
-        Commands::Parse { file } => cmd_parse::run(file, cli.json_errors, cli.verbose),
+        Commands::EmitHello { out } => cmd_emit_hello::run(out, logger),
+        Commands::Parse { file } => cmd_parse::run(file, cli.json_errors, logger),
         Commands::Build {
             file,
             out,
@@ -122,14 +125,14 @@ fn main() -> Result<()> {
             scope.unwrap_or(SignScope::Both),
             sig_out,
             cli.json_errors,
-            cli.verbose,
+            logger,
         ),
-        Commands::Run { file, invoke } => cmd_run::run(file, invoke, cli.json_errors),
+        Commands::Run { file, invoke } => cmd_run::run(file, invoke, cli.json_errors, logger),
         Commands::Verify {
             module,
             sig,
             pubkey,
-        } => cmd_verify::run(module, sig, pubkey, cli.json_errors),
+        } => cmd_verify::run(module, sig, pubkey, cli.json_errors, logger),
     };
 
     if let Err(err) = result {

@@ -15,6 +15,7 @@ use time::OffsetDateTime;
 use crate::commands::helpers::{
     extract_function_name, make_parse_json_error, make_single_json_error, CommandError,
 };
+use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{hash_module, module_bytes_with_zeroed_hash, ProofPackage};
 use crate::signing::{self, SignScope};
 
@@ -31,62 +32,76 @@ pub fn run(
     scope: SignScope,
     sig_out: Option<PathBuf>,
     json_errors: bool,
-    verbose: bool,
+    logger: Logger,
 ) -> Result<()> {
     if sign && emit_vcs.is_none() {
         anyhow::bail!("--sign requires --emit-vcs");
     }
 
+    let mut timings = StageTimings::new();
     let mut s = String::new();
-    fs::File::open(&file)
-        .with_context(|| format!("opening {}", file.display()))?
-        .read_to_string(&mut s)
-        .with_context(|| format!("reading {}", file.display()))?;
+    {
+        let _stage = timings.start(logger, "read_source");
+        fs::File::open(&file)
+            .with_context(|| format!("opening {}", file.display()))?
+            .read_to_string(&mut s)
+            .with_context(|| format!("reading {}", file.display()))?;
+    }
 
-    let ast = if json_errors {
-        match parse_src_errs(&s) {
-            Ok(ast) => ast,
-            Err(errs) => {
-                let json = make_parse_json_error(&file, &errs);
-                return Err(CommandError::json(json).into());
+    let ast = {
+        let _stage = timings.start(logger, "parse");
+        if json_errors {
+            match parse_src_errs(&s) {
+                Ok(ast) => ast,
+                Err(errs) => {
+                    let json = make_parse_json_error(&file, &errs);
+                    return Err(CommandError::json(json).into());
+                }
             }
-        }
-    } else {
-        match parse_src(&s) {
-            Ok(ast) => ast,
-            Err(e) => return Err(anyhow!("parse failed: {}", e)),
+        } else {
+            match parse_src(&s) {
+                Ok(ast) => ast,
+                Err(e) => return Err(anyhow!("parse failed: {}", e)),
+            }
         }
     };
 
-    let type_output = match check_with_vcs(&ast) {
-        Ok(result) => result,
-        Err(e) => {
-            if json_errors {
-                if let Some((typer, function)) = find_typer_error(&e) {
+    let type_output = {
+        let _stage = timings.start(logger, "typecheck");
+        match check_with_vcs(&ast) {
+            Ok(result) => result,
+            Err(e) => {
+                if json_errors {
+                    if let Some((typer, function)) = find_typer_error(&e) {
+                        let json = make_single_json_error(
+                            typer.code,
+                            "type",
+                            typer.message.clone(),
+                            &file,
+                            typer.start,
+                            typer.end,
+                            function,
+                        );
+                        return Err(CommandError::json(json).into());
+                    }
                     let json = make_single_json_error(
-                        typer.code,
+                        "T000",
                         "type",
-                        typer.message.clone(),
+                        format!("{e:#}"),
                         &file,
-                        typer.start,
-                        typer.end,
-                        function,
+                        0,
+                        0,
+                        None,
                     );
                     return Err(CommandError::json(json).into());
+                } else {
+                    return Err(e.context("type-check failed"));
                 }
-                let json =
-                    make_single_json_error("T000", "type", format!("{e:#}"), &file, 0, 0, None);
-                return Err(CommandError::json(json).into());
-            } else {
-                return Err(e.context("type-check failed"));
             }
         }
     };
 
     let TypecheckOutput { ir, vcs } = type_output;
-    if verbose {
-        eprintln!("type-checked and lowered to IR");
-    }
 
     match ir.funcs.iter().find(|f| f.name == "main") {
         Some(f) => {
@@ -128,53 +143,53 @@ pub fn run(
         .map(|pkg| pkg.encode_section(&[0u8; 32]))
         .transpose()?;
 
-    let mut wasm_bytes = emit_from_ir_with_opts(
-        &ir,
-        CodegenOpts {
-            debug_names,
-            proof_section: zero_section.clone(),
-        },
-    )
-    .context("codegen (IR+Wasm) failed")?;
-
-    let mut module_hash_bytes: Option<[u8; 32]> = None;
-    if let Some(pkg) = &proof_package {
-        let hash_bytes = hash_module(&wasm_bytes);
-        let proof_section = pkg.encode_section(&hash_bytes)?;
-        wasm_bytes = emit_from_ir_with_opts(
+    let (wasm_bytes, module_hash_bytes) = {
+        let _stage = timings.start(logger, "codegen");
+        let mut wasm_bytes = emit_from_ir_with_opts(
             &ir,
             CodegenOpts {
                 debug_names,
-                proof_section: Some(proof_section),
+                proof_section: zero_section.clone(),
             },
         )
         .context("codegen (IR+Wasm) failed")?;
-        let zeroed = module_bytes_with_zeroed_hash(&wasm_bytes)?;
-        module_hash_bytes = Some(hash_module(&zeroed));
-    }
 
-    if verbose {
-        eprintln!("generated Wasm ({} bytes)", wasm_bytes.len());
-    }
-
-    if let Some(parent) = out.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+        let mut module_hash_bytes: Option<[u8; 32]> = None;
+        if let Some(pkg) = &proof_package {
+            let hash_bytes = hash_module(&wasm_bytes);
+            let proof_section = pkg.encode_section(&hash_bytes)?;
+            wasm_bytes = emit_from_ir_with_opts(
+                &ir,
+                CodegenOpts {
+                    debug_names,
+                    proof_section: Some(proof_section),
+                },
+            )
+            .context("codegen (IR+Wasm) failed")?;
+            let zeroed = module_bytes_with_zeroed_hash(&wasm_bytes)?;
+            module_hash_bytes = Some(hash_module(&zeroed));
         }
-    }
-    fs::write(&out, &wasm_bytes).with_context(|| format!("writing {}", out.display()))?;
-    if verbose {
-        eprintln!("wrote {}", out.display());
+        (wasm_bytes, module_hash_bytes)
+    };
+
+    {
+        let _stage = timings.start(logger, "write_wasm");
+        if let Some(parent) = out.parent() {
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("creating {}", parent.display()))?;
+            }
+        }
+        fs::write(&out, &wasm_bytes).with_context(|| format!("writing {}", out.display()))?;
     }
 
     if let Some(vcs_path) = emit_vcs {
+        let _stage = timings.start(logger, "emit_vcs");
         write_vcs_json(&vcs, &vcs_path, &file)?;
-        if verbose {
-            eprintln!("wrote {}", vcs_path.display());
-        }
     }
 
     if sign {
+        let _stage = timings.start(logger, "sign");
         let pkg = proof_package
             .as_ref()
             .ok_or_else(|| anyhow!("proof data unavailable for signing"))?;
@@ -196,29 +211,34 @@ pub fn run(
             &sig_path,
             &timestamp,
         )?;
-        if verbose {
-            eprintln!("wrote {}", sig_path.display());
-            eprintln!("module hash {}", module_hash_hex);
-            eprintln!("proofs hash {}", pkg.proofs_hash_hex());
+        if logger.enabled(LogLevel::Debug) {
+            logger.event(
+                LogLevel::Debug,
+                "sign_detail",
+                "sign",
+                &[
+                    ("module_hash", module_hash_hex.clone()),
+                    ("proofs_hash", pkg.proofs_hash_hex()),
+                    ("sig_path", sig_path.display().to_string()),
+                ],
+            );
         }
     }
 
     if validate {
+        let _stage = timings.start(logger, "validate_wasm");
         let status = std::process::Command::new("wasm-tools")
             .arg("validate")
             .arg(&out)
             .status();
         match status {
-            Ok(s) if s.success() => {
-                if verbose {
-                    eprintln!("validated {}", out.display());
-                }
-            }
+            Ok(s) if s.success() => {}
             Ok(s) => anyhow::bail!("wasm-tools validate failed with status {:?}", s.code()),
             Err(e) => anyhow::bail!("failed to run wasm-tools: {}", e),
         }
     }
 
+    logger.summary(&timings);
     Ok(())
 }
 

@@ -108,7 +108,7 @@ See `docs/style.md` for the full style guide.
 3) Runtime
 - Contract guards trap deterministically on violation (when compiled in).
 - Sandboxing: Wasm memory isolation by default.
-- Host limits: Wasmtime fuel/epoch deadlines, memory/table caps.
+- Host limits: Wasmtime fuel/epoch deadlines, memory/table caps (see `docs/runtime/limits.md`).
 
 ---
 

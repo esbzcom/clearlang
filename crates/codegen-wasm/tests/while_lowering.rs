@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use clg_codegen_wasm::emit_from_ir;
 use clg_parser::parse;
 use clg_typer::check;
-use wasmtime::{Instance, Module, Store};
+use wasmtime::{Instance, Module};
 
 mod common;
 
@@ -12,7 +12,7 @@ fn build_and_run(src: &str) -> Result<i32> {
     let wasm = emit_from_ir(&ir)?;
     let engine = common::engine();
     let module = Module::from_binary(engine, &wasm)?;
-    let mut store = Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = Instance::new(&mut store, &module, &[])?;
     let main = instance.get_typed_func::<(), i32>(&mut store, "main")?;
     let result = main.call(&mut store, ())?;

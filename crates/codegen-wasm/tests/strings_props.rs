@@ -8,7 +8,7 @@ mod common;
 fn run_main_i32(wasm: &[u8]) -> i32 {
     let engine = common::engine();
     let module = wasmtime::Module::from_binary(engine, wasm).expect("module from bytes");
-    let mut store = wasmtime::Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")

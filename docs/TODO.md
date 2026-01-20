@@ -527,8 +527,8 @@ Codegen & Runtime
   - [x] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
   - [ ] [debt] Add regression coverage to ensure CI enforcement for validation and core test workflows.
 - [ ] [debt] Runtime bounds:
-  - [ ] [debt] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
-  - [ ] [debt] Enable fuel/epoch limits in integration tests to enforce bounded execution.
+  - [x] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
+  - [x] Enable fuel/epoch limits in integration tests to enforce bounded execution.
   - [ ] [debt] Add runtime fuel/epoch limit integration tests once limits are wired.
 - [ ] Contracts mode flag (design):
   - [ ] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.

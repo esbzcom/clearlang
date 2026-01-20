@@ -25,7 +25,7 @@ struct Case {
 fn run_wasm_and_get_i32_result(wasm: &[u8]) -> i32 {
     let engine = common::engine();
     let module = wasmtime::Module::from_binary(engine, wasm).expect("module from bytes");
-    let mut store = wasmtime::Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")
@@ -110,7 +110,7 @@ fn ir_pipeline_samples() {
             let wasm = emit_from_ir(&ir).expect("codegen (IR) ok");
             let engine = common::engine();
             let module = wasmtime::Module::from_binary(engine, &wasm).expect("module from bytes");
-            let mut store = wasmtime::Store::new(engine, ());
+            let mut store = common::store(engine);
             let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
             assert!(
                 instance

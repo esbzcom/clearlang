@@ -51,7 +51,7 @@ fn variant_init_allocates_and_writes_layout() {
 
     let engine = common::engine();
     let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
-    let mut store = wasmtime::Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
 
     let heap_before = get_global(&instance, &mut store, "__clg_heap_ptr");

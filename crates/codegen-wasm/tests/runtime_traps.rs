@@ -48,7 +48,7 @@ fn trap_r002_invalid_utf8_from_len() {
 
     let engine = common::engine();
     let module = wasmtime::Module::from_binary(engine, &wasm).expect("module from bytes");
-    let mut store = wasmtime::Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")
@@ -75,7 +75,7 @@ fn trap_r001_concat_oom_and_heap_ptr_unchanged() {
 
     let engine = common::engine();
     let module = wasmtime::Module::from_binary(engine, &wasm).expect("module from bytes");
-    let mut store = wasmtime::Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
 
     // heap ptr before call
@@ -137,7 +137,7 @@ fn trap_r003_invalid_tag_from_variant_load() {
 
     let engine = common::engine();
     let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
-    let mut store = wasmtime::Store::new(engine, ());
+    let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")

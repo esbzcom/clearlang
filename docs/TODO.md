@@ -525,9 +525,11 @@ Codegen & Runtime
 - [ ] [debt] CI & validation:
   - [ ] [debt] Always run `wasm-tools validate` on emitted modules in CI.
   - [ ] [debt] Add CI workflow to run `cargo test --workspace` and pipeline/integration tests.
+  - [ ] [debt] Add regression coverage to ensure CI enforcement for validation and core test workflows.
 - [ ] [debt] Runtime bounds:
   - [ ] [debt] Document Wasmtime fuel/epoch/memory limits and recommended defaults.
   - [ ] [debt] Enable fuel/epoch limits in integration tests to enforce bounded execution.
+  - [ ] [debt] Add runtime fuel/epoch limit integration tests once limits are wired.
 - [ ] Contracts mode flag (design):
   - [ ] Draft design for `--contracts=runtime|hybrid|static` behavior and migration path.
 
@@ -540,6 +542,7 @@ Codegen & Runtime
 - [ ] [debt] Error hygiene: unify error types/messages across crates; document error code table.
 - [ ] [debt] Perf: preallocate HashMaps/Vecs where sizes are known (builtins, params, funcs) in parser/typer.
 - [ ] [debt] Release profile tuning: set `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"` in top-level Cargo.toml.
+- [ ] [debt] Add perf/regression tests around allocation hot paths and release profile tuning impacts.
 
 ## Phase 14 - Nice-to-Have Enhancements
 

@@ -553,16 +553,52 @@ Codegen & Runtime
   - [x] Set `[profile.release]` with `lto = "thin"`, `codegen-units = 1`, optional `strip = "symbols"`.
   - [x] Add perf/regression checks for release profile tuning impacts.
 
-## Phase 14 - Nice-to-Have Enhancements
+## Phase 14 - Platform & Runtime Decoupling
 
+- [ ] Contract/runtime decoupling:
+  - [ ] Define a pure state-transition core (e.g., `apply(state, msg) -> (state', events)`).
+  - [ ] Specify a stable, deterministic ABI for `init`/`handle`/`query` plus canonical serialization.
+  - [ ] Model environment services (storage/crypto/time/log) as capability interfaces injected by the runtime.
+  - [ ] Use chain-scoped environment types (e.g., `std::eth::Address`, `std::solana::Pubkey`) instead of global `Address`.
+  - [ ] Keep business-logic utilities in chain packages, not core language features.
+  - [ ] Gate service calls behind effects so core proofs remain pure.
+  - [ ] Document the Wasm host import surface and runtime responsibilities.
+- [ ] Runtime/chain documentation:
+  - [x] Publish `docs/runtime/abi.md` (host API, limits, ABI surface).
+  - [x] Publish `docs/runtime/chain-packages.md` (chain-scoped types, versioning, evolution policy).
+  - [x] Add a short separation-of-concerns section to README + style guide.
+- [ ] Determinism & metering:
+  - [ ] Explicit gas/step accounting for loops and recursion; deterministic runtime limits.
+  - [ ] Forbid nondeterministic APIs by default; gate randomness/time behind `io`.
 - [ ] WASI `print` intrinsic for observable output (design + implementation + docs/tests).
+- [ ] Diagnostics polish:
+  - [ ] Emit `P010` for missing `else` in expression-form `if` (parser + tests).
+  - [ ] Make `docs/diagnostics.md` JSON example strict JSON (move note outside the code block).
+- [ ] Benchmark follow-ups:
+  - [ ] Use benches to validate codegen string pre-scan overhead; reduce pass cost if it shows up on hot paths.
+
+## Phase 15 - Crypto + Language Expansion
+
+- [ ] Crypto core types & ops:
+  - [ ] Add fixed-width unsigned ints (`U64`, `U128`, `U256`) with explicit overflow semantics (wrap/checked/sat).
+  - [ ] Add bitwise ops, shifts/rotates, and byte/word conversions.
+  - [ ] Introduce `Bytes` and fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs.
+- [ ] Crypto intrinsics:
+  - [ ] Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics.
+  - [ ] Signature verification (ed25519/secp256k1) with strict input validation.
+  - [ ] Constant-time byte equality helper for secret comparisons.
+- [ ] Proof hooks for crypto:
+  - [ ] SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
+  - [ ] Document proof limitations for cryptographic primitives in `docs/proofs`.
 - [ ] On-chain attestation for signatures: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
-
-## Phase 15 - Linear-Aware Collections (Future)
-
-- [ ] Design note: freeze/thaw or mutable-borrow semantics for unique aliasing (API surface like `freeze(list)`, `thaw(list_mut)`).
-- [ ] Effects/VC plan: effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
-- [ ] Prototype plan: phased implementation steps and tests once design is locked.
-
-
+- [ ] Core language gaps:
+  - [ ] Implement user-defined structs/enums (beyond resource types) with pattern matching.
+  - [ ] Add generics and trait/interface abstractions beyond built-in ADTs.
+  - [ ] Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
+  - [ ] Add general array/slice types with indexing semantics and bounds checks.
+  - [ ] Add module/import system with visibility controls for libraries.
+- [ ] Linear-aware collections:
+  - [ ] Design note: freeze/thaw or mutable-borrow semantics for unique aliasing (API surface like `freeze(list)`, `thaw(list_mut)`).
+  - [ ] Effects/VC plan: effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
+  - [ ] Prototype plan: phased implementation steps and tests once design is locked.
 

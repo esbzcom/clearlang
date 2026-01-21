@@ -1,6 +1,6 @@
 # ClearLang Style Guide
 
-This guide keeps ClearLang simple, provable, and AI‑friendly by standardizing naming and diagnostics.
+This guide keeps ClearLang simple, provable, and AI-friendly by standardizing naming and diagnostics.
 
 ## Naming Conventions
 - Modules/namespaces: lower_snake_case.
@@ -12,7 +12,7 @@ This guide keeps ClearLang simple, provable, and AI‑friendly by standardizing 
 - Type parameters: single uppercase letters.
   - Examples: `T`, `K`, `V`, `E`.
 - Constants (future): UPPER_SNAKE_CASE.
-- No overloading: one name → one meaning. Prefer distinct names over arity/type-based overloading.
+- No overloading: one name = one meaning. Prefer distinct names over arity/type-based overloading.
 
 Rationale: consistent casing makes code readable, errors predictable, and tooling (linters/AI) reliable.
 
@@ -24,13 +24,18 @@ Rationale: consistent casing makes code readable, errors predictable, and toolin
 - Keep messages short and consistent; prefer actionable wording.
 
 ## Project Organization (DX)
-- Split by responsibility; keep `lib.rs` as a thin façade.
+- Split by responsibility; keep `lib.rs` as a thin facade.
   - Example: `clg-typer` has `errors`, `builtins`, `check`, `lower`.
 - Avoid premature features; prefer staged, testable slices in the roadmap.
+
+## Separation of Concerns
+- Core language: syntax, typing, effects, proofs.
+- Runtime: host interface (storage, crypto syscalls, logging, gas, ABI entrypoints).
+- Chain packages: chain-scoped types and helpers (e.g., `std::eth::Address`), built on runtime capabilities.
+- Prefer chain-scoped types over global ones; avoid baking chain rules into the core language.
 
 ## Examples
 - Good: `std::str::len(name: String) -> Int`
 - Good: `std::map::get(m: Map<K,V>, k: K) -> Option<V>`
 - Good: `Result<Int, ParseError>` (future ADT)
 - Avoid: mixedCase, kebab-case, or overloading the same name with different arities.
-

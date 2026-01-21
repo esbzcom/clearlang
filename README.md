@@ -18,7 +18,24 @@ Because it compiles to **WebAssembly (WASM)**, ClearLang runs anywhere - web, mo
 
 ---
 
+## Design Principles
 
+- **Simple for users**: keep syntax familiar and minimize boilerplate so developers can be productive quickly.
+- **AI-friendly**: predictable structure and diagnostics so tools can generate and repair code safely.
+- **Provably correct**: contracts, types, and proofs make unsafe programs uncompilable.
+- **Crypto-focused**: prioritize determinism, resource safety, and audit-grade guarantees for smart contracts.
+
+---
+
+## Separation of Concerns
+
+- **Core language**: syntax, types, proofs, and effects (pure/mut/io).
+- **Runtime**: deterministic host interface (storage, crypto syscalls, logging, gas, ABI entrypoints).
+- **Chain packages**: chain-specific types and helpers (e.g., `std::eth::Address`) built on runtime capabilities.
+
+This keeps the core small and stable while allowing chain packages to evolve as crypto tech adds new types or services.
+
+---
 
 ## 1. Motivation & Concept
 
@@ -234,27 +251,27 @@ Smart contracts are unforgiving: a single bug can permanently lock or steal mill
 
 // A natural number (no negatives)
 
-type Nat = Int where n >= 0
+type Nat = Int where n >= 0;
 
 
 
 // Resource type ensures ownership cannot be duplicated
 
-resource Token { balance: Nat }
+resource Token {
+    balance: Nat;
+    drop { }
+}
 
 
 
-pure fn transfer(from: &mut Token, to: &mut Token, amount: Nat)
-
-    require amount <= from.balance
-
-    ensure from.balance' + amount == from.balance + to.balance
-
+mut function transfer(from: Token, to: Token, amount: Nat) -> Nat
+    require { amount <= token::balance(from) }
+    ensure { result == old(token::balance(from) + token::balance(to)) }
 {
 
-    from.balance = from.balance - amount
-
-    to.balance   = to.balance + amount
+    token::set_balance(from, token::balance(from) - amount);
+    token::set_balance(to, token::balance(to) + amount);
+    token::balance(from) + token::balance(to)
 
 }
 
@@ -262,9 +279,9 @@ pure fn transfer(from: &mut Token, to: &mut Token, amount: Nat)
 
 
 
-- `require amount <= from.balance`: prevents overdraft.  
+- `require { amount <= token::balance(from) }`: prevents overdraft.  
 
-- `ensure` clause: enforces conservation of total supply at compile time.  
+- `ensure { result == old(...) }`: enforces conservation of total supply; `old(...)` snapshots pre-state.  
 
 - `resource Token`: prevents duplication of balances (no double-spend).  
 
@@ -312,23 +329,21 @@ function withdraw(uint amount) public {
 
 ```clearlang
 
-mut fn withdraw(user: &mut Token, amount: Nat)
-
-    require amount <= user.balance
-
-    ensure user.balance' == user.balance - amount
-
+io function withdraw(user: Token, to: std::eth::Address, amount: Nat) -> Nat
+    require { amount <= token::balance(user) }
+    ensure { result == old(token::balance(user)) - amount }
 {
 
     // Update state first
 
-    user.balance = user.balance - amount
+    token::set_balance(user, token::balance(user) - amount);
 
 
 
     // External call (I/O) is separated and sequenced after state mutation
-
-    io fn sendFunds(to: Address, amount: Nat)
+    // Chain packages provide `std::<chain>::io` helpers.
+    std::eth::io::send_funds(to, amount);
+    token::balance(user)
 
 }
 
@@ -338,9 +353,11 @@ mut fn withdraw(user: &mut Token, amount: Nat)
 
 - **State update enforced before I/O**: effect system (`mut` vs `io`) prevents interleaving.  
 
-- Compiler proves that `user.balance'` is always consistent.  
+- Compiler proves that the post-state balance matches the `ensure` contract.  
 
 - Reentrancy exploit is **unrepresentable** in ClearLang - the code won't compile otherwise.  
+
+- Note: chain packages (e.g., `std::eth::Address` and `std::eth::io`) are provided by the target environment, not the core language.
 
 
 
@@ -368,7 +385,7 @@ Because ClearLang is **AI-first**, non-crypto workflows can also be generated sa
 
 ```clearlang
 
-type PosInt = Int where n > 0
+type PosInt = Int where n > 0;
 
 
 
@@ -378,17 +395,17 @@ struct Ratio { num: Int, den: PosInt }
 
 // sum is a spec-level function; compiled code will use a loop with invariants
 
-pure fn average(xs: Array[Int]) -> Option[Ratio]
+pure function average(xs: Array[Int]) -> Option[Ratio]
 
     // No precondition: empty lists allowed
 
-    ensure match result {
+    ensure { match result {
 
         None      => xs.length == 0,
 
         Some(r)   => r.den == xs.length && r.num == sum(xs)
 
-    }
+    } }
 
 {
 
@@ -405,6 +422,9 @@ pure fn average(xs: Array[Int]) -> Option[Ratio]
 }
 
 ```
+
+- Note: struct and Array[...] are planned core language features (see Phase 15).
+
 
 
 

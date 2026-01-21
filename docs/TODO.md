@@ -570,9 +570,10 @@ Codegen & Runtime
 - [ ] Determinism & metering:
   - [ ] Explicit gas/step accounting for loops and recursion; deterministic runtime limits.
   - [ ] Forbid nondeterministic APIs by default; gate randomness/time behind `io`.
+  - [ ] Add tests covering metering limits (loop/recursion) and nondeterminism gate errors.
 - [ ] WASI `print` intrinsic for observable output (design + implementation + docs/tests).
 - [ ] Diagnostics polish:
-  - [ ] Emit `P010` for missing `else` in expression-form `if` (parser + tests).
+  - [ ] (Tracked in Phase 4.10) Emit `P010` for missing `else` in expression-form `if` (parser + tests).
   - [ ] Make `docs/diagnostics.md` JSON example strict JSON (move note outside the code block).
 - [ ] Benchmark follow-ups:
   - [ ] Use benches to validate codegen string pre-scan overhead; reduce pass cost if it shows up on hot paths.

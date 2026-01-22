@@ -18,6 +18,8 @@ Types
 
 - Strings: `String` is a primitive type (Phase 4.2 parse/type).
 
+- Bytes: `Bytes` is an opaque byte buffer type (Phase 14 contract ABI surface).
+
 
 
 Namespacing (::)
@@ -51,6 +53,12 @@ Strings (String)
   - `pure function echo(s: String) -> String { s }`
 
 - Runtime: `std::str` built-ins (`len/concat/eq`) lower through the string allocator/runtime added in Phase 5.
+
+Bytes (Bytes)
+
+- Type: `Bytes` is a length-prefixed byte buffer (`[u32 len][u8 len]`) in linear memory.
+- Conversions: `std::bytes::from_string(String) -> Bytes` and `std::bytes::to_string(Bytes) -> String`.
+- Runtime: `std::bytes` built-ins (`len/concat/eq`) share the same layout as `String` and do not require UTF-8.
 
 
 

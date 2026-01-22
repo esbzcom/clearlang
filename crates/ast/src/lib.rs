@@ -109,6 +109,7 @@ pub enum Type {
     Int,
     Bool,
     String,
+    Bytes,
     Resource(String),
     Option(Box<Type>),
     Result(Box<Type>, Box<Type>),

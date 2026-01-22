@@ -18,6 +18,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             kw("Int").to(Type::Int),
             kw("Bool").to(Type::Bool),
             kw("String").to(Type::String),
+            kw("Bytes").to(Type::Bytes),
         ));
         let list_t = kw("List")
             .ignore_then(just('<').padded())

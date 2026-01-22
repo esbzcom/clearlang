@@ -786,6 +786,7 @@ fn render_type(ty: &Type) -> String {
         Type::Int => "Int".to_string(),
         Type::Bool => "Bool".to_string(),
         Type::String => "String".to_string(),
+        Type::Bytes => "Bytes".to_string(),
         Type::Resource(name) => name.to_string(),
         Type::Option(inner) => format!("Option<{}>", render_type(inner)),
         Type::Result(ok, err) => format!("Result<{}, {}>", render_type(ok), render_type(err)),

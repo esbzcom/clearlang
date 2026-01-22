@@ -1,5 +1,5 @@
-use clg_ir::TrapCode;
-use wasm_encoder::InstructionSink;
+use clg_ir::{Function as IrFunction, TrapCode};
+use wasm_encoder::{Function, InstructionSink};
 
 use crate::ir::{ERROR_CODE_GLOBAL, ERROR_DETAIL_GLOBAL, ERROR_END_GLOBAL, ERROR_START_GLOBAL};
 
@@ -66,4 +66,12 @@ pub fn emit_guard_trap(
         TrapOperand::imm(end as i32),
         detail,
     );
+}
+
+pub fn encode_intrinsic_identity(_f: &IrFunction) -> anyhow::Result<Function> {
+    let mut fenc = Function::new(Vec::new());
+    let mut insts = fenc.instructions();
+    insts.local_get(0);
+    insts.end();
+    Ok(fenc)
 }

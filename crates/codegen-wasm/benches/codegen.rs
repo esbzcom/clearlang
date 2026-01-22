@@ -14,6 +14,7 @@ fn bench_codegen(c: &mut Criterion) {
                 CodegenOpts {
                     debug_names: false,
                     proof_section: None,
+                    export_aliases: Vec::new(),
                 },
             )
             .unwrap()

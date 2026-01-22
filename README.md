@@ -35,6 +35,9 @@ Because it compiles to **WebAssembly (WASM)**, ClearLang runs anywhere - web, mo
 
 This keeps the core small and stable while allowing chain packages to evolve as crypto tech adds new types or services.
 
+Contract logic itself is modeled as a pure state transition (`apply(state, msg) -> Bytes`), while
+the runtime handles ABI entrypoints and canonical serialization (see `docs/runtime/abi.md`).
+
 ---
 
 ## 1. Motivation & Concept

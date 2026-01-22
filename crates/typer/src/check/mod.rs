@@ -291,7 +291,16 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         fn_indices.insert(f.name.as_str(), i as u32);
     }
     // Stable intrinsic order
-    let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
+    let intrinsic_order = [
+        "std::bytes::len",
+        "std::bytes::eq",
+        "std::bytes::concat",
+        "std::bytes::from_string",
+        "std::bytes::to_string",
+        "std::str::len",
+        "std::str::eq",
+        "std::str::concat",
+    ];
     let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::with_capacity(used_intrinsics.len());
     for name in intrinsic_order.iter() {
         if used_intrinsics.contains(*name) {
@@ -299,6 +308,21 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
             fn_indices.insert(name, idx);
             // Define IR function signature for the intrinsic
             let (params, ret) = match *name {
+                "std::bytes::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::bytes::eq" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
+                "std::bytes::concat" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Int),
+                ),
+                "std::bytes::from_string" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
+                }
+                "std::bytes::to_string" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
+                }
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
@@ -431,13 +455,37 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     for (i, f) in ast.funcs.iter().enumerate() {
         fn_indices.insert(f.name.as_str(), i as u32);
     }
-    let intrinsic_order = ["std::str::len", "std::str::eq", "std::str::concat"];
+    let intrinsic_order = [
+        "std::bytes::len",
+        "std::bytes::eq",
+        "std::bytes::concat",
+        "std::bytes::from_string",
+        "std::bytes::to_string",
+        "std::str::len",
+        "std::str::eq",
+        "std::str::concat",
+    ];
     let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::with_capacity(used_intrinsics.len());
     for name in intrinsic_order.iter() {
         if used_intrinsics.contains(*name) {
             let idx = (ast.funcs.len() + intrinsic_defs.len()) as u32;
             fn_indices.insert(name, idx);
             let (params, ret) = match *name {
+                "std::bytes::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::bytes::eq" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
+                "std::bytes::concat" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Int),
+                ),
+                "std::bytes::from_string" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
+                }
+                "std::bytes::to_string" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
+                }
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],

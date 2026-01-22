@@ -3,6 +3,70 @@ use clg_ast::{Effect, Param, ParamKind, Type};
 pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
     vec![
         (
+            "std::bytes::len".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "b".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Int,
+            Effect::Pure,
+        ),
+        (
+            "std::bytes::concat".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::bytes::eq".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::bytes::from_string".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "s".to_string(),
+                ty: Type::String,
+            }],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::bytes::to_string".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "b".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::String,
+            Effect::Pure,
+        ),
+        (
             "std::str::len".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

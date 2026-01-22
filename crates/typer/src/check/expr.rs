@@ -1332,6 +1332,7 @@ pub(crate) fn show_ty(t: Type) -> String {
             Type::Int => "Int".to_string(),
             Type::Bool => "Bool".to_string(),
             Type::String => "String".to_string(),
+            Type::Bytes => "Bytes".to_string(),
             Type::Resource(name) => name,
             Type::Option(inner) => format!("Option<{}>", render(*inner)),
             Type::Result(ok, err) => format!("Result<{}, {}>", render(*ok), render(*err)),

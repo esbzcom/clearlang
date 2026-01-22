@@ -442,6 +442,7 @@ fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'sta
         Type::Int => "Int",
         Type::Bool => "Bool",
         Type::String => "String",
+        Type::Bytes => "String",
         Type::Option(_)
         | Type::Result(_, _)
         | Type::List(_)

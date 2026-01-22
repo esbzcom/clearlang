@@ -97,6 +97,10 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T903 | type | Loop variant is not decreasing. |
 | C001 | build | Invalid main signature (only `main() -> Int` is supported in this phase). |
 | C002 | build | Missing `main` function. |
+| C010 | build | Missing `apply` function for contract build. |
+| C011 | build | Missing `query` function for contract build. |
+| C012 | build | Contract entrypoint has an invalid signature. |
+| C013 | build | Contract build reserves `init`/`handle`; use `apply` instead. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

@@ -15,6 +15,7 @@ fn ir_ty(t: Type) -> IrType {
         Type::Int => IrType::Int,
         Type::Bool => IrType::Bool,
         Type::String => IrType::Int, // placeholder until strings have a runtime representation
+        Type::Bytes => IrType::Int,
         Type::Resource(_) => IrType::Int,
         Type::Option(_) => IrType::Int,
         Type::Result(_, _) => IrType::Int,

@@ -158,6 +158,73 @@ fn build_failure_for_non_int_or_missing_main() {
 }
 
 #[test]
+fn build_contract_exports_apply_and_query() {
+    let src = r#"
+        pure function apply(state: Bytes, msg: Bytes) -> Bytes { msg }
+        pure function query(state: Bytes, msg: Bytes) -> Bytes { state }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("contract.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("contract.wasm");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build", "--contract"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .assert()
+        .success();
+
+    let bytes = fs::read(&out).expect("read wasm");
+    let mut exports = Vec::new();
+    for payload in wasmparser::Parser::new(0).parse_all(&bytes) {
+        if let wasmparser::Payload::ExportSection(reader) = payload.expect("payload") {
+            for export in reader {
+                let export = export.expect("export");
+                exports.push(export.name.to_string());
+            }
+        }
+    }
+    assert!(exports.contains(&"init".to_string()));
+    assert!(exports.contains(&"handle".to_string()));
+    assert!(exports.contains(&"query".to_string()));
+}
+
+#[test]
+fn build_contract_requires_query_function() {
+    let src = r#"
+        pure function apply(state: Bytes, msg: Bytes) -> Bytes { msg }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("contract_missing_query.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("contract_missing_query.wasm");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build", "--contract"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C011"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
 fn type_error_reports_json_with_span_and_code() {
     // Create a small source with a type mismatch: add(1, true)
     let src = r#"

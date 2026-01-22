@@ -8,7 +8,7 @@ use wasm_encoder::{
 };
 
 use crate::intrinsics::{
-    runtime::{emit_guard_trap, emit_runtime_trap, TrapOperand},
+    runtime::{emit_guard_trap, emit_runtime_trap, encode_intrinsic_identity, TrapOperand},
     strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
 };
 
@@ -22,6 +22,13 @@ pub(crate) const ERROR_DETAIL_GLOBAL: u32 = 4;
 pub struct CodegenOpts {
     pub debug_names: bool,
     pub proof_section: Option<Vec<u8>>,
+    pub export_aliases: Vec<ExportAlias>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExportAlias {
+    pub export: String,
+    pub target: String,
 }
 
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
@@ -154,10 +161,30 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     );
     module.section(&globals);
 
-    // Export main + runtime bookkeeping globals
+    // Export entrypoints + runtime bookkeeping globals
     let mut exports = ExportSection::new();
-    if let Some((i, _)) = ir.funcs.iter().enumerate().find(|(_, f)| f.name == "main") {
-        exports.export("main", ExportKind::Func, i as u32);
+    let mut export_names: HashMap<&str, ()> = HashMap::new();
+    let mut fn_indices: HashMap<&str, u32> = HashMap::with_capacity(ir.funcs.len());
+    for (i, f) in ir.funcs.iter().enumerate() {
+        fn_indices.insert(f.name.as_str(), i as u32);
+    }
+    if let Some(idx) = fn_indices.get("main") {
+        exports.export("main", ExportKind::Func, *idx);
+        export_names.insert("main", ());
+    }
+    for alias in &opts.export_aliases {
+        if export_names.contains_key(alias.export.as_str()) {
+            continue;
+        }
+        let Some(idx) = fn_indices.get(alias.target.as_str()) else {
+            return Err(anyhow::anyhow!(
+                "missing function `{}` for export `{}`",
+                alias.target,
+                alias.export
+            ));
+        };
+        exports.export(alias.export.as_str(), ExportKind::Func, *idx);
+        export_names.insert(alias.export.as_str(), ());
     }
     exports.export("memory", ExportKind::Memory, 0);
     exports.export("__clg_heap_ptr", ExportKind::Global, HEAP_PTR_GLOBAL);
@@ -188,6 +215,11 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     for f in &ir.funcs {
         // Encode intrinsics with custom bodies; other functions from IR
         let func = match f.name.as_str() {
+            "std::bytes::len" => encode_intrinsic_str_len(f)?,
+            "std::bytes::eq" => encode_intrinsic_str_eq(f)?,
+            "std::bytes::concat" => encode_intrinsic_str_concat(f)?,
+            "std::bytes::from_string" => encode_intrinsic_identity(f)?,
+            "std::bytes::to_string" => encode_intrinsic_identity(f)?,
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,
             "std::str::concat" => encode_intrinsic_str_concat(f)?,

@@ -48,6 +48,9 @@ enum Commands {
         /// Output wasm file path
         #[arg(short, long, default_value = "out.wasm")]
         out: PathBuf,
+        /// Build contract entrypoints (apply/query exported as init/handle/query)
+        #[arg(long, default_value_t = false)]
+        contract: bool,
         /// Validate output with `wasm-tools validate`
         #[arg(long, default_value_t = false)]
         validate: bool,
@@ -105,6 +108,7 @@ fn main() -> Result<()> {
         Commands::Build {
             file,
             out,
+            contract,
             validate,
             debug_names,
             emit_vcs,
@@ -116,6 +120,7 @@ fn main() -> Result<()> {
         } => cmd_build::run(
             file,
             out,
+            contract,
             validate,
             debug_names,
             emit_vcs,

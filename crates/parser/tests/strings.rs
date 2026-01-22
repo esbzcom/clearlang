@@ -26,6 +26,14 @@ line2" }
 }
 
 #[test]
+fn parses_bytes_type_in_signature() {
+    let src = r#"
+        function main(b: Bytes) -> Bytes { b }
+    "#;
+    let _ = parse(src).expect("parse ok");
+}
+
+#[test]
 fn errors_on_unclosed_string() {
     let src = r#"
         function main() -> String { "unterminated }

@@ -2,7 +2,7 @@ use clg_ast::{Block, Expr, Program, Stmt};
 use std::collections::HashSet;
 
 pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
-    let mut set: HashSet<&'static str> = HashSet::with_capacity(3);
+    let mut set: HashSet<&'static str> = HashSet::with_capacity(8);
     fn walk_block(block: &Block, set: &mut HashSet<&'static str>) {
         for stmt in &block.statements {
             match stmt {
@@ -59,6 +59,21 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
             Expr::Block { block } => walk_block(block, set),
             Expr::Call { callee, args, .. } => {
                 match callee.as_str() {
+                    "std::bytes::len" => {
+                        set.insert("std::bytes::len");
+                    }
+                    "std::bytes::eq" => {
+                        set.insert("std::bytes::eq");
+                    }
+                    "std::bytes::concat" => {
+                        set.insert("std::bytes::concat");
+                    }
+                    "std::bytes::from_string" => {
+                        set.insert("std::bytes::from_string");
+                    }
+                    "std::bytes::to_string" => {
+                        set.insert("std::bytes::to_string");
+                    }
                     "std::str::len" => {
                         set.insert("std::str::len");
                     }

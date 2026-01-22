@@ -133,3 +133,24 @@ fn errors_on_unsigned_int_types() {
     assert!(s.contains("T110"), "unexpected error: {s}");
     assert!(s.contains("U64"), "unexpected error: {s}");
 }
+
+#[test]
+fn errors_on_unsigned_int_types_u128_u256() {
+    let src_u128 = r#"
+        function main(x: U128) -> Int { 1 }
+    "#;
+    let ast = parse(src_u128).expect("parsed");
+    let err = check(&ast).expect_err("should fail on U128");
+    let s = format!("{err:#}");
+    assert!(s.contains("T110"), "unexpected error: {s}");
+    assert!(s.contains("U128"), "unexpected error: {s}");
+
+    let src_u256 = r#"
+        function main(x: Option<U256>) -> Int { 1 }
+    "#;
+    let ast = parse(src_u256).expect("parsed");
+    let err = check(&ast).expect_err("should fail on U256");
+    let s = format!("{err:#}");
+    assert!(s.contains("T110"), "unexpected error: {s}");
+    assert!(s.contains("U256"), "unexpected error: {s}");
+}

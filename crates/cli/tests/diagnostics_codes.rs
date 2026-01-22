@@ -7,10 +7,16 @@ fn is_code(s: &str) -> bool {
     if bytes.len() != 4 {
         return false;
     }
-    matches!(bytes[0], b'P' | b'T' | b'C' | b'V' | b'R')
+    is_code_prefix(bytes[0])
         && bytes[1].is_ascii_digit()
         && bytes[2].is_ascii_digit()
         && bytes[3].is_ascii_digit()
+}
+
+fn is_code_prefix(b: u8) -> bool {
+    // Keep in sync with error code families in docs/diagnostics.md.
+    const CODE_PREFIXES: [u8; 5] = [b'P', b'T', b'C', b'V', b'R'];
+    CODE_PREFIXES.contains(&b)
 }
 
 fn extract_codes_from_table(doc: &str) -> Vec<String> {
@@ -40,7 +46,7 @@ fn extract_codes_from_text(text: &str) -> HashSet<String> {
         let b1 = bytes[i + 1];
         let b2 = bytes[i + 2];
         let b3 = bytes[i + 3];
-        if !matches!(b0, b'P' | b'T' | b'C' | b'V' | b'R')
+        if !is_code_prefix(b0)
             || !b1.is_ascii_digit()
             || !b2.is_ascii_digit()
             || !b3.is_ascii_digit()

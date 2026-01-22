@@ -559,9 +559,9 @@ Codegen & Runtime
   - [x] Define a pure state-transition core (e.g., `apply(state: Bytes, msg: Bytes) -> Bytes`).
   - [x] Specify a stable, deterministic ABI for `init`/`handle`/`query` plus canonical serialization.
   - [x] Model environment services (storage/crypto/time/log) as capability interfaces injected by the runtime.
-  - [ ] Use chain-scoped environment types (e.g., `std::eth::Address`, `std::solana::Pubkey`) instead of global `Address`.
-  - [ ] Keep business-logic utilities in chain packages, not core language features.
-  - [ ] Gate service calls behind effects so core proofs remain pure.
+  - [x] Use chain-scoped environment types (e.g., `std::eth::Address`, `std::solana::Pubkey`) instead of global `Address`.
+  - [x] Keep business-logic utilities in chain packages, not core language features.
+  - [x] Gate service calls behind effects so core proofs remain pure.
   - [x] Document the Wasm host import surface and runtime responsibilities.
 - [ ] Runtime/chain documentation:
   - [x] Publish `docs/runtime/abi.md` (host API, limits, ABI surface).
@@ -574,7 +574,7 @@ Codegen & Runtime
 - [ ] WASI `print` intrinsic for observable output (design + implementation + docs/tests).
 - [ ] Diagnostics polish:
   - [ ] (Tracked in Phase 4.10) Emit `P010` for missing `else` in expression-form `if` (parser + tests).
-  - [ ] Make `docs/diagnostics.md` JSON example strict JSON (move note outside the code block).
+  - [x] Make `docs/diagnostics.md` JSON example strict JSON (move note outside the code block).
 - [ ] Benchmark follow-ups:
   - [ ] Use benches to validate codegen string pre-scan overhead; reduce pass cost if it shows up on hot paths.
 

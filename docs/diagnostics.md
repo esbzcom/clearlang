@@ -17,7 +17,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
       "file": "path/to/file.clear",
       "start": 12,
       "end": 18,
-      "function": "main" // optional
+      "function": "main"
     }
   ]
 }

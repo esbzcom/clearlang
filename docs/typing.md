@@ -20,6 +20,8 @@ Types
 
 - Bytes: `Bytes` is an opaque byte buffer type (Phase 14 contract ABI surface).
 
+- Chain packages: chain-scoped types (e.g., `std::eth::Address`) are defined in chain packages, not the core type system.
+
 
 
 Namespacing (::)

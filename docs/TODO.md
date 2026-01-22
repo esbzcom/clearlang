@@ -584,26 +584,29 @@ Codegen & Runtime
 
 ## Phase 15 - Crypto + Language Expansion
 
-- [ ] Crypto core types & ops:
-  - [ ] Add fixed-width unsigned ints (`U64`, `U128`, `U256`) with explicit overflow semantics (wrap/checked/sat).
-  - [ ] Add bitwise ops, shifts/rotates, and byte/word conversions.
-  - [ ] Introduce `Bytes` and fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs.
-- [ ] Crypto intrinsics:
-  - [ ] Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics.
-  - [ ] Signature verification (ed25519/secp256k1) with strict input validation.
-  - [ ] Constant-time byte equality helper for secret comparisons.
-- [ ] Proof hooks for crypto:
-  - [ ] SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
-  - [ ] Document proof limitations for cryptographic primitives in `docs/proofs`.
-- [ ] On-chain attestation for signatures: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
-- [ ] Core language gaps:
-  - [ ] Implement user-defined structs/enums (beyond resource types) with pattern matching.
-  - [ ] Add generics and trait/interface abstractions beyond built-in ADTs.
-  - [ ] Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
-  - [ ] Add general array/slice types with indexing semantics and bounds checks.
-  - [ ] Add module/import system with visibility controls for libraries.
-- [ ] Linear-aware collections:
-  - [ ] Design note: freeze/thaw or mutable-borrow semantics for unique aliasing (API surface like `freeze(list)`, `thaw(list_mut)`).
-  - [ ] Effects/VC plan: effect/guard requirements, VC hooks, and how containers hand out temporary exclusive access without violating linearity.
-  - [ ] Prototype plan: phased implementation steps and tests once design is locked.
+Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gaps + collections.
+
+### 15 Core types & arrays
+- [ ] 15.1 Add fixed-width unsigned ints (`U64`, `U128`, `U256`) with explicit overflow semantics (wrap/checked/sat). (Parser, typer, IR, codegen, tests.)
+- [ ] 15.2 Add bitwise ops, shifts/rotates, and byte/word conversions. (Syntax, typer rules, codegen, tests.)
+- [ ] 15.3 Introduce `Bytes` and fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs. (Parser/AST, typer, layout, codegen, tests.)
+- [ ] 15.4 Add diagnostics + error codes for numeric overflow, literal range checks, and array bounds.
+- [ ] 15.5 Specify ABI/layout rules for arrays/tuples in `docs/runtime/abi.md` or a new layout note.
+
+### 16 Crypto intrinsics + proofs
+- [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)
+- [ ] 16.2 Signature verification (ed25519/secp256k1) with strict input validation. (API spec, builtins, codegen stubs, tests, error codes.)
+- [ ] 16.3 Constant-time byte equality helper for secret comparisons. (API spec, intrinsic, tests.)
+- [ ] 16.4 Define deterministic error semantics + diagnostics for crypto intrinsics (invalid length/alg/etc.).
+- [ ] 16.5 SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
+- [ ] 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
+- [ ] 16.7 On-chain attestation: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
+
+### 17 Language gaps + collections
+- [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
+- [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
+- [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
+- [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
+- [ ] 17.5 Add module/import system with visibility controls for libraries.
+- [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
 

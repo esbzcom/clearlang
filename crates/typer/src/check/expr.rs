@@ -1298,6 +1298,7 @@ fn builtin_effect(callee: &str) -> Option<EffectLevel> {
         | "std::set::remove_mut"
         | "std::map::insert_mut"
         | "std::map::remove_mut" => Some(EffectLevel::Mut),
+        "std::wasi::print" => Some(EffectLevel::Io),
         _ => None,
     }
 }

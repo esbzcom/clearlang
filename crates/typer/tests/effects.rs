@@ -65,3 +65,35 @@ fn pure_function_cannot_call_mut_user_function() {
         "expected mut effect error, got {msg}"
     );
 }
+
+#[test]
+fn pure_function_cannot_call_io_builtin() {
+    let src = r#"
+        pure function bad() -> Int {
+            std::wasi::print(std::bytes::from_string("hi"))
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("pure call to io intrinsic must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "expected io effect error, got {msg}"
+    );
+}
+
+#[test]
+fn mut_function_cannot_call_io_builtin() {
+    let src = r#"
+        mut function bad() -> Int {
+            std::wasi::print(std::bytes::from_string("hi"))
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("mut call to io intrinsic must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "expected io effect error, got {msg}"
+    );
+}

@@ -47,6 +47,7 @@ pub enum TrapCode {
     AllocatorOom,
     InvalidUtf8,
     InvalidVariantTag,
+    LimitsExceeded,
 }
 
 impl VariantKind {
@@ -65,6 +66,7 @@ impl TrapCode {
             TrapCode::AllocatorOom => 2,
             TrapCode::InvalidUtf8 => 3,
             TrapCode::InvalidVariantTag => 4,
+            TrapCode::LimitsExceeded => 5,
         }
     }
 }

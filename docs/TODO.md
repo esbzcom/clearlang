@@ -555,7 +555,7 @@ Codegen & Runtime
 
 ## Phase 14 - Platform & Runtime Decoupling
 
-- [ ] Contract/runtime decoupling:
+- [x] Contract/runtime decoupling:
   - [x] Define a pure state-transition core (e.g., `apply(state: Bytes, msg: Bytes) -> Bytes`).
   - [x] Specify a stable, deterministic ABI for `init`/`handle`/`query` plus canonical serialization.
   - [x] Model environment services (storage/crypto/time/log) as capability interfaces injected by the runtime.
@@ -563,17 +563,18 @@ Codegen & Runtime
   - [x] Keep business-logic utilities in chain packages, not core language features.
   - [x] Gate service calls behind effects so core proofs remain pure.
   - [x] Document the Wasm host import surface and runtime responsibilities.
-- [ ] Runtime/chain documentation:
+- [x] Runtime/chain documentation:
   - [x] Publish `docs/runtime/abi.md` (host API, limits, ABI surface).
   - [x] Publish `docs/runtime/chain-packages.md` (chain-scoped types, versioning, evolution policy).
   - [x] Add a short separation-of-concerns section to README + style guide.
-- [ ] Determinism & metering:
-  - [ ] Explicit gas/step accounting for loops and recursion; deterministic runtime limits.
-  - [ ] Forbid nondeterministic APIs by default; gate randomness/time behind `io`.
-  - [ ] Add tests covering metering limits (loop/recursion) and nondeterminism gate errors.
-- [ ] WASI `print` intrinsic for observable output (design + implementation + docs/tests).
-- [ ] Diagnostics polish:
-  - [ ] (Tracked in Phase 4.10) Emit `P010` for missing `else` in expression-form `if` (parser + tests).
+- [x] Determinism & metering:
+  - [x] Explicit gas/step accounting for loops and recursion; deterministic runtime limits.
+  - [x] Forbid nondeterministic APIs by default; gate randomness/time behind `io`.
+  - [x] Add tests covering metering limits (loop/recursion).
+  - [x] Add tests for nondeterminism gate errors.
+- [x] WASI `print` intrinsic for observable output (design + implementation + docs/tests).
+- [x] Diagnostics polish:
+  - [x] (Tracked in Phase 4.10) Emit `P010` for missing `else` in expression-form `if` (parser + tests).
   - [x] Make `docs/diagnostics.md` JSON example strict JSON (move note outside the code block).
 - [ ] Benchmark follow-ups:
   - [ ] Use benches to validate codegen string pre-scan overhead; reduce pass cost if it shows up on hot paths.

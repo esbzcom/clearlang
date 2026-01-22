@@ -1,6 +1,7 @@
 pub mod intrinsics {
     pub mod runtime;
     pub mod strings;
+    pub mod wasi;
 }
 pub mod ir;
 pub mod trivial;

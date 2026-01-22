@@ -29,6 +29,9 @@ Crypto (io-only)
 Logging/events (io-only)
 - `emit_event(kind: String, data: Bytes) -> Result<(), Error>`
 
+WASI stdout (io-only)
+- `std::wasi::print(b: Bytes) -> Int` writes bytes to stdout via `wasi_snapshot_preview1::fd_write`.
+
 Environment (io-only, optional)
 - `env_time() -> Int`
 - `env_random(len: Int) -> Bytes`

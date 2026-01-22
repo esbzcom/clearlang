@@ -115,9 +115,21 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                         expected.join(", ")
                     )
                 };
+                let missing_else = msg.contains("missing `else` in expression-form `if`");
+                let (code, message) = if missing_else {
+                    (
+                        "P010",
+                        format!(
+                            "at {}..{}: error: missing `else` in expression-form `if`",
+                            span.start, span.end
+                        ),
+                    )
+                } else {
+                    ("P001", msg)
+                };
                 items.push(ParserError {
-                    code: "P001",
-                    message: msg,
+                    code,
+                    message,
                     start: span.start,
                     end: span.end,
                 });

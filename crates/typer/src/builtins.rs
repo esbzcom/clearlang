@@ -67,6 +67,16 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::wasi::print".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "b".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Int,
+            Effect::Io,
+        ),
+        (
             "std::str::len".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

@@ -13,6 +13,7 @@ clg-ir     = { path = "../ir" }
 clg-codegen-wasm = { path = "../codegen-wasm" }
 clg-ast    = { path = "../ast" }
 wasmtime = "15"
+wasmtime-wasi = "15"
 wasmparser = "0.219"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

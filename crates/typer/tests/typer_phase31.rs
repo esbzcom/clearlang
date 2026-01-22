@@ -76,9 +76,9 @@ fn accepts_none_and_pure_effects() {
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
 
-// Phase 3.2 — purpose: reject unsupported effects Mut/Io
+// Phase 3.2 — purpose: accept io effects once the runtime surface is available
 #[test]
-fn rejects_io_effect_only() {
+fn accepts_io_effect_only() {
     let src_mut = r#"
         mut function f(x: Int) -> Int { x }
     "#;
@@ -87,6 +87,5 @@ fn rejects_io_effect_only() {
     let src_io = r#"
         io function g(x: Int) -> Int { x }
     "#;
-    let err = check(&parse(src_io).expect("parsed")).expect_err("io not allowed");
-    assert!(format!("{err:#}").contains("effect `io`"));
+    check(&parse(src_io).expect("parsed")).expect("io effect now allowed");
 }

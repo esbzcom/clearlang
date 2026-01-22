@@ -36,7 +36,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | Code | Stage | Meaning |
 | --- | --- | --- |
 | P001 | parse | Generic parse error. |
-| P010 | parse | Missing `else` in expression-form `if` (reserved; parser currently emits P001). |
+| P010 | parse | Missing `else` in expression-form `if`. |
 | T000 | type | Fallback for internal type-check failures. |
 | T001 | type | Unknown function. |
 | T002 | type | Arity mismatch. |
@@ -108,6 +108,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | R001 | runtime | String allocator ran out of memory. |
 | R002 | runtime | String runtime rejected invalid UTF-8 input. |
 | R003 | runtime | Option/Result variant tag was invalid. |
+| R004 | runtime | Runtime limits exceeded (meter/fuel/epoch). |
 | R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 
 ## Examples

@@ -249,12 +249,29 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         let elif_chain = (elif_kw.ignore_then(expr.clone()).then(block_expr.clone()))
             .repeated()
             .collect::<Vec<_>>();
+        let else_clause = just("else").padded().ignore_then(block_expr.clone());
         let if_expr = if_head
             .then(elif_chain)
-            .then_ignore(just("else").padded())
-            .then(block_expr.clone())
-            .map_with(|(((cond0, then0), mut elifs), else_br), e| {
+            .then(else_clause.or_not().validate(|else_opt, extra, emit| {
+                if else_opt.is_none() {
+                    emit.emit(Rich::custom(
+                        extra.span(),
+                        "missing `else` in expression-form `if`",
+                    ));
+                }
+                else_opt
+            }))
+            .map_with(|(((cond0, then0), mut elifs), else_opt), e| {
                 let sp = e.span();
+                let else_br = else_opt.unwrap_or_else(|| {
+                    Expr::Bool(
+                        false,
+                        Span {
+                            start: sp.start,
+                            end: sp.end,
+                        },
+                    )
+                });
                 // Start from final else branch and fold the chain right-to-left
                 let mut acc = else_br;
                 while let Some((c, t)) = elifs.pop() {

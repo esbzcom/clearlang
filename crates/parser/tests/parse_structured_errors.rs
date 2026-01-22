@@ -30,3 +30,16 @@ fn parse_errors_returns_multiple_items_for_contrived_input() {
         }
     }
 }
+
+#[test]
+fn parse_errors_reports_missing_else_as_p010() {
+    let src = r#"
+        function main() -> Int { if true { 1 } }
+    "#;
+    let errs = parse_errors(src).expect_err("missing else should error");
+    assert!(
+        errs.iter().any(|e| e.code == "P010"),
+        "expected P010, got {:?}",
+        errs.iter().map(|e| e.code).collect::<Vec<_>>()
+    );
+}

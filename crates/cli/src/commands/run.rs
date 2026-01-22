@@ -1,22 +1,31 @@
 use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
 use wasmtime as wt;
+use wasmtime_wasi::sync::WasiCtxBuilder;
 
 use super::helpers::{make_single_json_error, CommandError};
 use crate::logging::{Logger, StageTimings};
 
 pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> Result<()> {
     let mut timings = StageTimings::new();
-    let engine = wt::Engine::default();
+    let engine = wt::Engine::new(&wt::Config::new())?;
     let module = {
         let _stage = timings.start(logger, "load_module");
         wt::Module::from_file(&engine, &file)
             .with_context(|| format!("loading {}", file.display()))?
     };
-    let mut store = wt::Store::new(&engine, ());
+    let wasi = WasiCtxBuilder::new()
+        .inherit_stdout()
+        .inherit_stderr()
+        .build();
+    let mut store = wt::Store::new(&engine, wasi);
     let instance = {
         let _stage = timings.start(logger, "instantiate");
-        wt::Instance::new(&mut store, &module, &[]).context("instantiating module")?
+        let mut linker = wt::Linker::new(&engine);
+        wasmtime_wasi::add_to_linker(&mut linker, |cx| cx).context("linking WASI")?;
+        linker
+            .instantiate(&mut store, &module)
+            .context("instantiating module")?
     };
     let func = instance
         .get_typed_func::<(), i32>(&mut store, &invoke)
@@ -50,6 +59,22 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
                     return Err(anyhow!("{}{} (code {})", diag.message, span, diag.code));
                 }
             }
+            if let Some(diag) = extract_wasmtime_limit_error(&trap) {
+                if json_errors {
+                    let json = make_single_json_error(
+                        diag.code,
+                        "runtime",
+                        diag.message.clone(),
+                        Path::new(&file),
+                        0,
+                        0,
+                        None,
+                    );
+                    return Err(CommandError::json(json).into());
+                } else {
+                    return Err(anyhow!("{}", diag.message));
+                }
+            }
             Err(trap)
         }
     }
@@ -63,9 +88,9 @@ struct RuntimeErrorDiag {
     detail: Option<String>,
 }
 
-fn extract_runtime_error(
+fn extract_runtime_error<T>(
     instance: &wt::Instance,
-    store: &mut wt::Store<()>,
+    store: &mut wt::Store<T>,
 ) -> Option<RuntimeErrorDiag> {
     let code = get_global(instance, store, "__clg_runtime_error_code")?;
     if code == 0 {
@@ -114,6 +139,12 @@ fn extract_runtime_error(
                 true,
             )
         }
+        5 => (
+            "R004",
+            "runtime limits exceeded".to_string(),
+            None,
+            false,
+        ),
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),
@@ -139,7 +170,23 @@ fn extract_runtime_error(
         detail: detail_label,
     })
 }
-fn get_global(instance: &wt::Instance, store: &mut wt::Store<()>, name: &str) -> Option<i32> {
+fn get_global<T>(instance: &wt::Instance, store: &mut wt::Store<T>, name: &str) -> Option<i32> {
     let global = instance.get_global(&mut *store, name)?;
     global.get(&mut *store).i32()
+}
+
+fn extract_wasmtime_limit_error(trap: &anyhow::Error) -> Option<RuntimeErrorDiag> {
+    let trap = trap
+        .chain()
+        .find_map(|err| err.downcast_ref::<wt::Trap>())?;
+    match trap {
+        wt::Trap::OutOfFuel | wt::Trap::Interrupt => Some(RuntimeErrorDiag {
+            code: "R004",
+            message: "runtime limits exceeded".to_string(),
+            start: 0,
+            end: 0,
+            detail: None,
+        }),
+        _ => None,
+    }
 }

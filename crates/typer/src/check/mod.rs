@@ -297,6 +297,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         "std::bytes::concat",
         "std::bytes::from_string",
         "std::bytes::to_string",
+        "std::wasi::print",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -323,6 +324,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
                 "std::bytes::to_string" => {
                     (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
                 }
+                "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
@@ -461,6 +463,7 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         "std::bytes::concat",
         "std::bytes::from_string",
         "std::bytes::to_string",
+        "std::wasi::print",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -486,6 +489,7 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
                 "std::bytes::to_string" => {
                     (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
                 }
+                "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
@@ -545,9 +549,6 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
         tracker.register_param(p.name.as_str(), p.kind, &resolved_ty);
     }
 
-    if let Effect::Io = f.effect {
-        return Err(TyperError::effect_not_supported(f.effect).into());
-    }
     let allowed_effect = level_from_effect(f.effect);
 
     for req in &f.requires {

@@ -2,14 +2,16 @@ use anyhow::Result;
 use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule, TrapCode};
 use std::collections::HashMap;
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, CustomSection, DataSection, ExportKind, ExportSection,
-    Function, FunctionSection, GlobalSection, GlobalType, MemArg, MemorySection, MemoryType,
-    Module, NameMap, NameSection, TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
+    ExportSection, Function, FunctionSection, GlobalSection, GlobalType, ImportSection,
+    InstructionSink, MemArg, MemorySection, MemoryType, Module, NameMap, NameSection, TypeSection,
+    ValType,
 };
 
 use crate::intrinsics::{
     runtime::{emit_guard_trap, emit_runtime_trap, encode_intrinsic_identity, TrapOperand},
     strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
+    wasi::encode_intrinsic_wasi_print,
 };
 
 pub(crate) const HEAP_PTR_GLOBAL: u32 = 0;
@@ -17,6 +19,10 @@ pub(crate) const ERROR_CODE_GLOBAL: u32 = 1;
 pub(crate) const ERROR_START_GLOBAL: u32 = 2;
 pub(crate) const ERROR_END_GLOBAL: u32 = 3;
 pub(crate) const ERROR_DETAIL_GLOBAL: u32 = 4;
+pub(crate) const FUEL_GLOBAL: u32 = 5;
+const DEFAULT_FUEL_LIMIT: i32 = 1_000_000;
+const FUNCTION_FUEL_COST: i32 = 1_000;
+const LOOP_FUEL_COST: i32 = 1;
 
 #[derive(Default)]
 pub struct CodegenOpts {
@@ -60,6 +66,8 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         }
     }
 
+    let has_wasi_print = ir.funcs.iter().any(|f| f.name == "std::wasi::print");
+
     // Build function types with deduplication, and record each function's type index
     #[derive(Hash, Eq, PartialEq, Clone)]
     struct SigKey {
@@ -69,27 +77,43 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut types = TypeSection::new();
     let mut sig_to_tyidx = HashMap::<SigKey, u32>::with_capacity(ir.funcs.len());
     let mut fn_type_indices: Vec<u32> = Vec::with_capacity(ir.funcs.len());
-    for f in &ir.funcs {
-        let key = SigKey {
-            params: f.params.len(),
-            has_ret: f.ret.is_some(),
-        };
-        let ty_idx = if let Some(idx) = sig_to_tyidx.get(&key) {
+    let mut type_index_for = |params: usize, has_ret: bool| -> u32 {
+        let key = SigKey { params, has_ret };
+        if let Some(idx) = sig_to_tyidx.get(&key) {
             *idx
         } else {
-            let params: Vec<ValType> = f.params.iter().map(|_| ValType::I32).collect();
-            let results: Vec<ValType> = match f.ret {
-                Some(_) => vec![ValType::I32],
-                None => vec![],
-            };
+            let params: Vec<ValType> = (0..params).map(|_| ValType::I32).collect();
+            let results: Vec<ValType> = if has_ret { vec![ValType::I32] } else { vec![] };
             let idx = sig_to_tyidx.len() as u32;
             types.ty().function(params, results);
             sig_to_tyidx.insert(key, idx);
             idx
-        };
+        }
+    };
+    for f in &ir.funcs {
+        let ty_idx = type_index_for(f.params.len(), f.ret.is_some());
         fn_type_indices.push(ty_idx);
     }
+    let fd_write_ty = if has_wasi_print {
+        Some(type_index_for(4, true))
+    } else {
+        None
+    };
     module.section(&types);
+
+    let mut import_count = 0u32;
+    let mut fd_write_index: Option<u32> = None;
+    if let Some(fd_write_ty) = fd_write_ty {
+        let mut imports = ImportSection::new();
+        imports.import(
+            "wasi_snapshot_preview1",
+            "fd_write",
+            EntityType::Function(fd_write_ty),
+        );
+        module.section(&imports);
+        fd_write_index = Some(0);
+        import_count = 1;
+    }
 
     // Function section references the deduplicated type indices per function
     let mut functions = FunctionSection::new();
@@ -159,7 +183,18 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         },
         &ConstExpr::i32_const(0),
     );
+    // global 5: remaining fuel for loop/recursion metering
+    globals.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(DEFAULT_FUEL_LIMIT),
+    );
     module.section(&globals);
+
+    let func_index_offset = import_count;
 
     // Export entrypoints + runtime bookkeeping globals
     let mut exports = ExportSection::new();
@@ -169,7 +204,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         fn_indices.insert(f.name.as_str(), i as u32);
     }
     if let Some(idx) = fn_indices.get("main") {
-        exports.export("main", ExportKind::Func, *idx);
+        exports.export("main", ExportKind::Func, *idx + func_index_offset);
         export_names.insert("main", ());
     }
     for alias in &opts.export_aliases {
@@ -183,7 +218,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 alias.export
             ));
         };
-        exports.export(alias.export.as_str(), ExportKind::Func, *idx);
+        exports.export(alias.export.as_str(), ExportKind::Func, *idx + func_index_offset);
         export_names.insert(alias.export.as_str(), ());
     }
     exports.export("memory", ExportKind::Memory, 0);
@@ -208,6 +243,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         ExportKind::Global,
         ERROR_DETAIL_GLOBAL,
     );
+    exports.export("__clg_fuel_remaining", ExportKind::Global, FUEL_GLOBAL);
     module.section(&exports);
 
     // Code section: encode each function body
@@ -220,10 +256,14 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::bytes::concat" => encode_intrinsic_str_concat(f)?,
             "std::bytes::from_string" => encode_intrinsic_identity(f)?,
             "std::bytes::to_string" => encode_intrinsic_identity(f)?,
+            "std::wasi::print" => {
+                let fd_write = fd_write_index.expect("fd_write import expected");
+                encode_intrinsic_wasi_print(f, fd_write)?
+            }
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,
             "std::str::concat" => encode_intrinsic_str_concat(f)?,
-            _ => encode_ir_function(f, &str_pool)?,
+            _ => encode_ir_function(f, &str_pool, func_index_offset)?,
         };
         codes.function(&func);
     }
@@ -250,7 +290,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         let mut names = NameSection::new();
         let mut fn_names = NameMap::new();
         for (i, f) in ir.funcs.iter().enumerate() {
-            fn_names.append(i as u32, &f.name);
+            fn_names.append(i as u32 + func_index_offset, &f.name);
         }
         names.functions(&fn_names);
         module.section(&names);
@@ -272,7 +312,31 @@ pub fn emit_from_ir(ir: &IrModule) -> Result<Vec<u8>> {
     emit_from_ir_with_opts(ir, CodegenOpts::default())
 }
 
-fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Function> {
+fn emit_fuel_tick(insts: &mut InstructionSink<'_>, cost: i32) {
+    insts.global_get(FUEL_GLOBAL);
+    insts.i32_const(cost);
+    insts.i32_sub();
+    insts.global_set(FUEL_GLOBAL);
+
+    insts.global_get(FUEL_GLOBAL);
+    insts.i32_const(0);
+    insts.i32_le_s();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        insts,
+        TrapCode::LimitsExceeded,
+        TrapOperand::zero(),
+        TrapOperand::zero(),
+        0,
+    );
+    insts.end();
+}
+
+fn encode_ir_function(
+    f: &IrFunction,
+    strs: &HashMap<String, u32>,
+    func_index_offset: u32,
+) -> Result<Function> {
     // Compute locals: values >= params are locals; params are indices 0..P-1
     let params_len = f.params.len() as u32;
     let mut max_id = params_len.saturating_sub(1);
@@ -341,6 +405,8 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
     };
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
+
+    emit_fuel_tick(&mut insts, FUNCTION_FUEL_COST);
 
     for ins in &f.body {
         match ins {
@@ -528,7 +594,7 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
                 for a in args {
                     insts.local_get(a.0);
                 }
-                insts.call(*callee);
+                insts.call(*callee + func_index_offset);
                 if let Some(d) = dst {
                     insts.local_set(d.0);
                 }
@@ -541,6 +607,7 @@ fn encode_ir_function(f: &IrFunction, strs: &HashMap<String, u32>) -> Result<Fun
             }
             IrInstr::LoopBegin => {
                 insts.loop_(BlockType::Empty);
+                emit_fuel_tick(&mut insts, LOOP_FUEL_COST);
             }
             IrInstr::LoopEnd => {
                 insts.end();

@@ -74,6 +74,9 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     "std::bytes::to_string" => {
                         set.insert("std::bytes::to_string");
                     }
+                    "std::wasi::print" => {
+                        set.insert("std::wasi::print");
+                    }
                     "std::str::len" => {
                         set.insert("std::str::len");
                     }

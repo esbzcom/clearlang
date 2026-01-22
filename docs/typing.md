@@ -70,7 +70,7 @@ Effects
 
 - `mut` functions may call other `mut` code and the mutable collection intrinsics; a `pure` caller triggers `T401`.
 
-- `io` remains reserved; using it still raises `T009` until the runtime surface is ready.
+- `io` functions may call host-facing intrinsics such as `std::wasi::print`; a `pure`/`mut` caller triggers `T401`.
 
 - Mutable collection intrinsics (`std::list/set/map::*_mut`) require a guard `require { std::<collection>::can_mut(var) }` in the same function. Missing guards raise `T402`; non-variable first arguments raise `T403`.
 
@@ -213,7 +213,7 @@ Notes
 
 ADT Ergonomics (Phase 6.6)
 
-- `if let` sugar: `if let Some(x) = opt { then } else { else }` (and `Ok`/`Err`) desugars to a two-arm `match`. The typer enforces an `Option<T>`/`Result<T,E>` scrutinee and extends the branch environment with the chosen binder. Missing `else` arms remain a parse error (`P011`).
+- `if let` sugar: `if let Some(x) = opt { then } else { else }` (and `Ok`/`Err`) desugars to a two-arm `match`. The typer enforces an `Option<T>`/`Result<T,E>` scrutinee and extends the branch environment with the chosen binder. Missing `else` arms remain a parse error (`P010`).
 - `??` (Option coalesce) expands to a `match` on the left operand. The left side must have type `Option<T>`; the `Some` arm unwraps to `T` and the `None` arm evaluates the right operand.
 - `?` (propagation) is a postfix operator over `Option<T>` and `Result<T,E>`. The operand must have one of those types and the surrounding function must return the corresponding container. Successful typing yields the inner type (`T` or the `Ok` branch). Diagnostics: `T601`/`T604` (return type must be `Option`/`Result`), `T602` (operand not an ADT), `T603`/`T605` (inner type mismatch), `T606` (missing `$return`).
 - Constructors obey the same constraints: `Some(v)` infers `Option<T>`; `None` requires an `Option<_>` return site (`T607`/`T608`); `Ok(v)`/`Err(e)` require a `Result<_, _>` return site (`T609`-`T612`) and validate argument types (`T611`/`T613`).

@@ -576,8 +576,8 @@ Codegen & Runtime
 - [x] Diagnostics polish:
   - [x] (Tracked in Phase 4.10) Emit `P010` for missing `else` in expression-form `if` (parser + tests).
   - [x] Make `docs/diagnostics.md` JSON example strict JSON (move note outside the code block).
-- [ ] Benchmark follow-ups:
-  - [ ] Use benches to validate codegen string pre-scan overhead; reduce pass cost if it shows up on hot paths.
+- [x] Benchmark follow-ups:
+  - [x] Use benches to validate codegen string pre-scan overhead; reduce pass cost if it shows up on hot paths.
 
 ## Phase 15 - Crypto + Language Expansion
 

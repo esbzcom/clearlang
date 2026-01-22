@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule, TrapCode};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
     ExportSection, Function, FunctionSection, GlobalSection, GlobalType, ImportSection,
@@ -40,26 +41,19 @@ pub struct ExportAlias {
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
     let mut module = Module::new();
 
-    // String pool: collect unique string literals and assign memory offsets
-    let mut estimated_strings = 0usize;
-    for f in &ir.funcs {
-        estimated_strings += f
-            .body
-            .iter()
-            .filter(|ins| matches!(ins, IrInstr::IStringConst { .. }))
-            .count();
-    }
-    let mut str_pool: HashMap<String, u32> = HashMap::with_capacity(estimated_strings);
+    // String pool: collect unique string literals and assign memory offsets.
+    // Avoid a pre-scan pass to keep codegen hot paths to a single walk.
+    let mut str_pool: HashMap<String, u32> = HashMap::new();
     let mut cur_off: u32 = 0;
     for f in &ir.funcs {
         for ins in &f.body {
             if let IrInstr::IStringConst { s, .. } = ins {
-                if !str_pool.contains_key(s) {
+                if let Entry::Vacant(entry) = str_pool.entry(s.clone()) {
                     let len = s.len() as u32;
                     let off = cur_off;
                     let size = 4 + len; // header + bytes
                     let next = (off + size + 3) & !3; // 4-byte align
-                    str_pool.insert(s.clone(), off);
+                    entry.insert(off);
                     cur_off = next;
                 }
             }

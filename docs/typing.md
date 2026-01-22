@@ -70,7 +70,7 @@ Effects
 
 - `mut` functions may call other `mut` code and the mutable collection intrinsics; a `pure` caller triggers `T401`.
 
-- `io` functions may call host-facing intrinsics such as `std::wasi::print`; a `pure`/`mut` caller triggers `T401`.
+- `io` functions may call host-facing intrinsics such as `std::wasi::print` and `std::env::{time,random}`; a `pure`/`mut` caller triggers `T401`.
 
 - Mutable collection intrinsics (`std::list/set/map::*_mut`) require a guard `require { std::<collection>::can_mut(var) }` in the same function. Missing guards raise `T402`; non-variable first arguments raise `T403`.
 

@@ -77,6 +77,12 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     "std::wasi::print" => {
                         set.insert("std::wasi::print");
                     }
+                    "std::env::time" => {
+                        set.insert("std::env::time");
+                    }
+                    "std::env::random" => {
+                        set.insert("std::env::random");
+                    }
                     "std::str::len" => {
                         set.insert("std::str::len");
                     }

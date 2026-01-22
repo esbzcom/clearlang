@@ -558,7 +558,9 @@ Codegen & Runtime
 - [x] Contract/runtime decoupling:
   - [x] Define a pure state-transition core (e.g., `apply(state: Bytes, msg: Bytes) -> Bytes`).
   - [x] Specify a stable, deterministic ABI for `init`/`handle`/`query` plus canonical serialization.
+  - [x] Add ABI conformance fixture tests for canonical CBOR envelopes.
   - [x] Model environment services (storage/crypto/time/log) as capability interfaces injected by the runtime.
+  - [x] Decide whether capability interfaces are design-only or need runtime import stubs/tests.
   - [x] Use chain-scoped environment types (e.g., `std::eth::Address`, `std::solana::Pubkey`) instead of global `Address`.
   - [x] Keep business-logic utilities in chain packages, not core language features.
   - [x] Gate service calls behind effects so core proofs remain pure.
@@ -570,6 +572,7 @@ Codegen & Runtime
 - [x] Determinism & metering:
   - [x] Explicit gas/step accounting for loops and recursion; deterministic runtime limits.
   - [x] Forbid nondeterministic APIs by default; gate randomness/time behind `io`.
+  - [x] Add io-gated time/random intrinsics (or runtime stubs) and tests to make nondeterminism gating real.
   - [x] Add tests covering metering limits (loop/recursion).
   - [x] Add tests for nondeterminism gate errors.
 - [x] WASI `print` intrinsic for observable output (design + implementation + docs/tests).

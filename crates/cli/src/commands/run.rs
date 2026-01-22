@@ -23,6 +23,7 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
         let _stage = timings.start(logger, "instantiate");
         let mut linker = wt::Linker::new(&engine);
         wasmtime_wasi::add_to_linker(&mut linker, |cx| cx).context("linking WASI")?;
+        add_env_stubs(&mut linker).context("linking env stubs")?;
         linker
             .instantiate(&mut store, &module)
             .context("instantiating module")?
@@ -78,6 +79,77 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
             Err(trap)
         }
     }
+}
+
+fn add_env_stubs(linker: &mut wt::Linker<wasmtime_wasi::WasiCtx>) -> Result<()> {
+    linker.func_wrap(
+        "clearlang_env",
+        "env_time",
+        |_caller: wt::Caller<'_, wasmtime_wasi::WasiCtx>| -> i32 { 0 },
+    )?;
+    linker.func_wrap(
+        "clearlang_env",
+        "env_random",
+        |mut caller: wt::Caller<'_, wasmtime_wasi::WasiCtx>, len: i32| -> Result<i32> {
+            if len < 0 {
+                return Err(anyhow!("env_random length must be non-negative"));
+            }
+            let len_u32 = len as u32;
+            let heap_ptr = get_caller_global_i32(&mut caller, "__clg_heap_ptr")? as u32;
+            let size = 4u32.saturating_add(len_u32);
+            let next = (heap_ptr + size + 3) & !3;
+
+            let memory = get_caller_memory(&mut caller)?;
+            let mem_size = memory.data_size(&caller);
+            if next as usize > mem_size {
+                return Err(anyhow!("env_random out of memory"));
+            }
+
+            let data = memory.data_mut(&mut caller);
+            let start = heap_ptr as usize;
+            data[start..start + 4].copy_from_slice(&len_u32.to_le_bytes());
+            if len_u32 > 0 {
+                data[start + 4..start + 4 + len_u32 as usize].fill(0);
+            }
+
+            set_caller_global_i32(&mut caller, "__clg_heap_ptr", next as i32)?;
+            Ok(heap_ptr as i32)
+        },
+    )?;
+    Ok(())
+}
+
+fn get_caller_memory<T>(caller: &mut wt::Caller<'_, T>) -> Result<wt::Memory> {
+    match caller.get_export("memory") {
+        Some(wt::Extern::Memory(mem)) => Ok(mem),
+        _ => Err(anyhow!("missing memory export")),
+    }
+}
+
+fn get_caller_global_i32<T>(caller: &mut wt::Caller<'_, T>, name: &str) -> Result<i32> {
+    let global = match caller.get_export(name) {
+        Some(wt::Extern::Global(global)) => global,
+        _ => return Err(anyhow!("missing global `{}`", name)),
+    };
+    global
+        .get(&mut *caller)
+        .i32()
+        .ok_or_else(|| anyhow!("global `{}` is not i32", name))
+}
+
+fn set_caller_global_i32<T>(
+    caller: &mut wt::Caller<'_, T>,
+    name: &str,
+    value: i32,
+) -> Result<()> {
+    let global = match caller.get_export(name) {
+        Some(wt::Extern::Global(global)) => global,
+        _ => return Err(anyhow!("missing global `{}`", name)),
+    };
+    global
+        .set(&mut *caller, wt::Val::I32(value))
+        .context("set global")?;
+    Ok(())
 }
 
 struct RuntimeErrorDiag {

@@ -10,6 +10,7 @@ use wasm_encoder::{
 };
 
 use crate::intrinsics::{
+    env::{encode_intrinsic_env_random, encode_intrinsic_env_time},
     runtime::{emit_guard_trap, emit_runtime_trap, encode_intrinsic_identity, TrapOperand},
     strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
     wasi::encode_intrinsic_wasi_print,
@@ -61,6 +62,8 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     }
 
     let has_wasi_print = ir.funcs.iter().any(|f| f.name == "std::wasi::print");
+    let has_env_time = ir.funcs.iter().any(|f| f.name == "std::env::time");
+    let has_env_random = ir.funcs.iter().any(|f| f.name == "std::env::random");
 
     // Build function types with deduplication, and record each function's type index
     #[derive(Hash, Eq, PartialEq, Clone)]
@@ -93,20 +96,52 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     } else {
         None
     };
+    let env_time_ty = if has_env_time {
+        Some(type_index_for(0, true))
+    } else {
+        None
+    };
+    let env_random_ty = if has_env_random {
+        Some(type_index_for(1, true))
+    } else {
+        None
+    };
     module.section(&types);
 
     let mut import_count = 0u32;
     let mut fd_write_index: Option<u32> = None;
+    let mut env_time_index: Option<u32> = None;
+    let mut env_random_index: Option<u32> = None;
+    let mut imports = ImportSection::new();
     if let Some(fd_write_ty) = fd_write_ty {
-        let mut imports = ImportSection::new();
         imports.import(
             "wasi_snapshot_preview1",
             "fd_write",
             EntityType::Function(fd_write_ty),
         );
+        fd_write_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(env_time_ty) = env_time_ty {
+        imports.import(
+            "clearlang_env",
+            "env_time",
+            EntityType::Function(env_time_ty),
+        );
+        env_time_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(env_random_ty) = env_random_ty {
+        imports.import(
+            "clearlang_env",
+            "env_random",
+            EntityType::Function(env_random_ty),
+        );
+        env_random_index = Some(import_count);
+        import_count += 1;
+    }
+    if import_count > 0 {
         module.section(&imports);
-        fd_write_index = Some(0);
-        import_count = 1;
     }
 
     // Function section references the deduplicated type indices per function
@@ -253,6 +288,14 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::wasi::print" => {
                 let fd_write = fd_write_index.expect("fd_write import expected");
                 encode_intrinsic_wasi_print(f, fd_write)?
+            }
+            "std::env::time" => {
+                let idx = env_time_index.expect("env_time import expected");
+                encode_intrinsic_env_time(f, idx)?
+            }
+            "std::env::random" => {
+                let idx = env_random_index.expect("env_random import expected");
+                encode_intrinsic_env_random(f, idx)?
             }
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,

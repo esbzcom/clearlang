@@ -675,6 +675,37 @@ fn run_wasi_print_emits_output() {
 }
 
 #[test]
+fn run_env_time_and_random_stubs() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("env_time_random.clear");
+    let wasm_path = tmp.path().join("env_time_random.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::bytes::len(std::env::random(4)) + std::env::time()
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("4"));
+}
+
+#[test]
 fn runtime_fuel_exhaustion_reports_r004_json() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("fuel_exhaust.clear");

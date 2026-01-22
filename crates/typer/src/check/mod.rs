@@ -298,6 +298,8 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         "std::bytes::from_string",
         "std::bytes::to_string",
         "std::wasi::print",
+        "std::env::time",
+        "std::env::random",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -325,6 +327,8 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
                     (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
                 }
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
+                "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
@@ -464,6 +468,8 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         "std::bytes::from_string",
         "std::bytes::to_string",
         "std::wasi::print",
+        "std::env::time",
+        "std::env::random",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -490,6 +496,8 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
                     (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
                 }
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
+                "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],

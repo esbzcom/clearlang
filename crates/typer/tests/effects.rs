@@ -97,3 +97,33 @@ fn mut_function_cannot_call_io_builtin() {
         "expected io effect error, got {msg}"
     );
 }
+
+#[test]
+fn pure_function_cannot_call_env_time() {
+    let src = r#"
+        pure function bad() -> Int { std::env::time() }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("pure call to env time must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "expected io effect error, got {msg}"
+    );
+}
+
+#[test]
+fn mut_function_cannot_call_env_random() {
+    let src = r#"
+        mut function bad() -> Int {
+            std::bytes::len(std::env::random(4))
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("mut call to env random must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "expected io effect error, got {msg}"
+    );
+}

@@ -77,6 +77,22 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Io,
         ),
         (
+            "std::env::time".to_string(),
+            Vec::new(),
+            Type::Int,
+            Effect::Io,
+        ),
+        (
+            "std::env::random".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "len".to_string(),
+                ty: Type::Int,
+            }],
+            Type::Bytes,
+            Effect::Io,
+        ),
+        (
             "std::str::len".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

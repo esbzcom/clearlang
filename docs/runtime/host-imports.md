@@ -32,7 +32,7 @@ Logging/events (io-only)
 WASI stdout (io-only)
 - `std::wasi::print(b: Bytes) -> Int` writes bytes to stdout via `wasi_snapshot_preview1::fd_write`.
 
-Environment (io-only, optional)
+Environment (io-only, optional, module: `clearlang_env`)
 - `env_time() -> Int`
 - `env_random(len: Int) -> Bytes`
 - `env_chain_id() -> String`
@@ -42,6 +42,10 @@ Environment (io-only, optional)
 - `mut` remains local-only; host interaction is always `io`.
 - Nondeterministic calls (time/random) are disabled by default and must be
   explicitly enabled by the host.
+
+## Notes
+- `clg run` provides deterministic stubs for `env_time` (0) and `env_random` (zero-filled bytes).
+- Storage/crypto/logging interfaces remain design targets; hosts must provide their own imports.
 
 ## Relationship to the Pure Core
 - The pure core state transition (`apply`/`query`) should not depend on host

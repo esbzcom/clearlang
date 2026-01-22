@@ -107,6 +107,9 @@ pub struct Param {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Int,
+    U64,
+    U128,
+    U256,
     Bool,
     String,
     Bytes,

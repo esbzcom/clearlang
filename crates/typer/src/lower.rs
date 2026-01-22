@@ -13,6 +13,7 @@ type FnSig = CheckFnSig;
 fn ir_ty(t: Type) -> IrType {
     match t {
         Type::Int => IrType::Int,
+        Type::U64 | Type::U128 | Type::U256 => IrType::Int,
         Type::Bool => IrType::Bool,
         Type::String => IrType::Int, // placeholder until strings have a runtime representation
         Type::Bytes => IrType::Int,

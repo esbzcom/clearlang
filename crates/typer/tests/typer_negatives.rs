@@ -120,3 +120,16 @@ fn errors_on_arg_type_mismatch_with_str() {
     assert!(s.contains("Int"));
     assert!(s.contains("at ") && s.contains(".."));
 }
+
+// Unsigned int types are not supported yet
+#[test]
+fn errors_on_unsigned_int_types() {
+    let src = r#"
+        function main(x: U64) -> U64 { x }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on unsigned int types");
+    let s = format!("{err:#}");
+    assert!(s.contains("T110"), "unexpected error: {s}");
+    assert!(s.contains("U64"), "unexpected error: {s}");
+}

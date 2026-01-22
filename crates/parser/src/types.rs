@@ -16,6 +16,9 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
     recursive(|ty| {
         let base = choice((
             kw("Int").to(Type::Int),
+            kw("U64").to(Type::U64),
+            kw("U128").to(Type::U128),
+            kw("U256").to(Type::U256),
             kw("Bool").to(Type::Bool),
             kw("String").to(Type::String),
             kw("Bytes").to(Type::Bytes),

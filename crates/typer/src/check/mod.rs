@@ -62,6 +62,40 @@ fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
     Ok(())
 }
 
+fn ensure_supported_type(ty: &Type, span: Option<Span>) -> Result<()> {
+    match ty {
+        Type::U64 | Type::U128 | Type::U256 => {
+            Err(TyperError::unsigned_int_not_supported(ty.clone(), span).into())
+        }
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+            ensure_supported_type(inner, span)
+        }
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            ensure_supported_type(ok, span)?;
+            ensure_supported_type(err, span)
+        }
+        _ => Ok(()),
+    }
+}
+
+fn validate_supported_types(program: &Program) -> Result<()> {
+    for res in &program.resources {
+        for field in &res.fields {
+            ensure_supported_type(&field.ty, Some(field.span))?;
+        }
+    }
+    for alias in &program.refined_aliases {
+        ensure_supported_type(&alias.base, Some(alias.span))?;
+    }
+    for func in &program.funcs {
+        ensure_supported_type(&func.ret, None)?;
+        for param in &func.params {
+            ensure_supported_type(&param.ty, None)?;
+        }
+    }
+    Ok(())
+}
+
 fn find_resource_collection(ty: &Type) -> Option<Type> {
     match ty {
         Type::List(inner) | Type::Set(inner) => {
@@ -239,6 +273,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         return fast_path_without_totality(ast);
     }
     validate_no_resource_collections(ast)?;
+    validate_supported_types(ast)?;
     let alias_map = build_alias_map(ast)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
@@ -370,6 +405,7 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
         return fast_path_without_totality(ast).map(|_| ());
     }
     validate_no_resource_collections(ast)?;
+    validate_supported_types(ast)?;
     let alias_map = build_alias_map(ast)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
@@ -416,6 +452,7 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 
 fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     validate_no_resource_collections(ast)?;
+    validate_supported_types(ast)?;
     let alias_map = build_alias_map(ast)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());

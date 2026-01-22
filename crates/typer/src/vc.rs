@@ -440,6 +440,9 @@ fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremi
 fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
     match ty {
         Type::Int => "Int",
+        Type::U64 => "U64",
+        Type::U128 => "U128",
+        Type::U256 => "U256",
         Type::Bool => "Bool",
         Type::String => "String",
         Type::Bytes => "String",

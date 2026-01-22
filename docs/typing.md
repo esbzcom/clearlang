@@ -13,6 +13,7 @@ Scope
 Types
 
 - Primitive types: `Int`, `Bool`.
+- Unsigned integers: `U64`, `U128`, `U256` are reserved type keywords but are not supported yet (T110).
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.
 

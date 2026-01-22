@@ -53,6 +53,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T014 | type | Contract predicate must be Bool. |
 | T016 | type | Block expression requires a tail expression. |
 | T101 | type | Collections unavailable (generics/ADTs not implemented yet). |
+| T110 | type | Unsigned integer types are not supported yet. |
 | T201 | type | Non-exhaustive match (missing arm). |
 | T202 | type | Duplicate match arm. |
 | T203 | type | Invalid match scrutinee (expected Option/Result). |

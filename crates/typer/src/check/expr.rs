@@ -1331,6 +1331,9 @@ pub(crate) fn show_ty(t: Type) -> String {
     fn render(ty: Type) -> String {
         match ty {
             Type::Int => "Int".to_string(),
+            Type::U64 => "U64".to_string(),
+            Type::U128 => "U128".to_string(),
+            Type::U256 => "U256".to_string(),
             Type::Bool => "Bool".to_string(),
             Type::String => "String".to_string(),
             Type::Bytes => "Bytes".to_string(),

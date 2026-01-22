@@ -7,7 +7,7 @@ fn is_code(s: &str) -> bool {
     if bytes.len() != 4 {
         return false;
     }
-    bytes[0].is_ascii_uppercase()
+    matches!(bytes[0], b'P' | b'T' | b'C' | b'V' | b'R')
         && bytes[1].is_ascii_digit()
         && bytes[2].is_ascii_digit()
         && bytes[3].is_ascii_digit()
@@ -40,7 +40,7 @@ fn extract_codes_from_text(text: &str) -> HashSet<String> {
         let b1 = bytes[i + 1];
         let b2 = bytes[i + 2];
         let b3 = bytes[i + 3];
-        if !b0.is_ascii_uppercase()
+        if !matches!(b0, b'P' | b'T' | b'C' | b'V' | b'R')
             || !b1.is_ascii_digit()
             || !b2.is_ascii_digit()
             || !b3.is_ascii_digit()

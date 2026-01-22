@@ -129,6 +129,32 @@ impl TyperError {
         }
     }
 
+    pub fn unsigned_int_not_supported(ty: Type, span: Option<Span>) -> Self {
+        if let Some(sp) = span {
+            Self::new(
+                "T110",
+                format!(
+                    "at {}..{}: unsigned integer type `{}` is not supported yet",
+                    sp.start,
+                    sp.end,
+                    show_ty(ty)
+                ),
+                sp.start,
+                sp.end,
+            )
+        } else {
+            Self::new(
+                "T110",
+                format!(
+                    "unsigned integer type `{}` is not supported yet",
+                    show_ty(ty)
+                ),
+                0,
+                0,
+            )
+        }
+    }
+
     pub fn block_missing_tail(span: Span) -> Self {
         Self::new(
             "T016",
@@ -784,6 +810,9 @@ impl std::error::Error for TyperError {}
 fn render_type(ty: &Type) -> String {
     match ty {
         Type::Int => "Int".to_string(),
+        Type::U64 => "U64".to_string(),
+        Type::U128 => "U128".to_string(),
+        Type::U256 => "U256".to_string(),
         Type::Bool => "Bool".to_string(),
         Type::String => "String".to_string(),
         Type::Bytes => "Bytes".to_string(),

@@ -64,7 +64,7 @@ fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
 
 fn ensure_supported_type(ty: &Type, span: Option<Span>) -> Result<()> {
     match ty {
-        Type::U128 | Type::U256 => Err(TyperError::unsigned_int_not_supported(ty.clone(), span).into()),
+        Type::U128 | Type::U256 => Ok(()),
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
             ensure_supported_type(inner, span)
         }

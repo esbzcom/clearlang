@@ -31,6 +31,7 @@ const LOOP_FUEL_COST: i32 = 1;
 fn val_type_for_ir(ty: IrType) -> ValType {
     match ty {
         IrType::U64 => ValType::I64,
+        IrType::U128 | IrType::U256 => ValType::I32,
         IrType::Int | IrType::Bool => ValType::I32,
     }
 }
@@ -473,10 +474,16 @@ fn infer_value_types(
             IrInstr::VariantInit { dst, .. } => {
                 set_type(&mut types, *dst, ValType::I32)?;
             }
+            IrInstr::U128Init { dst, .. } | IrInstr::U256Init { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
             IrInstr::VariantLoadTag { dst, .. }
             | IrInstr::VariantLoadPayloadLo { dst, .. }
             | IrInstr::VariantLoadPayloadHi { dst, .. } => {
                 set_type(&mut types, *dst, ValType::I32)?;
+            }
+            IrInstr::U128LoadLimb { dst, .. } | IrInstr::U256LoadLimb { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I64)?;
             }
             IrInstr::Call { dst, callee, .. } => {
                 if let Some(dst) = dst {
@@ -552,6 +559,36 @@ fn encode_ir_function(
             | IrInstr::VariantLoadPayloadHi { dst, variant } => {
                 max_id = max_id.max(dst.0).max(variant.0);
             }
+            IrInstr::U128Init {
+                dst,
+                limb_lo,
+                limb_hi,
+            } => {
+                max_id = max_id
+                    .max(dst.0)
+                    .max(limb_lo.0)
+                    .max(limb_hi.0);
+            }
+            IrInstr::U128LoadLimb { dst, value, .. } => {
+                max_id = max_id.max(dst.0).max(value.0);
+            }
+            IrInstr::U256Init {
+                dst,
+                limb0,
+                limb1,
+                limb2,
+                limb3,
+            } => {
+                max_id = max_id
+                    .max(dst.0)
+                    .max(limb0.0)
+                    .max(limb1.0)
+                    .max(limb2.0)
+                    .max(limb3.0);
+            }
+            IrInstr::U256LoadLimb { dst, value, .. } => {
+                max_id = max_id.max(dst.0).max(value.0);
+            }
             IrInstr::ReturnIf { cond, ret } => {
                 max_id = max_id.max(cond.0).max(ret.0);
             }
@@ -598,7 +635,9 @@ fn encode_ir_function(
             IrInstr::IConst { dst, n, ty } => {
                 match ty {
                     IrType::U64 => insts.i64_const(*n),
-                    IrType::Int | IrType::Bool => insts.i32_const(*n as i32),
+                    IrType::U128 | IrType::U256 | IrType::Int | IrType::Bool => {
+                        insts.i32_const(*n as i32)
+                    }
                 };
                 insts.local_set(dst.0);
             }
@@ -616,56 +655,61 @@ fn encode_ir_function(
                 rhs,
                 ty,
             } => {
+                if matches!(ty, IrType::U128 | IrType::U256) {
+                    return Err(anyhow::anyhow!(
+                        "U128/U256 operations are not supported in codegen"
+                    ));
+                }
                 insts.local_get(lhs.0);
                 insts.local_get(rhs.0);
                 match op {
                     BinOpIR::Add => match ty {
                         IrType::U64 => insts.i64_add(),
-                        IrType::Int | IrType::Bool => insts.i32_add(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_add(),
                     },
                     BinOpIR::Sub => match ty {
                         IrType::U64 => insts.i64_sub(),
-                        IrType::Int | IrType::Bool => insts.i32_sub(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_sub(),
                     },
                     BinOpIR::Mul => match ty {
                         IrType::U64 => insts.i64_mul(),
-                        IrType::Int | IrType::Bool => insts.i32_mul(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_mul(),
                     },
                     BinOpIR::Div => match ty {
                         IrType::U64 => insts.i64_div_u(),
-                        IrType::Int | IrType::Bool => insts.i32_div_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_div_s(),
                     },
                     BinOpIR::Lt => match ty {
                         IrType::U64 => insts.i64_lt_u(),
-                        IrType::Int | IrType::Bool => insts.i32_lt_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_lt_s(),
                     },
                     BinOpIR::Le => match ty {
                         IrType::U64 => insts.i64_le_u(),
-                        IrType::Int | IrType::Bool => insts.i32_le_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_le_s(),
                     },
                     BinOpIR::Gt => match ty {
                         IrType::U64 => insts.i64_gt_u(),
-                        IrType::Int | IrType::Bool => insts.i32_gt_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_gt_s(),
                     },
                     BinOpIR::Ge => match ty {
                         IrType::U64 => insts.i64_ge_u(),
-                        IrType::Int | IrType::Bool => insts.i32_ge_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_ge_s(),
                     },
                     BinOpIR::Eq => match ty {
                         IrType::U64 => insts.i64_eq(),
-                        IrType::Int | IrType::Bool => insts.i32_eq(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_eq(),
                     },
                     BinOpIR::Neq => match ty {
                         IrType::U64 => insts.i64_ne(),
-                        IrType::Int | IrType::Bool => insts.i32_ne(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_ne(),
                     },
                     BinOpIR::And => match ty {
                         IrType::U64 => insts.i64_and(),
-                        IrType::Int | IrType::Bool => insts.i32_and(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_and(),
                     },
                     BinOpIR::Or => match ty {
                         IrType::U64 => insts.i64_or(),
-                        IrType::Int | IrType::Bool => insts.i32_or(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_or(),
                     },
                 };
                 insts.local_set(dst.0);
@@ -810,6 +854,160 @@ fn encode_ir_function(
                 insts.i32_load(MemArg {
                     align: 2,
                     offset: 8,
+                    memory_index: 0,
+                });
+                insts.local_set(dst.0);
+            }
+            IrInstr::U128Init { dst, limb_lo, limb_hi } => {
+                // pointer = heap_ptr
+                insts.global_get(HEAP_PTR_GLOBAL);
+                insts.local_set(dst.0);
+
+                // ensure allocation stays within memory before writing
+                insts.local_get(dst.0);
+                insts.i32_const(16);
+                insts.i32_add();
+                insts.i32_const(15);
+                insts.i32_add();
+                insts.i32_const(-16);
+                insts.i32_and();
+                insts.memory_size(0);
+                insts.i32_const(65536);
+                insts.i32_mul();
+                insts.i32_gt_u();
+                insts.if_(BlockType::Empty);
+                emit_runtime_trap(
+                    &mut insts,
+                    TrapCode::AllocatorOom,
+                    TrapOperand::local(dst.0),
+                    TrapOperand::zero(),
+                    0,
+                );
+                insts.end();
+
+                insts.local_get(dst.0);
+                insts.local_get(limb_lo.0);
+                insts.i64_store(MemArg {
+                    align: 3,
+                    offset: 0,
+                    memory_index: 0,
+                });
+                insts.local_get(dst.0);
+                insts.local_get(limb_hi.0);
+                insts.i64_store(MemArg {
+                    align: 3,
+                    offset: 8,
+                    memory_index: 0,
+                });
+
+                // heap_ptr = align16(ptr + size)
+                insts.local_get(dst.0);
+                insts.i32_const(16);
+                insts.i32_add();
+                insts.i32_const(15);
+                insts.i32_add();
+                insts.i32_const(-16);
+                insts.i32_and();
+                insts.global_set(HEAP_PTR_GLOBAL);
+            }
+            IrInstr::U128LoadLimb { dst, value, limb } => {
+                let offset = match limb {
+                    0 => 0,
+                    1 => 8,
+                    _ => return Err(anyhow::anyhow!("invalid U128 limb {}", limb)),
+                };
+                insts.local_get(value.0);
+                insts.i64_load(MemArg {
+                    align: 3,
+                    offset,
+                    memory_index: 0,
+                });
+                insts.local_set(dst.0);
+            }
+            IrInstr::U256Init {
+                dst,
+                limb0,
+                limb1,
+                limb2,
+                limb3,
+            } => {
+                // pointer = heap_ptr
+                insts.global_get(HEAP_PTR_GLOBAL);
+                insts.local_set(dst.0);
+
+                // ensure allocation stays within memory before writing
+                insts.local_get(dst.0);
+                insts.i32_const(32);
+                insts.i32_add();
+                insts.i32_const(31);
+                insts.i32_add();
+                insts.i32_const(-32);
+                insts.i32_and();
+                insts.memory_size(0);
+                insts.i32_const(65536);
+                insts.i32_mul();
+                insts.i32_gt_u();
+                insts.if_(BlockType::Empty);
+                emit_runtime_trap(
+                    &mut insts,
+                    TrapCode::AllocatorOom,
+                    TrapOperand::local(dst.0),
+                    TrapOperand::zero(),
+                    0,
+                );
+                insts.end();
+
+                insts.local_get(dst.0);
+                insts.local_get(limb0.0);
+                insts.i64_store(MemArg {
+                    align: 3,
+                    offset: 0,
+                    memory_index: 0,
+                });
+                insts.local_get(dst.0);
+                insts.local_get(limb1.0);
+                insts.i64_store(MemArg {
+                    align: 3,
+                    offset: 8,
+                    memory_index: 0,
+                });
+                insts.local_get(dst.0);
+                insts.local_get(limb2.0);
+                insts.i64_store(MemArg {
+                    align: 3,
+                    offset: 16,
+                    memory_index: 0,
+                });
+                insts.local_get(dst.0);
+                insts.local_get(limb3.0);
+                insts.i64_store(MemArg {
+                    align: 3,
+                    offset: 24,
+                    memory_index: 0,
+                });
+
+                // heap_ptr = align32(ptr + size)
+                insts.local_get(dst.0);
+                insts.i32_const(32);
+                insts.i32_add();
+                insts.i32_const(31);
+                insts.i32_add();
+                insts.i32_const(-32);
+                insts.i32_and();
+                insts.global_set(HEAP_PTR_GLOBAL);
+            }
+            IrInstr::U256LoadLimb { dst, value, limb } => {
+                let offset = match limb {
+                    0 => 0,
+                    1 => 8,
+                    2 => 16,
+                    3 => 24,
+                    _ => return Err(anyhow::anyhow!("invalid U256 limb {}", limb)),
+                };
+                insts.local_get(value.0);
+                insts.i64_load(MemArg {
+                    align: 3,
+                    offset,
                     memory_index: 0,
                 });
                 insts.local_set(dst.0);

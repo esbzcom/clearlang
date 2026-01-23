@@ -13,8 +13,9 @@ Scope
 Types
 
 - Primitive types: `Int`, `Bool`.
-- Unsigned integers: `U64` is supported; `U128`/`U256` are reserved and rejected (T110).
-  - Policy: checked overflow by default, with explicit `std::u64::{add,sub,mul}_{wrap,sat}` intrinsics for U64 (see `docs/design/phase-15.1-unsigned-ints.md`).
+- Unsigned integers: `U64`, `U128`, `U256` are supported (U128/U256 are limb-backed values).
+  - Policy: checked overflow by default for U64 arithmetic; U128/U256 arithmetic is not supported yet (T110).
+  - Helper intrinsics: `std::u128::from_limbs`, `std::u128::{lo,hi}`, `std::u256::from_limbs`, `std::u256::limb0`/`limb1`/`limb2`/`limb3`.
   - Literal typing: bare literals use unsigned types when the expected type is `U64`/`U128`/`U256`; otherwise they remain `Int`. Use `U64(42)` when no context exists (U128/U256 casts remain unsupported).
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.

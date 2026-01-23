@@ -53,7 +53,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T014 | type | Contract predicate must be Bool. |
 | T016 | type | Block expression requires a tail expression. |
 | T101 | type | Collections unavailable (generics/ADTs not implemented yet). |
-| T110 | type | Unsigned integer types U128/U256 are not supported yet. |
+| T110 | type | Unsigned integer operations for U128/U256 are not supported yet. |
 | T111 | type | Unsigned cast expects an unsigned literal or value. |
 | T201 | type | Non-exhaustive match (missing arm). |
 | T202 | type | Duplicate match arm. |

@@ -547,6 +547,12 @@ pub(super) fn type_of<'a>(
                     };
                     let lt_base = base_type(&lt, aliases)?;
                     let rt_base = base_type(&rt, aliases)?;
+                    if matches!(lt_base, Type::U128 | Type::U256) {
+                        return Err(TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into());
+                    }
+                    if matches!(rt_base, Type::U128 | Type::U256) {
+                        return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
+                    }
                     let lt_is_int = matches!(lt_base, Type::Int);
                     let rt_is_int = matches!(rt_base, Type::Int);
                     let lt_is_u64 = matches!(lt_base, Type::U64);
@@ -581,6 +587,12 @@ pub(super) fn type_of<'a>(
                     };
                     let lt_base = base_type(&lt, aliases)?;
                     let rt_base = base_type(&rt, aliases)?;
+                    if matches!(lt_base, Type::U128 | Type::U256) {
+                        return Err(TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into());
+                    }
+                    if matches!(rt_base, Type::U128 | Type::U256) {
+                        return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
+                    }
                     match (&lt_base, &rt_base) {
                         (Type::U64, Type::U64) => Ok(Type::Bool),
                         (Type::U64, Type::Int) if int_literal_value(rhs).is_some() => Ok(Type::Bool),
@@ -592,6 +604,14 @@ pub(super) fn type_of<'a>(
                     }
                 }
                 BinOp::Eq | BinOp::Neq => {
+                    let lt_base = base_type(&lt, aliases)?;
+                    let rt_base = base_type(&rt, aliases)?;
+                    if matches!(lt_base, Type::U128 | Type::U256) {
+                        return Err(TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into());
+                    }
+                    if matches!(rt_base, Type::U128 | Type::U256) {
+                        return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
+                    }
                     if !base_types_match(&lt, &rt, aliases)?
                         && !literal_can_coerce_u64(&lt, &rt, rhs)
                         && !literal_can_coerce_u64(&rt, &lt, lhs)

@@ -134,7 +134,7 @@ impl TyperError {
             Self::new(
                 "T110",
                 format!(
-                    "at {}..{}: unsigned integer type `{}` is not supported yet",
+                    "at {}..{}: unsigned integer operations for `{}` are not supported yet",
                     sp.start,
                     sp.end,
                     show_ty(ty)
@@ -146,7 +146,7 @@ impl TyperError {
             Self::new(
                 "T110",
                 format!(
-                    "unsigned integer type `{}` is not supported yet",
+                    "unsigned integer operations for `{}` are not supported yet",
                     show_ty(ty)
                 ),
                 0,

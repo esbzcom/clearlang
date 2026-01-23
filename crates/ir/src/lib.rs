@@ -7,6 +7,8 @@ pub struct PlaceHolder;
 pub enum IrType {
     Int,  // corresponds to ClearLang Type::Int (lowered to i32 for now)
     U64,  // corresponds to ClearLang Type::U64 (lowered to i64)
+    U128, // corresponds to ClearLang Type::U128 (pointer to limb buffer)
+    U256, // corresponds to ClearLang Type::U256 (pointer to limb buffer)
     Bool, // corresponds to ClearLang Type::Bool (lowered to i32 0/1 for now)
 }
 
@@ -150,6 +152,28 @@ pub enum Instr {
     VariantLoadPayloadHi {
         dst: Value,
         variant: Value,
+    },
+    U128Init {
+        dst: Value,
+        limb_lo: Value,
+        limb_hi: Value,
+    },
+    U128LoadLimb {
+        dst: Value,
+        value: Value,
+        limb: u8,
+    },
+    U256Init {
+        dst: Value,
+        limb0: Value,
+        limb1: Value,
+        limb2: Value,
+        limb3: Value,
+    },
+    U256LoadLimb {
+        dst: Value,
+        value: Value,
+        limb: u8,
     },
     // v? = call callee_idx(args) - callee is a function index in the module
     ReturnIf {

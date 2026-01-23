@@ -91,3 +91,19 @@ fn lowers_u64_identity() {
         _ => panic!("expected Ret as only instr"),
     }
 }
+
+#[test]
+fn lowers_u128_u256_helpers() {
+    let src = r#"
+        pure function make_u128() -> U128 { std::u128::from_limbs(1, 2) }
+        pure function make_u256() -> U256 { std::u256::from_limbs(1, 2, 3, 4) }
+    "#;
+    let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    assert_eq!(m.funcs.len(), 2);
+    let f128 = &m.funcs[0];
+    assert_eq!(f128.ret, Some(IrType::U128));
+    assert!(f128.body.iter().any(|instr| matches!(instr, Instr::U128Init { .. })));
+    let f256 = &m.funcs[1];
+    assert_eq!(f256.ret, Some(IrType::U256));
+    assert!(f256.body.iter().any(|instr| matches!(instr, Instr::U256Init { .. })));
+}

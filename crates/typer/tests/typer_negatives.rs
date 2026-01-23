@@ -121,7 +121,7 @@ fn errors_on_arg_type_mismatch_with_str() {
     assert!(s.contains("at ") && s.contains(".."));
 }
 
-// U64 is supported (U128/U256 are still rejected)
+// U64 is supported; U128/U256 arithmetic is not supported yet.
 #[test]
 fn allows_u64_types() {
     let src = r#"
@@ -132,21 +132,21 @@ fn allows_u64_types() {
 }
 
 #[test]
-fn errors_on_unsigned_int_types_u128_u256() {
+fn errors_on_unsigned_int_ops_u128_u256() {
     let src_u128 = r#"
-        function main(x: U128) -> Int { 1 }
+        pure function bad(a: U128, b: U128) -> U128 { a + b }
     "#;
     let ast = parse(src_u128).expect("parsed");
-    let err = check(&ast).expect_err("should fail on U128");
+    let err = check(&ast).expect_err("should fail on U128 arithmetic");
     let s = format!("{err:#}");
     assert!(s.contains("T110"), "unexpected error: {s}");
     assert!(s.contains("U128"), "unexpected error: {s}");
 
     let src_u256 = r#"
-        function main(x: Option<U256>) -> Int { 1 }
+        pure function bad(a: U256, b: U256) -> U256 { a + b }
     "#;
     let ast = parse(src_u256).expect("parsed");
-    let err = check(&ast).expect_err("should fail on U256");
+    let err = check(&ast).expect_err("should fail on U256 arithmetic");
     let s = format!("{err:#}");
     assert!(s.contains("T110"), "unexpected error: {s}");
     assert!(s.contains("U256"), "unexpected error: {s}");

@@ -238,5 +238,109 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Type::U64,
             Effect::Pure,
         ),
+        (
+            "std::u128::from_limbs".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lo".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "hi".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U128,
+            Effect::Pure,
+        ),
+        (
+            "std::u128::lo".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U128,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u128::hi".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U128,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u256::from_limbs".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "limb0".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "limb1".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "limb2".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "limb3".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U256,
+            Effect::Pure,
+        ),
+        (
+            "std::u256::limb0".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U256,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u256::limb1".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U256,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u256::limb2".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U256,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u256::limb3".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U256,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
     ]
 }

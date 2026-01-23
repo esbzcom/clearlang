@@ -24,9 +24,10 @@ U128/U256 helper intrinsics:
 Overflow traps use `R005` ("numeric overflow").
 
 ## Literal typing
-- Contextual typing: a bare literal becomes `U64`/`U128`/`U256` when the expected type is that unsigned type.
-- Explicit cast fallback: use `U64(42)`, `U128(42)`, or `U256(42)` when there is no context.
+- Contextual typing: a bare literal can become `U64` when the expected type is `U64`.
+- Explicit cast fallback: use `U64(42)` when there is no context.
 - Unsuffixed integer literals remain `Int` when no unsigned context exists.
+- `U128`/`U256` casts and range checks are deferred.
 
 ## Representation
 - `U64` lowers to Wasm `i64` with unsigned ops.
@@ -34,5 +35,5 @@ Overflow traps use `R005` ("numeric overflow").
   and are passed around as pointers (i32).
 
 ## Implementation status (Phase 15.1)
-- `U64` end-to-end (parser, typer, IR, codegen, tests).
+- `U64` end-to-end (parser, typer, IR, codegen, tests), including checked overflow traps and wrap/sat intrinsics.
 - `U128`/`U256` limb helpers and layout support (no arithmetic yet; use T110 for unsupported ops).

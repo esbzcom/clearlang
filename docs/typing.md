@@ -16,7 +16,7 @@ Types
 - Unsigned integers: `U64`, `U128`, `U256` are supported (U128/U256 are limb-backed values).
   - Policy: checked overflow by default for U64 arithmetic; U128/U256 arithmetic is not supported yet (T110).
   - Helper intrinsics: `std::u128::from_limbs`, `std::u128::{lo,hi}`, `std::u256::from_limbs`, `std::u256::limb0`/`limb1`/`limb2`/`limb3`.
-  - Literal typing: bare literals use unsigned types when the expected type is `U64`/`U128`/`U256`; otherwise they remain `Int`. Use `U64(42)` when no context exists (U128/U256 casts remain unsupported).
+- Literal typing: bare literals can coerce to `U64` when the expected type is `U64`; otherwise they remain `Int`. Use `U64(42)` when no context exists (U128/U256 casts remain unsupported). Range checks for unsigned literals/casts are pending; negative literals are rejected for `U64`.
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.
 

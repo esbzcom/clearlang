@@ -589,8 +589,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 ### 15 Core types & arrays
 - [ ] 15.1 Add fixed-width unsigned ints (`U64`, `U128`, `U256`) with explicit overflow semantics (wrap/checked/sat). (Parser, typer, IR, codegen, tests.)
   - [x] Reserve keywords and AST types for unsigned ints; reject usage via T110 until semantics land.
-  - [ ] Implement numeric semantics, literal typing, and IR/codegen support for U64/U128/U256.
+  - [ ] 15.1.1 Implement U64 end-to-end (parser/typer/IR/codegen/tests).
+  - [ ] 15.1.2 Add checked-overflow traps + wrap/sat intrinsics for U64.
+  - [ ] 15.1.3 Implement U128/U256 limb layout + helpers and enable in typer/codegen.
+  - [ ] 15.1.4 Add contextual literal typing + explicit casts (e.g., `U64(42)`) and range checks.
   - [x] Extend negative tests to cover U128/U256 (including nested types like `Option<U128>`).
+  - [x] Document checked-overflow default and planned wrap/sat intrinsics (design note).
 - [ ] 15.2 Add bitwise ops, shifts/rotates, and byte/word conversions. (Syntax, typer rules, codegen, tests.)
 - [ ] 15.3 Introduce `Bytes` and fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs. (Parser/AST, typer, layout, codegen, tests.)
 - [ ] 15.4 Add diagnostics + error codes for numeric overflow, literal range checks, and array bounds.

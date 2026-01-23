@@ -13,9 +13,9 @@ Scope
 Types
 
 - Primitive types: `Int`, `Bool`.
-- Unsigned integers: `U64`, `U128`, `U256` are reserved type keywords but are not supported yet (T110).
-  - Planned policy: checked overflow by default, with explicit `wrap_*`/`sat_*` ops (see `docs/design/phase-15.1-unsigned-ints.md`).
-  - Planned literal typing: bare literals use unsigned types when the expected type is `U64`/`U128`/`U256`; otherwise they remain `Int`. Use `U64(42)`/`U128(42)`/`U256(42)` when no context exists.
+- Unsigned integers: `U64` is supported; `U128`/`U256` are reserved and rejected (T110).
+  - Policy: checked overflow by default, with explicit `wrap_*`/`sat_*` ops planned (see `docs/design/phase-15.1-unsigned-ints.md`).
+  - Literal typing: bare literals use unsigned types when the expected type is `U64`/`U128`/`U256`; otherwise they remain `Int`. Use `U64(42)` when no context exists (U128/U256 casts remain unsupported).
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.
 

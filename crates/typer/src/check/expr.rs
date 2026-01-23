@@ -507,7 +507,14 @@ pub(super) fn type_of<'a>(
             tracker.use_var(name, *sp)?;
             match env.get(name.as_str()) {
                 Some(binding) => Ok(binding.ty.clone()),
-                None => Err(TyperError::unknown_variable(name, *sp).into()),
+                None => {
+                    if name == "result" {
+                        if let Some(binding) = env.get(RETURN_KEY) {
+                            return Ok(binding.ty.clone());
+                        }
+                    }
+                    Err(TyperError::unknown_variable(name, *sp).into())
+                }
             }
         }
         Expr::Return { expr, .. } => {
@@ -531,17 +538,64 @@ pub(super) fn type_of<'a>(
             let rt = type_of(rhs, env, tracker, fns, aliases, depth + 1)?;
             match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
-                    ensure_int(lt, aliases, "left operand", Some(*span))?;
-                    ensure_int(rt, aliases, "right operand", Some(*span))?;
-                    Ok(Type::Int)
+                    let op_str = match op {
+                        BinOp::Add => "+",
+                        BinOp::Sub => "-",
+                        BinOp::Mul => "*",
+                        BinOp::Div => "/",
+                        _ => "?",
+                    };
+                    let lt_base = base_type(&lt, aliases)?;
+                    let rt_base = base_type(&rt, aliases)?;
+                    let lt_is_int = matches!(lt_base, Type::Int);
+                    let rt_is_int = matches!(rt_base, Type::Int);
+                    let lt_is_u64 = matches!(lt_base, Type::U64);
+                    let rt_is_u64 = matches!(rt_base, Type::U64);
+                    if lt_is_int && !rt_is_int && !rt_is_u64 {
+                        return Err(
+                            TyperError::int_operand("right operand", rt, Some(*span)).into(),
+                        );
+                    }
+                    if rt_is_int && !lt_is_int && !lt_is_u64 {
+                        return Err(
+                            TyperError::int_operand("left operand", lt, Some(*span)).into(),
+                        );
+                    }
+                    match (&lt_base, &rt_base) {
+                        (Type::U64, Type::U64) => Ok(Type::U64),
+                        (Type::U64, Type::Int) if int_literal_value(rhs).is_some() => Ok(Type::U64),
+                        (Type::Int, Type::U64) if int_literal_value(lhs).is_some() => Ok(Type::U64),
+                        (Type::Int, Type::Int) => Ok(Type::Int),
+                        _ => Err(
+                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
+                        ),
+                    }
                 }
                 BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
-                    ensure_int(lt, aliases, "left operand", Some(*span))?;
-                    ensure_int(rt, aliases, "right operand", Some(*span))?;
-                    Ok(Type::Bool)
+                    let op_str = match op {
+                        BinOp::Lt => "<",
+                        BinOp::Le => "<=",
+                        BinOp::Gt => ">",
+                        BinOp::Ge => ">=",
+                        _ => "?",
+                    };
+                    let lt_base = base_type(&lt, aliases)?;
+                    let rt_base = base_type(&rt, aliases)?;
+                    match (&lt_base, &rt_base) {
+                        (Type::U64, Type::U64) => Ok(Type::Bool),
+                        (Type::U64, Type::Int) if int_literal_value(rhs).is_some() => Ok(Type::Bool),
+                        (Type::Int, Type::U64) if int_literal_value(lhs).is_some() => Ok(Type::Bool),
+                        (Type::Int, Type::Int) => Ok(Type::Bool),
+                        _ => Err(
+                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
+                        ),
+                    }
                 }
                 BinOp::Eq | BinOp::Neq => {
-                    if !base_types_match(&lt, &rt, aliases)? {
+                    if !base_types_match(&lt, &rt, aliases)?
+                        && !literal_can_coerce_u64(&lt, &rt, rhs)
+                        && !literal_can_coerce_u64(&rt, &lt, lhs)
+                    {
                         let op_str = if *op == BinOp::Eq { "==" } else { "!=" };
                         return Err(
                             TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into()
@@ -562,6 +616,37 @@ pub(super) fn type_of<'a>(
                 type_collection_call(callee, args, env, tracker, fns, aliases, depth, *span)?
             {
                 return Ok(t);
+            }
+            if callee == "U64" || callee == "U128" || callee == "U256" {
+                if args.len() != 1 {
+                    return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
+                }
+                if callee != "U64" {
+                    return Err(TyperError::unsigned_int_not_supported(
+                        match callee.as_str() {
+                            "U128" => Type::U128,
+                            "U256" => Type::U256,
+                            _ => Type::U128,
+                        },
+                        Some(*span),
+                    )
+                    .into());
+                }
+                let mut local_tracker = tracker.clone();
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, depth + 1)?;
+                let cast_ok = matches!(arg_ty, Type::U64)
+                    || (matches!(arg_ty, Type::Int)
+                        && int_literal_value(&args[0])
+                            .map(|value| value >= 0)
+                            .unwrap_or(false));
+                if !cast_ok {
+                    let sp = expr_span(&args[0]);
+                    return Err(
+                        TyperError::unsigned_cast_invalid("U64", arg_ty, sp).into(),
+                    );
+                }
+                *tracker = local_tracker;
+                return Ok(Type::U64);
             }
             // Phase 4.5 - ADT constructors (partial): Some(T) infers Option<T>
             if callee == "Some" {
@@ -659,10 +744,16 @@ pub(super) fn type_of<'a>(
                 let at = type_of(a, env, &mut local_tracker, fns, aliases, depth + 1)?;
                 let expected = p.ty.clone();
                 if !base_types_match(&expected, &at, aliases)? {
+                    if literal_can_coerce_u64(&expected, &at, a) {
+                        continue;
+                    }
                     let sp = expr_span(a);
                     return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }
                 if !binding_compatible(&expected, &at, aliases)? {
+                    if literal_can_coerce_u64(&expected, &at, a) {
+                        continue;
+                    }
                     let sp = expr_span(a);
                     if refinement_loss(&expected, &at, aliases) {
                         return Err(TyperError::refinement_loss(expected, at, sp).into());
@@ -692,6 +783,16 @@ pub(super) fn type_of<'a>(
             Ok(ret)
         }
     }
+}
+
+pub(crate) fn infer_expr_type<'a>(
+    e: &'a Expr,
+    env: &HashMap<&'a str, LocalBinding>,
+    fns: &HashMap<&'a str, FnSig>,
+    aliases: &AliasMap,
+) -> Result<Type> {
+    let mut tracker = ResourceTracker::new();
+    type_of(e, env, &mut tracker, fns, aliases, 0)
 }
 #[allow(clippy::too_many_arguments)]
 fn type_collection_call<'a>(
@@ -1313,6 +1414,21 @@ fn ensure_bool(ty: Type, aliases: &AliasMap, what: &str, span: Option<Span>) -> 
         return Err(TyperError::bool_operand(what, ty, span).into());
     }
     Ok(())
+}
+
+fn int_literal_value(expr: &Expr) -> Option<i64> {
+    match expr {
+        Expr::Int(value, _) => Some(*value),
+        _ => None,
+    }
+}
+
+fn literal_can_coerce_u64(expected: &Type, actual: &Type, expr: &Expr) -> bool {
+    matches!(expected, Type::U64)
+        && matches!(actual, Type::Int)
+        && int_literal_value(expr)
+            .map(|value| value >= 0)
+            .unwrap_or(false)
 }
 pub(super) fn expr_span(e: &Expr) -> Span {
     match e {

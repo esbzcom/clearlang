@@ -33,6 +33,7 @@ fn bounded_loop_wasm(iterations: i64) -> Vec<u8> {
                 op: BinOpIR::Sub,
                 lhs: Value(0),
                 rhs: Value(1),
+                ty: IrType::Int,
             },
             Instr::Br { depth: 0 },
             Instr::LoopEnd,

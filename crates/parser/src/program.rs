@@ -42,12 +42,136 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
         .then_ignore(end())
 }
 
+fn has_unclosed_paren(src: &str) -> bool {
+    let mut depth = 0u32;
+    let mut in_string = false;
+    for b in src.bytes() {
+        if b == b'"' {
+            in_string = !in_string;
+            continue;
+        }
+        if in_string {
+            continue;
+        }
+        match b {
+            b'(' => depth = depth.saturating_add(1),
+            b')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    depth > 0
+}
+
+fn looks_like_missing_comma(src: &str) -> bool {
+    let bytes = src.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'(' {
+            let mut j = i + 1;
+            let mut saw_gap = false;
+            let mut saw_comma = false;
+            let mut saw_operator = false;
+            let mut prev_token = false;
+            let mut pending_gap = false;
+            while j < bytes.len() && bytes[j] != b')' {
+                let b = bytes[j];
+                if b == b'"' {
+                    if pending_gap {
+                        saw_gap = true;
+                    }
+                    prev_token = true;
+                    pending_gap = false;
+                    j += 1;
+                    while j < bytes.len() && bytes[j] != b'"' {
+                        j += 1;
+                    }
+                } else if b == b',' {
+                    saw_comma = true;
+                    prev_token = false;
+                    pending_gap = false;
+                } else if matches!(
+                    b,
+                    b'+' | b'-'
+                        | b'*'
+                        | b'/'
+                        | b'%'
+                        | b'<'
+                        | b'>'
+                        | b'='
+                        | b'!'
+                        | b'&'
+                        | b'|'
+                        | b'?'
+                        | b':'
+                        | b'.'
+                ) {
+                    saw_operator = true;
+                    prev_token = false;
+                    pending_gap = false;
+                } else if b.is_ascii_whitespace() {
+                    if prev_token {
+                        pending_gap = true;
+                    }
+                } else if b.is_ascii_alphanumeric() || b == b'_' {
+                    if pending_gap {
+                        saw_gap = true;
+                    }
+                    prev_token = true;
+                    pending_gap = false;
+                } else {
+                    prev_token = false;
+                    pending_gap = false;
+                }
+                j += 1;
+            }
+            if j < bytes.len() && saw_gap && !saw_comma && !saw_operator {
+                return true;
+            }
+            i = j;
+        }
+        i += 1;
+    }
+    false
+}
+
+fn keyword_missing_brace(line: &str, keyword: &str) -> Option<usize> {
+    let bytes = line.as_bytes();
+    let key = keyword.as_bytes();
+    let mut idx = 0usize;
+    while idx + key.len() <= bytes.len() {
+        let Some(rel) = line[idx..].find(keyword) else {
+            break;
+        };
+        let start = idx + rel;
+        let end = start + key.len();
+        let before_ok = start == 0 || !bytes[start - 1].is_ascii_alphanumeric() && bytes[start - 1] != b'_';
+        let after_ok = end == bytes.len() || !bytes[end].is_ascii_alphanumeric() && bytes[end] != b'_';
+        if before_ok && after_ok {
+            let mut j = end;
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j >= bytes.len() || bytes[j] != b'{' {
+                return Some(start);
+            }
+        }
+        idx = end;
+    }
+    None
+}
+
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
         let mut messages: Vec<String> = Vec::with_capacity(errs.len() + 1);
         for e in errs {
             let span = e.span();
-            let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+            let mut expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+            for (ctx, _) in e.contexts() {
+                let label = ctx.to_string();
+                if !expected.contains(&label) {
+                    expected.push(label);
+                }
+            }
             let msg = if expected.is_empty() {
                 format!("at {}..{}: error: {}", span.start, span.end, e)
             } else {
@@ -79,7 +203,35 @@ pub fn parse(src: &str) -> Result<Program, String> {
                     start, end, keyword
                 ));
             }
+            if let Some(rel) = keyword_missing_brace(line_text, "invariant") {
+                let start = offset + rel;
+                let end = start + "invariant".len();
+                messages.push(format!(
+                    "at {}..{}: error: expected '{{' after `invariant`",
+                    start, end
+                ));
+            }
+            if let Some(rel) = keyword_missing_brace(line_text, "variant") {
+                let start = offset + rel;
+                let end = start + "variant".len();
+                messages.push(format!(
+                    "at {}..{}: error: expected '{{' after `variant`",
+                    start, end
+                ));
+            }
             offset += line.len();
+        }
+
+        let should_hint = messages
+            .iter()
+            .any(|msg| msg.contains("expected: something else"));
+        if should_hint {
+            if !messages.iter().any(|msg| msg.contains("comma")) && looks_like_missing_comma(src) {
+                messages.push("hint: expected comma between arguments".to_string());
+            }
+            if !messages.iter().any(|msg| msg.contains("')'")) && has_unclosed_paren(src) {
+                messages.push("hint: expected ')'".to_string());
+            }
         }
 
         messages.join("\n")
@@ -103,7 +255,13 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
             let mut items: Vec<ParserError> = Vec::with_capacity(errs.len() + 1);
             for e in errs {
                 let span = e.span();
-                let expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+                let mut expected: Vec<String> = e.expected().map(|p| p.to_string()).collect();
+                for (ctx, _) in e.contexts() {
+                    let label = ctx.to_string();
+                    if !expected.contains(&label) {
+                        expected.push(label);
+                    }
+                }
                 let msg = if expected.is_empty() {
                     format!("at {}..{}: error: {}", span.start, span.end, e)
                 } else {
@@ -151,6 +309,32 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                         message: format!(
                             "at {}..{}: error: keyword `{}` must be followed by `{{ ... }}`",
                             start, end, keyword
+                        ),
+                        start,
+                        end,
+                    });
+                }
+                if let Some(rel) = keyword_missing_brace(line_text, "invariant") {
+                    let start = offset + rel;
+                    let end = start + "invariant".len();
+                    items.push(ParserError {
+                        code: "P001",
+                        message: format!(
+                            "at {}..{}: error: expected '{{' after `invariant`",
+                            start, end
+                        ),
+                        start,
+                        end,
+                    });
+                }
+                if let Some(rel) = keyword_missing_brace(line_text, "variant") {
+                    let start = offset + rel;
+                    let end = start + "variant".len();
+                    items.push(ParserError {
+                        code: "P001",
+                        message: format!(
+                            "at {}..{}: error: expected '{{' after `variant`",
+                            start, end
                         ),
                         start,
                         end,

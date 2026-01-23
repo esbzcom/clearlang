@@ -45,6 +45,20 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
+        let unsigned_cast = choice((kw("U64"), kw("U128"), kw("U256")))
+            .then(call_args.clone())
+            .map_with(|(name, args), e| {
+                let sp: chumsky::span::SimpleSpan<usize> = e.span();
+                Expr::Call {
+                    callee: name.to_string(),
+                    args,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
+            });
+
         // Constructors: Some(x), Ok(x), Err(e); None (with or without parentheses)
         let ctor_call =
             ctor_name_p()
@@ -363,6 +377,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             if_let_expr,
             if_expr,
             ctor_call,
+            unsigned_cast,
             call_expr,
             var_expr,
         ))

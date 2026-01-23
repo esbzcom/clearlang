@@ -22,6 +22,7 @@ fn ir_builds_const_add_ret() {
         op: BinOpIR::Add,
         lhs: v0,
         rhs: v1,
+        ty: IrType::Int,
     });
     body.push(Instr::Ret { val: v2 });
 

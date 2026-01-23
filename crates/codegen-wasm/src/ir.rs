@@ -1,5 +1,7 @@
 use anyhow::Result;
-use clg_ir::{BinOpIR, Function as IrFunction, Instr as IrInstr, Module as IrModule, TrapCode};
+use clg_ir::{
+    BinOpIR, Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule, TrapCode, Value,
+};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use wasm_encoder::{
@@ -25,6 +27,21 @@ pub(crate) const FUEL_GLOBAL: u32 = 5;
 const DEFAULT_FUEL_LIMIT: i32 = 1_000_000;
 const FUNCTION_FUEL_COST: i32 = 1_000;
 const LOOP_FUEL_COST: i32 = 1;
+
+fn val_type_for_ir(ty: IrType) -> ValType {
+    match ty {
+        IrType::U64 => ValType::I64,
+        IrType::Int | IrType::Bool => ValType::I32,
+    }
+}
+
+fn val_type_key(ty: ValType) -> u8 {
+    match ty {
+        ValType::I32 => 0,
+        ValType::I64 => 1,
+        _ => 2,
+    }
+}
 
 #[derive(Default)]
 pub struct CodegenOpts {
@@ -68,19 +85,20 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     // Build function types with deduplication, and record each function's type index
     #[derive(Hash, Eq, PartialEq, Clone)]
     struct SigKey {
-        params: usize,
-        has_ret: bool,
+        params: Vec<u8>,
+        results: Vec<u8>,
     }
     let mut types = TypeSection::new();
     let mut sig_to_tyidx = HashMap::<SigKey, u32>::with_capacity(ir.funcs.len());
     let mut fn_type_indices: Vec<u32> = Vec::with_capacity(ir.funcs.len());
-    let mut type_index_for = |params: usize, has_ret: bool| -> u32 {
-        let key = SigKey { params, has_ret };
+    let mut type_index_for = |params: Vec<ValType>, results: Vec<ValType>| -> u32 {
+        let key = SigKey {
+            params: params.iter().map(|ty| val_type_key(*ty)).collect(),
+            results: results.iter().map(|ty| val_type_key(*ty)).collect(),
+        };
         if let Some(idx) = sig_to_tyidx.get(&key) {
             *idx
         } else {
-            let params: Vec<ValType> = (0..params).map(|_| ValType::I32).collect();
-            let results: Vec<ValType> = if has_ret { vec![ValType::I32] } else { vec![] };
             let idx = sig_to_tyidx.len() as u32;
             types.ty().function(params, results);
             sig_to_tyidx.insert(key, idx);
@@ -88,21 +106,26 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         }
     };
     for f in &ir.funcs {
-        let ty_idx = type_index_for(f.params.len(), f.ret.is_some());
+        let params: Vec<ValType> = f.params.iter().copied().map(val_type_for_ir).collect();
+        let results: Vec<ValType> = f
+            .ret
+            .map(|ty| vec![val_type_for_ir(ty)])
+            .unwrap_or_default();
+        let ty_idx = type_index_for(params, results);
         fn_type_indices.push(ty_idx);
     }
     let fd_write_ty = if has_wasi_print {
-        Some(type_index_for(4, true))
+        Some(type_index_for(vec![ValType::I32; 4], vec![ValType::I32]))
     } else {
         None
     };
     let env_time_ty = if has_env_time {
-        Some(type_index_for(0, true))
+        Some(type_index_for(Vec::new(), vec![ValType::I32]))
     } else {
         None
     };
     let env_random_ty = if has_env_random {
-        Some(type_index_for(1, true))
+        Some(type_index_for(vec![ValType::I32], vec![ValType::I32]))
     } else {
         None
     };
@@ -300,7 +323,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,
             "std::str::concat" => encode_intrinsic_str_concat(f)?,
-            _ => encode_ir_function(f, &str_pool, func_index_offset)?,
+            _ => encode_ir_function(f, &ir.funcs, &str_pool, func_index_offset)?,
         };
         codes.function(&func);
     }
@@ -369,8 +392,125 @@ fn emit_fuel_tick(insts: &mut InstructionSink<'_>, cost: i32) {
     insts.end();
 }
 
+fn infer_value_types(
+    f: &IrFunction,
+    funcs: &[IrFunction],
+    max_id: u32,
+) -> Result<Vec<ValType>> {
+    let mut types: Vec<Option<ValType>> = vec![None; max_id as usize + 1];
+
+    for (i, ty) in f.params.iter().copied().enumerate() {
+        types[i] = Some(val_type_for_ir(ty));
+    }
+
+    fn set_type(types: &mut [Option<ValType>], value: Value, ty: ValType) -> Result<()> {
+        let slot = types
+            .get_mut(value.0 as usize)
+            .ok_or_else(|| anyhow::anyhow!("value {} out of range", value.0))?;
+        if let Some(existing) = *slot {
+            if existing != ty {
+                return Err(anyhow::anyhow!(
+                    "value {} has conflicting types {:?} vs {:?}",
+                    value.0,
+                    existing,
+                    ty
+                ));
+            }
+        } else {
+            *slot = Some(ty);
+        }
+        Ok(())
+    }
+
+    for ins in &f.body {
+        match ins {
+            IrInstr::IConst { dst, ty, .. } => {
+                set_type(&mut types, *dst, val_type_for_ir(*ty))?;
+            }
+            IrInstr::IStringConst { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
+            IrInstr::IBin { dst, op, ty, .. } => {
+                let res_ty = match op {
+                    BinOpIR::Add | BinOpIR::Sub | BinOpIR::Mul | BinOpIR::Div => {
+                        val_type_for_ir(*ty)
+                    }
+                    BinOpIR::Lt
+                    | BinOpIR::Le
+                    | BinOpIR::Gt
+                    | BinOpIR::Ge
+                    | BinOpIR::Eq
+                    | BinOpIR::Neq
+                    | BinOpIR::And
+                    | BinOpIR::Or => ValType::I32,
+                };
+                set_type(&mut types, *dst, res_ty)?;
+            }
+            IrInstr::ISelect {
+                dst,
+                then_v,
+                else_v,
+                ..
+            } => {
+                let then_ty = types
+                    .get(then_v.0 as usize)
+                    .and_then(|ty| *ty)
+                    .ok_or_else(|| anyhow::anyhow!("missing type for value {}", then_v.0))?;
+                let else_ty = types
+                    .get(else_v.0 as usize)
+                    .and_then(|ty| *ty)
+                    .ok_or_else(|| anyhow::anyhow!("missing type for value {}", else_v.0))?;
+                if then_ty != else_ty {
+                    return Err(anyhow::anyhow!(
+                        "select type mismatch for value {} ({:?} vs {:?})",
+                        dst.0,
+                        then_ty,
+                        else_ty
+                    ));
+                }
+                set_type(&mut types, *dst, then_ty)?;
+            }
+            IrInstr::VariantInit { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
+            IrInstr::VariantLoadTag { dst, .. }
+            | IrInstr::VariantLoadPayloadLo { dst, .. }
+            | IrInstr::VariantLoadPayloadHi { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
+            IrInstr::Call { dst, callee, .. } => {
+                if let Some(dst) = dst {
+                    let ret_ty = funcs
+                        .get(*callee as usize)
+                        .and_then(|f| f.ret)
+                        .ok_or_else(|| anyhow::anyhow!("missing return type for call {}", callee))?;
+                    set_type(&mut types, *dst, val_type_for_ir(ret_ty))?;
+                }
+            }
+            IrInstr::Guard { .. }
+            | IrInstr::ReturnIf { .. }
+            | IrInstr::BrIf { .. }
+            | IrInstr::BrIfEqz { .. }
+            | IrInstr::BlockBegin
+            | IrInstr::BlockEnd
+            | IrInstr::LoopBegin
+            | IrInstr::LoopEnd
+            | IrInstr::Br { .. }
+            | IrInstr::Ret { .. } => {}
+        }
+    }
+
+    let mut resolved = Vec::with_capacity(types.len());
+    for (idx, ty) in types.into_iter().enumerate() {
+        let ty = ty.ok_or_else(|| anyhow::anyhow!("missing type for value {}", idx))?;
+        resolved.push(ty);
+    }
+    Ok(resolved)
+}
+
 fn encode_ir_function(
     f: &IrFunction,
+    funcs: &[IrFunction],
     strs: &HashMap<String, u32>,
     func_index_offset: u32,
 ) -> Result<Function> {
@@ -434,12 +574,20 @@ fn encode_ir_function(
             IrInstr::Ret { val } => max_id = max_id.max(val.0),
         }
     }
-    let locals_count = max_id.saturating_add(1).saturating_sub(params_len);
-    let locals = if locals_count > 0 {
-        vec![(locals_count, ValType::I32)]
-    } else {
-        Vec::new()
-    };
+    let value_types = infer_value_types(f, funcs, max_id)?;
+    let mut locals: Vec<(u32, ValType)> = Vec::new();
+    if max_id.saturating_add(1) > params_len {
+        for idx in params_len..=max_id {
+            let ty = value_types[idx as usize];
+            if let Some((count, last_ty)) = locals.last_mut() {
+                if *last_ty == ty {
+                    *count += 1;
+                    continue;
+                }
+            }
+            locals.push((1, ty));
+        }
+    }
     let mut fenc = Function::new(locals);
     let mut insts = fenc.instructions();
 
@@ -447,8 +595,11 @@ fn encode_ir_function(
 
     for ins in &f.body {
         match ins {
-            IrInstr::IConst { dst, n, .. } => {
-                insts.i32_const(*n as i32);
+            IrInstr::IConst { dst, n, ty } => {
+                match ty {
+                    IrType::U64 => insts.i64_const(*n),
+                    IrType::Int | IrType::Bool => insts.i32_const(*n as i32),
+                };
                 insts.local_set(dst.0);
             }
             IrInstr::IStringConst { dst, s } => {
@@ -458,22 +609,64 @@ fn encode_ir_function(
                 insts.i32_const(*off as i32);
                 insts.local_set(dst.0);
             }
-            IrInstr::IBin { dst, op, lhs, rhs } => {
+            IrInstr::IBin {
+                dst,
+                op,
+                lhs,
+                rhs,
+                ty,
+            } => {
                 insts.local_get(lhs.0);
                 insts.local_get(rhs.0);
                 match op {
-                    BinOpIR::Add => insts.i32_add(),
-                    BinOpIR::Sub => insts.i32_sub(),
-                    BinOpIR::Mul => insts.i32_mul(),
-                    BinOpIR::Div => insts.i32_div_s(),
-                    BinOpIR::Lt => insts.i32_lt_s(),
-                    BinOpIR::Le => insts.i32_le_s(),
-                    BinOpIR::Gt => insts.i32_gt_s(),
-                    BinOpIR::Ge => insts.i32_ge_s(),
-                    BinOpIR::Eq => insts.i32_eq(),
-                    BinOpIR::Neq => insts.i32_ne(),
-                    BinOpIR::And => insts.i32_and(),
-                    BinOpIR::Or => insts.i32_or(),
+                    BinOpIR::Add => match ty {
+                        IrType::U64 => insts.i64_add(),
+                        IrType::Int | IrType::Bool => insts.i32_add(),
+                    },
+                    BinOpIR::Sub => match ty {
+                        IrType::U64 => insts.i64_sub(),
+                        IrType::Int | IrType::Bool => insts.i32_sub(),
+                    },
+                    BinOpIR::Mul => match ty {
+                        IrType::U64 => insts.i64_mul(),
+                        IrType::Int | IrType::Bool => insts.i32_mul(),
+                    },
+                    BinOpIR::Div => match ty {
+                        IrType::U64 => insts.i64_div_u(),
+                        IrType::Int | IrType::Bool => insts.i32_div_s(),
+                    },
+                    BinOpIR::Lt => match ty {
+                        IrType::U64 => insts.i64_lt_u(),
+                        IrType::Int | IrType::Bool => insts.i32_lt_s(),
+                    },
+                    BinOpIR::Le => match ty {
+                        IrType::U64 => insts.i64_le_u(),
+                        IrType::Int | IrType::Bool => insts.i32_le_s(),
+                    },
+                    BinOpIR::Gt => match ty {
+                        IrType::U64 => insts.i64_gt_u(),
+                        IrType::Int | IrType::Bool => insts.i32_gt_s(),
+                    },
+                    BinOpIR::Ge => match ty {
+                        IrType::U64 => insts.i64_ge_u(),
+                        IrType::Int | IrType::Bool => insts.i32_ge_s(),
+                    },
+                    BinOpIR::Eq => match ty {
+                        IrType::U64 => insts.i64_eq(),
+                        IrType::Int | IrType::Bool => insts.i32_eq(),
+                    },
+                    BinOpIR::Neq => match ty {
+                        IrType::U64 => insts.i64_ne(),
+                        IrType::Int | IrType::Bool => insts.i32_ne(),
+                    },
+                    BinOpIR::And => match ty {
+                        IrType::U64 => insts.i64_and(),
+                        IrType::Int | IrType::Bool => insts.i32_and(),
+                    },
+                    BinOpIR::Or => match ty {
+                        IrType::U64 => insts.i64_or(),
+                        IrType::Int | IrType::Bool => insts.i32_or(),
+                    },
                 };
                 insts.local_set(dst.0);
             }
@@ -496,9 +689,10 @@ fn encode_ir_function(
                 else_v,
             } => {
                 // Structured if/else expression: push result on stack, then set dst
+                let dst_ty = value_types[dst.0 as usize];
                 insts.local_get(cond.0);
-                // if (result i32) then_val else else_val
-                insts.if_(wasm_encoder::BlockType::Result(ValType::I32));
+                // if (result ty) then_val else else_val
+                insts.if_(wasm_encoder::BlockType::Result(dst_ty));
                 insts.local_get(then_v.0);
                 insts.else_();
                 insts.local_get(else_v.0);

@@ -121,17 +121,14 @@ fn errors_on_arg_type_mismatch_with_str() {
     assert!(s.contains("at ") && s.contains(".."));
 }
 
-// Unsigned int types are not supported yet
+// U64 is supported (U128/U256 are still rejected)
 #[test]
-fn errors_on_unsigned_int_types() {
+fn allows_u64_types() {
     let src = r#"
         function main(x: U64) -> U64 { x }
     "#;
     let ast = parse(src).expect("parsed");
-    let err = check(&ast).expect_err("should fail on unsigned int types");
-    let s = format!("{err:#}");
-    assert!(s.contains("T110"), "unexpected error: {s}");
-    assert!(s.contains("U64"), "unexpected error: {s}");
+    check(&ast).expect("should accept U64 types");
 }
 
 #[test]
@@ -153,4 +150,15 @@ fn errors_on_unsigned_int_types_u128_u256() {
     let s = format!("{err:#}");
     assert!(s.contains("T110"), "unexpected error: {s}");
     assert!(s.contains("U256"), "unexpected error: {s}");
+}
+
+#[test]
+fn errors_on_invalid_unsigned_cast() {
+    let src = r#"
+        function main(x: Int) -> U64 { U64(x) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on invalid U64 cast");
+    let s = format!("{err:#}");
+    assert!(s.contains("T111"), "unexpected error: {s}");
 }

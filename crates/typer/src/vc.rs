@@ -119,6 +119,8 @@ pub struct VerificationCondition {
     pub refinements: Vec<RefinementPremise>,
 }
 
+const U64_MAX_SMT: &str = "18446744073709551615";
+
 #[derive(Debug)]
 struct LoopObligation<'a> {
     invariant: &'a Expr,
@@ -163,6 +165,12 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 }
             }
         }
+        let u64_param_bounds: Vec<String> = func
+            .params
+            .iter()
+            .filter(|p| matches!(p.ty, Type::U64))
+            .map(|p| u64_bounds_smt(p.name.as_str()))
+            .collect();
 
         // Ensure VCs follow source order, with an implicit refined-return predicate appended.
         let mut ensures: Vec<EnsureItem> = func
@@ -228,14 +236,21 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
         let base_refinement_prelude = refinement_prelude(&pre_obligations, None, &alias_map);
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {
+            let has_u64_ret = matches!(func.ret, Type::U64);
             for (idx, ensure) in ensures.iter().enumerate() {
                 let post_ast = expr_to_source(&ensure.expr, 0);
                 let substituted = substitute_result(&ensure.expr, &func.body);
 
                 let mut encoder = SmtEncoder::default();
-                let pre_smt = encoder.encode(&pre_expr);
+                let pre_smt = append_smt_bounds(encoder.encode(&pre_expr), &u64_param_bounds);
                 let post_smt = encoder.encode(&ensure.expr);
                 let substituted_smt = encoder.encode(&substituted);
+                let substituted_smt = if has_u64_ret {
+                    let bounds = u64_bounds_smt(&substituted_smt);
+                    format!("(and {} {})", substituted_smt, bounds)
+                } else {
+                    substituted_smt
+                };
                 let vc_body = format!("(=> {} {})", pre_smt, substituted_smt);
                 let mut refinements = pre_premises.clone();
                 let refinement_prelude = if let Some(obligation) = &ensure.return_obligation {
@@ -286,7 +301,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let post_ast = expr_to_source(&guard_expr, 0);
 
                 let mut encoder = SmtEncoder::default();
-                let pre_smt = encoder.encode(&pre_expr);
+                let pre_smt = append_smt_bounds(encoder.encode(&pre_expr), &u64_param_bounds);
                 let post_smt = encoder.encode(&guard_expr);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
                 let vc_smt2 = if base_refinement_prelude.is_empty() {
@@ -320,7 +335,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
         collect_loops(&func.body, &mut loops);
         for (idx, loop_ob) in loops.iter().enumerate() {
             let mut enc_inv = SmtEncoder::default();
-            let pre_smt = enc_inv.encode(&pre_expr);
+            let pre_smt = append_smt_bounds(enc_inv.encode(&pre_expr), &u64_param_bounds);
             let inv_smt = enc_inv.encode(loop_ob.invariant);
             let vc_body = format!("(=> {} {})", pre_smt, inv_smt);
             let vc_smt2 = if base_refinement_prelude.is_empty() {
@@ -350,7 +365,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
 
             if let Some(var_expr) = loop_ob.variant {
                 let mut enc_var = SmtEncoder::default();
-                let pre_smt = enc_var.encode(&pre_expr);
+                let pre_smt = append_smt_bounds(enc_var.encode(&pre_expr), &u64_param_bounds);
                 let var_smt = enc_var.encode(var_expr);
                 let post_smt = format!("(>= {} 0)", var_smt);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
@@ -379,7 +394,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 });
 
                 let mut enc_dec = SmtEncoder::default();
-                let pre_smt = enc_dec.encode(&pre_expr);
+                let pre_smt = append_smt_bounds(enc_dec.encode(&pre_expr), &u64_param_bounds);
                 let var_before = enc_dec.encode(var_expr);
                 let next_sym = format!("cl.loop.variant.next.{}", idx);
                 let post_smt = format!("(< {} {})", next_sym, var_before);
@@ -427,6 +442,18 @@ fn snapshot_expr(expr: &Expr) -> ExprSnapshot {
     ExprSnapshot { ast, smt2 }
 }
 
+fn u64_bounds_smt(term: &str) -> String {
+    format!("(and (<= 0 {term}) (<= {term} {U64_MAX_SMT}))")
+}
+
+fn append_smt_bounds(base: String, bounds: &[String]) -> String {
+    if bounds.is_empty() {
+        base
+    } else {
+        format!("(and {} {})", base, bounds.join(" "))
+    }
+}
+
 fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremise {
     RefinementPremise {
         alias: obligation.alias.clone(),
@@ -440,9 +467,7 @@ fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremi
 fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
     match ty {
         Type::Int => "Int",
-        Type::U64 => "U64",
-        Type::U128 => "U128",
-        Type::U256 => "U256",
+        Type::U64 | Type::U128 | Type::U256 => "Int",
         Type::Bool => "Bool",
         Type::String => "String",
         Type::Bytes => "String",
@@ -619,10 +644,29 @@ fn collect_refinement_obligations<'a>(
             Some(Type::Bool)
         }
         Expr::Bin { op, lhs, rhs, .. } => {
-            collect_refinement_obligations(lhs.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
-            collect_refinement_obligations(rhs.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            let lt = collect_refinement_obligations(
+                lhs.as_ref(),
+                aliases,
+                fn_sigs,
+                &mut env.clone(),
+                out,
+            );
+            let rt = collect_refinement_obligations(
+                rhs.as_ref(),
+                aliases,
+                fn_sigs,
+                &mut env.clone(),
+                out,
+            );
+            let has_u64 = matches!(lt, Some(Type::U64)) || matches!(rt, Some(Type::U64));
             let res_ty = match op {
-                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => Type::Int,
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
+                    if has_u64 {
+                        Type::U64
+                    } else {
+                        Type::Int
+                    }
+                }
                 BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::Eq | BinOp::Neq => {
                     Type::Bool
                 }
@@ -805,6 +849,16 @@ fn collect_refinement_obligations<'a>(
             merge_type_list(&arm_tys)
         }
         Expr::Call { callee, args, .. } => {
+            if callee.as_str() == "U64" && args.len() == 1 {
+                collect_refinement_obligations(
+                    &args[0],
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                );
+                return Some(Type::U64);
+            }
             if let Some(sig) = fn_sigs.get(callee.as_str()) {
                 for (idx, (arg, alias_opt)) in args.iter().zip(sig.param_aliases.iter()).enumerate()
                 {

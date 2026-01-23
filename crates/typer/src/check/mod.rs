@@ -1,7 +1,7 @@
 mod expr;
 mod intrinsics;
 
-pub(crate) use self::expr::show_ty;
+pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::expr::{consume_var_expr, expr_span, max_effect, type_of, ResourceTracker};
 use self::intrinsics::collect_used_intrinsics;
 use crate::builtins::builtin_sigs;
@@ -46,14 +46,14 @@ pub(super) fn effect_label(level: EffectLevel) -> &'static str {
 }
 
 #[derive(Clone)]
-struct AliasDef {
+pub(crate) struct AliasDef {
     base: Type,
     predicate: Expr,
     binder: Option<String>,
     span: Span,
 }
 
-type AliasMap = HashMap<String, AliasDef>;
+pub(crate) type AliasMap = HashMap<String, AliasDef>;
 
 fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
     if let Some(offending) = find_resource_collection(ty) {
@@ -64,9 +64,7 @@ fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
 
 fn ensure_supported_type(ty: &Type, span: Option<Span>) -> Result<()> {
     match ty {
-        Type::U64 | Type::U128 | Type::U256 => {
-            Err(TyperError::unsigned_int_not_supported(ty.clone(), span).into())
-        }
+        Type::U128 | Type::U256 => Err(TyperError::unsigned_int_not_supported(ty.clone(), span).into()),
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
             ensure_supported_type(inner, span)
         }
@@ -388,7 +386,9 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         funcs: Vec::with_capacity(ast.funcs.len() + intrinsic_defs.len()),
     };
     for f in &ast.funcs {
-        module.funcs.push(lower_func(f, &fns, &fn_indices)?);
+        module
+            .funcs
+            .push(lower_func(f, &fns, &fn_indices, &alias_map)?);
     }
     // Append intrinsic function declarations at the end
     module.funcs.extend(intrinsic_defs);
@@ -559,7 +559,9 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         funcs: Vec::with_capacity(ast.funcs.len() + intrinsic_defs.len()),
     };
     for f in &ast.funcs {
-        module.funcs.push(lower_func(f, &fns, &fn_indices)?);
+        module
+            .funcs
+            .push(lower_func(f, &fns, &fn_indices, &alias_map)?);
     }
     module.funcs.extend(intrinsic_defs);
     let vcs = generate_vcs(ast);
@@ -629,12 +631,17 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
     let body_ty = type_of(&f.body, &env, &mut tracker, fns, aliases, 0)?;
     if !binding_compatible(&ret_ty, &body_ty, aliases)? {
         let sp = expr_span(&f.body);
-        if base_types_match(&ret_ty, &body_ty, aliases)?
-            && refinement_loss(&ret_ty, &body_ty, aliases)
-        {
-            return Err(TyperError::refinement_loss(ret_ty.clone(), body_ty, sp).into());
+        let allow_u64_literal = matches!(ret_ty, Type::U64)
+            && matches!(body_ty, Type::Int)
+            && matches!(f.body, Expr::Int(value, _) if value >= 0);
+        if !allow_u64_literal {
+            if base_types_match(&ret_ty, &body_ty, aliases)?
+                && refinement_loss(&ret_ty, &body_ty, aliases)
+            {
+                return Err(TyperError::refinement_loss(ret_ty.clone(), body_ty, sp).into());
+            }
+            return Err(TyperError::return_type_mismatch(ret_ty.clone(), body_ty, sp).into());
         }
-        return Err(TyperError::return_type_mismatch(ret_ty.clone(), body_ty, sp).into());
     }
     if is_resource_type(&ret_ty, aliases)? {
         consume_var_expr(&mut tracker, &f.body)?;

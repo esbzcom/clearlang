@@ -155,6 +155,22 @@ impl TyperError {
         }
     }
 
+    pub fn unsigned_cast_invalid(target: &str, found: Type, span: Span) -> Self {
+        Self::new(
+            "T111",
+            format!(
+                "at {}..{}: {} cast expects an unsigned literal or {}, found `{}`",
+                span.start,
+                span.end,
+                target,
+                target,
+                show_ty(found)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn block_missing_tail(span: Span) -> Self {
         Self::new(
             "T016",

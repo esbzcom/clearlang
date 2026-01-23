@@ -16,7 +16,13 @@ fn lowers_add_function() {
     assert_eq!(f.ret, Some(IrType::Int));
     assert_eq!(f.body.len(), 2); // IBin, Ret
     match &f.body[0] {
-        Instr::IBin { dst, op, lhs, rhs } => {
+        Instr::IBin {
+            dst,
+            op,
+            lhs,
+            rhs,
+            ..
+        } => {
             assert_eq!(*op, BinOpIR::Add);
             assert_eq!(*lhs, Value(0)); // a
             assert_eq!(*rhs, Value(1)); // b
@@ -65,4 +71,23 @@ fn lowers_call_and_const() {
         _ => panic!("expected Call to id"),
     }
     matches!(&main.body[2], Instr::Ret { val: Value(1) });
+}
+
+// Phase 15.1 ƒ?" purpose: lower U64 parameters and return types
+#[test]
+fn lowers_u64_identity() {
+    let src = r#"
+        pure function id_u64(x: U64) -> U64 { x }
+    "#;
+    let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    assert_eq!(m.funcs.len(), 1);
+    let f = &m.funcs[0];
+    assert_eq!(f.name, "id_u64");
+    assert_eq!(f.params, vec![IrType::U64]);
+    assert_eq!(f.ret, Some(IrType::U64));
+    assert_eq!(f.body.len(), 1);
+    match &f.body[0] {
+        Instr::Ret { val } => assert_eq!(*val, Value(0)),
+        _ => panic!("expected Ret as only instr"),
+    }
 }

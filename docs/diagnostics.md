@@ -53,7 +53,8 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T014 | type | Contract predicate must be Bool. |
 | T016 | type | Block expression requires a tail expression. |
 | T101 | type | Collections unavailable (generics/ADTs not implemented yet). |
-| T110 | type | Unsigned integer types are not supported yet. |
+| T110 | type | Unsigned integer types U128/U256 are not supported yet. |
+| T111 | type | Unsigned cast expects an unsigned literal or value. |
 | T201 | type | Non-exhaustive match (missing arm). |
 | T202 | type | Duplicate match arm. |
 | T203 | type | Invalid match scrutinee (expected Option/Result). |
@@ -110,6 +111,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | R002 | runtime | String runtime rejected invalid UTF-8 input. |
 | R003 | runtime | Option/Result variant tag was invalid. |
 | R004 | runtime | Runtime limits exceeded (meter/fuel/epoch). |
+| R005 | runtime | Unsigned integer overflow. |
 | R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 
 ## Examples

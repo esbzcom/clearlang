@@ -217,6 +217,12 @@ fn extract_runtime_error<T>(
             None,
             false,
         ),
+        6 => (
+            "R005",
+            "unsigned integer overflow".to_string(),
+            None,
+            false,
+        ),
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),

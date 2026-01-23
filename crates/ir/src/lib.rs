@@ -6,6 +6,7 @@ pub struct PlaceHolder;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IrType {
     Int,  // corresponds to ClearLang Type::Int (lowered to i32 for now)
+    U64,  // corresponds to ClearLang Type::U64 (lowered to i64)
     Bool, // corresponds to ClearLang Type::Bool (lowered to i32 0/1 for now)
 }
 
@@ -48,6 +49,7 @@ pub enum TrapCode {
     InvalidUtf8,
     InvalidVariantTag,
     LimitsExceeded,
+    Overflow,
 }
 
 impl VariantKind {
@@ -67,6 +69,7 @@ impl TrapCode {
             TrapCode::InvalidUtf8 => 3,
             TrapCode::InvalidVariantTag => 4,
             TrapCode::LimitsExceeded => 5,
+            TrapCode::Overflow => 6,
         }
     }
 }
@@ -111,6 +114,7 @@ pub enum Instr {
         op: BinOpIR,
         lhs: Value,
         rhs: Value,
+        ty: IrType,
     },
     // guard: if cond == 0 trap with code; no result value
     Guard {

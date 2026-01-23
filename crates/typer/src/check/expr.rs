@@ -569,8 +569,12 @@ pub(super) fn type_of<'a>(
                     }
                     match (&lt_base, &rt_base) {
                         (Type::U64, Type::U64) => Ok(Type::U64),
-                        (Type::U64, Type::Int) if int_literal_value(rhs).is_some() => Ok(Type::U64),
-                        (Type::Int, Type::U64) if int_literal_value(lhs).is_some() => Ok(Type::U64),
+                        (Type::U64, Type::Int) if unsigned_literal_value(rhs).is_some() => {
+                            Ok(Type::U64)
+                        }
+                        (Type::Int, Type::U64) if unsigned_literal_value(lhs).is_some() => {
+                            Ok(Type::U64)
+                        }
                         (Type::Int, Type::Int) => Ok(Type::Int),
                         _ => Err(
                             TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
@@ -595,8 +599,12 @@ pub(super) fn type_of<'a>(
                     }
                     match (&lt_base, &rt_base) {
                         (Type::U64, Type::U64) => Ok(Type::Bool),
-                        (Type::U64, Type::Int) if int_literal_value(rhs).is_some() => Ok(Type::Bool),
-                        (Type::Int, Type::U64) if int_literal_value(lhs).is_some() => Ok(Type::Bool),
+                        (Type::U64, Type::Int) if unsigned_literal_value(rhs).is_some() => {
+                            Ok(Type::Bool)
+                        }
+                        (Type::Int, Type::U64) if unsigned_literal_value(lhs).is_some() => {
+                            Ok(Type::Bool)
+                        }
                         (Type::Int, Type::Int) => Ok(Type::Bool),
                         _ => Err(
                             TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
@@ -613,8 +621,8 @@ pub(super) fn type_of<'a>(
                         return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
                     }
                     if !base_types_match(&lt, &rt, aliases)?
-                        && !literal_can_coerce_u64(&lt, &rt, rhs)
-                        && !literal_can_coerce_u64(&rt, &lt, lhs)
+                        && !literal_can_coerce_unsigned(&lt, &rt, rhs)
+                        && !literal_can_coerce_unsigned(&rt, &lt, lhs)
                     {
                         let op_str = if *op == BinOp::Eq { "==" } else { "!=" };
                         return Err(
@@ -641,32 +649,25 @@ pub(super) fn type_of<'a>(
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
-                if callee != "U64" {
-                    return Err(TyperError::unsigned_int_not_supported(
-                        match callee.as_str() {
-                            "U128" => Type::U128,
-                            "U256" => Type::U256,
-                            _ => Type::U128,
-                        },
-                        Some(*span),
-                    )
-                    .into());
-                }
+                let target_ty = match callee.as_str() {
+                    "U64" => Type::U64,
+                    "U128" => Type::U128,
+                    "U256" => Type::U256,
+                    _ => Type::U64,
+                };
                 let mut local_tracker = tracker.clone();
                 let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, depth + 1)?;
-                let cast_ok = matches!(arg_ty, Type::U64)
+                let cast_ok = arg_ty == target_ty
                     || (matches!(arg_ty, Type::Int)
-                        && int_literal_value(&args[0])
-                            .map(|value| value >= 0)
-                            .unwrap_or(false));
+                        && unsigned_literal_fits(&target_ty, &args[0]));
                 if !cast_ok {
                     let sp = expr_span(&args[0]);
                     return Err(
-                        TyperError::unsigned_cast_invalid("U64", arg_ty, sp).into(),
+                        TyperError::unsigned_cast_invalid(callee, arg_ty, sp).into(),
                     );
                 }
                 *tracker = local_tracker;
-                return Ok(Type::U64);
+                return Ok(target_ty);
             }
             // Phase 4.5 - ADT constructors (partial): Some(T) infers Option<T>
             if callee == "Some" {
@@ -764,14 +765,14 @@ pub(super) fn type_of<'a>(
                 let at = type_of(a, env, &mut local_tracker, fns, aliases, depth + 1)?;
                 let expected = p.ty.clone();
                 if !base_types_match(&expected, &at, aliases)? {
-                    if literal_can_coerce_u64(&expected, &at, a) {
+                    if literal_can_coerce_unsigned(&expected, &at, a) {
                         continue;
                     }
                     let sp = expr_span(a);
                     return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }
                 if !binding_compatible(&expected, &at, aliases)? {
-                    if literal_can_coerce_u64(&expected, &at, a) {
+                    if literal_can_coerce_unsigned(&expected, &at, a) {
                         continue;
                     }
                     let sp = expr_span(a);
@@ -1436,19 +1437,26 @@ fn ensure_bool(ty: Type, aliases: &AliasMap, what: &str, span: Option<Span>) -> 
     Ok(())
 }
 
-fn int_literal_value(expr: &Expr) -> Option<i64> {
+fn unsigned_literal_value(expr: &Expr) -> Option<i64> {
     match expr {
-        Expr::Int(value, _) => Some(*value),
+        Expr::Int(value, _) => (*value >= 0).then_some(*value),
+        Expr::Return { expr, .. } => unsigned_literal_value(expr),
+        Expr::Block { block } if block.statements.is_empty() => block
+            .tail
+            .as_ref()
+            .and_then(|tail| unsigned_literal_value(tail)),
         _ => None,
     }
 }
 
-fn literal_can_coerce_u64(expected: &Type, actual: &Type, expr: &Expr) -> bool {
-    matches!(expected, Type::U64)
+fn unsigned_literal_fits(target: &Type, expr: &Expr) -> bool {
+    matches!(target, Type::U64 | Type::U128 | Type::U256) && unsigned_literal_value(expr).is_some()
+}
+
+pub(super) fn literal_can_coerce_unsigned(expected: &Type, actual: &Type, expr: &Expr) -> bool {
+    matches!(expected, Type::U64 | Type::U128 | Type::U256)
         && matches!(actual, Type::Int)
-        && int_literal_value(expr)
-            .map(|value| value >= 0)
-            .unwrap_or(false)
+        && unsigned_literal_value(expr).is_some()
 }
 pub(super) fn expr_span(e: &Expr) -> Span {
     match e {

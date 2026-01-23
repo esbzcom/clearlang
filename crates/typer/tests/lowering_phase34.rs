@@ -107,3 +107,26 @@ fn lowers_u128_u256_helpers() {
     assert_eq!(f256.ret, Some(IrType::U256));
     assert!(f256.body.iter().any(|instr| matches!(instr, Instr::U256Init { .. })));
 }
+
+#[test]
+fn lowers_u128_u256_literals() {
+    let src = r#"
+        pure function lit_u128() -> U128 { 42 }
+        pure function cast_u256() -> U256 { U256(7) }
+    "#;
+    let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let f128 = m
+        .funcs
+        .iter()
+        .find(|f| f.name == "lit_u128")
+        .expect("lit_u128 exists");
+    assert_eq!(f128.ret, Some(IrType::U128));
+    assert!(f128.body.iter().any(|instr| matches!(instr, Instr::U128Init { .. })));
+    let f256 = m
+        .funcs
+        .iter()
+        .find(|f| f.name == "cast_u256")
+        .expect("cast_u256 exists");
+    assert_eq!(f256.ret, Some(IrType::U256));
+    assert!(f256.body.iter().any(|instr| matches!(instr, Instr::U256Init { .. })));
+}

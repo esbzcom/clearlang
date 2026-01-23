@@ -161,4 +161,20 @@ fn errors_on_invalid_unsigned_cast() {
     let err = check(&ast).expect_err("should fail on invalid U64 cast");
     let s = format!("{err:#}");
     assert!(s.contains("T111"), "unexpected error: {s}");
+
+    let src_u128 = r#"
+        function main(x: Int) -> U128 { U128(x) }
+    "#;
+    let ast = parse(src_u128).expect("parsed");
+    let err = check(&ast).expect_err("should fail on invalid U128 cast");
+    let s = format!("{err:#}");
+    assert!(s.contains("T111"), "unexpected error: {s}");
+
+    let src_u256 = r#"
+        function main(x: Int) -> U256 { U256(x) }
+    "#;
+    let ast = parse(src_u256).expect("parsed");
+    let err = check(&ast).expect_err("should fail on invalid U256 cast");
+    let s = format!("{err:#}");
+    assert!(s.contains("T111"), "unexpected error: {s}");
 }

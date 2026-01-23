@@ -111,15 +111,58 @@ pub(crate) fn lower_func<'a>(
 
 fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -> Result<Value> {
     match e {
-        Expr::Int(n, _) => {
-            let dst = fresh(ctx);
-            let ty = match expected {
-                Some(Type::U64) => IrType::U64,
-                _ => IrType::Int,
-            };
-            ctx.body.push(Instr::IConst { dst, ty, n: *n });
-            Ok(dst)
-        }
+        Expr::Int(n, _) => match expected {
+            Some(Type::U64) => {
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::IConst {
+                    dst,
+                    ty: IrType::U64,
+                    n: *n,
+                });
+                Ok(dst)
+            }
+            Some(Type::U128) => {
+                if *n < 0 {
+                    anyhow::bail!("U128 literal must be non-negative");
+                }
+                let limb_lo = emit_u64_const(ctx, *n as u64);
+                let limb_hi = emit_u64_const(ctx, 0);
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::U128Init {
+                    dst,
+                    limb_lo,
+                    limb_hi,
+                });
+                Ok(dst)
+            }
+            Some(Type::U256) => {
+                if *n < 0 {
+                    anyhow::bail!("U256 literal must be non-negative");
+                }
+                let limb0 = emit_u64_const(ctx, *n as u64);
+                let limb1 = emit_u64_const(ctx, 0);
+                let limb2 = emit_u64_const(ctx, 0);
+                let limb3 = emit_u64_const(ctx, 0);
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::U256Init {
+                    dst,
+                    limb0,
+                    limb1,
+                    limb2,
+                    limb3,
+                });
+                Ok(dst)
+            }
+            _ => {
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::IConst {
+                    dst,
+                    ty: IrType::Int,
+                    n: *n,
+                });
+                Ok(dst)
+            }
+        },
         Expr::Block { block } => lower_block_expr(ctx, block, expected),
         Expr::Return { expr, .. } => {
             // For expression-bodied functions, `return e` is equivalent to `e`.
@@ -275,8 +318,45 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 }
                 lower_expr(ctx, &args[0], Some(Type::U64))
             }
-            "U128" | "U256" => {
-                anyhow::bail!("unsigned casts for {} are not supported yet", callee)
+            "U128" => {
+                if args.len() != 1 {
+                    anyhow::bail!("`U128` expects exactly one argument");
+                }
+                let arg_ty = infer_expr_type(&args[0], &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                if matches!(arg_ty, Type::U128) {
+                    return lower_expr(ctx, &args[0], Some(Type::U128));
+                }
+                let limb_lo = lower_expr(ctx, &args[0], Some(Type::U64))?;
+                let limb_hi = emit_u64_const(ctx, 0);
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::U128Init {
+                    dst,
+                    limb_lo,
+                    limb_hi,
+                });
+                Ok(dst)
+            }
+            "U256" => {
+                if args.len() != 1 {
+                    anyhow::bail!("`U256` expects exactly one argument");
+                }
+                let arg_ty = infer_expr_type(&args[0], &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                if matches!(arg_ty, Type::U256) {
+                    return lower_expr(ctx, &args[0], Some(Type::U256));
+                }
+                let limb0 = lower_expr(ctx, &args[0], Some(Type::U64))?;
+                let limb1 = emit_u64_const(ctx, 0);
+                let limb2 = emit_u64_const(ctx, 0);
+                let limb3 = emit_u64_const(ctx, 0);
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::U256Init {
+                    dst,
+                    limb0,
+                    limb1,
+                    limb2,
+                    limb3,
+                });
+                Ok(dst)
             }
             "std::u64::add_wrap" => lower_u64_wrap(ctx, BinOp::Add, args),
             "std::u64::sub_wrap" => lower_u64_wrap(ctx, BinOp::Sub, args),

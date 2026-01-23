@@ -631,10 +631,8 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
     let body_ty = type_of(&f.body, &env, &mut tracker, fns, aliases, 0)?;
     if !binding_compatible(&ret_ty, &body_ty, aliases)? {
         let sp = expr_span(&f.body);
-        let allow_u64_literal = matches!(ret_ty, Type::U64)
-            && matches!(body_ty, Type::Int)
-            && matches!(f.body, Expr::Int(value, _) if value >= 0);
-        if !allow_u64_literal {
+        let allow_unsigned_literal = expr::literal_can_coerce_unsigned(&ret_ty, &body_ty, &f.body);
+        if !allow_unsigned_literal {
             if base_types_match(&ret_ty, &body_ty, aliases)?
                 && refinement_loss(&ret_ty, &body_ty, aliases)
             {

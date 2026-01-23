@@ -594,10 +594,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] Emit runtime overflow guards + R005 mapping for U64 add/sub/mul.
     - [x] Add wrap_*/sat_* intrinsics for explicit overflow behavior.
   - [x] 15.1.3 Implement U128/U256 limb layout + helpers and enable in typer/codegen.
-- [ ] 15.1.4 Add contextual literal typing + explicit casts (e.g., `U64(42)`) and range checks.
+- [x] 15.1.4 Add contextual literal typing + explicit casts (e.g., `U64(42)`) and range checks.
     - [x] Allow contextual U64 literals and `U64(...)` casts (non-negative only).
-    - [ ] Add `U128(...)`/`U256(...)` casts and contextual literal coercion beyond U64.
-    - [ ] Enforce range checks for unsigned literals/casts (reject out-of-range values).
+    - [x] Add `U128(...)`/`U256(...)` casts and contextual literal coercion beyond U64.
+    - [x] Enforce range checks for unsigned literals/casts (reject out-of-range values).
   - [x] Extend negative tests to cover U128/U256 (including nested types like `Option<U128>`).
   - [x] Document checked-overflow default and planned wrap/sat intrinsics (design note).
 - [ ] 15.2 Add bitwise ops, shifts/rotates, and byte/word conversions. (Syntax, typer rules, codegen, tests.)

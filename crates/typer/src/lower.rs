@@ -277,6 +277,12 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             "U128" | "U256" => {
                 anyhow::bail!("unsigned casts for {} are not supported yet", callee)
             }
+            "std::u64::add_wrap" => lower_u64_wrap(ctx, BinOp::Add, args),
+            "std::u64::sub_wrap" => lower_u64_wrap(ctx, BinOp::Sub, args),
+            "std::u64::mul_wrap" => lower_u64_wrap(ctx, BinOp::Mul, args),
+            "std::u64::add_sat" => lower_u64_sat(ctx, BinOp::Add, args),
+            "std::u64::sub_sat" => lower_u64_sat(ctx, BinOp::Sub, args),
+            "std::u64::mul_sat" => lower_u64_sat(ctx, BinOp::Mul, args),
             "Some" => {
                 if args.len() != 1 {
                     anyhow::bail!("`Some` expects exactly one argument");
@@ -713,15 +719,33 @@ fn emit_u64_const(ctx: &mut LowerCtx<'_>, n: u64) -> Value {
     dst
 }
 
-fn emit_u64_overflow_guard(
+fn emit_u64_bin(ctx: &mut LowerCtx<'_>, op: BinOp, lhs: Value, rhs: Value) -> Value {
+    let dst = fresh(ctx);
+    let ir_op = match op {
+        BinOp::Add => BinOpIR::Add,
+        BinOp::Sub => BinOpIR::Sub,
+        BinOp::Mul => BinOpIR::Mul,
+        BinOp::Div => BinOpIR::Div,
+        _ => BinOpIR::Add,
+    };
+    ctx.body.push(Instr::IBin {
+        dst,
+        op: ir_op,
+        lhs,
+        rhs,
+        ty: IrType::U64,
+    });
+    dst
+}
+
+fn emit_u64_overflow_flag(
     ctx: &mut LowerCtx<'_>,
     op: &BinOp,
     lhs: Value,
     rhs: Value,
     dst: Value,
-    span: Span,
-) -> Result<()> {
-    let ok = match op {
+) -> Result<Option<Value>> {
+    let overflow = match op {
         BinOp::Add => {
             let overflow = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -731,16 +755,7 @@ fn emit_u64_overflow_guard(
                 rhs: lhs,
                 ty: IrType::U64,
             });
-            let zero = emit_bool_const(ctx, false);
-            let ok = fresh(ctx);
-            ctx.body.push(Instr::IBin {
-                dst: ok,
-                op: BinOpIR::Eq,
-                lhs: overflow,
-                rhs: zero,
-                ty: IrType::Bool,
-            });
-            ok
+            overflow
         }
         BinOp::Sub => {
             let overflow = fresh(ctx);
@@ -751,16 +766,7 @@ fn emit_u64_overflow_guard(
                 rhs,
                 ty: IrType::U64,
             });
-            let zero = emit_bool_const(ctx, false);
-            let ok = fresh(ctx);
-            ctx.body.push(Instr::IBin {
-                dst: ok,
-                op: BinOpIR::Eq,
-                lhs: overflow,
-                rhs: zero,
-                ty: IrType::Bool,
-            });
-            ok
+            overflow
         }
         BinOp::Mul => {
             let zero = emit_u64_const(ctx, 0);
@@ -804,10 +810,42 @@ fn emit_u64_overflow_guard(
                 rhs: div_eq,
                 ty: IrType::Bool,
             });
-            ok
+            let zero = emit_bool_const(ctx, false);
+            let overflow = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: overflow,
+                op: BinOpIR::Eq,
+                lhs: ok,
+                rhs: zero,
+                ty: IrType::Bool,
+            });
+            overflow
         }
-        _ => return Ok(()),
+        _ => return Ok(None),
     };
+    Ok(Some(overflow))
+}
+
+fn emit_u64_overflow_guard(
+    ctx: &mut LowerCtx<'_>,
+    op: &BinOp,
+    lhs: Value,
+    rhs: Value,
+    dst: Value,
+    span: Span,
+) -> Result<()> {
+    let Some(overflow) = emit_u64_overflow_flag(ctx, op, lhs, rhs, dst)? else {
+        return Ok(());
+    };
+    let zero = emit_bool_const(ctx, false);
+    let ok = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: ok,
+        op: BinOpIR::Eq,
+        lhs: overflow,
+        rhs: zero,
+        ty: IrType::Bool,
+    });
 
     ctx.body.push(Instr::Guard {
         cond: ok,
@@ -822,4 +860,37 @@ fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
     let v = Value(ctx.next);
     ctx.next += 1;
     v
+}
+
+fn lower_u64_wrap<'a>(ctx: &mut LowerCtx<'a>, op: BinOp, args: &'a [Expr]) -> Result<Value> {
+    if args.len() != 2 {
+        anyhow::bail!("std::u64::*_wrap expects exactly two arguments");
+    }
+    let lhs = lower_expr(ctx, &args[0], Some(Type::U64))?;
+    let rhs = lower_expr(ctx, &args[1], Some(Type::U64))?;
+    Ok(emit_u64_bin(ctx, op, lhs, rhs))
+}
+
+fn lower_u64_sat<'a>(ctx: &mut LowerCtx<'a>, op: BinOp, args: &'a [Expr]) -> Result<Value> {
+    if args.len() != 2 {
+        anyhow::bail!("std::u64::*_sat expects exactly two arguments");
+    }
+    let lhs = lower_expr(ctx, &args[0], Some(Type::U64))?;
+    let rhs = lower_expr(ctx, &args[1], Some(Type::U64))?;
+    let raw = emit_u64_bin(ctx, op.clone(), lhs, rhs);
+    let Some(overflow) = emit_u64_overflow_flag(ctx, &op, lhs, rhs, raw)? else {
+        return Ok(raw);
+    };
+    let clamp = match op {
+        BinOp::Sub => emit_u64_const(ctx, 0),
+        _ => emit_u64_const(ctx, u64::MAX),
+    };
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::ISelect {
+        dst,
+        cond: overflow,
+        then_v: clamp,
+        else_v: raw,
+    });
+    Ok(dst)
 }

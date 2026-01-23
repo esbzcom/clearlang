@@ -592,7 +592,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 15.1.1 Implement U64 end-to-end (parser/typer/IR/codegen/tests).
   - [ ] 15.1.2 Add checked-overflow traps + wrap/sat intrinsics for U64.
     - [x] Emit runtime overflow guards + R005 mapping for U64 add/sub/mul.
-    - [ ] Add wrap_*/sat_* intrinsics for explicit overflow behavior.
+    - [x] Add wrap_*/sat_* intrinsics for explicit overflow behavior.
   - [ ] 15.1.3 Implement U128/U256 limb layout + helpers and enable in typer/codegen.
   - [ ] 15.1.4 Add contextual literal typing + explicit casts (e.g., `U64(42)`) and range checks.
     - [x] Allow contextual U64 literals and `U64(...)` casts (non-negative only).

@@ -14,7 +14,7 @@ Types
 
 - Primitive types: `Int`, `Bool`.
 - Unsigned integers: `U64` is supported; `U128`/`U256` are reserved and rejected (T110).
-  - Policy: checked overflow by default, with explicit `wrap_*`/`sat_*` ops planned (see `docs/design/phase-15.1-unsigned-ints.md`).
+  - Policy: checked overflow by default, with explicit `std::u64::{add,sub,mul}_{wrap,sat}` intrinsics for U64 (see `docs/design/phase-15.1-unsigned-ints.md`).
   - Literal typing: bare literals use unsigned types when the expected type is `U64`/`U128`/`U256`; otherwise they remain `Int`. Use `U64(42)` when no context exists (U128/U256 casts remain unsupported).
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.

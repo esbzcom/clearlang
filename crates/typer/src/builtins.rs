@@ -136,5 +136,107 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Type::Bool,
             Effect::Pure,
         ),
+        (
+            "std::u64::add_wrap".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::sub_wrap".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::mul_wrap".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::add_sat".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::sub_sat".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::mul_sat".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
     ]
 }

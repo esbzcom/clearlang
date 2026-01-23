@@ -42,6 +42,9 @@ pub enum BinOpIR {
     Neq,
     And,
     Or,
+    Xor,
+    Shl,
+    Shr,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -587,7 +587,7 @@ Codegen & Runtime
 Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gaps + collections.
 
 ### 15 Core types & arrays
-- [ ] 15.1 Add fixed-width unsigned ints (`U64`, `U128`, `U256`) with explicit overflow semantics (wrap/checked/sat). (Parser, typer, IR, codegen, tests.)
+- [x] 15.1 Add fixed-width unsigned ints (`U64`, `U128`, `U256`) with explicit overflow semantics (wrap/checked/sat). (Parser, typer, IR, codegen, tests.)
   - [x] Reserve keywords and AST types for unsigned ints; reject usage via T110 until semantics land.
   - [x] 15.1.1 Implement U64 end-to-end (parser/typer/IR/codegen/tests).
 - [x] 15.1.2 Add checked-overflow traps + wrap/sat intrinsics for U64.
@@ -600,7 +600,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] Enforce range checks for unsigned literals/casts (reject out-of-range values).
   - [x] Extend negative tests to cover U128/U256 (including nested types like `Option<U128>`).
   - [x] Document checked-overflow default and planned wrap/sat intrinsics (design note).
-- [ ] 15.2 Add bitwise ops, shifts/rotates, and byte/word conversions. (Syntax, typer rules, codegen, tests.)
+- [x] 15.2 Add bitwise ops, shifts/rotates, and byte/word conversions. (Syntax, typer rules, codegen, tests.)
+  - [x] Add parser precedence for `&`/`|`/`^` and `<<`/`>>`, plus AST/IR ops.
+  - [x] Extend typer/lowering/VC rules for bitwise and shift ops (U64-literal coercions only).
+  - [x] Add wasm codegen for bitwise/shift ops and U64 rotate + bytes intrinsics.
+  - [x] Add parser/typer/codegen tests and update typing/runtime docs.
 - [ ] 15.3 Introduce `Bytes` and fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs. (Parser/AST, typer, layout, codegen, tests.)
 - [ ] 15.4 Add diagnostics + error codes for numeric overflow, literal range checks, and array bounds.
   - [x] Centralize/validate diagnostics-code prefix allowlist in `diagnostics_codes` test.

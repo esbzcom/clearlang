@@ -150,6 +150,15 @@ fn errors_on_unsigned_int_ops_u128_u256() {
     let s = format!("{err:#}");
     assert!(s.contains("T110"), "unexpected error: {s}");
     assert!(s.contains("U256"), "unexpected error: {s}");
+
+    let src_u128_bit = r#"
+        pure function bad(a: U128, b: U128) -> U128 { a & b }
+    "#;
+    let ast = parse(src_u128_bit).expect("parsed");
+    let err = check(&ast).expect_err("should fail on U128 bitwise ops");
+    let s = format!("{err:#}");
+    assert!(s.contains("T110"), "unexpected error: {s}");
+    assert!(s.contains("U128"), "unexpected error: {s}");
 }
 
 #[test]

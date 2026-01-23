@@ -194,7 +194,7 @@ fn extract_runtime_error<T>(
         ),
         3 => (
             "R002",
-            "string runtime detected invalid UTF-8 input".to_string(),
+            "string/bytes runtime rejected invalid input".to_string(),
             None,
             false,
         ),

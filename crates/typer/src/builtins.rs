@@ -239,6 +239,80 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::u64::rotl".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "shift".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::rotr".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "shift".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::to_bytes_le".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U64,
+            }],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::to_bytes_be".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U64,
+            }],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::from_bytes_le".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::from_bytes_be".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
             "std::u128::from_limbs".to_string(),
             vec![
                 Param {

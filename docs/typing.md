@@ -16,7 +16,8 @@ Types
 - Unsigned integers: `U64`, `U128`, `U256` are supported (U128/U256 are limb-backed values).
   - Policy: checked overflow by default for U64 arithmetic; U128/U256 arithmetic is not supported yet (T110).
   - Helper intrinsics: `std::u128::from_limbs`, `std::u128::{lo,hi}`, `std::u256::from_limbs`, `std::u256::limb0`/`limb1`/`limb2`/`limb3`.
-- Literal typing: bare literals can coerce to `U64`/`U128`/`U256` when the expected type is unsigned; otherwise they remain `Int`. Use `U64(...)`, `U128(...)`, or `U256(...)` for explicit unsigned literals; only non-negative literals are accepted. (Detailed range diagnostics are tracked in Phase 15.4.)
+  - Literal typing: bare literals can coerce to `U64`/`U128`/`U256` when the expected type is unsigned; otherwise they remain `Int`. Use `U64(...)`, `U128(...)`, or `U256(...)` for explicit unsigned literals; only non-negative literals are accepted. (Detailed range diagnostics are tracked in Phase 15.4.)
+  - Rotation intrinsics: `std::u64::rotl`/`std::u64::rotr` rotate a U64 by a U64 shift amount.
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.
 
@@ -64,6 +65,8 @@ Bytes (Bytes)
 
 - Type: `Bytes` is a length-prefixed byte buffer (`[u32 len][u8 len]`) in linear memory.
 - Conversions: `std::bytes::from_string(String) -> Bytes` and `std::bytes::to_string(Bytes) -> String`.
+- U64 conversions: `std::u64::to_bytes_le/to_bytes_be(U64) -> Bytes` and `std::u64::from_bytes_le/from_bytes_be(Bytes) -> U64`.
+  Invalid byte buffers trap with the same runtime checks used by other `Bytes` intrinsics.
 - Runtime: `std::bytes` built-ins (`len/concat/eq`) share the same layout as `String` and do not require UTF-8.
 
 
@@ -119,6 +122,10 @@ Expression Rules
 - Comparisons: `>`, `>=`, `<`, `<=`, `==`, `!=` require `Int` operands; result is `Bool`.
 
 - Logical operators: `&&`, `||` require `Bool` operands; unary `!` flips a `Bool`.
+
+- Bitwise ops: `&`, `|`, `^` require `Int` or `U64` operands with matching types; result is the same type (U128/U256 ops remain unsupported - T110).
+
+- Shifts: `<<`, `>>` require `Int` or `U64` operands with matching types (U64 shifts accept non-negative literals as counts); result is the same type (U128/U256 shifts are not supported yet).
 
 - Calls: callee must exist; arity must match; each argument type must equal the parameter type; result is the callee's return type.
 

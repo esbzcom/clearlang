@@ -336,6 +336,12 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
+        "std::u64::rotl",
+        "std::u64::rotr",
+        "std::u64::to_bytes_le",
+        "std::u64::to_bytes_be",
+        "std::u64::from_bytes_le",
+        "std::u64::from_bytes_be",
     ];
     let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::with_capacity(used_intrinsics.len());
     for name in intrinsic_order.iter() {
@@ -371,6 +377,16 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
                 ),
+                "std::u64::rotl" | "std::u64::rotr" => (
+                    vec![clg_ir::IrType::U64, clg_ir::IrType::U64],
+                    Some(clg_ir::IrType::U64),
+                ),
+                "std::u64::to_bytes_le" | "std::u64::to_bytes_be" => {
+                    (vec![clg_ir::IrType::U64], Some(clg_ir::IrType::Int))
+                }
+                "std::u64::from_bytes_le" | "std::u64::from_bytes_be" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::U64))
+                }
                 _ => (vec![], None),
             };
             intrinsic_defs.push(clg_ir::Function {
@@ -510,6 +526,12 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
+        "std::u64::rotl",
+        "std::u64::rotr",
+        "std::u64::to_bytes_le",
+        "std::u64::to_bytes_be",
+        "std::u64::from_bytes_le",
+        "std::u64::from_bytes_be",
     ];
     let mut intrinsic_defs: Vec<clg_ir::Function> = Vec::with_capacity(used_intrinsics.len());
     for name in intrinsic_order.iter() {
@@ -544,6 +566,16 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
                 ),
+                "std::u64::rotl" | "std::u64::rotr" => (
+                    vec![clg_ir::IrType::U64, clg_ir::IrType::U64],
+                    Some(clg_ir::IrType::U64),
+                ),
+                "std::u64::to_bytes_le" | "std::u64::to_bytes_be" => {
+                    (vec![clg_ir::IrType::U64], Some(clg_ir::IrType::Int))
+                }
+                "std::u64::from_bytes_le" | "std::u64::from_bytes_be" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::U64))
+                }
                 _ => (vec![], None),
             };
             intrinsic_defs.push(clg_ir::Function {

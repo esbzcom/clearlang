@@ -73,6 +73,71 @@ fn parses_contract_logic_precedence() {
 }
 
 #[test]
+fn parses_bitwise_and_shift_precedence() {
+    let src = r#"
+        function main() -> Int { 1 + 2 << 3 & 4 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let expr = match &ast.funcs[0].body {
+        Expr::Block { block } => block.tail.as_deref().expect("block tail"),
+        other => other,
+    };
+    match expr {
+        Expr::Bin {
+            op: BinOp::BitAnd,
+            lhs,
+            rhs,
+            ..
+        } => {
+            assert!(matches!(**rhs, Expr::Int(4, _)));
+            match &**lhs {
+                Expr::Bin {
+                    op: BinOp::Shl,
+                    lhs: shl_lhs,
+                    rhs: shl_rhs,
+                    ..
+                } => {
+                    assert!(matches!(**shl_rhs, Expr::Int(3, _)));
+                    assert!(
+                        matches!(**shl_lhs, Expr::Bin { op: BinOp::Add, .. }),
+                        "shift lhs should be additive"
+                    );
+                }
+                other => panic!("expected shift on left, found {other:?}"),
+            }
+        }
+        other => panic!("expected bitwise AND at top, found {other:?}"),
+    }
+}
+
+#[test]
+fn parses_comparison_after_bitwise() {
+    let src = r#"
+        function main() -> Bool { 1 & 2 == 0 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let expr = match &ast.funcs[0].body {
+        Expr::Block { block } => block.tail.as_deref().expect("block tail"),
+        other => other,
+    };
+    match expr {
+        Expr::Bin {
+            op: BinOp::Eq,
+            lhs,
+            rhs,
+            ..
+        } => {
+            assert!(matches!(**rhs, Expr::Int(0, _)));
+            assert!(
+                matches!(**lhs, Expr::Bin { op: BinOp::BitAnd, .. }),
+                "lhs should be bitwise AND"
+            );
+        }
+        other => panic!("expected equality at top, found {other:?}"),
+    }
+}
+
+#[test]
 fn parses_ensure_only_contract() {
     let src = r#"
         function health() -> Int

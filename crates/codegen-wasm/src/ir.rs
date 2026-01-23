@@ -15,6 +15,11 @@ use crate::intrinsics::{
     env::{encode_intrinsic_env_random, encode_intrinsic_env_time},
     runtime::{emit_guard_trap, emit_runtime_trap, encode_intrinsic_identity, TrapOperand},
     strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
+    u64::{
+        encode_intrinsic_u64_from_bytes_be, encode_intrinsic_u64_from_bytes_le,
+        encode_intrinsic_u64_rotr, encode_intrinsic_u64_rotl, encode_intrinsic_u64_to_bytes_be,
+        encode_intrinsic_u64_to_bytes_le,
+    },
     wasi::encode_intrinsic_wasi_print,
 };
 
@@ -324,6 +329,12 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,
             "std::str::concat" => encode_intrinsic_str_concat(f)?,
+            "std::u64::rotl" => encode_intrinsic_u64_rotl(f)?,
+            "std::u64::rotr" => encode_intrinsic_u64_rotr(f)?,
+            "std::u64::to_bytes_le" => encode_intrinsic_u64_to_bytes_le(f)?,
+            "std::u64::to_bytes_be" => encode_intrinsic_u64_to_bytes_be(f)?,
+            "std::u64::from_bytes_le" => encode_intrinsic_u64_from_bytes_le(f)?,
+            "std::u64::from_bytes_be" => encode_intrinsic_u64_from_bytes_be(f)?,
             _ => encode_ir_function(f, &ir.funcs, &str_pool, func_index_offset)?,
         };
         codes.function(&func);
@@ -433,17 +444,21 @@ fn infer_value_types(
             }
             IrInstr::IBin { dst, op, ty, .. } => {
                 let res_ty = match op {
-                    BinOpIR::Add | BinOpIR::Sub | BinOpIR::Mul | BinOpIR::Div => {
-                        val_type_for_ir(*ty)
-                    }
+                    BinOpIR::Add
+                    | BinOpIR::Sub
+                    | BinOpIR::Mul
+                    | BinOpIR::Div
+                    | BinOpIR::And
+                    | BinOpIR::Or
+                    | BinOpIR::Xor
+                    | BinOpIR::Shl
+                    | BinOpIR::Shr => val_type_for_ir(*ty),
                     BinOpIR::Lt
                     | BinOpIR::Le
                     | BinOpIR::Gt
                     | BinOpIR::Ge
                     | BinOpIR::Eq
-                    | BinOpIR::Neq
-                    | BinOpIR::And
-                    | BinOpIR::Or => ValType::I32,
+                    | BinOpIR::Neq => ValType::I32,
                 };
                 set_type(&mut types, *dst, res_ty)?;
             }
@@ -679,6 +694,14 @@ fn encode_ir_function(
                         IrType::U64 => insts.i64_div_u(),
                         IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_div_s(),
                     },
+                    BinOpIR::Shl => match ty {
+                        IrType::U64 => insts.i64_shl(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_shl(),
+                    },
+                    BinOpIR::Shr => match ty {
+                        IrType::U64 => insts.i64_shr_u(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_shr_s(),
+                    },
                     BinOpIR::Lt => match ty {
                         IrType::U64 => insts.i64_lt_u(),
                         IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_lt_s(),
@@ -710,6 +733,10 @@ fn encode_ir_function(
                     BinOpIR::Or => match ty {
                         IrType::U64 => insts.i64_or(),
                         IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_or(),
+                    },
+                    BinOpIR::Xor => match ty {
+                        IrType::U64 => insts.i64_xor(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_xor(),
                     },
                 };
                 insts.local_set(dst.0);

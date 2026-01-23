@@ -477,6 +477,83 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             },
         );
 
+        // shift (<<, >>)
+        let shift = add.clone().foldl(
+            choice((
+                just("<<").to(BinOp::Shl),
+                just(">>").to(BinOp::Shr),
+            ))
+            .padded()
+            .then(add.clone().boxed())
+            .repeated(),
+            |lhs, (op, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                Expr::Bin {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
+        let bit_and = shift.clone().foldl(
+            just('&')
+                .then_ignore(just('&').not())
+                .padded()
+                .to(BinOp::BitAnd)
+                .then(shift.clone().boxed())
+                .repeated(),
+            |lhs, (op, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                Expr::Bin {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
+        let bit_xor = bit_and.clone().foldl(
+            just('^')
+                .padded()
+                .to(BinOp::BitXor)
+                .then(bit_and.clone().boxed())
+                .repeated(),
+            |lhs, (op, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                Expr::Bin {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
+        let bit_or = bit_xor.clone().foldl(
+            just('|')
+                .then_ignore(just('|').not())
+                .padded()
+                .to(BinOp::BitOr)
+                .then(bit_xor.clone().boxed())
+                .repeated(),
+            |lhs, (op, rhs)| {
+                let (ls, _) = span_of(&lhs);
+                let (_, re) = span_of(&rhs);
+                Expr::Bin {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                    span: Span { start: ls, end: re },
+                }
+            },
+        );
+
         // comparison: ==, !=, <, <=, >, >= (left associative but we only allow single comparison chain)
         let cmp_op = choice((
             just("<=").to(BinOp::Le),
@@ -488,9 +565,9 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         ))
         .padded();
 
-        let comparison = add
+        let comparison = bit_or
             .clone()
-            .then(cmp_op.then(add.clone()).or_not())
+            .then(cmp_op.then(bit_or.clone()).or_not())
             .map(|(lhs, opt)| match opt {
                 Some((op, rhs)) => {
                     let (ls, _) = span_of(&lhs);

@@ -130,3 +130,20 @@ fn lowers_u128_u256_literals() {
     assert_eq!(f256.ret, Some(IrType::U256));
     assert!(f256.body.iter().any(|instr| matches!(instr, Instr::U256Init { .. })));
 }
+
+#[test]
+fn lowers_bitwise_and_shift_ops() {
+    let src = r#"
+        pure function main(x: U64) -> U64 { (x & 3) << 1 }
+    "#;
+    let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let f = &m.funcs[0];
+    assert!(f
+        .body
+        .iter()
+        .any(|instr| matches!(instr, Instr::IBin { op: BinOpIR::And, .. })));
+    assert!(f
+        .body
+        .iter()
+        .any(|instr| matches!(instr, Instr::IBin { op: BinOpIR::Shl, .. })));
+}

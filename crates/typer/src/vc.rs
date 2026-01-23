@@ -660,7 +660,15 @@ fn collect_refinement_obligations<'a>(
             );
             let has_u64 = matches!(lt, Some(Type::U64)) || matches!(rt, Some(Type::U64));
             let res_ty = match op {
-                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
+                BinOp::Add
+                | BinOp::Sub
+                | BinOp::Mul
+                | BinOp::Div
+                | BinOp::Shl
+                | BinOp::Shr
+                | BinOp::BitAnd
+                | BinOp::BitOr
+                | BinOp::BitXor => {
                     if has_u64 {
                         Type::U64
                     } else {
@@ -1234,6 +1242,11 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
                 BinOp::Sub => "-",
                 BinOp::Mul => "*",
                 BinOp::Div => "/",
+                BinOp::Shl => "<<",
+                BinOp::Shr => ">>",
+                BinOp::BitAnd => "&",
+                BinOp::BitXor => "^",
+                BinOp::BitOr => "|",
                 BinOp::Lt => "<",
                 BinOp::Le => "<=",
                 BinOp::Gt => ">",
@@ -1340,6 +1353,7 @@ enum SmtHelper {
     VariantAccessors,
     OptionCtor,
     ResultCtor,
+    BitwiseOps,
 }
 
 #[derive(Default)]
@@ -1371,6 +1385,46 @@ impl SmtEncoder {
                     self.encode_inner(lhs),
                     self.encode_inner(rhs)
                 ),
+                BinOp::Shl => {
+                    self.helpers.insert(SmtHelper::BitwiseOps);
+                    format!(
+                        "(clg.shl {} {})",
+                        self.encode_inner(lhs),
+                        self.encode_inner(rhs)
+                    )
+                }
+                BinOp::Shr => {
+                    self.helpers.insert(SmtHelper::BitwiseOps);
+                    format!(
+                        "(clg.shr {} {})",
+                        self.encode_inner(lhs),
+                        self.encode_inner(rhs)
+                    )
+                }
+                BinOp::BitAnd => {
+                    self.helpers.insert(SmtHelper::BitwiseOps);
+                    format!(
+                        "(clg.bit_and {} {})",
+                        self.encode_inner(lhs),
+                        self.encode_inner(rhs)
+                    )
+                }
+                BinOp::BitXor => {
+                    self.helpers.insert(SmtHelper::BitwiseOps);
+                    format!(
+                        "(clg.bit_xor {} {})",
+                        self.encode_inner(lhs),
+                        self.encode_inner(rhs)
+                    )
+                }
+                BinOp::BitOr => {
+                    self.helpers.insert(SmtHelper::BitwiseOps);
+                    format!(
+                        "(clg.bit_or {} {})",
+                        self.encode_inner(lhs),
+                        self.encode_inner(rhs)
+                    )
+                }
                 BinOp::Lt => format!("(< {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
                 BinOp::Le => format!("(<= {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
                 BinOp::Gt => format!("(> {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
@@ -1549,6 +1603,13 @@ impl SmtEncoder {
         if self.helpers.contains(&SmtHelper::ResultCtor) {
             lines.push("(declare-fun cl.result.mk (Int Int Int) Int)");
         }
+        if self.helpers.contains(&SmtHelper::BitwiseOps) {
+            lines.push("(declare-fun clg.bit_and (Int Int) Int)");
+            lines.push("(declare-fun clg.bit_or (Int Int) Int)");
+            lines.push("(declare-fun clg.bit_xor (Int Int) Int)");
+            lines.push("(declare-fun clg.shl (Int Int) Int)");
+            lines.push("(declare-fun clg.shr (Int Int) Int)");
+        }
         lines.join(
             "
 ",
@@ -1654,9 +1715,13 @@ fn expr_span(e: &Expr) -> Span {
 
 fn precedence_bin(op: BinOp) -> u8 {
     match op {
-        BinOp::Mul | BinOp::Div => 40,
-        BinOp::Add | BinOp::Sub => 30,
-        BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::Eq | BinOp::Neq => 20,
+        BinOp::Mul | BinOp::Div => 60,
+        BinOp::Add | BinOp::Sub => 50,
+        BinOp::Shl | BinOp::Shr => 45,
+        BinOp::BitAnd => 40,
+        BinOp::BitXor => 39,
+        BinOp::BitOr => 38,
+        BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::Eq | BinOp::Neq => 30,
         BinOp::And => 10,
         BinOp::Or => 5,
     }

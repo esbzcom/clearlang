@@ -92,6 +92,24 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     "std::str::concat" => {
                         set.insert("std::str::concat");
                     }
+                    "std::u64::rotl" => {
+                        set.insert("std::u64::rotl");
+                    }
+                    "std::u64::rotr" => {
+                        set.insert("std::u64::rotr");
+                    }
+                    "std::u64::to_bytes_le" => {
+                        set.insert("std::u64::to_bytes_le");
+                    }
+                    "std::u64::to_bytes_be" => {
+                        set.insert("std::u64::to_bytes_be");
+                    }
+                    "std::u64::from_bytes_le" => {
+                        set.insert("std::u64::from_bytes_le");
+                    }
+                    "std::u64::from_bytes_be" => {
+                        set.insert("std::u64::from_bytes_be");
+                    }
                     _ => {}
                 }
                 for a in args {

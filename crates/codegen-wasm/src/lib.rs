@@ -2,6 +2,7 @@ pub mod intrinsics {
     pub mod env;
     pub mod runtime;
     pub mod strings;
+    pub mod u64;
     pub mod wasi;
 }
 pub mod ir;

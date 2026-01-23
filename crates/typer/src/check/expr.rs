@@ -581,6 +581,68 @@ pub(super) fn type_of<'a>(
                         ),
                     }
                 }
+                BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor => {
+                    let op_str = match op {
+                        BinOp::BitAnd => "&",
+                        BinOp::BitOr => "|",
+                        BinOp::BitXor => "^",
+                        _ => "?",
+                    };
+                    let lt_base = base_type(&lt, aliases)?;
+                    let rt_base = base_type(&rt, aliases)?;
+                    if matches!(lt_base, Type::U128 | Type::U256) {
+                        return Err(
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into(),
+                        );
+                    }
+                    if matches!(rt_base, Type::U128 | Type::U256) {
+                        return Err(
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into(),
+                        );
+                    }
+                    match (&lt_base, &rt_base) {
+                        (Type::U64, Type::U64) => Ok(Type::U64),
+                        (Type::U64, Type::Int) if unsigned_literal_value(rhs).is_some() => {
+                            Ok(Type::U64)
+                        }
+                        (Type::Int, Type::U64) if unsigned_literal_value(lhs).is_some() => {
+                            Ok(Type::U64)
+                        }
+                        (Type::Int, Type::Int) => Ok(Type::Int),
+                        _ => Err(
+                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
+                        ),
+                    }
+                }
+                BinOp::Shl | BinOp::Shr => {
+                    let op_str = match op {
+                        BinOp::Shl => "<<",
+                        BinOp::Shr => ">>",
+                        _ => "?",
+                    };
+                    let lt_base = base_type(&lt, aliases)?;
+                    let rt_base = base_type(&rt, aliases)?;
+                    if matches!(lt_base, Type::U128 | Type::U256) {
+                        return Err(
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into(),
+                        );
+                    }
+                    if matches!(rt_base, Type::U128 | Type::U256) {
+                        return Err(
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into(),
+                        );
+                    }
+                    match (&lt_base, &rt_base) {
+                        (Type::Int, Type::Int) => Ok(Type::Int),
+                        (Type::U64, Type::U64) => Ok(Type::U64),
+                        (Type::U64, Type::Int) if unsigned_literal_value(rhs).is_some() => {
+                            Ok(Type::U64)
+                        }
+                        _ => Err(
+                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
+                        ),
+                    }
+                }
                 BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
                     let op_str = match op {
                         BinOp::Lt => "<",

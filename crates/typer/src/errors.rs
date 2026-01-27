@@ -171,6 +171,55 @@ impl TyperError {
         )
     }
 
+    pub fn unsigned_literal_out_of_range(target: Type, value: u128, span: Span) -> Self {
+        let max = match target {
+            Type::U8 => Some(u8::MAX as u128),
+            Type::U64 => Some(u64::MAX as u128),
+            Type::U128 => Some(u128::MAX),
+            Type::U256 => None,
+            _ => None,
+        };
+        let suffix = match max {
+            Some(max) => format!("max {}", max),
+            None => "max unbounded".to_string(),
+        };
+        Self::new(
+            "T112",
+            format!(
+                "at {}..{}: unsigned literal out of range for `{}`: {value} ({suffix})",
+                span.start,
+                span.end,
+                show_ty(target)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn unsigned_constant_overflow(op: &str, span: Span) -> Self {
+        Self::new(
+            "T113",
+            format!(
+                "at {}..{}: unsigned constant overflow in `{}`",
+                span.start, span.end, op
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn array_index_out_of_bounds(span: Span) -> Self {
+        Self::new(
+            "T114",
+            format!(
+                "at {}..{}: array index is out of bounds",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn block_missing_tail(span: Span) -> Self {
         Self::new(
             "T016",

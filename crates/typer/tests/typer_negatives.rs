@@ -1,5 +1,6 @@
+use clg_ast::Span;
 use clg_parser::parse;
-use clg_typer::check;
+use clg_typer::{check, TyperError};
 
 // Arity mismatch: too many args
 #[test]
@@ -186,4 +187,44 @@ fn errors_on_invalid_unsigned_cast() {
     let err = check(&ast).expect_err("should fail on invalid U256 cast");
     let s = format!("{err:#}");
     assert!(s.contains("T111"), "unexpected error: {s}");
+}
+
+#[test]
+fn errors_on_unsigned_literal_out_of_range_u8_cast() {
+    let src = r#"
+        function main() -> U8 { U8(300) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on out-of-range U8 literal");
+    let s = format!("{err:#}");
+    assert!(s.contains("T112"), "unexpected error: {s}");
+}
+
+#[test]
+fn errors_on_unsigned_literal_out_of_range_u8_arg() {
+    let src = r#"
+        pure function id(x: U8) -> U8 { x }
+        function main() -> U8 { id(300) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on out-of-range U8 arg");
+    let s = format!("{err:#}");
+    assert!(s.contains("T112"), "unexpected error: {s}");
+}
+
+#[test]
+fn errors_on_u64_constant_overflow() {
+    let src = r#"
+        function main() -> U64 { U64(9223372036854775807) * U64(3) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on constant U64 overflow");
+    let s = format!("{err:#}");
+    assert!(s.contains("T113"), "unexpected error: {s}");
+}
+
+#[test]
+fn array_bounds_diagnostic_code_is_stable() {
+    let err = TyperError::array_index_out_of_bounds(Span { start: 1, end: 2 });
+    assert_eq!(err.code, "T114");
 }

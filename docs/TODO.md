@@ -612,14 +612,15 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 15.3.4 Extend typer validations (resource-in-collection checks) and type rendering for arrays/tuples.
   - [x] 15.3.5 Add lowering/codegen representation for arrays/tuples (opaque pointer or inline layout) and minimal runtime helpers.
   - [x] 15.3.6 Add parser/typer/codegen tests + update docs (typing + ABI layout in 15.5).
-- [ ] 15.4 Add diagnostics + error codes for numeric overflow, literal range checks, and array bounds.
+- [x] 15.4 Add diagnostics + error codes for numeric overflow, literal range checks, and array bounds.
   - [x] Centralize/validate diagnostics-code prefix allowlist in `diagnostics_codes` test.
-  - [ ] 15.4.1 Define diagnostic codes/messages for overflow, literal range, and array bounds (reserve codes even if features are stubbed).
-  - [ ] 15.4.2 Wire overflow diagnostics for U64 checked ops; align codes with runtime trap mapping where applicable.
-  - [ ] 15.4.3 Emit literal range diagnostics for unsigned casts and contextual literals (`U8`/`U64`/`U128`/`U256`).
-  - [ ] 15.4.4 Add array bounds diagnostics hooks (stub until indexing lands; ensure code exists and tests assert it).
-  - [ ] 15.4.5 Add unit + JSON snapshot tests for each new diagnostic (positive/negative cases, stable messages).
+  - [x] 15.4.1 Define diagnostic codes/messages for overflow, literal range, and array bounds (reserve codes even if features are stubbed).
+  - [x] 15.4.2 Wire overflow diagnostics for U64 checked ops; align codes with runtime trap mapping where applicable.
+  - [x] 15.4.3 Emit literal range diagnostics for unsigned casts and contextual literals (`U8`/`U64`/`U128`/`U256`).
+  - [x] 15.4.4 Add array bounds diagnostics hooks (stub until indexing lands; ensure code exists and tests assert it).
+  - [x] 15.4.5 Add unit + JSON snapshot tests for each new diagnostic (positive/negative cases, stable messages).
 - [ ] 15.5 Specify ABI/layout rules for arrays/tuples in `docs/runtime/abi.md` or a new layout note.
+  - Tech debt: arrays/tuples still lower to opaque `i32` handles; ABI serialization and indexing are not defined yet (avoid exposing them in entrypoint signatures until 15.5/17.4).
 
 ### 16 Crypto intrinsics + proofs
 - [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)

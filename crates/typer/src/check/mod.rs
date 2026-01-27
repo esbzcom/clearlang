@@ -679,6 +679,9 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
         let sp = expr_span(&f.body);
         let allow_unsigned_literal = expr::literal_can_coerce_unsigned(&ret_ty, &body_ty, &f.body);
         if !allow_unsigned_literal {
+            if let Some(err) = expr::unsigned_literal_range_error(&ret_ty, &body_ty, &f.body) {
+                return Err(err.into());
+            }
             if base_types_match(&ret_ty, &body_ty, aliases)?
                 && refinement_loss(&ret_ty, &body_ty, aliases)
             {

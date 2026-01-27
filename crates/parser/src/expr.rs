@@ -45,7 +45,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
-        let unsigned_cast = choice((kw("U64"), kw("U128"), kw("U256")))
+        let unsigned_cast = choice((kw("U8"), kw("U64"), kw("U128"), kw("U256")))
             .then(call_args.clone())
             .map_with(|(name, args), e| {
                 let sp: chumsky::span::SimpleSpan<usize> = e.span();

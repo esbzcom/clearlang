@@ -557,6 +557,17 @@ pub(super) fn type_of<'a>(
                             TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into()
                         );
                     }
+                    if matches!(lt_base, Type::U64) || matches!(rt_base, Type::U64) {
+                        if let (Some(lv), Some(rv)) =
+                            (unsigned_literal_value(lhs), unsigned_literal_value(rhs))
+                        {
+                            if u64_literal_overflow(op, lv, rv) {
+                                return Err(
+                                    TyperError::unsigned_constant_overflow(op_str, *span).into()
+                                );
+                            }
+                        }
+                    }
                     let lt_is_int = matches!(lt_base, Type::Int);
                     let rt_is_int = matches!(rt_base, Type::Int);
                     let lt_is_u64 = matches!(lt_base, Type::U64);
@@ -696,6 +707,12 @@ pub(super) fn type_of<'a>(
                         && !literal_can_coerce_unsigned(&lt, &rt, rhs)
                         && !literal_can_coerce_unsigned(&rt, &lt, lhs)
                     {
+                        if let Some(err) = unsigned_literal_range_error(&lt, &rt, rhs) {
+                            return Err(err.into());
+                        }
+                        if let Some(err) = unsigned_literal_range_error(&rt, &lt, lhs) {
+                            return Err(err.into());
+                        }
                         let op_str = if *op == BinOp::Eq { "==" } else { "!=" };
                         return Err(
                             TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into()
@@ -717,11 +734,12 @@ pub(super) fn type_of<'a>(
             {
                 return Ok(t);
             }
-            if callee == "U64" || callee == "U128" || callee == "U256" {
+            if callee == "U8" || callee == "U64" || callee == "U128" || callee == "U256" {
                 if args.len() != 1 {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let target_ty = match callee.as_str() {
+                    "U8" => Type::U8,
                     "U64" => Type::U64,
                     "U128" => Type::U128,
                     "U256" => Type::U256,
@@ -729,11 +747,28 @@ pub(super) fn type_of<'a>(
                 };
                 let mut local_tracker = tracker.clone();
                 let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, depth + 1)?;
-                let cast_ok = arg_ty == target_ty
-                    || (matches!(arg_ty, Type::Int) && unsigned_literal_fits(&target_ty, &args[0]));
-                if !cast_ok {
-                    let sp = expr_span(&args[0]);
-                    return Err(TyperError::unsigned_cast_invalid(callee, arg_ty, sp).into());
+                if arg_ty != target_ty {
+                    if matches!(arg_ty, Type::Int) {
+                        if let Some(value) = unsigned_literal_value(&args[0]) {
+                            if !unsigned_literal_fits_value(&target_ty, value) {
+                                let sp = expr_span(&args[0]);
+                                return Err(TyperError::unsigned_literal_out_of_range(
+                                    target_ty.clone(),
+                                    value,
+                                    sp,
+                                )
+                                .into());
+                            }
+                        } else {
+                            let sp = expr_span(&args[0]);
+                            return Err(
+                                TyperError::unsigned_cast_invalid(callee, arg_ty, sp).into()
+                            );
+                        }
+                    } else {
+                        let sp = expr_span(&args[0]);
+                        return Err(TyperError::unsigned_cast_invalid(callee, arg_ty, sp).into());
+                    }
                 }
                 *tracker = local_tracker;
                 return Ok(target_ty);
@@ -837,12 +872,18 @@ pub(super) fn type_of<'a>(
                     if literal_can_coerce_unsigned(&expected, &at, a) {
                         continue;
                     }
+                    if let Some(err) = unsigned_literal_range_error(&expected, &at, a) {
+                        return Err(err.into());
+                    }
                     let sp = expr_span(a);
                     return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }
                 if !binding_compatible(&expected, &at, aliases)? {
                     if literal_can_coerce_unsigned(&expected, &at, a) {
                         continue;
+                    }
+                    if let Some(err) = unsigned_literal_range_error(&expected, &at, a) {
+                        return Err(err.into());
                     }
                     let sp = expr_span(a);
                     if refinement_loss(&expected, &at, aliases) {
@@ -1506,26 +1547,84 @@ fn ensure_bool(ty: Type, aliases: &AliasMap, what: &str, span: Option<Span>) -> 
     Ok(())
 }
 
-fn unsigned_literal_value(expr: &Expr) -> Option<i64> {
+fn unsigned_literal_value(expr: &Expr) -> Option<u128> {
     match expr {
-        Expr::Int(value, _) => (*value >= 0).then_some(*value),
+        Expr::Int(value, _) => (*value >= 0).then_some(*value as u128),
         Expr::Return { expr, .. } => unsigned_literal_value(expr),
         Expr::Block { block } if block.statements.is_empty() => block
             .tail
             .as_ref()
             .and_then(|tail| unsigned_literal_value(tail)),
+        Expr::Call { callee, args, .. }
+            if matches!(callee.as_str(), "U8" | "U64" | "U128" | "U256") && args.len() == 1 =>
+        {
+            unsigned_literal_value(&args[0])
+        }
         _ => None,
     }
 }
 
+fn unsigned_literal_max(target: &Type) -> Option<u128> {
+    match target {
+        Type::U8 => Some(u8::MAX as u128),
+        Type::U64 => Some(u64::MAX as u128),
+        Type::U128 => Some(u128::MAX),
+        Type::U256 => None,
+        _ => None,
+    }
+}
+
+fn unsigned_literal_fits_value(target: &Type, value: u128) -> bool {
+    match unsigned_literal_max(target) {
+        Some(max) => value <= max,
+        None => true,
+    }
+}
+
 fn unsigned_literal_fits(target: &Type, expr: &Expr) -> bool {
-    matches!(target, Type::U64 | Type::U128 | Type::U256) && unsigned_literal_value(expr).is_some()
+    unsigned_literal_value(expr)
+        .map(|value| unsigned_literal_fits_value(target, value))
+        .unwrap_or(false)
 }
 
 pub(super) fn literal_can_coerce_unsigned(expected: &Type, actual: &Type, expr: &Expr) -> bool {
-    matches!(expected, Type::U64 | Type::U128 | Type::U256)
+    matches!(expected, Type::U8 | Type::U64 | Type::U128 | Type::U256)
         && matches!(actual, Type::Int)
-        && unsigned_literal_value(expr).is_some()
+        && unsigned_literal_fits(expected, expr)
+}
+
+pub(super) fn unsigned_literal_range_error(
+    expected: &Type,
+    actual: &Type,
+    expr: &Expr,
+) -> Option<TyperError> {
+    if matches!(expected, Type::U8 | Type::U64 | Type::U128 | Type::U256)
+        && matches!(actual, Type::Int)
+    {
+        if let Some(value) = unsigned_literal_value(expr) {
+            if !unsigned_literal_fits_value(expected, value) {
+                return Some(TyperError::unsigned_literal_out_of_range(
+                    expected.clone(),
+                    value,
+                    expr_span(expr),
+                ));
+            }
+        }
+    }
+    None
+}
+
+fn u64_literal_overflow(op: &BinOp, lhs: u128, rhs: u128) -> bool {
+    let max = u64::MAX as u128;
+    match op {
+        BinOp::Add => lhs + rhs > max,
+        BinOp::Sub => rhs > lhs,
+        BinOp::Mul => lhs
+            .checked_mul(rhs)
+            .map(|value| value > max)
+            .unwrap_or(true),
+        _ => false,
+    }
 }
 pub(super) fn expr_span(e: &Expr) -> Span {
     match e {

@@ -619,8 +619,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 15.4.3 Emit literal range diagnostics for unsigned casts and contextual literals (`U8`/`U64`/`U128`/`U256`).
   - [x] 15.4.4 Add array bounds diagnostics hooks (stub until indexing lands; ensure code exists and tests assert it).
   - [x] 15.4.5 Add unit + JSON snapshot tests for each new diagnostic (positive/negative cases, stable messages).
-- [ ] 15.5 Specify ABI/layout rules for arrays/tuples in `docs/runtime/abi.md` or a new layout note.
-  - Tech debt: arrays/tuples still lower to opaque `i32` handles; ABI serialization and indexing are not defined yet (avoid exposing them in entrypoint signatures until 15.5/17.4).
+- [x] 15.5 Specify ABI/layout rules for arrays/tuples in `docs/runtime/abi.md` or a new layout note.
 
 ### 16 Crypto intrinsics + proofs
 - [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)
@@ -636,6 +635,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
 - [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
+  - Tech debt: arrays/tuples layout is specified (Phase 15.5) but lowering/indexing/runtime helpers are still pending.
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
 

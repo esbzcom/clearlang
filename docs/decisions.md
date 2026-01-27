@@ -37,3 +37,18 @@ Options:
 Decision: Model `U64` as a bounded Int with explicit no-overflow constraints; keep runtime/codegen native using Wasm `i64`.
 
 Reason: Preserves proof usefulness without delaying the feature, while keeping runtime behavior deterministic and aligned with checked-overflow semantics.
+
+## Phase 15.5 - Array/Tuple ABI layout
+Question: How should fixed-size arrays and tuples be represented in linear memory?
+
+Options:
+- Inline layout with padding/alignment rules.
+- Boxed layout with headers (length/type) for all composites.
+- Keep opaque until a later phase.
+
+Decision: Use inline contiguous layouts for array elements and tuple fields, with
+natural alignment and padding, and pass values as `i32` pointers to the start of
+the allocation.
+
+Reason: Keeps ABI simple and deterministic, avoids unnecessary headers for
+fixed-size arrays, and aligns with current pointer-based lowering.

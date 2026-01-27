@@ -1,6 +1,7 @@
 use crate::tokens::{ident_p, kw};
 use crate::ErrTy;
 use chumsky::prelude::*;
+use chumsky::text;
 use clg_ast::{Effect, Type};
 
 pub(crate) fn effect_p<'a>() -> impl Parser<'a, &'a str, Effect, ErrTy<'a>> {
@@ -16,6 +17,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
     recursive(|ty| {
         let base = choice((
             kw("Int").to(Type::Int),
+            kw("U8").to(Type::U8),
             kw("U64").to(Type::U64),
             kw("U128").to(Type::U128),
             kw("U256").to(Type::U256),
@@ -53,6 +55,41 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then_ignore(just('>').padded())
             .map(|(ok, err)| Type::Result(Box::new(ok), Box::new(err)));
         let resource = ident_p().map(Type::Resource);
-        choice((option, result, list_t, set_t, map_t, base, resource)).boxed()
+        let tuple_t = ty
+            .clone()
+            .separated_by(just(',').padded())
+            .at_least(2)
+            .collect::<Vec<_>>()
+            .map(Type::Tuple)
+            .delimited_by(just('(').padded(), just(')').padded());
+        let array_size = text::int(10)
+            .from_str::<i64>()
+            .unwrapped()
+            .try_map(|n, span| {
+                if n < 0 {
+                    Err(Rich::custom(
+                        span,
+                        "array size must not be negative".to_string(),
+                    ))
+                } else if n > u32::MAX as i64 {
+                    Err(Rich::custom(
+                        span,
+                        "array size exceeds maximum u32 value".to_string(),
+                    ))
+                } else {
+                    Ok(n as u32)
+                }
+            });
+        let array_t = just('[')
+            .padded()
+            .ignore_then(ty.clone())
+            .then_ignore(just(';').padded())
+            .then(array_size.padded())
+            .then_ignore(just(']').padded())
+            .map(|(inner, len)| Type::Array(Box::new(inner), len));
+        choice((
+            option, result, list_t, set_t, map_t, array_t, tuple_t, base, resource,
+        ))
+        .boxed()
     })
 }

@@ -1,8 +1,8 @@
 mod expr;
 mod intrinsics;
 
-pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::expr::{consume_var_expr, expr_span, max_effect, type_of, ResourceTracker};
+pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::intrinsics::collect_used_intrinsics;
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
@@ -68,6 +68,13 @@ fn ensure_supported_type(ty: &Type, span: Option<Span>) -> Result<()> {
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
             ensure_supported_type(inner, span)
         }
+        Type::Array(inner, _) => ensure_supported_type(inner, span),
+        Type::Tuple(elements) => {
+            for elem in elements {
+                ensure_supported_type(elem, span)?;
+            }
+            Ok(())
+        }
         Type::Result(ok, err) | Type::Map(ok, err) => {
             ensure_supported_type(ok, span)?;
             ensure_supported_type(err, span)
@@ -114,6 +121,15 @@ fn find_resource_collection(ty: &Type) -> Option<Type> {
         Type::Result(ok, err) => {
             find_resource_collection(ok).or_else(|| find_resource_collection(err))
         }
+        Type::Array(inner, _) => find_resource_collection(inner),
+        Type::Tuple(elements) => {
+            for elem in elements {
+                if let Some(found) = find_resource_collection(elem) {
+                    return Some(found);
+                }
+            }
+            None
+        }
         _ => None,
     }
 }
@@ -125,6 +141,8 @@ fn contains_resource(ty: &Type) -> bool {
         Type::Result(ok, err) | Type::Map(ok, err) => {
             contains_resource(ok) || contains_resource(err)
         }
+        Type::Array(inner, _) => contains_resource(inner),
+        Type::Tuple(elements) => elements.iter().any(|elem| contains_resource(elem)),
         _ => false,
     }
 }
@@ -139,6 +157,10 @@ fn contains_named_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
             contains_named_resource(ok, resource_names)
                 || contains_named_resource(err, resource_names)
         }
+        Type::Array(inner, _) => contains_named_resource(inner, resource_names),
+        Type::Tuple(elements) => elements
+            .iter()
+            .any(|elem| contains_named_resource(elem, resource_names)),
         _ => false,
     }
 }
@@ -359,12 +381,8 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
                 ),
-                "std::bytes::from_string" => {
-                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
-                }
-                "std::bytes::to_string" => {
-                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
-                }
+                "std::bytes::from_string" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::bytes::to_string" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
                 "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
@@ -548,12 +566,8 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
                 ),
-                "std::bytes::from_string" => {
-                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
-                }
-                "std::bytes::to_string" => {
-                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
-                }
+                "std::bytes::from_string" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::bytes::to_string" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
                 "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
@@ -789,6 +803,17 @@ fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) ->
             Box::new(resolve_aliases(k, aliases, visiting)?),
             Box::new(resolve_aliases(v, aliases, visiting)?),
         )),
+        Type::Array(inner, len) => Ok(Type::Array(
+            Box::new(resolve_aliases(inner, aliases, visiting)?),
+            *len,
+        )),
+        Type::Tuple(elements) => {
+            let resolved_elems = elements
+                .iter()
+                .map(|elem| resolve_aliases(elem, aliases, visiting))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(Type::Tuple(resolved_elems))
+        }
         _ => Ok(ty.clone()),
     }
 }

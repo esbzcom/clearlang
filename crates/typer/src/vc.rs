@@ -467,6 +467,7 @@ fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremi
 fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
     match ty {
         Type::Int => "Int",
+        Type::U8 => "Int",
         Type::U64 | Type::U128 | Type::U256 => "Int",
         Type::Bool => "Bool",
         Type::String => "String",
@@ -476,6 +477,8 @@ fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'sta
         | Type::List(_)
         | Type::Set(_)
         | Type::Map(_, _)
+        | Type::Array(_, _)
+        | Type::Tuple(_)
         | Type::Resource(_) => {
             if let Type::Resource(name) = ty {
                 if let Some(alias) = aliases.get(name.as_str()) {
@@ -858,13 +861,7 @@ fn collect_refinement_obligations<'a>(
         }
         Expr::Call { callee, args, .. } => {
             if callee.as_str() == "U64" && args.len() == 1 {
-                collect_refinement_obligations(
-                    &args[0],
-                    aliases,
-                    fn_sigs,
-                    &mut env.clone(),
-                    out,
-                );
+                collect_refinement_obligations(&args[0], aliases, fn_sigs, &mut env.clone(), out);
                 return Some(Type::U64);
             }
             if let Some(sig) = fn_sigs.get(callee.as_str()) {

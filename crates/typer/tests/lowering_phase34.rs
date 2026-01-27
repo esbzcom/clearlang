@@ -17,11 +17,7 @@ fn lowers_add_function() {
     assert_eq!(f.body.len(), 2); // IBin, Ret
     match &f.body[0] {
         Instr::IBin {
-            dst,
-            op,
-            lhs,
-            rhs,
-            ..
+            dst, op, lhs, rhs, ..
         } => {
             assert_eq!(*op, BinOpIR::Add);
             assert_eq!(*lhs, Value(0)); // a
@@ -102,10 +98,16 @@ fn lowers_u128_u256_helpers() {
     assert_eq!(m.funcs.len(), 2);
     let f128 = &m.funcs[0];
     assert_eq!(f128.ret, Some(IrType::U128));
-    assert!(f128.body.iter().any(|instr| matches!(instr, Instr::U128Init { .. })));
+    assert!(f128
+        .body
+        .iter()
+        .any(|instr| matches!(instr, Instr::U128Init { .. })));
     let f256 = &m.funcs[1];
     assert_eq!(f256.ret, Some(IrType::U256));
-    assert!(f256.body.iter().any(|instr| matches!(instr, Instr::U256Init { .. })));
+    assert!(f256
+        .body
+        .iter()
+        .any(|instr| matches!(instr, Instr::U256Init { .. })));
 }
 
 #[test]
@@ -121,14 +123,20 @@ fn lowers_u128_u256_literals() {
         .find(|f| f.name == "lit_u128")
         .expect("lit_u128 exists");
     assert_eq!(f128.ret, Some(IrType::U128));
-    assert!(f128.body.iter().any(|instr| matches!(instr, Instr::U128Init { .. })));
+    assert!(f128
+        .body
+        .iter()
+        .any(|instr| matches!(instr, Instr::U128Init { .. })));
     let f256 = m
         .funcs
         .iter()
         .find(|f| f.name == "cast_u256")
         .expect("cast_u256 exists");
     assert_eq!(f256.ret, Some(IrType::U256));
-    assert!(f256.body.iter().any(|instr| matches!(instr, Instr::U256Init { .. })));
+    assert!(f256
+        .body
+        .iter()
+        .any(|instr| matches!(instr, Instr::U256Init { .. })));
 }
 
 #[test]
@@ -138,12 +146,29 @@ fn lowers_bitwise_and_shift_ops() {
     "#;
     let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
     let f = &m.funcs[0];
-    assert!(f
-        .body
-        .iter()
-        .any(|instr| matches!(instr, Instr::IBin { op: BinOpIR::And, .. })));
-    assert!(f
-        .body
-        .iter()
-        .any(|instr| matches!(instr, Instr::IBin { op: BinOpIR::Shl, .. })));
+    assert!(f.body.iter().any(|instr| matches!(
+        instr,
+        Instr::IBin {
+            op: BinOpIR::And,
+            ..
+        }
+    )));
+    assert!(f.body.iter().any(|instr| matches!(
+        instr,
+        Instr::IBin {
+            op: BinOpIR::Shl,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn lowers_array_and_tuple_types() {
+    let src = r#"
+        function main(a: [U8; 32], triple: (Int, Bool, U8)) -> Int { 1 }
+    "#;
+    let m = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let f = &m.funcs[0];
+    assert_eq!(f.params, vec![IrType::Int, IrType::Int]);
+    assert_eq!(f.ret, Some(IrType::Int));
 }

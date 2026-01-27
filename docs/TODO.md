@@ -605,9 +605,20 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] Extend typer/lowering/VC rules for bitwise and shift ops (U64-literal coercions only).
   - [x] Add wasm codegen for bitwise/shift ops and U64 rotate + bytes intrinsics.
   - [x] Add parser/typer/codegen tests and update typing/runtime docs.
-- [ ] 15.3 Introduce `Bytes` and fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs. (Parser/AST, typer, layout, codegen, tests.)
+- [x] 15.3 Introduce fixed-size arrays (e.g., `[U8; 32]`) plus tuples for hash/key pairs. (Parser/AST, typer, layout, codegen, tests.)
+  - [x] 15.3.1 Decide element types (add `U8` now or restrict arrays to existing numeric types) and tuple arity/literal syntax.
+  - [x] 15.3.2 Define type syntax + typing rules for `[T; N]` and `(T1, T2, ...)` (no indexing yet).
+  - [x] 15.3.3 Update AST/parser to accept array/tuple types (and literals if chosen).
+  - [x] 15.3.4 Extend typer validations (resource-in-collection checks) and type rendering for arrays/tuples.
+  - [x] 15.3.5 Add lowering/codegen representation for arrays/tuples (opaque pointer or inline layout) and minimal runtime helpers.
+  - [x] 15.3.6 Add parser/typer/codegen tests + update docs (typing + ABI layout in 15.5).
 - [ ] 15.4 Add diagnostics + error codes for numeric overflow, literal range checks, and array bounds.
   - [x] Centralize/validate diagnostics-code prefix allowlist in `diagnostics_codes` test.
+  - [ ] 15.4.1 Define diagnostic codes/messages for overflow, literal range, and array bounds (reserve codes even if features are stubbed).
+  - [ ] 15.4.2 Wire overflow diagnostics for U64 checked ops; align codes with runtime trap mapping where applicable.
+  - [ ] 15.4.3 Emit literal range diagnostics for unsigned casts and contextual literals (`U8`/`U64`/`U128`/`U256`).
+  - [ ] 15.4.4 Add array bounds diagnostics hooks (stub until indexing lands; ensure code exists and tests assert it).
+  - [ ] 15.4.5 Add unit + JSON snapshot tests for each new diagnostic (positive/negative cases, stable messages).
 - [ ] 15.5 Specify ABI/layout rules for arrays/tuples in `docs/runtime/abi.md` or a new layout note.
 
 ### 16 Crypto intrinsics + proofs

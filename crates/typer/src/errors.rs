@@ -826,6 +826,7 @@ impl std::error::Error for TyperError {}
 fn render_type(ty: &Type) -> String {
     match ty {
         Type::Int => "Int".to_string(),
+        Type::U8 => "U8".to_string(),
         Type::U64 => "U64".to_string(),
         Type::U128 => "U128".to_string(),
         Type::U256 => "U256".to_string(),
@@ -838,5 +839,14 @@ fn render_type(ty: &Type) -> String {
         Type::List(inner) => format!("List<{}>", render_type(inner)),
         Type::Set(inner) => format!("Set<{}>", render_type(inner)),
         Type::Map(key, val) => format!("Map<{}, {}>", render_type(key), render_type(val)),
+        Type::Array(inner, len) => format!("[{}; {}]", render_type(inner), len),
+        Type::Tuple(elements) => {
+            let rendered = elements
+                .iter()
+                .map(|elem| render_type(elem))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("({})", rendered)
+        }
     }
 }

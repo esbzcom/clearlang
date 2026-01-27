@@ -1,4 +1,4 @@
-use clg_ast::{BinOp, Effect, Expr, UnaryOp};
+use clg_ast::{BinOp, Effect, Expr, Type, UnaryOp};
 use clg_parser::parse;
 
 #[test]
@@ -129,11 +129,57 @@ fn parses_comparison_after_bitwise() {
         } => {
             assert!(matches!(**rhs, Expr::Int(0, _)));
             assert!(
-                matches!(**lhs, Expr::Bin { op: BinOp::BitAnd, .. }),
+                matches!(
+                    **lhs,
+                    Expr::Bin {
+                        op: BinOp::BitAnd,
+                        ..
+                    }
+                ),
                 "lhs should be bitwise AND"
             );
         }
         other => panic!("expected equality at top, found {other:?}"),
+    }
+}
+
+#[test]
+fn parses_array_and_tuple_types() {
+    let src = r#"
+        function main(a: [U8; 32], pair: (Int, Bool)) -> Bool { true }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let func = &ast.funcs[0];
+    if let Type::Array(inner, len) = &func.params[0].ty {
+        assert!(matches!(**inner, Type::U8));
+        assert_eq!(*len, 32);
+    } else {
+        panic!("expected array type for first parameter");
+    }
+    if let Type::Tuple(elems) = &func.params[1].ty {
+        assert_eq!(elems.len(), 2);
+        assert!(matches!(elems[0], Type::Int));
+        assert!(matches!(elems[1], Type::Bool));
+    } else {
+        panic!("expected tuple type for second parameter");
+    }
+    assert_eq!(func.ret, Type::Bool);
+}
+
+#[test]
+fn parses_tuple_type_with_three_elems() {
+    let src = r#"
+        function main(triple: (Int, Bool, U8)) -> Bool { true }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let func = &ast.funcs[0];
+    if let Type::Tuple(elems) = &func.params[0].ty {
+        assert_eq!(elems.len(), 3);
+        assert!(matches!(elems[0], Type::Int));
+        assert!(matches!(elems[1], Type::Bool));
+        assert!(matches!(elems[2], Type::U8));
+    } else {
+        panic!("expected tuple type for parameter");
     }
 }
 

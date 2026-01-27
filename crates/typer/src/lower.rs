@@ -13,6 +13,7 @@ type FnSig = CheckFnSig;
 fn ir_ty(t: Type) -> IrType {
     match t {
         Type::Int => IrType::Int,
+        Type::U8 => IrType::Int,
         Type::U64 => IrType::U64,
         Type::U128 => IrType::U128,
         Type::U256 => IrType::U256,
@@ -22,7 +23,9 @@ fn ir_ty(t: Type) -> IrType {
         Type::Resource(_) => IrType::Int,
         Type::Option(_) => IrType::Int,
         Type::Result(_, _) => IrType::Int,
-        Type::List(_) | Type::Set(_) | Type::Map(_, _) => IrType::Int,
+        Type::List(_) | Type::Set(_) | Type::Map(_, _) | Type::Array(_, _) | Type::Tuple(_) => {
+            IrType::Int
+        }
     }
 }
 
@@ -306,9 +309,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 rhs: rv,
                 ty: ir_op_ty,
             });
-            if matches!(op_type, Type::U64)
-                && matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul)
-            {
+            if matches!(op_type, Type::U64) && matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul) {
                 let span = expr_span_local(e);
                 emit_u64_overflow_guard(ctx, op, lv, rv, dst, span)?;
             }
@@ -1002,11 +1003,7 @@ fn lower_u128_from_limbs<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]) -> Result
     Ok(dst)
 }
 
-fn lower_u128_load<'a>(
-    ctx: &mut LowerCtx<'a>,
-    args: &'a [Expr],
-    limb: u8,
-) -> Result<Value> {
+fn lower_u128_load<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr], limb: u8) -> Result<Value> {
     if args.len() != 1 {
         anyhow::bail!("std::u128::lo/hi expects exactly one argument");
     }
@@ -1035,11 +1032,7 @@ fn lower_u256_from_limbs<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]) -> Result
     Ok(dst)
 }
 
-fn lower_u256_load<'a>(
-    ctx: &mut LowerCtx<'a>,
-    args: &'a [Expr],
-    limb: u8,
-) -> Result<Value> {
+fn lower_u256_load<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr], limb: u8) -> Result<Value> {
     if args.len() != 1 {
         anyhow::bail!("std::u256::limb* expects exactly one argument");
     }

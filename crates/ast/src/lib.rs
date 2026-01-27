@@ -107,6 +107,7 @@ pub struct Param {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Int,
+    U8,
     U64,
     U128,
     U256,
@@ -119,6 +120,8 @@ pub enum Type {
     List(Box<Type>),
     Set(Box<Type>),
     Map(Box<Type>, Box<Type>),
+    Array(Box<Type>, u32),
+    Tuple(Vec<Type>),
 }
 
 #[derive(Debug, Clone)]

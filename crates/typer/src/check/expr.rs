@@ -548,10 +548,14 @@ pub(super) fn type_of<'a>(
                     let lt_base = base_type(&lt, aliases)?;
                     let rt_base = base_type(&rt, aliases)?;
                     if matches!(lt_base, Type::U128 | Type::U256) {
-                        return Err(TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into());
+                        return Err(
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into()
+                        );
                     }
                     if matches!(rt_base, Type::U128 | Type::U256) {
-                        return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
+                        return Err(
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into()
+                        );
                     }
                     let lt_is_int = matches!(lt_base, Type::Int);
                     let rt_is_int = matches!(rt_base, Type::Int);
@@ -559,13 +563,11 @@ pub(super) fn type_of<'a>(
                     let rt_is_u64 = matches!(rt_base, Type::U64);
                     if lt_is_int && !rt_is_int && !rt_is_u64 {
                         return Err(
-                            TyperError::int_operand("right operand", rt, Some(*span)).into(),
+                            TyperError::int_operand("right operand", rt, Some(*span)).into()
                         );
                     }
                     if rt_is_int && !lt_is_int && !lt_is_u64 {
-                        return Err(
-                            TyperError::int_operand("left operand", lt, Some(*span)).into(),
-                        );
+                        return Err(TyperError::int_operand("left operand", lt, Some(*span)).into());
                     }
                     match (&lt_base, &rt_base) {
                         (Type::U64, Type::U64) => Ok(Type::U64),
@@ -576,9 +578,9 @@ pub(super) fn type_of<'a>(
                             Ok(Type::U64)
                         }
                         (Type::Int, Type::Int) => Ok(Type::Int),
-                        _ => Err(
-                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
-                        ),
+                        _ => {
+                            Err(TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into())
+                        }
                     }
                 }
                 BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor => {
@@ -592,12 +594,12 @@ pub(super) fn type_of<'a>(
                     let rt_base = base_type(&rt, aliases)?;
                     if matches!(lt_base, Type::U128 | Type::U256) {
                         return Err(
-                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into(),
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into()
                         );
                     }
                     if matches!(rt_base, Type::U128 | Type::U256) {
                         return Err(
-                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into(),
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into()
                         );
                     }
                     match (&lt_base, &rt_base) {
@@ -609,9 +611,9 @@ pub(super) fn type_of<'a>(
                             Ok(Type::U64)
                         }
                         (Type::Int, Type::Int) => Ok(Type::Int),
-                        _ => Err(
-                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
-                        ),
+                        _ => {
+                            Err(TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into())
+                        }
                     }
                 }
                 BinOp::Shl | BinOp::Shr => {
@@ -624,12 +626,12 @@ pub(super) fn type_of<'a>(
                     let rt_base = base_type(&rt, aliases)?;
                     if matches!(lt_base, Type::U128 | Type::U256) {
                         return Err(
-                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into(),
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into()
                         );
                     }
                     if matches!(rt_base, Type::U128 | Type::U256) {
                         return Err(
-                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into(),
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into()
                         );
                     }
                     match (&lt_base, &rt_base) {
@@ -638,9 +640,9 @@ pub(super) fn type_of<'a>(
                         (Type::U64, Type::Int) if unsigned_literal_value(rhs).is_some() => {
                             Ok(Type::U64)
                         }
-                        _ => Err(
-                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
-                        ),
+                        _ => {
+                            Err(TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into())
+                        }
                     }
                 }
                 BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
@@ -654,10 +656,14 @@ pub(super) fn type_of<'a>(
                     let lt_base = base_type(&lt, aliases)?;
                     let rt_base = base_type(&rt, aliases)?;
                     if matches!(lt_base, Type::U128 | Type::U256) {
-                        return Err(TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into());
+                        return Err(
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into()
+                        );
                     }
                     if matches!(rt_base, Type::U128 | Type::U256) {
-                        return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
+                        return Err(
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into()
+                        );
                     }
                     match (&lt_base, &rt_base) {
                         (Type::U64, Type::U64) => Ok(Type::Bool),
@@ -668,19 +674,23 @@ pub(super) fn type_of<'a>(
                             Ok(Type::Bool)
                         }
                         (Type::Int, Type::Int) => Ok(Type::Bool),
-                        _ => Err(
-                            TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into(),
-                        ),
+                        _ => {
+                            Err(TyperError::binary_operands_mismatch(op_str, lt, rt, *span).into())
+                        }
                     }
                 }
                 BinOp::Eq | BinOp::Neq => {
                     let lt_base = base_type(&lt, aliases)?;
                     let rt_base = base_type(&rt, aliases)?;
                     if matches!(lt_base, Type::U128 | Type::U256) {
-                        return Err(TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into());
+                        return Err(
+                            TyperError::unsigned_int_not_supported(lt_base, Some(*span)).into()
+                        );
                     }
                     if matches!(rt_base, Type::U128 | Type::U256) {
-                        return Err(TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into());
+                        return Err(
+                            TyperError::unsigned_int_not_supported(rt_base, Some(*span)).into()
+                        );
                     }
                     if !base_types_match(&lt, &rt, aliases)?
                         && !literal_can_coerce_unsigned(&lt, &rt, rhs)
@@ -720,13 +730,10 @@ pub(super) fn type_of<'a>(
                 let mut local_tracker = tracker.clone();
                 let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, depth + 1)?;
                 let cast_ok = arg_ty == target_ty
-                    || (matches!(arg_ty, Type::Int)
-                        && unsigned_literal_fits(&target_ty, &args[0]));
+                    || (matches!(arg_ty, Type::Int) && unsigned_literal_fits(&target_ty, &args[0]));
                 if !cast_ok {
                     let sp = expr_span(&args[0]);
-                    return Err(
-                        TyperError::unsigned_cast_invalid(callee, arg_ty, sp).into(),
-                    );
+                    return Err(TyperError::unsigned_cast_invalid(callee, arg_ty, sp).into());
                 }
                 *tracker = local_tracker;
                 return Ok(target_ty);
@@ -1537,6 +1544,7 @@ pub(crate) fn show_ty(t: Type) -> String {
     fn render(ty: Type) -> String {
         match ty {
             Type::Int => "Int".to_string(),
+            Type::U8 => "U8".to_string(),
             Type::U64 => "U64".to_string(),
             Type::U128 => "U128".to_string(),
             Type::U256 => "U256".to_string(),
@@ -1549,6 +1557,15 @@ pub(crate) fn show_ty(t: Type) -> String {
             Type::List(inner) => format!("List<{}>", render(*inner)),
             Type::Set(inner) => format!("Set<{}>", render(*inner)),
             Type::Map(key, val) => format!("Map<{}, {}>", render(*key), render(*val)),
+            Type::Array(inner, len) => format!("[{}; {}]", render(*inner), len),
+            Type::Tuple(elements) => {
+                let rendered = elements
+                    .into_iter()
+                    .map(|elem| render(elem))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("({})", rendered)
+            }
         }
     }
     render(t)

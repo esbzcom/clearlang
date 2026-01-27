@@ -621,6 +621,14 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 15.4.5 Add unit + JSON snapshot tests for each new diagnostic (positive/negative cases, stable messages).
 - [x] 15.5 Specify ABI/layout rules for arrays/tuples in `docs/runtime/abi.md` or a new layout note.
 
+- [ ] 15.6 Phase 15 completion checklist
+  - [ ] 15.6.1 Implement array/tuple lowering + runtime allocation using the Phase 15.5 layout.
+  - [ ] 15.6.2 Add array/tuple literals and indexing semantics (or explicitly gate behind Phase 17.4 with temporary stubs).
+  - [ ] 15.6.3 Add bounds checks for array indexing and wire T114 to runtime/typer as appropriate.
+  - [ ] 15.6.4 Integrate `U8` into numeric ops (typing + codegen + VC rules) or explicitly document its limitations.
+  - [ ] 15.6.5 Update `docs/typing.md` to reference the finalized arrays/tuples layout and remove stale "opaque" wording.
+  - [ ] 15.6.6 Add JSON error snapshot tests for new diagnostics (T112/T113/T114).
+
 ### 16 Crypto intrinsics + proofs
 - [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)
 - [ ] 16.2 Signature verification (ed25519/secp256k1) with strict input validation. (API spec, builtins, codegen stubs, tests, error codes.)

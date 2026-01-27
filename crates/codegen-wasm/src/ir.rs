@@ -2,8 +2,8 @@ use anyhow::Result;
 use clg_ir::{
     BinOpIR, Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule, TrapCode, Value,
 };
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use wasm_encoder::{
     BlockType, CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind,
     ExportSection, Function, FunctionSection, GlobalSection, GlobalType, ImportSection,
@@ -17,7 +17,7 @@ use crate::intrinsics::{
     strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
     u64::{
         encode_intrinsic_u64_from_bytes_be, encode_intrinsic_u64_from_bytes_le,
-        encode_intrinsic_u64_rotr, encode_intrinsic_u64_rotl, encode_intrinsic_u64_to_bytes_be,
+        encode_intrinsic_u64_rotl, encode_intrinsic_u64_rotr, encode_intrinsic_u64_to_bytes_be,
         encode_intrinsic_u64_to_bytes_le,
     },
     wasi::encode_intrinsic_wasi_print,
@@ -276,7 +276,11 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 alias.export
             ));
         };
-        exports.export(alias.export.as_str(), ExportKind::Func, *idx + func_index_offset);
+        exports.export(
+            alias.export.as_str(),
+            ExportKind::Func,
+            *idx + func_index_offset,
+        );
         export_names.insert(alias.export.as_str(), ());
     }
     exports.export("memory", ExportKind::Memory, 0);
@@ -404,11 +408,7 @@ fn emit_fuel_tick(insts: &mut InstructionSink<'_>, cost: i32) {
     insts.end();
 }
 
-fn infer_value_types(
-    f: &IrFunction,
-    funcs: &[IrFunction],
-    max_id: u32,
-) -> Result<Vec<ValType>> {
+fn infer_value_types(f: &IrFunction, funcs: &[IrFunction], max_id: u32) -> Result<Vec<ValType>> {
     let mut types: Vec<Option<ValType>> = vec![None; max_id as usize + 1];
 
     for (i, ty) in f.params.iter().copied().enumerate() {
@@ -502,10 +502,13 @@ fn infer_value_types(
             }
             IrInstr::Call { dst, callee, .. } => {
                 if let Some(dst) = dst {
-                    let ret_ty = funcs
-                        .get(*callee as usize)
-                        .and_then(|f| f.ret)
-                        .ok_or_else(|| anyhow::anyhow!("missing return type for call {}", callee))?;
+                    let ret_ty =
+                        funcs
+                            .get(*callee as usize)
+                            .and_then(|f| f.ret)
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("missing return type for call {}", callee)
+                            })?;
                     set_type(&mut types, *dst, val_type_for_ir(ret_ty))?;
                 }
             }
@@ -579,10 +582,7 @@ fn encode_ir_function(
                 limb_lo,
                 limb_hi,
             } => {
-                max_id = max_id
-                    .max(dst.0)
-                    .max(limb_lo.0)
-                    .max(limb_hi.0);
+                max_id = max_id.max(dst.0).max(limb_lo.0).max(limb_hi.0);
             }
             IrInstr::U128LoadLimb { dst, value, .. } => {
                 max_id = max_id.max(dst.0).max(value.0);
@@ -692,7 +692,9 @@ fn encode_ir_function(
                     },
                     BinOpIR::Div => match ty {
                         IrType::U64 => insts.i64_div_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_div_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_div_s()
+                        }
                     },
                     BinOpIR::Shl => match ty {
                         IrType::U64 => insts.i64_shl(),
@@ -700,23 +702,33 @@ fn encode_ir_function(
                     },
                     BinOpIR::Shr => match ty {
                         IrType::U64 => insts.i64_shr_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_shr_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_shr_s()
+                        }
                     },
                     BinOpIR::Lt => match ty {
                         IrType::U64 => insts.i64_lt_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_lt_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_lt_s()
+                        }
                     },
                     BinOpIR::Le => match ty {
                         IrType::U64 => insts.i64_le_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_le_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_le_s()
+                        }
                     },
                     BinOpIR::Gt => match ty {
                         IrType::U64 => insts.i64_gt_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_gt_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_gt_s()
+                        }
                     },
                     BinOpIR::Ge => match ty {
                         IrType::U64 => insts.i64_ge_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_ge_s(),
+                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_ge_s()
+                        }
                     },
                     BinOpIR::Eq => match ty {
                         IrType::U64 => insts.i64_eq(),
@@ -885,7 +897,11 @@ fn encode_ir_function(
                 });
                 insts.local_set(dst.0);
             }
-            IrInstr::U128Init { dst, limb_lo, limb_hi } => {
+            IrInstr::U128Init {
+                dst,
+                limb_lo,
+                limb_hi,
+            } => {
                 // pointer = heap_ptr
                 insts.global_get(HEAP_PTR_GLOBAL);
                 insts.local_set(dst.0);

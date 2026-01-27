@@ -3,8 +3,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
-use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias};
 use clg_ast::{Effect, Program, Type};
+use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias};
 use clg_ir::IrType;
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use clg_typer::{

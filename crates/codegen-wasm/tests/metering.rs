@@ -139,10 +139,7 @@ fn nested_loops_wasm() -> Vec<u8> {
 
 fn get_i32_global(instance: &Instance, store: &mut Store<()>, name: &str) -> i32 {
     let global = instance.get_global(&mut *store, name).expect("global");
-    global
-        .get(&mut *store)
-        .i32()
-        .expect("i32 global")
+    global.get(&mut *store).i32().expect("i32 global")
 }
 
 fn set_i32_global(instance: &Instance, store: &mut Store<()>, name: &str, value: i32) {

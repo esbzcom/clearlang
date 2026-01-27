@@ -5,10 +5,7 @@ use wasm_encoder::{BlockType, Function, MemArg, ValType};
 use super::runtime::{emit_runtime_trap, TrapOperand};
 use crate::ir::HEAP_PTR_GLOBAL;
 
-pub fn encode_intrinsic_wasi_print(
-    _f: &IrFunction,
-    fd_write_index: u32,
-) -> Result<Function> {
+pub fn encode_intrinsic_wasi_print(_f: &IrFunction, fd_write_index: u32) -> Result<Function> {
     // Params: buf_ptr (i32). Return: errno (i32).
     // Locals: len(1), data_ptr(2), iovec_ptr(3), nwritten_ptr(4),
     // data_end(5), limit(6), iovec_end(7)

@@ -43,7 +43,10 @@ fn error_response_envelope_is_canonical_cbor() {
     error.insert(Value::Text("data".to_string()), Value::Bytes(Vec::new()));
 
     let mut map = BTreeMap::new();
-    map.insert(Value::Text("status".to_string()), Value::Text("err".to_string()));
+    map.insert(
+        Value::Text("status".to_string()),
+        Value::Text("err".to_string()),
+    );
     map.insert(Value::Text("abi_version".to_string()), Value::Integer(1));
     map.insert(Value::Text("events".to_string()), Value::Array(Vec::new()));
     map.insert(Value::Text("state".to_string()), Value::Bytes(Vec::new()));

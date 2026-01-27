@@ -144,8 +144,10 @@ fn keyword_missing_brace(line: &str, keyword: &str) -> Option<usize> {
         };
         let start = idx + rel;
         let end = start + key.len();
-        let before_ok = start == 0 || !bytes[start - 1].is_ascii_alphanumeric() && bytes[start - 1] != b'_';
-        let after_ok = end == bytes.len() || !bytes[end].is_ascii_alphanumeric() && bytes[end] != b'_';
+        let before_ok =
+            start == 0 || !bytes[start - 1].is_ascii_alphanumeric() && bytes[start - 1] != b'_';
+        let after_ok =
+            end == bytes.len() || !bytes[end].is_ascii_alphanumeric() && bytes[end] != b'_';
         if before_ok && after_ok {
             let mut j = end;
             while j < bytes.len() && bytes[j].is_ascii_whitespace() {

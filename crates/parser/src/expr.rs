@@ -479,13 +479,10 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
 
         // shift (<<, >>)
         let shift = add.clone().foldl(
-            choice((
-                just("<<").to(BinOp::Shl),
-                just(">>").to(BinOp::Shr),
-            ))
-            .padded()
-            .then(add.clone().boxed())
-            .repeated(),
+            choice((just("<<").to(BinOp::Shl), just(">>").to(BinOp::Shr)))
+                .padded()
+                .then(add.clone().boxed())
+                .repeated(),
             |lhs, (op, rhs)| {
                 let (ls, _) = span_of(&lhs);
                 let (_, re) = span_of(&rhs);

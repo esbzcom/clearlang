@@ -52,3 +52,15 @@ the allocation.
 
 Reason: Keeps ABI simple and deterministic, avoids unnecessary headers for
 fixed-size arrays, and aligns with current pointer-based lowering.
+
+## Phase 15.7 - Nested array/tuple element representation
+Question: When arrays/tuples appear as elements inside another array/tuple, should they be stored inline (deep copy) or by pointer?
+
+Options:
+- Inline layout with deep copy of nested arrays/tuples into the parent allocation.
+- Pointer layout: store nested arrays/tuples as `i32` pointers to their own heap allocations.
+- Disallow nested arrays/tuples until a later phase.
+
+Decision: Pointer layout for nested arrays/tuples.
+
+Reason: Matches the ABI statement that arrays/tuples are passed as `i32` pointers, keeps lowering/codegen simple, avoids recursive deep-copy semantics, and stays consistent with other heap-backed composites (String/Option/Result/collections).

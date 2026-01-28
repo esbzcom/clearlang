@@ -28,6 +28,8 @@ Elements are laid out using each type's runtime representation.
 | `Result<T,E>` | 4 | 4 | i32 pointer to 16-byte variant layout |
 | `List/Set/Map` | 4 | 4 | i32 pointer (runtime-defined) |
 | `Resource` | 4 | 4 | i32 handle (runtime-defined) |
+| `Array<T>` | 4 | 4 | i32 pointer to array allocation |
+| `Tuple` | 4 | 4 | i32 pointer to tuple allocation |
 
 Notes:
 - Arrays/tuples cannot contain resources (enforced by the typer).

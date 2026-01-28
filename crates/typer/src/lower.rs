@@ -66,14 +66,7 @@ fn layout_for_type(ty: &Type, aliases: &AliasMap) -> Result<(u32, u32)> {
         Type::Resource(_) => Ok((4, 4)),
         Type::Option(_) | Type::Result(_, _) => Ok((4, 4)),
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => Ok((4, 4)),
-        Type::Array(inner, len) => {
-            let layout = array_layout(inner.as_ref(), len, aliases)?;
-            Ok((layout.size, layout.align))
-        }
-        Type::Tuple(elems) => {
-            let layout = tuple_layout(&elems, aliases)?;
-            Ok((layout.size, layout.align))
-        }
+        Type::Array(_, _) | Type::Tuple(_) => Ok((4, 4)),
     }
 }
 
@@ -209,6 +202,15 @@ pub(crate) fn lower_func<'a>(
 fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -> Result<Value> {
     match e {
         Expr::Int(n, _) => match expected {
+            Some(Type::U8) => {
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::IConst {
+                    dst,
+                    ty: IrType::U8,
+                    n: *n,
+                });
+                Ok(dst)
+            }
             Some(Type::U64) => {
                 let dst = fresh(ctx);
                 ctx.body.push(Instr::IConst {
@@ -579,6 +581,12 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             Ok(dst)
         }
         Expr::Call { callee, args, .. } => match callee.as_str() {
+            "U8" => {
+                if args.len() != 1 {
+                    anyhow::bail!("`U8` expects exactly one argument");
+                }
+                lower_expr(ctx, &args[0], Some(Type::U8))
+            }
             "U64" => {
                 if args.len() != 1 {
                     anyhow::bail!("`U64` expects exactly one argument");

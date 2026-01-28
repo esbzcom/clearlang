@@ -270,7 +270,9 @@ pub(super) fn type_of<'a>(
                 }
                 Type::Tuple(elems) => {
                     let Some(idx) = int_literal_value(index) else {
-                        return Err(TyperError::array_index_out_of_bounds(expr_span(index)).into());
+                        return Err(
+                            TyperError::tuple_index_requires_constant(expr_span(index)).into()
+                        );
                     };
                     if idx < 0 || idx as usize >= elems.len() {
                         return Err(TyperError::array_index_out_of_bounds(expr_span(index)).into());

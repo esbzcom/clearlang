@@ -333,6 +333,31 @@ fn array_index_out_of_bounds_reports_t114_in_json() {
 }
 
 #[test]
+fn tuple_index_requires_constant_reports_t115_in_json() {
+    let src = r#"
+        function main() -> Int { let i = 1; (1, 2, 3)[i] }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad_tuple_index.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T115"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
 fn collections_error_reports_collection_kind_error_in_json() {
     // Calling a collection API with wrong kind should yield T207 via --json-errors
     let src = r#"
@@ -667,6 +692,49 @@ fn runtime_ensure_violation_reports_r000_json() {
         .unwrap_or("")
         .contains("contract `ensure` guard failed"));
     assert_eq!(e0.get("function").and_then(|s| s.as_str()), Some("ensure"));
+}
+
+#[test]
+fn runtime_array_index_guard_reports_r000_json() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("array_oob.clear");
+    let wasm_path = tmp.path().join("array_oob.wasm");
+
+    let src = r#"
+        function main() -> Int { let i = 3; [1, 2][i] }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R000"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    assert!(e0
+        .get("message")
+        .and_then(|s| s.as_str())
+        .unwrap_or("")
+        .contains("contract `require` guard failed"));
 }
 
 #[test]

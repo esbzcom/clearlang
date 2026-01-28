@@ -629,12 +629,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 15.6.5 Update `docs/typing.md` to reference the finalized arrays/tuples layout and remove stale "opaque" wording.
   - [x] 15.6.6 Add JSON error snapshot tests for new diagnostics (T112/T113/T114).
 
-- [ ] 15.7 Post-15 review fixes
-  - [ ] 15.7.1 Add `U8(...)` lowering so unsigned casts do not fail at build time.
-  - [ ] 15.7.2 Align nested array/tuple element layout with the pointer-based ABI decision (size/align 4 when nested).
-  - [ ] 15.7.3 Add a dedicated diagnostic for non-constant tuple indices (avoid using T114 for this case).
-  - [ ] 15.7.4 Add a runtime test that traps on dynamic out-of-bounds array indices.
-  - [ ] 15.7.5 Update Phase 17.4 tech-debt note after the fixes above are complete.
+- [x] 15.7 Post-15 review fixes
+  - [x] 15.7.1 Add `U8(...)` lowering so unsigned casts do not fail at build time.
+  - [x] 15.7.2 Align nested array/tuple element layout with the pointer-based ABI decision (size/align 4 when nested).
+  - [x] 15.7.3 Add a dedicated diagnostic for non-constant tuple indices (avoid using T114 for this case).
+  - [x] 15.7.4 Add a runtime test that traps on dynamic out-of-bounds array indices.
+  - [x] 15.7.5 Update Phase 17.4 tech-debt note after the fixes above are complete.
 
 ### 16 Crypto intrinsics + proofs
 - [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)
@@ -650,7 +650,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
 - [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
-  - Tech debt: nested array/tuple elements should be pointer-sized per the Phase 15.6 decision; add dynamic bounds tests and improve tuple index diagnostics.
+  - Tech debt: general arrays/slices with indexing semantics remain pending; fixed-size arrays/tuples use pointer layout for nested elements with runtime guards for dynamic indices.
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
 

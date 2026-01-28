@@ -220,6 +220,18 @@ impl TyperError {
         )
     }
 
+    pub fn tuple_index_requires_constant(span: Span) -> Self {
+        Self::new(
+            "T115",
+            format!(
+                "at {}..{}: tuple index must be a constant integer",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn block_missing_tail(span: Span) -> Self {
         Self::new(
             "T016",

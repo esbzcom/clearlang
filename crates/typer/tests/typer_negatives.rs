@@ -228,3 +228,20 @@ fn array_bounds_diagnostic_code_is_stable() {
     let err = TyperError::array_index_out_of_bounds(Span { start: 1, end: 2 });
     assert_eq!(err.code, "T114");
 }
+
+#[test]
+fn tuple_index_requires_constant_error_code_is_stable() {
+    let err = TyperError::tuple_index_requires_constant(Span { start: 3, end: 4 });
+    assert_eq!(err.code, "T115");
+}
+
+#[test]
+fn tuple_index_requires_constant_literal() {
+    let src = r#"
+        function main(x: Int) -> Int { (1, 2, 3)[x] }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on non-constant tuple index");
+    let s = format!("{err:#}");
+    assert!(s.contains("T115"), "unexpected error: {s}");
+}

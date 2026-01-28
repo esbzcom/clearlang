@@ -58,6 +58,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T112 | type | Unsigned literal is out of range for the target type. |
 | T113 | type | Unsigned constant expression overflows (compile-time). |
 | T114 | type | Array index is out of bounds. |
+| T115 | type | Tuple index must be a constant integer. |
 | T201 | type | Non-exhaustive match (missing arm). |
 | T202 | type | Duplicate match arm. |
 | T203 | type | Invalid match scrutinee (expected Option/Result). |

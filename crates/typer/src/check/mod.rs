@@ -208,6 +208,15 @@ fn check_totality_expr(expr: &Expr, self_name: &str) -> Result<()> {
                 check_totality_expr(&arm.expr, self_name)?;
             }
         }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                check_totality_expr(elem, self_name)?;
+            }
+        }
+        Expr::Index { base, index, .. } => {
+            check_totality_expr(base, self_name)?;
+            check_totality_expr(index, self_name)?;
+        }
         Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
             check_totality_expr(expr, self_name)?;
         }
@@ -828,7 +837,7 @@ fn alias_name<'a>(ty: &'a Type, aliases: &'a AliasMap) -> Option<&'a str> {
     }
 }
 
-fn base_type(ty: &Type, aliases: &AliasMap) -> Result<Type> {
+pub(crate) fn base_type(ty: &Type, aliases: &AliasMap) -> Result<Type> {
     let mut visiting = Vec::new();
     resolve_aliases(ty, aliases, &mut visiting)
 }

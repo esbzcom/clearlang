@@ -1,4 +1,4 @@
-use crate::check::{infer_expr_type, AliasMap, FnSig as CheckFnSig, LocalBinding};
+use crate::check::{base_type, infer_expr_type, AliasMap, FnSig as CheckFnSig, LocalBinding};
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Block, Expr, Func, MatchArm, MatchPat, ParamKind, Span, Stmt, Type};
@@ -27,6 +27,100 @@ fn ir_ty(t: Type) -> IrType {
             IrType::Int
         }
     }
+}
+
+#[derive(Clone, Copy)]
+struct ArrayLayout {
+    stride: u32,
+    size: u32,
+    align: u32,
+}
+
+struct TupleLayout {
+    offsets: Vec<u32>,
+    size: u32,
+    align: u32,
+}
+
+fn align_up(value: u32, align: u32) -> Result<u32> {
+    if align <= 1 {
+        return Ok(value);
+    }
+    let value = value as u64;
+    let align = align as u64;
+    let aligned = (value + (align - 1)) / align * align;
+    if aligned > u32::MAX as u64 {
+        anyhow::bail!("layout size exceeds u32 limits");
+    }
+    Ok(aligned as u32)
+}
+
+fn layout_for_type(ty: &Type, aliases: &AliasMap) -> Result<(u32, u32)> {
+    let resolved = base_type(ty, aliases)?;
+    match resolved {
+        Type::Int | Type::Bool => Ok((4, 4)),
+        Type::U8 => Ok((1, 1)),
+        Type::U64 => Ok((8, 8)),
+        Type::U128 | Type::U256 => Ok((4, 4)),
+        Type::String | Type::Bytes => Ok((4, 4)),
+        Type::Resource(_) => Ok((4, 4)),
+        Type::Option(_) | Type::Result(_, _) => Ok((4, 4)),
+        Type::List(_) | Type::Set(_) | Type::Map(_, _) => Ok((4, 4)),
+        Type::Array(inner, len) => {
+            let layout = array_layout(inner.as_ref(), len, aliases)?;
+            Ok((layout.size, layout.align))
+        }
+        Type::Tuple(elems) => {
+            let layout = tuple_layout(&elems, aliases)?;
+            Ok((layout.size, layout.align))
+        }
+    }
+}
+
+fn array_layout(inner: &Type, len: u32, aliases: &AliasMap) -> Result<ArrayLayout> {
+    let (elem_size, elem_align) = layout_for_type(inner, aliases)?;
+    let stride = align_up(elem_size, elem_align)?;
+    let total = (stride as u64) * (len as u64);
+    if total > u32::MAX as u64 {
+        anyhow::bail!("array allocation size exceeds u32 limits");
+    }
+    Ok(ArrayLayout {
+        stride,
+        size: total as u32,
+        align: elem_align,
+    })
+}
+
+fn tuple_layout(elems: &[Type], aliases: &AliasMap) -> Result<TupleLayout> {
+    let mut offsets = Vec::with_capacity(elems.len());
+    let mut offset: u32 = 0;
+    let mut max_align: u32 = 1;
+    for elem in elems {
+        let (size, align) = layout_for_type(elem, aliases)?;
+        max_align = max_align.max(align);
+        offset = align_up(offset, align)?;
+        offsets.push(offset);
+        offset = offset
+            .checked_add(size)
+            .ok_or_else(|| anyhow::anyhow!("tuple size overflow"))?;
+    }
+    let size = align_up(offset, max_align)?;
+    Ok(TupleLayout {
+        offsets,
+        size,
+        align: max_align,
+    })
+}
+
+fn mem_ir_type(ty: &Type, aliases: &AliasMap) -> Result<IrType> {
+    let resolved = base_type(ty, aliases)?;
+    let ir = match resolved {
+        Type::U8 => IrType::U8,
+        Type::U64 => IrType::U64,
+        Type::Bool => IrType::Bool,
+        _ => IrType::Int,
+    };
+    Ok(ir)
 }
 
 pub(crate) struct LowerCtx<'a> {
@@ -186,6 +280,60 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             ctx.body.push(Instr::IStringConst { dst, s: s.clone() });
             Ok(dst)
         }
+        Expr::ArrayLit { elems, .. } => {
+            let first = elems
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("array literal requires at least one element"))?;
+            let elem_ty = infer_expr_type(first, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+            let elem_ty = base_type(&elem_ty, ctx.aliases)?;
+            let layout = array_layout(&elem_ty, elems.len() as u32, ctx.aliases)?;
+            let ptr = emit_alloc(ctx, layout.size, layout.align);
+            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
+            for (idx, elem) in elems.iter().enumerate() {
+                let offset = (idx as u64)
+                    .checked_mul(layout.stride as u64)
+                    .ok_or_else(|| anyhow::anyhow!("array literal offset overflow"))?;
+                if offset > u32::MAX as u64 {
+                    anyhow::bail!("array literal offset exceeds u32 limits");
+                }
+                let val = lower_expr(ctx, elem, Some(elem_ty.clone()))?;
+                ctx.body.push(Instr::Store {
+                    ptr,
+                    src: val,
+                    offset: offset as u32,
+                    ty: mem_ty,
+                });
+            }
+            Ok(ptr)
+        }
+        Expr::TupleLit { elems, .. } => {
+            let mut elem_tys = Vec::with_capacity(elems.len());
+            for elem in elems {
+                let ty = infer_expr_type(elem, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                elem_tys.push(base_type(&ty, ctx.aliases)?);
+            }
+            let layout = tuple_layout(&elem_tys, ctx.aliases)?;
+            let ptr = emit_alloc(ctx, layout.size, layout.align);
+            for (idx, elem) in elems.iter().enumerate() {
+                let elem_ty = elem_tys
+                    .get(idx)
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!("tuple element missing"))?;
+                let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
+                let val = lower_expr(ctx, elem, Some(elem_ty))?;
+                let offset = *layout
+                    .offsets
+                    .get(idx)
+                    .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
+                ctx.body.push(Instr::Store {
+                    ptr,
+                    src: val,
+                    offset,
+                    ty: mem_ty,
+                });
+            }
+            Ok(ptr)
+        }
         Expr::Unary { .. } => {
             anyhow::bail!("unary operators are not supported in codegen yet")
         }
@@ -246,6 +394,121 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             .get(name.as_str())
             .copied()
             .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name))),
+        Expr::Index { base, index, span } => {
+            let base_ty = infer_expr_type(base, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+            let resolved = base_type(&base_ty, ctx.aliases)?;
+            let base_ptr = lower_expr(ctx, base, None)?;
+            match resolved {
+                Type::Array(inner, len) => {
+                    let elem_ty = *inner;
+                    let layout = array_layout(&elem_ty, len, ctx.aliases)?;
+                    let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
+                    if let Expr::Int(idx, _) = index.as_ref() {
+                        if *idx < 0 || (*idx as u64) >= len as u64 {
+                            anyhow::bail!("array index out of bounds in lowering");
+                        }
+                        let offset = (*idx as u64)
+                            .checked_mul(layout.stride as u64)
+                            .ok_or_else(|| anyhow::anyhow!("array index offset overflow"))?;
+                        if offset > u32::MAX as u64 {
+                            anyhow::bail!("array index offset exceeds u32 limits");
+                        }
+                        let dst = fresh(ctx);
+                        ctx.body.push(Instr::Load {
+                            dst,
+                            ptr: base_ptr,
+                            offset: offset as u32,
+                            ty: mem_ty,
+                        });
+                        Ok(dst)
+                    } else {
+                        let idx_val = lower_expr(ctx, index, None)?;
+                        let zero = emit_int_const(ctx, 0);
+                        let ge_zero = fresh(ctx);
+                        ctx.body.push(Instr::IBin {
+                            dst: ge_zero,
+                            op: BinOpIR::Ge,
+                            lhs: idx_val,
+                            rhs: zero,
+                            ty: IrType::Int,
+                        });
+                        let len_val = emit_int_const(ctx, len as i64);
+                        let lt_len = fresh(ctx);
+                        ctx.body.push(Instr::IBin {
+                            dst: lt_len,
+                            op: BinOpIR::Lt,
+                            lhs: idx_val,
+                            rhs: len_val,
+                            ty: IrType::Int,
+                        });
+                        let ok = fresh(ctx);
+                        ctx.body.push(Instr::IBin {
+                            dst: ok,
+                            op: BinOpIR::And,
+                            lhs: ge_zero,
+                            rhs: lt_len,
+                            ty: IrType::Bool,
+                        });
+                        ctx.body.push(Instr::Guard {
+                            cond: ok,
+                            trap: TrapCode::ContractViolation,
+                            span: Some((span.start as u32, span.end as u32)),
+                            detail: GuardKind::Require,
+                        });
+                        let stride_val = emit_int_const(ctx, layout.stride as i64);
+                        let offset_val = fresh(ctx);
+                        ctx.body.push(Instr::IBin {
+                            dst: offset_val,
+                            op: BinOpIR::Mul,
+                            lhs: idx_val,
+                            rhs: stride_val,
+                            ty: IrType::Int,
+                        });
+                        let addr = fresh(ctx);
+                        ctx.body.push(Instr::IBin {
+                            dst: addr,
+                            op: BinOpIR::Add,
+                            lhs: base_ptr,
+                            rhs: offset_val,
+                            ty: IrType::Int,
+                        });
+                        let dst = fresh(ctx);
+                        ctx.body.push(Instr::Load {
+                            dst,
+                            ptr: addr,
+                            offset: 0,
+                            ty: mem_ty,
+                        });
+                        Ok(dst)
+                    }
+                }
+                Type::Tuple(elems) => {
+                    let idx = match index.as_ref() {
+                        Expr::Int(n, _) => *n,
+                        _ => anyhow::bail!("tuple index must be a constant integer"),
+                    };
+                    if idx < 0 || idx as usize >= elems.len() {
+                        anyhow::bail!("tuple index out of bounds in lowering");
+                    }
+                    let layout = tuple_layout(&elems, ctx.aliases)?;
+                    let elem_ty = elems[idx as usize].clone();
+                    let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
+                    let offset = *layout
+                        .offsets
+                        .get(idx as usize)
+                        .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
+                    let dst = fresh(ctx);
+                    ctx.body.push(Instr::Load {
+                        dst,
+                        ptr: base_ptr,
+                        offset,
+                        ty: mem_ty,
+                    });
+                    Ok(dst)
+                }
+                other => anyhow::bail!("indexing not supported for {:?}", other),
+            }
+        }
         Expr::Bin { op, lhs, rhs, .. } => {
             let lt = infer_expr_type(lhs, &ctx.type_env, &ctx.fns, ctx.aliases)?;
             let rt = infer_expr_type(rhs, &ctx.type_env, &ctx.fns, ctx.aliases)?;
@@ -646,6 +909,9 @@ fn push_non_negative_guard(ctx: &mut LowerCtx<'_>, value: Value, span: Span) {
 fn expr_span_local(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
+        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
+            *span
+        }
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }
@@ -789,6 +1055,13 @@ fn emit_int_const(ctx: &mut LowerCtx<'_>, n: i64) -> Value {
         ty: IrType::Int,
         n,
     });
+    dst
+}
+
+fn emit_alloc(ctx: &mut LowerCtx<'_>, size: u32, align: u32) -> Value {
+    let dst = fresh(ctx);
+    let align = align.max(1);
+    ctx.body.push(Instr::Alloc { dst, size, align });
     dst
 }
 

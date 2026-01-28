@@ -75,5 +75,5 @@ total size: 16 (aligned to 8)
 ```
 
 ## Implementation Status
-The compiler currently treats arrays/tuples as opaque pointers; once lowering
-allocates these values, it must use this layout.
+Lowering allocates arrays and tuples using this layout and emits loads/stores
+for literals and indexing (Phase 15.6).

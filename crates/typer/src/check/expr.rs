@@ -1,6 +1,6 @@
 use super::{
-    base_type, base_types_match, binding_compatible, effect_label, is_resource_type,
-    refinement_loss, AliasMap, EffectLevel, FnSig, LocalBinding, RETURN_KEY,
+    base_type, base_types_match, binding_compatible, effect_label, find_resource_collection,
+    is_resource_type, refinement_loss, AliasMap, EffectLevel, FnSig, LocalBinding, RETURN_KEY,
 };
 use crate::errors::TyperError;
 use anyhow::{bail, Result};
@@ -201,6 +201,88 @@ pub(super) fn type_of<'a>(
         Expr::Int(_, _) => Ok(Type::Int),
         Expr::Bool(_, _) => Ok(Type::Bool),
         Expr::String(_, _) => Ok(Type::String),
+        Expr::ArrayLit { elems, span } => {
+            let mut local_tracker = tracker.clone();
+            let first = elems
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("array literal must have at least one element"))?;
+            let elem_ty = type_of(first, env, &mut local_tracker, fns, aliases, depth + 1)?;
+            for elem in elems.iter().skip(1) {
+                let ety = type_of(elem, env, &mut local_tracker, fns, aliases, depth + 1)?;
+                if !binding_compatible(&elem_ty, &ety, aliases)? {
+                    if literal_can_coerce_unsigned(&elem_ty, &ety, elem) {
+                        continue;
+                    }
+                    if let Some(err) = unsigned_literal_range_error(&elem_ty, &ety, elem) {
+                        return Err(err.into());
+                    }
+                    let sp = expr_span(elem);
+                    if refinement_loss(&elem_ty, &ety, aliases) {
+                        return Err(TyperError::refinement_loss(elem_ty.clone(), ety, sp).into());
+                    }
+                    return Err(TyperError::element_type_mismatch(elem_ty.clone(), ety, sp).into());
+                }
+            }
+            let arr_ty = Type::Array(Box::new(elem_ty), elems.len() as u32);
+            if let Some(offending) = find_resource_collection(&arr_ty) {
+                return Err(TyperError::resource_in_collection(offending, Some(*span)).into());
+            }
+            *tracker = local_tracker;
+            Ok(arr_ty)
+        }
+        Expr::TupleLit { elems, span } => {
+            let mut local_tracker = tracker.clone();
+            let mut elem_tys = Vec::with_capacity(elems.len());
+            for elem in elems {
+                elem_tys.push(type_of(
+                    elem,
+                    env,
+                    &mut local_tracker,
+                    fns,
+                    aliases,
+                    depth + 1,
+                )?);
+            }
+            let tuple_ty = Type::Tuple(elem_tys);
+            if let Some(offending) = find_resource_collection(&tuple_ty) {
+                return Err(TyperError::resource_in_collection(offending, Some(*span)).into());
+            }
+            *tracker = local_tracker;
+            Ok(tuple_ty)
+        }
+        Expr::Index { base, index, span } => {
+            let mut local_tracker = tracker.clone();
+            let base_ty = type_of(base, env, &mut local_tracker, fns, aliases, depth + 1)?;
+            let idx_ty = type_of(index, env, &mut local_tracker, fns, aliases, depth + 1)?;
+            ensure_int(idx_ty, aliases, "index", Some(expr_span(index)))?;
+            let resolved = base_type(&base_ty, aliases)?;
+            match resolved {
+                Type::Array(inner, len) => {
+                    if let Some(idx) = int_literal_value(index) {
+                        if idx < 0 || idx as u64 >= len as u64 {
+                            return Err(
+                                TyperError::array_index_out_of_bounds(expr_span(index)).into()
+                            );
+                        }
+                    }
+                    *tracker = local_tracker;
+                    Ok(*inner)
+                }
+                Type::Tuple(elems) => {
+                    let Some(idx) = int_literal_value(index) else {
+                        return Err(TyperError::array_index_out_of_bounds(expr_span(index)).into());
+                    };
+                    if idx < 0 || idx as usize >= elems.len() {
+                        return Err(TyperError::array_index_out_of_bounds(expr_span(index)).into());
+                    }
+                    *tracker = local_tracker;
+                    Ok(elems[idx as usize].clone())
+                }
+                other => {
+                    Err(TyperError::expected_collection("array or tuple", other, *span).into())
+                }
+            }
+        }
         Expr::Block { block } => type_block(block, env, tracker, fns, aliases, depth + 1),
         Expr::If {
             cond,
@@ -1476,6 +1558,18 @@ pub(super) fn max_effect<'a>(
             let right = max_effect(rhs, fns, allowed)?;
             Ok(left.join(right))
         }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            let mut eff = EffectLevel::Pure;
+            for elem in elems {
+                eff = eff.join(max_effect(elem, fns, allowed)?);
+            }
+            Ok(eff)
+        }
+        Expr::Index { base, index, .. } => {
+            let base_eff = max_effect(base, fns, allowed)?;
+            let index_eff = max_effect(index, fns, allowed)?;
+            Ok(base_eff.join(index_eff))
+        }
         Expr::If {
             cond,
             then_br,
@@ -1564,6 +1658,17 @@ fn unsigned_literal_value(expr: &Expr) -> Option<u128> {
     }
 }
 
+fn int_literal_value(expr: &Expr) -> Option<i64> {
+    match expr {
+        Expr::Int(value, _) => Some(*value),
+        Expr::Return { expr, .. } => int_literal_value(expr),
+        Expr::Block { block } if block.statements.is_empty() => {
+            block.tail.as_ref().and_then(|tail| int_literal_value(tail))
+        }
+        _ => None,
+    }
+}
+
 fn unsigned_literal_max(target: &Type) -> Option<u128> {
     match target {
         Type::U8 => Some(u8::MAX as u128),
@@ -1629,6 +1734,9 @@ fn u64_literal_overflow(op: &BinOp, lhs: u128, rhs: u128) -> bool {
 pub(super) fn expr_span(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
+        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
+            *span
+        }
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }

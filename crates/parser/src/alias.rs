@@ -49,6 +49,10 @@ fn find_first_var(expr: &Expr) -> Option<String> {
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => None,
         Expr::Block { block } => find_first_var_in_block(block),
         Expr::Bin { lhs, rhs, .. } => find_first_var(lhs).or_else(|| find_first_var(rhs)),
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            elems.iter().find_map(find_first_var)
+        }
+        Expr::Index { base, index, .. } => find_first_var(base).or_else(|| find_first_var(index)),
         Expr::Call { args, .. } => args.iter().find_map(find_first_var),
         Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {
             find_first_var(expr)

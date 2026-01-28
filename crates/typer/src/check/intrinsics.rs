@@ -38,6 +38,15 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                 walk_expr(lhs, set);
                 walk_expr(rhs, set);
             }
+            Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+                for elem in elems {
+                    walk_expr(elem, set);
+                }
+            }
+            Expr::Index { base, index, .. } => {
+                walk_expr(base, set);
+                walk_expr(index, set);
+            }
             Expr::If {
                 cond,
                 then_br,

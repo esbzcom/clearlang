@@ -130,6 +130,14 @@ pub enum Expr {
     Bool(bool, Span),
     String(String, Span),
     Var(String, Span),
+    ArrayLit {
+        elems: Vec<Expr>,
+        span: Span,
+    },
+    TupleLit {
+        elems: Vec<Expr>,
+        span: Span,
+    },
     Block {
         block: Box<Block>,
     },
@@ -162,6 +170,11 @@ pub enum Expr {
         cond: Box<Expr>,
         then_br: Box<Expr>,
         else_br: Box<Expr>,
+        span: Span,
+    },
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
         span: Span,
     },
     Try {

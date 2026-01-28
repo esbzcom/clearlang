@@ -258,6 +258,81 @@ fn type_error_reports_json_with_span_and_code() {
 }
 
 #[test]
+fn unsigned_literal_out_of_range_reports_t112_in_json() {
+    let src = r#"
+        function main() -> U8 { U8(300) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad_u8.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T112"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
+fn unsigned_constant_overflow_reports_t113_in_json() {
+    let src = r#"
+        function main() -> U64 { U64(9223372036854775807) * U64(3) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad_u64_overflow.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T113"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
+fn array_index_out_of_bounds_reports_t114_in_json() {
+    let src = r#"
+        function main() -> Int { [1, 2][3] }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("bad_array_index.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T114"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
 fn collections_error_reports_collection_kind_error_in_json() {
     // Calling a collection API with wrong kind should yield T207 via --json-errors
     let src = r#"

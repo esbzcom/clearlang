@@ -39,6 +39,15 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
             collect_guards_from_expr(lhs, out);
             collect_guards_from_expr(rhs, out);
         }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_guards_from_expr(elem, out);
+            }
+        }
+        Expr::Index { base, index, .. } => {
+            collect_guards_from_expr(base, out);
+            collect_guards_from_expr(index, out);
+        }
         Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
             collect_guards_from_expr(expr, out);
         }
@@ -89,6 +98,15 @@ pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
         Expr::Bin { lhs, rhs, .. } => {
             collect_mut_calls(lhs, out);
             collect_mut_calls(rhs, out);
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_mut_calls(elem, out);
+            }
+        }
+        Expr::Index { base, index, .. } => {
+            collect_mut_calls(base, out);
+            collect_mut_calls(index, out);
         }
         Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
             collect_mut_calls(expr, out);

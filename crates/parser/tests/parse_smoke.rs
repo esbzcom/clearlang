@@ -184,6 +184,40 @@ fn parses_tuple_type_with_three_elems() {
 }
 
 #[test]
+fn parses_array_tuple_literals_and_indexing() {
+    let src = r#"
+        function main() -> Int { [1, 2, 3][0] + (1, 2, 3)[1] }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let expr = match &ast.funcs[0].body {
+        Expr::Block { block } => block.tail.as_deref().expect("block tail"),
+        other => other,
+    };
+    match expr {
+        Expr::Bin {
+            op: BinOp::Add,
+            lhs,
+            rhs,
+            ..
+        } => {
+            match &**lhs {
+                Expr::Index { base, .. } => {
+                    assert!(matches!(**base, Expr::ArrayLit { .. }));
+                }
+                other => panic!("expected array index on lhs, found {other:?}"),
+            }
+            match &**rhs {
+                Expr::Index { base, .. } => {
+                    assert!(matches!(**base, Expr::TupleLit { .. }));
+                }
+                other => panic!("expected tuple index on rhs, found {other:?}"),
+            }
+        }
+        other => panic!("expected add expression, found {other:?}"),
+    }
+}
+
+#[test]
 fn parses_ensure_only_contract() {
     let src = r#"
         function health() -> Int

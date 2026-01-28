@@ -35,6 +35,7 @@ const LOOP_FUEL_COST: i32 = 1;
 
 fn val_type_for_ir(ty: IrType) -> ValType {
     match ty {
+        IrType::U8 => ValType::I32,
         IrType::U64 => ValType::I64,
         IrType::U128 | IrType::U256 => ValType::I32,
         IrType::Int | IrType::Bool => ValType::I32,
@@ -442,6 +443,12 @@ fn infer_value_types(f: &IrFunction, funcs: &[IrFunction], max_id: u32) -> Resul
             IrInstr::IStringConst { dst, .. } => {
                 set_type(&mut types, *dst, ValType::I32)?;
             }
+            IrInstr::Alloc { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
+            IrInstr::Load { dst, ty, .. } => {
+                set_type(&mut types, *dst, val_type_for_ir(*ty))?;
+            }
             IrInstr::IBin { dst, op, ty, .. } => {
                 let res_ty = match op {
                     BinOpIR::Add
@@ -514,6 +521,7 @@ fn infer_value_types(f: &IrFunction, funcs: &[IrFunction], max_id: u32) -> Resul
             }
             IrInstr::Guard { .. }
             | IrInstr::ReturnIf { .. }
+            | IrInstr::Store { .. }
             | IrInstr::BrIf { .. }
             | IrInstr::BrIfEqz { .. }
             | IrInstr::BlockBegin
@@ -546,6 +554,9 @@ fn encode_ir_function(
         match ins {
             IrInstr::IConst { dst, .. } => max_id = max_id.max(dst.0),
             IrInstr::IStringConst { dst, .. } => max_id = max_id.max(dst.0),
+            IrInstr::Alloc { dst, .. } => max_id = max_id.max(dst.0),
+            IrInstr::Load { dst, ptr, .. } => max_id = max_id.max(dst.0).max(ptr.0),
+            IrInstr::Store { ptr, src, .. } => max_id = max_id.max(ptr.0).max(src.0),
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
@@ -650,7 +661,7 @@ fn encode_ir_function(
             IrInstr::IConst { dst, n, ty } => {
                 match ty {
                     IrType::U64 => insts.i64_const(*n),
-                    IrType::U128 | IrType::U256 | IrType::Int | IrType::Bool => {
+                    IrType::U8 | IrType::U128 | IrType::U256 | IrType::Int | IrType::Bool => {
                         insts.i32_const(*n as i32)
                     }
                 };
@@ -662,6 +673,97 @@ fn encode_ir_function(
                     .ok_or_else(|| anyhow::anyhow!("missing string offset for literal"))?;
                 insts.i32_const(*off as i32);
                 insts.local_set(dst.0);
+            }
+            IrInstr::Alloc { dst, size, align } => {
+                insts.global_get(HEAP_PTR_GLOBAL);
+                insts.local_set(dst.0);
+
+                if *align > 1 {
+                    insts.local_get(dst.0);
+                    insts.i32_const((*align as i32) - 1);
+                    insts.i32_add();
+                    insts.i32_const(-(*align as i32));
+                    insts.i32_and();
+                    insts.local_set(dst.0);
+                }
+
+                insts.local_get(dst.0);
+                insts.i32_const(*size as i32);
+                insts.i32_add();
+                insts.memory_size(0);
+                insts.i32_const(65536);
+                insts.i32_mul();
+                insts.i32_gt_u();
+                insts.if_(BlockType::Empty);
+                emit_runtime_trap(
+                    &mut insts,
+                    TrapCode::AllocatorOom,
+                    TrapOperand::local(dst.0),
+                    TrapOperand::zero(),
+                    0,
+                );
+                insts.end();
+
+                insts.local_get(dst.0);
+                insts.i32_const(*size as i32);
+                insts.i32_add();
+                insts.global_set(HEAP_PTR_GLOBAL);
+            }
+            IrInstr::Load {
+                dst,
+                ptr,
+                offset,
+                ty,
+            } => {
+                insts.local_get(ptr.0);
+                match ty {
+                    IrType::U64 => insts.i64_load(MemArg {
+                        align: 3,
+                        offset: (*offset).into(),
+                        memory_index: 0,
+                    }),
+                    IrType::U8 => insts.i32_load8_u(MemArg {
+                        align: 0,
+                        offset: (*offset).into(),
+                        memory_index: 0,
+                    }),
+                    IrType::U128 | IrType::U256 | IrType::Int | IrType::Bool => {
+                        insts.i32_load(MemArg {
+                            align: 2,
+                            offset: (*offset).into(),
+                            memory_index: 0,
+                        })
+                    }
+                };
+                insts.local_set(dst.0);
+            }
+            IrInstr::Store {
+                ptr,
+                src,
+                offset,
+                ty,
+            } => {
+                insts.local_get(ptr.0);
+                insts.local_get(src.0);
+                match ty {
+                    IrType::U64 => insts.i64_store(MemArg {
+                        align: 3,
+                        offset: (*offset).into(),
+                        memory_index: 0,
+                    }),
+                    IrType::U8 => insts.i32_store8(MemArg {
+                        align: 0,
+                        offset: (*offset).into(),
+                        memory_index: 0,
+                    }),
+                    IrType::U128 | IrType::U256 | IrType::Int | IrType::Bool => {
+                        insts.i32_store(MemArg {
+                            align: 2,
+                            offset: (*offset).into(),
+                            memory_index: 0,
+                        })
+                    }
+                };
             }
             IrInstr::IBin {
                 dst,
@@ -680,75 +782,93 @@ fn encode_ir_function(
                 match op {
                     BinOpIR::Add => match ty {
                         IrType::U64 => insts.i64_add(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_add(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_add()
+                        }
                     },
                     BinOpIR::Sub => match ty {
                         IrType::U64 => insts.i64_sub(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_sub(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_sub()
+                        }
                     },
                     BinOpIR::Mul => match ty {
                         IrType::U64 => insts.i64_mul(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_mul(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_mul()
+                        }
                     },
                     BinOpIR::Div => match ty {
                         IrType::U64 => insts.i64_div_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_div_s()
                         }
                     },
                     BinOpIR::Shl => match ty {
                         IrType::U64 => insts.i64_shl(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_shl(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_shl()
+                        }
                     },
                     BinOpIR::Shr => match ty {
                         IrType::U64 => insts.i64_shr_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_shr_s()
                         }
                     },
                     BinOpIR::Lt => match ty {
                         IrType::U64 => insts.i64_lt_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_lt_s()
                         }
                     },
                     BinOpIR::Le => match ty {
                         IrType::U64 => insts.i64_le_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_le_s()
                         }
                     },
                     BinOpIR::Gt => match ty {
                         IrType::U64 => insts.i64_gt_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_gt_s()
                         }
                     },
                     BinOpIR::Ge => match ty {
                         IrType::U64 => insts.i64_ge_u(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_ge_s()
                         }
                     },
                     BinOpIR::Eq => match ty {
                         IrType::U64 => insts.i64_eq(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_eq(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_eq()
+                        }
                     },
                     BinOpIR::Neq => match ty {
                         IrType::U64 => insts.i64_ne(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_ne(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_ne()
+                        }
                     },
                     BinOpIR::And => match ty {
                         IrType::U64 => insts.i64_and(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_and(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_and()
+                        }
                     },
                     BinOpIR::Or => match ty {
                         IrType::U64 => insts.i64_or(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_or(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_or()
+                        }
                     },
                     BinOpIR::Xor => match ty {
                         IrType::U64 => insts.i64_xor(),
-                        IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => insts.i32_xor(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_xor()
+                        }
                     },
                 };
                 insts.local_set(dst.0);

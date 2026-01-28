@@ -642,6 +642,64 @@ fn collect_refinement_obligations<'a>(
         Expr::Bool(_, _) => Some(Type::Bool),
         Expr::String(_, _) => Some(Type::String),
         Expr::Var(name, _) => env.get(name).cloned(),
+        Expr::ArrayLit { elems, .. } => {
+            let mut elem_tys: Vec<Option<Type>> = Vec::with_capacity(elems.len());
+            for elem in elems {
+                elem_tys.push(collect_refinement_obligations(
+                    elem,
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                ));
+            }
+            let Some(first) = elem_tys.first().cloned().flatten() else {
+                return None;
+            };
+            if elem_tys
+                .iter()
+                .skip(1)
+                .all(|ty| ty.as_ref() == Some(&first))
+            {
+                Some(Type::Array(Box::new(first), elems.len() as u32))
+            } else {
+                None
+            }
+        }
+        Expr::TupleLit { elems, .. } => {
+            let mut tys: Vec<Type> = Vec::with_capacity(elems.len());
+            for elem in elems {
+                let Some(ty) =
+                    collect_refinement_obligations(elem, aliases, fn_sigs, &mut env.clone(), out)
+                else {
+                    return None;
+                };
+                tys.push(ty);
+            }
+            Some(Type::Tuple(tys))
+        }
+        Expr::Index { base, index, .. } => {
+            let base_ty = collect_refinement_obligations(
+                base.as_ref(),
+                aliases,
+                fn_sigs,
+                &mut env.clone(),
+                out,
+            );
+            collect_refinement_obligations(index.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            match base_ty {
+                Some(Type::Array(inner, _)) => Some(*inner),
+                Some(Type::Tuple(elems)) => {
+                    if let Expr::Int(idx, _) = index.as_ref() {
+                        let idx = *idx as usize;
+                        elems.get(idx).cloned()
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        }
         Expr::Unary { expr, .. } => {
             collect_refinement_obligations(expr.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
             Some(Type::Bool)
@@ -1051,6 +1109,25 @@ fn substitute_binder(expr: &Expr, binder: &str, replacement: &Expr) -> Expr {
     match expr {
         Expr::Var(name, _) if name == binder => replacement.clone(),
         Expr::Var(_, _) | Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => expr.clone(),
+        Expr::ArrayLit { elems, span } => Expr::ArrayLit {
+            elems: elems
+                .iter()
+                .map(|e| substitute_binder(e, binder, replacement))
+                .collect(),
+            span: *span,
+        },
+        Expr::TupleLit { elems, span } => Expr::TupleLit {
+            elems: elems
+                .iter()
+                .map(|e| substitute_binder(e, binder, replacement))
+                .collect(),
+            span: *span,
+        },
+        Expr::Index { base, index, span } => Expr::Index {
+            base: Box::new(substitute_binder(base, binder, replacement)),
+            index: Box::new(substitute_binder(index, binder, replacement)),
+            span: *span,
+        },
         Expr::Bin { op, lhs, rhs, span } => Expr::Bin {
             op: *op,
             lhs: Box::new(substitute_binder(lhs, binder, replacement)),
@@ -1146,6 +1223,25 @@ fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
     match expr {
         Expr::Var(name, _) if name == "result" => replacement.clone(),
         Expr::Var(_, _) | Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => expr.clone(),
+        Expr::ArrayLit { elems, span } => Expr::ArrayLit {
+            elems: elems
+                .iter()
+                .map(|e| substitute_result(e, replacement))
+                .collect(),
+            span: *span,
+        },
+        Expr::TupleLit { elems, span } => Expr::TupleLit {
+            elems: elems
+                .iter()
+                .map(|e| substitute_result(e, replacement))
+                .collect(),
+            span: *span,
+        },
+        Expr::Index { base, index, span } => Expr::Index {
+            base: Box::new(substitute_result(base, replacement)),
+            index: Box::new(substitute_result(index, replacement)),
+            span: *span,
+        },
         Expr::Bin { op, lhs, rhs, span } => Expr::Bin {
             op: *op,
             lhs: Box::new(substitute_result(lhs, replacement)),
@@ -1224,6 +1320,27 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
         Expr::Bool(b, _) => b.to_string(),
         Expr::String(s, _) => format!("\"{}\"", s),
         Expr::Var(name, _) => name.clone(),
+        Expr::ArrayLit { elems, .. } => {
+            let rendered = elems
+                .iter()
+                .map(|e| expr_to_source(e, 0))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("[{}]", rendered)
+        }
+        Expr::TupleLit { elems, .. } => {
+            let rendered = elems
+                .iter()
+                .map(|e| expr_to_source(e, 0))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("({})", rendered)
+        }
+        Expr::Index { base, index, .. } => {
+            let base_str = expr_to_source(base, precedence_unary());
+            let index_str = expr_to_source(index, 0);
+            format!("{}[{}]", base_str, index_str)
+        }
         Expr::Unary { op, expr, .. } => match op {
             UnaryOp::Not => {
                 let inner = expr_to_source(expr, precedence_unary());
@@ -1370,6 +1487,7 @@ impl SmtEncoder {
             Expr::Bool(b, _) => b.to_string(),
             Expr::String(s, _) => format!("\"{}\"", s),
             Expr::Var(name, _) => name.clone(),
+            Expr::ArrayLit { .. } | Expr::TupleLit { .. } | Expr::Index { .. } => "0".to_string(),
             Expr::Unary { op, expr, .. } => match op {
                 UnaryOp::Not => format!("(not {})", self.encode_inner(expr)),
             },
@@ -1655,6 +1773,15 @@ fn collect_loops<'a>(expr: &'a Expr, out: &mut Vec<LoopObligation<'a>>) {
             collect_loops(lhs, out);
             collect_loops(rhs, out);
         }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_loops(elem, out);
+            }
+        }
+        Expr::Index { base, index, .. } => {
+            collect_loops(base, out);
+            collect_loops(index, out);
+        }
         Expr::Call { args, .. } => {
             for arg in args {
                 collect_loops(arg, out);
@@ -1699,6 +1826,9 @@ fn collect_loops_block<'a>(block: &'a clg_ast::Block, out: &mut Vec<LoopObligati
 fn expr_span(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
+        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
+            *span
+        }
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }
@@ -1740,6 +1870,9 @@ fn merge_span(lhs: &Expr, rhs: &Expr) -> Span {
 fn span_of(expr: &Expr) -> Span {
     match expr {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
+        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
+            *span
+        }
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }

@@ -13,7 +13,7 @@ Scope
 Types
 
 - Primitive types: `Int`, `Bool`.
-- Unsigned integers: `U8`, `U64`, `U128`, `U256` are supported (U128/U256 are limb-backed values).
+- Unsigned integers: `U8`, `U64`, `U128`, `U256` are supported (U128/U256 are limb-backed values). `U8` is currently intended for byte storage; arithmetic and bitwise ops are only implemented for `Int` and `U64` in Phase 15.
   - Policy: checked overflow by default for U64 arithmetic; U128/U256 arithmetic is not supported yet (T110).
   - Helper intrinsics: `std::u128::from_limbs`, `std::u128::{lo,hi}`, `std::u256::from_limbs`, `std::u256::limb0`/`limb1`/`limb2`/`limb3`.
   - Literal typing: bare literals can coerce to `U8`/`U64`/`U128`/`U256` when the expected type is unsigned; otherwise they remain `Int`. Use `U8(...)`, `U64(...)`, `U128(...)`, or `U256(...)` for explicit unsigned literals; only non-negative literals are accepted and range-checked (T112).
@@ -25,9 +25,9 @@ Types
 
 - Bytes: `Bytes` is an opaque byte buffer type (Phase 14 contract ABI surface).
 
-- Fixed-size arrays: `[T; N]` where `N` is a non-negative `u32` literal known at compile time. Arrays are currently type-only (no indexing or literals yet) and lower to opaque `i32` handles until the ABI layout is specified (Phase 15.5).
+- Fixed-size arrays: `[T; N]` where `N` is a non-negative `u32` literal known at compile time. Arrays lower to heap-allocated layouts defined in `docs/runtime/arrays-tuples.md`. Array literals `[e1, e2, ...]` and indexing `arr[i]` are supported; literal indices are bounds-checked at compile time and dynamic indices emit runtime guards.
 
-- Tuples: `(T1, T2, ...)` with arity >= 2 (used for hash/key pairs). Tuples are type-only for now and lower to opaque `i32` handles; resource elements are rejected by the same resource-in-collection checks that cover `List`/`Map`/`Set`.
+- Tuples: `(T1, T2, ...)` with arity >= 2 (used for hash/key pairs). Tuples lower to the same heap layout rules in `docs/runtime/arrays-tuples.md`. Tuple literals `(e1, e2, ...)` are supported; indexing requires a constant integer index. Resource elements are rejected by the same resource-in-collection checks that cover `List`/`Map`/`Set`.
 
 - Chain packages: chain-scoped types (e.g., `std::eth::Address`) are defined in chain packages, not the core type system.
 

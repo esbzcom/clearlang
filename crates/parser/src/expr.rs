@@ -362,11 +362,53 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             ))
         });
 
+        let array_lit = expr
+            .clone()
+            .separated_by(just(',').padded().labelled("comma"))
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .delimited_by(
+                just('[').padded().labelled("'['"),
+                just(']').padded().labelled("']'"),
+            )
+            .map_with(|elems, e| {
+                let sp = e.span();
+                Expr::ArrayLit {
+                    elems,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
+            });
+
+        let tuple_lit = expr
+            .clone()
+            .separated_by(just(',').padded().labelled("comma"))
+            .at_least(2)
+            .collect::<Vec<_>>()
+            .delimited_by(
+                just('(').padded().labelled("'('"),
+                just(')').padded().labelled("')'"),
+            )
+            .map_with(|elems, e| {
+                let sp = e.span();
+                Expr::TupleLit {
+                    elems,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
+            });
+
         let atom_base = choice((
             contract_kw_hint,
             int_lit(),
             bool_lit(),
             str_lit(),
+            array_lit,
+            tuple_lit,
             block_expr.clone(),
             expr.clone().delimited_by(
                 just('(').padded().labelled("'('"),
@@ -416,6 +458,9 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => {
                     (sp.start, sp.end)
                 }
+                Expr::ArrayLit { span, .. }
+                | Expr::TupleLit { span, .. }
+                | Expr::Index { span, .. } => (span.start, span.end),
                 Expr::Block { block } => (block.span.start, block.span.end),
                 Expr::Bin { span, .. }
                 | Expr::Call { span, .. }
@@ -427,11 +472,30 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             }
         }
 
+        let indexer = just('[')
+            .padded()
+            .ignore_then(expr.clone())
+            .then_ignore(just(']').padded())
+            .map(|idx| idx);
+
+        let postfix = atom
+            .clone()
+            .foldl(indexer.repeated(), |base, index| {
+                let (ls, _) = span_of(&base);
+                let (_, re) = span_of(&index);
+                Expr::Index {
+                    base: Box::new(base),
+                    index: Box::new(index),
+                    span: Span { start: ls, end: re },
+                }
+            })
+            .boxed();
+
         let unary = just('!')
             .padded()
             .repeated()
             .collect::<Vec<_>>()
-            .then(atom.clone())
+            .then(postfix.clone())
             .map_with(|(nots, expr), e| {
                 let sp = e.span();
                 nots.into_iter().fold(expr, |acc, _| Expr::Unary {

@@ -643,13 +643,13 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 16.1.3 Typer: add builtins and effect gating for hash/HMAC intrinsics.
     - [x] 16.1.4 IR/codegen: add intrinsics and Wasm import plumbing.
     - [x] 16.1.5 Runtime stubs for `clg run` with deterministic behavior.
-    - [ ] 16.1.6 Tests: vector-based positive cases and invalid alg/length diagnostics.
+    - [x] 16.1.6 Tests: vector-based positive cases and invalid alg/length diagnostics.
   - [ ] 16.2 Signature verification (ed25519/secp256k1) with strict input validation. (API spec, builtins, codegen stubs, tests, error codes.)
     - [x] 16.2.1 Define API surface (return type, inputs, effect) and algorithm identifiers.
     - [x] 16.2.2 Typer: add builtins and effect gating for signature verification.
     - [x] 16.2.3 IR/codegen: add intrinsic and Wasm import plumbing.
     - [x] 16.2.4 Runtime stubs for `clg run` with deterministic behavior.
-    - [ ] 16.2.5 Tests: valid signature, wrong key/sig, bad alg/length, error codes.
+    - [x] 16.2.5 Tests: valid signature, wrong key/sig, bad alg/length, error codes.
   - [ ] 16.3 Constant-time byte equality helper for secret comparisons. (API spec, intrinsic, tests.)
     - [x] 16.3.1 Decide implementation path (pure helper vs host import) and document the choice.
     - [x] 16.3.2 Implement helper/intrinsic and wire into IR/codegen as needed.

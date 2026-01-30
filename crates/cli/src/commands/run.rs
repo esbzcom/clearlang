@@ -1,6 +1,13 @@
 use anyhow::{anyhow, Context, Result};
+use blake2::digest::consts::U32;
+use blake2::{Blake2b, Blake2s256};
 use clg_ir::TrapCode;
+use crypto_common::BlockSizeUser;
+use ed25519_dalek::{Signature as EdSignature, VerifyingKey as EdVerifyingKey};
+use k256::ecdsa::signature::Verifier as SecpVerifier;
+use k256::ecdsa::{Signature as SecpSignature, VerifyingKey as SecpVerifyingKey};
 use sha2::{Digest, Sha256};
+use sha3::Keccak256;
 use std::path::{Path, PathBuf};
 use wasmtime as wt;
 use wasmtime_wasi::sync::WasiCtxBuilder;
@@ -204,6 +211,23 @@ fn add_crypto_stubs(linker: &mut wt::Linker<wasmtime_wasi::WasiCtx>) -> Result<(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CryptoError {
+    Unsupported,
+    InvalidLength,
+    Malformed,
+}
+
+impl CryptoError {
+    fn trap_code(self) -> TrapCode {
+        match self {
+            CryptoError::Unsupported => TrapCode::CryptoUnsupported,
+            CryptoError::InvalidLength => TrapCode::CryptoInvalidLength,
+            CryptoError::Malformed => TrapCode::CryptoMalformed,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum ReadBufferError {
     InvalidLayout,
@@ -267,6 +291,93 @@ fn set_runtime_error<T>(caller: &mut wt::Caller<'_, T>, code: TrapCode) {
     let _ = set_caller_global_i32(caller, "__clg_runtime_error_detail", 0);
 }
 
+type Blake2b256 = Blake2b<U32>;
+
+fn digest_bytes<D: Digest>(data: &[u8]) -> Vec<u8> {
+    let mut hasher = D::new();
+    hasher.update(data);
+    hasher.finalize().to_vec()
+}
+
+fn hmac_bytes<D>(key: &[u8], data: &[u8]) -> Vec<u8>
+where
+    D: Digest + BlockSizeUser + Clone + Default,
+{
+    let block_size = D::block_size();
+    let mut key_block = vec![0u8; block_size];
+    if key.len() > block_size {
+        let hashed = digest_bytes::<D>(key);
+        key_block[..hashed.len()].copy_from_slice(&hashed);
+    } else {
+        key_block[..key.len()].copy_from_slice(key);
+    }
+
+    let mut ipad = vec![0x36u8; block_size];
+    let mut opad = vec![0x5cu8; block_size];
+    for i in 0..block_size {
+        ipad[i] ^= key_block[i];
+        opad[i] ^= key_block[i];
+    }
+
+    let mut inner = D::new();
+    inner.update(&ipad);
+    inner.update(data);
+    let inner_hash = inner.finalize();
+
+    let mut outer = D::new();
+    outer.update(&opad);
+    outer.update(inner_hash);
+    outer.finalize().to_vec()
+}
+
+fn crypto_hash_bytes(alg: &str, data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    match alg {
+        "sha256" => Ok(digest_bytes::<Sha256>(data)),
+        "keccak256" => Ok(digest_bytes::<Keccak256>(data)),
+        "blake2b256" => Ok(digest_bytes::<Blake2b256>(data)),
+        "blake2s256" => Ok(digest_bytes::<Blake2s256>(data)),
+        _ => Err(CryptoError::Unsupported),
+    }
+}
+
+fn crypto_hmac_bytes(alg: &str, key: &[u8], data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    match alg {
+        "sha256" => Ok(hmac_bytes::<Sha256>(key, data)),
+        "keccak256" => Ok(hmac_bytes::<Keccak256>(key, data)),
+        "blake2b256" => Ok(hmac_bytes::<Blake2b256>(key, data)),
+        "blake2s256" => Ok(hmac_bytes::<Blake2s256>(key, data)),
+        _ => Err(CryptoError::Unsupported),
+    }
+}
+
+fn crypto_verify_bytes(
+    alg: &str,
+    msg: &[u8],
+    sig: &[u8],
+    pk: &[u8],
+) -> Result<bool, CryptoError> {
+    match alg {
+        "ed25519" => {
+            if pk.len() != 32 || sig.len() != 64 {
+                return Err(CryptoError::InvalidLength);
+            }
+            let pk_bytes: &[u8; 32] = pk.try_into().map_err(|_| CryptoError::InvalidLength)?;
+            let vk = EdVerifyingKey::from_bytes(pk_bytes).map_err(|_| CryptoError::Malformed)?;
+            let sig = EdSignature::try_from(sig).map_err(|_| CryptoError::Malformed)?;
+            Ok(vk.verify_strict(msg, &sig).is_ok())
+        }
+        "secp256k1" => {
+            if !matches!(pk.len(), 33 | 65) || sig.len() != 64 {
+                return Err(CryptoError::InvalidLength);
+            }
+            let vk = SecpVerifyingKey::from_sec1_bytes(pk).map_err(|_| CryptoError::Malformed)?;
+            let sig = SecpSignature::from_slice(sig).map_err(|_| CryptoError::Malformed)?;
+            Ok(vk.verify(msg, &sig).is_ok())
+        }
+        _ => Err(CryptoError::Unsupported),
+    }
+}
+
 fn crypto_hash_stub<T>(
     caller: &mut wt::Caller<'_, T>,
     alg_ptr: i32,
@@ -294,22 +405,16 @@ fn crypto_hash_stub<T>(
             return Ok(0);
         }
     };
-    if !matches!(
-        alg.as_str(),
-        "sha256" | "keccak256" | "blake2b256" | "blake2s256"
-    ) {
-        set_runtime_error(caller, TrapCode::CryptoUnsupported);
-        return Ok(0);
-    }
-
-    let mut hasher = Sha256::new();
-    hasher.update(alg.as_bytes());
-    hasher.update(&data);
-    let digest = hasher.finalize();
-    match write_bytes(caller, &digest[..32]) {
-        Ok(ptr) => Ok(ptr),
-        Err(_) => {
-            set_runtime_error(caller, TrapCode::AllocatorOom);
+    match crypto_hash_bytes(alg.as_str(), &data) {
+        Ok(digest) => match write_bytes(caller, &digest) {
+            Ok(ptr) => Ok(ptr),
+            Err(_) => {
+                set_runtime_error(caller, TrapCode::AllocatorOom);
+                Ok(0)
+            }
+        },
+        Err(err) => {
+            set_runtime_error(caller, err.trap_code());
             Ok(0)
         }
     }
@@ -354,23 +459,16 @@ fn crypto_hmac_stub<T>(
             return Ok(0);
         }
     };
-    if !matches!(
-        alg.as_str(),
-        "sha256" | "keccak256" | "blake2b256" | "blake2s256"
-    ) {
-        set_runtime_error(caller, TrapCode::CryptoUnsupported);
-        return Ok(0);
-    }
-
-    let mut hasher = Sha256::new();
-    hasher.update(alg.as_bytes());
-    hasher.update(&key);
-    hasher.update(&data);
-    let digest = hasher.finalize();
-    match write_bytes(caller, &digest[..32]) {
-        Ok(ptr) => Ok(ptr),
-        Err(_) => {
-            set_runtime_error(caller, TrapCode::AllocatorOom);
+    match crypto_hmac_bytes(alg.as_str(), &key, &data) {
+        Ok(digest) => match write_bytes(caller, &digest) {
+            Ok(ptr) => Ok(ptr),
+            Err(_) => {
+                set_runtime_error(caller, TrapCode::AllocatorOom);
+                Ok(0)
+            }
+        },
+        Err(err) => {
+            set_runtime_error(caller, err.trap_code());
             Ok(0)
         }
     }
@@ -428,28 +526,13 @@ fn crypto_verify_stub<T>(
         }
     };
 
-    match alg.as_str() {
-        "ed25519" => {
-            if pk.len() != 32 || sig.len() != 64 {
-                set_runtime_error(caller, TrapCode::CryptoInvalidLength);
-                return Ok(0);
-            }
-        }
-        "secp256k1" => {
-            if !matches!(pk.len(), 33 | 65) || sig.len() != 64 {
-                set_runtime_error(caller, TrapCode::CryptoInvalidLength);
-                return Ok(0);
-            }
-        }
-        _ => {
-            set_runtime_error(caller, TrapCode::CryptoUnsupported);
-            return Ok(0);
+    match crypto_verify_bytes(alg.as_str(), &msg, &sig, &pk) {
+        Ok(ok) => Ok(if ok { 1 } else { 0 }),
+        Err(err) => {
+            set_runtime_error(caller, err.trap_code());
+            Ok(0)
         }
     }
-
-    // Deterministic stub: always return false (0).
-    let _ = msg;
-    Ok(0)
 }
 
 fn get_caller_memory<T>(caller: &mut wt::Caller<'_, T>) -> Result<wt::Memory> {
@@ -603,5 +686,74 @@ fn extract_wasmtime_limit_error(trap: &anyhow::Error) -> Option<RuntimeErrorDiag
             detail: None,
         }),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crypto_hash_sha256_vector() {
+        let digest = crypto_hash_bytes("sha256", b"abc").expect("hash ok");
+        let expected = hex::decode(
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        )
+        .expect("hex");
+        assert_eq!(digest, expected);
+    }
+
+    #[test]
+    fn crypto_hmac_sha256_vector() {
+        let digest = crypto_hmac_bytes(
+            "sha256",
+            b"key",
+            b"The quick brown fox jumps over the lazy dog",
+        )
+        .expect("hmac ok");
+        let expected = hex::decode(
+            "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+        )
+        .expect("hex");
+        assert_eq!(digest, expected);
+    }
+
+    #[test]
+    fn crypto_verify_ed25519_vector_true() {
+        let pk = hex::decode(
+            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        )
+        .expect("pk");
+        let sig = hex::decode("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
+            .expect("sig");
+        let ok = crypto_verify_bytes("ed25519", b"", &sig, &pk).expect("verify ok");
+        assert!(ok, "expected ed25519 vector to verify");
+    }
+
+    #[test]
+    fn crypto_verify_ed25519_wrong_sig_false() {
+        let pk = hex::decode(
+            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        )
+        .expect("pk");
+        let mut sig = hex::decode("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
+            .expect("sig");
+        sig[0] ^= 0x01;
+        let ok = crypto_verify_bytes("ed25519", b"", &sig, &pk).expect("verify ok");
+        assert!(!ok, "expected wrong signature to fail");
+    }
+
+    #[test]
+    fn crypto_verify_invalid_length_reports_error() {
+        let err = crypto_verify_bytes("ed25519", b"", &[0u8; 63], &[0u8; 32])
+            .expect_err("invalid length");
+        assert_eq!(err, CryptoError::InvalidLength);
+    }
+
+    #[test]
+    fn crypto_verify_malformed_secp256k1_reports_error() {
+        let err = crypto_verify_bytes("secp256k1", b"msg", &[0u8; 64], &[0u8; 33])
+            .expect_err("malformed input");
+        assert_eq!(err, CryptoError::Malformed);
     }
 }

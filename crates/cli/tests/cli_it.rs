@@ -911,6 +911,80 @@ fn runtime_crypto_unknown_alg_reports_r006_json() {
 }
 
 #[test]
+fn runtime_crypto_invalid_length_reports_r007_json() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("crypto_bad_len.clear");
+    let wasm_path = tmp.path().join("crypto_bad_len.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::crypto::verify(
+                "ed25519",
+                std::bytes::from_string(""),
+                std::bytes::from_string("short"),
+                std::bytes::from_string("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            );
+            0
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("\"code\": \"R007\""));
+}
+
+#[test]
+fn runtime_crypto_malformed_reports_r008_json() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("crypto_bad_encoding.clear");
+    let wasm_path = tmp.path().join("crypto_bad_encoding.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::crypto::verify(
+                "secp256k1",
+                std::bytes::from_string("msg"),
+                std::bytes::from_string("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+                std::bytes::from_string("!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            );
+            0
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("\"code\": \"R008\""));
+}
+
+#[test]
 fn run_bytes_eq_ct_returns_true() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("bytes_eq_ct.clear");

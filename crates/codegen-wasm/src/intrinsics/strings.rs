@@ -283,6 +283,206 @@ pub fn encode_intrinsic_str_eq(_f: &IrFunction) -> Result<Function> {
     Ok(fenc)
 }
 
+pub fn encode_intrinsic_bytes_eq_ct(_f: &IrFunction) -> Result<Function> {
+    // Locals: len(2), pa(3), pb(4), diff(5), limit(6), len_b(7), end(8)
+    let locals: Vec<(u32, ValType)> = vec![(7, ValType::I32)];
+    let mut fenc = Function::new(locals);
+    let mut insts = fenc.instructions();
+
+    // memory limit in bytes
+    insts.memory_size(0);
+    insts.i32_const(65536);
+    insts.i32_mul();
+    insts.local_set(6);
+
+    // Validate pointer a
+    insts.local_get(0);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(0),
+        TrapOperand::local(0),
+        0,
+    );
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(0),
+        TrapOperand::zero(),
+        0,
+    );
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(2);
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(2);
+    insts.i32_add();
+    insts.local_set(8);
+
+    insts.local_get(8);
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(0),
+        TrapOperand::local(8),
+        0,
+    );
+    insts.end();
+
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(3);
+
+    // Validate pointer b
+    insts.local_get(1);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(1),
+        TrapOperand::local(1),
+        0,
+    );
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(1),
+        TrapOperand::zero(),
+        0,
+    );
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_load(MemArg {
+        align: 2,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_set(7);
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(7);
+    insts.i32_add();
+    insts.local_set(8);
+
+    insts.local_get(8);
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(1),
+        TrapOperand::local(8),
+        0,
+    );
+    insts.end();
+
+    insts.local_get(1);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_set(4);
+
+    // Compare lengths; only do constant-time compare when lengths match
+    insts.local_get(2);
+    insts.local_get(7);
+    insts.i32_ne();
+    insts.if_(BlockType::Result(ValType::I32));
+    insts.i32_const(0);
+    insts.else_();
+
+    // diff = 0
+    insts.i32_const(0);
+    insts.local_set(5);
+
+    // block { loop { ... } }
+    insts.block(BlockType::Empty);
+    insts.loop_(BlockType::Empty);
+    // if (len == 0) break block;
+    insts.local_get(2);
+    insts.i32_eqz();
+    insts.br_if(1);
+
+    // diff |= (*pa ^ *pb)
+    insts.local_get(5);
+    insts.local_get(3);
+    insts.i32_load8_u(MemArg {
+        align: 0,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.local_get(4);
+    insts.i32_load8_u(MemArg {
+        align: 0,
+        offset: 0,
+        memory_index: 0,
+    });
+    insts.i32_xor();
+    insts.i32_or();
+    insts.local_set(5);
+
+    // pa++; pb++; len--;
+    insts.local_get(3);
+    insts.i32_const(1);
+    insts.i32_add();
+    insts.local_set(3);
+    insts.local_get(4);
+    insts.i32_const(1);
+    insts.i32_add();
+    insts.local_set(4);
+    insts.local_get(2);
+    insts.i32_const(1);
+    insts.i32_sub();
+    insts.local_set(2);
+
+    insts.br(0);
+    insts.end();
+    insts.end();
+
+    insts.local_get(5);
+    insts.i32_eqz();
+    insts.end();
+
+    insts.end();
+    Ok(fenc)
+}
+
 pub fn encode_intrinsic_str_concat(_f: &IrFunction) -> Result<Function> {
     // Params: a: i32, b: i32; Return: i32 (ptr)
     // Locals: len_a(2), len_b(3), total(4), dest(5), pa(6), pb(7), end(8), limit(9)

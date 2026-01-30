@@ -12,9 +12,15 @@ use wasm_encoder::{
 };
 
 use crate::intrinsics::{
+    crypto::{
+        encode_intrinsic_crypto_hash, encode_intrinsic_crypto_hmac, encode_intrinsic_crypto_verify,
+    },
     env::{encode_intrinsic_env_random, encode_intrinsic_env_time},
     runtime::{emit_guard_trap, emit_runtime_trap, encode_intrinsic_identity, TrapOperand},
-    strings::{encode_intrinsic_str_concat, encode_intrinsic_str_eq, encode_intrinsic_str_len},
+    strings::{
+        encode_intrinsic_bytes_eq_ct, encode_intrinsic_str_concat, encode_intrinsic_str_eq,
+        encode_intrinsic_str_len,
+    },
     u64::{
         encode_intrinsic_u64_from_bytes_be, encode_intrinsic_u64_from_bytes_le,
         encode_intrinsic_u64_rotl, encode_intrinsic_u64_rotr, encode_intrinsic_u64_to_bytes_be,
@@ -88,6 +94,9 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let has_wasi_print = ir.funcs.iter().any(|f| f.name == "std::wasi::print");
     let has_env_time = ir.funcs.iter().any(|f| f.name == "std::env::time");
     let has_env_random = ir.funcs.iter().any(|f| f.name == "std::env::random");
+    let has_crypto_hash = ir.funcs.iter().any(|f| f.name == "std::crypto::hash");
+    let has_crypto_hmac = ir.funcs.iter().any(|f| f.name == "std::crypto::hmac");
+    let has_crypto_verify = ir.funcs.iter().any(|f| f.name == "std::crypto::verify");
 
     // Build function types with deduplication, and record each function's type index
     #[derive(Hash, Eq, PartialEq, Clone)]
@@ -136,12 +145,33 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     } else {
         None
     };
+    let crypto_hash_ty = if has_crypto_hash {
+        Some(type_index_for(vec![ValType::I32, ValType::I32], vec![ValType::I32]))
+    } else {
+        None
+    };
+    let crypto_hmac_ty = if has_crypto_hmac {
+        Some(type_index_for(vec![ValType::I32, ValType::I32, ValType::I32], vec![ValType::I32]))
+    } else {
+        None
+    };
+    let crypto_verify_ty = if has_crypto_verify {
+        Some(type_index_for(
+            vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32],
+            vec![ValType::I32],
+        ))
+    } else {
+        None
+    };
     module.section(&types);
 
     let mut import_count = 0u32;
     let mut fd_write_index: Option<u32> = None;
     let mut env_time_index: Option<u32> = None;
     let mut env_random_index: Option<u32> = None;
+    let mut crypto_hash_index: Option<u32> = None;
+    let mut crypto_hmac_index: Option<u32> = None;
+    let mut crypto_verify_index: Option<u32> = None;
     let mut imports = ImportSection::new();
     if let Some(fd_write_ty) = fd_write_ty {
         imports.import(
@@ -168,6 +198,33 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             EntityType::Function(env_random_ty),
         );
         env_random_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(crypto_hash_ty) = crypto_hash_ty {
+        imports.import(
+            "clearlang_crypto",
+            "crypto_hash",
+            EntityType::Function(crypto_hash_ty),
+        );
+        crypto_hash_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(crypto_hmac_ty) = crypto_hmac_ty {
+        imports.import(
+            "clearlang_crypto",
+            "crypto_hmac",
+            EntityType::Function(crypto_hmac_ty),
+        );
+        crypto_hmac_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(crypto_verify_ty) = crypto_verify_ty {
+        imports.import(
+            "clearlang_crypto",
+            "crypto_verify",
+            EntityType::Function(crypto_verify_ty),
+        );
+        crypto_verify_index = Some(import_count);
         import_count += 1;
     }
     if import_count > 0 {
@@ -316,6 +373,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         let func = match f.name.as_str() {
             "std::bytes::len" => encode_intrinsic_str_len(f)?,
             "std::bytes::eq" => encode_intrinsic_str_eq(f)?,
+            "std::bytes::eq_ct" => encode_intrinsic_bytes_eq_ct(f)?,
             "std::bytes::concat" => encode_intrinsic_str_concat(f)?,
             "std::bytes::from_string" => encode_intrinsic_identity(f)?,
             "std::bytes::to_string" => encode_intrinsic_identity(f)?,
@@ -330,6 +388,18 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::env::random" => {
                 let idx = env_random_index.expect("env_random import expected");
                 encode_intrinsic_env_random(f, idx)?
+            }
+            "std::crypto::hash" => {
+                let idx = crypto_hash_index.expect("crypto_hash import expected");
+                encode_intrinsic_crypto_hash(f, idx)?
+            }
+            "std::crypto::hmac" => {
+                let idx = crypto_hmac_index.expect("crypto_hmac import expected");
+                encode_intrinsic_crypto_hmac(f, idx)?
+            }
+            "std::crypto::verify" => {
+                let idx = crypto_verify_index.expect("crypto_verify import expected");
+                encode_intrinsic_crypto_verify(f, idx)?
             }
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,

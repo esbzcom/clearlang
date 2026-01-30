@@ -637,13 +637,36 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 15.7.5 Update Phase 17.4 tech-debt note after the fixes above are complete.
 
 ### 16 Crypto intrinsics + proofs
-- [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)
-- [ ] 16.2 Signature verification (ed25519/secp256k1) with strict input validation. (API spec, builtins, codegen stubs, tests, error codes.)
-- [ ] 16.3 Constant-time byte equality helper for secret comparisons. (API spec, intrinsic, tests.)
-- [ ] 16.4 Define deterministic error semantics + diagnostics for crypto intrinsics (invalid length/alg/etc.).
-- [ ] 16.5 SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
-- [ ] 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
-- [ ] 16.7 On-chain attestation: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
+  - [ ] 16.1 Hashes (SHA-256, Keccak, Blake2) and HMAC primitives with deterministic semantics. (API spec, builtins, codegen stubs, vectors/tests.)
+    - [x] 16.1.1 Define API surface (module path, signatures, effects) and algorithm identifiers.
+    - [x] 16.1.2 Update docs: `docs/runtime/host-imports.md`, `docs/typing.md`, `docs/diagnostics.md`.
+    - [x] 16.1.3 Typer: add builtins and effect gating for hash/HMAC intrinsics.
+    - [x] 16.1.4 IR/codegen: add intrinsics and Wasm import plumbing.
+    - [x] 16.1.5 Runtime stubs for `clg run` with deterministic behavior.
+    - [ ] 16.1.6 Tests: vector-based positive cases and invalid alg/length diagnostics.
+  - [ ] 16.2 Signature verification (ed25519/secp256k1) with strict input validation. (API spec, builtins, codegen stubs, tests, error codes.)
+    - [x] 16.2.1 Define API surface (return type, inputs, effect) and algorithm identifiers.
+    - [x] 16.2.2 Typer: add builtins and effect gating for signature verification.
+    - [x] 16.2.3 IR/codegen: add intrinsic and Wasm import plumbing.
+    - [x] 16.2.4 Runtime stubs for `clg run` with deterministic behavior.
+    - [ ] 16.2.5 Tests: valid signature, wrong key/sig, bad alg/length, error codes.
+  - [ ] 16.3 Constant-time byte equality helper for secret comparisons. (API spec, intrinsic, tests.)
+    - [x] 16.3.1 Decide implementation path (pure helper vs host import) and document the choice.
+    - [x] 16.3.2 Implement helper/intrinsic and wire into IR/codegen as needed.
+    - [x] 16.3.3 Tests: correctness and constant-time guardrails where possible.
+  - [ ] 16.4 Define deterministic error semantics + diagnostics for crypto intrinsics (invalid length/alg/etc.).
+    - [x] 16.4.1 Enumerate error taxonomy (invalid alg, length, unsupported curve, malformed input).
+    - [x] 16.4.2 Add diagnostics codes + JSON examples in `docs/diagnostics.md`.
+    - [ ] 16.4.3 Tests: JSON error outputs remain stable for each error class.
+  - [ ] 16.5 SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
+    - [ ] 16.5.1 Decide modeling strategy (axioms vs encoding) and document assumptions.
+    - [ ] 16.5.2 Update SMT/VC encoder and refresh snapshots.
+  - [ ] 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
+    - [ ] 16.6.1 Add `docs/proofs/crypto-limitations.md` and link from `docs/typing.md`.
+  - [ ] 16.7 On-chain attestation: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
+    - [ ] 16.7.1 Draft design note: registry schema, payload format, and verification flow.
+    - [ ] 16.7.2 Minimal reference implementation (Solidity contract + sample payload).
+    - [ ] 16.7.3 Documentation and example workflow.
 
 ### 17 Language gaps + collections
 - [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.

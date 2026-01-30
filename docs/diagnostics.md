@@ -116,6 +116,9 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | R003 | runtime | Option/Result variant tag was invalid. |
 | R004 | runtime | Runtime limits exceeded (meter/fuel/epoch). |
 | R005 | runtime | Unsigned integer overflow. |
+| R006 | runtime | Crypto algorithm unsupported or unknown. |
+| R007 | runtime | Crypto input length is invalid for the selected algorithm. |
+| R008 | runtime | Crypto input is malformed (e.g., invalid signature encoding). |
 | R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 
 ## Examples
@@ -126,6 +129,25 @@ clg parse bad.clear --json-errors
 - Build:
 ```
 clg build bad.clear --json-errors -o out.wasm
+```
+- Runtime (crypto):
+```
+clg run bad-crypto.clear --json-errors
+```
+```json
+{
+  "ok": false,
+  "errors": [
+    {
+      "code": "R006",
+      "stage": "runtime",
+      "message": "unsupported crypto algorithm: sha999",
+      "file": "bad-crypto.clear",
+      "start": 0,
+      "end": 0
+    }
+  ]
+}
 ```
 
 ## Notes

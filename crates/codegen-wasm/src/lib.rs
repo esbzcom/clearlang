@@ -1,4 +1,5 @@
 pub mod intrinsics {
+    pub mod crypto;
     pub mod env;
     pub mod runtime;
     pub mod strings;

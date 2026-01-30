@@ -56,6 +56,9 @@ pub enum TrapCode {
     InvalidVariantTag,
     LimitsExceeded,
     Overflow,
+    CryptoUnsupported,
+    CryptoInvalidLength,
+    CryptoMalformed,
 }
 
 impl VariantKind {
@@ -76,6 +79,9 @@ impl TrapCode {
             TrapCode::InvalidVariantTag => 4,
             TrapCode::LimitsExceeded => 5,
             TrapCode::Overflow => 6,
+            TrapCode::CryptoUnsupported => 7,
+            TrapCode::CryptoInvalidLength => 8,
+            TrapCode::CryptoMalformed => 9,
         }
     }
 }

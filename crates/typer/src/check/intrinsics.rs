@@ -74,6 +74,9 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     "std::bytes::eq" => {
                         set.insert("std::bytes::eq");
                     }
+                    "std::bytes::eq_ct" => {
+                        set.insert("std::bytes::eq_ct");
+                    }
                     "std::bytes::concat" => {
                         set.insert("std::bytes::concat");
                     }
@@ -91,6 +94,15 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     }
                     "std::env::random" => {
                         set.insert("std::env::random");
+                    }
+                    "std::crypto::hash" => {
+                        set.insert("std::crypto::hash");
+                    }
+                    "std::crypto::hmac" => {
+                        set.insert("std::crypto::hmac");
+                    }
+                    "std::crypto::verify" => {
+                        set.insert("std::crypto::verify");
                     }
                     "std::str::len" => {
                         set.insert("std::str::len");

@@ -127,3 +127,19 @@ fn mut_function_cannot_call_env_random() {
         "expected io effect error, got {msg}"
     );
 }
+
+#[test]
+fn pure_function_cannot_call_crypto_hash() {
+    let src = r#"
+        pure function bad() -> Bytes {
+            std::crypto::hash("sha256", std::bytes::from_string("hi"))
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("pure call to crypto hash must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "expected io effect error, got {msg}"
+    );
+}

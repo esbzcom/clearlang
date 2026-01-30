@@ -72,6 +72,23 @@ Bytes (Bytes)
 - U64 conversions: `std::u64::to_bytes_le/to_bytes_be(U64) -> Bytes` and `std::u64::from_bytes_le/from_bytes_be(Bytes) -> U64`.
   Invalid byte buffers trap with the same runtime checks used by other `Bytes` intrinsics.
 - Runtime: `std::bytes` built-ins (`len/concat/eq`) share the same layout as `String` and do not require UTF-8.
+- Constant-time equality: `std::bytes::eq_ct(Bytes, Bytes) -> Bool` compares in constant time for secret inputs.
+
+Crypto intrinsics (Phase 16)
+
+- Module: `std::crypto`.
+- `io` only: crypto intrinsics call host imports and require `io` effect (see Effects).
+- Hash: `std::crypto::hash(alg: String, data: Bytes) -> Bytes`
+- HMAC: `std::crypto::hmac(alg: String, key: Bytes, data: Bytes) -> Bytes`
+- Verify: `std::crypto::verify(alg: String, msg: Bytes, sig: Bytes, pk: Bytes) -> Bool`
+- Supported `alg` values (lowercase):
+  - Hash/HMAC: `sha256`, `keccak256`, `blake2b256`, `blake2s256`
+  - Verify: `ed25519`, `secp256k1`
+- Error semantics:
+  - Unsupported algorithm -> runtime error `R006`.
+  - Invalid key/signature length -> runtime error `R007`.
+  - Malformed signature encoding -> runtime error `R008`.
+  - Signature mismatch returns `false` (no error).
 
 
 
@@ -81,7 +98,7 @@ Effects
 
 - `mut` functions may call other `mut` code and the mutable collection intrinsics; a `pure` caller triggers `T401`.
 
-- `io` functions may call host-facing intrinsics such as `std::wasi::print` and `std::env::{time,random}`; a `pure`/`mut` caller triggers `T401`.
+- `io` functions may call host-facing intrinsics such as `std::wasi::print`, `std::env::{time,random}`, and `std::crypto::{hash,hmac,verify}`; a `pure`/`mut` caller triggers `T401`.
 
 - Mutable collection intrinsics (`std::list/set/map::*_mut`) require a guard `require { std::<collection>::can_mut(var) }` in the same function. Missing guards raise `T402`; non-variable first arguments raise `T403`.
 

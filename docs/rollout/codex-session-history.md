@@ -42,8 +42,13 @@
 - Normalized verifier CLI naming to `clg verify` in the TODO roadmap.
 - Updated rollout planning to target proof-carrying verification as the active phase.
 
+## 2026-01-30 - Phase 11 completion + Phase 16 kickoff
+- Verified Phase 11 deliverables are complete (proof section hashing/signing, `clg verify`, diagnostics, and regression tests).
+- Confirmed signing/verifying docs and runnable fixtures are present and referenced from the main checklist.
+- Updated rollout planning to shift the active focus to Phase 16 crypto intrinsics.
+
 ## Next Focus
-- Implement `clg verify`: parse Wasm, extract `clearlang.proof` + signatures, validate hashes, and emit structured diagnostics.
-- Document signing/verifying workflows with runnable fixtures and expected outputs.
-- Close refinement UX debt (T701-T708 docs, runnable fixtures notes, shallow linear normalization).
+- Implement Phase 16 crypto intrinsics (hashes/HMAC, signature verification, constant-time compare) with deterministic semantics.
+- Define error/diagnostic behavior for crypto intrinsics and add SMT encoding or explicit axioms.
+- Document proof limitations for crypto primitives and design on-chain attestation.
 

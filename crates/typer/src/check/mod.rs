@@ -358,12 +358,16 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     let intrinsic_order = [
         "std::bytes::len",
         "std::bytes::eq",
+        "std::bytes::eq_ct",
         "std::bytes::concat",
         "std::bytes::from_string",
         "std::bytes::to_string",
         "std::wasi::print",
         "std::env::time",
         "std::env::random",
+        "std::crypto::hash",
+        "std::crypto::hmac",
+        "std::crypto::verify",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -386,6 +390,10 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Bool),
                 ),
+                "std::bytes::eq_ct" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
                 "std::bytes::concat" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
@@ -395,6 +403,27 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
                 "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::crypto::hash" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Int),
+                ),
+                "std::crypto::hmac" => (
+                    vec![
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                    ],
+                    Some(clg_ir::IrType::Int),
+                ),
+                "std::crypto::verify" => (
+                    vec![
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                    ],
+                    Some(clg_ir::IrType::Bool),
+                ),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
@@ -544,12 +573,16 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     let intrinsic_order = [
         "std::bytes::len",
         "std::bytes::eq",
+        "std::bytes::eq_ct",
         "std::bytes::concat",
         "std::bytes::from_string",
         "std::bytes::to_string",
         "std::wasi::print",
         "std::env::time",
         "std::env::random",
+        "std::crypto::hash",
+        "std::crypto::hmac",
+        "std::crypto::verify",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -571,6 +604,10 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Bool),
                 ),
+                "std::bytes::eq_ct" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
                 "std::bytes::concat" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
@@ -580,6 +617,27 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
                 "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
+                "std::crypto::hash" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Int),
+                ),
+                "std::crypto::hmac" => (
+                    vec![
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                    ],
+                    Some(clg_ir::IrType::Int),
+                ),
+                "std::crypto::verify" => (
+                    vec![
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                        clg_ir::IrType::Int,
+                    ],
+                    Some(clg_ir::IrType::Bool),
+                ),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],

@@ -22,9 +22,24 @@ Storage (io-only)
 - `storage_set(key: Bytes, value: Bytes) -> Result<(), Error>`
 - `storage_delete(key: Bytes) -> Result<(), Error>`
 
-Crypto (io-only)
+Crypto (io-only, module: `clearlang_crypto`)
 - `crypto_hash(alg: String, data: Bytes) -> Bytes`
+- `crypto_hmac(alg: String, key: Bytes, data: Bytes) -> Bytes`
 - `crypto_verify(alg: String, msg: Bytes, sig: Bytes, pk: Bytes) -> Bool`
+
+Algorithms (v1)
+- Hash/HMAC `alg` values: `sha256`, `keccak256`, `blake2b256`, `blake2s256` (lowercase).
+- Signature `alg` values: `ed25519`, `secp256k1` (lowercase).
+- `crypto_hash`/`crypto_hmac` return fixed-length outputs:
+  - `sha256`/`keccak256`/`blake2b256`/`blake2s256` -> 32 bytes.
+- `crypto_verify` returns `false` on signature mismatch; it traps on invalid inputs.
+- Invalid algorithm identifiers trap with runtime error `R006`.
+- Invalid key/signature lengths trap with runtime error `R007`.
+- Malformed signature encoding traps with runtime error `R008`.
+
+Input length rules (v1)
+- `ed25519`: public key 32 bytes, signature 64 bytes.
+- `secp256k1`: public key 33 (compressed) or 65 (uncompressed) bytes; signature 64 bytes (`r || s`).
 
 Logging/events (io-only)
 - `emit_event(kind: String, data: Bytes) -> Result<(), Error>`

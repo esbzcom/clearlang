@@ -849,6 +849,103 @@ fn run_env_time_and_random_stubs() {
 }
 
 #[test]
+fn run_crypto_hash_stub_returns_len() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("crypto_hash.clear");
+    let wasm_path = tmp.path().join("crypto_hash.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::bytes::len(std::crypto::hash("sha256", std::bytes::from_string("hi")))
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("32"));
+}
+
+#[test]
+fn runtime_crypto_unknown_alg_reports_r006_json() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("crypto_bad_alg.clear");
+    let wasm_path = tmp.path().join("crypto_bad_alg.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::bytes::len(std::crypto::hash("sha999", std::bytes::from_string("hi")))
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("\"code\": \"R006\""));
+}
+
+#[test]
+fn run_bytes_eq_ct_returns_true() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("bytes_eq_ct.clear");
+    let wasm_path = tmp.path().join("bytes_eq_ct.wasm");
+
+    let src = r#"
+        function main() -> Int {
+            if std::bytes::eq_ct(std::bytes::from_string("hi"), std::bytes::from_string("hi")) {
+                1
+            } else {
+                0
+            }
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("1"));
+}
+
+#[test]
 fn runtime_fuel_exhaustion_reports_r004_json() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("fuel_exhaust.clear");

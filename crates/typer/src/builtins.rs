@@ -47,6 +47,23 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::bytes::eq_ct".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::bytes::from_string".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,
@@ -90,6 +107,72 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
                 ty: Type::Int,
             }],
             Type::Bytes,
+            Effect::Io,
+        ),
+        (
+            "std::crypto::hash".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "alg".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "data".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bytes,
+            Effect::Io,
+        ),
+        (
+            "std::crypto::hmac".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "alg".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "key".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "data".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bytes,
+            Effect::Io,
+        ),
+        (
+            "std::crypto::verify".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "alg".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "msg".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "sig".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "pk".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bool,
             Effect::Io,
         ),
         (

@@ -32,3 +32,4 @@
 ### Notes
 - `docs/TODO.md` is the canonical checklist; keep this file high-level.
 - Historical detail from earlier phases is archived in `docs/rollout/codex-session-history.md`.
+- Attestation production checklist + migration path: `docs/rollout/attestation-production.md`.

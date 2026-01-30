@@ -1474,6 +1474,7 @@ enum SmtHelper {
 struct SmtEncoder {
     helpers: HashSet<SmtHelper>,
     fresh: usize,
+    builtin_calls: HashSet<String>,
 }
 
 impl SmtEncoder {
@@ -1619,11 +1620,13 @@ impl SmtEncoder {
                 format!("(cl.result.mk 0 {} 0)", val)
             }
             _ => {
+                self.record_builtin_call(callee);
                 let parts: Vec<String> = args.iter().map(|a| self.encode_inner(a)).collect();
+                let smt_callee = smt_symbol(callee);
                 if parts.is_empty() {
-                    format!("({})", callee)
+                    format!("({})", smt_callee)
                 } else {
-                    format!("({} {})", callee, parts.join(" "))
+                    format!("({} {})", smt_callee, parts.join(" "))
                 }
             }
         }
@@ -1702,33 +1705,120 @@ impl SmtEncoder {
     }
 
     fn helpers_prelude(&self) -> String {
-        if self.helpers.is_empty() {
+        if self.helpers.is_empty() && self.builtin_calls.is_empty() {
             return String::new();
         }
-        let mut lines = Vec::new();
+        let mut lines: Vec<String> = Vec::new();
         if self.helpers.contains(&SmtHelper::VariantAccessors) {
-            lines.push("; Option/Result variants use (tag, payload_lo, payload_hi)");
-            lines.push("(declare-fun cl.variant.tag (Int) Int)");
-            lines.push("(declare-fun cl.variant.payload_lo (Int) Int)");
-            lines.push("(declare-fun cl.variant.payload_hi (Int) Int)");
+            lines.push("; Option/Result variants use (tag, payload_lo, payload_hi)".to_string());
+            lines.push("(declare-fun cl.variant.tag (Int) Int)".to_string());
+            lines.push("(declare-fun cl.variant.payload_lo (Int) Int)".to_string());
+            lines.push("(declare-fun cl.variant.payload_hi (Int) Int)".to_string());
         }
         if self.helpers.contains(&SmtHelper::OptionCtor) {
-            lines.push("(declare-fun cl.option.mk (Int Int Int) Int)");
+            lines.push("(declare-fun cl.option.mk (Int Int Int) Int)".to_string());
         }
         if self.helpers.contains(&SmtHelper::ResultCtor) {
-            lines.push("(declare-fun cl.result.mk (Int Int Int) Int)");
+            lines.push("(declare-fun cl.result.mk (Int Int Int) Int)".to_string());
         }
         if self.helpers.contains(&SmtHelper::BitwiseOps) {
-            lines.push("(declare-fun clg.bit_and (Int Int) Int)");
-            lines.push("(declare-fun clg.bit_or (Int Int) Int)");
-            lines.push("(declare-fun clg.bit_xor (Int Int) Int)");
-            lines.push("(declare-fun clg.shl (Int Int) Int)");
-            lines.push("(declare-fun clg.shr (Int Int) Int)");
+            lines.push("; Bitwise ops are modeled as uninterpreted functions.".to_string());
+            lines.push("(declare-fun clg.bit_and (Int Int) Int)".to_string());
+            lines.push("(declare-fun clg.bit_or (Int Int) Int)".to_string());
+            lines.push("(declare-fun clg.bit_xor (Int Int) Int)".to_string());
+            lines.push("(declare-fun clg.shl (Int Int) Int)".to_string());
+            lines.push("(declare-fun clg.shr (Int Int) Int)".to_string());
+        }
+        let builtin_lines = self.builtin_prelude();
+        if !builtin_lines.is_empty() {
+            lines.push("; Builtin intrinsics are modeled as uninterpreted functions.".to_string());
+            lines.extend(builtin_lines);
         }
         lines.join(
             "
 ",
         )
+    }
+
+    fn record_builtin_call(&mut self, callee: &str) {
+        if is_builtin_name(callee) {
+            self.builtin_calls.insert(callee.to_string());
+        }
+    }
+
+    fn builtin_prelude(&self) -> Vec<String> {
+        if self.builtin_calls.is_empty() {
+            return Vec::new();
+        }
+        let mut lines = Vec::new();
+        for (name, params, ret, _) in builtin_sigs() {
+            if !self.builtin_calls.contains(&name) {
+                continue;
+            }
+            let args: Vec<&str> = params
+                .iter()
+                .map(|param| smt_sort_for_builtin(&param.ty))
+                .collect();
+            let ret_sort = smt_sort_for_builtin(&ret);
+            let smt_name = smt_symbol(&name);
+            lines.push(format!(
+                "(declare-fun {} ({}) {})",
+                smt_name,
+                args.join(" "),
+                ret_sort
+            ));
+        }
+        lines
+    }
+}
+
+fn smt_symbol(name: &str) -> String {
+    if is_simple_smt_symbol(name) {
+        name.to_string()
+    } else {
+        format!("|{}|", name)
+    }
+}
+
+fn is_simple_smt_symbol(name: &str) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if first.is_ascii_digit() || !is_smt_symbol_char(first) {
+        return false;
+    }
+    chars.all(is_smt_symbol_char)
+}
+
+fn is_smt_symbol_char(c: char) -> bool {
+    c.is_ascii_alphanumeric()
+        || matches!(
+            c,
+            '_' | '-' | '+' | '*' | '/' | '=' | '%' | '?' | '!' | '.' | '$' | '<' | '>' | '~'
+                | '@' | '^' | '&'
+        )
+}
+
+fn is_builtin_name(callee: &str) -> bool {
+    builtin_sigs()
+        .iter()
+        .any(|(name, _params, _ret, _)| name == callee)
+}
+
+fn smt_sort_for_builtin(ty: &Type) -> &'static str {
+    match ty {
+        Type::Int | Type::U8 | Type::U64 | Type::U128 | Type::U256 => "Int",
+        Type::Bool => "Bool",
+        Type::String | Type::Bytes => "String",
+        Type::Option(_)
+        | Type::Result(_, _)
+        | Type::List(_)
+        | Type::Set(_)
+        | Type::Map(_, _)
+        | Type::Array(_, _)
+        | Type::Tuple(_)
+        | Type::Resource(_) => "Int",
     }
 }
 

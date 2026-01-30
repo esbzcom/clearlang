@@ -314,3 +314,33 @@ fn emits_call_arg_refinement_premise() {
     assert!(vc.vc_smt2.contains("define-fun cl.ref.premise.0.sub"));
     assert!(vc.vc_smt2.contains("define-fun cl.ref.premise.0.pred"));
 }
+
+#[test]
+fn declares_bitwise_and_builtin_helpers() {
+    let src = r#"
+        pure function check(a: Bytes, b: Bytes, x: U64, y: U64) -> Bool
+            ensure { result == std::bytes::eq_ct(a, b) }
+            ensure { (x & y) == x }
+        {
+            std::bytes::eq_ct(a, b)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    assert!(
+        output
+            .vcs
+            .iter()
+            .any(|vc| vc.vc_smt2.contains("declare-fun clg.bit_and")),
+        "expected bitwise helpers in SMT prelude"
+    );
+    assert!(
+        output
+            .vcs
+            .iter()
+            .any(|vc| vc
+                .vc_smt2
+                .contains("declare-fun |std::bytes::eq_ct|")),
+        "expected builtin declarations for std::bytes::eq_ct"
+    );
+}

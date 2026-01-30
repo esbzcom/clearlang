@@ -661,8 +661,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 16.5 SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
     - [x] 16.5.1 Decide modeling strategy (axioms vs encoding) and document assumptions.
     - [x] 16.5.2 Update SMT/VC encoder and refresh snapshots.
-  - [ ] 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
-    - [ ] 16.6.1 Add `docs/proofs/crypto-limitations.md` and link from `docs/typing.md`.
+  - [x] 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
+    - [x] 16.6.1 Add `docs/proofs/crypto-limitations.md` and link from `docs/typing.md`.
   - [ ] 16.7 On-chain attestation: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
     - [ ] 16.7.1 Draft design note: registry schema, payload format, and verification flow.
     - [ ] 16.7.2 Minimal reference implementation (Solidity contract + sample payload).

@@ -257,7 +257,7 @@ ADT Ergonomics (Phase 6.6)
 - **Constructors**: `None`/`Some`/`Ok`/`Err` write the tag and payload words directly and zero the reserved slot. The SSA structure is locked in by `crates/typer/tests/lowering_variants.rs::option_try_lowering_preserves_payload_and_propagation` and `::result_try_lowering_tracks_ok_flow`.
 - **`Expr::Try` lowering**: propagation inspects the tag, emits `ReturnIf` to forward `None`/`Err`, and reuses the payload slot when the tag signals success. The same tests assert the value IDs stay stable across constructor/destructor pairs.
 - **VC + SMT**: the VC generator now emits the canonical `(tag, payload_lo, payload_hi)` encoding. SMT snapshots declare `cl.variant.{tag,payload_lo,payload_hi}` alongside `cl.option.mk`/`cl.result.mk` so Option/Result reasoning stays machine-friendly and solver-ready.
-- **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations.
+- **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations. See `docs/proofs/crypto-limitations.md` for migration options.
 - **Tooling**: CLI docs now include an `--emit-vcs` walkthrough (see `docs/introduction.md`) and the VC schema example is updated with the canonical helpers.
 
 Collections (Type-Only Summary) -" see `docs/collections.md`

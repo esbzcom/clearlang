@@ -6,7 +6,7 @@
 - 16.3 Constant-time byte equality helper for secret comparisons. (Done)
 - 16.4 Deterministic error semantics + diagnostics for crypto intrinsics. (Done)
 - 16.5 SMT encoding (or explicit axioms) for crypto/bitwise primitives. (Done)
-- 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
+- 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`. (Done)
 - 16.7 On-chain attestation design (EVM registry + IPFS URIs) with a minimal reference implementation and docs.
 
 ### Suggested Sequence

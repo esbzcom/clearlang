@@ -1,9 +1,9 @@
 # ClearLang Development Plan
 
 ## Current Focus - Phase 16: Crypto Intrinsics + Proofs
-- 16.1 Hash/HMAC intrinsics (SHA-256, Keccak, Blake2) with deterministic semantics and test vectors.
-- 16.2 Signature verification intrinsics (ed25519/secp256k1) with strict input validation.
-- 16.3 Constant-time byte equality helper for secret comparisons.
+- 16.1 Hash/HMAC intrinsics (SHA-256, Keccak, Blake2) with deterministic semantics and test vectors. (Done)
+- 16.2 Signature verification intrinsics (ed25519/secp256k1) with strict input validation. (Done)
+- 16.3 Constant-time byte equality helper for secret comparisons. (Done)
 - 16.4 Deterministic error semantics + diagnostics for crypto intrinsics.
 - 16.5 SMT encoding (or explicit axioms) for crypto/bitwise primitives.
 - 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.

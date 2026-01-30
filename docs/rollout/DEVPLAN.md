@@ -4,7 +4,7 @@
 - 16.1 Hash/HMAC intrinsics (SHA-256, Keccak, Blake2) with deterministic semantics and test vectors. (Done)
 - 16.2 Signature verification intrinsics (ed25519/secp256k1) with strict input validation. (Done)
 - 16.3 Constant-time byte equality helper for secret comparisons. (Done)
-- 16.4 Deterministic error semantics + diagnostics for crypto intrinsics.
+- 16.4 Deterministic error semantics + diagnostics for crypto intrinsics. (Done)
 - 16.5 SMT encoding (or explicit axioms) for crypto/bitwise primitives. (Done)
 - 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
 - 16.7 On-chain attestation design (EVM registry + IPFS URIs) with a minimal reference implementation and docs.

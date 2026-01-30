@@ -884,6 +884,7 @@ fn runtime_crypto_unknown_alg_reports_r006_json() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_bad_alg.clear");
     let wasm_path = tmp.path().join("crypto_bad_alg.wasm");
+    let wasm_display = wasm_path.display().to_string();
 
     let src = r#"
         io function main() -> Int {
@@ -901,13 +902,33 @@ fn runtime_crypto_unknown_alg_reports_r006_json() {
         .assert()
         .success();
 
-    Command::cargo_bin("clg")
+    let output = Command::cargo_bin("clg")
         .unwrap()
         .args(["--json-errors", "run"])
         .arg(&wasm_path)
         .assert()
         .failure()
-        .stdout(predicate::str::contains("\"code\": \"R006\""));
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R006"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    assert_eq!(
+        e0.get("message").and_then(|s| s.as_str()),
+        Some("crypto algorithm unsupported or unknown")
+    );
+    assert_eq!(
+        e0.get("file").and_then(|s| s.as_str()),
+        Some(wasm_display.as_str())
+    );
+    assert_eq!(e0.get("start").and_then(|n| n.as_u64()), Some(0));
+    assert_eq!(e0.get("end").and_then(|n| n.as_u64()), Some(0));
+    assert!(e0.get("function").is_none());
 }
 
 #[test]
@@ -915,6 +936,7 @@ fn runtime_crypto_invalid_length_reports_r007_json() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_bad_len.clear");
     let wasm_path = tmp.path().join("crypto_bad_len.wasm");
+    let wasm_display = wasm_path.display().to_string();
 
     let src = r#"
         io function main() -> Int {
@@ -938,13 +960,33 @@ fn runtime_crypto_invalid_length_reports_r007_json() {
         .assert()
         .success();
 
-    Command::cargo_bin("clg")
+    let output = Command::cargo_bin("clg")
         .unwrap()
         .args(["--json-errors", "run"])
         .arg(&wasm_path)
         .assert()
         .failure()
-        .stdout(predicate::str::contains("\"code\": \"R007\""));
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R007"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    assert_eq!(
+        e0.get("message").and_then(|s| s.as_str()),
+        Some("crypto input length is invalid for selected algorithm")
+    );
+    assert_eq!(
+        e0.get("file").and_then(|s| s.as_str()),
+        Some(wasm_display.as_str())
+    );
+    assert_eq!(e0.get("start").and_then(|n| n.as_u64()), Some(0));
+    assert_eq!(e0.get("end").and_then(|n| n.as_u64()), Some(0));
+    assert!(e0.get("function").is_none());
 }
 
 #[test]
@@ -952,6 +994,7 @@ fn runtime_crypto_malformed_reports_r008_json() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_bad_encoding.clear");
     let wasm_path = tmp.path().join("crypto_bad_encoding.wasm");
+    let wasm_display = wasm_path.display().to_string();
 
     let src = r#"
         io function main() -> Int {
@@ -975,13 +1018,33 @@ fn runtime_crypto_malformed_reports_r008_json() {
         .assert()
         .success();
 
-    Command::cargo_bin("clg")
+    let output = Command::cargo_bin("clg")
         .unwrap()
         .args(["--json-errors", "run"])
         .arg(&wasm_path)
         .assert()
         .failure()
-        .stdout(predicate::str::contains("\"code\": \"R008\""));
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R008"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    assert_eq!(
+        e0.get("message").and_then(|s| s.as_str()),
+        Some("crypto input is malformed")
+    );
+    assert_eq!(
+        e0.get("file").and_then(|s| s.as_str()),
+        Some(wasm_display.as_str())
+    );
+    assert_eq!(e0.get("start").and_then(|n| n.as_u64()), Some(0));
+    assert_eq!(e0.get("end").and_then(|n| n.as_u64()), Some(0));
+    assert!(e0.get("function").is_none());
 }
 
 #[test]

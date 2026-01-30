@@ -654,10 +654,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 16.3.1 Decide implementation path (pure helper vs host import) and document the choice.
     - [x] 16.3.2 Implement helper/intrinsic and wire into IR/codegen as needed.
     - [x] 16.3.3 Tests: correctness and constant-time guardrails where possible.
-  - [ ] 16.4 Define deterministic error semantics + diagnostics for crypto intrinsics (invalid length/alg/etc.).
+  - [x] 16.4 Define deterministic error semantics + diagnostics for crypto intrinsics (invalid length/alg/etc.).
     - [x] 16.4.1 Enumerate error taxonomy (invalid alg, length, unsupported curve, malformed input).
     - [x] 16.4.2 Add diagnostics codes + JSON examples in `docs/diagnostics.md`.
-    - [ ] 16.4.3 Tests: JSON error outputs remain stable for each error class.
+    - [x] 16.4.3 Tests: JSON error outputs remain stable for each error class.
   - [x] 16.5 SMT encoding for modular arithmetic/bitwise ops (or explicit assumed axioms for crypto intrinsics).
     - [x] 16.5.1 Decide modeling strategy (axioms vs encoding) and document assumptions.
     - [x] 16.5.2 Update SMT/VC encoder and refresh snapshots.

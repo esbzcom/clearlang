@@ -1057,7 +1057,7 @@ fn encode_ir_function(
                 insts.local_set(dst.0);
 
                 insts.local_get(dst.0);
-                insts.i32_const(2);
+                insts.i32_const(kind.max_tag() as i32);
                 insts.i32_ge_u();
                 insts.if_(BlockType::Empty);
                 emit_runtime_trap(

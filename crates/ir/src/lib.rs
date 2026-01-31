@@ -27,6 +27,7 @@ pub struct VariantParts {
 pub enum VariantKind {
     Option,
     Result,
+    Enum { max_tag: u32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +67,14 @@ impl VariantKind {
         match self {
             VariantKind::Option => 0,
             VariantKind::Result => 1,
+            VariantKind::Enum { .. } => 2,
+        }
+    }
+
+    pub fn max_tag(self) -> u32 {
+        match self {
+            VariantKind::Option | VariantKind::Result => 2,
+            VariantKind::Enum { max_tag } => max_tag,
         }
     }
 }

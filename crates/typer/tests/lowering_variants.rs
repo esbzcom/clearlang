@@ -304,3 +304,63 @@ fn result_try_lowering_tracks_ok_flow() {
         other => panic!("expected Ret returning constructor value, found {other:?}"),
     }
 }
+
+#[test]
+fn lowers_enum_variant_constructor_with_tuple_payload() {
+    let src = r#"
+        enum Pair {
+            Pair(Int, Int)
+        }
+        pure function make() -> Pair { Pair::Pair(1, 2) }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "make")
+        .expect("make function present");
+
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::Alloc { .. })),
+        "expected heap allocation for tuple payload"
+    );
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::Store { .. })),
+        "expected stores for tuple payload fields"
+    );
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::VariantInit { .. })),
+        "expected VariantInit for enum constructor"
+    );
+}
+
+#[test]
+fn lowers_enum_match_to_tag_check_and_select() {
+    let src = r#"
+        enum Color {
+            Red,
+            Green
+        }
+        pure function pick(c: Color) -> Int {
+            match c {
+                Color::Red => 1,
+                Color::Green => 2
+            }
+        }
+    "#;
+    let ir = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let func = ir
+        .funcs
+        .iter()
+        .find(|f| f.name == "pick")
+        .expect("pick function present");
+
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::VariantLoadTag { kind: VariantKind::Enum { max_tag: 2 }, .. })),
+        "expected VariantLoadTag with enum max_tag"
+    );
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::ISelect { .. })),
+        "expected ISelect for enum match lowering"
+    );
+}

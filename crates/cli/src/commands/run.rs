@@ -613,6 +613,7 @@ fn extract_runtime_error<T>(
         4 => {
             let kind = match detail {
                 1 => "Result",
+                2 => "Enum",
                 _ => "Option",
             };
             let tag = start;

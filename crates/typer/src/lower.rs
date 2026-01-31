@@ -3,7 +3,10 @@ use crate::check::{
 };
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
-use clg_ast::{BinOp, Block, Expr, Func, MatchArm, MatchPat, ParamKind, Span, Stmt, Type};
+use clg_ast::{
+    BinOp, Block, EnumVariant, Expr, Func, MatchArm, MatchPat, ParamKind, Span, Stmt, StructField,
+    Type,
+};
 use clg_ir::{
     BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind,
     VariantParts,
@@ -105,6 +108,47 @@ fn tuple_layout(elems: &[Type], aliases: &AliasMap) -> Result<TupleLayout> {
         size,
         align: max_align,
     })
+}
+
+fn struct_layout<'a>(
+    type_defs: &'a TypeDefs,
+    aliases: &AliasMap,
+    name: &str,
+) -> Result<(Vec<&'a StructField>, TupleLayout)> {
+    let info = type_defs
+        .structs
+        .get(name)
+        .ok_or_else(|| anyhow::anyhow!("unknown struct `{}`", name))?;
+    let mut fields = Vec::with_capacity(info.decl.fields.len());
+    let mut field_tys = Vec::with_capacity(info.decl.fields.len());
+    for field in &info.decl.fields {
+        fields.push(field);
+        field_tys.push(base_type(&field.ty, aliases)?);
+    }
+    let layout = tuple_layout(&field_tys, aliases)?;
+    Ok((fields, layout))
+}
+
+fn enum_variant_info<'a>(
+    type_defs: &'a TypeDefs,
+    enum_name: &str,
+    variant_name: &str,
+) -> Result<(usize, &'a EnumVariant, usize)> {
+    let info = type_defs
+        .enums
+        .get(enum_name)
+        .ok_or_else(|| anyhow::anyhow!("unknown enum `{}`", enum_name))?;
+    let mut idx = None;
+    for (i, variant) in info.decl.variants.iter().enumerate() {
+        if variant.name == variant_name {
+            idx = Some(i);
+            break;
+        }
+    }
+    let index = idx.ok_or_else(|| {
+        anyhow::anyhow!("unknown enum variant `{}::{}`", enum_name, variant_name)
+    })?;
+    Ok((index, &info.decl.variants[index], info.decl.variants.len()))
 }
 
 fn mem_ir_type(ty: &Type, aliases: &AliasMap) -> Result<IrType> {
@@ -341,11 +385,66 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             }
             Ok(ptr)
         }
-        Expr::StructLit { .. } => {
-            anyhow::bail!("struct literals are not supported in codegen yet")
+        Expr::StructLit { name, fields, .. } => {
+            let (decl_fields, layout) = struct_layout(ctx.type_defs, ctx.aliases, name.as_str())?;
+            let mut field_offsets: HashMap<&str, (u32, Type)> =
+                HashMap::with_capacity(decl_fields.len());
+            for (idx, field) in decl_fields.iter().enumerate() {
+                let offset = *layout
+                    .offsets
+                    .get(idx)
+                    .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
+                field_offsets.insert(field.name.as_str(), (offset, field.ty.clone()));
+            }
+            let ptr = emit_alloc(ctx, layout.size, layout.align);
+            for field in fields {
+                let (offset, field_ty) = field_offsets
+                    .get(field.name.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("unknown struct field `{}`", field.name))?
+                    .clone();
+                let val = lower_expr(ctx, &field.expr, Some(field_ty.clone()))?;
+                let mem_ty = mem_ir_type(&field_ty, ctx.aliases)?;
+                ctx.body.push(Instr::Store {
+                    ptr,
+                    src: val,
+                    offset,
+                    ty: mem_ty,
+                });
+            }
+            Ok(ptr)
         }
-        Expr::FieldAccess { .. } => {
-            anyhow::bail!("field access is not supported in codegen yet")
+        Expr::FieldAccess { base, field, .. } => {
+            let base_ty = infer_expr_type(base, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
+            let resolved = base_type(&base_ty, ctx.aliases)?;
+            let Type::Resource(name) = resolved else {
+                anyhow::bail!("field access expects a struct value");
+            };
+            let (decl_fields, layout) = struct_layout(ctx.type_defs, ctx.aliases, name.as_str())?;
+            let mut field_idx: Option<usize> = None;
+            let mut field_ty: Option<Type> = None;
+            for (idx, f) in decl_fields.iter().enumerate() {
+                if f.name == *field {
+                    field_idx = Some(idx);
+                    field_ty = Some(f.ty.clone());
+                    break;
+                }
+            }
+            let idx = field_idx.ok_or_else(|| anyhow::anyhow!("unknown field `{}`", field))?;
+            let field_ty = field_ty.ok_or_else(|| anyhow::anyhow!("field type missing"))?;
+            let offset = *layout
+                .offsets
+                .get(idx)
+                .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
+            let base_ptr = lower_expr(ctx, base, None)?;
+            let dst = fresh(ctx);
+            let mem_ty = mem_ir_type(&field_ty, ctx.aliases)?;
+            ctx.body.push(Instr::Load {
+                dst,
+                ptr: base_ptr,
+                offset,
+                ty: mem_ty,
+            });
+            Ok(dst)
         }
         Expr::Unary { .. } => {
             anyhow::bail!("unary operators are not supported in codegen yet")
@@ -353,11 +452,17 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Match {
             scrutinee, arms, ..
         } => {
-            if let Some(val) = lower_match_sugar(ctx, scrutinee, arms, expected)? {
-                Ok(val)
-            } else {
-                anyhow::bail!("match expression not supported in lowering yet")
+            if let Some(val) = lower_match_sugar(ctx, scrutinee, arms, expected.clone())? {
+                return Ok(val);
             }
+            let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
+            let resolved = base_type(&scrut_ty, ctx.aliases)?;
+            if let Type::Resource(name) = resolved {
+                if ctx.type_defs.enums.contains_key(name.as_str()) {
+                    return lower_enum_match(ctx, scrutinee, arms, expected);
+                }
+            }
+            anyhow::bail!("match expression not supported in lowering yet")
         }
         Expr::Try { expr, .. } => {
             let kind = match &ctx.ret_ty {
@@ -702,6 +807,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 Ok(ctx.variant_init(tag, payload, zero))
             }
             _ => {
+                if let Some(val) = lower_enum_constructor(ctx, callee, args)? {
+                    return Ok(val);
+                }
                 if guard_kind_for_callee(callee.as_str()).is_some() {
                     let dst = fresh(ctx);
                     ctx.body.push(Instr::IConst {
@@ -1029,6 +1137,205 @@ fn lower_match_sugar<'a>(
         else_v: failure_val,
     });
     Ok(Some(dst))
+}
+
+fn lower_enum_constructor<'a>(
+    ctx: &mut LowerCtx<'a>,
+    callee: &str,
+    args: &'a [Expr],
+) -> Result<Option<Value>> {
+    let mut parts = callee.split("::");
+    let Some(enum_name) = parts.next() else {
+        return Ok(None);
+    };
+    let Some(variant_name) = parts.next() else {
+        return Ok(None);
+    };
+    if parts.next().is_some() {
+        return Ok(None);
+    }
+    if !ctx.type_defs.enums.contains_key(enum_name) {
+        return Ok(None);
+    }
+    let (index, variant, _count) = enum_variant_info(ctx.type_defs, enum_name, variant_name)?;
+    if args.len() != variant.fields.len() {
+        anyhow::bail!(
+            "`{}::{}` expects {} argument(s)",
+            enum_name,
+            variant_name,
+            variant.fields.len()
+        );
+    }
+    let tag = emit_int_const(ctx, index as i64);
+    let zero = emit_int_const(ctx, 0);
+    let payload_lo = match variant.fields.len() {
+        0 => zero,
+        1 => lower_expr(ctx, &args[0], Some(variant.fields[0].clone()))?,
+        _ => {
+            let mut field_bases = Vec::with_capacity(variant.fields.len());
+            for ty in &variant.fields {
+                field_bases.push(base_type(ty, ctx.aliases)?);
+            }
+            let layout = tuple_layout(&field_bases, ctx.aliases)?;
+            let ptr = emit_alloc(ctx, layout.size, layout.align);
+            for (idx, arg) in args.iter().enumerate() {
+                let expected = variant
+                    .fields
+                    .get(idx)
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!("enum variant field missing"))?;
+                let val = lower_expr(ctx, arg, Some(expected.clone()))?;
+                let mem_ty = mem_ir_type(&expected, ctx.aliases)?;
+                let offset = *layout
+                    .offsets
+                    .get(idx)
+                    .ok_or_else(|| anyhow::anyhow!("enum variant offset missing"))?;
+                ctx.body.push(Instr::Store {
+                    ptr,
+                    src: val,
+                    offset,
+                    ty: mem_ty,
+                });
+            }
+            ptr
+        }
+    };
+    Ok(Some(ctx.variant_init(tag, payload_lo, zero)))
+}
+
+fn lower_enum_match<'a>(
+    ctx: &mut LowerCtx<'a>,
+    scrutinee: &'a Expr,
+    arms: &'a [MatchArm],
+    expected: Option<Type>,
+) -> Result<Value> {
+    let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
+    let resolved = base_type(&scrut_ty, ctx.aliases)?;
+    let Type::Resource(name) = resolved else {
+        anyhow::bail!("enum match expects enum scrutinee");
+    };
+    let info = ctx
+        .type_defs
+        .enums
+        .get(name.as_str())
+        .ok_or_else(|| anyhow::anyhow!("unknown enum `{}`", name))?;
+    let variant_count = info.decl.variants.len() as u32;
+    let variant = lower_expr(ctx, scrutinee, None)?;
+    let parts = ctx.variant_destructure(variant, VariantKind::Enum { max_tag: variant_count });
+
+    let mut arm_values: Vec<(Value, Value)> = Vec::with_capacity(arms.len());
+    for arm in arms {
+        match &arm.pat {
+            MatchPat::EnumVariant {
+                enum_name,
+                variant,
+                binders,
+            } => {
+                let (index, variant_def, _count) =
+                    enum_variant_info(ctx.type_defs, enum_name.as_str(), variant.as_str())?;
+                let cond = fresh(ctx);
+                let tag_val = emit_int_const(ctx, index as i64);
+                ctx.body.push(Instr::IBin {
+                    dst: cond,
+                    op: BinOpIR::Eq,
+                    lhs: parts.tag,
+                    rhs: tag_val,
+                    ty: IrType::Int,
+                });
+
+                let mut inserted: Vec<ScopeEntry<'a>> = Vec::new();
+                match variant_def.fields.len() {
+                    0 => {}
+                    1 => {
+                        if let Some(name) = binders.first() {
+                            let key = name.as_str();
+                            let prev = ctx.env.insert(key, parts.payload_lo);
+                            let prev_ty = ctx.type_env.insert(
+                                key,
+                                LocalBinding {
+                                    ty: variant_def.fields[0].clone(),
+                                    kind: ParamKind::Borrow,
+                                },
+                            );
+                            inserted.push(ScopeEntry {
+                                name: key,
+                                prev_val: prev,
+                                prev_ty,
+                            });
+                        }
+                    }
+                    _ => {
+                        let mut field_bases = Vec::with_capacity(variant_def.fields.len());
+                        for ty in &variant_def.fields {
+                            field_bases.push(base_type(ty, ctx.aliases)?);
+                        }
+                        let layout = tuple_layout(&field_bases, ctx.aliases)?;
+                        for (idx, name) in binders.iter().enumerate() {
+                            let expected = variant_def
+                                .fields
+                                .get(idx)
+                                .cloned()
+                                .ok_or_else(|| anyhow::anyhow!("enum binder type missing"))?;
+                            let offset = *layout
+                                .offsets
+                                .get(idx)
+                                .ok_or_else(|| anyhow::anyhow!("enum binder offset missing"))?;
+                            let mem_ty = mem_ir_type(&expected, ctx.aliases)?;
+                            let dst = fresh(ctx);
+                            ctx.body.push(Instr::Load {
+                                dst,
+                                ptr: parts.payload_lo,
+                                offset,
+                                ty: mem_ty,
+                            });
+                            let key = name.as_str();
+                            let prev = ctx.env.insert(key, dst);
+                            let prev_ty = ctx.type_env.insert(
+                                key,
+                                LocalBinding {
+                                    ty: expected,
+                                    kind: ParamKind::Borrow,
+                                },
+                            );
+                            inserted.push(ScopeEntry {
+                                name: key,
+                                prev_val: prev,
+                                prev_ty,
+                            });
+                        }
+                    }
+                }
+
+                let val = lower_expr(ctx, &arm.expr, expected.clone())?;
+                restore_scope(ctx, inserted);
+                arm_values.push((cond, val));
+            }
+            MatchPat::Wildcard => {
+                let cond = emit_bool_const(ctx, true);
+                let val = lower_expr(ctx, &arm.expr, expected.clone())?;
+                arm_values.push((cond, val));
+            }
+            _ => {
+                anyhow::bail!("unsupported match pattern in lowering");
+            }
+        }
+    }
+
+    let mut iter = arm_values.into_iter().rev();
+    let Some((_, mut acc)) = iter.next() else {
+        anyhow::bail!("match arms must not be empty");
+    };
+    for (cond, val) in iter {
+        let dst = fresh(ctx);
+        ctx.body.push(Instr::ISelect {
+            dst,
+            cond,
+            then_v: val,
+            else_v: acc,
+        });
+        acc = dst;
+    }
+    Ok(acc)
 }
 
 impl<'a> LowerCtx<'a> {

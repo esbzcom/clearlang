@@ -7,7 +7,7 @@
 - 16.4 Deterministic error semantics + diagnostics for crypto intrinsics. (Done)
 - 16.5 SMT encoding (or explicit axioms) for crypto/bitwise primitives. (Done)
 - 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`. (Done)
-- 16.7 On-chain attestation design (EVM registry + IPFS URIs) with a minimal reference implementation and docs.
+- 16.7 On-chain attestation design (EVM registry + IPFS URIs) with a minimal reference implementation and docs. (Done)
 
 ### Suggested Sequence
 1) Lock API surface + error semantics (16.1/16.2/16.4), update docs and diagnostics.

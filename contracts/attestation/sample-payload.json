@@ -1,0 +1,18 @@
+﻿{
+  "version": "1",
+  "chain_id": 1,
+  "registry": "0x0000000000000000000000000000000000000000",
+  "signature": {
+    "key_id": "example-key",
+    "scope": "both",
+    "signature_format": "ed25519",
+    "signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "payload": {
+      "module_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "proofs_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "toolchain": "clg/0.1.0",
+      "timestamp": "2026-01-31T00:00:00Z",
+      "scope": "both"
+    }
+  }
+}

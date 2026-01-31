@@ -673,7 +673,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
   - [x] 17.1.1 Spec + docs: syntax, layout model, visibility, and resource interactions (`docs/design/phase-17.1-structs-enums.md`).
   - [x] 17.1.2 Parser/AST support for `struct`/`enum`, field access, and construction.
-  - [ ] 17.1.3 Typer: field/variant checking, pattern matching, exhaustiveness, and unreachable arms.
+  - [x] 17.1.3 Typer: field/variant checking, pattern matching, exhaustiveness, and unreachable arms.
   - [ ] 17.1.4 Lowering/codegen: concrete layout + tag/payload strategy.
   - [ ] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
 - [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.

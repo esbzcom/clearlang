@@ -1,4 +1,6 @@
-use crate::check::{base_type, infer_expr_type, AliasMap, FnSig as CheckFnSig, LocalBinding};
+use crate::check::{
+    base_type, infer_expr_type, AliasMap, FnSig as CheckFnSig, LocalBinding, TypeDefs,
+};
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Block, Expr, Func, MatchArm, MatchPat, ParamKind, Span, Stmt, Type};
@@ -123,6 +125,7 @@ pub(crate) struct LowerCtx<'a> {
     pub fns: HashMap<&'a str, FnSig>,      // for call return types
     pub fn_indices: HashMap<&'a str, u32>, // for resolving callee indices (user + intrinsics)
     pub aliases: &'a AliasMap,
+    pub type_defs: &'a TypeDefs<'a>,
     pub body: Vec<Instr>,
     pub ret_ty: Type,
 }
@@ -132,6 +135,7 @@ pub(crate) fn lower_func<'a>(
     fns: &HashMap<&'a str, FnSig>,
     fn_indices: &HashMap<&'a str, u32>,
     aliases: &'a AliasMap,
+    type_defs: &'a TypeDefs<'a>,
 ) -> Result<IrFunction> {
     let mut env: HashMap<&str, Value> = HashMap::new();
     let mut type_env: HashMap<&str, LocalBinding> = HashMap::new();
@@ -159,6 +163,7 @@ pub(crate) fn lower_func<'a>(
         fns: fns.clone(),
         fn_indices: fn_indices.clone(),
         aliases,
+        type_defs,
         body: Vec::new(),
         ret_ty: f.ret.clone(),
     };
@@ -286,7 +291,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             let first = elems
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("array literal requires at least one element"))?;
-            let elem_ty = infer_expr_type(first, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+            let elem_ty = infer_expr_type(first, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
             let elem_ty = base_type(&elem_ty, ctx.aliases)?;
             let layout = array_layout(&elem_ty, elems.len() as u32, ctx.aliases)?;
             let ptr = emit_alloc(ctx, layout.size, layout.align);
@@ -311,7 +316,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::TupleLit { elems, .. } => {
             let mut elem_tys = Vec::with_capacity(elems.len());
             for elem in elems {
-                let ty = infer_expr_type(elem, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                let ty = infer_expr_type(elem, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
                 elem_tys.push(base_type(&ty, ctx.aliases)?);
             }
             let layout = tuple_layout(&elem_tys, ctx.aliases)?;
@@ -403,7 +408,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             .copied()
             .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name))),
         Expr::Index { base, index, span } => {
-            let base_ty = infer_expr_type(base, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+            let base_ty = infer_expr_type(base, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
             let resolved = base_type(&base_ty, ctx.aliases)?;
             let base_ptr = lower_expr(ctx, base, None)?;
             match resolved {
@@ -518,8 +523,8 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             }
         }
         Expr::Bin { op, lhs, rhs, .. } => {
-            let lt = infer_expr_type(lhs, &ctx.type_env, &ctx.fns, ctx.aliases)?;
-            let rt = infer_expr_type(rhs, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+            let lt = infer_expr_type(lhs, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
+            let rt = infer_expr_type(rhs, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
             let op_type = match op {
                 BinOp::And | BinOp::Or => Type::Bool,
                 BinOp::Eq | BinOp::Neq => {
@@ -603,7 +608,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 if args.len() != 1 {
                     anyhow::bail!("`U128` expects exactly one argument");
                 }
-                let arg_ty = infer_expr_type(&args[0], &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                let arg_ty = infer_expr_type(&args[0], &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
                 if matches!(arg_ty, Type::U128) {
                     return lower_expr(ctx, &args[0], Some(Type::U128));
                 }
@@ -621,7 +626,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 if args.len() != 1 {
                     anyhow::bail!("`U256` expects exactly one argument");
                 }
-                let arg_ty = infer_expr_type(&args[0], &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                let arg_ty = infer_expr_type(&args[0], &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
                 if matches!(arg_ty, Type::U256) {
                     return lower_expr(ctx, &args[0], Some(Type::U256));
                 }
@@ -776,7 +781,7 @@ fn lower_block_statements<'a>(
         match stmt {
             Stmt::Let { name, expr, .. } => {
                 let val = lower_expr(ctx, expr.as_ref(), None)?;
-                let ty = infer_expr_type(expr.as_ref(), &ctx.type_env, &ctx.fns, ctx.aliases)?;
+                let ty = infer_expr_type(expr.as_ref(), &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
                 let key = name.as_str();
                 let prev = ctx.env.insert(key, val);
                 let prev_ty = ctx.type_env.insert(
@@ -972,7 +977,7 @@ fn lower_match_sugar<'a>(
         ty: IrType::Int,
     });
 
-    let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.aliases)?;
+    let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
     let binder_ty = match scrut_ty {
         Type::Option(inner) => *inner,
         Type::Result(ok, err) => {

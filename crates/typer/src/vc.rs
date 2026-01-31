@@ -1704,7 +1704,18 @@ impl SmtEncoder {
 
     fn encode_match(&mut self, scrutinee: &Expr, arms: &[MatchArm]) -> String {
         if arms.len() != 2 {
-            return format!("; unsupported match {:?}", arms);
+            return "0".to_string();
+        }
+        if !arms.iter().all(|arm| {
+            matches!(
+                arm.pat,
+                MatchPat::Some(_)
+                    | MatchPat::None
+                    | MatchPat::Ok(_)
+                    | MatchPat::Err(_)
+            )
+        }) {
+            return "0".to_string();
         }
         self.helpers.insert(SmtHelper::VariantAccessors);
         let scrutinee_term = self.encode_inner(scrutinee);
@@ -1724,6 +1735,7 @@ impl SmtEncoder {
         let tag_value = match pat {
             MatchPat::Some(_) | MatchPat::Ok(_) => 1,
             MatchPat::None | MatchPat::Err(_) => 0,
+            MatchPat::Wildcard | MatchPat::EnumVariant { .. } => 0,
         };
         format!("(= (cl.variant.tag {}) {})", scrutinee_sym, tag_value)
     }
@@ -1735,7 +1747,7 @@ impl SmtEncoder {
                 let payload = format!("(cl.variant.payload_lo {})", scrutinee_sym);
                 format!("(let (({} {})) {})", name, payload, body)
             }
-            MatchPat::None => body,
+            MatchPat::None | MatchPat::Wildcard | MatchPat::EnumVariant { .. } => body,
         }
     }
 
@@ -1893,6 +1905,18 @@ fn match_arm_to_source(arm: &MatchArm) -> ArmSource {
         MatchPat::None => "None".to_string(),
         MatchPat::Ok(name) => format!("Ok({})", name),
         MatchPat::Err(name) => format!("Err({})", name),
+        MatchPat::Wildcard => "_".to_string(),
+        MatchPat::EnumVariant {
+            enum_name,
+            variant,
+            binders,
+        } => {
+            if binders.is_empty() {
+                format!("{}::{}", enum_name, variant)
+            } else {
+                format!("{}::{}({})", enum_name, variant, binders.join(", "))
+            }
+        }
     };
     let body = expr_to_source(&arm.expr, 0);
     ArmSource { pat, body }

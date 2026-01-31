@@ -265,6 +265,12 @@ pub enum MatchPat {
     None,
     Ok(String),
     Err(String),
+    Wildcard,
+    EnumVariant {
+        enum_name: String,
+        variant: String,
+        binders: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone)]

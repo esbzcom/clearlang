@@ -13,7 +13,8 @@ use crate::lower::lower_func;
 use crate::vc::{generate_vcs, VerificationCondition};
 use anyhow::{Context, Result};
 use clg_ast::{
-    BinOp, Block, Effect, Expr, Func, Param, ParamKind, Program, Span, Stmt, Type, UnaryOp,
+    BinOp, Block, Effect, EnumDecl, EnumVariant, Expr, Func, Param, ParamKind, Program, Span, Stmt,
+    StructDecl, StructField, Type, UnaryOp,
 };
 use clg_ir::Module;
 use std::collections::{HashMap, HashSet};
@@ -55,8 +56,28 @@ pub(crate) struct AliasDef {
 
 pub(crate) type AliasMap = HashMap<String, AliasDef>;
 
-fn ensure_no_resource_collections(ty: &Type, span: Option<Span>) -> Result<()> {
-    if let Some(offending) = find_resource_collection(ty) {
+pub(crate) struct StructInfo<'a> {
+    pub decl: &'a StructDecl,
+    pub fields: HashMap<&'a str, &'a StructField>,
+}
+
+pub(crate) struct EnumInfo<'a> {
+    pub decl: &'a EnumDecl,
+    pub variants: HashMap<&'a str, &'a EnumVariant>,
+}
+
+pub(crate) struct TypeDefs<'a> {
+    pub resources: HashSet<&'a str>,
+    pub structs: HashMap<&'a str, StructInfo<'a>>,
+    pub enums: HashMap<&'a str, EnumInfo<'a>>,
+}
+
+fn ensure_no_resource_collections(
+    ty: &Type,
+    span: Option<Span>,
+    resource_names: &HashSet<&str>,
+) -> Result<()> {
+    if let Some(offending) = find_resource_collection(ty, resource_names) {
         return Err(TyperError::resource_in_collection(offending, span).into());
     }
     Ok(())
@@ -89,6 +110,18 @@ fn validate_supported_types(program: &Program) -> Result<()> {
             ensure_supported_type(&field.ty, Some(field.span))?;
         }
     }
+    for s in &program.structs {
+        for field in &s.fields {
+            ensure_supported_type(&field.ty, Some(field.span))?;
+        }
+    }
+    for e in &program.enums {
+        for variant in &e.variants {
+            for ty in &variant.fields {
+                ensure_supported_type(ty, Some(variant.span))?;
+            }
+        }
+    }
     for alias in &program.refined_aliases {
         ensure_supported_type(&alias.base, Some(alias.span))?;
     }
@@ -101,30 +134,31 @@ fn validate_supported_types(program: &Program) -> Result<()> {
     Ok(())
 }
 
-fn find_resource_collection(ty: &Type) -> Option<Type> {
+fn find_resource_collection(ty: &Type, resource_names: &HashSet<&str>) -> Option<Type> {
     match ty {
         Type::List(inner) | Type::Set(inner) => {
-            if contains_resource(inner) {
+            if contains_resource(inner, resource_names) {
                 Some(ty.clone())
             } else {
                 None
             }
         }
         Type::Map(key, val) => {
-            if contains_resource(key) || contains_resource(val) {
+            if contains_resource(key, resource_names) || contains_resource(val, resource_names) {
                 Some(ty.clone())
             } else {
                 None
             }
         }
-        Type::Option(inner) => find_resource_collection(inner),
+        Type::Option(inner) => find_resource_collection(inner, resource_names),
         Type::Result(ok, err) => {
-            find_resource_collection(ok).or_else(|| find_resource_collection(err))
+            find_resource_collection(ok, resource_names)
+                .or_else(|| find_resource_collection(err, resource_names))
         }
-        Type::Array(inner, _) => find_resource_collection(inner),
+        Type::Array(inner, _) => find_resource_collection(inner, resource_names),
         Type::Tuple(elements) => {
             for elem in elements {
-                if let Some(found) = find_resource_collection(elem) {
+                if let Some(found) = find_resource_collection(elem, resource_names) {
                     return Some(found);
                 }
             }
@@ -134,15 +168,19 @@ fn find_resource_collection(ty: &Type) -> Option<Type> {
     }
 }
 
-fn contains_resource(ty: &Type) -> bool {
+fn contains_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
     match ty {
-        Type::Resource(_) => true,
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => contains_resource(inner),
-        Type::Result(ok, err) | Type::Map(ok, err) => {
-            contains_resource(ok) || contains_resource(err)
+        Type::Resource(name) => resource_names.contains(name.as_str()),
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+            contains_resource(inner, resource_names)
         }
-        Type::Array(inner, _) => contains_resource(inner),
-        Type::Tuple(elements) => elements.iter().any(|elem| contains_resource(elem)),
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            contains_resource(ok, resource_names) || contains_resource(err, resource_names)
+        }
+        Type::Array(inner, _) => contains_resource(inner, resource_names),
+        Type::Tuple(elements) => elements
+            .iter()
+            .any(|elem| contains_resource(elem, resource_names)),
         _ => false,
     }
 }
@@ -165,16 +203,208 @@ fn contains_named_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
     }
 }
 
-fn validate_no_resource_collections(program: &Program) -> Result<()> {
+fn validate_no_resource_collections(
+    program: &Program,
+    resource_names: &HashSet<&str>,
+) -> Result<()> {
     for res in &program.resources {
         for field in &res.fields {
-            ensure_no_resource_collections(&field.ty, Some(field.span))?;
+            ensure_no_resource_collections(&field.ty, Some(field.span), resource_names)?;
+        }
+    }
+    for s in &program.structs {
+        for field in &s.fields {
+            ensure_no_resource_collections(&field.ty, Some(field.span), resource_names)?;
+        }
+    }
+    for e in &program.enums {
+        for variant in &e.variants {
+            for ty in &variant.fields {
+                ensure_no_resource_collections(ty, Some(variant.span), resource_names)?;
+            }
         }
     }
     for func in &program.funcs {
-        ensure_no_resource_collections(&func.ret, None)?;
+        ensure_no_resource_collections(&func.ret, None, resource_names)?;
         for param in &func.params {
-            ensure_no_resource_collections(&param.ty, None)?;
+            ensure_no_resource_collections(&param.ty, None, resource_names)?;
+        }
+    }
+    Ok(())
+}
+
+fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
+    let mut resources: HashSet<&str> = HashSet::with_capacity(program.resources.len());
+    for res in &program.resources {
+        resources.insert(res.name.as_str());
+    }
+
+    let alias_names: HashSet<&str> = program
+        .refined_aliases
+        .iter()
+        .map(|alias| alias.name.as_str())
+        .collect();
+
+    let mut structs: HashMap<&str, StructInfo<'_>> = HashMap::with_capacity(program.structs.len());
+    let mut enums: HashMap<&str, EnumInfo<'_>> = HashMap::with_capacity(program.enums.len());
+
+    for s in &program.structs {
+        let name = s.name.as_str();
+        if resources.contains(name) {
+            return Err(TyperError::type_conflicts_with_resource(name, s.name_span).into());
+        }
+        if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
+            return Err(TyperError::duplicate_type(name, s.name_span).into());
+        }
+        let mut fields: HashMap<&str, &StructField> = HashMap::with_capacity(s.fields.len());
+        for field in &s.fields {
+            if fields.insert(field.name.as_str(), field).is_some() {
+                return Err(
+                    TyperError::duplicate_struct_field(field.name.as_str(), field.span).into(),
+                );
+            }
+        }
+        structs.insert(
+            name,
+            StructInfo {
+                decl: s,
+                fields,
+            },
+        );
+    }
+
+    for e in &program.enums {
+        let name = e.name.as_str();
+        if resources.contains(name) {
+            return Err(TyperError::type_conflicts_with_resource(name, e.name_span).into());
+        }
+        if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
+            return Err(TyperError::duplicate_type(name, e.name_span).into());
+        }
+        let mut variants: HashMap<&str, &EnumVariant> =
+            HashMap::with_capacity(e.variants.len());
+        for variant in &e.variants {
+            if variants.insert(variant.name.as_str(), variant).is_some() {
+                return Err(
+                    TyperError::duplicate_enum_variant(variant.name.as_str(), variant.span).into(),
+                );
+            }
+        }
+        enums.insert(
+            name,
+            EnumInfo {
+                decl: e,
+                variants,
+            },
+        );
+    }
+
+    Ok(TypeDefs {
+        resources,
+        structs,
+        enums,
+    })
+}
+
+fn ensure_known_type(
+    ty: &Type,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    span: Option<Span>,
+) -> Result<()> {
+    match ty {
+        Type::Resource(name) => {
+            let name = name.as_str();
+            if aliases.contains_key(name)
+                || type_defs.resources.contains(name)
+                || type_defs.structs.contains_key(name)
+                || type_defs.enums.contains_key(name)
+            {
+                Ok(())
+            } else {
+                Err(TyperError::unknown_type(name, span).into())
+            }
+        }
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+            ensure_known_type(inner, aliases, type_defs, span)
+        }
+        Type::Array(inner, _) => ensure_known_type(inner, aliases, type_defs, span),
+        Type::Tuple(elements) => {
+            for elem in elements {
+                ensure_known_type(elem, aliases, type_defs, span)?;
+            }
+            Ok(())
+        }
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            ensure_known_type(ok, aliases, type_defs, span)?;
+            ensure_known_type(err, aliases, type_defs, span)
+        }
+        _ => Ok(()),
+    }
+}
+
+fn validate_known_types(
+    program: &Program,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
+    for res in &program.resources {
+        for field in &res.fields {
+            ensure_known_type(&field.ty, aliases, type_defs, Some(field.span))?;
+        }
+    }
+    for s in &program.structs {
+        for field in &s.fields {
+            ensure_known_type(&field.ty, aliases, type_defs, Some(field.span))?;
+        }
+    }
+    for e in &program.enums {
+        for variant in &e.variants {
+            for ty in &variant.fields {
+                ensure_known_type(ty, aliases, type_defs, Some(variant.span))?;
+            }
+        }
+    }
+    for alias in &program.refined_aliases {
+        ensure_known_type(&alias.base, aliases, type_defs, Some(alias.span))?;
+    }
+    for func in &program.funcs {
+        ensure_known_type(&func.ret, aliases, type_defs, None)?;
+        for param in &func.params {
+            ensure_known_type(&param.ty, aliases, type_defs, None)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_struct_enum_resources(
+    program: &Program,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
+    for s in &program.structs {
+        for field in &s.fields {
+            let resolved = base_type(&field.ty, aliases)?;
+            if contains_named_resource(&resolved, &type_defs.resources) {
+                return Err(
+                    TyperError::resource_field_not_supported("struct", &s.name, field.span).into(),
+                );
+            }
+        }
+    }
+    for e in &program.enums {
+        for variant in &e.variants {
+            for ty in &variant.fields {
+                let resolved = base_type(ty, aliases)?;
+                if contains_named_resource(&resolved, &type_defs.resources) {
+                    return Err(TyperError::resource_field_not_supported(
+                        "enum",
+                        &e.name,
+                        variant.span,
+                    )
+                    .into());
+                }
+            }
         }
     }
     Ok(())
@@ -309,9 +539,12 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
         return fast_path_without_totality(ast);
     }
-    validate_no_resource_collections(ast)?;
+    let type_defs = build_type_defs(ast)?;
+    validate_no_resource_collections(ast, &type_defs.resources)?;
     validate_supported_types(ast)?;
-    let alias_map = build_alias_map(ast)?;
+    let alias_map = build_alias_map(ast, &type_defs)?;
+    validate_known_types(ast, &alias_map, &type_defs)?;
+    validate_struct_enum_resources(ast, &alias_map, &type_defs)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -344,10 +577,11 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
         }
     }
 
-    validate_alias_predicates(&alias_map, &fns)?;
+    validate_alias_predicates(&alias_map, &fns, &type_defs)?;
 
     for f in &ast.funcs {
-        check_func(f, &fns, &alias_map).with_context(|| format!("in function `{}`", f.name))?;
+        check_func(f, &fns, &alias_map, &type_defs)
+            .with_context(|| format!("in function `{}`", f.name))?;
     }
     for f in &ast.funcs {
         enforce_totality(f)?;
@@ -468,7 +702,7 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     for f in &ast.funcs {
         module
             .funcs
-            .push(lower_func(f, &fns, &fn_indices, &alias_map)?);
+            .push(lower_func(f, &fns, &fn_indices, &alias_map, &type_defs)?);
     }
     // Append intrinsic function declarations at the end
     module.funcs.extend(intrinsic_defs);
@@ -484,9 +718,12 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
         return fast_path_without_totality(ast).map(|_| ());
     }
-    validate_no_resource_collections(ast)?;
+    let type_defs = build_type_defs(ast)?;
+    validate_no_resource_collections(ast, &type_defs.resources)?;
     validate_supported_types(ast)?;
-    let alias_map = build_alias_map(ast)?;
+    let alias_map = build_alias_map(ast, &type_defs)?;
+    validate_known_types(ast, &alias_map, &type_defs)?;
+    validate_struct_enum_resources(ast, &alias_map, &type_defs)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -519,10 +756,11 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
         }
     }
 
-    validate_alias_predicates(&alias_map, &fns)?;
+    validate_alias_predicates(&alias_map, &fns, &type_defs)?;
 
     for f in &ast.funcs {
-        check_func(f, &fns, &alias_map).with_context(|| format!("in function `{}`", f.name))?;
+        check_func(f, &fns, &alias_map, &type_defs)
+            .with_context(|| format!("in function `{}`", f.name))?;
     }
     for f in &ast.funcs {
         enforce_totality(f)?;
@@ -531,9 +769,12 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 }
 
 fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
-    validate_no_resource_collections(ast)?;
+    let type_defs = build_type_defs(ast)?;
+    validate_no_resource_collections(ast, &type_defs.resources)?;
     validate_supported_types(ast)?;
-    let alias_map = build_alias_map(ast)?;
+    let alias_map = build_alias_map(ast, &type_defs)?;
+    validate_known_types(ast, &alias_map, &type_defs)?;
+    validate_struct_enum_resources(ast, &alias_map, &type_defs)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -566,10 +807,11 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
         }
     }
 
-    validate_alias_predicates(&alias_map, &fns)?;
+    validate_alias_predicates(&alias_map, &fns, &type_defs)?;
 
     for f in &ast.funcs {
-        check_func(f, &fns, &alias_map).with_context(|| format!("in function `{}`", f.name))?;
+        check_func(f, &fns, &alias_map, &type_defs)
+            .with_context(|| format!("in function `{}`", f.name))?;
     }
 
     let used_intrinsics = collect_used_intrinsics(ast);
@@ -682,14 +924,19 @@ fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
     for f in &ast.funcs {
         module
             .funcs
-            .push(lower_func(f, &fns, &fn_indices, &alias_map)?);
+            .push(lower_func(f, &fns, &fn_indices, &alias_map, &type_defs)?);
     }
     module.funcs.extend(intrinsic_defs);
     let vcs = generate_vcs(ast);
     Ok(TypecheckOutput { ir: module, vcs })
 }
 
-fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap) -> Result<()> {
+fn check_func<'a>(
+    f: &'a Func,
+    fns: &HashMap<&'a str, FnSig>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
     let mut env: HashMap<&str, LocalBinding> = HashMap::with_capacity(f.params.len() + 1);
     let ret_ty = f.ret.clone();
     env.insert(
@@ -714,14 +961,15 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
         {
             return Err(TyperError::duplicate_parameter(&p.name).into());
         }
-        tracker.register_param(p.name.as_str(), p.kind, &resolved_ty);
+        let is_resource = is_resource_type(&resolved_ty, aliases, type_defs)?;
+        tracker.register_param(p.name.as_str(), p.kind, is_resource);
     }
 
     let allowed_effect = level_from_effect(f.effect);
 
     for req in &f.requires {
         let mut req_tracker = tracker.clone();
-        let ty = type_of(&req.expr, &env, &mut req_tracker, fns, aliases, 0)?;
+        let ty = type_of(&req.expr, &env, &mut req_tracker, fns, aliases, type_defs, 0)?;
         if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("require", ty, req.span).into());
         }
@@ -742,14 +990,22 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
     }
     for ens in &f.ensures {
         let mut ensure_tracker = tracker.clone();
-        let ty = type_of(&ens.expr, &ensure_env, &mut ensure_tracker, fns, aliases, 0)?;
+        let ty = type_of(
+            &ens.expr,
+            &ensure_env,
+            &mut ensure_tracker,
+            fns,
+            aliases,
+            type_defs,
+            0,
+        )?;
         if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
         }
         max_effect(&ens.expr, fns, EffectLevel::Pure)?;
     }
 
-    let body_ty = type_of(&f.body, &env, &mut tracker, fns, aliases, 0)?;
+    let body_ty = type_of(&f.body, &env, &mut tracker, fns, aliases, type_defs, 0)?;
     if !binding_compatible(&ret_ty, &body_ty, aliases)? {
         let sp = expr_span(&f.body);
         let allow_unsigned_literal = expr::literal_can_coerce_unsigned(&ret_ty, &body_ty, &f.body);
@@ -765,7 +1021,7 @@ fn check_func<'a>(f: &'a Func, fns: &HashMap<&'a str, FnSig>, aliases: &AliasMap
             return Err(TyperError::return_type_mismatch(ret_ty.clone(), body_ty, sp).into());
         }
     }
-    if is_resource_type(&ret_ty, aliases)? {
+    if is_resource_type(&ret_ty, aliases, type_defs)? {
         consume_var_expr(&mut tracker, &f.body)?;
     }
     tracker.ensure_consumed()?;
@@ -808,33 +1064,33 @@ fn enforce_mut_guards(expr: &Expr, guards: &HashSet<MutGuardKey>) -> Result<()> 
     Ok(())
 }
 
-fn build_alias_map(program: &Program) -> Result<AliasMap> {
+fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result<AliasMap> {
     let mut aliases: AliasMap = HashMap::with_capacity(program.refined_aliases.len());
-    // Collect resource names for conflict checks
-    let mut resource_names: HashSet<&str> = HashSet::with_capacity(program.resources.len());
-    for res in &program.resources {
-        resource_names.insert(res.name.as_str());
-    }
 
     for alias in &program.refined_aliases {
         if aliases.contains_key(alias.name.as_str()) {
             return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
         }
-        if resource_names.contains(alias.name.as_str()) {
+        if type_defs.resources.contains(alias.name.as_str()) {
             return Err(
                 TyperError::type_conflicts_with_resource(&alias.name, alias.name_span).into(),
             );
         }
+        if type_defs.structs.contains_key(alias.name.as_str())
+            || type_defs.enums.contains_key(alias.name.as_str())
+        {
+            return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
+        }
         let mut visited = Vec::with_capacity(program.refined_aliases.len());
         let resolved_base = resolve_aliases(&alias.base, &aliases, &mut visited)?;
-        if contains_named_resource(&resolved_base, &resource_names) {
+        if contains_named_resource(&resolved_base, &type_defs.resources) {
             return Err(TyperError::refined_resource_not_supported(
                 alias.name.as_str(),
                 alias.span,
             )
             .into());
         }
-        ensure_no_resource_collections(&resolved_base, Some(alias.span))?;
+        ensure_no_resource_collections(&resolved_base, Some(alias.span), &type_defs.resources)?;
 
         aliases.insert(
             alias.name.clone(),
@@ -912,8 +1168,11 @@ fn base_types_match(expected: &Type, actual: &Type, aliases: &AliasMap) -> Resul
     Ok(base_type(expected, aliases)? == base_type(actual, aliases)?)
 }
 
-fn is_resource_type(ty: &Type, aliases: &AliasMap) -> Result<bool> {
-    Ok(matches!(base_type(ty, aliases)?, Type::Resource(_)))
+fn is_resource_type(ty: &Type, aliases: &AliasMap, type_defs: &TypeDefs) -> Result<bool> {
+    Ok(match base_type(ty, aliases)? {
+        Type::Resource(name) => type_defs.resources.contains(name.as_str()),
+        _ => false,
+    })
 }
 
 fn refinement_loss(expected: &Type, actual: &Type, aliases: &AliasMap) -> bool {
@@ -1331,7 +1590,11 @@ fn eval_const_bool(expr: &Expr) -> Option<bool> {
     }
 }
 
-fn validate_alias_predicates(aliases: &AliasMap, fns: &HashMap<&str, FnSig>) -> Result<()> {
+fn validate_alias_predicates(
+    aliases: &AliasMap,
+    fns: &HashMap<&str, FnSig>,
+    type_defs: &TypeDefs,
+) -> Result<()> {
     for (name, def) in aliases {
         let mut env: HashMap<&str, LocalBinding> =
             HashMap::with_capacity(def.binder.as_ref().map(|_| 1).unwrap_or(0));
@@ -1345,7 +1608,15 @@ fn validate_alias_predicates(aliases: &AliasMap, fns: &HashMap<&str, FnSig>) -> 
             );
         }
         let mut tracker = ResourceTracker::new();
-        let pred_ty = type_of(&def.predicate, &env, &mut tracker, fns, aliases, 0)?;
+        let pred_ty = type_of(
+            &def.predicate,
+            &env,
+            &mut tracker,
+            fns,
+            aliases,
+            type_defs,
+            0,
+        )?;
         if base_type(&pred_ty, aliases)? != Type::Bool {
             return Err(TyperError::alias_predicate_not_bool(name.as_str(), def.span).into());
         }

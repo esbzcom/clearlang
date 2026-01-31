@@ -35,3 +35,19 @@ fn parses_enum_decl_and_variant_call() {
     assert_eq!(program.enums.len(), 1);
     assert_eq!(program.enums[0].name, "Shape");
 }
+
+#[test]
+fn parses_enum_match_patterns() {
+    let src = r#"
+        enum Shape {
+            Circle(Int),
+            Empty
+        }
+
+        function main(s: Shape) -> Int {
+            match s { Shape::Circle(r) => r, Shape::Empty => 0 }
+        }
+    "#;
+    let program = parse(src).expect("parse ok");
+    assert_eq!(program.enums.len(), 1);
+}

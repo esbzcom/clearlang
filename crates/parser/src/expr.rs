@@ -330,7 +330,39 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             .ignore_then(ident_p())
             .then_ignore(just(')').padded())
             .map(MatchPat::Err);
-        let pat = choice((some_pat, none_pat, ok_pat, err_pat)).labelled("match pattern");
+        let wildcard_pat = just('_').padded().to(MatchPat::Wildcard);
+        let enum_binders = ident_p()
+            .separated_by(just(',').padded().labelled("comma"))
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(just('(').padded(), just(')').padded());
+        let enum_pat = path_name_p()
+            .try_map(|path, span| {
+                let parts: Vec<&str> = path.split("::").collect();
+                if parts.len() != 2 {
+                    Err(Rich::custom(
+                        span,
+                        "enum pattern must be `Type::Variant`",
+                    ))
+                } else {
+                    Ok((parts[0].to_string(), parts[1].to_string()))
+                }
+            })
+            .then(enum_binders.or_not())
+            .map(|((enum_name, variant), binders)| MatchPat::EnumVariant {
+                enum_name,
+                variant,
+                binders: binders.unwrap_or_default(),
+            });
+        let pat = choice((
+            wildcard_pat,
+            some_pat,
+            none_pat,
+            ok_pat,
+            err_pat,
+            enum_pat,
+        ))
+        .labelled("match pattern");
         let arm = pat
             .then_ignore(just("=>").padded())
             .then(expr.clone())

@@ -62,12 +62,23 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T115 | type | Tuple index must be a constant integer. |
 | T201 | type | Non-exhaustive match (missing arm). |
 | T202 | type | Duplicate match arm. |
-| T203 | type | Invalid match scrutinee (expected Option/Result). |
+| T203 | type | Invalid match scrutinee (expected Option/Result/enum). |
 | T204 | type | Match arm type mismatch. |
 | T205 | type | Binder conflicts with an existing name. |
 | T206 | type | Cannot infer element type for `std::{list,set,map}::new()`. |
 | T207 | type | Expected collection kind (wrong argument type to a collection API). |
 | T208 | type | Element/key/value type mismatch for collection operations. |
+| T209 | type | Unreachable match arm. |
+| T210 | type | Unknown type name. |
+| T211 | type | Unknown struct field. |
+| T212 | type | Missing struct field in literal. |
+| T213 | type | Duplicate struct field. |
+| T214 | type | Struct field type mismatch. |
+| T215 | type | Unknown enum variant. |
+| T216 | type | Enum variant arity mismatch. |
+| T217 | type | Expected struct type (field access or literal). |
+| T218 | type | Resource fields are not allowed in structs/enums yet. |
+| T219 | type | Duplicate enum variant. |
 | T301 | type | Branch type mismatch in expression-form `if`/`else`. |
 | T401 | type | Call requires a stronger effect. |
 | T402 | type | Missing required mut guard for a mut call. |
@@ -85,7 +96,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T611 | type | `Ok` argument type mismatch. |
 | T612 | type | `Err` requires function return type `Result<_, _>`. |
 | T613 | type | `Err` argument type mismatch. |
-| T701 | type | Duplicate type alias. |
+| T701 | type | Duplicate type name. |
 | T702 | type | Type alias conflicts with a resource name. |
 | T703 | type | Cyclic refinement alias detected. |
 | T704 | type | Refinement predicate must be Bool. |

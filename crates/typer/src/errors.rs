@@ -490,7 +490,7 @@ impl TyperError {
         Self::new(
             "T203",
             format!(
-                "at {}..{}: invalid match scrutinee: expected `Option` or `Result`, found `{}`",
+                "at {}..{}: invalid match scrutinee: expected `Option`, `Result`, or enum type, found `{}`",
                 span.start,
                 span.end,
                 show_ty(found)
@@ -521,6 +521,158 @@ impl TyperError {
             format!(
                 "at {}..{}: binder `{}` conflicts with an existing name",
                 span.start, span.end, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn match_unreachable_arm(span: Span) -> Self {
+        Self::new(
+            "T209",
+            format!(
+                "at {}..{}: unreachable match arm",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn unknown_type(name: &str, span: Option<Span>) -> Self {
+        if let Some(sp) = span {
+            Self::new(
+                "T210",
+                format!(
+                    "at {}..{}: unknown type `{}`",
+                    sp.start, sp.end, name
+                ),
+                sp.start,
+                sp.end,
+            )
+        } else {
+            Self::new("T210", format!("unknown type `{}`", name), 0, 0)
+        }
+    }
+
+    pub fn unknown_struct_field(struct_name: &str, field: &str, span: Span) -> Self {
+        Self::new(
+            "T211",
+            format!(
+                "at {}..{}: unknown field `{}` on struct `{}`",
+                span.start, span.end, field, struct_name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn missing_struct_field(struct_name: &str, field: &str, span: Span) -> Self {
+        Self::new(
+            "T212",
+            format!(
+                "at {}..{}: missing field `{}` in struct `{}` literal",
+                span.start, span.end, field, struct_name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn duplicate_struct_field(field: &str, span: Span) -> Self {
+        Self::new(
+            "T213",
+            format!(
+                "at {}..{}: duplicate struct field `{}`",
+                span.start, span.end, field
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn struct_field_type_mismatch(
+        struct_name: &str,
+        field: &str,
+        expected: Type,
+        found: Type,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            "T214",
+            format!(
+                "at {}..{}: struct `{}` field `{}` type mismatch: expected `{}`, found `{}`",
+                span.start,
+                span.end,
+                struct_name,
+                field,
+                show_ty(expected),
+                show_ty(found)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn unknown_enum_variant(label: &str, span: Span) -> Self {
+        Self::new(
+            "T215",
+            format!(
+                "at {}..{}: unknown enum variant `{}`",
+                span.start, span.end, label
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn enum_variant_arity_mismatch(
+        label: &str,
+        expected: usize,
+        found: usize,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            "T216",
+            format!(
+                "at {}..{}: enum variant `{}` expects {} fields, found {}",
+                span.start, span.end, label, expected, found
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn expected_struct(found: &str, span: Span) -> Self {
+        Self::new(
+            "T217",
+            format!(
+                "at {}..{}: expected struct type, found `{}`",
+                span.start, span.end, found
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn resource_field_not_supported(kind: &str, name: &str, span: Span) -> Self {
+        Self::new(
+            "T218",
+            format!(
+                "at {}..{}: resources are not allowed in {} `{}` fields yet",
+                span.start, span.end, kind, name
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn duplicate_enum_variant(variant: &str, span: Span) -> Self {
+        Self::new(
+            "T219",
+            format!(
+                "at {}..{}: duplicate enum variant `{}`",
+                span.start, span.end, variant
             ),
             span.start,
             span.end,

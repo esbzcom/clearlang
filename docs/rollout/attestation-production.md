@@ -41,6 +41,8 @@ It is **not** production-hardened. It intentionally omits operational controls, 
 
 ## Migration Path: Reference -> Production
 
+Reminder: production hardening work is expected to land in a later phase (target: Phase 18) after the Phase 16.7 reference implementation is validated.
+
 1) **Version the schema now**
    - Add explicit version fields in the payload and registry storage.
    - Make verification reject unknown versions by default.

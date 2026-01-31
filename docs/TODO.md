@@ -667,7 +667,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [ ] 16.7.1 Draft design note: registry schema, payload format, and verification flow.
     - [ ] 16.7.2 Minimal reference implementation (Solidity contract + sample payload).
     - [ ] 16.7.3 Documentation and example workflow.
-    - [ ] 16.7.4 Production migration checklist (see `docs/rollout/attestation-production.md`).
+    - [ ] 16.7.4 Production migration checklist (see `docs/rollout/attestation-production.md`, Phase 18 hardening reminder).
 
 ### 17 Language gaps + collections
 - [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
@@ -677,4 +677,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - Tech debt: general arrays/slices with indexing semantics remain pending; fixed-size arrays/tuples use pointer layout for nested elements with runtime guards for dynamic indices.
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
+
+### 18 Production hardening + attestation
+- [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
+- [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
+- [ ] 18.3 Security review + fuzzing for attestation contract and payload validation.
 

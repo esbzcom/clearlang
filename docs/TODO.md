@@ -670,12 +670,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 16.7.4 Production migration checklist (see `docs/rollout/attestation-production.md`, Phase 18 hardening reminder).
 
 ### 17 Language gaps + collections
-- [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
+- [x] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
   - [x] 17.1.1 Spec + docs: syntax, layout model, visibility, and resource interactions (`docs/design/phase-17.1-structs-enums.md`).
   - [x] 17.1.2 Parser/AST support for `struct`/`enum`, field access, and construction.
   - [x] 17.1.3 Typer: field/variant checking, pattern matching, exhaustiveness, and unreachable arms.
   - [x] 17.1.4 Lowering/codegen: concrete layout + tag/payload strategy.
-  - [ ] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
+  - [x] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
 - [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
   - [ ] 17.2.1 Design: generics syntax, trait bounds, coherence rules, and monomorphization strategy.
   - [ ] 17.2.2 Parser/AST: type params, bounds, and impl blocks.

@@ -26,6 +26,8 @@ Elements are laid out using each type's runtime representation.
 | `Bytes` | 4 | 4 | i32 pointer to `[u32 len][u8 bytes]` |
 | `Option<T>` | 4 | 4 | i32 pointer to 16-byte variant layout |
 | `Result<T,E>` | 4 | 4 | i32 pointer to 16-byte variant layout |
+| `Struct` | 4 | 4 | i32 pointer to struct allocation (tuple layout) |
+| `Enum` | 4 | 4 | i32 pointer to 16-byte variant layout |
 | `List/Set/Map` | 4 | 4 | i32 pointer (runtime-defined) |
 | `Resource` | 4 | 4 | i32 handle (runtime-defined) |
 | `Array<T>` | 4 | 4 | i32 pointer to array allocation |
@@ -34,6 +36,7 @@ Elements are laid out using each type's runtime representation.
 Notes:
 - Arrays/tuples cannot contain resources (enforced by the typer).
 - `U128`/`U256` use limb buffers defined in `docs/design/phase-15.1-unsigned-ints.md`.
+- Enums use the variant layout; for multi-field variants, `payload_lo` points to a tuple allocation that follows the same layout rules.
 
 ## Array Layout
 For `[T; N]`:

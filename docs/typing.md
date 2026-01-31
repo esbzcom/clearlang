@@ -260,6 +260,12 @@ ADT Ergonomics (Phase 6.6)
 - **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations. See `docs/proofs/crypto-limitations.md` for migration options.
 - **Tooling**: CLI docs now include an `--emit-vcs` walkthrough (see `docs/introduction.md`) and the VC schema example is updated with the canonical helpers.
 
+## Structs/Enums Runtime Notes (Phase 17.1)
+
+- **Struct layout**: struct values are heap-allocated and follow the same contiguous layout rules as tuples (`docs/runtime/arrays-tuples.md`). Struct values are passed as `i32` pointers to the allocation.
+- **Enum layout**: enums reuse the canonical 16-byte variant layout (`{tag, payload_lo, payload_hi, reserved}`) with tag range `0..N-1` for `N` variants. Variants with multiple fields store a pointer to a tuple-layout payload in `payload_lo`; `payload_hi` is reserved/zero.
+- **Runtime traps**: invalid tags trigger `R003`, with the runtime detail reporting `"Enum"` for enum destructuring and match lowering.
+
 Collections (Type-Only Summary) -" see `docs/collections.md`
 
 - Types: `List<T>`, `Set<T>`, `Map<K,V>`.

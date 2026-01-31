@@ -667,6 +667,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [ ] 16.7.1 Draft design note: registry schema, payload format, and verification flow.
     - [ ] 16.7.2 Minimal reference implementation (Solidity contract + sample payload).
     - [ ] 16.7.3 Documentation and example workflow.
+    - [ ] 16.7.4 Production migration checklist (see `docs/rollout/attestation-production.md`).
 
 ### 17 Language gaps + collections
 - [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.

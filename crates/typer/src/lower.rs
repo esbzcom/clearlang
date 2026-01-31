@@ -336,6 +336,12 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             }
             Ok(ptr)
         }
+        Expr::StructLit { .. } => {
+            anyhow::bail!("struct literals are not supported in codegen yet")
+        }
+        Expr::FieldAccess { .. } => {
+            anyhow::bail!("field access is not supported in codegen yet")
+        }
         Expr::Unary { .. } => {
             anyhow::bail!("unary operators are not supported in codegen yet")
         }
@@ -917,9 +923,11 @@ fn push_non_negative_guard(ctx: &mut LowerCtx<'_>, value: Value, span: Span) {
 fn expr_span_local(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
-            *span
-        }
+        Expr::ArrayLit { span, .. }
+        | Expr::TupleLit { span, .. }
+        | Expr::StructLit { span, .. }
+        | Expr::FieldAccess { span, .. }
+        | Expr::Index { span, .. } => *span,
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }

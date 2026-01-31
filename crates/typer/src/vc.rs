@@ -678,6 +678,16 @@ fn collect_refinement_obligations<'a>(
             }
             Some(Type::Tuple(tys))
         }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_refinement_obligations(&field.expr, aliases, fn_sigs, &mut env.clone(), out);
+            }
+            None
+        }
+        Expr::FieldAccess { base, .. } => {
+            collect_refinement_obligations(base.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            None
+        }
         Expr::Index { base, index, .. } => {
             let base_ty = collect_refinement_obligations(
                 base.as_ref(),
@@ -1123,6 +1133,23 @@ fn substitute_binder(expr: &Expr, binder: &str, replacement: &Expr) -> Expr {
                 .collect(),
             span: *span,
         },
+        Expr::StructLit { name, fields, span } => Expr::StructLit {
+            name: name.clone(),
+            fields: fields
+                .iter()
+                .map(|field| clg_ast::StructFieldInit {
+                    name: field.name.clone(),
+                    expr: substitute_binder(&field.expr, binder, replacement),
+                    span: field.span,
+                })
+                .collect(),
+            span: *span,
+        },
+        Expr::FieldAccess { base, field, span } => Expr::FieldAccess {
+            base: Box::new(substitute_binder(base, binder, replacement)),
+            field: field.clone(),
+            span: *span,
+        },
         Expr::Index { base, index, span } => Expr::Index {
             base: Box::new(substitute_binder(base, binder, replacement)),
             index: Box::new(substitute_binder(index, binder, replacement)),
@@ -1237,6 +1264,23 @@ fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
                 .collect(),
             span: *span,
         },
+        Expr::StructLit { name, fields, span } => Expr::StructLit {
+            name: name.clone(),
+            fields: fields
+                .iter()
+                .map(|field| clg_ast::StructFieldInit {
+                    name: field.name.clone(),
+                    expr: substitute_result(&field.expr, replacement),
+                    span: field.span,
+                })
+                .collect(),
+            span: *span,
+        },
+        Expr::FieldAccess { base, field, span } => Expr::FieldAccess {
+            base: Box::new(substitute_result(base, replacement)),
+            field: field.clone(),
+            span: *span,
+        },
         Expr::Index { base, index, span } => Expr::Index {
             base: Box::new(substitute_result(base, replacement)),
             index: Box::new(substitute_result(index, replacement)),
@@ -1335,6 +1379,18 @@ fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
                 .collect::<Vec<_>>()
                 .join(", ");
             format!("({})", rendered)
+        }
+        Expr::StructLit { name, fields, .. } => {
+            let rendered = fields
+                .iter()
+                .map(|f| format!("{}: {}", f.name, expr_to_source(&f.expr, 0)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{} {{ {} }}", name, rendered)
+        }
+        Expr::FieldAccess { base, field, .. } => {
+            let base_str = expr_to_source(base, precedence_unary());
+            format!("{}.{}", base_str, field)
         }
         Expr::Index { base, index, .. } => {
             let base_str = expr_to_source(base, precedence_unary());
@@ -1488,7 +1544,11 @@ impl SmtEncoder {
             Expr::Bool(b, _) => b.to_string(),
             Expr::String(s, _) => format!("\"{}\"", s),
             Expr::Var(name, _) => name.clone(),
-            Expr::ArrayLit { .. } | Expr::TupleLit { .. } | Expr::Index { .. } => "0".to_string(),
+            Expr::ArrayLit { .. }
+            | Expr::TupleLit { .. }
+            | Expr::StructLit { .. }
+            | Expr::FieldAccess { .. }
+            | Expr::Index { .. } => "0".to_string(),
             Expr::Unary { op, expr, .. } => match op {
                 UnaryOp::Not => format!("(not {})", self.encode_inner(expr)),
             },
@@ -1868,9 +1928,17 @@ fn collect_loops<'a>(expr: &'a Expr, out: &mut Vec<LoopObligation<'a>>) {
                 collect_loops(elem, out);
             }
         }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_loops(&field.expr, out);
+            }
+        }
         Expr::Index { base, index, .. } => {
             collect_loops(base, out);
             collect_loops(index, out);
+        }
+        Expr::FieldAccess { base, .. } => {
+            collect_loops(base, out);
         }
         Expr::Call { args, .. } => {
             for arg in args {
@@ -1916,9 +1984,11 @@ fn collect_loops_block<'a>(block: &'a clg_ast::Block, out: &mut Vec<LoopObligati
 fn expr_span(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
-            *span
-        }
+        Expr::ArrayLit { span, .. }
+        | Expr::TupleLit { span, .. }
+        | Expr::StructLit { span, .. }
+        | Expr::FieldAccess { span, .. }
+        | Expr::Index { span, .. } => *span,
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }
@@ -1960,9 +2030,11 @@ fn merge_span(lhs: &Expr, rhs: &Expr) -> Span {
 fn span_of(expr: &Expr) -> Span {
     match expr {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
-            *span
-        }
+        Expr::ArrayLit { span, .. }
+        | Expr::TupleLit { span, .. }
+        | Expr::StructLit { span, .. }
+        | Expr::FieldAccess { span, .. }
+        | Expr::Index { span, .. } => *span,
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }

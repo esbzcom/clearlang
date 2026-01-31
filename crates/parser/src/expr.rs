@@ -3,7 +3,7 @@ use crate::path::path_name_p;
 use crate::tokens::{ctor_name_p, ident_p, kw};
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::{BinOp, Block, Expr, MatchArm, MatchPat, Span, Stmt, UnaryOp};
+use clg_ast::{BinOp, Block, Expr, MatchArm, MatchPat, Span, Stmt, StructFieldInit, UnaryOp};
 
 fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
     Span {
@@ -402,6 +402,35 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
+        let struct_field = ident_p()
+            .then_ignore(just(':').padded())
+            .then(expr.clone())
+            .map_with(|(name, expr), e| StructFieldInit {
+                name,
+                expr,
+                span: to_span(e.span()),
+            });
+
+        let struct_lit = path_name_p()
+            .then(
+                struct_field
+                    .separated_by(just(',').padded().labelled("comma"))
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('{').padded(), just('}').padded()),
+            )
+            .map_with(|(name, fields), e| {
+                let sp = e.span();
+                Expr::StructLit {
+                    name,
+                    fields,
+                    span: Span {
+                        start: sp.start,
+                        end: sp.end,
+                    },
+                }
+            });
+
         let atom_base = choice((
             contract_kw_hint,
             int_lit(),
@@ -409,6 +438,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             str_lit(),
             array_lit,
             tuple_lit,
+            struct_lit,
             block_expr.clone(),
             expr.clone().delimited_by(
                 just('(').padded().labelled("'('"),
@@ -460,6 +490,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
                 Expr::ArrayLit { span, .. }
                 | Expr::TupleLit { span, .. }
+                | Expr::StructLit { span, .. }
+                | Expr::FieldAccess { span, .. }
                 | Expr::Index { span, .. } => (span.start, span.end),
                 Expr::Block { block } => (block.span.start, block.span.end),
                 Expr::Bin { span, .. }
@@ -472,23 +504,49 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             }
         }
 
+        enum PostfixOp {
+            Index(Expr),
+            Field { name: String, span: Span },
+        }
+
         let indexer = just('[')
             .padded()
             .ignore_then(expr.clone())
             .then_ignore(just(']').padded())
-            .map(|idx| idx);
+            .map(PostfixOp::Index);
+
+        let field_access = just('.')
+            .padded()
+            .ignore_then(ident_p())
+            .map_with(|name, e| PostfixOp::Field {
+                name,
+                span: to_span(e.span()),
+            });
 
         let postfix = atom
             .clone()
-            .foldl(indexer.repeated(), |base, index| {
-                let (ls, _) = span_of(&base);
-                let (_, re) = span_of(&index);
-                Expr::Index {
-                    base: Box::new(base),
-                    index: Box::new(index),
-                    span: Span { start: ls, end: re },
-                }
-            })
+            .foldl(
+                choice((indexer, field_access)).repeated(),
+                |base, op| match op {
+                    PostfixOp::Index(index) => {
+                        let (ls, _) = span_of(&base);
+                        let (_, re) = span_of(&index);
+                        Expr::Index {
+                            base: Box::new(base),
+                            index: Box::new(index),
+                            span: Span { start: ls, end: re },
+                        }
+                    }
+                    PostfixOp::Field { name, span } => {
+                        let (ls, _) = span_of(&base);
+                        Expr::FieldAccess {
+                            base: Box::new(base),
+                            field: name,
+                            span: Span { start: ls, end: span.end },
+                        }
+                    }
+                },
+            )
             .boxed();
 
         let unary = just('!')

@@ -52,6 +52,8 @@ fn find_first_var(expr: &Expr) -> Option<String> {
         Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
             elems.iter().find_map(find_first_var)
         }
+        Expr::StructLit { fields, .. } => fields.iter().find_map(|f| find_first_var(&f.expr)),
+        Expr::FieldAccess { base, .. } => find_first_var(base),
         Expr::Index { base, index, .. } => find_first_var(base).or_else(|| find_first_var(index)),
         Expr::Call { args, .. } => args.iter().find_map(find_first_var),
         Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {

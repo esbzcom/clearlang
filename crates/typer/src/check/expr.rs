@@ -250,6 +250,12 @@ pub(super) fn type_of<'a>(
             *tracker = local_tracker;
             Ok(tuple_ty)
         }
+        Expr::StructLit { span, .. } => {
+            Err(TyperError::feature_not_supported("struct literals", *span).into())
+        }
+        Expr::FieldAccess { span, .. } => {
+            Err(TyperError::feature_not_supported("field access", *span).into())
+        }
         Expr::Index { base, index, span } => {
             let mut local_tracker = tracker.clone();
             let base_ty = type_of(base, env, &mut local_tracker, fns, aliases, depth + 1)?;
@@ -1567,6 +1573,14 @@ pub(super) fn max_effect<'a>(
             }
             Ok(eff)
         }
+        Expr::StructLit { fields, .. } => {
+            let mut eff = EffectLevel::Pure;
+            for field in fields {
+                eff = eff.join(max_effect(&field.expr, fns, allowed)?);
+            }
+            Ok(eff)
+        }
+        Expr::FieldAccess { base, .. } => max_effect(base, fns, allowed),
         Expr::Index { base, index, .. } => {
             let base_eff = max_effect(base, fns, allowed)?;
             let index_eff = max_effect(index, fns, allowed)?;
@@ -1736,9 +1750,11 @@ fn u64_literal_overflow(op: &BinOp, lhs: u128, rhs: u128) -> bool {
 pub(super) fn expr_span(e: &Expr) -> Span {
     match e {
         Expr::Int(_, sp) | Expr::Bool(_, sp) | Expr::String(_, sp) | Expr::Var(_, sp) => *sp,
-        Expr::ArrayLit { span, .. } | Expr::TupleLit { span, .. } | Expr::Index { span, .. } => {
-            *span
-        }
+        Expr::ArrayLit { span, .. }
+        | Expr::TupleLit { span, .. }
+        | Expr::StructLit { span, .. }
+        | Expr::FieldAccess { span, .. }
+        | Expr::Index { span, .. } => *span,
         Expr::Bin { span, .. }
         | Expr::Call { span, .. }
         | Expr::Match { span, .. }

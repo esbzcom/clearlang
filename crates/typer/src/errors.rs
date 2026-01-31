@@ -244,6 +244,18 @@ impl TyperError {
         )
     }
 
+    pub fn feature_not_supported(feature: &str, span: Span) -> Self {
+        Self::new(
+            "T017",
+            format!(
+                "at {}..{}: {} not supported yet",
+                span.start, span.end, feature
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn binary_operands_mismatch(op: &str, left: Type, right: Type, span: Span) -> Self {
         Self::new(
             "T013",

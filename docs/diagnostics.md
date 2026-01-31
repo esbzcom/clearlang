@@ -52,6 +52,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T013 | type | Binary operands must share a type. |
 | T014 | type | Contract predicate must be Bool. |
 | T016 | type | Block expression requires a tail expression. |
+| T017 | type | Feature not supported yet. |
 | T101 | type | Collections unavailable (generics/ADTs not implemented yet). |
 | T110 | type | Unsigned integer operations for U128/U256 are not supported yet. |
 | T111 | type | Unsigned cast expects an unsigned literal or value. |

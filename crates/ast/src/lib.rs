@@ -19,7 +19,40 @@ pub struct RefinedAlias {
 pub struct Program {
     pub refined_aliases: Vec<RefinedAlias>,
     pub resources: Vec<Resource>,
+    pub structs: Vec<StructDecl>,
+    pub enums: Vec<EnumDecl>,
     pub funcs: Vec<Func>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub fields: Vec<StructField>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructField {
+    pub name: String,
+    pub ty: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub variants: Vec<EnumVariant>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumVariant {
+    pub name: String,
+    pub name_span: Span,
+    pub fields: Vec<Type>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +171,16 @@ pub enum Expr {
         elems: Vec<Expr>,
         span: Span,
     },
+    StructLit {
+        name: String,
+        fields: Vec<StructFieldInit>,
+        span: Span,
+    },
+    FieldAccess {
+        base: Box<Expr>,
+        field: String,
+        span: Span,
+    },
     Block {
         block: Box<Block>,
     },
@@ -181,6 +224,13 @@ pub enum Expr {
         expr: Box<Expr>,
         span: Span,
     },
+}
+
+#[derive(Debug, Clone)]
+pub struct StructFieldInit {
+    pub name: String,
+    pub expr: Expr,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -43,6 +43,14 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     walk_expr(elem, set);
                 }
             }
+            Expr::StructLit { fields, .. } => {
+                for field in fields {
+                    walk_expr(&field.expr, set);
+                }
+            }
+            Expr::FieldAccess { base, .. } => {
+                walk_expr(base, set);
+            }
             Expr::Index { base, index, .. } => {
                 walk_expr(base, set);
                 walk_expr(index, set);

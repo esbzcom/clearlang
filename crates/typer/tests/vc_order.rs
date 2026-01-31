@@ -57,6 +57,8 @@ fn vcs_are_sorted_by_function_and_id() {
     let program = Program {
         refined_aliases: vec![],
         resources: vec![],
+        structs: vec![],
+        enums: vec![],
         funcs: vec![beta, alpha],
     };
     let vcs = generate_vcs(&program);

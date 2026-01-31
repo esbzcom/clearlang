@@ -44,6 +44,14 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
                 collect_guards_from_expr(elem, out);
             }
         }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_guards_from_expr(&field.expr, out);
+            }
+        }
+        Expr::FieldAccess { base, .. } => {
+            collect_guards_from_expr(base, out);
+        }
         Expr::Index { base, index, .. } => {
             collect_guards_from_expr(base, out);
             collect_guards_from_expr(index, out);
@@ -103,6 +111,14 @@ pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
             for elem in elems {
                 collect_mut_calls(elem, out);
             }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_mut_calls(&field.expr, out);
+            }
+        }
+        Expr::FieldAccess { base, .. } => {
+            collect_mut_calls(base, out);
         }
         Expr::Index { base, index, .. } => {
             collect_mut_calls(base, out);

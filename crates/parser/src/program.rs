@@ -1,6 +1,8 @@
 use crate::alias::refined_alias_p;
+use crate::enum_decl::enum_p;
 use crate::func::func_p;
 use crate::resource::resource_p;
+use crate::struct_decl::struct_p;
 use crate::ErrTy;
 use chumsky::prelude::*;
 use clg_ast::Program;
@@ -10,12 +12,16 @@ enum Item {
     Alias(clg_ast::RefinedAlias),
     Func(clg_ast::Func),
     Resource(clg_ast::Resource),
+    Struct(clg_ast::StructDecl),
+    Enum(clg_ast::EnumDecl),
 }
 
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
     let item = choice((
         refined_alias_p().map(Item::Alias),
         resource_p().map(Item::Resource),
+        struct_p().map(Item::Struct),
+        enum_p().map(Item::Enum),
         func_p().map(Item::Func),
     ));
 
@@ -26,16 +32,22 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             let mut refined_aliases = Vec::with_capacity(items.len());
             let mut funcs = Vec::with_capacity(items.len());
             let mut resources = Vec::with_capacity(items.len());
+            let mut structs = Vec::with_capacity(items.len());
+            let mut enums = Vec::with_capacity(items.len());
             for item in items {
                 match item {
                     Item::Alias(a) => refined_aliases.push(a),
                     Item::Func(f) => funcs.push(f),
                     Item::Resource(r) => resources.push(r),
+                    Item::Struct(s) => structs.push(s),
+                    Item::Enum(e) => enums.push(e),
                 }
             }
             Program {
                 refined_aliases,
                 resources,
+                structs,
+                enums,
                 funcs,
             }
         })

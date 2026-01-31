@@ -213,6 +213,14 @@ fn check_totality_expr(expr: &Expr, self_name: &str) -> Result<()> {
                 check_totality_expr(elem, self_name)?;
             }
         }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                check_totality_expr(&field.expr, self_name)?;
+            }
+        }
+        Expr::FieldAccess { base, .. } => {
+            check_totality_expr(base, self_name)?;
+        }
         Expr::Index { base, index, .. } => {
             check_totality_expr(base, self_name)?;
             check_totality_expr(index, self_name)?;

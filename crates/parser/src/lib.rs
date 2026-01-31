@@ -10,6 +10,8 @@ mod literals;
 mod path;
 mod program;
 mod resource;
+mod struct_decl;
+mod enum_decl;
 mod tokens;
 mod types;
 

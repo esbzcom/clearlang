@@ -477,8 +477,8 @@ ClearLang aims to be:
 
 ## 5. Project Status
 
-- Current focus: Phase 11 (proof-carrying Wasm verification) after delivering Phase 10 refinement types.
-- Recently completed: Phase 10 (refinements and VC/SMT), Phase 9 (totality/loops), Phase 8 (resource/linear types).
+- Current focus: Phase 17 (language gaps + collections) after completing Phase 16 (crypto intrinsics + proofs).
+- Recently completed: Phase 16 (crypto intrinsics + proofs), Phase 11 (proof-carrying Wasm verification), Phase 10 (refinements and VC/SMT).
 - Full roadmap and checklist: see `docs/TODO.md` and the resource overview in `docs/resource-guide.md`.
 
 ---

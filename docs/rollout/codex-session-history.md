@@ -52,3 +52,9 @@
 - Define error/diagnostic behavior for crypto intrinsics and add SMT encoding or explicit axioms.
 - Document proof limitations for crypto primitives and design on-chain attestation.
 
+## 2026-01-31 - Phase 16 completion + attestation reference
+- Completed Phase 16 crypto intrinsics + proofs: deterministic runtime semantics, diagnostics, SMT/VC helpers, and JSON error stability tests.
+- Documented crypto proof limitations and migration options in `docs/proofs/crypto-limitations.md`.
+- Added Phase 16.7 attestation reference design and minimal registry contract with sample payload and workflow docs.
+- Updated the rollout plan and TODO checklist to mark Phase 16 complete and add Phase 18 production hardening items.
+

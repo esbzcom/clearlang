@@ -66,6 +66,7 @@ keccak256(abi.encode(registry, payload_hash, signer))
 ```
 
 This keeps the identifier chain- and signer-specific, while leaving the payload hash as the global content address.
+The reference contract does not recompute or validate this binding; it trusts the caller.
 
 ## Verification Flow
 

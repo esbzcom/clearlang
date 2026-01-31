@@ -22,6 +22,9 @@ contract AttestationRegistry {
         uint256 timestamp
     );
 
+    /// @notice Stores a new attestation. The attestation id is computed off-chain.
+    /// @dev This reference contract does not validate that `attestationId` matches
+    ///      `(registry, payloadHash, signer)`.
     function register(bytes32 attestationId, bytes32 payloadHash, string calldata uri) external {
         require(attestations[attestationId].timestamp == 0, "attestation exists");
         attestations[attestationId] = Attestation({

@@ -671,12 +671,44 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 17 Language gaps + collections
 - [ ] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
+  - [ ] 17.1.1 Spec + docs: syntax, layout model, visibility, and resource interactions.
+  - [ ] 17.1.2 Parser/AST support for `struct`/`enum`, field access, and construction.
+  - [ ] 17.1.3 Typer: field/variant checking, pattern matching, exhaustiveness, and unreachable arms.
+  - [ ] 17.1.4 Lowering/codegen: concrete layout + tag/payload strategy.
+  - [ ] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
 - [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
+  - [ ] 17.2.1 Design: generics syntax, trait bounds, coherence rules, and monomorphization strategy.
+  - [ ] 17.2.2 Parser/AST: type params, bounds, and impl blocks.
+  - [ ] 17.2.3 Typer: inference, trait resolution, and error diagnostics.
+  - [ ] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
+  - [ ] 17.2.5 Stdlib updates + regression tests.
 - [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
+  - [ ] 17.3.1 Define ABI/layout + runtime surface for collections (host vs in-wasm).
+  - [ ] 17.3.2 Implement runtime helpers/imports + deterministic errors.
+  - [ ] 17.3.3 Wire guards/mut semantics and effect gating in typer/lowering.
+  - [ ] 17.3.4 Tests for correctness + error codes + json diagnostics.
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
+  - [ ] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior.
+  - [ ] 17.4.2 Parser/AST + typer support for arrays/slices and indexing.
+  - [ ] 17.4.3 Lowering/codegen for layout + bounds checks.
+  - [ ] 17.4.4 Runtime helpers (if needed) + tests.
   - Tech debt: general arrays/slices with indexing semantics remain pending; fixed-size arrays/tuples use pointer layout for nested elements with runtime guards for dynamic indices.
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
+  - [ ] 17.5.1 Design: file layout, module paths, visibility keywords, and re-exports.
+  - [ ] 17.5.2 Parser/AST for `mod`/`use` and namespace nodes.
+  - [ ] 17.5.3 Typer: module graph resolution + name shadowing diagnostics.
+  - [ ] 17.5.4 Build system updates (module discovery, caching, error spans).
+  - [ ] 17.5.5 Tests + docs walkthrough.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
+  - [ ] 17.6.1 Design: ownership rules for collections of resources.
+  - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.
+  - [ ] 17.6.3 VC/effect integration plan + prototype tests.
+- [ ] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
+  - [ ] 17.7.1 Design: function types, capture semantics, and effect annotations.
+  - [ ] 17.7.2 Parser/AST: lambdas, capture lists (if any), and type annotations.
+  - [ ] 17.7.3 Typer: closure typing, lifetime/capture checks, and effect compatibility.
+  - [ ] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
+  - [ ] 17.7.5 Tests + docs examples.
 
 ### 18 Production hardening + attestation
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).

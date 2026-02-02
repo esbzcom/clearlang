@@ -2,13 +2,13 @@
 
 ## Current Focus - Phase 17: Language Gaps + Collections
 - 17.1 User-defined structs/enums with pattern matching, lowering/codegen, runtime/ABI notes, and tests. (Done)
-- 17.2 Generics and trait/interface abstractions beyond built-in ADTs. (Next)
-- 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Queued)
+- 17.2 Generics and trait/interface abstractions beyond built-in ADTs. (Done)
+- 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Next)
 - 17.4 General arrays/slices with indexing semantics and bounds checks. (Queued)
 - 17.5 Module/import system with visibility controls. (Queued)
 
 ### Suggested Sequence
-1) Close the remaining language gaps (17.2 generics/traits + 17.3 collections runtime).
+1) Close the remaining language gaps (17.3 collections runtime).
 2) Finish arrays/slices semantics and module system (17.4/17.5).
 3) Revisit linear-aware collections and additional runtime packages as needed (17.6+).
 

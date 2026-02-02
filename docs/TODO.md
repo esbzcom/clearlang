@@ -710,6 +710,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 17.7.3 Typer: closure typing, lifetime/capture checks, and effect compatibility.
   - [ ] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
   - [ ] 17.7.5 Tests + docs examples.
+ - [ ] 17.8 Traits follow-ups (post-17.2).
+   - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.
+   - [ ] 17.8.2 Optional explicit impl selection syntax (only if coherence is relaxed).
+   - [ ] 17.8.3 Proof/debug name shortening (optional hash suffix for long mangled names).
 
 ### 18 Production hardening + attestation
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).

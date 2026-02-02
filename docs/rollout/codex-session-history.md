@@ -64,3 +64,10 @@
 - Added lowering coverage for enum constructors/matches and struct field access, plus wasm runtime tests for layout and match execution.
 - Updated runtime/ABI docs for struct/enum layout and marked Phase 17.1 complete in `docs/TODO.md`.
 
+## 2026-02-02 - Phase 17.2 generics/traits delivery
+- Implemented monomorphization for generic functions and trait calls (static dispatch) with lowering for generic structs/enums.
+- Added identifier-safe mangling (`$`-separated) and tests enforcing allowed charset; documented the mangling scheme and VC scope.
+- Improved trait impl diagnostics (call-site spans, ambiguous impl candidates) and documented new error code T248.
+- Added positive/negative generics+traits tests (bounds, contracts/invariants, nested generics, multi-field enum matches, missing bounds/impls).
+- Documented Phase 17.2 decisions (default bodies deferred, explicit impl selection unsupported) and reserved `$` for mangling.
+

@@ -127,6 +127,8 @@ Notes:
 
 All mangled names use only `[A-Za-z0-9_$]` to avoid downstream identifier
 parsing issues. The scheme is canonical and deterministic.
+The `$` character is reserved for mangling and is not allowed in user-defined
+identifiers.
 
 - Function instantiations: `name$T1$T2$...` (no trailing `$`).
 - Impl method instantiations: `impl$Trait$Self$method`.
@@ -167,3 +169,9 @@ parsing issues. The scheme is canonical and deterministic.
 - How to serialize generic instantiations in debug names and proof metadata.
   - Resolved: use the identifier-safe mangling scheme above; preserve refined
     alias names to avoid collapsing proof obligations.
+
+## Decisions (Phase 17.2)
+
+- Default trait method bodies: deferred.
+- Explicit impl selection: not supported.
+- Debug/proof names: identifier-safe mangling as documented above.

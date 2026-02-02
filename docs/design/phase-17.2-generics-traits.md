@@ -147,6 +147,7 @@ Notes:
   allowed).
   - Recommended: avoid; keep coherence strict so selection is never required.
 - How to serialize generic instantiations in debug names and proof metadata.
-  - Recommended: canonical, deterministic mangling that expands aliases and
-    orders type arguments consistently; include a stable hash in proofs if size
-    is a concern.
+  - Recommended: canonical, deterministic mangling that preserves refined alias
+    names (to avoid collapsing proof obligations), orders type arguments
+    consistently, and may expand non-refined aliases if/when they exist; include
+    a stable hash in proofs if size is a concern.

@@ -96,7 +96,11 @@ pub fn run(
         }
     };
 
-    let TypecheckOutput { ir, vcs } = type_output;
+    let TypecheckOutput {
+        ir,
+        vcs,
+        mono_program,
+    } = type_output;
 
     let fail_build = |code: &'static str, message: &str, function: Option<String>| -> Result<()> {
         if json_errors {
@@ -130,7 +134,7 @@ pub fn run(
     let toolchain = format!("clg-cli/{}", env!("CARGO_PKG_VERSION"));
     let proof_package = emit_vcs
         .as_ref()
-        .map(|_| ProofPackage::from_program(&ast, &vcs, toolchain.clone()));
+        .map(|_| ProofPackage::from_program(&mono_program, &vcs, toolchain.clone()));
 
     let zero_section = proof_package
         .as_ref()

@@ -79,6 +79,24 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T217 | type | Expected struct type (field access or literal). |
 | T218 | type | Resource fields are not allowed in structs/enums yet. |
 | T219 | type | Duplicate enum variant. |
+| T230 | type | Duplicate trait. |
+| T231 | type | Unknown trait. |
+| T232 | type | Duplicate trait method. |
+| T233 | type | Trait impl missing method. |
+| T234 | type | Trait impl has extra method. |
+| T235 | type | Trait method signature mismatch. |
+| T236 | type | Overlapping trait impls. |
+| T237 | type | Missing trait implementation/bound for a type. |
+| T238 | type | Cannot infer type parameters. |
+| T239 | type | Duplicate type parameter. |
+| T240 | type | Type parameter conflicts with existing type name. |
+| T241 | type | Unknown type parameter in trait bound. |
+| T242 | type | Type argument count mismatch. |
+| T243 | type | Type parameter cannot take type arguments. |
+| T244 | type | Generic refinement aliases not supported yet. |
+| T245 | type | Impl methods cannot declare their own type parameters yet. |
+| T246 | type | Trait type parameters not supported yet. |
+| T247 | type | Conflicting inferred types for a type parameter. |
 | T301 | type | Branch type mismatch in expression-form `if`/`else`. |
 | T401 | type | Call requires a stronger effect. |
 | T402 | type | Missing required mut guard for a mut call. |

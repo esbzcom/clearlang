@@ -1,7 +1,8 @@
 use super::{
     base_type, base_types_match, binding_compatible, effect_label, find_resource_collection,
-    is_resource_type, refinement_loss, AliasMap, EffectLevel, FnSig, LocalBinding, TypeDefs,
-    RETURN_KEY,
+    is_resource_type, level_from_effect, refinement_loss, substitute_type, type_param_names,
+    unify_type_params, AliasMap, BoundsMap, EffectLevel, FnSig, LocalBinding, TraitEnv, TypeDefs,
+    TypeSubst, RETURN_KEY,
 };
 use crate::errors::TyperError;
 use anyhow::{bail, Result};
@@ -234,8 +235,11 @@ pub(super) fn type_of<'a>(
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
     depth: usize,
 ) -> Result<Type> {
     if depth > 1024 {
@@ -256,9 +260,9 @@ pub(super) fn type_of<'a>(
             let first = elems
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("array literal must have at least one element"))?;
-            let elem_ty = type_of(first, env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+            let elem_ty = type_of(first, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             for elem in elems.iter().skip(1) {
-                let ety = type_of(elem, env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+                let ety = type_of(elem, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
                 if !binding_compatible(&elem_ty, &ety, aliases)? {
                     if literal_can_coerce_unsigned(&elem_ty, &ety, elem) {
                         continue;
@@ -274,7 +278,9 @@ pub(super) fn type_of<'a>(
                 }
             }
             let arr_ty = Type::Array(Box::new(elem_ty), elems.len() as u32);
-            if let Some(offending) = find_resource_collection(&arr_ty, &type_defs.resources) {
+            if let Some(offending) =
+                find_resource_collection(&arr_ty, &type_defs.resources, type_params)
+            {
                 return Err(TyperError::resource_in_collection(offending, Some(*span)).into());
             }
             *tracker = local_tracker;
@@ -289,13 +295,18 @@ pub(super) fn type_of<'a>(
                     env,
                     &mut local_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                 )?);
             }
             let tuple_ty = Type::Tuple(elem_tys);
-            if let Some(offending) = find_resource_collection(&tuple_ty, &type_defs.resources) {
+            if let Some(offending) =
+                find_resource_collection(&tuple_ty, &type_defs.resources, type_params)
+            {
                 return Err(TyperError::resource_in_collection(offending, Some(*span)).into());
             }
             *tracker = local_tracker;
@@ -312,7 +323,10 @@ pub(super) fn type_of<'a>(
                 return Err(TyperError::unknown_type(name.as_str(), Some(*span)).into());
             };
             let mut local_tracker = tracker.clone();
+            let struct_params = type_param_names(&struct_info.decl.type_params);
+            let mut subst: TypeSubst = HashMap::new();
             let mut seen: HashSet<&str> = HashSet::new();
+            let mut found_types: HashMap<&str, Type> = HashMap::with_capacity(fields.len());
             for field in fields {
                 let field_name = field.name.as_str();
                 if !seen.insert(field_name) {
@@ -328,16 +342,48 @@ pub(super) fn type_of<'a>(
                     )
                     .into());
                 };
-                let expected = field_def.ty.clone();
                 let found = type_of(
                     &field.expr,
                     env,
                     &mut local_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                 )?;
+                unify_type_params(&field_def.ty, &found, &struct_params, &mut subst, aliases)?;
+                found_types.insert(field_name, found);
+            }
+            for field in &struct_info.decl.fields {
+                if !seen.contains(field.name.as_str()) {
+                    return Err(TyperError::missing_struct_field(
+                        name.as_str(),
+                        field.name.as_str(),
+                        *span,
+                    )
+                    .into());
+                }
+            }
+            let mut args: Vec<Type> = Vec::with_capacity(struct_info.decl.type_params.len());
+            for param in &struct_info.decl.type_params {
+                let Some(arg_ty) = subst.get(&param.name) else {
+                    return Err(TyperError::cannot_infer_type_params(name.as_str(), *span).into());
+                };
+                args.push(arg_ty.clone());
+            }
+            for field in fields {
+                let field_name = field.name.as_str();
+                let Some(field_def) = struct_info.fields.get(field_name) else {
+                    continue;
+                };
+                let expected = substitute_type(&field_def.ty, &subst);
+                let found = found_types
+                    .get(field_name)
+                    .cloned()
+                    .unwrap_or_else(|| expected.clone());
                 if !base_types_match(&expected, &found, aliases)? {
                     if literal_can_coerce_unsigned(&expected, &found, &field.expr) {
                         continue;
@@ -376,30 +422,44 @@ pub(super) fn type_of<'a>(
                     .into());
                 }
             }
-            for field in &struct_info.decl.fields {
-                if !seen.contains(field.name.as_str()) {
-                    return Err(TyperError::missing_struct_field(
-                        name.as_str(),
-                        field.name.as_str(),
-                        *span,
-                    )
-                    .into());
-                }
-            }
             *tracker = local_tracker;
             Ok(Type::Named {
                 name: name.clone(),
-                args: Vec::new(),
+                args,
             })
         }
         Expr::FieldAccess { base, field, span } => {
-            let base_ty = type_of(base, env, tracker, fns, aliases, type_defs, depth + 1)?;
+            let base_ty = type_of(
+                base,
+                env,
+                tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+            )?;
             let resolved = base_type(&base_ty, aliases)?;
             match resolved {
-                Type::Named { name, .. } => {
+                Type::Named { name, args } => {
                     let Some(struct_info) = type_defs.structs.get(name.as_str()) else {
                         return Err(TyperError::expected_struct(name.as_str(), *span).into());
                     };
+                    if struct_info.decl.type_params.len() != args.len() {
+                        return Err(TyperError::type_arg_count_mismatch(
+                            name.as_str(),
+                            struct_info.decl.type_params.len(),
+                            args.len(),
+                            Some(*span),
+                        )
+                        .into());
+                    }
+                    let mut subst: TypeSubst = HashMap::new();
+                    for (param, arg) in struct_info.decl.type_params.iter().zip(args.iter()) {
+                        subst.insert(param.name.clone(), arg.clone());
+                    }
                     let Some(field_def) = struct_info.fields.get(field.as_str()) else {
                         return Err(TyperError::unknown_struct_field(
                             name.as_str(),
@@ -408,7 +468,7 @@ pub(super) fn type_of<'a>(
                         )
                         .into());
                     };
-                    Ok(field_def.ty.clone())
+                    Ok(substitute_type(&field_def.ty, &subst))
                 }
                 other => {
                     let rendered = show_ty(other);
@@ -418,8 +478,8 @@ pub(super) fn type_of<'a>(
         }
         Expr::Index { base, index, span } => {
             let mut local_tracker = tracker.clone();
-            let base_ty = type_of(base, env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
-            let idx_ty = type_of(index, env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+            let base_ty = type_of(base, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let idx_ty = type_of(index, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             ensure_int(idx_ty, aliases, "index", Some(expr_span(index)))?;
             let resolved = base_type(&base_ty, aliases)?;
             match resolved {
@@ -451,23 +511,23 @@ pub(super) fn type_of<'a>(
                 }
             }
         }
-        Expr::Block { block } => type_block(block, env, tracker, fns, aliases, type_defs, depth + 1),
+        Expr::Block { block } => type_block(block, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1),
         Expr::If {
             cond,
             then_br,
             else_br,
             span,
         } => {
-            let cty = type_of(cond, env, tracker, fns, aliases, type_defs, depth + 1)?;
+            let cty = type_of(cond, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             if base_type(&cty, aliases)? != Type::Bool {
                 // Reuse arg_type_mismatch with pseudo-callee `if` for stable code T003
                 return Err(TyperError::arg_type_mismatch(1, "if", Type::Bool, cty, *span).into());
             }
             let baseline = tracker.clone();
             let mut then_tracker = baseline.clone();
-            let tty = type_of(then_br, env, &mut then_tracker, fns, aliases, type_defs, depth + 1)?;
+            let tty = type_of(then_br, env, &mut then_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             let mut else_tracker = baseline.clone();
-            let ety = type_of(else_br, env, &mut else_tracker, fns, aliases, type_defs, depth + 1)?;
+            let ety = type_of(else_br, env, &mut else_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             if tty != ety {
                 return Err(TyperError::branch_type_mismatch(tty, ety, *span).into());
             }
@@ -483,7 +543,7 @@ Expr::Match {
     arms,
     span,
 } => {
-    let scrut_ty = type_of(scrutinee, env, tracker, fns, aliases, type_defs, depth + 1)?;
+    let scrut_ty = type_of(scrutinee, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
     use clg_ast::MatchPat;
     let scrut_outer = resolve_alias_shallow(&scrut_ty, aliases)?;
     match scrut_outer {
@@ -521,8 +581,11 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -551,8 +614,11 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -578,8 +644,11 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -647,8 +716,11 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -688,8 +760,11 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -715,8 +790,11 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -750,11 +828,24 @@ Expr::Match {
             merge_match_trackers(&baseline, &branch_trackers, tracker)?;
             Ok(result_ty)
         }
-        Type::Named { name, .. } if type_defs.enums.contains_key(name.as_str()) => {
+        Type::Named { name, args } if type_defs.enums.contains_key(name.as_str()) => {
             let enum_info = type_defs
                 .enums
                 .get(name.as_str())
                 .expect("enum definition missing");
+            if enum_info.decl.type_params.len() != args.len() {
+                return Err(TyperError::type_arg_count_mismatch(
+                    name.as_str(),
+                    enum_info.decl.type_params.len(),
+                    args.len(),
+                    Some(*span),
+                )
+                .into());
+            }
+            let mut subst: TypeSubst = HashMap::new();
+            for (param, arg) in enum_info.decl.type_params.iter().zip(args.iter()) {
+                subst.insert(param.name.clone(), arg.clone());
+            }
             let baseline = tracker.clone();
             let mut seen: HashSet<&str> = HashSet::new();
             let mut seen_wildcard = false;
@@ -814,7 +905,7 @@ Expr::Match {
                             let ty = variant_def
                                 .fields
                                 .get(idx)
-                                .cloned()
+                                .map(|field| substitute_type(field, &subst))
                                 .unwrap_or(Type::Int);
                             env2.insert(
                                 binder.as_str(),
@@ -831,8 +922,11 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
+                            trait_env,
                             aliases,
                             type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -858,8 +952,11 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                            aliases,
-                            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
                             depth + 1,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
@@ -905,7 +1002,7 @@ Expr::Match {
     }
         }
         Expr::Try { expr, span } => {
-            let inner = type_of(expr, env, tracker, fns, aliases, type_defs, depth + 1)?;
+            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             let ret_binding = env
                 .get(RETURN_KEY)
                 .cloned()
@@ -959,14 +1056,14 @@ Expr::Match {
             }
         }
         Expr::Return { expr, .. } => {
-            let ty = type_of(expr, env, tracker, fns, aliases, type_defs, depth + 1)?;
+            let ty = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             if is_resource_type(&ty, aliases, type_defs)? {
                 consume_var_expr(tracker, expr.as_ref())?;
             }
             Ok(ty)
         }
         Expr::Unary { op, expr, span } => {
-            let inner = type_of(expr, env, tracker, fns, aliases, type_defs, depth + 1)?;
+            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             match op {
                 UnaryOp::Not => {
                     ensure_bool(inner, aliases, "operand", Some(*span))?;
@@ -975,8 +1072,8 @@ Expr::Match {
             }
         }
         Expr::Bin { op, lhs, rhs, span } => {
-            let lt = type_of(lhs, env, tracker, fns, aliases, type_defs, depth + 1)?;
-            let rt = type_of(rhs, env, tracker, fns, aliases, type_defs, depth + 1)?;
+            let lt = type_of(lhs, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let rt = type_of(rhs, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
             match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
                     let op_str = match op {
@@ -1171,7 +1268,7 @@ Expr::Match {
         Expr::Call { callee, args, span } => {
             // Phase 4.6 - Collections signatures (type-only)
             if let Some(t) =
-                type_collection_call(callee, args, env, tracker, fns, aliases, type_defs, depth, *span)?
+                type_collection_call(callee, args, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, *span)?
             {
                 return Ok(t);
             }
@@ -1187,7 +1284,7 @@ Expr::Match {
                     _ => Type::U64,
                 };
                 let mut local_tracker = tracker.clone();
-                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
                 if arg_ty != target_ty {
                     if matches!(arg_ty, Type::Int) {
                         if let Some(value) = unsigned_literal_value(&args[0]) {
@@ -1220,7 +1317,7 @@ Expr::Match {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let mut local_tracker = tracker.clone();
-                let t0 = type_of(&args[0], env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+                let t0 = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
                 *tracker = local_tracker;
                 return Ok(Type::Option(Box::new(t0)));
             }
@@ -1242,7 +1339,7 @@ Expr::Match {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let mut local_tracker = tracker.clone();
-                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
@@ -1271,7 +1368,7 @@ Expr::Match {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let mut local_tracker = tracker.clone();
-                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
@@ -1295,6 +1392,22 @@ Expr::Match {
                 }
                 return result_ty;
             }
+            if let Some(trait_ty) = type_trait_call(
+                callee,
+                args,
+                env,
+                tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth,
+                *span,
+            )? {
+                return Ok(trait_ty);
+            }
             if let Some((enum_name, variant_name)) = callee.rsplit_once("::") {
                 if let Some(enum_info) = type_defs.enums.get(enum_name) {
                     let Some(variant_def) = enum_info.variants.get(variant_name) else {
@@ -1312,15 +1425,53 @@ Expr::Match {
                         .into());
                     }
                     let mut local_tracker = tracker.clone();
-                    for (i, (expected, arg)) in variant_def.fields.iter().zip(args.iter()).enumerate()
+                    let enum_params = type_param_names(&enum_info.decl.type_params);
+                    let mut subst: TypeSubst = HashMap::new();
+                    let mut found_types: Vec<Type> = Vec::with_capacity(args.len());
+                    for arg in args.iter() {
+                        let at = type_of(
+                            arg,
+                            env,
+                            &mut local_tracker,
+                            fns,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
+                            depth + 1,
+                        )?;
+                        found_types.push(at);
+                    }
+                    for (expected, found) in variant_def.fields.iter().zip(found_types.iter()) {
+                        unify_type_params(expected, found, &enum_params, &mut subst, aliases)?;
+                    }
+                    let mut args_vec: Vec<Type> =
+                        Vec::with_capacity(enum_info.decl.type_params.len());
+                    for param in &enum_info.decl.type_params {
+                        let Some(arg_ty) = subst.get(&param.name) else {
+                            return Err(
+                                TyperError::cannot_infer_type_params(enum_name, *span).into(),
+                            );
+                        };
+                        args_vec.push(arg_ty.clone());
+                    }
+                    for (i, (expected, arg)) in variant_def
+                        .fields
+                        .iter()
+                        .zip(args.iter())
+                        .enumerate()
                     {
-                        let at =
-                            type_of(arg, env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
-                        if !base_types_match(expected, &at, aliases)? {
-                            if literal_can_coerce_unsigned(expected, &at, arg) {
+                        let expected = substitute_type(expected, &subst);
+                        let at = found_types
+                            .get(i)
+                            .cloned()
+                            .unwrap_or_else(|| expected.clone());
+                        if !base_types_match(&expected, &at, aliases)? {
+                            if literal_can_coerce_unsigned(&expected, &at, arg) {
                                 continue;
                             }
-                            if let Some(err) = unsigned_literal_range_error(expected, &at, arg) {
+                            if let Some(err) = unsigned_literal_range_error(&expected, &at, arg) {
                                 return Err(err.into());
                             }
                             let sp = expr_span(arg);
@@ -1330,15 +1481,15 @@ Expr::Match {
                                     .into(),
                             );
                         }
-                        if !binding_compatible(expected, &at, aliases)? {
-                            if literal_can_coerce_unsigned(expected, &at, arg) {
+                        if !binding_compatible(&expected, &at, aliases)? {
+                            if literal_can_coerce_unsigned(&expected, &at, arg) {
                                 continue;
                             }
-                            if let Some(err) = unsigned_literal_range_error(expected, &at, arg) {
+                            if let Some(err) = unsigned_literal_range_error(&expected, &at, arg) {
                                 return Err(err.into());
                             }
                             let sp = expr_span(arg);
-                            if refinement_loss(expected, &at, aliases) {
+                            if refinement_loss(&expected, &at, aliases) {
                                 return Err(TyperError::refinement_loss(
                                     expected.clone(),
                                     at,
@@ -1356,11 +1507,17 @@ Expr::Match {
                     *tracker = local_tracker;
                     return Ok(Type::Named {
                         name: enum_name.to_string(),
-                        args: Vec::new(),
+                        args: args_vec,
                     });
                 }
             }
-            let FnSig { params, ret, .. } = fns
+            let FnSig {
+                params,
+                ret,
+                type_params: callee_params,
+                bounds: callee_bounds,
+                ..
+            } = fns
                 .get(callee.as_str())
                 .cloned()
                 .ok_or_else(|| TyperError::unknown_function(callee, *span))?;
@@ -1371,9 +1528,81 @@ Expr::Match {
             }
             let mut local_tracker = tracker.clone();
             let mut borrowed: Vec<String> = Vec::new();
+            let mut arg_types: Vec<Type> = Vec::with_capacity(args.len());
+            for (p, a) in params.iter().zip(args.iter()) {
+                let at = type_of(
+                    a,
+                    env,
+                    &mut local_tracker,
+                    fns,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
+                    depth + 1,
+                )?;
+                arg_types.push(at.clone());
+                let resource_check_ty = if callee_params.is_empty() {
+                    p.ty.clone()
+                } else {
+                    at.clone()
+                };
+                if is_resource_type(&resource_check_ty, aliases, type_defs)? {
+                    match p.kind {
+                        ParamKind::Consume => {
+                            if let Expr::Var(arg_name, arg_span) = a {
+                                local_tracker.consume_var(arg_name, *arg_span)?;
+                            }
+                        }
+                        ParamKind::Borrow => {
+                            if let Expr::Var(arg_name, arg_span) = a {
+                                local_tracker.borrow_var(arg_name, *arg_span)?;
+                                borrowed.push(arg_name.clone());
+                            }
+                        }
+                    }
+                }
+            }
+
+            let mut subst: TypeSubst = HashMap::new();
+            if !callee_params.is_empty() {
+                let callee_param_set: HashSet<String> =
+                    callee_params.iter().cloned().collect();
+                for (param, arg_ty) in params.iter().zip(arg_types.iter()) {
+                    unify_type_params(&param.ty, arg_ty, &callee_param_set, &mut subst, aliases)?;
+                }
+                for name in &callee_params {
+                    if !subst.contains_key(name) {
+                        return Err(TyperError::cannot_infer_type_params(callee, *span).into());
+                    }
+                }
+                for bound in &callee_bounds {
+                    let Some(bound_ty) = subst.get(&bound.param) else {
+                        return Err(TyperError::cannot_infer_type_params(callee, *span).into());
+                    };
+                    ensure_trait_bound(
+                        bound_ty,
+                        bound.trait_name.as_str(),
+                        type_params,
+                        bounds,
+                        trait_env,
+                        aliases,
+                        *span,
+                    )?;
+                }
+            }
+
             for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
-                let at = type_of(a, env, &mut local_tracker, fns, aliases, type_defs, depth + 1)?;
-                let expected = p.ty.clone();
+                let at = arg_types
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(|| p.ty.clone());
+                let expected = if callee_params.is_empty() {
+                    p.ty.clone()
+                } else {
+                    substitute_type(&p.ty, &subst)
+                };
                 if !base_types_match(&expected, &at, aliases)? {
                     if literal_can_coerce_unsigned(&expected, &at, a) {
                         continue;
@@ -1397,27 +1626,17 @@ Expr::Match {
                     }
                     return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
                 }
-                if is_resource_type(&expected, aliases, type_defs)? {
-                    match p.kind {
-                        ParamKind::Consume => {
-                            if let Expr::Var(arg_name, arg_span) = a {
-                                local_tracker.consume_var(arg_name, *arg_span)?;
-                            }
-                        }
-                        ParamKind::Borrow => {
-                            if let Expr::Var(arg_name, arg_span) = a {
-                                local_tracker.borrow_var(arg_name, *arg_span)?;
-                                borrowed.push(arg_name.clone());
-                            }
-                        }
-                    }
-                }
+                // Resource tracking already handled during arg type inference.
             }
             for name in borrowed {
                 local_tracker.release_borrow(&name)?;
             }
             *tracker = local_tracker;
-            Ok(ret)
+            if callee_params.is_empty() {
+                Ok(ret)
+            } else {
+                Ok(substitute_type(&ret, &subst))
+            }
         }
     }
 }
@@ -1426,11 +1645,25 @@ pub(crate) fn infer_expr_type<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
 ) -> Result<Type> {
     let mut tracker = ResourceTracker::new();
-    type_of(e, env, &mut tracker, fns, aliases, type_defs, 0)
+    type_of(
+        e,
+        env,
+        &mut tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        type_params,
+        bounds,
+        0,
+    )
 }
 #[allow(clippy::too_many_arguments)]
 fn type_collection_call<'a>(
@@ -1439,15 +1672,18 @@ fn type_collection_call<'a>(
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
     depth: usize,
     span: Span,
 ) -> Result<Option<Type>> {
     // Helper to get type of an expression
     let arg_ty = |i: usize| -> Result<Type> {
         let mut tmp = tracker.clone();
-        type_of(&args[i], env, &mut tmp, fns, aliases, type_defs, depth + 1)
+        type_of(&args[i], env, &mut tmp, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)
     };
     let normalized_callee = match callee {
         "std::list::push_mut" => "std::list::push",
@@ -1714,13 +1950,302 @@ fn type_collection_call<'a>(
         _ => Ok(None),
     }
 }
+
+#[allow(clippy::too_many_arguments)]
+fn type_trait_call<'a>(
+    callee: &str,
+    args: &'a [Expr],
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
+    depth: usize,
+    span: Span,
+) -> Result<Option<Type>> {
+    let Some((trait_name, method_name)) = callee.split_once("::") else {
+        return Ok(None);
+    };
+    let Some(trait_info) = trait_env.traits.get(trait_name) else {
+        return Ok(None);
+    };
+    let Some(method) = trait_info.methods.get(method_name) else {
+        return Err(TyperError::unknown_function(callee, span).into());
+    };
+    if method.params.len() != args.len() {
+        return Err(TyperError::arity_mismatch(callee, method.params.len(), args.len(), span).into());
+    }
+    let mut local_tracker = tracker.clone();
+    let mut borrowed: Vec<String> = Vec::new();
+    let mut arg_types: Vec<Type> = Vec::with_capacity(args.len());
+    for (param, arg) in method.params.iter().zip(args.iter()) {
+        let at = type_of(
+            arg,
+            env,
+            &mut local_tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth + 1,
+        )?;
+        arg_types.push(at.clone());
+        if is_resource_type(&at, aliases, type_defs)? {
+            match param.kind {
+                ParamKind::Consume => {
+                    if let Expr::Var(arg_name, arg_span) = arg {
+                        local_tracker.consume_var(arg_name, *arg_span)?;
+                    }
+                }
+                ParamKind::Borrow => {
+                    if let Expr::Var(arg_name, arg_span) = arg {
+                        local_tracker.borrow_var(arg_name, *arg_span)?;
+                        borrowed.push(arg_name.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    let mut subst: TypeSubst = HashMap::new();
+    let mut self_params: HashSet<String> = HashSet::with_capacity(1);
+    self_params.insert("Self".to_string());
+    for (param, arg_ty) in method.params.iter().zip(arg_types.iter()) {
+        unify_type_params(&param.ty, arg_ty, &self_params, &mut subst, aliases)?;
+    }
+    let Some(self_ty) = subst.get("Self").cloned() else {
+        return Err(TyperError::cannot_infer_type_params(callee, span).into());
+    };
+    ensure_trait_bound(
+        &self_ty,
+        trait_name,
+        type_params,
+        bounds,
+        trait_env,
+        aliases,
+        span,
+    )?;
+
+    for (i, (param, arg)) in method.params.iter().zip(args.iter()).enumerate() {
+        let expected = substitute_type(&param.ty, &subst);
+        let at = arg_types
+            .get(i)
+            .cloned()
+            .unwrap_or_else(|| expected.clone());
+        if !base_types_match(&expected, &at, aliases)? {
+            if literal_can_coerce_unsigned(&expected, &at, arg) {
+                continue;
+            }
+            if let Some(err) = unsigned_literal_range_error(&expected, &at, arg) {
+                return Err(err.into());
+            }
+            let sp = expr_span(arg);
+            return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
+        }
+        if !binding_compatible(&expected, &at, aliases)? {
+            if literal_can_coerce_unsigned(&expected, &at, arg) {
+                continue;
+            }
+            if let Some(err) = unsigned_literal_range_error(&expected, &at, arg) {
+                return Err(err.into());
+            }
+            let sp = expr_span(arg);
+            if refinement_loss(&expected, &at, aliases) {
+                return Err(TyperError::refinement_loss(expected, at, sp).into());
+            }
+            return Err(TyperError::arg_type_mismatch(i, callee, expected, at, sp).into());
+        }
+    }
+
+    for name in borrowed {
+        local_tracker.release_borrow(&name)?;
+    }
+    *tracker = local_tracker;
+    Ok(Some(substitute_type(&method.ret, &subst)))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn ensure_trait_bound(
+    ty: &Type,
+    trait_name: &str,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
+    trait_env: &TraitEnv<'_>,
+    aliases: &AliasMap,
+    span: Span,
+) -> Result<()> {
+    if let Type::Named { name, args } = ty {
+        if args.is_empty() && type_params.contains(name.as_str()) {
+            if bounds
+                .get(name)
+                .map(|set| set.contains(trait_name))
+                .unwrap_or(false)
+            {
+                return Ok(());
+            }
+            return Err(TyperError::missing_trait_bound(name, trait_name, span).into());
+        }
+    }
+    if super::type_contains_params(ty, type_params) {
+        let rendered = show_ty(ty.clone());
+        return Err(TyperError::missing_trait_bound(&rendered, trait_name, span).into());
+    }
+    if trait_impl_exists(trait_name, ty, trait_env, aliases)? {
+        Ok(())
+    } else {
+        let rendered = show_ty(ty.clone());
+        Err(TyperError::missing_trait_bound(&rendered, trait_name, span).into())
+    }
+}
+
+pub(crate) fn trait_impl_exists(
+    trait_name: &str,
+    ty: &Type,
+    trait_env: &TraitEnv<'_>,
+    aliases: &AliasMap,
+) -> Result<bool> {
+    fn inner(
+        trait_name: &str,
+        ty: &Type,
+        trait_env: &TraitEnv<'_>,
+        aliases: &AliasMap,
+        visiting: &mut HashSet<String>,
+    ) -> Result<bool> {
+        let key = format!("{}::{}", trait_name, show_ty(ty.clone()));
+        if !visiting.insert(key.clone()) {
+            return Ok(true);
+        }
+        let mut matches = 0usize;
+        for imp in &trait_env.impls {
+            if imp.decl.trait_name != trait_name {
+                continue;
+            }
+            let impl_params = type_param_names(&imp.decl.type_params);
+            let mut subst: TypeSubst = HashMap::new();
+            if !type_pattern_matches(&imp.decl.for_type, ty, &impl_params, &mut subst, aliases)? {
+                continue;
+            }
+            if impl_params.iter().any(|p| !subst.contains_key(p)) {
+                continue;
+            }
+            let mut ok = true;
+            for bound in &imp.decl.where_bounds {
+                let Some(bound_ty) = subst.get(&bound.param) else {
+                    ok = false;
+                    break;
+                };
+                if !inner(bound.trait_name.as_str(), bound_ty, trait_env, aliases, visiting)? {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok {
+                matches += 1;
+            }
+        }
+        visiting.remove(&key);
+        Ok(matches > 0)
+    }
+
+    inner(
+        trait_name,
+        ty,
+        trait_env,
+        aliases,
+        &mut HashSet::new(),
+    )
+}
+
+pub(crate) fn type_pattern_matches(
+    pattern: &Type,
+    actual: &Type,
+    params: &HashSet<String>,
+    subst: &mut TypeSubst,
+    aliases: &AliasMap,
+) -> Result<bool> {
+    match pattern {
+        Type::Named { name, args } if args.is_empty() && params.contains(name.as_str()) => {
+            if let Some(existing) = subst.get(name) {
+                return Ok(base_type(existing, aliases)? == base_type(actual, aliases)?);
+            }
+            subst.insert(name.clone(), actual.clone());
+            Ok(true)
+        }
+        Type::Option(inner) => match actual {
+            Type::Option(act_inner) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            _ => Ok(false),
+        },
+        Type::Result(ok, err) => match actual {
+            Type::Result(act_ok, act_err) => {
+                Ok(type_pattern_matches(ok, act_ok, params, subst, aliases)?
+                    && type_pattern_matches(err, act_err, params, subst, aliases)?)
+            }
+            _ => Ok(false),
+        },
+        Type::List(inner) => match actual {
+            Type::List(act_inner) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            _ => Ok(false),
+        },
+        Type::Set(inner) => match actual {
+            Type::Set(act_inner) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            _ => Ok(false),
+        },
+        Type::Map(k, v) => match actual {
+            Type::Map(act_k, act_v) => Ok(
+                type_pattern_matches(k, act_k, params, subst, aliases)?
+                    && type_pattern_matches(v, act_v, params, subst, aliases)?,
+            ),
+            _ => Ok(false),
+        },
+        Type::Array(inner, len) => match actual {
+            Type::Array(act_inner, act_len) if len == act_len => {
+                type_pattern_matches(inner, act_inner, params, subst, aliases)
+            }
+            _ => Ok(false),
+        },
+        Type::Tuple(elements) => match actual {
+            Type::Tuple(act_elems) if elements.len() == act_elems.len() => {
+                for (left, right) in elements.iter().zip(act_elems.iter()) {
+                    if !type_pattern_matches(left, right, params, subst, aliases)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            _ => Ok(false),
+        },
+        Type::Named { name, args } => match actual {
+            Type::Named {
+                name: act_name,
+                args: act_args,
+            } if name == act_name && args.len() == act_args.len() => {
+                for (left, right) in args.iter().zip(act_args.iter()) {
+                    if !type_pattern_matches(left, right, params, subst, aliases)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            _ => Ok(false),
+        },
+        _ => Ok(base_type(pattern, aliases)? == base_type(actual, aliases)?),
+    }
+}
 fn type_block_stmt<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
     depth: usize,
 ) -> Result<()> {
     let mut inner_env = env.clone();
@@ -1733,8 +2258,11 @@ fn type_block_stmt<'a>(
                     &inner_env,
                     &mut inner_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                 )?;
                 if let Some(existing) = inner_env.get(name.as_str()) {
@@ -1773,8 +2301,11 @@ fn type_block_stmt<'a>(
                     &inner_env,
                     &mut inner_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                     *span,
                 )?;
@@ -1785,8 +2316,11 @@ fn type_block_stmt<'a>(
                     &inner_env,
                     &mut inner_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                 )?;
             }
@@ -1798,8 +2332,11 @@ fn type_block_stmt<'a>(
             &inner_env,
             &mut inner_tracker,
             fns,
-            aliases,
-            type_defs,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
             depth + 1,
         )?;
         if is_resource_type(&ty, aliases, type_defs)? {
@@ -1819,14 +2356,17 @@ fn type_while_stmt<'a>(
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
     depth: usize,
     span: Span,
 ) -> Result<()> {
-    let cty = type_of(cond, env, tracker, fns, aliases, type_defs, depth)?;
+    let cty = type_of(cond, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth)?;
     ensure_bool(cty, aliases, "condition", Some(expr_span(cond)))?;
-    let inv_ty = type_of(invariant, env, tracker, fns, aliases, type_defs, depth)?;
+    let inv_ty = type_of(invariant, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth)?;
     ensure_bool(
         inv_ty,
         aliases,
@@ -1834,12 +2374,12 @@ fn type_while_stmt<'a>(
         Some(expr_span(invariant)),
     )?;
     if let Some(var_expr) = variant {
-        let vty = type_of(var_expr, env, tracker, fns, aliases, type_defs, depth)?;
+        let vty = type_of(var_expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth)?;
         ensure_int(vty, aliases, "loop variant", Some(expr_span(var_expr)))?;
     }
     let baseline = tracker.clone();
     let mut body_tracker = baseline.clone();
-    type_block_stmt(body, env, &mut body_tracker, fns, aliases, type_defs, depth + 1)?;
+    type_block_stmt(body, env, &mut body_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
     body_tracker.retain_keys_from(&baseline);
     body_tracker.merge_branch(&baseline, span)?;
     *tracker = baseline;
@@ -1851,8 +2391,11 @@ fn type_block<'a>(
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
     depth: usize,
 ) -> Result<Type> {
     let mut inner_env = env.clone();
@@ -1865,8 +2408,11 @@ fn type_block<'a>(
                     &inner_env,
                     &mut inner_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                 )?;
                 if let Some(existing) = inner_env.get(name.as_str()) {
@@ -1906,8 +2452,11 @@ fn type_block<'a>(
                     &inner_env,
                     &mut inner_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                     *span,
                 )?;
@@ -1919,8 +2468,11 @@ fn type_block<'a>(
                     &inner_env,
                     &mut inner_tracker,
                     fns,
+                    trait_env,
                     aliases,
                     type_defs,
+                    type_params,
+                    bounds,
                     depth + 1,
                 )?;
             }
@@ -1932,8 +2484,11 @@ fn type_block<'a>(
             &inner_env,
             &mut inner_tracker,
             fns,
+            trait_env,
             aliases,
             type_defs,
+            type_params,
+            bounds,
             depth + 1,
         )?;
         if is_resource_type(&ty, aliases, type_defs)? {
@@ -1949,18 +2504,20 @@ fn type_block<'a>(
 pub(super) fn max_effect<'a>(
     e: &'a Expr,
     fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
     allowed: EffectLevel,
 ) -> Result<EffectLevel> {
     fn block_effect<'a>(
         block: &'a Block,
         fns: &HashMap<&'a str, FnSig>,
+        trait_env: &TraitEnv<'a>,
         allowed: EffectLevel,
     ) -> Result<EffectLevel> {
         let mut eff = EffectLevel::Pure;
         for stmt in &block.statements {
             match stmt {
                 Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                    eff = eff.join(max_effect(expr.as_ref(), fns, allowed)?);
+                    eff = eff.join(max_effect(expr.as_ref(), fns, trait_env, allowed)?);
                 }
                 Stmt::While {
                     cond,
@@ -1969,50 +2526,50 @@ pub(super) fn max_effect<'a>(
                     body,
                     ..
                 } => {
-                    eff = eff.join(max_effect(cond.as_ref(), fns, allowed)?);
-                    eff = eff.join(max_effect(invariant.as_ref(), fns, allowed)?);
+                    eff = eff.join(max_effect(cond.as_ref(), fns, trait_env, allowed)?);
+                    eff = eff.join(max_effect(invariant.as_ref(), fns, trait_env, allowed)?);
                     if let Some(v) = variant {
-                        eff = eff.join(max_effect(v.as_ref(), fns, allowed)?);
+                        eff = eff.join(max_effect(v.as_ref(), fns, trait_env, allowed)?);
                     }
-                    eff = eff.join(block_effect(body.as_ref(), fns, allowed)?);
+                    eff = eff.join(block_effect(body.as_ref(), fns, trait_env, allowed)?);
                 }
             }
         }
         if let Some(tail) = &block.tail {
-            eff = eff.join(max_effect(tail.as_ref(), fns, allowed)?);
+            eff = eff.join(max_effect(tail.as_ref(), fns, trait_env, allowed)?);
         }
         Ok(eff)
     }
     match e {
-        Expr::Block { block } => block_effect(block, fns, allowed),
+        Expr::Block { block } => block_effect(block, fns, trait_env, allowed),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {
             Ok(EffectLevel::Pure)
         }
-        Expr::Return { expr, .. } => max_effect(expr, fns, allowed),
-        Expr::Unary { expr, .. } => max_effect(expr, fns, allowed),
+        Expr::Return { expr, .. } => max_effect(expr, fns, trait_env, allowed),
+        Expr::Unary { expr, .. } => max_effect(expr, fns, trait_env, allowed),
         Expr::Bin { lhs, rhs, .. } => {
-            let left = max_effect(lhs, fns, allowed)?;
-            let right = max_effect(rhs, fns, allowed)?;
+            let left = max_effect(lhs, fns, trait_env, allowed)?;
+            let right = max_effect(rhs, fns, trait_env, allowed)?;
             Ok(left.join(right))
         }
         Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
             let mut eff = EffectLevel::Pure;
             for elem in elems {
-                eff = eff.join(max_effect(elem, fns, allowed)?);
+                eff = eff.join(max_effect(elem, fns, trait_env, allowed)?);
             }
             Ok(eff)
         }
         Expr::StructLit { fields, .. } => {
             let mut eff = EffectLevel::Pure;
             for field in fields {
-                eff = eff.join(max_effect(&field.expr, fns, allowed)?);
+                eff = eff.join(max_effect(&field.expr, fns, trait_env, allowed)?);
             }
             Ok(eff)
         }
-        Expr::FieldAccess { base, .. } => max_effect(base, fns, allowed),
+        Expr::FieldAccess { base, .. } => max_effect(base, fns, trait_env, allowed),
         Expr::Index { base, index, .. } => {
-            let base_eff = max_effect(base, fns, allowed)?;
-            let index_eff = max_effect(index, fns, allowed)?;
+            let base_eff = max_effect(base, fns, trait_env, allowed)?;
+            let index_eff = max_effect(index, fns, trait_env, allowed)?;
             Ok(base_eff.join(index_eff))
         }
         Expr::If {
@@ -2021,27 +2578,27 @@ pub(super) fn max_effect<'a>(
             else_br,
             ..
         } => {
-            let cond_eff = max_effect(cond, fns, allowed)?;
-            let then_eff = max_effect(then_br, fns, allowed)?;
-            let else_eff = max_effect(else_br, fns, allowed)?;
+            let cond_eff = max_effect(cond, fns, trait_env, allowed)?;
+            let then_eff = max_effect(then_br, fns, trait_env, allowed)?;
+            let else_eff = max_effect(else_br, fns, trait_env, allowed)?;
             Ok(cond_eff.join(then_eff).join(else_eff))
         }
         Expr::Match {
             scrutinee, arms, ..
         } => {
-            let mut eff = max_effect(scrutinee, fns, allowed)?;
+            let mut eff = max_effect(scrutinee, fns, trait_env, allowed)?;
             for arm in arms {
-                eff = eff.join(max_effect(&arm.expr, fns, allowed)?);
+                eff = eff.join(max_effect(&arm.expr, fns, trait_env, allowed)?);
             }
             Ok(eff)
         }
-        Expr::Try { expr, .. } => max_effect(expr, fns, allowed),
+        Expr::Try { expr, .. } => max_effect(expr, fns, trait_env, allowed),
         Expr::Call { callee, args, span } => {
             let mut eff = EffectLevel::Pure;
             for arg in args {
-                eff = eff.join(max_effect(arg, fns, allowed)?);
+                eff = eff.join(max_effect(arg, fns, trait_env, allowed)?);
             }
-            let call_eff = call_effect(callee, fns);
+            let call_eff = call_effect(callee, fns, trait_env);
             if call_eff > allowed {
                 return Err(
                     TyperError::effect_required(callee, effect_label(call_eff), *span).into(),
@@ -2051,9 +2608,16 @@ pub(super) fn max_effect<'a>(
         }
     }
 }
-fn call_effect(callee: &str, fns: &HashMap<&str, FnSig>) -> EffectLevel {
+fn call_effect(callee: &str, fns: &HashMap<&str, FnSig>, trait_env: &TraitEnv<'_>) -> EffectLevel {
     if let Some(level) = builtin_effect(callee) {
         return level;
+    }
+    if let Some((trait_name, method_name)) = callee.split_once("::") {
+        if let Some(info) = trait_env.traits.get(trait_name) {
+            if let Some(method) = info.methods.get(method_name) {
+                return level_from_effect(method.effect);
+            }
+        }
     }
     fns.get(callee)
         .map(|sig| sig.effect)

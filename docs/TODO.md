@@ -677,12 +677,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.1.3 Typer: field/variant checking, pattern matching, exhaustiveness, and unreachable arms.
   - [x] 17.1.4 Lowering/codegen: concrete layout + tag/payload strategy.
   - [x] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
-- [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
+- [x] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
   - [x] 17.2.1 Design: generics syntax, trait bounds, coherence rules, monomorphization strategy, and canonical instantiation mangling for debug/proof metadata.
   - [x] 17.2.2 Parser/AST: type params, bounds, and impl blocks. (Scaffolding only; no typechecking/trait resolution yet.)
-  - [ ] 17.2.3 Typer: inference, trait resolution, and error diagnostics.
-  - [ ] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
-  - [ ] 17.2.5 Stdlib updates + regression tests.
+  - [x] 17.2.3 Typer: inference, trait resolution, and error diagnostics.
+  - [x] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
+  - [x] 17.2.5 Stdlib updates + regression tests.
 - [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
   - [ ] 17.3.1 Define ABI/layout + runtime surface for collections (host vs in-wasm).
   - [ ] 17.3.2 Implement runtime helpers/imports + deterministic errors.

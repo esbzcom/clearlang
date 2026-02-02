@@ -148,6 +148,12 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         }
     }
     for f in &ast.funcs {
+        for req in &f.requires {
+            walk_expr(&req.expr, &mut set);
+        }
+        for ens in &f.ensures {
+            walk_expr(&ens.expr, &mut set);
+        }
         walk_expr(&f.body, &mut set);
     }
     set

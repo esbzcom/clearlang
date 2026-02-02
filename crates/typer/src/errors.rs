@@ -404,6 +404,18 @@ impl TyperError {
         )
     }
 
+    pub fn ambiguous_impl(trait_name: &str, param: &str, span: Span) -> Self {
+        Self::new(
+            "T248",
+            format!(
+                "at {}..{}: ambiguous impl for trait `{}` on `{}`",
+                span.start, span.end, trait_name, param
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn cannot_infer_type_params(callee: &str, span: Span) -> Self {
         Self::new(
             "T238",

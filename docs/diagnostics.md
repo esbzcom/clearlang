@@ -97,6 +97,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T245 | type | Impl methods cannot declare their own type parameters yet. |
 | T246 | type | Trait type parameters not supported yet. |
 | T247 | type | Conflicting inferred types for a type parameter. |
+| T248 | type | Ambiguous impl for a trait on a type. |
 | T301 | type | Branch type mismatch in expression-form `if`/`else`. |
 | T401 | type | Call requires a stronger effect. |
 | T402 | type | Missing required mut guard for a mut call. |

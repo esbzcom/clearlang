@@ -442,7 +442,7 @@ impl<'a> Monomorphizer<'a> {
             span,
         )?;
 
-        let (imp, impl_subst) = self.find_impl(trait_name, &self_ty)?;
+        let (imp, impl_subst) = self.find_impl(trait_name, &self_ty, span)?;
         let impl_method = imp
             .methods
             .get(method_name)
@@ -462,6 +462,7 @@ impl<'a> Monomorphizer<'a> {
         &self,
         trait_name: &str,
         self_ty: &Type,
+        span: Span,
     ) -> Result<(&super::ImplInfo<'a>, TypeSubst)> {
         let mut matches: Vec<(&super::ImplInfo<'a>, TypeSubst)> = Vec::new();
         for imp in &self.trait_env.impls {
@@ -506,10 +507,10 @@ impl<'a> Monomorphizer<'a> {
             Ok(matches.remove(0))
         } else if matches.is_empty() {
             let rendered = show_ty(self_ty.clone());
-            Err(TyperError::missing_trait_bound(&rendered, trait_name, Span { start: 0, end: 0 })
-                .into())
+            Err(TyperError::missing_trait_bound(&rendered, trait_name, span).into())
         } else {
-            Err(anyhow::anyhow!("ambiguous impl for trait `{}`", trait_name))
+            let rendered = show_ty(self_ty.clone());
+            Err(TyperError::ambiguous_impl(trait_name, &rendered, span).into())
         }
     }
 
@@ -724,4 +725,108 @@ fn mangle_type(ty: &Type, _aliases: &AliasMap) -> Result<String> {
             format!("({})", parts.join(","))
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clg_ast::ImplDecl;
+    use crate::check::ImplInfo;
+
+    #[test]
+    fn find_impl_uses_call_span_for_missing_impl() {
+        let trait_env = TraitEnv {
+            traits: HashMap::new(),
+            impls: Vec::new(),
+        };
+        let aliases: AliasMap = HashMap::new();
+        let type_defs = TypeDefs {
+            resources: HashSet::new(),
+            structs: HashMap::new(),
+            enums: HashMap::new(),
+        };
+        let base_fns: HashMap<&str, FnSig> = HashMap::new();
+        let base_funcs: HashMap<&str, &Func> = HashMap::new();
+        let mono = Monomorphizer {
+            base_fns: &base_fns,
+            base_funcs,
+            trait_env: &trait_env,
+            aliases: &aliases,
+            type_defs: &type_defs,
+            mono_funcs: Vec::new(),
+            mono_map: HashMap::new(),
+            queue: VecDeque::new(),
+        };
+        let span = Span { start: 12, end: 34 };
+        let err = match mono.find_impl("Eq", &Type::Int, span) {
+            Ok(_) => panic!("expected missing impl"),
+            Err(err) => err,
+        };
+        let te = err.downcast_ref::<TyperError>().expect("typer error");
+        assert_eq!(te.code, "T237");
+        assert_eq!(te.start, span.start);
+        assert_eq!(te.end, span.end);
+    }
+
+    #[test]
+    fn find_impl_uses_call_span_for_ambiguous_impl() {
+        let impl1 = ImplDecl {
+            trait_name: "Eq".to_string(),
+            trait_name_span: Span { start: 0, end: 0 },
+            type_params: Vec::new(),
+            for_type: Type::Int,
+            where_bounds: Vec::new(),
+            methods: Vec::new(),
+            span: Span { start: 1, end: 2 },
+        };
+        let impl2 = ImplDecl {
+            trait_name: "Eq".to_string(),
+            trait_name_span: Span { start: 0, end: 0 },
+            type_params: Vec::new(),
+            for_type: Type::Int,
+            where_bounds: Vec::new(),
+            methods: Vec::new(),
+            span: Span { start: 3, end: 4 },
+        };
+        let trait_env = TraitEnv {
+            traits: HashMap::new(),
+            impls: vec![
+                ImplInfo {
+                    decl: &impl1,
+                    methods: HashMap::new(),
+                },
+                ImplInfo {
+                    decl: &impl2,
+                    methods: HashMap::new(),
+                },
+            ],
+        };
+        let aliases: AliasMap = HashMap::new();
+        let type_defs = TypeDefs {
+            resources: HashSet::new(),
+            structs: HashMap::new(),
+            enums: HashMap::new(),
+        };
+        let base_fns: HashMap<&str, FnSig> = HashMap::new();
+        let base_funcs: HashMap<&str, &Func> = HashMap::new();
+        let mono = Monomorphizer {
+            base_fns: &base_fns,
+            base_funcs,
+            trait_env: &trait_env,
+            aliases: &aliases,
+            type_defs: &type_defs,
+            mono_funcs: Vec::new(),
+            mono_map: HashMap::new(),
+            queue: VecDeque::new(),
+        };
+        let span = Span { start: 55, end: 89 };
+        let err = match mono.find_impl("Eq", &Type::Int, span) {
+            Ok(_) => panic!("expected ambiguous impl"),
+            Err(err) => err,
+        };
+        let te = err.downcast_ref::<TyperError>().expect("typer error");
+        assert_eq!(te.code, "T248");
+        assert_eq!(te.start, span.start);
+        assert_eq!(te.end, span.end);
+    }
 }

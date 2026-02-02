@@ -404,16 +404,28 @@ impl TyperError {
         )
     }
 
-    pub fn ambiguous_impl(trait_name: &str, param: &str, span: Span) -> Self {
-        Self::new(
-            "T248",
-            format!(
-                "at {}..{}: ambiguous impl for trait `{}` on `{}`",
-                span.start, span.end, trait_name, param
-            ),
-            span.start,
-            span.end,
-        )
+    pub fn ambiguous_impl(
+        trait_name: &str,
+        param: &str,
+        span: Span,
+        candidates: &[(String, Span)],
+    ) -> Self {
+        let mut message = format!(
+            "at {}..{}: ambiguous impl for trait `{}` on `{}`",
+            span.start, span.end, trait_name, param
+        );
+        if !candidates.is_empty() {
+            let mut parts: Vec<String> = Vec::with_capacity(candidates.len());
+            for (ty, sp) in candidates {
+                parts.push(format!(
+                    "impl for `{}` at {}..{}",
+                    ty, sp.start, sp.end
+                ));
+            }
+            message.push_str("; candidates: ");
+            message.push_str(&parts.join(", "));
+        }
+        Self::new("T248", message, span.start, span.end)
     }
 
     pub fn cannot_infer_type_params(callee: &str, span: Span) -> Self {

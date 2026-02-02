@@ -510,7 +510,13 @@ impl<'a> Monomorphizer<'a> {
             Err(TyperError::missing_trait_bound(&rendered, trait_name, span).into())
         } else {
             let rendered = show_ty(self_ty.clone());
-            Err(TyperError::ambiguous_impl(trait_name, &rendered, span).into())
+            let mut candidates: Vec<(String, Span)> = Vec::with_capacity(matches.len());
+            for (imp, _) in &matches {
+                candidates.push((show_ty(imp.decl.for_type.clone()), imp.decl.span));
+            }
+            Err(
+                TyperError::ambiguous_impl(trait_name, &rendered, span, &candidates).into(),
+            )
         }
     }
 
@@ -828,6 +834,10 @@ mod tests {
         assert_eq!(te.code, "T248");
         assert_eq!(te.start, span.start);
         assert_eq!(te.end, span.end);
+        assert!(te.message.contains("candidates"));
+        assert!(te.message.contains("impl for `Int`"));
+        assert!(te.message.contains("1..2"));
+        assert!(te.message.contains("3..4"));
     }
 
     #[test]

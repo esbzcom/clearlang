@@ -66,6 +66,35 @@ fn struct_layout_writes_fields() {
 }
 
 #[test]
+fn struct_field_access_reads_value() {
+    let src = r#"
+        struct Point {
+            x: Int;
+            y: U64;
+        }
+        function main() -> U64 {
+            let p = Point { x: 1, y: 42 };
+            p.y
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let main = instance
+        .get_typed_func::<(), i64>(&mut store, "main")
+        .expect("get main");
+    let result = main.call(&mut store, ()).expect("call main");
+
+    assert_eq!(result, 42, "field access should return stored value");
+}
+
+#[test]
 fn enum_variant_layout_writes_payload() {
     let src = r#"
         enum Pair {
@@ -155,4 +184,36 @@ fn enum_match_executes_correct_arm() {
     let result = main.call(&mut store, ()).expect("call main");
 
     assert_eq!(result, 2, "match should select the Green arm");
+}
+
+#[test]
+fn enum_match_binds_payload_fields() {
+    let src = r#"
+        enum Pair {
+            Pair(Int, Int),
+            Zero
+        }
+        function main() -> Int {
+            let p = Pair::Pair(3, 4);
+            match p {
+                Pair::Pair(a, b) => a + b,
+                Pair::Zero => 0
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
+    let result = main.call(&mut store, ()).expect("call main");
+
+    assert_eq!(result, 7, "enum match should bind and sum payload fields");
 }

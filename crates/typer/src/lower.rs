@@ -1223,7 +1223,9 @@ fn lower_enum_match<'a>(
     let variant = lower_expr(ctx, scrutinee, None)?;
     let parts = ctx.variant_destructure(variant, VariantKind::Enum { max_tag: variant_count });
 
-    let mut arm_values: Vec<(Value, Value)> = Vec::with_capacity(arms.len());
+    let mut result_slot: Option<(Value, Type, IrType)> = None;
+
+    ctx.body.push(Instr::BlockBegin);
     for arm in arms {
         match &arm.pat {
             MatchPat::EnumVariant {
@@ -1233,6 +1235,7 @@ fn lower_enum_match<'a>(
             } => {
                 let (index, variant_def, _count) =
                     enum_variant_info(ctx.type_defs, enum_name.as_str(), variant.as_str())?;
+                ctx.body.push(Instr::BlockBegin);
                 let cond = fresh(ctx);
                 let tag_val = emit_int_const(ctx, index as i64);
                 ctx.body.push(Instr::IBin {
@@ -1242,6 +1245,7 @@ fn lower_enum_match<'a>(
                     rhs: tag_val,
                     ty: IrType::Int,
                 });
+                ctx.body.push(Instr::BrIfEqz { cond, depth: 0 });
 
                 let mut inserted: Vec<ScopeEntry<'a>> = Vec::new();
                 match variant_def.fields.len() {
@@ -1306,36 +1310,91 @@ fn lower_enum_match<'a>(
                     }
                 }
 
-                let val = lower_expr(ctx, &arm.expr, expected.clone())?;
+                let arm_val = lower_expr(ctx, &arm.expr, expected.clone())?;
+                let arm_ty = if let Some(ty) = &expected {
+                    ty.clone()
+                } else {
+                    infer_expr_type(
+                        &arm.expr,
+                        &ctx.type_env,
+                        &ctx.fns,
+                        ctx.aliases,
+                        ctx.type_defs,
+                    )?
+                };
+                let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
+                let (slot, _, slot_mem_ty) = if let Some(slot) = result_slot.clone() {
+                    slot
+                } else {
+                    let (size, align) = mem_layout_for_ir(mem_ty);
+                    let slot = emit_alloc(ctx, size, align);
+                    result_slot = Some((slot, arm_ty.clone(), mem_ty));
+                    (slot, arm_ty.clone(), mem_ty)
+                };
+                if mem_ty != slot_mem_ty {
+                    anyhow::bail!("match arm lowered to mismatched runtime type");
+                }
+                ctx.body.push(Instr::Store {
+                    ptr: slot,
+                    src: arm_val,
+                    offset: 0,
+                    ty: mem_ty,
+                });
                 restore_scope(ctx, inserted);
-                arm_values.push((cond, val));
+                ctx.body.push(Instr::Br { depth: 1 });
+                ctx.body.push(Instr::BlockEnd);
             }
             MatchPat::Wildcard => {
-                let cond = emit_bool_const(ctx, true);
-                let val = lower_expr(ctx, &arm.expr, expected.clone())?;
-                arm_values.push((cond, val));
+                ctx.body.push(Instr::BlockBegin);
+                let arm_val = lower_expr(ctx, &arm.expr, expected.clone())?;
+                let arm_ty = if let Some(ty) = &expected {
+                    ty.clone()
+                } else {
+                    infer_expr_type(
+                        &arm.expr,
+                        &ctx.type_env,
+                        &ctx.fns,
+                        ctx.aliases,
+                        ctx.type_defs,
+                    )?
+                };
+                let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
+                let (slot, _, slot_mem_ty) = if let Some(slot) = result_slot.clone() {
+                    slot
+                } else {
+                    let (size, align) = mem_layout_for_ir(mem_ty);
+                    let slot = emit_alloc(ctx, size, align);
+                    result_slot = Some((slot, arm_ty.clone(), mem_ty));
+                    (slot, arm_ty.clone(), mem_ty)
+                };
+                if mem_ty != slot_mem_ty {
+                    anyhow::bail!("match arm lowered to mismatched runtime type");
+                }
+                ctx.body.push(Instr::Store {
+                    ptr: slot,
+                    src: arm_val,
+                    offset: 0,
+                    ty: mem_ty,
+                });
+                ctx.body.push(Instr::Br { depth: 1 });
+                ctx.body.push(Instr::BlockEnd);
             }
-            _ => {
-                anyhow::bail!("unsupported match pattern in lowering");
-            }
+            _ => anyhow::bail!("unsupported match pattern in lowering"),
         }
     }
+    ctx.body.push(Instr::BlockEnd);
 
-    let mut iter = arm_values.into_iter().rev();
-    let Some((_, mut acc)) = iter.next() else {
-        anyhow::bail!("match arms must not be empty");
-    };
-    for (cond, val) in iter {
-        let dst = fresh(ctx);
-        ctx.body.push(Instr::ISelect {
-            dst,
-            cond,
-            then_v: val,
-            else_v: acc,
-        });
-        acc = dst;
-    }
-    Ok(acc)
+    let (slot, arm_ty, mem_ty) = result_slot
+        .ok_or_else(|| anyhow::anyhow!("match arms must not be empty"))?;
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::Load {
+        dst,
+        ptr: slot,
+        offset: 0,
+        ty: mem_ty,
+    });
+    let _ = arm_ty;
+    Ok(dst)
 }
 
 impl<'a> LowerCtx<'a> {
@@ -1430,6 +1489,14 @@ fn emit_u64_bin(ctx: &mut LowerCtx<'_>, op: BinOp, lhs: Value, rhs: Value) -> Va
         ty: IrType::U64,
     });
     dst
+}
+
+fn mem_layout_for_ir(ty: IrType) -> (u32, u32) {
+    match ty {
+        IrType::U8 => (1, 1),
+        IrType::U64 => (8, 8),
+        _ => (4, 4),
+    }
 }
 
 fn emit_u64_overflow_flag(

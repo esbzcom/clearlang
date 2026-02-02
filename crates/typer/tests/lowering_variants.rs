@@ -360,7 +360,15 @@ fn lowers_enum_match_to_tag_check_and_select() {
         "expected VariantLoadTag with enum max_tag"
     );
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::ISelect { .. })),
-        "expected ISelect for enum match lowering"
+        func.body.iter().any(|instr| matches!(instr, Instr::BrIfEqz { .. })),
+        "expected branch on tag check for enum match lowering"
+    );
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::Store { .. })),
+        "expected Store into match result slot"
+    );
+    assert!(
+        func.body.iter().any(|instr| matches!(instr, Instr::Load { .. })),
+        "expected Load from match result slot"
     );
 }

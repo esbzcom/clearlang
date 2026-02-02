@@ -13,7 +13,7 @@ fn monomorphizes_generic_function_calls() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "id<Int>"));
+    assert!(names.iter().any(|name| *name == "id$Int"));
     assert!(names.iter().any(|name| *name == "main"));
 }
 
@@ -39,8 +39,8 @@ fn monomorphizes_trait_impl_calls() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "eq_pair<Int>"));
-    assert!(names.iter().any(|name| *name == "impl::Eq::<Int>::eq"));
+    assert!(names.iter().any(|name| *name == "eq_pair$Int"));
+    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
 }
 
 #[test]

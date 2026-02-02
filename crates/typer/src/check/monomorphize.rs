@@ -664,7 +664,7 @@ fn mangle_fn_name(name: &str, args: &[Type], aliases: &AliasMap) -> Result<Strin
     for arg in args {
         parts.push(mangle_type(arg, aliases)?);
     }
-    Ok(format!("{}<{}>", name, parts.join(",")))
+    Ok(format!("{}${}", name, parts.join("$")))
 }
 
 fn mangle_impl_method_name(
@@ -674,10 +674,7 @@ fn mangle_impl_method_name(
     aliases: &AliasMap,
 ) -> Result<String> {
     let self_name = mangle_type(self_ty, aliases)?;
-    Ok(format!(
-        "impl::{}::<{}>::{}",
-        trait_name, self_name, method
-    ))
+    Ok(format!("impl${}${}${}", trait_name, self_name, method))
 }
 
 fn mangle_type(ty: &Type, _aliases: &AliasMap) -> Result<String> {
@@ -694,35 +691,38 @@ fn mangle_type(ty: &Type, _aliases: &AliasMap) -> Result<String> {
             if args.is_empty() {
                 name.clone()
             } else {
-                let mut parts = Vec::with_capacity(args.len());
+                let mut parts = Vec::with_capacity(args.len() + 2);
+                parts.push(name.clone());
+                parts.push(args.len().to_string());
                 for arg in args {
                     parts.push(mangle_type(arg, _aliases)?);
                 }
-                format!("{}<{}>", name, parts.join(","))
+                format!("N${}", parts.join("$"))
             }
         }
-        Type::Option(inner) => format!("Option<{}>", mangle_type(inner, _aliases)?),
+        Type::Option(inner) => format!("Option${}", mangle_type(inner, _aliases)?),
         Type::Result(ok, err) => format!(
-            "Result<{},{}>",
+            "Result${}${}",
             mangle_type(ok, _aliases)?,
             mangle_type(err, _aliases)?
         ),
-        Type::List(inner) => format!("List<{}>", mangle_type(inner, _aliases)?),
-        Type::Set(inner) => format!("Set<{}>", mangle_type(inner, _aliases)?),
+        Type::List(inner) => format!("List${}", mangle_type(inner, _aliases)?),
+        Type::Set(inner) => format!("Set${}", mangle_type(inner, _aliases)?),
         Type::Map(k, v) => format!(
-            "Map<{},{}>",
+            "Map${}${}",
             mangle_type(k, _aliases)?,
             mangle_type(v, _aliases)?
         ),
         Type::Array(inner, len) => {
-            format!("[{};{}]", mangle_type(inner, _aliases)?, len)
+            format!("Array${}${}", len, mangle_type(inner, _aliases)?)
         }
         Type::Tuple(elements) => {
-            let mut parts = Vec::with_capacity(elements.len());
+            let mut parts = Vec::with_capacity(elements.len() + 1);
+            parts.push(elements.len().to_string());
             for elem in elements {
                 parts.push(mangle_type(elem, _aliases)?);
             }
-            format!("({})", parts.join(","))
+            format!("Tuple${}", parts.join("$"))
         }
     })
 }
@@ -828,5 +828,65 @@ mod tests {
         assert_eq!(te.code, "T248");
         assert_eq!(te.start, span.start);
         assert_eq!(te.end, span.end);
+    }
+
+    #[test]
+    fn mangled_names_use_identifier_safe_chars() {
+        let aliases: AliasMap = HashMap::new();
+        let types = vec![
+            Type::Int,
+            Type::Bool,
+            Type::Named {
+                name: "Box".to_string(),
+                args: vec![Type::U8],
+            },
+            Type::Option(Box::new(Type::Named {
+                name: "Pair".to_string(),
+                args: vec![Type::U64, Type::String],
+            })),
+            Type::Result(Box::new(Type::Int), Box::new(Type::U256)),
+            Type::List(Box::new(Type::Bytes)),
+            Type::Set(Box::new(Type::U128)),
+            Type::Map(Box::new(Type::U8), Box::new(Type::Named {
+                name: "Thing".to_string(),
+                args: vec![Type::Bool],
+            })),
+            Type::Array(Box::new(Type::U64), 4),
+            Type::Tuple(vec![Type::Int, Type::Bool, Type::U8]),
+        ];
+        for ty in types {
+            let name = mangle_type(&ty, &aliases).expect("mangle type");
+            assert!(
+                name.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$'),
+                "mangled name contained disallowed char: {name}"
+            );
+        }
+        let fn_name = mangle_fn_name(
+            "do_work",
+            &[
+                Type::Named {
+                    name: "Box".to_string(),
+                    args: vec![Type::U8],
+                },
+                Type::Tuple(vec![Type::Int, Type::U64]),
+            ],
+            &aliases,
+        )
+        .expect("mangle fn");
+        assert!(
+            fn_name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$'),
+            "mangled fn name contained disallowed char: {fn_name}"
+        );
+        let impl_name = mangle_impl_method_name("Eq", &Type::Int, "eq", &aliases)
+            .expect("mangle impl");
+        assert!(
+            impl_name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$'),
+            "mangled impl name contained disallowed char: {impl_name}"
+        );
     }
 }

@@ -1,4 +1,5 @@
 use crate::expr::expr_p;
+use crate::generics::{type_params_with_bounds_p, where_bounds_p};
 use crate::tokens::{func_name_p, ident_p, kw};
 use crate::types::{effect_p, ty_p};
 use crate::ErrTy;
@@ -95,6 +96,7 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         .or_not()
         .then_ignore(kw("function"))
         .then(func_name_p())
+        .then(type_params_with_bounds_p().or_not())
         .then(params_p())
         // Friendly hint: if ':' is used instead of '->' for return types, emit a targeted error
         .then(
@@ -109,10 +111,11 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
             ),
         )
         .then(ty_p().padded())
+        .then(where_bounds_p().or_not())
         .then(clause_p)
         .then(expr_p())
         .map(
-            |((((((eff_opt, name), params), _arrow_ok), ret), clauses), body)| {
+            |((((((((eff_opt, name), type_params), params), _arrow_ok), ret), where_bounds), clauses), body)| {
                 let (effect, effect_span) = eff_opt
                     .map(|(eff, span)| (eff, Some(span)))
                     .unwrap_or((Effect::None, None));
@@ -126,12 +129,19 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
                     }
                 }
 
+                let (type_params, mut bounds) = type_params.unwrap_or_default();
+                if let Some(mut extra_bounds) = where_bounds {
+                    bounds.append(&mut extra_bounds);
+                }
+
                 Func {
                     effect,
                     effect_span,
                     name,
+                    type_params,
                     params,
                     ret,
+                    where_bounds: bounds,
                     requires,
                     ensures,
                     body,

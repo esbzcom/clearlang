@@ -6,7 +6,7 @@ This guide summarizes how resources work in Phase 8: declaration, ownership/borr
 
 - Syntax: `resource Name { fields... drop { ... } }`
 - Fields are plain types; the `drop { ... }` block is required (empty block is allowed).
-- Each declaration creates a nominal `Type::Resource("Name")`.
+- Each declaration creates a nominal `Type::Named { name: "Name", args: [] }`.
 
 ## Function parameters and ownership
 

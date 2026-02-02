@@ -72,6 +72,6 @@ function take(consume handle: File) -> Int { 0 }
     assert_eq!(func.params.len(), 1);
     assert!(matches!(
         func.params[0].ty,
-        clg_ast::Type::Resource(ref name) if name == "File"
+        clg_ast::Type::Named { ref name, ref args } if name == "File" && args.is_empty()
     ));
 }

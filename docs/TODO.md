@@ -543,6 +543,7 @@ Codegen & Runtime
 - [x] Tooling ergonomics:
   - [x] Add `cargo xtask` or `justfile` targets for `fmt`, `clippy`, `test`, `validate`, `emit-vcs`, and `ci`.
   - [x] Document local dev workflows in `docs/dev.md` (setup, wasm-tools, common commands).
+  - [x] Windows MSVC tests: disable PDB generation to avoid LNK1318 (`.cargo/config.toml` uses `/DEBUG:NONE`).
 - [x] Error hygiene:
   - [x] Unify error types/messages across crates and keep JSON errors consistent.
   - [x] Add a single error-code table and a test that ensures codes are unique and documented.
@@ -677,8 +678,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.1.4 Lowering/codegen: concrete layout + tag/payload strategy.
   - [x] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
 - [ ] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
-  - [ ] 17.2.1 Design: generics syntax, trait bounds, coherence rules, and monomorphization strategy.
-  - [ ] 17.2.2 Parser/AST: type params, bounds, and impl blocks.
+  - [x] 17.2.1 Design: generics syntax, trait bounds, coherence rules, monomorphization strategy, and canonical instantiation mangling for debug/proof metadata.
+  - [x] 17.2.2 Parser/AST: type params, bounds, and impl blocks. (Scaffolding only; no typechecking/trait resolution yet.)
   - [ ] 17.2.3 Typer: inference, trait resolution, and error diagnostics.
   - [ ] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
   - [ ] 17.2.5 Stdlib updates + regression tests.

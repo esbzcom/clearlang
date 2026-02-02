@@ -20,8 +20,10 @@ fn vcs_are_sorted_by_function_and_id() {
         effect: Effect::Pure,
         effect_span: None,
         name: "alpha".into(),
+        type_params: vec![],
         params: vec![],
         ret: Type::Int,
+        where_bounds: vec![],
         requires: vec![],
         ensures: vec![ensure_alpha],
         body: Expr::Int(0, span()),
@@ -39,12 +41,14 @@ fn vcs_are_sorted_by_function_and_id() {
         effect: Effect::Mut,
         effect_span: None,
         name: "beta".into(),
+        type_params: vec![],
         params: vec![Param {
             kind: ParamKind::Borrow,
             name: "l".into(),
             ty: Type::List(Box::new(Type::Int)),
         }],
         ret: Type::List(Box::new(Type::Int)),
+        where_bounds: vec![],
         requires: vec![mut_guard],
         ensures: vec![],
         body: Expr::Call {
@@ -59,6 +63,8 @@ fn vcs_are_sorted_by_function_and_id() {
         resources: vec![],
         structs: vec![],
         enums: vec![],
+        traits: vec![],
+        impls: vec![],
         funcs: vec![beta, alpha],
     };
     let vcs = generate_vcs(&program);

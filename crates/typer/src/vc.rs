@@ -479,10 +479,12 @@ fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'sta
         | Type::Map(_, _)
         | Type::Array(_, _)
         | Type::Tuple(_)
-        | Type::Resource(_) => {
-            if let Type::Resource(name) = ty {
-                if let Some(alias) = aliases.get(name.as_str()) {
-                    return smt_sort_for_type(alias.base, aliases);
+        | Type::Named { .. } => {
+            if let Type::Named { name, args } = ty {
+                if args.is_empty() {
+                    if let Some(alias) = aliases.get(name.as_str()) {
+                        return smt_sort_for_type(alias.base, aliases);
+                    }
                 }
             }
             "Int"
@@ -553,11 +555,12 @@ fn top_level_alias<'a>(
     ty: &Type,
     aliases: &'a HashMap<&'a str, AliasView<'a>>,
 ) -> Option<&'a AliasView<'a>> {
-    if let Type::Resource(name) = ty {
-        aliases.get(name.as_str())
-    } else {
-        None
+    if let Type::Named { name, args } = ty {
+        if args.is_empty() {
+            return aliases.get(name.as_str());
+        }
     }
+    None
 }
 
 #[derive(Clone)]
@@ -1890,7 +1893,7 @@ fn smt_sort_for_builtin(ty: &Type) -> &'static str {
         | Type::Map(_, _)
         | Type::Array(_, _)
         | Type::Tuple(_)
-        | Type::Resource(_) => "Int",
+        | Type::Named { .. } => "Int",
     }
 }
 

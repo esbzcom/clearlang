@@ -1058,7 +1058,18 @@ fn render_type(ty: &Type) -> String {
         Type::Bool => "Bool".to_string(),
         Type::String => "String".to_string(),
         Type::Bytes => "Bytes".to_string(),
-        Type::Resource(name) => name.to_string(),
+        Type::Named { name, args } => {
+            if args.is_empty() {
+                name.to_string()
+            } else {
+                let rendered = args
+                    .iter()
+                    .map(render_type)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{}<{}>", name, rendered)
+            }
+        }
         Type::Option(inner) => format!("Option<{}>", render_type(inner)),
         Type::Result(ok, err) => format!("Result<{}, {}>", render_type(ok), render_type(err)),
         Type::List(inner) => format!("List<{}>", render_type(inner)),

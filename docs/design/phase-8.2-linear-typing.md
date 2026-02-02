@@ -45,7 +45,7 @@
 
 ## Implementation Plan
 1. **AST & Parser Support**
-   - Add `Type::Resource(String)`; parse bare identifiers in `ty_p` as resource references (after keywords/constructors).
+   - Add `Type::Named { name, args }`; parse bare identifiers in `ty_p` as named references (after keywords/constructors).
    - Include resource types in pretty printer/tests.
 
 2. **Block-Aware Typer**

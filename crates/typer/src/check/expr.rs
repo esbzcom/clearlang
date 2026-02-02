@@ -207,7 +207,7 @@ fn resolve_alias_shallow_inner(
     visiting: &mut Vec<String>,
 ) -> Result<Type> {
     match ty {
-        Type::Resource(name) => {
+        Type::Named { name, args } if args.is_empty() => {
             if let Some(def) = aliases.get(name) {
                 if visiting.iter().any(|n| n == name) {
                     return Err(TyperError::cyclic_alias(name, def.span).into());
@@ -387,13 +387,16 @@ pub(super) fn type_of<'a>(
                 }
             }
             *tracker = local_tracker;
-            Ok(Type::Resource(name.clone()))
+            Ok(Type::Named {
+                name: name.clone(),
+                args: Vec::new(),
+            })
         }
         Expr::FieldAccess { base, field, span } => {
             let base_ty = type_of(base, env, tracker, fns, aliases, type_defs, depth + 1)?;
             let resolved = base_type(&base_ty, aliases)?;
             match resolved {
-                Type::Resource(name) => {
+                Type::Named { name, .. } => {
                     let Some(struct_info) = type_defs.structs.get(name.as_str()) else {
                         return Err(TyperError::expected_struct(name.as_str(), *span).into());
                     };
@@ -747,7 +750,7 @@ Expr::Match {
             merge_match_trackers(&baseline, &branch_trackers, tracker)?;
             Ok(result_ty)
         }
-        Type::Resource(name) if type_defs.enums.contains_key(name.as_str()) => {
+        Type::Named { name, .. } if type_defs.enums.contains_key(name.as_str()) => {
             let enum_info = type_defs
                 .enums
                 .get(name.as_str())
@@ -1351,7 +1354,10 @@ Expr::Match {
                         }
                     }
                     *tracker = local_tracker;
-                    return Ok(Type::Resource(enum_name.to_string()));
+                    return Ok(Type::Named {
+                        name: enum_name.to_string(),
+                        args: Vec::new(),
+                    });
                 }
             }
             let FnSig { params, ret, .. } = fns
@@ -2199,7 +2205,18 @@ pub(crate) fn show_ty(t: Type) -> String {
             Type::Bool => "Bool".to_string(),
             Type::String => "String".to_string(),
             Type::Bytes => "Bytes".to_string(),
-            Type::Resource(name) => name,
+            Type::Named { name, args } => {
+                if args.is_empty() {
+                    name
+                } else {
+                    let rendered = args
+                        .into_iter()
+                        .map(render)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!("{}<{}>", name, rendered)
+                }
+            }
             Type::Option(inner) => format!("Option<{}>", render(*inner)),
             Type::Result(ok, err) => format!("Result<{}, {}>", render(*ok), render(*err)),
             Type::List(inner) => format!("List<{}>", render(*inner)),

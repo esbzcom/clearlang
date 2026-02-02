@@ -54,7 +54,19 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then(ty.clone())
             .then_ignore(just('>').padded())
             .map(|(ok, err)| Type::Result(Box::new(ok), Box::new(err)));
-        let resource = ident_p().map(Type::Resource);
+        let named = ident_p().map(|name| Type::Named {
+            name,
+            args: Vec::new(),
+        });
+        let named_args = ident_p()
+            .then(
+                ty.clone()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('<').padded(), just('>').padded()),
+            )
+            .map(|(name, args)| Type::Named { name, args });
         let tuple_t = ty
             .clone()
             .separated_by(just(',').padded())
@@ -88,7 +100,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then_ignore(just(']').padded())
             .map(|(inner, len)| Type::Array(Box::new(inner), len));
         choice((
-            option, result, list_t, set_t, map_t, array_t, tuple_t, base, resource,
+            option, result, list_t, set_t, map_t, array_t, tuple_t, base, named_args, named,
         ))
         .boxed()
     })

@@ -25,7 +25,7 @@ fn ir_ty(t: Type) -> IrType {
         Type::Bool => IrType::Bool,
         Type::String => IrType::Int, // placeholder until strings have a runtime representation
         Type::Bytes => IrType::Int,
-        Type::Resource(_) => IrType::Int,
+        Type::Named { .. } => IrType::Int,
         Type::Option(_) => IrType::Int,
         Type::Result(_, _) => IrType::Int,
         Type::List(_) | Type::Set(_) | Type::Map(_, _) | Type::Array(_, _) | Type::Tuple(_) => {
@@ -68,7 +68,7 @@ fn layout_for_type(ty: &Type, aliases: &AliasMap) -> Result<(u32, u32)> {
         Type::U64 => Ok((8, 8)),
         Type::U128 | Type::U256 => Ok((4, 4)),
         Type::String | Type::Bytes => Ok((4, 4)),
-        Type::Resource(_) => Ok((4, 4)),
+        Type::Named { .. } => Ok((4, 4)),
         Type::Option(_) | Type::Result(_, _) => Ok((4, 4)),
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => Ok((4, 4)),
         Type::Array(_, _) | Type::Tuple(_) => Ok((4, 4)),
@@ -416,7 +416,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::FieldAccess { base, field, .. } => {
             let base_ty = infer_expr_type(base, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
             let resolved = base_type(&base_ty, ctx.aliases)?;
-            let Type::Resource(name) = resolved else {
+            let Type::Named { name, .. } = resolved else {
                 anyhow::bail!("field access expects a struct value");
             };
             let (decl_fields, layout) = struct_layout(ctx.type_defs, ctx.aliases, name.as_str())?;
@@ -457,7 +457,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             }
             let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
             let resolved = base_type(&scrut_ty, ctx.aliases)?;
-            if let Type::Resource(name) = resolved {
+            if let Type::Named { name, .. } = resolved {
                 if ctx.type_defs.enums.contains_key(name.as_str()) {
                     return lower_enum_match(ctx, scrutinee, arms, expected);
                 }
@@ -1211,7 +1211,7 @@ fn lower_enum_match<'a>(
 ) -> Result<Value> {
     let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.aliases, ctx.type_defs)?;
     let resolved = base_type(&scrut_ty, ctx.aliases)?;
-    let Type::Resource(name) = resolved else {
+    let Type::Named { name, .. } = resolved else {
         anyhow::bail!("enum match expects enum scrutinee");
     };
     let info = ctx

@@ -1,8 +1,10 @@
 use crate::alias::refined_alias_p;
 use crate::enum_decl::enum_p;
 use crate::func::func_p;
+use crate::impl_decl::impl_p;
 use crate::resource::resource_p;
 use crate::struct_decl::struct_p;
+use crate::trait_decl::trait_p;
 use crate::ErrTy;
 use chumsky::prelude::*;
 use clg_ast::Program;
@@ -14,6 +16,8 @@ enum Item {
     Resource(clg_ast::Resource),
     Struct(clg_ast::StructDecl),
     Enum(clg_ast::EnumDecl),
+    Trait(clg_ast::TraitDecl),
+    Impl(clg_ast::ImplDecl),
 }
 
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
@@ -22,6 +26,8 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
         resource_p().map(Item::Resource),
         struct_p().map(Item::Struct),
         enum_p().map(Item::Enum),
+        trait_p().map(Item::Trait),
+        impl_p().map(Item::Impl),
         func_p().map(Item::Func),
     ));
 
@@ -34,6 +40,8 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             let mut resources = Vec::with_capacity(items.len());
             let mut structs = Vec::with_capacity(items.len());
             let mut enums = Vec::with_capacity(items.len());
+            let mut traits = Vec::with_capacity(items.len());
+            let mut impls = Vec::with_capacity(items.len());
             for item in items {
                 match item {
                     Item::Alias(a) => refined_aliases.push(a),
@@ -41,6 +49,8 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
                     Item::Resource(r) => resources.push(r),
                     Item::Struct(s) => structs.push(s),
                     Item::Enum(e) => enums.push(e),
+                    Item::Trait(t) => traits.push(t),
+                    Item::Impl(i) => impls.push(i),
                 }
             }
             Program {
@@ -48,6 +58,8 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
                 resources,
                 structs,
                 enums,
+                traits,
+                impls,
                 funcs,
             }
         })

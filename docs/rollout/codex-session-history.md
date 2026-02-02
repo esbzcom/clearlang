@@ -58,3 +58,9 @@
 - Added Phase 16.7 attestation reference design and minimal registry contract with sample payload and workflow docs.
 - Updated the rollout plan and TODO checklist to mark Phase 16 complete and add Phase 18 production hardening items.
 
+## 2026-02-02 - Phase 17.1 structs/enums delivery
+- Implemented struct/enum typing, lowering, and runtime layout (structs use tuple layout; enums reuse the 16-byte variant layout).
+- Added enum tag validation for user enums via `VariantKind::Enum { max_tag }` and surfaced R003 detail as `Enum`.
+- Added lowering coverage for enum constructors/matches and struct field access, plus wasm runtime tests for layout and match execution.
+- Updated runtime/ABI docs for struct/enum layout and marked Phase 17.1 complete in `docs/TODO.md`.
+

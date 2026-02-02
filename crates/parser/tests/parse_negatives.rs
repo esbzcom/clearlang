@@ -29,7 +29,7 @@ fn unknown_type_name_parses_as_resource_marker() {
     let ast = parse(src).expect("resource-like identifiers should parse");
     assert!(matches!(
         ast.funcs[0].params[0].ty,
-        Type::Resource(ref name) if name == "Foo"
+        Type::Named { ref name, ref args } if name == "Foo" && args.is_empty()
     ));
 }
 

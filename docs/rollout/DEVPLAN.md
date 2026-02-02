@@ -1,18 +1,16 @@
 # ClearLang Development Plan
 
-## Current Focus - Phase 16: Crypto Intrinsics + Proofs
-- 16.1 Hash/HMAC intrinsics (SHA-256, Keccak, Blake2) with deterministic semantics and test vectors. (Done)
-- 16.2 Signature verification intrinsics (ed25519/secp256k1) with strict input validation. (Done)
-- 16.3 Constant-time byte equality helper for secret comparisons. (Done)
-- 16.4 Deterministic error semantics + diagnostics for crypto intrinsics. (Done)
-- 16.5 SMT encoding (or explicit axioms) for crypto/bitwise primitives. (Done)
-- 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`. (Done)
-- 16.7 On-chain attestation design (EVM registry + IPFS URIs) with a minimal reference implementation and docs. (Done)
+## Current Focus - Phase 17: Language Gaps + Collections
+- 17.1 User-defined structs/enums with pattern matching, lowering/codegen, runtime/ABI notes, and tests. (Done)
+- 17.2 Generics and trait/interface abstractions beyond built-in ADTs. (Next)
+- 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Queued)
+- 17.4 General arrays/slices with indexing semantics and bounds checks. (Queued)
+- 17.5 Module/import system with visibility controls. (Queued)
 
 ### Suggested Sequence
-1) Lock API surface + error semantics (16.1/16.2/16.4), update docs and diagnostics.
-2) Implement intrinsics + runtime stubs + tests (16.1/16.2/16.3).
-3) Update SMT/axioms + proof limitations + attestation design/docs (16.5/16.6/16.7).
+1) Close the remaining language gaps (17.2 generics/traits + 17.3 collections runtime).
+2) Finish arrays/slices semantics and module system (17.4/17.5).
+3) Revisit linear-aware collections and additional runtime packages as needed (17.6+).
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

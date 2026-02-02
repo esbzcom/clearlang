@@ -4,6 +4,7 @@ use chumsky::prelude::*;
 pub(crate) type ErrTy<'a> = extra::Err<Rich<'a, char>>;
 
 mod alias;
+mod generics;
 mod expr;
 mod func;
 mod literals;
@@ -12,6 +13,8 @@ mod program;
 mod resource;
 mod struct_decl;
 mod enum_decl;
+mod trait_decl;
+mod impl_decl;
 mod tokens;
 mod types;
 

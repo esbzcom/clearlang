@@ -21,13 +21,29 @@ pub struct Program {
     pub resources: Vec<Resource>,
     pub structs: Vec<StructDecl>,
     pub enums: Vec<EnumDecl>,
+    pub traits: Vec<TraitDecl>,
+    pub impls: Vec<ImplDecl>,
     pub funcs: Vec<Func>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeParam {
+    pub name: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitBound {
+    pub param: String,
+    pub trait_name: String,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
 pub struct StructDecl {
     pub name: String,
     pub name_span: Span,
+    pub type_params: Vec<TypeParam>,
     pub fields: Vec<StructField>,
     pub span: Span,
 }
@@ -43,6 +59,7 @@ pub struct StructField {
 pub struct EnumDecl {
     pub name: String,
     pub name_span: Span,
+    pub type_params: Vec<TypeParam>,
     pub variants: Vec<EnumVariant>,
     pub span: Span,
 }
@@ -103,11 +120,43 @@ pub struct Func {
     pub effect: Effect,
     pub effect_span: Option<Span>,
     pub name: String,
+    pub type_params: Vec<TypeParam>,
     pub params: Vec<Param>,
     pub ret: Type,
+    pub where_bounds: Vec<TraitBound>,
     pub requires: Vec<Contract>,
     pub ensures: Vec<Contract>,
     pub body: Expr, // single-expression body for Phase 2
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitMethod {
+    pub effect: Effect,
+    pub effect_span: Option<Span>,
+    pub name: String,
+    pub params: Vec<Param>,
+    pub ret: Type,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct TraitDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub type_params: Vec<TypeParam>,
+    pub methods: Vec<TraitMethod>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImplDecl {
+    pub trait_name: String,
+    pub trait_name_span: Span,
+    pub type_params: Vec<TypeParam>,
+    pub for_type: Type,
+    pub where_bounds: Vec<TraitBound>,
+    pub methods: Vec<Func>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -147,7 +196,7 @@ pub enum Type {
     Bool,
     String,
     Bytes,
-    Resource(String),
+    Named { name: String, args: Vec<Type> },
     Option(Box<Type>),
     Result(Box<Type>, Box<Type>),
     List(Box<Type>),

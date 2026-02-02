@@ -89,6 +89,12 @@ fn ensure_supported_type(ty: &Type, span: Option<Span>) -> Result<()> {
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
             ensure_supported_type(inner, span)
         }
+        Type::Named { args, .. } => {
+            for arg in args {
+                ensure_supported_type(arg, span)?;
+            }
+            Ok(())
+        }
         Type::Array(inner, _) => ensure_supported_type(inner, span),
         Type::Tuple(elements) => {
             for elem in elements {
@@ -170,7 +176,12 @@ fn find_resource_collection(ty: &Type, resource_names: &HashSet<&str>) -> Option
 
 fn contains_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
     match ty {
-        Type::Resource(name) => resource_names.contains(name.as_str()),
+        Type::Named { name, args } => {
+            resource_names.contains(name.as_str())
+                || args
+                    .iter()
+                    .any(|arg| contains_resource(arg, resource_names))
+        }
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
             contains_resource(inner, resource_names)
         }
@@ -187,7 +198,12 @@ fn contains_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
 
 fn contains_named_resource(ty: &Type, resource_names: &HashSet<&str>) -> bool {
     match ty {
-        Type::Resource(name) => resource_names.contains(name.as_str()),
+        Type::Named { name, args } => {
+            resource_names.contains(name.as_str())
+                || args
+                    .iter()
+                    .any(|arg| contains_named_resource(arg, resource_names))
+        }
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
             contains_named_resource(inner, resource_names)
         }
@@ -313,13 +329,16 @@ fn ensure_known_type(
     span: Option<Span>,
 ) -> Result<()> {
     match ty {
-        Type::Resource(name) => {
+        Type::Named { name, args } => {
             let name = name.as_str();
             if aliases.contains_key(name)
                 || type_defs.resources.contains(name)
                 || type_defs.structs.contains_key(name)
                 || type_defs.enums.contains_key(name)
             {
+                for arg in args {
+                    ensure_known_type(arg, aliases, type_defs, span)?;
+                }
                 Ok(())
             } else {
                 Err(TyperError::unknown_type(name, span).into())
@@ -1107,18 +1126,26 @@ fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result<AliasMap> 
 
 fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) -> Result<Type> {
     match ty {
-        Type::Resource(name) => {
-            if let Some(def) = aliases.get(name) {
-                if visiting.iter().any(|n| n == name) {
-                    return Err(TyperError::cyclic_alias(name, def.span).into());
+        Type::Named { name, args } => {
+            if args.is_empty() {
+                if let Some(def) = aliases.get(name) {
+                    if visiting.iter().any(|n| n == name) {
+                        return Err(TyperError::cyclic_alias(name, def.span).into());
+                    }
+                    visiting.push(name.clone());
+                    let resolved = resolve_aliases(&def.base, aliases, visiting)?;
+                    visiting.pop();
+                    return Ok(resolved);
                 }
-                visiting.push(name.clone());
-                let resolved = resolve_aliases(&def.base, aliases, visiting)?;
-                visiting.pop();
-                Ok(resolved)
-            } else {
-                Ok(ty.clone())
             }
+            let resolved_args = args
+                .iter()
+                .map(|arg| resolve_aliases(arg, aliases, visiting))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(Type::Named {
+                name: name.clone(),
+                args: resolved_args,
+            })
         }
         Type::Option(inner) => Ok(Type::Option(Box::new(resolve_aliases(
             inner, aliases, visiting,
@@ -1154,7 +1181,9 @@ fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) ->
 
 fn alias_name<'a>(ty: &'a Type, aliases: &'a AliasMap) -> Option<&'a str> {
     match ty {
-        Type::Resource(name) if aliases.contains_key(name.as_str()) => Some(name.as_str()),
+        Type::Named { name, args } if args.is_empty() && aliases.contains_key(name.as_str()) => {
+            Some(name.as_str())
+        }
         _ => None,
     }
 }
@@ -1170,7 +1199,9 @@ fn base_types_match(expected: &Type, actual: &Type, aliases: &AliasMap) -> Resul
 
 fn is_resource_type(ty: &Type, aliases: &AliasMap, type_defs: &TypeDefs) -> Result<bool> {
     Ok(match base_type(ty, aliases)? {
-        Type::Resource(name) => type_defs.resources.contains(name.as_str()),
+        Type::Named { name, args } if args.is_empty() => {
+            type_defs.resources.contains(name.as_str())
+        }
         _ => false,
     })
 }

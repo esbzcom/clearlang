@@ -120,7 +120,25 @@ Notes:
 - All generics are monomorphized at compile time into concrete copies.
 - Trait calls are resolved to the concrete `impl` function at compile time.
 - No vtables or dynamic dispatch are generated.
-- VCs and proofs are generated per monomorphized instance.
+- VCs and proofs are generated per monomorphized instance only (uninstantiated
+  generics produce no proof artifacts).
+
+## Name Mangling (Identifier-Safe)
+
+All mangled names use only `[A-Za-z0-9_$]` to avoid downstream identifier
+parsing issues. The scheme is canonical and deterministic.
+
+- Function instantiations: `name$T1$T2$...` (no trailing `$`).
+- Impl method instantiations: `impl$Trait$Self$method`.
+- Type mangling:
+  - Primitives: `Int`, `U8`, `U64`, `U128`, `U256`, `Bool`, `String`, `Bytes`.
+  - Named: `N$Name$arity$Arg1$Arg2$...` (arity included for parseability).
+  - Option: `Option$T`
+  - Result: `Result$Ok$Err`
+  - List/Set: `List$T`, `Set$T`
+  - Map: `Map$K$V`
+  - Array: `Array$len$T`
+  - Tuple: `Tuple$arity$T1$T2$...`
 
 ## Stdlib Impact
 
@@ -147,7 +165,5 @@ Notes:
   allowed).
   - Recommended: avoid; keep coherence strict so selection is never required.
 - How to serialize generic instantiations in debug names and proof metadata.
-  - Recommended: canonical, deterministic mangling that preserves refined alias
-    names (to avoid collapsing proof obligations), orders type arguments
-    consistently, and may expand non-refined aliases if/when they exist; include
-    a stable hash in proofs if size is a concern.
+  - Resolved: use the identifier-safe mangling scheme above; preserve refined
+    alias names to avoid collapsing proof obligations.

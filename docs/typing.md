@@ -266,11 +266,11 @@ ADT Ergonomics (Phase 6.6)
 - **Enum layout**: enums reuse the canonical 16-byte variant layout (`{tag, payload_lo, payload_hi, reserved}`) with tag range `0..N-1` for `N` variants. Variants with multiple fields store a pointer to a tuple-layout payload in `payload_lo`; `payload_hi` is reserved/zero.
 - **Runtime traps**: invalid tags trigger `R003`, with the runtime detail reporting `"Enum"` for enum destructuring and match lowering.
 
-Collections (Type-Only Summary) -" see `docs/collections.md`
+Collections (Runtime Summary, Phase 17.3) - see `docs/collections.md`
 
 - Types: `List<T>`, `Set<T>`, `Map<K,V>`.
 
-- APIs (pure, type-only):
+- APIs (pure):
 
   - List: `len(List<T>)->Int`, `get(List<T>,Int)->Option<T>`, `push(List<T>,T)->List<T>`, `insert(List<T>,T,Int)->List<T>`, `remove(List<T>,Int)->List<T>`, `pop(List<T>)->Option<T>`, `new()` +' T206.
 
@@ -278,7 +278,10 @@ Collections (Type-Only Summary) -" see `docs/collections.md`
 
   - Map: `len(Map<K,V>)->Int`, `contains(Map<K,V>,K)->Bool`, `get(Map<K,V>,K)->Option<V>`, `insert(Map<K,V>,K,V)->Map<K,V>`, `remove(Map<K,V>,K)->Map<K,V>`, `new()` +' T206.
 
-- Diagnostics: T206 (cannot infer `new()`), T207 (expected collection kind), T208 (element/key/value mismatch); index must be Int for list ops (T005).
+- Runtime: `get`/`pop` are total (`None` on out-of-bounds or empty); `insert`/`remove` trap on invalid indices (`R009`).
+- Key equality: `Map`/`Set` require equatable keys; non-equatable key types raise `T220`.
+- Mutable variants: `_mut` calls require `mut` effect and a `can_mut` guard (T401/T402/T403).
+- Diagnostics: T206 (cannot infer `new()`), T207 (expected collection kind), T208 (element/key/value mismatch), T220 (non-equatable key type); index must be Int for list ops (T005).
 
 
 

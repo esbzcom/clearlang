@@ -1051,6 +1051,27 @@ impl TyperError {
         )
     }
 
+    pub fn non_equatable_key(found: Type, span: Option<Span>) -> Self {
+        let rendered = render_type(&found);
+        match span {
+            Some(sp) => Self::new(
+                "T220",
+                format!(
+                    "at {}..{}: non-equatable key type for Map/Set: `{}`",
+                    sp.start, sp.end, rendered
+                ),
+                sp.start,
+                sp.end,
+            ),
+            None => Self::new(
+                "T220",
+                format!("non-equatable key type for Map/Set: `{}`", rendered),
+                0,
+                0,
+            ),
+        }
+    }
+
     pub fn while_variant_required(span: Span) -> Self {
         Self::new(
             "T901",

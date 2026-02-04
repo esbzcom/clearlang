@@ -60,6 +60,7 @@ pub enum TrapCode {
     CryptoUnsupported,
     CryptoInvalidLength,
     CryptoMalformed,
+    CollectionBounds,
 }
 
 impl VariantKind {
@@ -91,6 +92,7 @@ impl TrapCode {
             TrapCode::CryptoUnsupported => 7,
             TrapCode::CryptoInvalidLength => 8,
             TrapCode::CryptoMalformed => 9,
+            TrapCode::CollectionBounds => 10,
         }
     }
 }

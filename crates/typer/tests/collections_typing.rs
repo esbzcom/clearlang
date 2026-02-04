@@ -166,3 +166,19 @@ fn new_cannot_infer() {
     "#;
     type_err_code(src, "T206");
 }
+
+#[test]
+fn set_rejects_non_equatable_element() {
+    let src = r#"
+        function bad(s: Set<List<Int>>) -> Int { std::set::len(s) }
+    "#;
+    type_err_code(src, "T220");
+}
+
+#[test]
+fn map_rejects_non_equatable_key() {
+    let src = r#"
+        function bad(m: Map<List<Int>, String>) -> Int { std::map::len(m) }
+    "#;
+    type_err_code(src, "T220");
+}

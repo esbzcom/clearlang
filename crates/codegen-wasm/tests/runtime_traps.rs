@@ -1,9 +1,13 @@
 use clg_codegen_wasm::emit_from_ir;
+use clg_codegen_wasm::intrinsics::runtime::{emit_runtime_trap, TrapOperand};
 use clg_ir::{
-    Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule, Value, VariantKind,
+    Function as IrFunction, Instr as IrInstr, IrType, Module as IrModule, TrapCode, Value,
+    VariantKind,
 };
 use clg_parser::parse;
 use clg_typer::check;
+use wasm_encoder::{CodeSection, ConstExpr, ExportKind, ExportSection, Function, FunctionSection,
+                   GlobalSection, GlobalType, Module, TypeSection, ValType};
 
 mod common;
 
@@ -146,4 +150,65 @@ fn trap_r003_invalid_tag_from_variant_load() {
     assert!(err.is_err(), "expected trap, got ok result");
     let code = get_global(&instance, &mut store, "__clg_runtime_error_code");
     assert_eq!(code, 4, "expected R003 (InvalidVariantTag) trap code");
+}
+
+#[test]
+fn trap_r009_collection_bounds() {
+    let mut module = Module::new();
+    let mut types = TypeSection::new();
+    types.ty().function([], []);
+    module.section(&types);
+
+    let mut funcs = FunctionSection::new();
+    funcs.function(0);
+    module.section(&funcs);
+
+    let mut globals = GlobalSection::new();
+    let gty = GlobalType {
+        val_type: ValType::I32,
+        mutable: true,
+        shared: false,
+    };
+    for _ in 0..5 {
+        globals.global(gty, &ConstExpr::i32_const(0));
+    }
+    module.section(&globals);
+
+    let mut exports = ExportSection::new();
+    exports.export("__clg_runtime_error_code", ExportKind::Global, 1);
+    exports.export("__clg_runtime_error_start", ExportKind::Global, 2);
+    exports.export("__clg_runtime_error_end", ExportKind::Global, 3);
+    exports.export("__clg_runtime_error_detail", ExportKind::Global, 4);
+    exports.export("main", ExportKind::Func, 0);
+    module.section(&exports);
+
+    let mut code = CodeSection::new();
+    let mut f = Function::new(Vec::new());
+    {
+        let mut insts = f.instructions();
+        emit_runtime_trap(
+            &mut insts,
+            TrapCode::CollectionBounds,
+            TrapOperand::zero(),
+            TrapOperand::zero(),
+            0,
+        );
+        insts.end();
+    }
+    code.function(&f);
+    module.section(&code);
+
+    let wasm = module.finish();
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+    let main = instance
+        .get_typed_func::<(), ()>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, ());
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 10, "expected R009 (CollectionBounds) trap code");
 }

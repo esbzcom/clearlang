@@ -79,6 +79,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T217 | type | Expected struct type (field access or literal). |
 | T218 | type | Resource fields are not allowed in structs/enums yet. |
 | T219 | type | Duplicate enum variant. |
+| T220 | type | Non-equatable key type for `Map`/`Set`. |
 | T230 | type | Duplicate trait. |
 | T231 | type | Unknown trait. |
 | T232 | type | Duplicate trait method. |
@@ -150,6 +151,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | R006 | runtime | Crypto algorithm unsupported or unknown. |
 | R007 | runtime | Crypto input length is invalid for the selected algorithm. |
 | R008 | runtime | Crypto input is malformed (e.g., invalid signature encoding). |
+| R009 | runtime | Collection bounds error (e.g., list insert/remove index out of bounds). |
 | R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 
 ## Examples

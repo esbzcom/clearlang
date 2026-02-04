@@ -684,10 +684,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
   - [x] 17.2.5 Stdlib updates + regression tests.
 - [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
-  - [ ] 17.3.1 Define ABI/layout + runtime surface for collections (host vs in-wasm).
-  - [ ] 17.3.2 Implement runtime helpers/imports + deterministic errors.
-  - [ ] 17.3.3 Wire guards/mut semantics and effect gating in typer/lowering.
-  - [ ] 17.3.4 Tests for correctness + error codes + json diagnostics.
+  - [ ] 17.3.1 Design note: layout + semantics (pure vs mut), `can_mut` behavior, key equality strategy, and error taxonomy (see `docs/design/phase-17.3-collections-runtime.md`).
+  - [ ] 17.3.2 Runtime/ABI: implement list/set/map heap layouts, allocation/growth helpers, and deterministic traps (bounds/invalid handle/oom).
+  - [ ] 17.3.3 Compiler wiring: add IR/lowering/codegen intrinsics, enforce key constraints, and keep mut guard + VC integration aligned with runtime behavior.
+  - [ ] 17.3.4 Tests for correctness, guard behavior, and JSON diagnostics for runtime errors.
+  - [x] 17.3.5 Enforce equatable key constraints for `Map`/`Set` in the typer (T220) with regression tests.
+  - [x] 17.3.6 Add `R009` collection bounds trap plumbing (IR + CLI) with a runtime trap test.
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
   - [ ] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior.
   - [ ] 17.4.2 Parser/AST + typer support for arrays/slices and indexing.

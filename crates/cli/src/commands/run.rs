@@ -644,6 +644,12 @@ fn extract_runtime_error<T>(
             None,
             false,
         ),
+        10 => (
+            "R009",
+            "collection bounds error".to_string(),
+            None,
+            false,
+        ),
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),

@@ -1,7 +1,7 @@
 # Phase 17.3 - Collections Runtime Semantics
 
 ## Status
-Design note only. Implementation is tracked in `docs/TODO.md` under Phase 17.3.
+Design note with implementation in progress; see `docs/TODO.md` under Phase 17.3.
 
 ## Goals
 - Provide deterministic runtime semantics for `List`, `Set`, and `Map`.
@@ -18,7 +18,7 @@ Design note only. Implementation is tracked in `docs/TODO.md` under Phase 17.3.
 ## Surface and Semantics
 
 List
-- `std::list::new<T>() -> List<T>` (explicit type args required until inference improves).
+- `std::list::new<T>() -> List<T>` (type args inferred from expected type when available; otherwise T206).
 - `len(l)` returns the element count.
 - `get(l, i)` returns `Some(T)` if `0 <= i < len`, otherwise `None`.
 - `push(l, x)` appends and returns the new list.
@@ -27,12 +27,12 @@ List
 - `pop(l)` returns `Some(T)` if `len > 0`, otherwise `None`.
 
 Set
-- `std::set::new<T>() -> Set<T>` (explicit type args required until inference improves).
+- `std::set::new<T>() -> Set<T>` (type args inferred from expected type when available; otherwise T206).
 - `len`, `contains`, `insert`, `remove` are defined by equality.
 - `insert` is idempotent (no duplicates); `remove` is a no-op if missing.
 
 Map
-- `std::map::new<K,V>() -> Map<K,V>` (explicit type args required until inference improves).
+- `std::map::new<K,V>() -> Map<K,V>` (type args inferred from expected type when available; otherwise T206).
 - `len`, `contains`, `get`, `insert`, `remove` are defined by key equality.
 - `insert` replaces the existing value if the key is present.
 - `remove` is a no-op if the key is missing.
@@ -40,8 +40,8 @@ Map
 Mut variants and guards
 - `_mut` variants (`push_mut`, `insert_mut`, `remove_mut`, etc.) require `mut` effect
   and the guard `require { std::<collection>::can_mut(var) }` on the first argument.
-- In Phase 17.3, `can_mut` remains a pure predicate and may conservatively return
-  false. `_mut` operations must preserve value semantics and may clone as needed.
+- In Phase 17.3, `can_mut` is a pure predicate and is currently lowered as `true`;
+  `_mut` operations must preserve value semantics and may clone as needed.
 - Future phases can optimize in-place updates when uniqueness tracking exists;
   the guard keeps that upgrade sound and backward compatible.
 
@@ -94,7 +94,7 @@ Typing rules:
 - Introduce a dedicated diagnostic code for unsupported key types.
 
 Equality implementation:
-- The compiler generates a concrete `eq` helper per key type.
+- The compiler emits structural equality logic per key type.
 - `String`/`Bytes` use `std::str::eq` / `std::bytes::eq`.
 - `Option`/`Result` compare tags then payloads.
 - Structs/tuples/arrays compare fields in order; enums compare tag then payload.
@@ -103,18 +103,18 @@ Equality implementation:
 
 - Bounds errors for `insert`/`remove` (List) trap with a new runtime code
   `R009` (CollectionBounds). `get`/`pop` remain total via `Option`.
-- Invalid pointers/headers (null, misaligned, out-of-bounds) trap with `R002`
-  (InvalidBuffer), aligning with `String`/`Bytes` behavior.
+- Invalid pointers/headers are not explicitly validated yet; behavior is currently
+  host/Wasm traps without a dedicated error code (see Phase 17.3.11).
 - Allocation failures reuse `R001` (AllocatorOom) from the shared allocator.
 
 Diagnostics docs (`docs/diagnostics.md`) should be updated when these are wired.
 
 ## Doc Updates (when implementing)
-- `docs/runtime/arrays-tuples.md`: replace ìruntime-definedî with the header layout.
+- `docs/runtime/arrays-tuples.md`: replace ‚Äúruntime-defined‚Äù with the header layout.
 - `docs/collections.md`: update semantics and error behavior.
 - `docs/typing.md`: document key-equatable restrictions and mut semantics.
 
 ## Open Questions
 - Whether to add hashing + `Hash` trait in Phase 17.8 or keep linear search longer.
 - Whether to add uniqueness tracking to make `can_mut` meaningful.
-- Whether map/set should preserve insertion order (current design does via list).
+- Whether map/set should preserve insertion order (current design does via list).

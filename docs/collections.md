@@ -33,7 +33,7 @@ List
   - Rule: Ctx l : List<T>, i : Int |- remove(l,i) : List<T>
 - `std::list::pop(l: List<T>) -> Option<T>`
   - Rule: Ctx l : List<T> |- pop(l) : Option<T>
-- `std::list::new()`: requires explicit type arguments until inference improves (T206).
+- `std::list::new()`: element type is inferred from the expected type when available; otherwise T206.
 
 Set
 - `std::set::len(s: Set<T>) -> Int`
@@ -44,7 +44,7 @@ Set
   - Rule: Ctx s : Set<T>, x : T |- insert(s,x) : Set<T>
 - `std::set::remove(s: Set<T>, x: T) -> Set<T>`
   - Rule: Ctx s : Set<T>, x : T |- remove(s,x) : Set<T>
-- `std::set::new()`: requires explicit type arguments until inference improves (T206).
+- `std::set::new()`: element type is inferred from the expected type when available; otherwise T206.
 
 Map
 - `std::map::len(m: Map<K,V>) -> Int`
@@ -57,7 +57,7 @@ Map
   - Rule: Ctx m : Map<K,V>, k : K, v : V |- insert(m,k,v) : Map<K,V>
 - `std::map::remove(m: Map<K,V>, k: K) -> Map<K,V>`
   - Rule: Ctx m : Map<K,V>, k : K |- remove(m,k) : Map<K,V>
-- `std::map::new()`: requires explicit type arguments until inference improves (T206).
+- `std::map::new()`: key/value types are inferred from the expected type when available; otherwise T206.
 
 Mutable Variants and Guards (Phase 6.4)
 - Each mutating API now has a _mut variant (e.g., std::list::push_mut, std::set::remove_mut, std::map::insert_mut)
@@ -87,11 +87,12 @@ Key Equality (Map/Set)
 - Equatable types: primitives, strings/bytes, Option/Result of equatable types, and structs/enums/tuples/arrays that
   only contain equatable types.
 - Non-equatable: List/Set/Map/Resource and any type containing them.
+- Equality for equatable composite keys is structural (tag + payload for Option/Result, fields for structs/enums/tuples/arrays).
 
 Diagnostics (Stable Codes)
 
 - `T206` cannot infer element type for `std::{list,set,map}::new()`
-  - Example: `std::list::new()` -> T206 with span on call.
+  - Example: `std::list::new()` with no expected type -> T206 with span on call.
 - `T207` expected collection kind
   - Example: `std::list::len(0)` -> T207 "expected List argument, found `Int`".
 - `T208` element/key/value type mismatch

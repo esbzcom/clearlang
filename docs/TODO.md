@@ -683,13 +683,18 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.2.3 Typer: inference, trait resolution, and error diagnostics.
   - [x] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
   - [x] 17.2.5 Stdlib updates + regression tests.
-- [ ] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
-  - [ ] 17.3.1 Design note: layout + semantics (pure vs mut), `can_mut` behavior, key equality strategy, and error taxonomy (see `docs/design/phase-17.3-collections-runtime.md`).
-  - [ ] 17.3.2 Runtime/ABI: implement list/set/map heap layouts, allocation/growth helpers, and deterministic traps (bounds/invalid handle/oom).
-  - [ ] 17.3.3 Compiler wiring: add IR/lowering/codegen intrinsics, enforce key constraints, and keep mut guard + VC integration aligned with runtime behavior.
-  - [ ] 17.3.4 Tests for correctness, guard behavior, and JSON diagnostics for runtime errors.
+- [x] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
+  - [x] 17.3.1 Design note: layout + semantics (pure vs mut), `can_mut` behavior, key equality strategy, and error taxonomy (see `docs/design/phase-17.3-collections-runtime.md`).
+  - [x] 17.3.2 Runtime/ABI: implement list/set/map heap layouts, allocation/growth helpers, and deterministic traps (bounds/invalid handle/oom).
+  - [x] 17.3.3 Compiler wiring: add IR/lowering/codegen intrinsics, enforce key constraints, and keep mut guard + VC integration aligned with runtime behavior.
+  - [x] 17.3.4 Tests for correctness, guard behavior, and JSON diagnostics for runtime errors.
   - [x] 17.3.5 Enforce equatable key constraints for `Map`/`Set` in the typer (T220) with regression tests.
   - [x] 17.3.6 Add `R009` collection bounds trap plumbing (IR + CLI) with a runtime trap test.
+  - [x] 17.3.7 Allow `std::list::new`/`std::set::new`/`std::map::new` to infer from expected types (keep T206 when no expected context).
+  - [ ] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples/arrays) and add runtime coverage.
+  - [ ] 17.3.9 Add runtime tests for `list::get`/`list::pop`, `set::contains`, `map::contains`/`map::get`, and no-op remove cases.
+  - [ ] 17.3.10 Docs refresh: update `docs/collections.md` + `docs/design/phase-17.3-collections-runtime.md` to reflect `new()` inference and current `can_mut` behavior.
+  - [ ] 17.3.11 Clarify invalid-handle behavior for collections and align trap code/docs (R002 vs new code) or add explicit pointer validation.
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
   - [ ] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior.
   - [ ] 17.4.2 Parser/AST + typer support for arrays/slices and indexing.

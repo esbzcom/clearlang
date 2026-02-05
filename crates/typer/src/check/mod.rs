@@ -2062,6 +2062,7 @@ fn check_func<'a>(
             &type_params,
             &bounds,
             0,
+            None,
         )?;
         if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("require", ty, req.span).into());
@@ -2094,6 +2095,7 @@ fn check_func<'a>(
             &type_params,
             &bounds,
             0,
+            None,
         )?;
         if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
@@ -2112,6 +2114,7 @@ fn check_func<'a>(
         &type_params,
         &bounds,
         0,
+        Some(&ret_ty),
     )?;
     if !binding_compatible(&ret_ty, &body_ty, aliases)? {
         let sp = expr_span(&f.body);
@@ -2196,6 +2199,7 @@ fn check_impl_method<'a>(
             &type_params,
             &bounds,
             0,
+            None,
         )?;
         if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("require", ty, req.span).into());
@@ -2226,6 +2230,7 @@ fn check_impl_method<'a>(
             &type_params,
             &bounds,
             0,
+            None,
         )?;
         if base_type(&ty, aliases)? != Type::Bool {
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
@@ -2244,6 +2249,7 @@ fn check_impl_method<'a>(
         &type_params,
         &bounds,
         0,
+        Some(&ret_ty),
     )?;
     if !binding_compatible(&ret_ty, &body_ty, aliases)? {
         let sp = expr_span(&method.body);
@@ -2892,6 +2898,7 @@ fn validate_alias_predicates(
             &HashSet::new(),
             &empty_bounds,
             0,
+            None,
         )?;
         if base_type(&pred_ty, aliases)? != Type::Bool {
             return Err(TyperError::alias_predicate_not_bool(name.as_str(), def.span).into());

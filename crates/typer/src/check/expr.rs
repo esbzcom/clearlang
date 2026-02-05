@@ -241,6 +241,7 @@ pub(super) fn type_of<'a>(
     type_params: &HashSet<String>,
     bounds: &BoundsMap,
     depth: usize,
+    expected: Option<&Type>,
 ) -> Result<Type> {
     if depth > 1024 {
         return Err(TyperError::new(
@@ -260,9 +261,9 @@ pub(super) fn type_of<'a>(
             let first = elems
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("array literal must have at least one element"))?;
-            let elem_ty = type_of(first, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let elem_ty = type_of(first, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
             for elem in elems.iter().skip(1) {
-                let ety = type_of(elem, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+                let ety = type_of(elem, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
                 if !binding_compatible(&elem_ty, &ety, aliases)? {
                     if literal_can_coerce_unsigned(&elem_ty, &ety, elem) {
                         continue;
@@ -289,7 +290,14 @@ pub(super) fn type_of<'a>(
         Expr::TupleLit { elems, span } => {
             let mut local_tracker = tracker.clone();
             let mut elem_tys = Vec::with_capacity(elems.len());
-            for elem in elems {
+            let expected_elems = match expected {
+                Some(Type::Tuple(expected_elems)) if expected_elems.len() == elems.len() => {
+                    Some(expected_elems)
+                }
+                _ => None,
+            };
+            for (idx, elem) in elems.iter().enumerate() {
+                let elem_expected = expected_elems.and_then(|elems| elems.get(idx));
                 elem_tys.push(type_of(
                     elem,
                     env,
@@ -301,6 +309,7 @@ pub(super) fn type_of<'a>(
                     type_params,
                     bounds,
                     depth + 1,
+                    elem_expected,
                 )?);
             }
             let tuple_ty = Type::Tuple(elem_tys);
@@ -353,6 +362,7 @@ pub(super) fn type_of<'a>(
                     type_params,
                     bounds,
                     depth + 1,
+                    Some(&field_def.ty),
                 )?;
                 unify_type_params(&field_def.ty, &found, &struct_params, &mut subst, aliases)?;
                 found_types.insert(field_name, found);
@@ -440,6 +450,7 @@ pub(super) fn type_of<'a>(
                 type_params,
                 bounds,
                 depth + 1,
+                None,
             )?;
             let resolved = base_type(&base_ty, aliases)?;
             match resolved {
@@ -478,8 +489,8 @@ pub(super) fn type_of<'a>(
         }
         Expr::Index { base, index, span } => {
             let mut local_tracker = tracker.clone();
-            let base_ty = type_of(base, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
-            let idx_ty = type_of(index, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let base_ty = type_of(base, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+            let idx_ty = type_of(index, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
             ensure_int(idx_ty, aliases, "index", Some(expr_span(index)))?;
             let resolved = base_type(&base_ty, aliases)?;
             match resolved {
@@ -511,23 +522,71 @@ pub(super) fn type_of<'a>(
                 }
             }
         }
-        Expr::Block { block } => type_block(block, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1),
+        Expr::Block { block } => type_block(
+            block,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth + 1,
+            expected,
+        ),
         Expr::If {
             cond,
             then_br,
             else_br,
             span,
         } => {
-            let cty = type_of(cond, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let cty = type_of(
+                cond,
+                env,
+                tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                None,
+            )?;
             if base_type(&cty, aliases)? != Type::Bool {
                 // Reuse arg_type_mismatch with pseudo-callee `if` for stable code T003
                 return Err(TyperError::arg_type_mismatch(1, "if", Type::Bool, cty, *span).into());
             }
             let baseline = tracker.clone();
             let mut then_tracker = baseline.clone();
-            let tty = type_of(then_br, env, &mut then_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let tty = type_of(
+                then_br,
+                env,
+                &mut then_tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                expected,
+            )?;
             let mut else_tracker = baseline.clone();
-            let ety = type_of(else_br, env, &mut else_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let ety = type_of(
+                else_br,
+                env,
+                &mut else_tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                expected,
+            )?;
             if tty != ety {
                 return Err(TyperError::branch_type_mismatch(tty, ety, *span).into());
             }
@@ -543,7 +602,7 @@ Expr::Match {
     arms,
     span,
 } => {
-    let scrut_ty = type_of(scrutinee, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+    let scrut_ty = type_of(scrutinee, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
     use clg_ast::MatchPat;
     let scrut_outer = resolve_alias_shallow(&scrut_ty, aliases)?;
     match scrut_outer {
@@ -581,12 +640,13 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -614,12 +674,13 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -644,12 +705,13 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -716,12 +778,13 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -760,12 +823,13 @@ Expr::Match {
                             &env2,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -790,12 +854,13 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -928,6 +993,7 @@ Expr::Match {
                             type_params,
                             bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -952,12 +1018,13 @@ Expr::Match {
                             env,
                             &mut arm_tracker,
                             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+                            trait_env,
+                            aliases,
+                            type_defs,
+                            type_params,
+                            bounds,
                             depth + 1,
+                            expected,
                         )?;
                         branch_trackers.push((arm_tracker, expr_span(&arm.expr)));
                         if let Some(rt) = &res_ty_opt {
@@ -1002,7 +1069,7 @@ Expr::Match {
     }
         }
         Expr::Try { expr, span } => {
-            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
             let ret_binding = env
                 .get(RETURN_KEY)
                 .cloned()
@@ -1056,14 +1123,27 @@ Expr::Match {
             }
         }
         Expr::Return { expr, .. } => {
-            let ty = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let ret_expected = expected.or_else(|| env.get(RETURN_KEY).map(|binding| &binding.ty));
+            let ty = type_of(
+                expr,
+                env,
+                tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                ret_expected,
+            )?;
             if is_resource_type(&ty, aliases, type_defs)? {
                 consume_var_expr(tracker, expr.as_ref())?;
             }
             Ok(ty)
         }
         Expr::Unary { op, expr, span } => {
-            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
             match op {
                 UnaryOp::Not => {
                     ensure_bool(inner, aliases, "operand", Some(*span))?;
@@ -1072,8 +1152,8 @@ Expr::Match {
             }
         }
         Expr::Bin { op, lhs, rhs, span } => {
-            let lt = type_of(lhs, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
-            let rt = type_of(rhs, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+            let lt = type_of(lhs, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+            let rt = type_of(rhs, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
             match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
                     let op_str = match op {
@@ -1266,6 +1346,19 @@ Expr::Match {
             }
         }
         Expr::Call { callee, args, span } => {
+            if args.is_empty() {
+                if let Some(exp) = expected {
+                    let exp_base = base_type(exp, aliases)?;
+                    match (callee.as_str(), exp_base) {
+                        ("std::list::new", Type::List(_))
+                        | ("std::set::new", Type::Set(_))
+                        | ("std::map::new", Type::Map(_, _)) => {
+                            return Ok(exp.clone());
+                        }
+                        _ => {}
+                    }
+                }
+            }
             // Phase 4.6 - Collections signatures (type-only)
             if let Some(t) =
                 type_collection_call(callee, args, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, *span)?
@@ -1284,7 +1377,7 @@ Expr::Match {
                     _ => Type::U64,
                 };
                 let mut local_tracker = tracker.clone();
-                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
                 if arg_ty != target_ty {
                     if matches!(arg_ty, Type::Int) {
                         if let Some(value) = unsigned_literal_value(&args[0]) {
@@ -1317,7 +1410,7 @@ Expr::Match {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let mut local_tracker = tracker.clone();
-                let t0 = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+                let t0 = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
                 *tracker = local_tracker;
                 return Ok(Type::Option(Box::new(t0)));
             }
@@ -1339,7 +1432,7 @@ Expr::Match {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let mut local_tracker = tracker.clone();
-                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
@@ -1368,7 +1461,7 @@ Expr::Match {
                     return Err(TyperError::arity_mismatch(callee, 1, args.len(), *span).into());
                 }
                 let mut local_tracker = tracker.clone();
-                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+                let arg_ty = type_of(&args[0], env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
                 let ret_binding = env
                     .get(RETURN_KEY)
                     .cloned()
@@ -1440,6 +1533,7 @@ Expr::Match {
                             type_params,
                             bounds,
                             depth + 1,
+                            None,
                         )?;
                         found_types.push(at);
                     }
@@ -1530,6 +1624,11 @@ Expr::Match {
             let mut borrowed: Vec<String> = Vec::new();
             let mut arg_types: Vec<Type> = Vec::with_capacity(args.len());
             for (p, a) in params.iter().zip(args.iter()) {
+                let arg_expected = if callee_params.is_empty() {
+                    Some(&p.ty)
+                } else {
+                    None
+                };
                 let at = type_of(
                     a,
                     env,
@@ -1541,6 +1640,7 @@ Expr::Match {
                     type_params,
                     bounds,
                     depth + 1,
+                    arg_expected,
                 )?;
                 arg_types.push(at.clone());
                 let resource_check_ty = if callee_params.is_empty() {
@@ -1663,6 +1763,7 @@ pub(crate) fn infer_expr_type<'a>(
         type_params,
         bounds,
         0,
+        None,
     )
 }
 #[allow(clippy::too_many_arguments)]
@@ -1683,7 +1784,7 @@ fn type_collection_call<'a>(
     // Helper to get type of an expression
     let arg_ty = |i: usize| -> Result<Type> {
         let mut tmp = tracker.clone();
-        type_of(&args[i], env, &mut tmp, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)
+        type_of(&args[i], env, &mut tmp, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)
     };
     let normalized_callee = match callee {
         "std::list::push_mut" => "std::list::push",
@@ -1993,6 +2094,7 @@ fn type_trait_call<'a>(
             type_params,
             bounds,
             depth + 1,
+            None,
         )?;
         arg_types.push(at.clone());
         if is_resource_type(&at, aliases, type_defs)? {
@@ -2264,6 +2366,7 @@ fn type_block_stmt<'a>(
                     type_params,
                     bounds,
                     depth + 1,
+                    None,
                 )?;
                 if let Some(existing) = inner_env.get(name.as_str()) {
                     if base_types_match(&existing.ty, &ty, aliases)?
@@ -2322,6 +2425,7 @@ fn type_block_stmt<'a>(
                     type_params,
                     bounds,
                     depth + 1,
+                    None,
                 )?;
             }
         }
@@ -2332,12 +2436,13 @@ fn type_block_stmt<'a>(
             &inner_env,
             &mut inner_tracker,
             fns,
-                    trait_env,
-                    aliases,
-                    type_defs,
-                    type_params,
-                    bounds,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
             depth + 1,
+            None,
         )?;
         if is_resource_type(&ty, aliases, type_defs)? {
             consume_var_expr(&mut inner_tracker, tail.as_ref())?;
@@ -2364,9 +2469,9 @@ fn type_while_stmt<'a>(
     depth: usize,
     span: Span,
 ) -> Result<()> {
-    let cty = type_of(cond, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth)?;
+    let cty = type_of(cond, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, None)?;
     ensure_bool(cty, aliases, "condition", Some(expr_span(cond)))?;
-    let inv_ty = type_of(invariant, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth)?;
+    let inv_ty = type_of(invariant, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, None)?;
     ensure_bool(
         inv_ty,
         aliases,
@@ -2374,12 +2479,23 @@ fn type_while_stmt<'a>(
         Some(expr_span(invariant)),
     )?;
     if let Some(var_expr) = variant {
-        let vty = type_of(var_expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth)?;
+        let vty = type_of(var_expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, None)?;
         ensure_int(vty, aliases, "loop variant", Some(expr_span(var_expr)))?;
     }
     let baseline = tracker.clone();
     let mut body_tracker = baseline.clone();
-    type_block_stmt(body, env, &mut body_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1)?;
+    type_block_stmt(
+        body,
+        env,
+        &mut body_tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        type_params,
+        bounds,
+        depth + 1,
+    )?;
     body_tracker.retain_keys_from(&baseline);
     body_tracker.merge_branch(&baseline, span)?;
     *tracker = baseline;
@@ -2397,6 +2513,7 @@ fn type_block<'a>(
     type_params: &HashSet<String>,
     bounds: &BoundsMap,
     depth: usize,
+    expected: Option<&Type>,
 ) -> Result<Type> {
     let mut inner_env = env.clone();
     let mut inner_tracker = tracker.clone();
@@ -2414,6 +2531,7 @@ fn type_block<'a>(
                     type_params,
                     bounds,
                     depth + 1,
+                    None,
                 )?;
                 if let Some(existing) = inner_env.get(name.as_str()) {
                     if base_types_match(&existing.ty, &ty, aliases)?
@@ -2474,6 +2592,7 @@ fn type_block<'a>(
                     type_params,
                     bounds,
                     depth + 1,
+                    None,
                 )?;
             }
         }
@@ -2490,6 +2609,7 @@ fn type_block<'a>(
             type_params,
             bounds,
             depth + 1,
+            expected,
         )?;
         if is_resource_type(&ty, aliases, type_defs)? {
             consume_var_expr(&mut inner_tracker, tail.as_ref())?;

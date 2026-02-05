@@ -168,6 +168,37 @@ fn new_cannot_infer() {
 }
 
 #[test]
+fn new_infers_from_return() {
+    let src = r#"
+        function l() -> List<Int> { std::list::new() }
+        function s() -> Set<String> { std::set::new() }
+        function m() -> Map<Int, String> { std::map::new() }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn new_infers_from_block_and_if() {
+    let src = r#"
+        function l() -> List<Int> { { std::list::new() } }
+        function s() -> Set<Int> { if true { std::set::new() } else { std::set::new() } }
+        function m() -> Map<Int, String> {
+            if false { std::map::new() } else { std::map::new() }
+        }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn new_infers_from_param() {
+    let src = r#"
+        function take(l: List<Int>) -> Int { 0 }
+        function use() -> Int { take(std::list::new()) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
 fn set_rejects_non_equatable_element() {
     let src = r#"
         function bad(s: Set<List<Int>>) -> Int { std::set::len(s) }

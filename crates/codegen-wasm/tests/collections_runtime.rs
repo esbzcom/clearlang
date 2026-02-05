@@ -184,6 +184,40 @@ fn list_len_invalid_handle_traps() {
 }
 
 #[test]
+fn list_get_invalid_data_ptr_traps() {
+    let src = r#"
+        function main(l: List<Int>) -> Option<Int> { std::list::get(l, 0) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (list_ptr, new_heap) = alloc_list(&memory, &mut store, heap_ptr, &[10]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let mem_bytes = (memory.size(&mut store) as i32) * 65536;
+    write_i32(&memory, &mut store, list_ptr + 12, mem_bytes);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, list_ptr);
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+}
+
+#[test]
 fn list_insert_oob_traps() {
     let src = r#"
         function main(l: List<Int>) -> List<Int> { std::list::insert(l, 1, 5) }
@@ -696,6 +730,40 @@ fn map_contains_reports_membership() {
         .expect("get main");
     let ok = main.call(&mut store, map_ptr).expect("call main");
     assert_eq!(ok, 1, "expected contains to return true");
+}
+
+#[test]
+fn map_get_invalid_data_ptr_traps() {
+    let src = r#"
+        function main(m: Map<Int, Int>, k: Int) -> Option<Int> { std::map::get(m, k) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[(1, 10)]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let mem_bytes = (memory.size(&mut store) as i32) * 65536;
+    write_i32(&memory, &mut store, map_ptr + 12, mem_bytes);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, (map_ptr, 1));
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
 }
 
 #[test]

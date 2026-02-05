@@ -1721,6 +1721,27 @@ fn emit_eq_for_type(
         Type::Bytes => emit_intrinsic_eq(ctx, "std::bytes::eq", lhs, rhs),
         Type::U128 => Ok(emit_eq_u128(ctx, lhs, rhs)),
         Type::U256 => Ok(emit_eq_u256(ctx, lhs, rhs)),
+        Type::Option(inner) => emit_eq_option(ctx, inner.as_ref(), lhs, rhs, aliases),
+        Type::Result(ok, err) => emit_eq_result(ctx, ok.as_ref(), err.as_ref(), lhs, rhs, aliases),
+        Type::Tuple(elements) => emit_eq_tuple(ctx, &elements, lhs, rhs, aliases),
+        Type::Array(inner, len) => emit_eq_array(ctx, inner.as_ref(), len, lhs, rhs, aliases),
+        Type::Named { name, args } => {
+            if ctx.type_defs.structs.contains_key(name.as_str()) {
+                emit_eq_struct(ctx, name.as_str(), &args, lhs, rhs, aliases)
+            } else if ctx.type_defs.enums.contains_key(name.as_str()) {
+                emit_eq_enum(ctx, name.as_str(), &args, lhs, rhs, aliases)
+            } else {
+                let dst = fresh(ctx);
+                ctx.body.push(Instr::IBin {
+                    dst,
+                    op: BinOpIR::Eq,
+                    lhs,
+                    rhs,
+                    ty: IrType::Int,
+                });
+                Ok(dst)
+            }
+        }
         _ => {
             let ir_ty = if matches!(base, Type::U64) {
                 IrType::U64
@@ -1738,6 +1759,355 @@ fn emit_eq_for_type(
             Ok(dst)
         }
     }
+}
+
+fn emit_eq_struct(
+    ctx: &mut LowerCtx<'_>,
+    name: &str,
+    args: &[Type],
+    lhs: Value,
+    rhs: Value,
+    aliases: &AliasMap,
+) -> Result<Value> {
+    let (fields, layout) = struct_layout(ctx.type_defs, aliases, name, args)?;
+    let result = emit_bool_const(ctx, true);
+    for (idx, field) in fields.iter().enumerate() {
+        let offset = *layout
+            .offsets
+            .get(idx)
+            .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
+        let mem_ty = mem_ir_type(&field.ty, aliases)?;
+        let lhs_val = fresh(ctx);
+        ctx.body.push(Instr::Load {
+            dst: lhs_val,
+            ptr: lhs,
+            offset,
+            ty: mem_ty,
+        });
+        let rhs_val = fresh(ctx);
+        ctx.body.push(Instr::Load {
+            dst: rhs_val,
+            ptr: rhs,
+            offset,
+            ty: mem_ty,
+        });
+        let eq = emit_eq_for_type(ctx, &field.ty, lhs_val, rhs_val, aliases)?;
+        ctx.body.push(Instr::IBin {
+            dst: result,
+            op: BinOpIR::And,
+            lhs: result,
+            rhs: eq,
+            ty: IrType::Bool,
+        });
+    }
+    Ok(result)
+}
+
+fn emit_eq_tuple(
+    ctx: &mut LowerCtx<'_>,
+    elements: &[Type],
+    lhs: Value,
+    rhs: Value,
+    aliases: &AliasMap,
+) -> Result<Value> {
+    let layout = tuple_layout(elements, aliases)?;
+    let result = emit_bool_const(ctx, true);
+    for (idx, elem_ty) in elements.iter().enumerate() {
+        let offset = *layout
+            .offsets
+            .get(idx)
+            .ok_or_else(|| anyhow::anyhow!("tuple element offset missing"))?;
+        let mem_ty = mem_ir_type(elem_ty, aliases)?;
+        let lhs_val = fresh(ctx);
+        ctx.body.push(Instr::Load {
+            dst: lhs_val,
+            ptr: lhs,
+            offset,
+            ty: mem_ty,
+        });
+        let rhs_val = fresh(ctx);
+        ctx.body.push(Instr::Load {
+            dst: rhs_val,
+            ptr: rhs,
+            offset,
+            ty: mem_ty,
+        });
+        let eq = emit_eq_for_type(ctx, elem_ty, lhs_val, rhs_val, aliases)?;
+        ctx.body.push(Instr::IBin {
+            dst: result,
+            op: BinOpIR::And,
+            lhs: result,
+            rhs: eq,
+            ty: IrType::Bool,
+        });
+    }
+    Ok(result)
+}
+
+fn emit_eq_array(
+    ctx: &mut LowerCtx<'_>,
+    inner: &Type,
+    len: u32,
+    lhs: Value,
+    rhs: Value,
+    aliases: &AliasMap,
+) -> Result<Value> {
+    let layout = array_layout(inner, len, aliases)?;
+    let result = emit_bool_const(ctx, true);
+    let idx = fresh(ctx);
+    ctx.body.push(Instr::IConst {
+        dst: idx,
+        ty: IrType::Int,
+        n: 0,
+    });
+    let len_val = emit_int_const(ctx, len as i64);
+    let stride_val = emit_int_const(ctx, layout.stride as i64);
+
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::LoopBegin);
+    let cond = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: cond,
+        op: BinOpIR::Lt,
+        lhs: idx,
+        rhs: len_val,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::BrIfEqz { cond, depth: 1 });
+
+    let offset = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: offset,
+        op: BinOpIR::Mul,
+        lhs: idx,
+        rhs: stride_val,
+        ty: IrType::Int,
+    });
+    let lhs_ptr = emit_ptr_add(ctx, lhs, offset);
+    let rhs_ptr = emit_ptr_add(ctx, rhs, offset);
+    let mem_ty = mem_ir_type(inner, aliases)?;
+    let lhs_val = fresh(ctx);
+    ctx.body.push(Instr::Load {
+        dst: lhs_val,
+        ptr: lhs_ptr,
+        offset: 0,
+        ty: mem_ty,
+    });
+    let rhs_val = fresh(ctx);
+    ctx.body.push(Instr::Load {
+        dst: rhs_val,
+        ptr: rhs_ptr,
+        offset: 0,
+        ty: mem_ty,
+    });
+    let eq = emit_eq_for_type(ctx, inner, lhs_val, rhs_val, aliases)?;
+    ctx.body.push(Instr::IBin {
+        dst: result,
+        op: BinOpIR::And,
+        lhs: result,
+        rhs: eq,
+        ty: IrType::Bool,
+    });
+
+    let one = emit_int_const(ctx, 1);
+    ctx.body.push(Instr::IBin {
+        dst: idx,
+        op: BinOpIR::Add,
+        lhs: idx,
+        rhs: one,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::Br { depth: 0 });
+    ctx.body.push(Instr::LoopEnd);
+    ctx.body.push(Instr::BlockEnd);
+    Ok(result)
+}
+
+fn emit_eq_option(
+    ctx: &mut LowerCtx<'_>,
+    inner: &Type,
+    lhs: Value,
+    rhs: Value,
+    aliases: &AliasMap,
+) -> Result<Value> {
+    let lhs_parts = ctx.variant_destructure(lhs, VariantKind::Option);
+    let rhs_parts = ctx.variant_destructure(rhs, VariantKind::Option);
+    let result = emit_bool_const(ctx, true);
+    let tags_eq = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tags_eq,
+        op: BinOpIR::Eq,
+        lhs: lhs_parts.tag,
+        rhs: rhs_parts.tag,
+        ty: IrType::Int,
+    });
+
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BrIf { cond: tags_eq, depth: 0 });
+    ctx.body.push(Instr::IConst {
+        dst: result,
+        ty: IrType::Bool,
+        n: 0,
+    });
+    ctx.body.push(Instr::Br { depth: 1 });
+    ctx.body.push(Instr::BlockEnd);
+
+    let tag_some = emit_int_const(ctx, 1);
+    let is_some = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: is_some,
+        op: BinOpIR::Eq,
+        lhs: lhs_parts.tag,
+        rhs: tag_some,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BrIfEqz { cond: is_some, depth: 0 });
+    let payload_eq = emit_eq_for_type(ctx, inner, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?;
+    ctx.body.push(Instr::ISelect {
+        dst: result,
+        cond: is_some,
+        then_v: payload_eq,
+        else_v: result,
+    });
+    ctx.body.push(Instr::BlockEnd);
+    ctx.body.push(Instr::BlockEnd);
+
+    Ok(result)
+}
+
+fn emit_eq_result(
+    ctx: &mut LowerCtx<'_>,
+    ok_ty: &Type,
+    err_ty: &Type,
+    lhs: Value,
+    rhs: Value,
+    aliases: &AliasMap,
+) -> Result<Value> {
+    let lhs_parts = ctx.variant_destructure(lhs, VariantKind::Result);
+    let rhs_parts = ctx.variant_destructure(rhs, VariantKind::Result);
+    let result = emit_bool_const(ctx, false);
+    let tags_eq = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tags_eq,
+        op: BinOpIR::Eq,
+        lhs: lhs_parts.tag,
+        rhs: rhs_parts.tag,
+        ty: IrType::Int,
+    });
+
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BrIfEqz { cond: tags_eq, depth: 0 });
+
+    let tag_ok = emit_int_const(ctx, 1);
+    let is_ok = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: is_ok,
+        op: BinOpIR::Eq,
+        lhs: lhs_parts.tag,
+        rhs: tag_ok,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BrIfEqz { cond: is_ok, depth: 0 });
+    let ok_eq = emit_eq_for_type(ctx, ok_ty, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?;
+    ctx.body.push(Instr::ISelect {
+        dst: result,
+        cond: is_ok,
+        then_v: ok_eq,
+        else_v: result,
+    });
+    ctx.body.push(Instr::BlockEnd);
+
+    let tag_err = emit_int_const(ctx, 0);
+    let is_err = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: is_err,
+        op: BinOpIR::Eq,
+        lhs: lhs_parts.tag,
+        rhs: tag_err,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BrIfEqz { cond: is_err, depth: 0 });
+    let err_eq =
+        emit_eq_for_type(ctx, err_ty, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?;
+    ctx.body.push(Instr::ISelect {
+        dst: result,
+        cond: is_err,
+        then_v: err_eq,
+        else_v: result,
+    });
+    ctx.body.push(Instr::BlockEnd);
+    ctx.body.push(Instr::BlockEnd);
+
+    Ok(result)
+}
+
+fn emit_eq_enum(
+    ctx: &mut LowerCtx<'_>,
+    name: &str,
+    args: &[Type],
+    lhs: Value,
+    rhs: Value,
+    aliases: &AliasMap,
+) -> Result<Value> {
+    let info = ctx
+        .type_defs
+        .enums
+        .get(name)
+        .ok_or_else(|| anyhow::anyhow!("unknown enum `{}`", name))?;
+    let subst = build_type_param_subst(&info.decl.type_params, args)?;
+    let variant_count = info.decl.variants.len() as u32;
+    let lhs_parts = ctx.variant_destructure(lhs, VariantKind::Enum { max_tag: variant_count });
+    let rhs_parts = ctx.variant_destructure(rhs, VariantKind::Enum { max_tag: variant_count });
+
+    let result = emit_bool_const(ctx, false);
+    let tags_eq = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tags_eq,
+        op: BinOpIR::Eq,
+        lhs: lhs_parts.tag,
+        rhs: rhs_parts.tag,
+        ty: IrType::Int,
+    });
+
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::BrIfEqz { cond: tags_eq, depth: 0 });
+
+    for (index, variant) in info.decl.variants.iter().enumerate() {
+        let mut fields = Vec::with_capacity(variant.fields.len());
+        for ty in &variant.fields {
+            fields.push(substitute_type(ty, &subst));
+        }
+        let tag_val = emit_int_const(ctx, index as i64);
+        let tag_match = fresh(ctx);
+        ctx.body.push(Instr::IBin {
+            dst: tag_match,
+            op: BinOpIR::Eq,
+            lhs: lhs_parts.tag,
+            rhs: tag_val,
+            ty: IrType::Int,
+        });
+        ctx.body.push(Instr::BlockBegin);
+        ctx.body.push(Instr::BrIfEqz { cond: tag_match, depth: 0 });
+        let payload_eq = match fields.len() {
+            0 => emit_bool_const(ctx, true),
+            1 => emit_eq_for_type(ctx, &fields[0], lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?,
+            _ => emit_eq_tuple(ctx, &fields, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?,
+        };
+        ctx.body.push(Instr::ISelect {
+            dst: result,
+            cond: tag_match,
+            then_v: payload_eq,
+            else_v: result,
+        });
+        ctx.body.push(Instr::BlockEnd);
+    }
+
+    ctx.body.push(Instr::BlockEnd);
+    Ok(result)
 }
 
 fn emit_intrinsic_eq(

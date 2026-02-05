@@ -691,8 +691,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.3.5 Enforce equatable key constraints for `Map`/`Set` in the typer (T220) with regression tests.
   - [x] 17.3.6 Add `R009` collection bounds trap plumbing (IR + CLI) with a runtime trap test.
   - [x] 17.3.7 Allow `std::list::new`/`std::set::new`/`std::map::new` to infer from expected types (keep T206 when no expected context).
-  - [ ] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples/arrays) and add runtime coverage.
-  - [ ] 17.3.9 Add runtime tests for `list::get`/`list::pop`, `set::contains`, `map::contains`/`map::get`, and no-op remove cases.
+  - [x] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples/arrays) and add runtime coverage.
+  - [ ] 17.3.9 Add runtime tests for `list::get`/`list::pop`, `set::contains`, `map::contains`/`map::get`, and no-op remove cases (non-composite variants still missing).
   - [ ] 17.3.10 Docs refresh: update `docs/collections.md` + `docs/design/phase-17.3-collections-runtime.md` to reflect `new()` inference and current `can_mut` behavior.
   - [ ] 17.3.11 Clarify invalid-handle behavior for collections and align trap code/docs (R002 vs new code) or add explicit pointer validation.
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.

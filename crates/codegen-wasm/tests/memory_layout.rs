@@ -9,6 +9,10 @@ fn align4(n: u32) -> u32 {
     (n + 3) & !3
 }
 
+fn align16(n: u32) -> u32 {
+    (n + 15) & !15
+}
+
 #[test]
 fn memory_pages_and_heap_ptr_fit_string_data() {
     // Two large, distinct literals
@@ -25,7 +29,7 @@ fn memory_pages_and_heap_ptr_fit_string_data() {
 
     // Compute expected size of data area (headers + bytes, aligned)
     let total = align4(4 + 40_000) + align4(4 + 40_000);
-    let heap_start_expect = align4(total);
+    let heap_start_expect = align16(total);
     let min_pages_expect = heap_start_expect.div_ceil(65536).max(1);
 
     let mut min_pages_found: Option<u64> = None;

@@ -1667,16 +1667,33 @@ fn emit_collection_guard(ctx: &mut LowerCtx<'_>, cond: Value, span: Span) {
 fn emit_memory_bytes(ctx: &mut LowerCtx<'_>) -> Value {
     let pages = fresh(ctx);
     ctx.body.push(Instr::MemorySize { dst: pages });
-    let page_size = emit_int_const(ctx, 65536);
+    let shift = emit_int_const(ctx, 16);
     let bytes = fresh(ctx);
     ctx.body.push(Instr::IBin {
         dst: bytes,
-        op: BinOpIR::Mul,
+        op: BinOpIR::Shl,
         lhs: pages,
-        rhs: page_size,
+        rhs: shift,
         ty: IrType::Int,
     });
-    bytes
+    let max_pages = emit_int_const(ctx, 65536);
+    let is_max = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: is_max,
+        op: BinOpIR::Eq,
+        lhs: pages,
+        rhs: max_pages,
+        ty: IrType::Int,
+    });
+    let max_bytes = emit_int_const(ctx, -1);
+    let capped = fresh(ctx);
+    ctx.body.push(Instr::ISelect {
+        dst: capped,
+        cond: is_max,
+        then_v: max_bytes,
+        else_v: bytes,
+    });
+    capped
 }
 
 fn emit_collection_ptr_guard(ctx: &mut LowerCtx<'_>, ptr: Value) {
@@ -1716,11 +1733,19 @@ fn emit_collection_ptr_guard(ctx: &mut LowerCtx<'_>, ptr: Value) {
         rhs: header_size,
         ty: IrType::Int,
     });
+    let no_wrap = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: no_wrap,
+        op: BinOpIR::LeU,
+        lhs: ptr,
+        rhs: end,
+        ty: IrType::Int,
+    });
     let mem_bytes = emit_memory_bytes(ctx);
     let within = fresh(ctx);
     ctx.body.push(Instr::IBin {
         dst: within,
-        op: BinOpIR::Le,
+        op: BinOpIR::LeU,
         lhs: end,
         rhs: mem_bytes,
         ty: IrType::Int,
@@ -1739,12 +1764,20 @@ fn emit_collection_ptr_guard(ctx: &mut LowerCtx<'_>, ptr: Value) {
         dst: ok,
         op: BinOpIR::And,
         lhs: tmp,
+        rhs: no_wrap,
+        ty: IrType::Int,
+    });
+    let ok2 = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: ok2,
+        op: BinOpIR::And,
+        lhs: ok,
         rhs: within,
         ty: IrType::Int,
     });
 
     ctx.body.push(Instr::Guard {
-        cond: ok,
+        cond: ok2,
         trap: TrapCode::InvalidBuffer,
         span: None,
         detail: GuardKind::Require,

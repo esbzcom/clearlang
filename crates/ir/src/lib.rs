@@ -38,6 +38,7 @@ pub enum BinOpIR {
     Div,
     Lt,
     Le,
+    LeU,
     Gt,
     Ge,
     Eq,

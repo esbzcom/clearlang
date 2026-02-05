@@ -240,7 +240,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
 
     // Memory section (prepare for string runtime)
     // Ensure the initial memory is large enough to hold all string data segments.
-    let heap_start = ((cur_off + 3) & !3).max(4); // reserve 0 as invalid; 4-byte aligned
+    let heap_start = ((cur_off + 15) & !15).max(16); // reserve 0 as invalid; 16-byte aligned
     let min_pages = u64::from(heap_start).div_ceil(65536).max(1);
     let mut memories = MemorySection::new();
     memories.memory(MemoryType {
@@ -532,6 +532,7 @@ fn infer_value_types(f: &IrFunction, funcs: &[IrFunction], max_id: u32) -> Resul
                     | BinOpIR::Shr => val_type_for_ir(*ty),
                     BinOpIR::Lt
                     | BinOpIR::Le
+                    | BinOpIR::LeU
                     | BinOpIR::Gt
                     | BinOpIR::Ge
                     | BinOpIR::Eq
@@ -940,6 +941,12 @@ fn encode_ir_function(
                         IrType::U64 => insts.i64_le_u(),
                         IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
                             insts.i32_le_s()
+                        }
+                    },
+                    BinOpIR::LeU => match ty {
+                        IrType::U64 => insts.i64_le_u(),
+                        IrType::U8 | IrType::Int | IrType::Bool | IrType::U128 | IrType::U256 => {
+                            insts.i32_le_u()
                         }
                     },
                     BinOpIR::Gt => match ty {

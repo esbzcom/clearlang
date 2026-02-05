@@ -513,7 +513,7 @@ fn infer_value_types(f: &IrFunction, funcs: &[IrFunction], max_id: u32) -> Resul
             IrInstr::IStringConst { dst, .. } => {
                 set_type(&mut types, *dst, ValType::I32)?;
             }
-            IrInstr::Alloc { dst, .. } => {
+            IrInstr::Alloc { dst, .. } | IrInstr::AllocDyn { dst, .. } => {
                 set_type(&mut types, *dst, ValType::I32)?;
             }
             IrInstr::Load { dst, ty, .. } => {
@@ -625,6 +625,9 @@ fn encode_ir_function(
             IrInstr::IConst { dst, .. } => max_id = max_id.max(dst.0),
             IrInstr::IStringConst { dst, .. } => max_id = max_id.max(dst.0),
             IrInstr::Alloc { dst, .. } => max_id = max_id.max(dst.0),
+            IrInstr::AllocDyn { dst, size, .. } => {
+                max_id = max_id.max(dst.0).max(size.0);
+            }
             IrInstr::Load { dst, ptr, .. } => max_id = max_id.max(dst.0).max(ptr.0),
             IrInstr::Store { ptr, src, .. } => max_id = max_id.max(ptr.0).max(src.0),
             IrInstr::IBin { dst, lhs, rhs, .. } => {
@@ -776,6 +779,41 @@ fn encode_ir_function(
 
                 insts.local_get(dst.0);
                 insts.i32_const(*size as i32);
+                insts.i32_add();
+                insts.global_set(HEAP_PTR_GLOBAL);
+            }
+            IrInstr::AllocDyn { dst, size, align } => {
+                insts.global_get(HEAP_PTR_GLOBAL);
+                insts.local_set(dst.0);
+
+                if *align > 1 {
+                    insts.local_get(dst.0);
+                    insts.i32_const((*align as i32) - 1);
+                    insts.i32_add();
+                    insts.i32_const(-(*align as i32));
+                    insts.i32_and();
+                    insts.local_set(dst.0);
+                }
+
+                insts.local_get(dst.0);
+                insts.local_get(size.0);
+                insts.i32_add();
+                insts.memory_size(0);
+                insts.i32_const(65536);
+                insts.i32_mul();
+                insts.i32_gt_u();
+                insts.if_(BlockType::Empty);
+                emit_runtime_trap(
+                    &mut insts,
+                    TrapCode::AllocatorOom,
+                    TrapOperand::local(dst.0),
+                    TrapOperand::zero(),
+                    0,
+                );
+                insts.end();
+
+                insts.local_get(dst.0);
+                insts.local_get(size.0);
                 insts.i32_add();
                 insts.global_set(HEAP_PTR_GLOBAL);
             }

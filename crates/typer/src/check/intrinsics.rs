@@ -139,6 +139,20 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     "std::u64::from_bytes_be" => {
                         set.insert("std::u64::from_bytes_be");
                     }
+                    "std::set::contains"
+                    | "std::set::insert"
+                    | "std::set::remove"
+                    | "std::set::insert_mut"
+                    | "std::set::remove_mut"
+                    | "std::map::contains"
+                    | "std::map::get"
+                    | "std::map::insert"
+                    | "std::map::remove"
+                    | "std::map::insert_mut"
+                    | "std::map::remove_mut" => {
+                        set.insert("std::str::eq");
+                        set.insert("std::bytes::eq");
+                    }
                     _ => {}
                 }
                 for a in args {

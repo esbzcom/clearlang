@@ -137,6 +137,12 @@ pub enum Instr {
         size: u32,
         align: u32,
     },
+    // v = heap alloc of dynamic size bytes with alignment; returns pointer
+    AllocDyn {
+        dst: Value,
+        size: Value,
+        align: u32,
+    },
     // v = load *(ptr + offset)
     Load {
         dst: Value,

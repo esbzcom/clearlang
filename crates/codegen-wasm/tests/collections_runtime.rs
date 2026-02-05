@@ -161,6 +161,29 @@ fn list_len_reads_header() {
 }
 
 #[test]
+fn list_len_invalid_handle_traps() {
+    let src = r#"
+        function main(l: List<Int>) -> Int { std::list::len(l) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, 1);
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+}
+
+#[test]
 fn list_insert_oob_traps() {
     let src = r#"
         function main(l: List<Int>) -> List<Int> { std::list::insert(l, 1, 5) }

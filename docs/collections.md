@@ -81,6 +81,7 @@ Set
 
 Map
 - `insert` replaces the existing value if the key is present; `remove` is a no-op if missing.
+- Invalid collection handles (null, misaligned, or out-of-bounds header) trap with runtime error `R010`.
 
 Key Equality (Map/Set)
 - Keys must be equatable; non-equatable key types are rejected (T220).
@@ -101,6 +102,7 @@ Diagnostics (Stable Codes)
 - Also applicable:
   - `T002` arity mismatch, `T005` index must be Int (for list insert/get/remove), `T003` arg type mismatch
     (non-collection cases).
+  - `R010` invalid collection handle.
 
 AI-Friendly JSON Example
 

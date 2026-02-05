@@ -694,7 +694,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples/arrays) and add runtime coverage.
   - [x] 17.3.9 Add runtime tests for `list::get`/`list::pop`, `set::contains`, `map::contains`/`map::get`, and no-op remove cases.
   - [x] 17.3.10 Docs refresh: update `docs/collections.md` + `docs/design/phase-17.3-collections-runtime.md` to reflect `new()` inference and current `can_mut` behavior.
-  - [ ] 17.3.11 Clarify invalid-handle behavior for collections and align trap code/docs (R002 vs new code) or add explicit pointer validation.
+  - [x] 17.3.11 Clarify invalid-handle behavior for collections and align trap code/docs (R002 vs new code) or add explicit pointer validation.
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
   - [ ] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior.
   - [ ] 17.4.2 Parser/AST + typer support for arrays/slices and indexing.

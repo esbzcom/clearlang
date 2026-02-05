@@ -103,8 +103,8 @@ Equality implementation:
 
 - Bounds errors for `insert`/`remove` (List) trap with a new runtime code
   `R009` (CollectionBounds). `get`/`pop` remain total via `Option`.
-- Invalid pointers/headers are not explicitly validated yet; behavior is currently
-  host/Wasm traps without a dedicated error code (see Phase 17.3.11).
+- Invalid pointers/headers (null, misaligned, or out-of-bounds header) trap with
+  `R010` (InvalidBuffer).
 - Allocation failures reuse `R001` (AllocatorOom) from the shared allocator.
 
 Diagnostics docs (`docs/diagnostics.md`) should be updated when these are wired.

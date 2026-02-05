@@ -1664,11 +1664,100 @@ fn emit_collection_guard(ctx: &mut LowerCtx<'_>, cond: Value, span: Span) {
     });
 }
 
+fn emit_memory_bytes(ctx: &mut LowerCtx<'_>) -> Value {
+    let pages = fresh(ctx);
+    ctx.body.push(Instr::MemorySize { dst: pages });
+    let page_size = emit_int_const(ctx, 65536);
+    let bytes = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: bytes,
+        op: BinOpIR::Mul,
+        lhs: pages,
+        rhs: page_size,
+        ty: IrType::Int,
+    });
+    bytes
+}
+
+fn emit_collection_ptr_guard(ctx: &mut LowerCtx<'_>, ptr: Value) {
+    let zero = emit_int_const(ctx, 0);
+    let not_zero = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: not_zero,
+        op: BinOpIR::Neq,
+        lhs: ptr,
+        rhs: zero,
+        ty: IrType::Int,
+    });
+    let align_mask = emit_int_const(ctx, (COLLECTION_HEADER_ALIGN - 1) as i64);
+    let masked = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: masked,
+        op: BinOpIR::And,
+        lhs: ptr,
+        rhs: align_mask,
+        ty: IrType::Int,
+    });
+    let aligned = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: aligned,
+        op: BinOpIR::Eq,
+        lhs: masked,
+        rhs: zero,
+        ty: IrType::Int,
+    });
+
+    let header_size = emit_int_const(ctx, COLLECTION_HEADER_SIZE as i64);
+    let end = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: end,
+        op: BinOpIR::Add,
+        lhs: ptr,
+        rhs: header_size,
+        ty: IrType::Int,
+    });
+    let mem_bytes = emit_memory_bytes(ctx);
+    let within = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: within,
+        op: BinOpIR::Le,
+        lhs: end,
+        rhs: mem_bytes,
+        ty: IrType::Int,
+    });
+
+    let tmp = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tmp,
+        op: BinOpIR::And,
+        lhs: not_zero,
+        rhs: aligned,
+        ty: IrType::Int,
+    });
+    let ok = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: ok,
+        op: BinOpIR::And,
+        lhs: tmp,
+        rhs: within,
+        ty: IrType::Int,
+    });
+
+    ctx.body.push(Instr::Guard {
+        cond: ok,
+        trap: TrapCode::InvalidBuffer,
+        span: None,
+        detail: GuardKind::Require,
+    });
+}
+
 fn emit_collection_len(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_collection_ptr_guard(ctx, ptr);
     emit_load_i32(ctx, ptr, COLLECTION_LEN_OFFSET)
 }
 
 fn emit_collection_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_collection_ptr_guard(ctx, ptr);
     emit_load_i32(ctx, ptr, COLLECTION_DATA_OFFSET)
 }
 

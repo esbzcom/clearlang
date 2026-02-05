@@ -650,6 +650,12 @@ fn extract_runtime_error<T>(
             None,
             false,
         ),
+        11 => (
+            "R010",
+            "invalid collection handle".to_string(),
+            None,
+            false,
+        ),
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),

@@ -240,7 +240,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
 
     // Memory section (prepare for string runtime)
     // Ensure the initial memory is large enough to hold all string data segments.
-    let heap_start = (cur_off + 3) & !3; // first free address after literals, 4-byte aligned
+    let heap_start = ((cur_off + 3) & !3).max(4); // reserve 0 as invalid; 4-byte aligned
     let min_pages = u64::from(heap_start).div_ceil(65536).max(1);
     let mut memories = MemorySection::new();
     memories.memory(MemoryType {
@@ -577,6 +577,9 @@ fn infer_value_types(f: &IrFunction, funcs: &[IrFunction], max_id: u32) -> Resul
             IrInstr::U128LoadLimb { dst, .. } | IrInstr::U256LoadLimb { dst, .. } => {
                 set_type(&mut types, *dst, ValType::I64)?;
             }
+            IrInstr::MemorySize { dst } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
             IrInstr::Call { dst, callee, .. } => {
                 if let Some(dst) = dst {
                     let ret_ty =
@@ -687,6 +690,9 @@ fn encode_ir_function(
             }
             IrInstr::U256LoadLimb { dst, value, .. } => {
                 max_id = max_id.max(dst.0).max(value.0);
+            }
+            IrInstr::MemorySize { dst } => {
+                max_id = max_id.max(dst.0);
             }
             IrInstr::ReturnIf { cond, ret } => {
                 max_id = max_id.max(cond.0).max(ret.0);
@@ -1008,6 +1014,10 @@ fn encode_ir_function(
                 insts.else_();
                 insts.local_get(else_v.0);
                 insts.end();
+                insts.local_set(dst.0);
+            }
+            IrInstr::MemorySize { dst } => {
+                insts.memory_size(0);
                 insts.local_set(dst.0);
             }
             IrInstr::VariantInit {

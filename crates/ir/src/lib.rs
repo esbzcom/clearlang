@@ -61,6 +61,7 @@ pub enum TrapCode {
     CryptoInvalidLength,
     CryptoMalformed,
     CollectionBounds,
+    InvalidBuffer,
 }
 
 impl VariantKind {
@@ -93,6 +94,7 @@ impl TrapCode {
             TrapCode::CryptoInvalidLength => 8,
             TrapCode::CryptoMalformed => 9,
             TrapCode::CollectionBounds => 10,
+            TrapCode::InvalidBuffer => 11,
         }
     }
 }
@@ -178,6 +180,10 @@ pub enum Instr {
         cond: Value,
         then_v: Value,
         else_v: Value,
+    },
+    // v = memory.size (pages)
+    MemorySize {
+        dst: Value,
     },
     // Variant constructor: allocate `{tag, payload_lo, payload_hi, reserved}` and return its pointer
     VariantInit {

@@ -1860,6 +1860,15 @@ fn emit_collection_payload_guard(
         rhs: cap,
         ty: IrType::Int,
     });
+    let max_len = emit_int_const(ctx, (i32::MAX as i64) / stride as i64);
+    let len_fits = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: len_fits,
+        op: BinOpIR::Le,
+        lhs: len,
+        rhs: max_len,
+        ty: IrType::Int,
+    });
 
     let stride_val = emit_int_const(ctx, stride as i64);
     let bytes = fresh(ctx);
@@ -1933,6 +1942,14 @@ fn emit_collection_payload_guard(
         dst: tmp5,
         op: BinOpIR::And,
         lhs: tmp4,
+        rhs: len_fits,
+        ty: IrType::Int,
+    });
+    let tmp6 = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tmp6,
+        op: BinOpIR::And,
+        lhs: tmp5,
         rhs: no_wrap,
         ty: IrType::Int,
     });
@@ -1940,7 +1957,7 @@ fn emit_collection_payload_guard(
     ctx.body.push(Instr::IBin {
         dst: ok,
         op: BinOpIR::And,
-        lhs: tmp5,
+        lhs: tmp6,
         rhs: within,
         ty: IrType::Int,
     });

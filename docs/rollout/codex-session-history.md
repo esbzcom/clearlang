@@ -71,3 +71,10 @@
 - Added positive/negative generics+traits tests (bounds, contracts/invariants, nested generics, multi-field enum matches, missing bounds/impls).
 - Documented Phase 17.2 decisions (default bodies deferred, explicit impl selection unsupported) and reserved `$` for mangling.
 
+## 2026-02-06 - Phase 17.3 collections hardening + test closure
+- Implemented structural equality for composite Map/Set keys (Option/Result/struct/enum/tuple/array) and added short-circuiting for structural comparisons.
+- Added collection handle validation with explicit invalid-handle traps (R010): header bounds, data_ptr alignment/range checks, header consistency (`len <= cap`, `cap > 0`), and overflow-safe length guards.
+- Introduced unsigned comparison support in IR (`LeU`) plus `memory.size` plumbing; aligned heap start to 16 bytes to keep variant/collection layout consistent.
+- Expanded runtime tests for list/set/map correctness and invalid-handle cases (null/misaligned/out-of-bounds data_ptr, header inconsistencies, overflow guards) and composite-key equality coverage.
+- Updated collection docs and TODO roadmap to reflect the new validation and test-gap closure.
+

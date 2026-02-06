@@ -698,6 +698,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.3.12 Use unsigned bounds checks in collection handle validation to avoid signed i32 overflow in pointer comparisons.
   - [x] 17.3.13 Close remaining collections runtime test gaps (invalid `data_ptr` cases + composite key equality coverage).
   - [x] 17.3.14 Treat header inconsistencies (len > cap / cap <= 0) as invalid handles (R010).
+  - [x] 17.3.15 Guard against `len * stride` overflow and add Set/Map header-consistency tests.
 - [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
   - [ ] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior.
   - [ ] 17.4.2 Parser/AST + typer support for arrays/slices and indexing.

@@ -1794,10 +1794,16 @@ fn emit_collection_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
     emit_load_i32(ctx, ptr, COLLECTION_DATA_OFFSET)
 }
 
+fn emit_collection_cap(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_collection_ptr_guard(ctx, ptr);
+    emit_load_i32(ctx, ptr, COLLECTION_CAP_OFFSET)
+}
+
 fn emit_collection_payload_guard(
     ctx: &mut LowerCtx<'_>,
     data_ptr: Value,
     len: Value,
+    cap: Value,
     stride: u32,
     align: u32,
 ) {
@@ -1836,6 +1842,22 @@ fn emit_collection_payload_guard(
         op: BinOpIR::Ge,
         lhs: len,
         rhs: zero,
+        ty: IrType::Int,
+    });
+    let cap_gt_zero = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: cap_gt_zero,
+        op: BinOpIR::Gt,
+        lhs: cap,
+        rhs: zero,
+        ty: IrType::Int,
+    });
+    let len_le_cap = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: len_le_cap,
+        op: BinOpIR::LeU,
+        lhs: len,
+        rhs: cap,
         ty: IrType::Int,
     });
 
@@ -1895,6 +1917,22 @@ fn emit_collection_payload_guard(
         dst: tmp3,
         op: BinOpIR::And,
         lhs: tmp2,
+        rhs: cap_gt_zero,
+        ty: IrType::Int,
+    });
+    let tmp4 = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tmp4,
+        op: BinOpIR::And,
+        lhs: tmp3,
+        rhs: len_le_cap,
+        ty: IrType::Int,
+    });
+    let tmp5 = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: tmp5,
+        op: BinOpIR::And,
+        lhs: tmp4,
         rhs: no_wrap,
         ty: IrType::Int,
     });
@@ -1902,7 +1940,7 @@ fn emit_collection_payload_guard(
     ctx.body.push(Instr::IBin {
         dst: ok,
         op: BinOpIR::And,
-        lhs: tmp3,
+        lhs: tmp5,
         rhs: within,
         ty: IrType::Int,
     });
@@ -2761,7 +2799,8 @@ fn lower_collection_call<'a>(
                 ty: IrType::Int,
             });
             let data_ptr = emit_collection_data_ptr(ctx, list_val);
-            emit_collection_payload_guard(ctx, data_ptr, len, stride, align);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let elem_ptr = emit_ptr_add(ctx, data_ptr, offset);
             let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
             let elem_val = fresh(ctx);
@@ -2812,7 +2851,8 @@ fn lower_collection_call<'a>(
             });
             let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
             let old_data = emit_collection_data_ptr(ctx, list_val);
-            emit_collection_payload_guard(ctx, old_data, len, stride, align);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, old_data, len, cap, stride, align);
             let copy_bytes = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: copy_bytes,
@@ -2898,7 +2938,8 @@ fn lower_collection_call<'a>(
             });
             let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
             let old_data = emit_collection_data_ptr(ctx, list_val);
-            emit_collection_payload_guard(ctx, old_data, len, stride, align);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, old_data, len, cap, stride, align);
             let bytes_before = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: bytes_before,
@@ -3018,7 +3059,8 @@ fn lower_collection_call<'a>(
             });
             let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
             let old_data = emit_collection_data_ptr(ctx, list_val);
-            emit_collection_payload_guard(ctx, old_data, len, stride, align);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, old_data, len, cap, stride, align);
             let bytes_before = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: bytes_before,
@@ -3117,7 +3159,8 @@ fn lower_collection_call<'a>(
                 ty: IrType::Int,
             });
             let data_ptr = emit_collection_data_ptr(ctx, list_val);
-            emit_collection_payload_guard(ctx, data_ptr, len, stride, align);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let elem_ptr = emit_ptr_add(ctx, data_ptr, offset);
             let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
             let elem_val = fresh(ctx);
@@ -3187,7 +3230,8 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, set_val);
             let data_ptr = emit_collection_data_ptr(ctx, set_val);
             let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, stride, align);
+            let cap = emit_collection_cap(ctx, set_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let (found, _idx) =
                 emit_find_index(ctx, data_ptr, len, stride, elem_val, &elem_ty, 0, ctx.aliases)?;
             Ok(Some(found))
@@ -3202,7 +3246,8 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, set_val);
             let data_ptr = emit_collection_data_ptr(ctx, set_val);
             let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, stride, align);
+            let cap = emit_collection_cap(ctx, set_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let (found, _idx) =
                 emit_find_index(ctx, data_ptr, len, stride, elem_val, &elem_ty, 0, ctx.aliases)?;
             let one = emit_int_const(ctx, 1);
@@ -3273,7 +3318,8 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, set_val);
             let data_ptr = emit_collection_data_ptr(ctx, set_val);
             let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, stride, align);
+            let cap = emit_collection_cap(ctx, set_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let (found, found_idx) =
                 emit_find_index(ctx, data_ptr, len, stride, elem_val, &elem_ty, 0, ctx.aliases)?;
             let one = emit_int_const(ctx, 1);
@@ -3424,7 +3470,8 @@ fn lower_collection_call<'a>(
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, _val_offset) =
                 map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, entry_size, entry_align);
+            let cap = emit_collection_cap(ctx, map_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, _idx) = emit_find_index(
                 ctx,
                 data_ptr,
@@ -3448,7 +3495,8 @@ fn lower_collection_call<'a>(
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, val_offset) =
                 map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, entry_size, entry_align);
+            let cap = emit_collection_cap(ctx, map_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, found_idx) = emit_find_index(
                 ctx,
                 data_ptr,
@@ -3514,7 +3562,8 @@ fn lower_collection_call<'a>(
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, val_offset) =
                 map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, entry_size, entry_align);
+            let cap = emit_collection_cap(ctx, map_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, found_idx) = emit_find_index(
                 ctx,
                 data_ptr,
@@ -3638,7 +3687,8 @@ fn lower_collection_call<'a>(
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, _val_offset) =
                 map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
-            emit_collection_payload_guard(ctx, data_ptr, len, entry_size, entry_align);
+            let cap = emit_collection_cap(ctx, map_val);
+            emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, found_idx) = emit_find_index(
                 ctx,
                 data_ptr,

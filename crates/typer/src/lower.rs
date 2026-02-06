@@ -2014,7 +2014,9 @@ fn emit_eq_struct(
 ) -> Result<Value> {
     let (fields, layout) = struct_layout(ctx.type_defs, aliases, name, args)?;
     let result = emit_bool_const(ctx, true);
+    ctx.body.push(Instr::BlockBegin);
     for (idx, field) in fields.iter().enumerate() {
+        ctx.body.push(Instr::BrIfEqz { cond: result, depth: 0 });
         let offset = *layout
             .offsets
             .get(idx)
@@ -2043,6 +2045,7 @@ fn emit_eq_struct(
             ty: IrType::Bool,
         });
     }
+    ctx.body.push(Instr::BlockEnd);
     Ok(result)
 }
 
@@ -2055,7 +2058,9 @@ fn emit_eq_tuple(
 ) -> Result<Value> {
     let layout = tuple_layout(elements, aliases)?;
     let result = emit_bool_const(ctx, true);
+    ctx.body.push(Instr::BlockBegin);
     for (idx, elem_ty) in elements.iter().enumerate() {
+        ctx.body.push(Instr::BrIfEqz { cond: result, depth: 0 });
         let offset = *layout
             .offsets
             .get(idx)
@@ -2084,6 +2089,7 @@ fn emit_eq_tuple(
             ty: IrType::Bool,
         });
     }
+    ctx.body.push(Instr::BlockEnd);
     Ok(result)
 }
 
@@ -2108,6 +2114,7 @@ fn emit_eq_array(
 
     ctx.body.push(Instr::BlockBegin);
     ctx.body.push(Instr::LoopBegin);
+    ctx.body.push(Instr::BrIfEqz { cond: result, depth: 1 });
     let cond = fresh(ctx);
     ctx.body.push(Instr::IBin {
         dst: cond,

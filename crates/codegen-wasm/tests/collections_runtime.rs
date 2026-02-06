@@ -218,6 +218,105 @@ fn list_get_invalid_data_ptr_traps() {
 }
 
 #[test]
+fn list_get_null_data_ptr_traps() {
+    let src = r#"
+        function main(l: List<Int>) -> Option<Int> { std::list::get(l, 0) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (list_ptr, new_heap) = alloc_list(&memory, &mut store, heap_ptr, &[10]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    write_i32(&memory, &mut store, list_ptr + 12, 0);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, list_ptr);
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+}
+
+#[test]
+fn set_contains_null_data_ptr_traps() {
+    let src = r#"
+        function main(s: Set<Int>) -> Bool { std::set::contains(s, 1) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (set_ptr, new_heap) = alloc_list(&memory, &mut store, heap_ptr, &[1]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    write_i32(&memory, &mut store, set_ptr + 12, 0);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, set_ptr);
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+}
+
+#[test]
+fn set_contains_misaligned_data_ptr_traps() {
+    let src = r#"
+        function main(s: Set<Int>) -> Bool { std::set::contains(s, 1) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (set_ptr, new_heap) = alloc_list(&memory, &mut store, heap_ptr, &[1]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    write_i32(&memory, &mut store, set_ptr + 12, set_ptr + 18);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, set_ptr);
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+}
+
+#[test]
 fn list_insert_oob_traps() {
     let src = r#"
         function main(l: List<Int>) -> List<Int> { std::list::insert(l, 1, 5) }
@@ -733,6 +832,39 @@ fn map_contains_reports_membership() {
 }
 
 #[test]
+fn map_contains_misaligned_data_ptr_traps() {
+    let src = r#"
+        function main(m: Map<Int, Int>) -> Bool { std::map::contains(m, 1) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[(1, 10)]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    write_i32(&memory, &mut store, map_ptr + 12, map_ptr + 18);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, map_ptr);
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+}
+
+#[test]
 fn map_get_invalid_data_ptr_traps() {
     let src = r#"
         function main(m: Map<Int, Int>, k: Int) -> Option<Int> { std::map::get(m, k) }
@@ -896,6 +1028,32 @@ fn map_contains_option_key_structural_eq() {
 }
 
 #[test]
+fn map_contains_struct_key_structural_eq() {
+    let src = r#"
+        struct Point { x: Int; y: Int; }
+        function make() -> Map<Point, Int> { std::map::new() }
+        function main() -> Bool {
+            let m = std::map::insert(make(), Point { x: 1, y: 2 }, 10);
+            std::map::contains(m, Point { x: 1, y: 2 })
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
+    let ok = main.call(&mut store, ()).expect("call main");
+    assert_eq!(ok, 1, "expected structural equality for struct key");
+}
+
+#[test]
 fn set_contains_tuple_key_structural_eq() {
     let src = r#"
         function make() -> Set<(Int, Int)> { std::set::new() }
@@ -918,4 +1076,55 @@ fn set_contains_tuple_key_structural_eq() {
         .expect("get main");
     let ok = main.call(&mut store, ()).expect("call main");
     assert_eq!(ok, 1, "expected structural equality for tuple key");
+}
+
+#[test]
+fn set_contains_enum_key_structural_eq() {
+    let src = r#"
+        enum Token { A, B }
+        function make() -> Set<Token> { std::set::new() }
+        function main() -> Bool {
+            let s = std::set::insert(make(), Token::A());
+            std::set::contains(s, Token::A())
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
+    let ok = main.call(&mut store, ()).expect("call main");
+    assert_eq!(ok, 1, "expected structural equality for enum key");
+}
+
+#[test]
+fn set_contains_array_key_structural_eq() {
+    let src = r#"
+        function make() -> Set<[Int; 2]> { std::set::new() }
+        function main() -> Bool {
+            let s = std::set::insert(make(), [1, 2]);
+            std::set::contains(s, [1, 2])
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
+    let ok = main.call(&mut store, ()).expect("call main");
+    assert_eq!(ok, 1, "expected structural equality for array key");
 }

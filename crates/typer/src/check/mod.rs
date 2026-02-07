@@ -912,6 +912,7 @@ fn build_trait_env<'a>(
     program: &'a Program,
     aliases: &AliasMap,
     type_defs: &TypeDefs<'a>,
+    std_types: &HashSet<String>,
 ) -> Result<TraitEnv<'a>> {
     let mut traits: HashMap<&'a str, TraitInfo<'a>> =
         HashMap::with_capacity(program.traits.len());
@@ -946,10 +947,18 @@ fn build_trait_env<'a>(
                     aliases,
                     type_defs,
                     &self_params,
+                    std_types,
                     Some(method.span),
                 )?;
             }
-            ensure_known_type(&method.ret, aliases, type_defs, &self_params, Some(method.span))?;
+            ensure_known_type(
+                &method.ret,
+                aliases,
+                type_defs,
+                &self_params,
+                std_types,
+                Some(method.span),
+            )?;
         }
         traits.insert(
             decl.name.as_str(),
@@ -980,6 +989,7 @@ fn build_trait_env<'a>(
             aliases,
             type_defs,
             &type_params,
+            std_types,
             Some(decl.span),
         )?;
 
@@ -1186,6 +1196,7 @@ fn ensure_known_type(
     aliases: &AliasMap,
     type_defs: &TypeDefs,
     type_params: &HashSet<String>,
+    std_types: &HashSet<String>,
     span: Option<Span>,
 ) -> Result<()> {
     match ty {
@@ -1221,7 +1232,7 @@ fn ensure_known_type(
                     .into());
                 }
                 for arg in args {
-                    ensure_known_type(arg, aliases, type_defs, type_params, span)?;
+                    ensure_known_type(arg, aliases, type_defs, type_params, std_types, span)?;
                 }
                 return Ok(());
             }
@@ -1237,25 +1248,39 @@ fn ensure_known_type(
                     .into());
                 }
                 for arg in args {
-                    ensure_known_type(arg, aliases, type_defs, type_params, span)?;
+                    ensure_known_type(arg, aliases, type_defs, type_params, std_types, span)?;
+                }
+                return Ok(());
+            }
+            if std_types.contains(name) {
+                if !args.is_empty() {
+                    return Err(TyperError::type_arg_count_mismatch(
+                        name,
+                        0,
+                        args.len(),
+                        span,
+                    )
+                    .into());
                 }
                 return Ok(());
             }
             Err(TyperError::unknown_type(name, span).into())
         }
         Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
-            ensure_known_type(inner, aliases, type_defs, type_params, span)
+            ensure_known_type(inner, aliases, type_defs, type_params, std_types, span)
         }
-        Type::Array(inner, _) => ensure_known_type(inner, aliases, type_defs, type_params, span),
+        Type::Array(inner, _) => {
+            ensure_known_type(inner, aliases, type_defs, type_params, std_types, span)
+        }
         Type::Tuple(elements) => {
             for elem in elements {
-                ensure_known_type(elem, aliases, type_defs, type_params, span)?;
+                ensure_known_type(elem, aliases, type_defs, type_params, std_types, span)?;
             }
             Ok(())
         }
         Type::Result(ok, err) | Type::Map(ok, err) => {
-            ensure_known_type(ok, aliases, type_defs, type_params, span)?;
-            ensure_known_type(err, aliases, type_defs, type_params, span)
+            ensure_known_type(ok, aliases, type_defs, type_params, std_types, span)?;
+            ensure_known_type(err, aliases, type_defs, type_params, std_types, span)
         }
         _ => Ok(()),
     }
@@ -1266,6 +1291,7 @@ fn validate_known_types(
     aliases: &AliasMap,
     type_defs: &TypeDefs,
     trait_env: &TraitEnv,
+    std_types: &HashSet<String>,
 ) -> Result<()> {
     for res in &program.resources {
         for field in &res.fields {
@@ -1274,6 +1300,7 @@ fn validate_known_types(
                 aliases,
                 type_defs,
                 &HashSet::new(),
+                std_types,
                 Some(field.span),
             )?;
         }
@@ -1286,6 +1313,7 @@ fn validate_known_types(
                 aliases,
                 type_defs,
                 &type_params,
+                std_types,
                 Some(field.span),
             )?;
         }
@@ -1294,7 +1322,14 @@ fn validate_known_types(
         let type_params = validate_type_params(&e.type_params, type_defs, aliases, trait_env)?;
         for variant in &e.variants {
             for ty in &variant.fields {
-                ensure_known_type(ty, aliases, type_defs, &type_params, Some(variant.span))?;
+                ensure_known_type(
+                    ty,
+                    aliases,
+                    type_defs,
+                    &type_params,
+                    std_types,
+                    Some(variant.span),
+                )?;
             }
         }
     }
@@ -1304,14 +1339,15 @@ fn validate_known_types(
             aliases,
             type_defs,
             &HashSet::new(),
+            std_types,
             Some(alias.span),
         )?;
     }
     for func in &program.funcs {
         let type_params = validate_type_params(&func.type_params, type_defs, aliases, trait_env)?;
-        ensure_known_type(&func.ret, aliases, type_defs, &type_params, None)?;
+        ensure_known_type(&func.ret, aliases, type_defs, &type_params, std_types, None)?;
         for param in &func.params {
-            ensure_known_type(&param.ty, aliases, type_defs, &type_params, None)?;
+            ensure_known_type(&param.ty, aliases, type_defs, &type_params, std_types, None)?;
         }
     }
     Ok(())
@@ -1482,16 +1518,24 @@ pub struct TypecheckOutput {
 }
 
 pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
+    let std_types = HashSet::new();
+    check_with_vcs_with_std(ast, &std_types)
+}
+
+pub fn check_with_vcs_with_std(
+    ast: &Program,
+    std_types: &HashSet<String>,
+) -> Result<TypecheckOutput> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
-        return fast_path_without_totality(ast);
+        return fast_path_without_totality_with_std(ast, std_types);
     }
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
-    let trait_env = build_trait_env(ast, &alias_map, &type_defs)?;
+    let trait_env = build_trait_env(ast, &alias_map, &type_defs, std_types)?;
     validate_no_resource_collections(ast, &type_defs.resources, &alias_map, &type_defs, &trait_env)?;
     validate_equatable_collections(ast, &alias_map, &type_defs, &trait_env)?;
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
-    validate_known_types(ast, &alias_map, &type_defs, &trait_env)?;
+    validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
@@ -1720,16 +1764,24 @@ pub fn check(ast: &Program) -> Result<Module> {
 }
 
 pub fn type_check_only(ast: &Program) -> Result<()> {
+    let std_types = HashSet::new();
+    type_check_only_with_std(ast, &std_types)
+}
+
+pub fn type_check_only_with_std(
+    ast: &Program,
+    std_types: &HashSet<String>,
+) -> Result<()> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
-        return fast_path_without_totality(ast).map(|_| ());
+        return fast_path_without_totality_with_std(ast, std_types).map(|_| ());
     }
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
-    let trait_env = build_trait_env(ast, &alias_map, &type_defs)?;
+    let trait_env = build_trait_env(ast, &alias_map, &type_defs, std_types)?;
     validate_no_resource_collections(ast, &type_defs.resources, &alias_map, &type_defs, &trait_env)?;
     validate_equatable_collections(ast, &alias_map, &type_defs, &trait_env)?;
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
-    validate_known_types(ast, &alias_map, &type_defs, &trait_env)?;
+    validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
@@ -1792,14 +1844,17 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     Ok(())
 }
 
-fn fast_path_without_totality(ast: &Program) -> Result<TypecheckOutput> {
+fn fast_path_without_totality_with_std(
+    ast: &Program,
+    std_types: &HashSet<String>,
+) -> Result<TypecheckOutput> {
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
-    let trait_env = build_trait_env(ast, &alias_map, &type_defs)?;
+    let trait_env = build_trait_env(ast, &alias_map, &type_defs, std_types)?;
     validate_no_resource_collections(ast, &type_defs.resources, &alias_map, &type_defs, &trait_env)?;
     validate_equatable_collections(ast, &alias_map, &type_defs, &trait_env)?;
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
-    validate_known_types(ast, &alias_map, &type_defs, &trait_env)?;
+    validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());

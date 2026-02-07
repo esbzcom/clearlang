@@ -6,7 +6,8 @@ use clg_ast::{Effect, Program, Type};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias};
 use clg_ir::IrType;
 use clg_typer::{
-    check_with_vcs, RefinementAttachmentDetail, TypecheckOutput, TyperError, VerificationCondition,
+    check_with_vcs_with_std, RefinementAttachmentDetail, TypecheckOutput, TyperError,
+    VerificationCondition,
 };
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -43,9 +44,10 @@ pub fn run(
         load_program(&file, json_errors)?
     };
 
+    let std_types = crate::commands::modules::std_type_names();
     let type_output = {
         let _stage = timings.start(logger, "typecheck");
-        match check_with_vcs(&ast) {
+        match check_with_vcs_with_std(&ast, &std_types) {
             Ok(result) => result,
             Err(e) => {
                 if json_errors {

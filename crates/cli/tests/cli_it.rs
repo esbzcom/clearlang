@@ -1280,6 +1280,30 @@ fn import_unknown_std_item_reports_c021() {
 }
 
 #[test]
+fn import_std_chain_type_item_allows_build() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        import std::eth::{Address}
+        function id(a: Address) -> Address { a }
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+}
+
+#[test]
 fn run_crypto_hash_stub_returns_len() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_hash.clear");

@@ -104,6 +104,16 @@ fn std_metadata() -> &'static StdMetadataIndex {
     STD_METADATA.get_or_init(StdMetadataIndex::load)
 }
 
+pub fn std_type_names() -> HashSet<String> {
+    let mut out = HashSet::new();
+    for (module_path, module) in &std_metadata().modules {
+        for name in &module.types {
+            out.insert(format!("{}::{}", module_path, name));
+        }
+    }
+    out
+}
+
 struct ResolveCtx<'a> {
     prefix: &'a str,
     local_values: &'a HashMap<String, String>,

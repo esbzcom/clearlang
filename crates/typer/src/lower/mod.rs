@@ -11,12 +11,18 @@ use clg_ir::{
 };
 use std::collections::{HashMap, HashSet};
 
+mod array;
 mod collections;
 mod eq;
 mod intrinsics;
 mod layout;
 mod r#match;
 
+use array::{
+    emit_array_data_ptr, emit_array_len, emit_array_len_guard, emit_bytes_data_ptr,
+    emit_bytes_len_guard, ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET,
+    ARRAY_HEADER_SIZE,
+};
 use collections::lower_collection_call;
 use eq::emit_eq_for_type;
 use intrinsics::{
@@ -37,12 +43,6 @@ const COLLECTION_LEN_OFFSET: u32 = 0;
 const COLLECTION_CAP_OFFSET: u32 = 4;
 const COLLECTION_FLAGS_OFFSET: u32 = 8;
 const COLLECTION_DATA_OFFSET: u32 = 12;
-const ARRAY_HEADER_SIZE: u32 = 8;
-const ARRAY_HEADER_ALIGN: u32 = 4;
-const ARRAY_HEADER_LEN_OFFSET: u32 = 0;
-const ARRAY_HEADER_DATA_OFFSET: u32 = 4;
-const BYTES_HEADER_LEN_OFFSET: u32 = 0;
-const BYTES_HEADER_DATA_OFFSET: u32 = 4;
 
 fn ir_ty(t: Type) -> IrType {
     match t {
@@ -1259,61 +1259,6 @@ fn emit_memcpy_bytes(
     ctx.body.push(Instr::BlockEnd);
     Ok(())
 }
-
-fn emit_array_len(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
-    emit_load_i32(ctx, ptr, ARRAY_HEADER_LEN_OFFSET)
-}
-
-fn emit_array_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
-    emit_load_i32(ctx, ptr, ARRAY_HEADER_DATA_OFFSET)
-}
-
-fn emit_bytes_len(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
-    emit_load_i32(ctx, ptr, BYTES_HEADER_LEN_OFFSET)
-}
-
-fn emit_bytes_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
-    emit_ptr_add_const(ctx, ptr, BYTES_HEADER_DATA_OFFSET)
-}
-
-fn emit_array_len_guard(ctx: &mut LowerCtx<'_>, ptr: Value, expected_len: u32) {
-    let actual_len = emit_array_len(ctx, ptr);
-    let expected = emit_int_const(ctx, expected_len as i64);
-    let ok = fresh(ctx);
-    ctx.body.push(Instr::IBin {
-        dst: ok,
-        op: BinOpIR::Eq,
-        lhs: actual_len,
-        rhs: expected,
-        ty: IrType::Int,
-    });
-    ctx.body.push(Instr::Guard {
-        cond: ok,
-        trap: TrapCode::ContractViolation,
-        span: None,
-        detail: GuardKind::Require,
-    });
-}
-
-fn emit_bytes_len_guard(ctx: &mut LowerCtx<'_>, ptr: Value, expected_len: u32) {
-    let actual_len = emit_bytes_len(ctx, ptr);
-    let expected = emit_int_const(ctx, expected_len as i64);
-    let ok = fresh(ctx);
-    ctx.body.push(Instr::IBin {
-        dst: ok,
-        op: BinOpIR::Eq,
-        lhs: actual_len,
-        rhs: expected,
-        ty: IrType::Int,
-    });
-    ctx.body.push(Instr::Guard {
-        cond: ok,
-        trap: TrapCode::ContractViolation,
-        span: None,
-        detail: GuardKind::Require,
-    });
-}
-
 
 fn emit_zero_for_mem_ty(ctx: &mut LowerCtx<'_>, mem_ty: IrType) -> Value {
     match mem_ty {

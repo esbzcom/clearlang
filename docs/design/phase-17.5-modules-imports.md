@@ -33,10 +33,9 @@ Rules:
 - File extension is `.clear`.
 
 Optional header:
-- A `module` header is allowed only for overrides; omitted by default.
+- A `module` header is optional and must match the file path.
 - Entry files must not declare a `module` header.
-- If present, the header must match the file path (unless explicitly opting out
-  for generated code). Mismatches are a build error.
+- Overrides are not allowed. Mismatches are a build error.
 
 ## Visibility
 
@@ -189,5 +188,4 @@ Notes:
 - Docs: update `docs/typing.md` and `docs/collections.md` with the new syntax.
 
 ## Open Questions
-- Should `module` headers be allowed to override path-based names at all?
 - Should item imports allow aliasing (e.g., `import foo::bar::{A as X}`)?

@@ -10,6 +10,34 @@ use super::{
 };
 use super::block::{restore_scope, ScopeEntry};
 
+pub(super) fn lower_match_expr<'a>(
+    ctx: &mut LowerCtx<'a>,
+    scrutinee: &'a Expr,
+    arms: &'a [MatchArm],
+    expected: Option<Type>,
+) -> Result<Value> {
+    if let Some(val) = lower_match_sugar(ctx, scrutinee, arms, expected.clone())? {
+        return Ok(val);
+    }
+    let scrut_ty = infer_expr_type(
+        scrutinee,
+        &ctx.type_env,
+        &ctx.fns,
+        ctx.trait_env,
+        ctx.aliases,
+        ctx.type_defs,
+        &ctx.type_params,
+        &ctx.bounds,
+    )?;
+    let resolved = base_type(&scrut_ty, ctx.aliases)?;
+    if let Type::Named { name, args } = resolved {
+        if ctx.type_defs.enums.contains_key(name.as_str()) {
+            return lower_enum_match(ctx, scrutinee, arms, expected, name.as_str(), &args);
+        }
+    }
+    anyhow::bail!("match expression not supported in lowering yet")
+}
+
 pub(super) fn lower_match_sugar<'a>(
     ctx: &mut LowerCtx<'a>,
     scrutinee: &'a Expr,

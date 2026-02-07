@@ -1,6 +1,6 @@
 use crate::check::{
-    base_type, infer_expr_type, AliasMap, BoundsMap, FnSig as CheckFnSig, LocalBinding,
-    StdTypeMap, TraitEnv, TypeDefs,
+    base_type, AliasMap, BoundsMap, FnSig as CheckFnSig, LocalBinding, StdTypeMap, TraitEnv,
+    TypeDefs,
 };
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Func, ParamKind, Span, Type};
@@ -31,7 +31,7 @@ use calls::lower_call_expr;
 use control::{lower_if_expr, lower_try_expr};
 use index::lower_index_expr;
 use literals::{lower_array_lit, lower_tuple_lit};
-use r#match::{lower_enum_match, lower_match_sugar};
+use r#match::lower_match_expr;
 use structs::{lower_field_access, lower_struct_lit};
 use layout::{
     std_type_info_for,
@@ -364,19 +364,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         }
         Expr::Match {
             scrutinee, arms, ..
-        } => {
-            if let Some(val) = lower_match_sugar(ctx, scrutinee, arms, expected.clone())? {
-                return Ok(val);
-            }
-            let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
-            let resolved = base_type(&scrut_ty, ctx.aliases)?;
-            if let Type::Named { name, args } = resolved {
-                if ctx.type_defs.enums.contains_key(name.as_str()) {
-                    return lower_enum_match(ctx, scrutinee, arms, expected, name.as_str(), &args);
-                }
-            }
-            anyhow::bail!("match expression not supported in lowering yet")
-        }
+        } => lower_match_expr(ctx, scrutinee, arms, expected),
         Expr::Try { expr, .. } => lower_try_expr(ctx, expr),
         Expr::If {
             cond,

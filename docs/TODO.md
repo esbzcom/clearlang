@@ -710,7 +710,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.5.2 Parser/AST for `import`/`export` and namespace nodes.
   - [x] 17.5.3 Typer: module graph resolution + name shadowing diagnostics.
   - [x] 17.5.4 Build system updates (module discovery, caching, error spans).
-  - [ ] 17.5.5 Tests + docs walkthrough.
+  - [x] 17.5.5 Tests + docs walkthrough.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
   - [ ] 17.6.1 Design: ownership rules for collections of resources.
   - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.

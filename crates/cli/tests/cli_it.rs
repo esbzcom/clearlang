@@ -1094,6 +1094,49 @@ fn import_cycle_reports_c025() {
 }
 
 #[test]
+fn import_items_and_aliases_work() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let math_dir = root.join("math");
+    fs::create_dir_all(&math_dir).expect("create math dir");
+
+    let arith = r#"
+        export function add(a: Int, b: Int) -> Int { a + b }
+        export function sub(a: Int, b: Int) -> Int { a - b }
+    "#;
+    fs::write(math_dir.join("arith.clear"), arith.trim()).expect("write arith");
+
+    let main_src = r#"
+        import math::arith as ar
+        import math::arith::{add}
+
+        function main() -> Int {
+            add(1, 2) + ar::sub(4, 1)
+        }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("6"));
+}
+
+#[test]
 fn run_crypto_hash_stub_returns_len() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_hash.clear");

@@ -130,6 +130,39 @@ function main() -> Int {
 }
 ```
 
+## Walkthrough (Minimal Library)
+
+Goal: build a small library module and consume it from `main`.
+
+1) Create the file layout:
+```
+contracts/
+  main.clear
+  math/
+    arith.clear
+```
+
+2) Export library functions in `contracts/math/arith.clear`:
+```
+export function add(a: Int, b: Int) -> Int { a + b }
+export function mul(a: Int, b: Int) -> Int { a * b }
+```
+
+3) Import by module path or by item list in `contracts/main.clear`:
+```
+import math::arith as ar
+import math::arith::{add}
+
+function main() -> Int {
+    add(2, 3) + ar::mul(4, 5)
+}
+```
+
+Notes:
+- The module path comes from the file path: `math/arith.clear` -> `math::arith`.
+- You can always call `math::arith::add(...)` without an import; imports are for brevity.
+- Only items marked `export` are visible to other modules.
+
 ## Implementation Notes (for TODO breakdown)
 - Parser/AST: add `import` statements and optional `module` header.
 - Resolver: map module paths to file paths; enforce reserved `std` root.

@@ -49,6 +49,18 @@ Namespacing (::)
 
 - Rationale: `::` avoids conflicts with `:` (types) and `.` (future member/method and floats), and is familiar for compile-time paths.
 
+Modules and Imports (Phase 17.5)
+
+- Module root is the directory of the entry file passed to `clg build`.
+- File paths define module paths: `foo/bar.clear` -> `foo::bar`.
+- Top-level items are private unless marked `export`.
+- Imports are explicit and non-magical:
+  - `import foo::bar` (bind module name),
+  - `import foo::bar as baz` (alias module),
+  - `import foo::bar::{A, B}` (import items).
+- Fully qualified paths (e.g., `foo::bar::Baz`) are always legal without an import.
+- `std::...` is reserved and resolved by the compiler, not by files.
+
 
 
 Strings (String)

@@ -28,11 +28,13 @@ Decision: module paths are derived from the filesystem.
 Rules:
 - The module root is the directory containing the entry file passed to `clg build`.
 - A file `root/foo/bar.clear` defines module `foo::bar`.
+- The entry file itself is the root namespace; it does not define a module name.
 - Modules can be nested arbitrarily deep; there is no hard depth limit.
 - File extension is `.clear`.
 
 Optional header:
 - A `module` header is allowed only for overrides; omitted by default.
+- Entry files must not declare a `module` header.
 - If present, the header must match the file path (unless explicitly opting out
   for generated code). Mismatches are a build error.
 

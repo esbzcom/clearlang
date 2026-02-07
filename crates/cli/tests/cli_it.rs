@@ -1094,6 +1094,48 @@ fn import_cycle_reports_c025() {
 }
 
 #[test]
+fn entry_file_is_root_namespace() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let util_dir = root.join("util");
+    fs::create_dir_all(&util_dir).expect("create util dir");
+
+    let util_src = r#"
+        import app::{helper}
+        export function use_helper() -> Int { helper() }
+    "#;
+    fs::write(util_dir.join("consumer.clear"), util_src.trim()).expect("write consumer");
+
+    let entry_src = r#"
+        import util::consumer
+        export function helper() -> Int { 5 }
+        function main() -> Int { 0 }
+    "#;
+    let entry_path = root.join("app.clear");
+    fs::write(&entry_path, entry_src.trim()).expect("write entry");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&entry_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C020"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
 fn import_items_and_aliases_work() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

@@ -52,6 +52,7 @@ Namespacing (::)
 Modules and Imports (Phase 17.5)
 
 - Module root is the directory of the entry file passed to `clg build`.
+- The entry file is the root namespace and does not define a module name.
 - File paths define module paths: `foo/bar.clear` -> `foo::bar`.
 - Top-level items are private unless marked `export`.
 - Imports are explicit and non-magical:

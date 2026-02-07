@@ -43,6 +43,9 @@ struct ResolveCtx<'a> {
 
 pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
     let root = entry.parent().unwrap_or_else(|| Path::new("."));
+    let root = root
+        .canonicalize()
+        .unwrap_or_else(|_| root.to_path_buf());
     let entry_abs = entry
         .canonicalize()
         .unwrap_or_else(|_| entry.to_path_buf());
@@ -53,7 +56,12 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
     queue.push_back(entry_abs.clone());
 
     while let Some(file) = queue.pop_front() {
-        let path = module_path_for(root, &file)?;
+        let is_entry = same_path(&entry_abs, &file);
+        let path = if is_entry {
+            Vec::new()
+        } else {
+            module_path_for(&root, &file)?
+        };
         let path_str = path.join("::");
         if let Some(existing) = module_files.get(&path_str) {
             if !same_path(existing, &file) {
@@ -74,9 +82,17 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
         }
 
         let program = parse_file(&file, json_errors)?;
-        let is_entry = same_path(&entry_abs, &file);
 
         if let Some(decl) = &program.module {
+            if is_entry {
+                return Err(module_error(
+                    "C023",
+                    "entry file cannot declare a module header".to_string(),
+                    &file,
+                    decl.span,
+                    json_errors,
+                ));
+            }
             if decl.path != path {
                 return Err(module_error(
                     "C023",
@@ -101,7 +117,7 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
                     continue;
                 }
             }
-            let import_file = module_file_for(root, &import.path);
+            let import_file = module_file_for(&root, &import.path);
             if !import_file.exists() {
                 return Err(module_error(
                     "C020",

@@ -18,21 +18,20 @@ mod eq;
 mod index;
 mod intrinsics;
 mod layout;
+mod literals;
 mod r#match;
 mod structs;
 
-use array::{
-    emit_array_len_guard, ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET,
-    ARRAY_HEADER_SIZE,
-};
+use array::emit_array_len_guard;
 use block::{expr_span_local, lower_block_expr};
 use calls::lower_call_expr;
 use eq::emit_eq_for_type;
 use index::lower_index_expr;
+use literals::{lower_array_lit, lower_tuple_lit};
 use r#match::{lower_enum_match, lower_match_sugar};
 use structs::{lower_field_access, lower_struct_lit};
 use layout::{
-    array_layout, std_type_info_for, tuple_layout,
+    std_type_info_for,
 };
 
 type FnSig = CheckFnSig;
@@ -351,62 +350,8 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             ctx.body.push(Instr::IStringConst { dst, s: s.clone() });
             Ok(dst)
         }
-        Expr::ArrayLit { elems, .. } => {
-            let first = elems
-                .first()
-                .ok_or_else(|| anyhow::anyhow!("array literal requires at least one element"))?;
-            let elem_ty = infer_expr_type(first, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
-            let elem_ty = base_type(&elem_ty, ctx.aliases)?;
-            let layout = array_layout(&elem_ty, elems.len() as u32, ctx.aliases, ctx.std_types)?;
-            let data_ptr = emit_alloc(ctx, layout.size, layout.align);
-            let header_ptr = emit_alloc(ctx, ARRAY_HEADER_SIZE, ARRAY_HEADER_ALIGN);
-            let len_val = emit_int_const(ctx, elems.len() as i64);
-            ctx.body.push(Instr::Store {
-                ptr: header_ptr,
-                src: len_val,
-                offset: ARRAY_HEADER_LEN_OFFSET,
-                ty: IrType::Int,
-            });
-            ctx.body.push(Instr::Store {
-                ptr: header_ptr,
-                src: data_ptr,
-                offset: ARRAY_HEADER_DATA_OFFSET,
-                ty: IrType::Int,
-            });
-            for (idx, elem) in elems.iter().enumerate() {
-                let offset = (idx as u64)
-                    .checked_mul(layout.stride as u64)
-                    .ok_or_else(|| anyhow::anyhow!("array literal offset overflow"))?;
-                if offset > u32::MAX as u64 {
-                    anyhow::bail!("array literal offset exceeds u32 limits");
-                }
-                let val = lower_expr(ctx, elem, Some(elem_ty.clone()))?;
-                store_value(ctx, &elem_ty, data_ptr, offset as u32, val)?;
-            }
-            Ok(header_ptr)
-        }
-        Expr::TupleLit { elems, .. } => {
-            let mut elem_tys = Vec::with_capacity(elems.len());
-            for elem in elems {
-                let ty = infer_expr_type(elem, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
-                elem_tys.push(base_type(&ty, ctx.aliases)?);
-            }
-            let layout = tuple_layout(&elem_tys, ctx.aliases, ctx.std_types)?;
-            let ptr = emit_alloc(ctx, layout.size, layout.align);
-            for (idx, elem) in elems.iter().enumerate() {
-                let elem_ty = elem_tys
-                    .get(idx)
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("tuple element missing"))?;
-                let val = lower_expr(ctx, elem, Some(elem_ty.clone()))?;
-                let offset = *layout
-                    .offsets
-                    .get(idx)
-                    .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
-                store_value(ctx, &elem_ty, ptr, offset, val)?;
-            }
-            Ok(ptr)
-        }
+        Expr::ArrayLit { elems, .. } => lower_array_lit(ctx, elems),
+        Expr::TupleLit { elems, .. } => lower_tuple_lit(ctx, elems),
         Expr::StructLit { name: _, fields, .. } => lower_struct_lit(ctx, e, fields),
         Expr::FieldAccess { base, field, .. } => {
             lower_field_access(ctx, base, field.as_str())

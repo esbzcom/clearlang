@@ -705,13 +705,14 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.4.3 Lowering/codegen for layout + bounds checks.
   - [x] 17.4.4 Runtime helpers + tests (`std::array::len`, `std::slice::{from_array,sub}`, array/slice bounds + length-guard coverage).
   - Note: `[T; N]` is sugar over `Array<T>` with length-contract guards; docs/ABI updated accordingly.
-- [ ] 17.5 Add module/import system with visibility controls for libraries.
+- [x] 17.5 Add module/import system with visibility controls for libraries.
   - [x] 17.5.1 Design: file layout, module paths, visibility keywords, and re-exports.
   - [x] 17.5.2 Parser/AST for `import`/`export` and namespace nodes.
   - [x] 17.5.3 Typer: module graph resolution + name shadowing diagnostics.
   - [x] 17.5.4 Build system updates (module discovery, caching, error spans).
   - [x] 17.5.5 Tests + docs walkthrough.
   - [x] 17.5.6 Std/chain package export metadata (type/value classification for `std` imports).
+  - [x] 17.5.7 Std/chain type layout metadata + value semantics (byte-wise equality).
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
   - [ ] 17.6.1 Design: ownership rules for collections of resources.
   - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.

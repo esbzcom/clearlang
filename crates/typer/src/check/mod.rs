@@ -59,6 +59,14 @@ pub(crate) struct AliasDef {
 
 pub(crate) type AliasMap = HashMap<String, AliasDef>;
 
+#[derive(Clone, Debug)]
+pub struct StdTypeInfo {
+    pub byte_len: u32,
+    pub align: u32,
+}
+
+pub type StdTypeMap = HashMap<String, StdTypeInfo>;
+
 pub(crate) struct StructInfo<'a> {
     pub decl: &'a StructDecl,
     pub fields: HashMap<&'a str, &'a StructField>,
@@ -912,7 +920,7 @@ fn build_trait_env<'a>(
     program: &'a Program,
     aliases: &AliasMap,
     type_defs: &TypeDefs<'a>,
-    std_types: &HashSet<String>,
+    std_types: &StdTypeMap,
 ) -> Result<TraitEnv<'a>> {
     let mut traits: HashMap<&'a str, TraitInfo<'a>> =
         HashMap::with_capacity(program.traits.len());
@@ -1196,7 +1204,7 @@ fn ensure_known_type(
     aliases: &AliasMap,
     type_defs: &TypeDefs,
     type_params: &HashSet<String>,
-    std_types: &HashSet<String>,
+    std_types: &StdTypeMap,
     span: Option<Span>,
 ) -> Result<()> {
     match ty {
@@ -1252,7 +1260,7 @@ fn ensure_known_type(
                 }
                 return Ok(());
             }
-            if std_types.contains(name) {
+            if std_types.contains_key(name) {
                 if !args.is_empty() {
                     return Err(TyperError::type_arg_count_mismatch(
                         name,
@@ -1291,7 +1299,7 @@ fn validate_known_types(
     aliases: &AliasMap,
     type_defs: &TypeDefs,
     trait_env: &TraitEnv,
-    std_types: &HashSet<String>,
+    std_types: &StdTypeMap,
 ) -> Result<()> {
     for res in &program.resources {
         for field in &res.fields {
@@ -1518,13 +1526,13 @@ pub struct TypecheckOutput {
 }
 
 pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
-    let std_types = HashSet::new();
+    let std_types = StdTypeMap::new();
     check_with_vcs_with_std(ast, &std_types)
 }
 
 pub fn check_with_vcs_with_std(
     ast: &Program,
-    std_types: &HashSet<String>,
+    std_types: &StdTypeMap,
 ) -> Result<TypecheckOutput> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
         return fast_path_without_totality_with_std(ast, std_types);
@@ -1747,6 +1755,7 @@ pub fn check_with_vcs_with_std(
                 &alias_map,
                 &trait_env,
                 &type_defs,
+                std_types,
             )?);
     }
     // Append intrinsic function declarations at the end
@@ -1764,13 +1773,13 @@ pub fn check(ast: &Program) -> Result<Module> {
 }
 
 pub fn type_check_only(ast: &Program) -> Result<()> {
-    let std_types = HashSet::new();
+    let std_types = StdTypeMap::new();
     type_check_only_with_std(ast, &std_types)
 }
 
 pub fn type_check_only_with_std(
     ast: &Program,
-    std_types: &HashSet<String>,
+    std_types: &StdTypeMap,
 ) -> Result<()> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
         return fast_path_without_totality_with_std(ast, std_types).map(|_| ());
@@ -1846,7 +1855,7 @@ pub fn type_check_only_with_std(
 
 fn fast_path_without_totality_with_std(
     ast: &Program,
-    std_types: &HashSet<String>,
+    std_types: &StdTypeMap,
 ) -> Result<TypecheckOutput> {
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
@@ -2058,6 +2067,7 @@ fn fast_path_without_totality_with_std(
                 &alias_map,
                 &trait_env,
                 &type_defs,
+                std_types,
             )?);
     }
     module.funcs.extend(intrinsic_defs);

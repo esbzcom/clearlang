@@ -44,7 +44,7 @@ pub fn run(
         load_program(&file, json_errors)?
     };
 
-    let std_types = crate::commands::modules::std_type_names();
+    let std_types = crate::commands::modules::std_type_info();
     let type_output = {
         let _stage = timings.start(logger, "typecheck");
         match check_with_vcs_with_std(&ast, &std_types) {

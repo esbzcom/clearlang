@@ -1,6 +1,6 @@
 use crate::check::{
     base_type, infer_expr_type, substitute_type, AliasMap, BoundsMap, FnSig as CheckFnSig,
-    LocalBinding, TraitEnv, TypeDefs, TypeSubst,
+    LocalBinding, StdTypeMap, TraitEnv, TypeDefs, TypeSubst,
 };
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
@@ -238,6 +238,7 @@ pub(crate) struct LowerCtx<'a> {
     pub aliases: &'a AliasMap,
     pub trait_env: &'a TraitEnv<'a>,
     pub type_defs: &'a TypeDefs<'a>,
+    pub std_types: &'a StdTypeMap,
     pub type_params: HashSet<String>,
     pub bounds: BoundsMap,
     pub body: Vec<Instr>,
@@ -251,6 +252,7 @@ pub(crate) fn lower_func<'a>(
     aliases: &'a AliasMap,
     trait_env: &'a TraitEnv<'a>,
     type_defs: &'a TypeDefs<'a>,
+    std_types: &'a StdTypeMap,
 ) -> Result<IrFunction> {
     let mut env: HashMap<&str, Value> = HashMap::new();
     let mut type_env: HashMap<&str, LocalBinding> = HashMap::new();
@@ -280,6 +282,7 @@ pub(crate) fn lower_func<'a>(
         aliases,
         trait_env,
         type_defs,
+        std_types,
         type_params: f.type_params.iter().map(|p| p.name.clone()).collect(),
         bounds: {
             let mut map: BoundsMap = HashMap::new();
@@ -2071,6 +2074,9 @@ fn emit_eq_for_type(
             anyhow::bail!("array/slice equality is not supported")
         }
         Type::Named { name, args } => {
+            if let Some(info) = ctx.std_types.get(name.as_str()) {
+                return emit_eq_bytes_fixed(ctx, lhs, rhs, info.byte_len);
+            }
             if ctx.type_defs.structs.contains_key(name.as_str()) {
                 emit_eq_struct(ctx, name.as_str(), &args, lhs, rhs, aliases)
             } else if ctx.type_defs.enums.contains_key(name.as_str()) {
@@ -2104,6 +2110,83 @@ fn emit_eq_for_type(
             Ok(dst)
         }
     }
+}
+
+fn emit_eq_bytes_fixed(
+    ctx: &mut LowerCtx<'_>,
+    lhs: Value,
+    rhs: Value,
+    byte_len: u32,
+) -> Result<Value> {
+    if byte_len == 0 {
+        return Ok(emit_bool_const(ctx, true));
+    }
+    let result = emit_bool_const(ctx, true);
+    let idx = fresh(ctx);
+    ctx.body.push(Instr::IConst {
+        dst: idx,
+        ty: IrType::Int,
+        n: 0,
+    });
+    let len_val = emit_int_const(ctx, byte_len as i64);
+    let one = emit_int_const(ctx, 1);
+
+    ctx.body.push(Instr::BlockBegin);
+    ctx.body.push(Instr::LoopBegin);
+    let cond = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: cond,
+        op: BinOpIR::Lt,
+        lhs: idx,
+        rhs: len_val,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::BrIfEqz { cond, depth: 1 });
+    ctx.body.push(Instr::BrIfEqz { cond: result, depth: 1 });
+
+    let lhs_ptr = emit_ptr_add(ctx, lhs, idx);
+    let rhs_ptr = emit_ptr_add(ctx, rhs, idx);
+    let lhs_byte = fresh(ctx);
+    ctx.body.push(Instr::Load {
+        dst: lhs_byte,
+        ptr: lhs_ptr,
+        offset: 0,
+        ty: IrType::U8,
+    });
+    let rhs_byte = fresh(ctx);
+    ctx.body.push(Instr::Load {
+        dst: rhs_byte,
+        ptr: rhs_ptr,
+        offset: 0,
+        ty: IrType::U8,
+    });
+    let eq = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: eq,
+        op: BinOpIR::Eq,
+        lhs: lhs_byte,
+        rhs: rhs_byte,
+        ty: IrType::U8,
+    });
+    ctx.body.push(Instr::IBin {
+        dst: result,
+        op: BinOpIR::And,
+        lhs: result,
+        rhs: eq,
+        ty: IrType::Bool,
+    });
+
+    ctx.body.push(Instr::IBin {
+        dst: idx,
+        op: BinOpIR::Add,
+        lhs: idx,
+        rhs: one,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::Br { depth: 0 });
+    ctx.body.push(Instr::LoopEnd);
+    ctx.body.push(Instr::BlockEnd);
+    Ok(result)
 }
 
 fn emit_eq_struct(

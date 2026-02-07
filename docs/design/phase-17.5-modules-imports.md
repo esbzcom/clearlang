@@ -68,6 +68,7 @@ Notes:
 - No glob imports (`*`) in v1.
 - No re-exports in v1 (i.e., `export import` is not allowed).
 - Item imports (`{A, B}`) must be explicit and exact; missing names are errors.
+- Item import aliasing is not supported; alias the module instead.
 
 Name use:
 - `import foo::bar` allows `bar::Name` usage.
@@ -97,11 +98,18 @@ Minimal fields:
 - package path (e.g., `std::eth`), version, ABI/schema version.
 - module list (paths provided by the package).
 - export table: name + kind (type or value), and optional signatures.
+- type layouts for exported std/chain types (byte length + alignment).
 
 Benefits:
 - Precise C021-style errors for invalid `std` imports.
 - Correct handling of `import std::...::{TypeName}` in type positions.
+- Value semantics for std/chain identity types (byte-wise equality).
 - Forward compatibility with compiled package imports (Phase 18.4).
+
+Std/chain types are treated as opaque *value types* backed by fixed-size byte
+buffers. The metadata `layout.bytes` declares the canonical size (e.g., `20`
+for `std::eth::Address`), and equality compares bytes rather than pointer
+identity. This does not change user syntax.
 
 ## Resolution and Errors
 
@@ -188,4 +196,4 @@ Notes:
 - Docs: update `docs/typing.md` and `docs/collections.md` with the new syntax.
 
 ## Open Questions
-- Should item imports allow aliasing (e.g., `import foo::bar::{A as X}`)?
+None.

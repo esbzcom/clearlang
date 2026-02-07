@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "modules": [
     {
       "path": "std::bytes",
@@ -137,19 +137,19 @@
     {
       "path": "std::eth",
       "exports": [
-        { "name": "Address", "kind": "type" }
+        { "name": "Address", "kind": "type", "layout": { "bytes": 20, "align": 1 } }
       ]
     },
     {
       "path": "std::solana",
       "exports": [
-        { "name": "Pubkey", "kind": "type" }
+        { "name": "Pubkey", "kind": "type", "layout": { "bytes": 32, "align": 1 } }
       ]
     },
     {
       "path": "std::cosmos",
       "exports": [
-        { "name": "Addr", "kind": "type" }
+        { "name": "Addr", "kind": "type", "layout": { "bytes": 20, "align": 1 } }
       ]
     }
   ]

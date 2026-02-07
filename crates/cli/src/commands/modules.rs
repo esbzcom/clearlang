@@ -9,6 +9,7 @@ use clg_ast::{
     Block, Expr, Func, ImportKind, MatchArm, MatchPat, Program, Span, Stmt, TraitBound, Type,
 };
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
+use clg_typer::StdTypeInfo;
 use serde::Deserialize;
 
 use super::helpers::{make_parse_json_error, make_single_json_error, CommandError};
@@ -50,6 +51,8 @@ struct StdModule {
 struct StdExport {
     name: String,
     kind: StdExportKind,
+    #[serde(default)]
+    layout: Option<StdTypeLayout>,
 }
 
 #[derive(Deserialize, Clone, Copy)]
@@ -59,6 +62,12 @@ enum StdExportKind {
     Value,
 }
 
+#[derive(Deserialize, Clone)]
+struct StdTypeLayout {
+    bytes: u32,
+    align: u32,
+}
+
 struct StdModuleIndex {
     values: HashSet<String>,
     types: HashSet<String>,
@@ -66,32 +75,56 @@ struct StdModuleIndex {
 
 struct StdMetadataIndex {
     modules: HashMap<String, StdModuleIndex>,
+    types: HashMap<String, StdTypeInfo>,
 }
 
 impl StdMetadataIndex {
     fn load() -> Self {
         let raw: StdMetadata = serde_json::from_str(include_str!("../../assets/std-metadata.json"))
             .expect("invalid std metadata");
-        if raw.schema_version != 1 {
+        if raw.schema_version != 2 {
             panic!("unsupported std metadata schema version {}", raw.schema_version);
         }
         let mut modules = HashMap::new();
+        let mut types = HashMap::new();
         for module in raw.modules {
             let mut values = HashSet::new();
-            let mut types = HashSet::new();
+            let mut types_set = HashSet::new();
             for export in module.exports {
                 match export.kind {
                     StdExportKind::Value => {
                         values.insert(export.name);
                     }
                     StdExportKind::Type => {
-                        types.insert(export.name);
+                        let layout = export.layout.unwrap_or_else(|| {
+                            panic!("std type `{}` is missing layout metadata", export.name)
+                        });
+                        if layout.bytes == 0 {
+                            panic!("std type `{}` has zero-byte layout", export.name);
+                        }
+                        if layout.align == 0 {
+                            panic!("std type `{}` has zero alignment", export.name);
+                        }
+                        let qualified = format!("{}::{}", module.path, export.name);
+                        if types
+                            .insert(
+                                qualified,
+                                StdTypeInfo {
+                                    byte_len: layout.bytes,
+                                    align: layout.align,
+                                },
+                            )
+                            .is_some()
+                        {
+                            panic!("duplicate std type `{}`", export.name);
+                        }
+                        types_set.insert(export.name);
                     }
                 }
             }
-            modules.insert(module.path, StdModuleIndex { values, types });
+            modules.insert(module.path, StdModuleIndex { values, types: types_set });
         }
-        StdMetadataIndex { modules }
+        StdMetadataIndex { modules, types }
     }
 
     fn module(&self, path: &str) -> Option<&StdModuleIndex> {
@@ -104,14 +137,8 @@ fn std_metadata() -> &'static StdMetadataIndex {
     STD_METADATA.get_or_init(StdMetadataIndex::load)
 }
 
-pub fn std_type_names() -> HashSet<String> {
-    let mut out = HashSet::new();
-    for (module_path, module) in &std_metadata().modules {
-        for name in &module.types {
-            out.insert(format!("{}::{}", module_path, name));
-        }
-    }
-    out
+pub fn std_type_info() -> HashMap<String, StdTypeInfo> {
+    std_metadata().types.clone()
 }
 
 struct ResolveCtx<'a> {

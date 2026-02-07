@@ -5,7 +5,9 @@ mod guards;
 mod lower;
 mod vc;
 
-pub use check::{check, check_with_vcs, check_with_vcs_with_std, TypecheckOutput};
+pub use check::{
+    check, check_with_vcs, check_with_vcs_with_std, StdTypeInfo, StdTypeMap, TypecheckOutput,
+};
 pub use errors::TyperError;
 pub use vc::{
     generate_vcs, ContractExpr, ExprSnapshot, RefinementAttachment, RefinementAttachmentDetail,
@@ -20,7 +22,7 @@ pub fn type_check_only(ast: &clg_ast::Program) -> anyhow::Result<()> {
 
 pub fn type_check_only_with_std(
     ast: &clg_ast::Program,
-    std_types: &std::collections::HashSet<String>,
+    std_types: &StdTypeMap,
 ) -> anyhow::Result<()> {
     check::type_check_only_with_std(ast, std_types)
 }

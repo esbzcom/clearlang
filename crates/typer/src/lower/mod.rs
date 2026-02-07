@@ -30,7 +30,9 @@ use binops::lower_bin_expr;
 use calls::lower_call_expr;
 use control::{lower_if_expr, lower_try_expr};
 use index::lower_index_expr;
-use literals::{lower_array_lit, lower_tuple_lit};
+use literals::{
+    lower_array_lit, lower_bool_lit, lower_int_lit, lower_string_lit, lower_tuple_lit,
+};
 use r#match::lower_match_expr;
 use structs::{lower_field_access, lower_struct_lit};
 use layout::{
@@ -272,87 +274,15 @@ pub(crate) fn lower_func<'a>(
 
 fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -> Result<Value> {
     match e {
-        Expr::Int(n, _) => match expected {
-            Some(Type::U8) => {
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::IConst {
-                    dst,
-                    ty: IrType::U8,
-                    n: *n,
-                });
-                Ok(dst)
-            }
-            Some(Type::U64) => {
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::IConst {
-                    dst,
-                    ty: IrType::U64,
-                    n: *n,
-                });
-                Ok(dst)
-            }
-            Some(Type::U128) => {
-                if *n < 0 {
-                    anyhow::bail!("U128 literal must be non-negative");
-                }
-                let limb_lo = emit_u64_const(ctx, *n as u64);
-                let limb_hi = emit_u64_const(ctx, 0);
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::U128Init {
-                    dst,
-                    limb_lo,
-                    limb_hi,
-                });
-                Ok(dst)
-            }
-            Some(Type::U256) => {
-                if *n < 0 {
-                    anyhow::bail!("U256 literal must be non-negative");
-                }
-                let limb0 = emit_u64_const(ctx, *n as u64);
-                let limb1 = emit_u64_const(ctx, 0);
-                let limb2 = emit_u64_const(ctx, 0);
-                let limb3 = emit_u64_const(ctx, 0);
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::U256Init {
-                    dst,
-                    limb0,
-                    limb1,
-                    limb2,
-                    limb3,
-                });
-                Ok(dst)
-            }
-            _ => {
-                let dst = fresh(ctx);
-                ctx.body.push(Instr::IConst {
-                    dst,
-                    ty: IrType::Int,
-                    n: *n,
-                });
-                Ok(dst)
-            }
-        },
+        Expr::Int(n, _) => lower_int_lit(ctx, *n, expected),
         Expr::Block { block } => lower_block_expr(ctx, block, expected),
         Expr::Return { expr, .. } => {
             // For expression-bodied functions, `return e` is equivalent to `e`.
             // Lower inner expression; the enclosing function appends the Ret.
             lower_expr(ctx, expr, expected)
         }
-        Expr::Bool(b, _) => {
-            let dst = fresh(ctx);
-            ctx.body.push(Instr::IConst {
-                dst,
-                ty: IrType::Bool,
-                n: if *b { 1 } else { 0 },
-            });
-            Ok(dst)
-        }
-        Expr::String(s, _) => {
-            let dst = fresh(ctx);
-            ctx.body.push(Instr::IStringConst { dst, s: s.clone() });
-            Ok(dst)
-        }
+        Expr::Bool(b, _) => lower_bool_lit(ctx, *b),
+        Expr::String(s, _) => lower_string_lit(ctx, s),
         Expr::ArrayLit { elems, .. } => lower_array_lit(ctx, elems),
         Expr::TupleLit { elems, .. } => lower_tuple_lit(ctx, elems),
         Expr::StructLit { name: _, fields, .. } => lower_struct_lit(ctx, e, fields),

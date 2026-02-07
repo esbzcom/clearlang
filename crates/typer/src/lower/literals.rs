@@ -1,13 +1,102 @@
 use crate::check::{base_type, infer_expr_type};
 use anyhow::Result;
-use clg_ast::Expr;
+use clg_ast::{Expr, Type};
 use clg_ir::{Instr, IrType, Value};
 
 use super::array::{
     ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET, ARRAY_HEADER_SIZE,
 };
 use super::layout::{array_layout, tuple_layout};
-use super::{emit_alloc, emit_int_const, lower_expr, store_value, LowerCtx};
+use super::{
+    emit_alloc, emit_int_const, emit_u64_const, fresh, lower_expr, store_value, LowerCtx,
+};
+
+pub(super) fn lower_int_lit(
+    ctx: &mut LowerCtx<'_>,
+    n: i64,
+    expected: Option<Type>,
+) -> Result<Value> {
+    match expected {
+        Some(Type::U8) => {
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst,
+                ty: IrType::U8,
+                n,
+            });
+            Ok(dst)
+        }
+        Some(Type::U64) => {
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst,
+                ty: IrType::U64,
+                n,
+            });
+            Ok(dst)
+        }
+        Some(Type::U128) => {
+            if n < 0 {
+                anyhow::bail!("U128 literal must be non-negative");
+            }
+            let limb_lo = emit_u64_const(ctx, n as u64);
+            let limb_hi = emit_u64_const(ctx, 0);
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::U128Init {
+                dst,
+                limb_lo,
+                limb_hi,
+            });
+            Ok(dst)
+        }
+        Some(Type::U256) => {
+            if n < 0 {
+                anyhow::bail!("U256 literal must be non-negative");
+            }
+            let limb0 = emit_u64_const(ctx, n as u64);
+            let limb1 = emit_u64_const(ctx, 0);
+            let limb2 = emit_u64_const(ctx, 0);
+            let limb3 = emit_u64_const(ctx, 0);
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::U256Init {
+                dst,
+                limb0,
+                limb1,
+                limb2,
+                limb3,
+            });
+            Ok(dst)
+        }
+        _ => {
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst,
+                ty: IrType::Int,
+                n,
+            });
+            Ok(dst)
+        }
+    }
+}
+
+pub(super) fn lower_bool_lit(ctx: &mut LowerCtx<'_>, value: bool) -> Result<Value> {
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::IConst {
+        dst,
+        ty: IrType::Bool,
+        n: if value { 1 } else { 0 },
+    });
+    Ok(dst)
+}
+
+pub(super) fn lower_string_lit(ctx: &mut LowerCtx<'_>, value: &String) -> Result<Value> {
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::IStringConst {
+        dst,
+        s: value.clone(),
+    });
+    Ok(dst)
+}
 
 pub(super) fn lower_array_lit<'a>(
     ctx: &mut LowerCtx<'a>,

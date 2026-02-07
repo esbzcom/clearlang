@@ -152,7 +152,7 @@ fn parses_array_and_tuple_types() {
     let func = &ast.funcs[0];
     if let Type::Array(inner, len) = &func.params[0].ty {
         assert!(matches!(**inner, Type::U8));
-        assert_eq!(*len, 32);
+        assert_eq!(*len, Some(32));
     } else {
         panic!("expected array type for first parameter");
     }
@@ -180,6 +180,28 @@ fn parses_tuple_type_with_three_elems() {
         assert!(matches!(elems[2], Type::U8));
     } else {
         panic!("expected tuple type for parameter");
+    }
+}
+
+#[test]
+fn parses_array_and_slice_named_types() {
+    let src = r#"
+        function main(a: Array<Int>, s: Slice<U8>) -> Int { 1 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let func = &ast.funcs[0];
+    match &func.params[0].ty {
+        Type::Array(inner, len) => {
+            assert!(matches!(**inner, Type::Int));
+            assert_eq!(*len, None);
+        }
+        other => panic!("expected Array<Int> for first parameter, found {other:?}"),
+    }
+    match &func.params[1].ty {
+        Type::Slice(inner) => {
+            assert!(matches!(**inner, Type::U8));
+        }
+        other => panic!("expected Slice<U8> for second parameter, found {other:?}"),
     }
 }
 

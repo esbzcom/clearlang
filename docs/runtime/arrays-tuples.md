@@ -1,15 +1,17 @@
-# Arrays and Tuples Layout (Phase 15.5)
+# Arrays, Slices, and Tuples Layout (Phase 17.4)
 
-This document specifies the in-memory layout for fixed-size arrays and tuples.
+This document specifies the in-memory layout for dynamic arrays, slices, and tuples.
 Values are represented as 32-bit pointers to heap-allocated storage in linear memory.
 
 ## Scope
-- Fixed-size arrays: `[T; N]` where `N` is a compile-time constant.
+- Dynamic arrays: `Array<T>`.
+- Slices: `Slice<T>`.
+- Fixed-size sugar: `[T; N]` is syntax sugar for `Array<T>` with a length contract.
 - Tuples: `(T1, T2, ...)` with arity >= 2.
 
 ## Value Representation
-Array and tuple values are passed as `i32` pointers to the start of the
-contiguous layout described below.
+Array, slice, and tuple values are passed as `i32` pointers to the layouts
+described below.
 
 ## Element Layout Basics
 Elements are laid out using each type's runtime representation.
@@ -30,35 +32,58 @@ Elements are laid out using each type's runtime representation.
 | `Enum` | 4 | 4 | i32 pointer to 16-byte variant layout |
 | `List/Set/Map` | 4 | 4 | i32 pointer to collection header (see `docs/design/phase-17.3-collections-runtime.md`) |
 | `Resource` | 4 | 4 | i32 handle (runtime-defined) |
-| `Array<T>` | 4 | 4 | i32 pointer to array allocation |
+| `Array<T>` | 4 | 4 | i32 pointer to array header |
+| `Slice<T>` | 4 | 4 | i32 pointer to slice header |
 | `Tuple` | 4 | 4 | i32 pointer to tuple allocation |
 
 Notes:
-- Arrays/tuples cannot contain resources (enforced by the typer).
+- Arrays/slices/tuples cannot contain resources (enforced by the typer).
 - `U128`/`U256` use limb buffers defined in `docs/design/phase-15.1-unsigned-ints.md`.
 - Enums use the variant layout; for multi-field variants, `payload_lo` points to a tuple allocation that follows the same layout rules.
 
-## Array Layout
-For `[T; N]`:
+## Array and Slice Layout
+
+Both arrays and slices use the same header layout:
+```
+struct SliceHeader {
+    u32 len;
+    u32 data_ptr;  // pointer to the first element
+}
+```
+
+Element layout:
 - Element size = `size_of(T)`
 - Element alignment = `align_of(T)`
 - Stride = `align_up(size_of(T), align_of(T))`
-- Total size = `N * stride`
+- Data size = `len * stride`
 
-Elements are stored contiguously starting at the base pointer.
+Elements are stored contiguously starting at `data_ptr`.
 
-Example: `[U8; 4]`
+Note: `[T; N]` does not change the runtime layout; it is enforced as a length
+constraint at the type level.
+
+Example: `Array<U8>` with `len = 4`
 ```
-offset 0: u8
-offset 1: u8
-offset 2: u8
-offset 3: u8
+header:
+  len = 4
+  data_ptr -> element buffer
+
+element buffer:
+  offset 0: u8
+  offset 1: u8
+  offset 2: u8
+  offset 3: u8
 ```
 
-Example: `[U64; 2]` (stride 8)
+Example: `Array<U64>` with `len = 2` (stride 8)
 ```
-offset 0: i64
-offset 8: i64
+header:
+  len = 2
+  data_ptr -> element buffer
+
+element buffer:
+  offset 0: i64
+  offset 8: i64
 ```
 
 ## Tuple Layout
@@ -80,5 +105,4 @@ total size: 16 (aligned to 8)
 ```
 
 ## Implementation Status
-Lowering allocates arrays and tuples using this layout and emits loads/stores
-for literals and indexing (Phase 15.6).
+Tuples use this layout today. Dynamic arrays/slices are planned for Phase 17.4.

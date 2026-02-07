@@ -181,6 +181,7 @@ pub(crate) fn substitute_type(ty: &Type, subst: &TypeSubst) -> Type {
             Box::new(substitute_type(v, subst)),
         ),
         Type::Array(inner, len) => Type::Array(Box::new(substitute_type(inner, subst)), *len),
+        Type::Slice(inner) => Type::Slice(Box::new(substitute_type(inner, subst))),
         Type::Tuple(elements) => {
             Type::Tuple(elements.iter().map(|elem| substitute_type(elem, subst)).collect())
         }
@@ -237,10 +238,12 @@ pub(crate) fn unify_type_params(
             }
             _ => Ok(()),
         },
-        Type::Array(inner, len) => match actual {
-            Type::Array(act_inner, act_len) if len == act_len => {
-                unify_type_params(inner, act_inner, params, subst, aliases)
-            }
+        Type::Array(inner, _) => match actual {
+            Type::Array(act_inner, _) => unify_type_params(inner, act_inner, params, subst, aliases),
+            _ => Ok(()),
+        },
+        Type::Slice(inner) => match actual {
+            Type::Slice(act_inner) => unify_type_params(inner, act_inner, params, subst, aliases),
             _ => Ok(()),
         },
         Type::Tuple(elements) => match actual {
@@ -274,7 +277,7 @@ pub(crate) fn type_contains_params(ty: &Type, params: &HashSet<String>) -> bool 
             params.contains(name.as_str())
                 || args.iter().any(|arg| type_contains_params(arg, params))
         }
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
             type_contains_params(inner, params)
         }
         Type::Result(ok, err) | Type::Map(ok, err) => {
@@ -297,7 +300,7 @@ fn collect_type_params_in_type(ty: &Type, params: &HashSet<String>, used: &mut H
                 collect_type_params_in_type(arg, params, used);
             }
         }
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
             collect_type_params_in_type(inner, params, used);
         }
         Type::Result(ok, err) | Type::Map(ok, err) => {
@@ -333,7 +336,7 @@ fn ensure_supported_type(
 ) -> Result<()> {
     match ty {
         Type::U128 | Type::U256 => Ok(()),
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
             ensure_supported_type(inner, span, type_params)
         }
         Type::Named { args, .. } => {
@@ -446,7 +449,9 @@ fn find_resource_collection(
                 None
             }
         }
-        Type::Option(inner) => find_resource_collection(inner, resource_names, type_params),
+        Type::Option(inner) | Type::Slice(inner) => {
+            find_resource_collection(inner, resource_names, type_params)
+        }
         Type::Result(ok, err) => {
             find_resource_collection(ok, resource_names, type_params)
                 .or_else(|| find_resource_collection(err, resource_names, type_params))
@@ -479,7 +484,7 @@ fn contains_resource(
                     .iter()
                     .any(|arg| contains_resource(arg, resource_names, type_params))
         }
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
             contains_resource(inner, resource_names, type_params)
         }
         Type::Result(ok, err) | Type::Map(ok, err) => {
@@ -533,9 +538,7 @@ fn find_non_equatable_collection_key(
                 find_non_equatable_collection_key(&val, type_defs, aliases, type_params, seen)
             }
         }
-        Type::Option(inner)
-        | Type::List(inner)
-        | Type::Array(inner, _) => {
+        Type::Option(inner) | Type::List(inner) | Type::Array(inner, _) | Type::Slice(inner) => {
             find_non_equatable_collection_key(&inner, type_defs, aliases, type_params, seen)
         }
         Type::Result(ok, err) => {
@@ -625,7 +628,7 @@ fn is_equatable_type(
             is_equatable_type(&ok, type_defs, aliases, type_params, seen)?
                 && is_equatable_type(&err, type_defs, aliases, type_params, seen)?
         }
-        Type::Array(inner, _) => is_equatable_type(&inner, type_defs, aliases, type_params, seen)?,
+        Type::Array(_, _) | Type::Slice(_) => false,
         Type::Tuple(elements) => {
             let mut ok = true;
             for elem in elements {
@@ -704,7 +707,7 @@ fn contains_named_resource(
                     .iter()
                     .any(|arg| contains_named_resource(arg, resource_names, type_params))
         }
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
             contains_named_resource(inner, resource_names, type_params)
         }
         Type::Result(ok, err) | Type::Map(ok, err) => {
@@ -1157,9 +1160,10 @@ fn types_overlap(
                 overlaps(lk, left_params, rk, right_params, seen)
                     && overlaps(lv, left_params, rv, right_params, seen)
             }
-            (Type::Array(l, ll), Type::Array(r, rl)) if ll == rl => {
+            (Type::Array(l, _), Type::Array(r, _)) => {
                 overlaps(l, left_params, r, right_params, seen)
             }
+            (Type::Slice(l), Type::Slice(r)) => overlaps(l, left_params, r, right_params, seen),
             (Type::Tuple(l), Type::Tuple(r)) if l.len() == r.len() => l
                 .iter()
                 .zip(r.iter())
@@ -1239,7 +1243,7 @@ fn ensure_known_type(
             }
             Err(TyperError::unknown_type(name, span).into())
         }
-        Type::Option(inner) | Type::List(inner) | Type::Set(inner) => {
+        Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
             ensure_known_type(inner, aliases, type_defs, type_params, span)
         }
         Type::Array(inner, _) => ensure_known_type(inner, aliases, type_defs, type_params, span),
@@ -2406,6 +2410,9 @@ fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) ->
         Type::Set(inner) => Ok(Type::Set(Box::new(resolve_aliases(
             inner, aliases, visiting,
         )?))),
+        Type::Slice(inner) => Ok(Type::Slice(Box::new(resolve_aliases(
+            inner, aliases, visiting,
+        )?))),
         Type::Map(k, v) => Ok(Type::Map(
             Box::new(resolve_aliases(k, aliases, visiting)?),
             Box::new(resolve_aliases(v, aliases, visiting)?),
@@ -2440,7 +2447,17 @@ pub(crate) fn base_type(ty: &Type, aliases: &AliasMap) -> Result<Type> {
 }
 
 fn base_types_match(expected: &Type, actual: &Type, aliases: &AliasMap) -> Result<bool> {
-    Ok(base_type(expected, aliases)? == base_type(actual, aliases)?)
+    let expected = base_type(expected, aliases)?;
+    let actual = base_type(actual, aliases)?;
+    Ok(match (&expected, &actual) {
+        (Type::Array(exp_inner, _), Type::Array(act_inner, _)) => {
+            base_types_match(exp_inner, act_inner, aliases)?
+        }
+        (Type::Slice(exp_inner), Type::Slice(act_inner)) => {
+            base_types_match(exp_inner, act_inner, aliases)?
+        }
+        _ => expected == actual,
+    })
 }
 
 fn is_resource_type(ty: &Type, aliases: &AliasMap, type_defs: &TypeDefs) -> Result<bool> {
@@ -2470,6 +2487,12 @@ fn refinement_loss(expected: &Type, actual: &Type, aliases: &AliasMap) -> bool {
 fn binding_compatible(expected: &Type, actual: &Type, aliases: &AliasMap) -> Result<bool> {
     if expected == actual {
         return Ok(true);
+    }
+    if matches!(expected, Type::Array(_, _)) && matches!(actual, Type::Array(_, _)) {
+        return base_types_match(expected, actual, aliases);
+    }
+    if matches!(expected, Type::Slice(_)) && matches!(actual, Type::Slice(_)) {
+        return base_types_match(expected, actual, aliases);
     }
     if alias_name(expected, aliases).is_some() && alias_name(actual, aliases).is_none() {
         return base_types_match(expected, actual, aliases);

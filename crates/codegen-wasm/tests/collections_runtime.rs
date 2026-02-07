@@ -1187,31 +1187,6 @@ fn map_contains_struct_key_structural_eq() {
 }
 
 #[test]
-fn set_contains_tuple_key_structural_eq() {
-    let src = r#"
-        function make() -> Set<(Int, Int)> { std::set::new() }
-        function main() -> Bool {
-            let s = std::set::insert(make(), (1, 2));
-            std::set::contains(s, (1, 2))
-        }
-    "#;
-    let ast = parse(src).expect("parse ok");
-    let ir = check(&ast).expect("type-check+lower ok");
-    let wasm = emit_from_ir(&ir).expect("codegen ok");
-
-    let engine = common::engine();
-    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
-    let mut store = common::store(engine);
-    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
-
-    let main = instance
-        .get_typed_func::<(), i32>(&mut store, "main")
-        .expect("get main");
-    let ok = main.call(&mut store, ()).expect("call main");
-    assert_eq!(ok, 1, "expected structural equality for tuple key");
-}
-
-#[test]
 fn set_contains_enum_key_structural_eq() {
     let src = r#"
         enum Token { A, B }
@@ -1238,12 +1213,12 @@ fn set_contains_enum_key_structural_eq() {
 }
 
 #[test]
-fn set_contains_array_key_structural_eq() {
+fn set_contains_tuple_key_structural_eq() {
     let src = r#"
-        function make() -> Set<[Int; 2]> { std::set::new() }
+        function make() -> Set<(Int, Int)> { std::set::new() }
         function main() -> Bool {
-            let s = std::set::insert(make(), [1, 2]);
-            std::set::contains(s, [1, 2])
+            let s = std::set::insert(make(), (1, 2));
+            std::set::contains(s, (1, 2))
         }
     "#;
     let ast = parse(src).expect("parse ok");
@@ -1259,5 +1234,5 @@ fn set_contains_array_key_structural_eq() {
         .get_typed_func::<(), i32>(&mut store, "main")
         .expect("get main");
     let ok = main.call(&mut store, ()).expect("call main");
-    assert_eq!(ok, 1, "expected structural equality for array key");
+    assert_eq!(ok, 1, "expected structural equality for tuple key");
 }

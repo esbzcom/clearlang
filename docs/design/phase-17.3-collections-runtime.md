@@ -84,7 +84,7 @@ structural equality and linear search (hashing is deferred).
 Equatable types (v1):
 - Primitives: `Int`, `Bool`, `U8`, `U64`, `U128`, `U256`, `String`, `Bytes`.
 - `Option<T>` / `Result<T,E>` where payloads are equatable.
-- Structs, enums, tuples, and arrays composed only of equatable types.
+- Structs, enums, and tuples composed only of equatable types.
 
 Non-equatable in v1:
 - `List`, `Set`, `Map`, `Resource`, and any type containing them.
@@ -97,7 +97,11 @@ Equality implementation:
 - The compiler emits structural equality logic per key type.
 - `String`/`Bytes` use `std::str::eq` / `std::bytes::eq`.
 - `Option`/`Result` compare tags then payloads.
-- Structs/tuples/arrays compare fields in order; enums compare tag then payload.
+- Structs/tuples compare fields in order; enums compare tag then payload.
+
+Note: `Array<T>` (including `[T; N]` sugar) equality is deferred until Phase 17.4+
+defines a loop or builtin equality strategy; arrays are not equatable in the unified
+dynamic model.
 
 ## Errors and Traps
 

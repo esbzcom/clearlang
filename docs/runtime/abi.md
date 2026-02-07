@@ -21,7 +21,7 @@ This document defines the stable host interface that ClearLang programs target w
 ## Type Layouts (Selected)
 - String/Bytes: `[u32 len][u8 len]` in linear memory (see `docs/runtime/strings.md` for `String`).
 - Option/Result: canonical 16-byte layout (`{tag, payload_lo, payload_hi, reserved}`) shared across both ADTs; see `docs/design/phase-7.1-option-result-runtime.md`.
-- Arrays/Tuples: layout is defined in `docs/runtime/arrays-tuples.md`; values are `i32` pointers to the contiguous layout described there.
+- Arrays/Slices/Tuples: layout is defined in `docs/runtime/arrays-tuples.md`; values are `i32` pointers to the layouts described there.
 - Structs: heap-allocated field layout matching tuple rules in `docs/runtime/arrays-tuples.md`.
 - Enums: canonical 16-byte variant layout (`{tag, payload_lo, payload_hi, reserved}`) with tag range `0..N-1` for `N` variants; multi-field payloads are stored via `payload_lo` pointers.
 

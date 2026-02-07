@@ -262,6 +262,16 @@ pub(super) fn type_of<'a>(
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("array literal must have at least one element"))?;
             let elem_ty = type_of(first, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+            if let Some(expected_ty) = expected {
+                if let Type::Array(_, Some(len)) = base_type(expected_ty, aliases)? {
+                    if elems.len() as u32 != len {
+                        return Err(
+                            TyperError::array_length_mismatch(len, elems.len() as u32, *span)
+                                .into(),
+                        );
+                    }
+                }
+            }
             for elem in elems.iter().skip(1) {
                 let ety = type_of(elem, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
                 if !binding_compatible(&elem_ty, &ety, aliases)? {
@@ -278,7 +288,7 @@ pub(super) fn type_of<'a>(
                     return Err(TyperError::element_type_mismatch(elem_ty.clone(), ety, sp).into());
                 }
             }
-            let arr_ty = Type::Array(Box::new(elem_ty), elems.len() as u32);
+            let arr_ty = Type::Array(Box::new(elem_ty), Some(elems.len() as u32));
             if let Some(offending) =
                 find_resource_collection(&arr_ty, &type_defs.resources, type_params)
             {
@@ -496,7 +506,25 @@ pub(super) fn type_of<'a>(
             match resolved {
                 Type::Array(inner, len) => {
                     if let Some(idx) = int_literal_value(index) {
-                        if idx < 0 || idx as u64 >= len as u64 {
+                        if idx < 0 {
+                            return Err(
+                                TyperError::array_index_out_of_bounds(expr_span(index)).into()
+                            );
+                        }
+                        if let Some(len) = len {
+                            if idx as u64 >= len as u64 {
+                                return Err(
+                                    TyperError::array_index_out_of_bounds(expr_span(index)).into()
+                                );
+                            }
+                        }
+                    }
+                    *tracker = local_tracker;
+                    Ok(*inner)
+                }
+                Type::Slice(inner) => {
+                    if let Some(idx) = int_literal_value(index) {
+                        if idx < 0 {
                             return Err(
                                 TyperError::array_index_out_of_bounds(expr_span(index)).into()
                             );
@@ -517,9 +545,9 @@ pub(super) fn type_of<'a>(
                     *tracker = local_tracker;
                     Ok(elems[idx as usize].clone())
                 }
-                other => {
-                    Err(TyperError::expected_collection("array or tuple", other, *span).into())
-                }
+                other => Err(
+                    TyperError::expected_collection("array, slice, or tuple", other, *span).into()
+                ),
             }
         }
         Expr::Block { block } => type_block(
@@ -1798,6 +1826,51 @@ fn type_collection_call<'a>(
         other => other,
     };
     match normalized_callee {
+        // Array/Slice
+        "std::array::len" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let aty = arg_ty(0)?;
+            match base_type(&aty, aliases)? {
+                Type::Array(_, _) => Ok(Some(Type::Int)),
+                other => Err(TyperError::expected_collection("Array", other, span).into()),
+            }
+        }
+        "std::slice::len" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let sty = arg_ty(0)?;
+            match base_type(&sty, aliases)? {
+                Type::Slice(_) => Ok(Some(Type::Int)),
+                other => Err(TyperError::expected_collection("Slice", other, span).into()),
+            }
+        }
+        "std::slice::from_array" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let aty = arg_ty(0)?;
+            match base_type(&aty, aliases)? {
+                Type::Array(inner, _) => Ok(Some(Type::Slice(inner))),
+                other => Err(TyperError::expected_collection("Array", other, span).into()),
+            }
+        }
+        "std::slice::sub" => {
+            if args.len() != 3 {
+                return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into());
+            }
+            let sty = arg_ty(0)?;
+            let start_ty = arg_ty(1)?;
+            let len_ty = arg_ty(2)?;
+            ensure_int(start_ty, aliases, "start", Some(expr_span(&args[1])))?;
+            ensure_int(len_ty, aliases, "len", Some(expr_span(&args[2])))?;
+            match base_type(&sty, aliases)? {
+                Type::Slice(inner) => Ok(Some(Type::Slice(inner))),
+                other => Err(TyperError::expected_collection("Slice", other, span).into()),
+            }
+        }
         // List
         "std::list::len" => {
             if args.len() != 1 {
@@ -2304,10 +2377,12 @@ pub(crate) fn type_pattern_matches(
             ),
             _ => Ok(false),
         },
-        Type::Array(inner, len) => match actual {
-            Type::Array(act_inner, act_len) if len == act_len => {
-                type_pattern_matches(inner, act_inner, params, subst, aliases)
-            }
+        Type::Array(inner, _) => match actual {
+            Type::Array(act_inner, _) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            _ => Ok(false),
+        },
+        Type::Slice(inner) => match actual {
+            Type::Slice(act_inner) => type_pattern_matches(inner, act_inner, params, subst, aliases),
             _ => Ok(false),
         },
         Type::Tuple(elements) => match actual {
@@ -2906,7 +2981,9 @@ pub(crate) fn show_ty(t: Type) -> String {
             Type::List(inner) => format!("List<{}>", render(*inner)),
             Type::Set(inner) => format!("Set<{}>", render(*inner)),
             Type::Map(key, val) => format!("Map<{}, {}>", render(*key), render(*val)),
-            Type::Array(inner, len) => format!("[{}; {}]", render(*inner), len),
+            Type::Array(inner, Some(len)) => format!("[{}; {}]", render(*inner), len),
+            Type::Array(inner, None) => format!("Array<{}>", render(*inner)),
+            Type::Slice(inner) => format!("Slice<{}>", render(*inner)),
             Type::Tuple(elements) => {
                 let rendered = elements
                     .into_iter()

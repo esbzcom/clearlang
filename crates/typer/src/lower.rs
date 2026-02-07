@@ -36,7 +36,12 @@ fn ir_ty(t: Type) -> IrType {
         Type::Named { .. } => IrType::Int,
         Type::Option(_) => IrType::Int,
         Type::Result(_, _) => IrType::Int,
-        Type::List(_) | Type::Set(_) | Type::Map(_, _) | Type::Array(_, _) | Type::Tuple(_) => {
+        Type::List(_)
+        | Type::Set(_)
+        | Type::Map(_, _)
+        | Type::Array(_, _)
+        | Type::Slice(_)
+        | Type::Tuple(_) => {
             IrType::Int
         }
     }
@@ -48,6 +53,11 @@ struct ArrayLayout {
     size: u32,
     align: u32,
 }
+
+const ARRAY_HEADER_SIZE: u32 = 8;
+const ARRAY_HEADER_ALIGN: u32 = 4;
+const ARRAY_HEADER_LEN_OFFSET: u32 = 0;
+const ARRAY_HEADER_DATA_OFFSET: u32 = 4;
 
 struct TupleLayout {
     offsets: Vec<u32>,
@@ -79,7 +89,7 @@ fn layout_for_type(ty: &Type, aliases: &AliasMap) -> Result<(u32, u32)> {
         Type::Named { .. } => Ok((4, 4)),
         Type::Option(_) | Type::Result(_, _) => Ok((4, 4)),
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => Ok((4, 4)),
-        Type::Array(_, _) | Type::Tuple(_) => Ok((4, 4)),
+        Type::Array(_, _) | Type::Slice(_) | Type::Tuple(_) => Ok((4, 4)),
     }
 }
 
@@ -284,6 +294,12 @@ pub(crate) fn lower_func<'a>(
         ret_ty: f.ret.clone(),
     };
 
+    for (i, p) in f.params.iter().enumerate() {
+        if let Type::Array(_, Some(len)) = base_type(&p.ty, aliases)? {
+            emit_array_len_guard(&mut ctx, Value(i as u32), len);
+        }
+    }
+
     for req in &f.requires {
         let cond = lower_expr(&mut ctx, &req.expr, None)?;
         ctx.body.push(Instr::Guard {
@@ -295,6 +311,10 @@ pub(crate) fn lower_func<'a>(
     }
 
     let ret_val = lower_expr(&mut ctx, &f.body, Some(f.ret.clone()))?;
+
+    if let Type::Array(_, Some(len)) = base_type(&f.ret, aliases)? {
+        emit_array_len_guard(&mut ctx, ret_val, len);
+    }
 
     if !f.ensures.is_empty() {
         ctx.env.insert("result", ret_val);
@@ -410,7 +430,21 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             let elem_ty = infer_expr_type(first, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
             let elem_ty = base_type(&elem_ty, ctx.aliases)?;
             let layout = array_layout(&elem_ty, elems.len() as u32, ctx.aliases)?;
-            let ptr = emit_alloc(ctx, layout.size, layout.align);
+            let data_ptr = emit_alloc(ctx, layout.size, layout.align);
+            let header_ptr = emit_alloc(ctx, ARRAY_HEADER_SIZE, ARRAY_HEADER_ALIGN);
+            let len_val = emit_int_const(ctx, elems.len() as i64);
+            ctx.body.push(Instr::Store {
+                ptr: header_ptr,
+                src: len_val,
+                offset: ARRAY_HEADER_LEN_OFFSET,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Store {
+                ptr: header_ptr,
+                src: data_ptr,
+                offset: ARRAY_HEADER_DATA_OFFSET,
+                ty: IrType::Int,
+            });
             let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
             for (idx, elem) in elems.iter().enumerate() {
                 let offset = (idx as u64)
@@ -421,13 +455,13 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 }
                 let val = lower_expr(ctx, elem, Some(elem_ty.clone()))?;
                 ctx.body.push(Instr::Store {
-                    ptr,
+                    ptr: data_ptr,
                     src: val,
                     offset: offset as u32,
                     ty: mem_ty,
                 });
             }
-            Ok(ptr)
+            Ok(header_ptr)
         }
         Expr::TupleLit { elems, .. } => {
             let mut elem_tys = Vec::with_capacity(elems.len());
@@ -605,88 +639,72 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             let resolved = base_type(&base_ty, ctx.aliases)?;
             let base_ptr = lower_expr(ctx, base, None)?;
             match resolved {
-                Type::Array(inner, len) => {
+                Type::Array(inner, _) | Type::Slice(inner) => {
                     let elem_ty = *inner;
-                    let layout = array_layout(&elem_ty, len, ctx.aliases)?;
+                    let (_, _, stride) = collection_layout(&elem_ty, ctx.aliases)?;
                     let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-                    if let Expr::Int(idx, _) = index.as_ref() {
-                        if *idx < 0 || (*idx as u64) >= len as u64 {
-                            anyhow::bail!("array index out of bounds in lowering");
-                        }
-                        let offset = (*idx as u64)
-                            .checked_mul(layout.stride as u64)
-                            .ok_or_else(|| anyhow::anyhow!("array index offset overflow"))?;
-                        if offset > u32::MAX as u64 {
-                            anyhow::bail!("array index offset exceeds u32 limits");
-                        }
-                        let dst = fresh(ctx);
-                        ctx.body.push(Instr::Load {
-                            dst,
-                            ptr: base_ptr,
-                            offset: offset as u32,
-                            ty: mem_ty,
-                        });
-                        Ok(dst)
-                    } else {
-                        let idx_val = lower_expr(ctx, index, None)?;
-                        let zero = emit_int_const(ctx, 0);
-                        let ge_zero = fresh(ctx);
-                        ctx.body.push(Instr::IBin {
-                            dst: ge_zero,
-                            op: BinOpIR::Ge,
-                            lhs: idx_val,
-                            rhs: zero,
-                            ty: IrType::Int,
-                        });
-                        let len_val = emit_int_const(ctx, len as i64);
-                        let lt_len = fresh(ctx);
-                        ctx.body.push(Instr::IBin {
-                            dst: lt_len,
-                            op: BinOpIR::Lt,
-                            lhs: idx_val,
-                            rhs: len_val,
-                            ty: IrType::Int,
-                        });
-                        let ok = fresh(ctx);
-                        ctx.body.push(Instr::IBin {
-                            dst: ok,
-                            op: BinOpIR::And,
-                            lhs: ge_zero,
-                            rhs: lt_len,
-                            ty: IrType::Bool,
-                        });
-                        ctx.body.push(Instr::Guard {
-                            cond: ok,
-                            trap: TrapCode::ContractViolation,
-                            span: Some((span.start as u32, span.end as u32)),
-                            detail: GuardKind::Require,
-                        });
-                        let stride_val = emit_int_const(ctx, layout.stride as i64);
-                        let offset_val = fresh(ctx);
-                        ctx.body.push(Instr::IBin {
-                            dst: offset_val,
-                            op: BinOpIR::Mul,
-                            lhs: idx_val,
-                            rhs: stride_val,
-                            ty: IrType::Int,
-                        });
-                        let addr = fresh(ctx);
-                        ctx.body.push(Instr::IBin {
-                            dst: addr,
-                            op: BinOpIR::Add,
-                            lhs: base_ptr,
-                            rhs: offset_val,
-                            ty: IrType::Int,
-                        });
-                        let dst = fresh(ctx);
-                        ctx.body.push(Instr::Load {
-                            dst,
-                            ptr: addr,
-                            offset: 0,
-                            ty: mem_ty,
-                        });
-                        Ok(dst)
-                    }
+                    let len_val = emit_array_len(ctx, base_ptr);
+                    let data_ptr = emit_array_data_ptr(ctx, base_ptr);
+                    let idx_val = match index.as_ref() {
+                        Expr::Int(n, _) => emit_int_const(ctx, *n),
+                        _ => lower_expr(ctx, index, None)?,
+                    };
+                    let zero = emit_int_const(ctx, 0);
+                    let ge_zero = fresh(ctx);
+                    ctx.body.push(Instr::IBin {
+                        dst: ge_zero,
+                        op: BinOpIR::Ge,
+                        lhs: idx_val,
+                        rhs: zero,
+                        ty: IrType::Int,
+                    });
+                    let lt_len = fresh(ctx);
+                    ctx.body.push(Instr::IBin {
+                        dst: lt_len,
+                        op: BinOpIR::Lt,
+                        lhs: idx_val,
+                        rhs: len_val,
+                        ty: IrType::Int,
+                    });
+                    let ok = fresh(ctx);
+                    ctx.body.push(Instr::IBin {
+                        dst: ok,
+                        op: BinOpIR::And,
+                        lhs: ge_zero,
+                        rhs: lt_len,
+                        ty: IrType::Bool,
+                    });
+                    ctx.body.push(Instr::Guard {
+                        cond: ok,
+                        trap: TrapCode::ContractViolation,
+                        span: Some((span.start as u32, span.end as u32)),
+                        detail: GuardKind::Require,
+                    });
+                    let stride_val = emit_int_const(ctx, stride as i64);
+                    let offset_val = fresh(ctx);
+                    ctx.body.push(Instr::IBin {
+                        dst: offset_val,
+                        op: BinOpIR::Mul,
+                        lhs: idx_val,
+                        rhs: stride_val,
+                        ty: IrType::Int,
+                    });
+                    let addr = fresh(ctx);
+                    ctx.body.push(Instr::IBin {
+                        dst: addr,
+                        op: BinOpIR::Add,
+                        lhs: data_ptr,
+                        rhs: offset_val,
+                        ty: IrType::Int,
+                    });
+                    let dst = fresh(ctx);
+                    ctx.body.push(Instr::Load {
+                        dst,
+                        ptr: addr,
+                        offset: 0,
+                        ty: mem_ty,
+                    });
+                    Ok(dst)
                 }
                 Type::Tuple(elems) => {
                     let idx = match index.as_ref() {
@@ -1799,6 +1817,33 @@ fn emit_collection_cap(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
     emit_load_i32(ctx, ptr, COLLECTION_CAP_OFFSET)
 }
 
+fn emit_array_len(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_load_i32(ctx, ptr, ARRAY_HEADER_LEN_OFFSET)
+}
+
+fn emit_array_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_load_i32(ctx, ptr, ARRAY_HEADER_DATA_OFFSET)
+}
+
+fn emit_array_len_guard(ctx: &mut LowerCtx<'_>, ptr: Value, expected_len: u32) {
+    let actual_len = emit_array_len(ctx, ptr);
+    let expected = emit_int_const(ctx, expected_len as i64);
+    let ok = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: ok,
+        op: BinOpIR::Eq,
+        lhs: actual_len,
+        rhs: expected,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::Guard {
+        cond: ok,
+        trap: TrapCode::ContractViolation,
+        span: None,
+        detail: GuardKind::Require,
+    });
+}
+
 fn emit_collection_payload_guard(
     ctx: &mut LowerCtx<'_>,
     data_ptr: Value,
@@ -2022,7 +2067,9 @@ fn emit_eq_for_type(
         Type::Option(inner) => emit_eq_option(ctx, inner.as_ref(), lhs, rhs, aliases),
         Type::Result(ok, err) => emit_eq_result(ctx, ok.as_ref(), err.as_ref(), lhs, rhs, aliases),
         Type::Tuple(elements) => emit_eq_tuple(ctx, &elements, lhs, rhs, aliases),
-        Type::Array(inner, len) => emit_eq_array(ctx, inner.as_ref(), len, lhs, rhs, aliases),
+        Type::Array(_, _) | Type::Slice(_) => {
+            anyhow::bail!("array/slice equality is not supported")
+        }
         Type::Named { name, args } => {
             if ctx.type_defs.structs.contains_key(name.as_str()) {
                 emit_eq_struct(ctx, name.as_str(), &args, lhs, rhs, aliases)
@@ -2144,86 +2191,6 @@ fn emit_eq_tuple(
             ty: IrType::Bool,
         });
     }
-    ctx.body.push(Instr::BlockEnd);
-    Ok(result)
-}
-
-fn emit_eq_array(
-    ctx: &mut LowerCtx<'_>,
-    inner: &Type,
-    len: u32,
-    lhs: Value,
-    rhs: Value,
-    aliases: &AliasMap,
-) -> Result<Value> {
-    let layout = array_layout(inner, len, aliases)?;
-    let result = emit_bool_const(ctx, true);
-    let idx = fresh(ctx);
-    ctx.body.push(Instr::IConst {
-        dst: idx,
-        ty: IrType::Int,
-        n: 0,
-    });
-    let len_val = emit_int_const(ctx, len as i64);
-    let stride_val = emit_int_const(ctx, layout.stride as i64);
-
-    ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::LoopBegin);
-    ctx.body.push(Instr::BrIfEqz { cond: result, depth: 1 });
-    let cond = fresh(ctx);
-    ctx.body.push(Instr::IBin {
-        dst: cond,
-        op: BinOpIR::Lt,
-        lhs: idx,
-        rhs: len_val,
-        ty: IrType::Int,
-    });
-    ctx.body.push(Instr::BrIfEqz { cond, depth: 1 });
-
-    let offset = fresh(ctx);
-    ctx.body.push(Instr::IBin {
-        dst: offset,
-        op: BinOpIR::Mul,
-        lhs: idx,
-        rhs: stride_val,
-        ty: IrType::Int,
-    });
-    let lhs_ptr = emit_ptr_add(ctx, lhs, offset);
-    let rhs_ptr = emit_ptr_add(ctx, rhs, offset);
-    let mem_ty = mem_ir_type(inner, aliases)?;
-    let lhs_val = fresh(ctx);
-    ctx.body.push(Instr::Load {
-        dst: lhs_val,
-        ptr: lhs_ptr,
-        offset: 0,
-        ty: mem_ty,
-    });
-    let rhs_val = fresh(ctx);
-    ctx.body.push(Instr::Load {
-        dst: rhs_val,
-        ptr: rhs_ptr,
-        offset: 0,
-        ty: mem_ty,
-    });
-    let eq = emit_eq_for_type(ctx, inner, lhs_val, rhs_val, aliases)?;
-    ctx.body.push(Instr::IBin {
-        dst: result,
-        op: BinOpIR::And,
-        lhs: result,
-        rhs: eq,
-        ty: IrType::Bool,
-    });
-
-    let one = emit_int_const(ctx, 1);
-    ctx.body.push(Instr::IBin {
-        dst: idx,
-        op: BinOpIR::Add,
-        lhs: idx,
-        rhs: one,
-        ty: IrType::Int,
-    });
-    ctx.body.push(Instr::Br { depth: 0 });
-    ctx.body.push(Instr::LoopEnd);
     ctx.body.push(Instr::BlockEnd);
     Ok(result)
 }
@@ -2681,6 +2648,24 @@ fn list_elem_type(ctx: &LowerCtx<'_>, arg: &Expr) -> Result<Type> {
     }
 }
 
+fn slice_elem_type(ctx: &LowerCtx<'_>, arg: &Expr) -> Result<Type> {
+    let ty = infer_expr_type(
+        arg,
+        &ctx.type_env,
+        &ctx.fns,
+        ctx.trait_env,
+        ctx.aliases,
+        ctx.type_defs,
+        &ctx.type_params,
+        &ctx.bounds,
+    )?;
+    let base = base_type(&ty, ctx.aliases)?;
+    match base {
+        Type::Slice(inner) => Ok(*inner),
+        other => anyhow::bail!("expected Slice argument, found {:?}", other),
+    }
+}
+
 fn set_elem_type(ctx: &LowerCtx<'_>, arg: &Expr) -> Result<Type> {
     let ty = infer_expr_type(
         arg,
@@ -2726,6 +2711,128 @@ fn lower_collection_call<'a>(
 ) -> Result<Option<Value>> {
     let callee = normalize_collection_callee(callee);
     match callee {
+        "std::array::len" => {
+            if args.len() != 1 {
+                anyhow::bail!("`std::array::len` expects one argument");
+            }
+            let arr_val = lower_expr(ctx, &args[0], None)?;
+            Ok(Some(emit_array_len(ctx, arr_val)))
+        }
+        "std::slice::len" => {
+            if args.len() != 1 {
+                anyhow::bail!("`std::slice::len` expects one argument");
+            }
+            let slice_val = lower_expr(ctx, &args[0], None)?;
+            Ok(Some(emit_array_len(ctx, slice_val)))
+        }
+        "std::slice::from_array" => {
+            if args.len() != 1 {
+                anyhow::bail!("`std::slice::from_array` expects one argument");
+            }
+            let array_val = lower_expr(ctx, &args[0], None)?;
+            let len = emit_array_len(ctx, array_val);
+            let data_ptr = emit_array_data_ptr(ctx, array_val);
+            let header = emit_alloc(ctx, ARRAY_HEADER_SIZE, ARRAY_HEADER_ALIGN);
+            ctx.body.push(Instr::Store {
+                ptr: header,
+                src: len,
+                offset: ARRAY_HEADER_LEN_OFFSET,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Store {
+                ptr: header,
+                src: data_ptr,
+                offset: ARRAY_HEADER_DATA_OFFSET,
+                ty: IrType::Int,
+            });
+            Ok(Some(header))
+        }
+        "std::slice::sub" => {
+            if args.len() != 3 {
+                anyhow::bail!("`std::slice::sub` expects three arguments");
+            }
+            let elem_ty = slice_elem_type(ctx, &args[0])?;
+            let slice_val = lower_expr(ctx, &args[0], None)?;
+            let start = lower_expr(ctx, &args[1], Some(Type::Int))?;
+            let len = lower_expr(ctx, &args[2], Some(Type::Int))?;
+            let base_len = emit_array_len(ctx, slice_val);
+            let base_ptr = emit_array_data_ptr(ctx, slice_val);
+            let zero = emit_int_const(ctx, 0);
+            let start_ge_zero = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: start_ge_zero,
+                op: BinOpIR::Ge,
+                lhs: start,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            let len_ge_zero = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: len_ge_zero,
+                op: BinOpIR::Ge,
+                lhs: len,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            let sum = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: sum,
+                op: BinOpIR::Add,
+                lhs: start,
+                rhs: len,
+                ty: IrType::Int,
+            });
+            let sum_le = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: sum_le,
+                op: BinOpIR::LeU,
+                lhs: sum,
+                rhs: base_len,
+                ty: IrType::Int,
+            });
+            let ok1 = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: ok1,
+                op: BinOpIR::And,
+                lhs: start_ge_zero,
+                rhs: len_ge_zero,
+                ty: IrType::Bool,
+            });
+            let ok = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: ok,
+                op: BinOpIR::And,
+                lhs: ok1,
+                rhs: sum_le,
+                ty: IrType::Bool,
+            });
+            emit_collection_guard(ctx, ok, expr_span_local(&args[0]));
+            let (_size, _align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let offset_val = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: offset_val,
+                op: BinOpIR::Mul,
+                lhs: start,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let data_ptr = emit_ptr_add(ctx, base_ptr, offset_val);
+            let header = emit_alloc(ctx, ARRAY_HEADER_SIZE, ARRAY_HEADER_ALIGN);
+            ctx.body.push(Instr::Store {
+                ptr: header,
+                src: len,
+                offset: ARRAY_HEADER_LEN_OFFSET,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Store {
+                ptr: header,
+                src: data_ptr,
+                offset: ARRAY_HEADER_DATA_OFFSET,
+                ty: IrType::Int,
+            });
+            Ok(Some(header))
+        }
         "std::list::new" => {
             if !args.is_empty() {
                 anyhow::bail!("`std::list::new` expects no arguments");

@@ -478,6 +478,7 @@ fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'sta
         | Type::Set(_)
         | Type::Map(_, _)
         | Type::Array(_, _)
+        | Type::Slice(_)
         | Type::Tuple(_)
         | Type::Named { .. } => {
             if let Type::Named { name, args } = ty {
@@ -664,7 +665,7 @@ fn collect_refinement_obligations<'a>(
                 .skip(1)
                 .all(|ty| ty.as_ref() == Some(&first))
             {
-                Some(Type::Array(Box::new(first), elems.len() as u32))
+                Some(Type::Array(Box::new(first), Some(elems.len() as u32)))
             } else {
                 None
             }
@@ -702,6 +703,7 @@ fn collect_refinement_obligations<'a>(
             collect_refinement_obligations(index.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
             match base_ty {
                 Some(Type::Array(inner, _)) => Some(*inner),
+                Some(Type::Slice(inner)) => Some(*inner),
                 Some(Type::Tuple(elems)) => {
                     if let Expr::Int(idx, _) = index.as_ref() {
                         let idx = *idx as usize;
@@ -1892,6 +1894,7 @@ fn smt_sort_for_builtin(ty: &Type) -> &'static str {
         | Type::Set(_)
         | Type::Map(_, _)
         | Type::Array(_, _)
+        | Type::Slice(_)
         | Type::Tuple(_)
         | Type::Named { .. } => "Int",
     }

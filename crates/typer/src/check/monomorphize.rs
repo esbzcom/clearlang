@@ -719,9 +719,8 @@ fn mangle_type(ty: &Type, _aliases: &AliasMap) -> Result<String> {
             mangle_type(k, _aliases)?,
             mangle_type(v, _aliases)?
         ),
-        Type::Array(inner, len) => {
-            format!("Array${}${}", len, mangle_type(inner, _aliases)?)
-        }
+        Type::Array(inner, _) => format!("Array${}", mangle_type(inner, _aliases)?),
+        Type::Slice(inner) => format!("Slice${}", mangle_type(inner, _aliases)?),
         Type::Tuple(elements) => {
             let mut parts = Vec::with_capacity(elements.len() + 1);
             parts.push(elements.len().to_string());
@@ -861,7 +860,7 @@ mod tests {
                 name: "Thing".to_string(),
                 args: vec![Type::Bool],
             })),
-            Type::Array(Box::new(Type::U64), 4),
+            Type::Array(Box::new(Type::U64), None),
             Type::Tuple(vec![Type::Int, Type::Bool, Type::U8]),
         ];
         for ty in types {

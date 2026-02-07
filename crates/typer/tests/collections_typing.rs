@@ -62,6 +62,26 @@ fn list_remove_types() {
 }
 
 #[test]
+fn array_and_slice_len_types() {
+    let src = r#"
+        pure function alen(a: Array<Int>) -> Int { std::array::len(a) }
+        pure function slen(s: Slice<Int>) -> Int { std::slice::len(s) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn slice_from_array_and_sub_types() {
+    let src = r#"
+        pure function sub(a: Array<Int>) -> Slice<Int> {
+            let s = std::slice::from_array(a);
+            std::slice::sub(s, 0, 1)
+        }
+    "#;
+    type_ok(src);
+}
+
+#[test]
 fn set_contains_types() {
     let src = r#"
         function c(s: Set<String>) -> Bool { std::set::contains(s, "hi") }

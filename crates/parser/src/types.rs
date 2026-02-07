@@ -42,6 +42,16 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then(ty.clone())
             .then_ignore(just('>').padded())
             .map(|(k, v)| Type::Map(Box::new(k), Box::new(v)));
+        let array_dyn = kw("Array")
+            .ignore_then(just('<').padded())
+            .ignore_then(ty.clone())
+            .then_ignore(just('>').padded())
+            .map(|t| Type::Array(Box::new(t), None));
+        let slice_t = kw("Slice")
+            .ignore_then(just('<').padded())
+            .ignore_then(ty.clone())
+            .then_ignore(just('>').padded())
+            .map(|t| Type::Slice(Box::new(t)));
         let option = kw("Option")
             .ignore_then(just('<').padded())
             .ignore_then(ty.clone())
@@ -98,9 +108,20 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then_ignore(just(';').padded())
             .then(array_size.padded())
             .then_ignore(just(']').padded())
-            .map(|(inner, len)| Type::Array(Box::new(inner), len));
+            .map(|(inner, len)| Type::Array(Box::new(inner), Some(len)));
         choice((
-            option, result, list_t, set_t, map_t, array_t, tuple_t, base, named_args, named,
+            option,
+            result,
+            list_t,
+            set_t,
+            map_t,
+            array_dyn,
+            slice_t,
+            array_t,
+            tuple_t,
+            base,
+            named_args,
+            named,
         ))
         .boxed()
     })

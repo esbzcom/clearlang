@@ -202,7 +202,8 @@ pub enum Type {
     List(Box<Type>),
     Set(Box<Type>),
     Map(Box<Type>, Box<Type>),
-    Array(Box<Type>, u32),
+    Array(Box<Type>, Option<u32>),
+    Slice(Box<Type>),
     Tuple(Vec<Type>),
 }
 

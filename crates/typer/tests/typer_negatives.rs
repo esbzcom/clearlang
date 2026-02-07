@@ -236,6 +236,24 @@ fn tuple_index_requires_constant_error_code_is_stable() {
 }
 
 #[test]
+fn array_length_mismatch_error_code_is_stable() {
+    let err = TyperError::array_length_mismatch(2, 3, Span { start: 5, end: 6 });
+    assert_eq!(err.code, "T116");
+}
+
+#[test]
+fn array_length_mismatch_on_literal_in_call() {
+    let src = r#"
+        function id(a: [Int; 2]) -> Int { a[0] }
+        function main() -> Int { id([1, 2, 3]) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on array length mismatch");
+    let s = format!("{err:#}");
+    assert!(s.contains("T116"), "unexpected error: {s}");
+}
+
+#[test]
 fn tuple_index_requires_constant_literal() {
     let src = r#"
         function main(x: Int) -> Int { (1, 2, 3)[x] }

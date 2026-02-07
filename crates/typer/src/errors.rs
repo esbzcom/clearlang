@@ -220,6 +220,18 @@ impl TyperError {
         )
     }
 
+    pub fn array_length_mismatch(expected: u32, found: u32, span: Span) -> Self {
+        Self::new(
+            "T116",
+            format!(
+                "at {}..{}: array length mismatch (expected {}, found {})",
+                span.start, span.end, expected, found
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn tuple_index_requires_constant(span: Span) -> Self {
         Self::new(
             "T115",
@@ -1371,7 +1383,9 @@ fn render_type(ty: &Type) -> String {
         Type::List(inner) => format!("List<{}>", render_type(inner)),
         Type::Set(inner) => format!("Set<{}>", render_type(inner)),
         Type::Map(key, val) => format!("Map<{}, {}>", render_type(key), render_type(val)),
-        Type::Array(inner, len) => format!("[{}; {}]", render_type(inner), len),
+        Type::Array(inner, Some(len)) => format!("[{}; {}]", render_type(inner), len),
+        Type::Array(inner, None) => format!("Array<{}>", render_type(inner)),
+        Type::Slice(inner) => format!("Slice<{}>", render_type(inner)),
         Type::Tuple(elements) => {
             let rendered = elements
                 .iter()

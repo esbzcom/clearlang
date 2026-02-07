@@ -85,10 +85,11 @@ Map
 
 Key Equality (Map/Set)
 - Keys must be equatable; non-equatable key types are rejected (T220).
-- Equatable types: primitives, strings/bytes, Option/Result of equatable types, and structs/enums/tuples/arrays that
+- Equatable types: primitives, strings/bytes, Option/Result of equatable types, and structs/enums/tuples that
   only contain equatable types.
 - Non-equatable: List/Set/Map/Resource and any type containing them.
-- Equality for equatable composite keys is structural (tag + payload for Option/Result, fields for structs/enums/tuples/arrays).
+- Equality for equatable composite keys is structural (tag + payload for Option/Result, fields for structs/enums/tuples).
+- Note: `Array<T>` (including `[T; N]` sugar) equality is deferred; arrays are not equatable in the unified dynamic model.
 
 Diagnostics (Stable Codes)
 

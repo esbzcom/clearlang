@@ -25,7 +25,11 @@ Types
 
 - Bytes: `Bytes` is an opaque byte buffer type (Phase 14 contract ABI surface).
 
-- Fixed-size arrays: `[T; N]` where `N` is a non-negative `u32` literal known at compile time. Arrays lower to heap-allocated layouts defined in `docs/runtime/arrays-tuples.md`. Array literals `[e1, e2, ...]` and indexing `arr[i]` are supported; literal indices are bounds-checked at compile time and dynamic indices emit runtime guards.
+- Arrays: `Array<T>` is a runtime-length contiguous array. Array literals `[e1, e2, ...]` construct an `Array<T>`. Indexing `arr[i]` is supported with runtime bounds checks; the layout is defined in `docs/runtime/arrays-tuples.md`. `std::array::len` returns the runtime length.
+
+- Fixed-size sugar: `[T; N]` is accepted in type positions as sugar for `Array<T>` plus an implicit length contract (`len == N`). It does not introduce a distinct runtime type. Array literals annotated with `[T; N]` must have exactly `N` elements.
+
+- Slices: `Slice<T>` is a view into a contiguous array region. Slices use the same header layout as arrays and are created by stdlib helpers (`std::slice::from_array`, `std::slice::sub`). `std::slice::len` returns the runtime length.
 
 - Tuples: `(T1, T2, ...)` with arity >= 2 (used for hash/key pairs). Tuples lower to the same heap layout rules in `docs/runtime/arrays-tuples.md`. Tuple literals `(e1, e2, ...)` are supported; indexing requires a constant integer index. Resource elements are rejected by the same resource-in-collection checks that cover `List`/`Map`/`Set`.
 

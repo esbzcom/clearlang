@@ -699,12 +699,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.3.13 Close remaining collections runtime test gaps (invalid `data_ptr` cases + composite key equality coverage).
   - [x] 17.3.14 Treat header inconsistencies (len > cap / cap <= 0) as invalid handles (R010).
   - [x] 17.3.15 Guard against `len * stride` overflow and add Set/Map header-consistency tests.
-- [ ] 17.4 Add general array/slice types with indexing semantics and bounds checks.
-  - [ ] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior.
-  - [ ] 17.4.2 Parser/AST + typer support for arrays/slices and indexing.
-  - [ ] 17.4.3 Lowering/codegen for layout + bounds checks.
-  - [ ] 17.4.4 Runtime helpers (if needed) + tests.
-  - Tech debt: general arrays/slices with indexing semantics remain pending; fixed-size arrays/tuples use pointer layout for nested elements with runtime guards for dynamic indices.
+- [x] 17.4 Add general array/slice types with indexing semantics and bounds checks.
+  - [x] 17.4.1 Spec: array/slice syntax, indexing semantics, and bounds behavior (see `docs/design/phase-17.4-arrays-slices.md`).
+  - [x] 17.4.2 Parser/AST + typer support for arrays/slices, `[T; N]` sugar, and indexing.
+  - [x] 17.4.3 Lowering/codegen for layout + bounds checks.
+  - [x] 17.4.4 Runtime helpers + tests (`std::array::len`, `std::slice::{from_array,sub}`, array/slice bounds + length-guard coverage).
+  - Note: `[T; N]` is sugar over `Array<T>` with length-contract guards; docs/ABI updated accordingly.
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
   - [ ] 17.5.1 Design: file layout, module paths, visibility keywords, and re-exports.
   - [ ] 17.5.2 Parser/AST for `mod`/`use` and namespace nodes.

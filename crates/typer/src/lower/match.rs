@@ -6,8 +6,9 @@ use clg_ir::{BinOpIR, Instr, IrType, Value, VariantKind};
 use super::layout::{enum_variant_info, tuple_layout};
 use super::{
     emit_alloc, emit_int_const, fresh, load_value_borrow, lower_expr, mem_ir_type,
-    mem_layout_for_ir, restore_scope, store_value, std_type_info_for, LowerCtx, ScopeEntry,
+    mem_layout_for_ir, store_value, std_type_info_for, LowerCtx,
 };
+use super::block::{restore_scope, ScopeEntry};
 
 pub(super) fn lower_match_sugar<'a>(
     ctx: &mut LowerCtx<'a>,

@@ -7,11 +7,12 @@ use super::array::{
     emit_array_data_ptr, emit_array_len, ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET,
     ARRAY_HEADER_LEN_OFFSET, ARRAY_HEADER_SIZE,
 };
+use super::block::expr_span_local;
 use super::layout::{collection_layout, map_entry_layout};
 use super::eq::emit_eq_for_type;
 use super::{
     emit_alloc, emit_alloc_dyn, emit_int_const, emit_load_i32, emit_memcpy_bytes, emit_ptr_add,
-    emit_store_i32, expr_span_local, fresh, load_value_borrow, load_value_copy, lower_expr,
+    emit_store_i32, fresh, load_value_borrow, load_value_copy, lower_expr,
     store_value, zero_value_for_type, LowerCtx, COLLECTION_CAP_OFFSET, COLLECTION_DATA_OFFSET,
     COLLECTION_FLAGS_OFFSET, COLLECTION_HEADER_ALIGN, COLLECTION_HEADER_SIZE, COLLECTION_LEN_OFFSET,
 };

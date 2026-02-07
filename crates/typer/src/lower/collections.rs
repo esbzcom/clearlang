@@ -4,13 +4,14 @@ use clg_ast::{Expr, Span, Type};
 use clg_ir::{BinOpIR, GuardKind, Instr, IrType, TrapCode, Value};
 
 use super::layout::{collection_layout, map_entry_layout};
+use super::eq::emit_eq_for_type;
 use super::{
-    emit_alloc, emit_alloc_dyn, emit_array_data_ptr, emit_array_len, emit_eq_for_type,
-    emit_int_const, emit_load_i32, emit_memcpy_bytes, emit_ptr_add, emit_store_i32, expr_span_local,
-    fresh, load_value_borrow, load_value_copy, lower_expr, store_value, zero_value_for_type,
-    LowerCtx, ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET,
-    ARRAY_HEADER_SIZE, COLLECTION_CAP_OFFSET, COLLECTION_DATA_OFFSET, COLLECTION_FLAGS_OFFSET,
-    COLLECTION_HEADER_ALIGN, COLLECTION_HEADER_SIZE, COLLECTION_LEN_OFFSET,
+    emit_alloc, emit_alloc_dyn, emit_array_data_ptr, emit_array_len, emit_int_const, emit_load_i32,
+    emit_memcpy_bytes, emit_ptr_add, emit_store_i32, expr_span_local, fresh, load_value_borrow,
+    load_value_copy, lower_expr, store_value, zero_value_for_type, LowerCtx, ARRAY_HEADER_ALIGN,
+    ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET, ARRAY_HEADER_SIZE, COLLECTION_CAP_OFFSET,
+    COLLECTION_DATA_OFFSET, COLLECTION_FLAGS_OFFSET, COLLECTION_HEADER_ALIGN, COLLECTION_HEADER_SIZE,
+    COLLECTION_LEN_OFFSET,
 };
 
 fn emit_collection_guard(ctx: &mut LowerCtx<'_>, cond: Value, span: Span) {

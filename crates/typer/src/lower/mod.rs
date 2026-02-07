@@ -18,6 +18,7 @@ mod calls;
 mod collections;
 mod collections_helpers;
 mod collection_types;
+mod collections_list;
 mod collections_slice;
 mod control;
 mod eq;

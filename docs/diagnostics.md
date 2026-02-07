@@ -146,6 +146,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C023 | build | Module header does not match file path. |
 | C024 | build | Duplicate module path across source files. |
 | C025 | build | Import cycle detected. |
+| C026 | build | Reserved std module path used in user code. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

@@ -1247,6 +1247,46 @@ fn import_unknown_std_module_reports_c020() {
 }
 
 #[test]
+fn import_user_defined_std_module_reports_c026() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let std_dir = root.join("std");
+    fs::create_dir_all(&std_dir).expect("create std dir");
+
+    let std_src = r#"
+        export function foo() -> Int { 1 }
+    "#;
+    fs::write(std_dir.join("user.clear"), std_src.trim()).expect("write std user");
+
+    let main_src = r#"
+        import std::user
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C026"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
 fn import_unknown_std_item_reports_c021() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

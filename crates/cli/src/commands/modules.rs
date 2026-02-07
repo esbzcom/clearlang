@@ -165,6 +165,20 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
 
         let program = parse_file(&file, json_errors)?;
 
+        if !is_entry {
+            if let Some(first) = path.first() {
+                if first == "std" {
+                    return Err(module_error(
+                        "C026",
+                        format!("module path `{}` is reserved for std", path_str),
+                        &file,
+                        Span { start: 0, end: 0 },
+                        json_errors,
+                    ));
+                }
+            }
+        }
+
         if let Some(decl) = &program.module {
             if is_entry {
                 return Err(module_error(
@@ -196,6 +210,16 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
         for import in &program.imports {
             if let Some(first) = import.path.first() {
                 if first == "std" {
+                    let import_file = module_file_for(&root, &import.path);
+                    if import_file.exists() {
+                        return Err(module_error(
+                            "C026",
+                            format!("module path `{}` is reserved for std", import.path.join("::")),
+                            &file,
+                            import.path_span,
+                            json_errors,
+                        ));
+                    }
                     continue;
                 }
             }

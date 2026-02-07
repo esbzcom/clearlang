@@ -16,6 +16,7 @@ mod block;
 mod binops;
 mod calls;
 mod collections;
+mod collections_helpers;
 mod control;
 mod eq;
 mod index;

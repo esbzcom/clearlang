@@ -48,13 +48,32 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
         .unwrap_or_else(|_| entry.to_path_buf());
     let mut modules: Vec<ModuleUnit> = Vec::new();
     let mut by_path: HashMap<String, usize> = HashMap::new();
+    let mut module_files: HashMap<String, PathBuf> = HashMap::new();
     let mut queue: VecDeque<PathBuf> = VecDeque::new();
     queue.push_back(entry_abs.clone());
 
     while let Some(file) = queue.pop_front() {
-        let program = parse_file(&file, json_errors)?;
         let path = module_path_for(root, &file)?;
         let path_str = path.join("::");
+        if let Some(existing) = module_files.get(&path_str) {
+            if !same_path(existing, &file) {
+                return Err(module_error(
+                    "C024",
+                    format!(
+                        "module `{}` is defined by multiple files (`{}` and `{}`)",
+                        path_str,
+                        existing.display(),
+                        file.display()
+                    ),
+                    &file,
+                    Span { start: 0, end: 0 },
+                    json_errors,
+                ));
+            }
+            continue;
+        }
+
+        let program = parse_file(&file, json_errors)?;
         let is_entry = same_path(&entry_abs, &file);
 
         if let Some(decl) = &program.module {
@@ -99,6 +118,7 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
         let exports = collect_exports(&program);
 
         by_path.insert(path_str.clone(), modules.len());
+        module_files.insert(path_str.clone(), file.clone());
         modules.push(ModuleUnit {
             path_str,
             file,
@@ -278,10 +298,14 @@ fn dfs_cycle(
 }
 
 fn same_path(a: &Path, b: &Path) -> bool {
-    if let Ok(b_abs) = b.canonicalize() {
-        return a == b_abs;
+    let a_abs = a.canonicalize();
+    let b_abs = b.canonicalize();
+    match (a_abs, b_abs) {
+        (Ok(a_abs), Ok(b_abs)) => a_abs == b_abs,
+        (Ok(a_abs), Err(_)) => a_abs == b,
+        (Err(_), Ok(b_abs)) => a == b_abs,
+        (Err(_), Err(_)) => a == b,
     }
-    a == b
 }
 
 fn collect_locals(program: &Program) -> (HashSet<String>, HashSet<String>) {

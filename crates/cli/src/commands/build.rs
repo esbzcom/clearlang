@@ -1,21 +1,18 @@
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use clg_ast::{Effect, Program, Type};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias};
 use clg_ir::IrType;
-use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
 use clg_typer::{
     check_with_vcs, RefinementAttachmentDetail, TypecheckOutput, TyperError, VerificationCondition,
 };
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-use crate::commands::helpers::{
-    extract_function_name, make_parse_json_error, make_single_json_error, CommandError,
-};
+use crate::commands::helpers::{extract_function_name, make_single_json_error, CommandError};
+use crate::commands::modules::load_program;
 use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{hash_module, module_bytes_with_zeroed_hash, ProofPackage};
 use crate::signing::{self, SignScope};
@@ -41,31 +38,9 @@ pub fn run(
     }
 
     let mut timings = StageTimings::new();
-    let mut s = String::new();
-    {
-        let _stage = timings.start(logger, "read_source");
-        fs::File::open(&file)
-            .with_context(|| format!("opening {}", file.display()))?
-            .read_to_string(&mut s)
-            .with_context(|| format!("reading {}", file.display()))?;
-    }
-
     let ast = {
         let _stage = timings.start(logger, "parse");
-        if json_errors {
-            match parse_src_errs(&s) {
-                Ok(ast) => ast,
-                Err(errs) => {
-                    let json = make_parse_json_error(&file, &errs);
-                    return Err(CommandError::json(json).into());
-                }
-            }
-        } else {
-            match parse_src(&s) {
-                Ok(ast) => ast,
-                Err(e) => return Err(anyhow!("parse failed: {}", e)),
-            }
-        }
+        load_program(&file, json_errors)?
     };
 
     let type_output = {

@@ -339,13 +339,14 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
         let enum_pat = path_name_p()
             .try_map(|path, span| {
                 let parts: Vec<&str> = path.split("::").collect();
-                if parts.len() != 2 {
+                if parts.len() < 2 {
                     Err(Rich::custom(
                         span,
                         "enum pattern must be `Type::Variant`",
                     ))
                 } else {
-                    Ok((parts[0].to_string(), parts[1].to_string()))
+                    let (enum_path, variant) = parts.split_at(parts.len() - 1);
+                    Ok((enum_path.join("::"), variant[0].to_string()))
                 }
             })
             .then(enum_binders.or_not())

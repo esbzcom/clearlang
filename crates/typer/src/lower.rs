@@ -919,7 +919,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 Ok(ctx.variant_init(tag, payload, zero))
             }
             _ => {
-                if let Some((enum_name, variant_name)) = callee.split_once("::") {
+                if let Some((enum_name, variant_name)) = callee.rsplit_once("::") {
                     if ctx.type_defs.enums.contains_key(enum_name) {
                         let call_ty = infer_expr_type(
                             e,

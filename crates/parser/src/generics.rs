@@ -1,3 +1,4 @@
+use crate::path::path_name_p;
 use crate::tokens::{ident_p, kw};
 use crate::ErrTy;
 use chumsky::prelude::*;
@@ -31,7 +32,7 @@ pub(crate) fn type_params_with_bounds_p<'a>(
     let param_with_bound = param.then(
         just(':')
             .padded()
-            .ignore_then(ident_p().map_with(|trait_name, e| (trait_name, to_span(e.span()))))
+            .ignore_then(path_name_p().map_with(|trait_name, e| (trait_name, to_span(e.span()))))
             .or_not(),
     );
     param_with_bound
@@ -59,7 +60,7 @@ pub(crate) fn type_params_with_bounds_p<'a>(
 pub(crate) fn where_bounds_p<'a>() -> impl Parser<'a, &'a str, Vec<TraitBound>, ErrTy<'a>> {
     let bound = ident_p()
         .then_ignore(just(':').padded())
-        .then(ident_p())
+        .then(path_name_p())
         .map_with(|(param, trait_name), e| TraitBound {
             param,
             trait_name,

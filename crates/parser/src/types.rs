@@ -1,4 +1,5 @@
-use crate::tokens::{ident_p, kw};
+use crate::path::path_name_p;
+use crate::tokens::kw;
 use crate::ErrTy;
 use chumsky::prelude::*;
 use chumsky::text;
@@ -64,11 +65,11 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then(ty.clone())
             .then_ignore(just('>').padded())
             .map(|(ok, err)| Type::Result(Box::new(ok), Box::new(err)));
-        let named = ident_p().map(|name| Type::Named {
+        let named = path_name_p().map(|name| Type::Named {
             name,
             args: Vec::new(),
         });
-        let named_args = ident_p()
+        let named_args = path_name_p()
             .then(
                 ty.clone()
                     .separated_by(just(',').padded())

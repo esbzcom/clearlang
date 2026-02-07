@@ -140,6 +140,12 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C011 | build | Missing `query` function for contract build. |
 | C012 | build | Contract entrypoint has an invalid signature. |
 | C013 | build | Contract build reserves `init`/`handle`; use `apply` instead. |
+| C020 | build | Unknown module in import. |
+| C021 | build | Imported item is missing or not exported. |
+| C022 | build | Import name conflicts with an existing name. |
+| C023 | build | Module header does not match file path. |
+| C024 | build | Duplicate module path across source files. |
+| C025 | build | Import cycle detected. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

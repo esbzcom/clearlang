@@ -2140,7 +2140,7 @@ fn type_trait_call<'a>(
     depth: usize,
     span: Span,
 ) -> Result<Option<Type>> {
-    let Some((trait_name, method_name)) = callee.split_once("::") else {
+    let Some((trait_name, method_name)) = callee.rsplit_once("::") else {
         return Ok(None);
     };
     let Some(trait_info) = trait_env.traits.get(trait_name) else {
@@ -2807,7 +2807,7 @@ fn call_effect(callee: &str, fns: &HashMap<&str, FnSig>, trait_env: &TraitEnv<'_
     if let Some(level) = builtin_effect(callee) {
         return level;
     }
-    if let Some((trait_name, method_name)) = callee.split_once("::") {
+    if let Some((trait_name, method_name)) = callee.rsplit_once("::") {
         if let Some(info) = trait_env.traits.get(trait_name) {
             if let Some(method) = info.methods.get(method_name) {
                 return level_from_effect(method.effect);

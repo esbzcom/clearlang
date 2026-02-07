@@ -289,7 +289,7 @@ impl<'a> Monomorphizer<'a> {
                     return Ok(());
                 }
 
-                if let Some((trait_name, method_name)) = callee.split_once("::") {
+                if let Some((trait_name, method_name)) = callee.rsplit_once("::") {
                     if self.trait_env.traits.contains_key(trait_name) {
                         let new_name = self.resolve_trait_call(
                             trait_name,
@@ -521,7 +521,7 @@ impl<'a> Monomorphizer<'a> {
     }
 
     fn is_enum_constructor(&self, callee: &str) -> bool {
-        let Some((enum_name, variant_name)) = callee.split_once("::") else {
+        let Some((enum_name, variant_name)) = callee.rsplit_once("::") else {
             return false;
         };
         let Some(info) = self.type_defs.enums.get(enum_name) else {

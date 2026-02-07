@@ -889,6 +889,211 @@ fn run_env_random_negative_length_reports_r002() {
 }
 
 #[test]
+fn build_and_run_with_imports() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let math_dir = root.join("math");
+    fs::create_dir_all(&math_dir).expect("create math dir");
+
+    let arith = r#"
+        export function add(a: Int, b: Int) -> Int { a + b }
+    "#;
+    fs::write(math_dir.join("arith.clear"), arith.trim()).expect("write arith");
+
+    let main_src = r#"
+        import math::arith
+
+        function main() -> Int {
+            arith::add(40, 2)
+        }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("42"));
+}
+
+#[test]
+fn import_requires_exported_item() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let util_dir = root.join("util");
+    fs::create_dir_all(&util_dir).expect("create util dir");
+
+    let helper = r#"
+        function hidden(a: Int) -> Int { a }
+    "#;
+    fs::write(util_dir.join("helper.clear"), helper.trim()).expect("write helper");
+
+    let main_src = r#"
+        import util::helper::{hidden}
+
+        function main() -> Int { hidden(1) }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C021"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn import_missing_module_reports_c020() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        import missing::thing
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C020"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn import_name_conflict_reports_c022() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let math_dir = root.join("math");
+    fs::create_dir_all(&math_dir).expect("create math dir");
+
+    let arith = r#"
+        export function add(a: Int, b: Int) -> Int { a + b }
+    "#;
+    fs::write(math_dir.join("arith.clear"), arith.trim()).expect("write arith");
+
+    let main_src = r#"
+        import math::arith
+        function arith() -> Int { 1 }
+        function main() -> Int { arith() }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C022"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn import_cycle_reports_c025() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let a_dir = root.join("a");
+    let b_dir = root.join("b");
+    fs::create_dir_all(&a_dir).expect("create a dir");
+    fs::create_dir_all(&b_dir).expect("create b dir");
+
+    let a_src = r#"
+        import b::modb
+        export function ping() -> Int { 1 }
+    "#;
+    fs::write(a_dir.join("moda.clear"), a_src.trim()).expect("write a");
+
+    let b_src = r#"
+        import a::moda
+        export function pong() -> Int { 2 }
+    "#;
+    fs::write(b_dir.join("modb.clear"), b_src.trim()).expect("write b");
+
+    let main_src = r#"
+        import a::moda
+        function main() -> Int { moda::ping() }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C025"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
 fn run_crypto_hash_stub_returns_len() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_hash.clear");

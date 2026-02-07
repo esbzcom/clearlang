@@ -1,6 +1,7 @@
 use crate::func::func_p;
 use crate::generics::{type_params_with_bounds_p, where_bounds_p};
-use crate::tokens::{ident_p, kw};
+use crate::path::path_name_p;
+use crate::tokens::kw;
 use crate::types::ty_p;
 use crate::ErrTy;
 use chumsky::prelude::*;
@@ -17,7 +18,7 @@ pub(crate) fn impl_p<'a>() -> impl Parser<'a, &'a str, ImplDecl, ErrTy<'a>> {
     let methods = func_p().repeated().collect::<Vec<_>>();
     kw("impl")
         .ignore_then(type_params_with_bounds_p().or_not())
-        .then(ident_p().map_with(|name, e| (name, to_span(e.span()))))
+        .then(path_name_p().map_with(|name, e| (name, to_span(e.span()))))
         .then_ignore(kw("for"))
         .then(ty_p().padded())
         .then(where_bounds_p().or_not())

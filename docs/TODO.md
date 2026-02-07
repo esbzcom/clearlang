@@ -708,7 +708,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
   - [x] 17.5.1 Design: file layout, module paths, visibility keywords, and re-exports.
   - [x] 17.5.2 Parser/AST for `import`/`export` and namespace nodes.
-  - [ ] 17.5.3 Typer: module graph resolution + name shadowing diagnostics.
+  - [x] 17.5.3 Typer: module graph resolution + name shadowing diagnostics.
   - [ ] 17.5.4 Build system updates (module discovery, caching, error spans).
   - [ ] 17.5.5 Tests + docs walkthrough.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.

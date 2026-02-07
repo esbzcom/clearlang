@@ -11,6 +11,7 @@ use clg_ir::{
 use std::collections::{HashMap, HashSet};
 
 mod array;
+mod atoms;
 mod block;
 mod binops;
 mod calls;
@@ -25,6 +26,7 @@ mod r#match;
 mod structs;
 
 use array::emit_array_len_guard;
+use atoms::{lower_return_expr, lower_unary_expr, lower_var_expr};
 use block::lower_block_expr;
 use binops::lower_bin_expr;
 use calls::lower_call_expr;
@@ -276,11 +278,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
     match e {
         Expr::Int(n, _) => lower_int_lit(ctx, *n, expected),
         Expr::Block { block } => lower_block_expr(ctx, block, expected),
-        Expr::Return { expr, .. } => {
-            // For expression-bodied functions, `return e` is equivalent to `e`.
-            // Lower inner expression; the enclosing function appends the Ret.
-            lower_expr(ctx, expr, expected)
-        }
+        Expr::Return { expr, .. } => lower_return_expr(ctx, expr, expected),
         Expr::Bool(b, _) => lower_bool_lit(ctx, *b),
         Expr::String(s, _) => lower_string_lit(ctx, s),
         Expr::ArrayLit { elems, .. } => lower_array_lit(ctx, elems),
@@ -289,9 +287,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::FieldAccess { base, field, .. } => {
             lower_field_access(ctx, base, field.as_str())
         }
-        Expr::Unary { .. } => {
-            anyhow::bail!("unary operators are not supported in codegen yet")
-        }
+        Expr::Unary { .. } => lower_unary_expr(),
         Expr::Match {
             scrutinee, arms, ..
         } => lower_match_expr(ctx, scrutinee, arms, expected),
@@ -302,11 +298,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             else_br,
             ..
         } => lower_if_expr(ctx, cond, then_br, else_br, expected),
-        Expr::Var(name, _) => ctx
-            .env
-            .get(name.as_str())
-            .copied()
-            .ok_or_else(|| anyhow::anyhow!(format!("unknown variable `{}`", name))),
+        Expr::Var(name, _) => lower_var_expr(ctx, name.as_str()),
         Expr::Index { base, index, span } => lower_index_expr(ctx, base, index, span),
         Expr::Bin { op, lhs, rhs, .. } => lower_bin_expr(ctx, e, op, lhs, rhs, expected),
         Expr::Call { callee, args, .. } => {

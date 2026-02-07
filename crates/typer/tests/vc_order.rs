@@ -17,6 +17,7 @@ fn vcs_are_sorted_by_function_and_id() {
         },
     };
     let alpha = Func {
+        is_exported: false,
         effect: Effect::Pure,
         effect_span: None,
         name: "alpha".into(),
@@ -38,6 +39,7 @@ fn vcs_are_sorted_by_function_and_id() {
         },
     };
     let beta = Func {
+        is_exported: false,
         effect: Effect::Mut,
         effect_span: None,
         name: "beta".into(),
@@ -59,6 +61,8 @@ fn vcs_are_sorted_by_function_and_id() {
     };
 
     let program = Program {
+        module: None,
+        imports: vec![],
         refined_aliases: vec![],
         resources: vec![],
         structs: vec![],

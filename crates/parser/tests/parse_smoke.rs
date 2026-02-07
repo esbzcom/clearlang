@@ -1,4 +1,4 @@
-use clg_ast::{BinOp, Effect, Expr, Type, UnaryOp};
+use clg_ast::{BinOp, Effect, Expr, ImportKind, Type, UnaryOp};
 use clg_parser::parse;
 
 #[test]
@@ -70,6 +70,42 @@ fn parses_contract_logic_precedence() {
         }
         other => panic!("expected logical OR at top level, found {other:?}"),
     }
+}
+
+#[test]
+fn parses_module_and_imports() {
+    let src = r#"
+        module foo::bar;
+        import std::bytes;
+        import util::math as m;
+        import util::types::{Foo, Bar};
+
+        export function add(a: Int, b: Int) -> Int { a + b }
+        function main() -> Int { add(1, 2) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let module = ast.module.as_ref().expect("module decl");
+    assert_eq!(module.path, vec!["foo", "bar"]);
+    assert_eq!(ast.imports.len(), 3);
+    match &ast.imports[0].kind {
+        ImportKind::Module { alias } => assert!(alias.is_none()),
+        other => panic!("expected module import, found {other:?}"),
+    }
+    match &ast.imports[1].kind {
+        ImportKind::Module { alias } => assert_eq!(alias.as_deref(), Some("m")),
+        other => panic!("expected module import with alias, found {other:?}"),
+    }
+    match &ast.imports[2].kind {
+        ImportKind::Items { items } => {
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].name, "Foo");
+            assert_eq!(items[1].name, "Bar");
+        }
+        other => panic!("expected item import, found {other:?}"),
+    }
+    assert_eq!(ast.funcs.len(), 2);
+    assert!(ast.funcs[0].is_exported);
+    assert!(!ast.funcs[1].is_exported);
 }
 
 #[test]

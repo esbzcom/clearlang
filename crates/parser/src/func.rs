@@ -135,6 +135,7 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
                 }
 
                 Func {
+                    is_exported: false,
                     effect,
                     effect_span,
                     name,

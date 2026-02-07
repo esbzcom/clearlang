@@ -32,6 +32,7 @@ pub(crate) fn struct_p<'a>() -> impl Parser<'a, &'a str, StructDecl, ErrTy<'a>> 
         .then(type_params_p().or_not())
         .then(struct_fields_p().delimited_by(just('{').padded(), just('}').padded()))
         .map_with(|(((name, name_span), type_params), fields), e| StructDecl {
+            is_exported: false,
             name,
             name_span,
             type_params: type_params.unwrap_or_default(),

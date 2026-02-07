@@ -2,12 +2,14 @@ use crate::alias::refined_alias_p;
 use crate::enum_decl::enum_p;
 use crate::func::func_p;
 use crate::impl_decl::impl_p;
+use crate::module_import::{import_decl_p, module_decl_p};
 use crate::resource::resource_p;
 use crate::struct_decl::struct_p;
 use crate::trait_decl::trait_p;
+use crate::tokens::kw;
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::Program;
+use clg_ast::{Program, Span};
 
 #[derive(Debug)]
 enum Item {
@@ -18,6 +20,52 @@ enum Item {
     Enum(clg_ast::EnumDecl),
     Trait(clg_ast::TraitDecl),
     Impl(clg_ast::ImplDecl),
+}
+
+#[derive(Debug)]
+enum TopLevel {
+    Import(clg_ast::ImportDecl),
+    Item(Item),
+}
+
+fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
+    Span {
+        start: sp.start,
+        end: sp.end,
+    }
+}
+
+fn apply_export<'a>(item: Item, export_span: Span) -> Result<Item, Rich<'a, char>> {
+    match item {
+        Item::Alias(mut alias) => {
+            alias.is_exported = true;
+            Ok(Item::Alias(alias))
+        }
+        Item::Func(mut func) => {
+            func.is_exported = true;
+            Ok(Item::Func(func))
+        }
+        Item::Resource(mut resource) => {
+            resource.is_exported = true;
+            Ok(Item::Resource(resource))
+        }
+        Item::Struct(mut strukt) => {
+            strukt.is_exported = true;
+            Ok(Item::Struct(strukt))
+        }
+        Item::Enum(mut enm) => {
+            enm.is_exported = true;
+            Ok(Item::Enum(enm))
+        }
+        Item::Trait(mut tr) => {
+            tr.is_exported = true;
+            Ok(Item::Trait(tr))
+        }
+        Item::Impl(_) => Err(Rich::custom(
+            chumsky::span::SimpleSpan::new((), export_span.start..export_span.end),
+            "impl blocks cannot be exported",
+        )),
+    }
 }
 
 fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
@@ -31,10 +79,30 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
         func_p().map(Item::Func),
     ));
 
-    item.repeated()
-        .at_least(1)
-        .collect::<Vec<_>>()
-        .map(|items| {
+    let export_kw = kw("export").map_with(|_, e| to_span(e.span()));
+
+    let exported_item = export_kw
+        .then(choice((
+            refined_alias_p().map(Item::Alias),
+            resource_p().map(Item::Resource),
+            struct_p().map(Item::Struct),
+            enum_p().map(Item::Enum),
+            trait_p().map(Item::Trait),
+            impl_p().map(Item::Impl),
+            func_p().map(Item::Func),
+        )))
+        .try_map(|(span, item), _| apply_export(item, span));
+
+    let top_level = choice((
+        import_decl_p().map(TopLevel::Import),
+        exported_item.map(TopLevel::Item),
+        item.map(TopLevel::Item),
+    ));
+
+    module_decl_p()
+        .or_not()
+        .then(top_level.repeated().collect::<Vec<_>>())
+        .map(|(module_decl, items)| {
             let mut refined_aliases = Vec::with_capacity(items.len());
             let mut funcs = Vec::with_capacity(items.len());
             let mut resources = Vec::with_capacity(items.len());
@@ -42,18 +110,24 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             let mut enums = Vec::with_capacity(items.len());
             let mut traits = Vec::with_capacity(items.len());
             let mut impls = Vec::with_capacity(items.len());
+            let mut imports = Vec::with_capacity(items.len());
             for item in items {
                 match item {
-                    Item::Alias(a) => refined_aliases.push(a),
-                    Item::Func(f) => funcs.push(f),
-                    Item::Resource(r) => resources.push(r),
-                    Item::Struct(s) => structs.push(s),
-                    Item::Enum(e) => enums.push(e),
-                    Item::Trait(t) => traits.push(t),
-                    Item::Impl(i) => impls.push(i),
+                    TopLevel::Import(i) => imports.push(i),
+                    TopLevel::Item(item) => match item {
+                        Item::Alias(a) => refined_aliases.push(a),
+                        Item::Func(f) => funcs.push(f),
+                        Item::Resource(r) => resources.push(r),
+                        Item::Struct(s) => structs.push(s),
+                        Item::Enum(e) => enums.push(e),
+                        Item::Trait(t) => traits.push(t),
+                        Item::Impl(i) => impls.push(i),
+                    },
                 }
             }
             Program {
+                module: module_decl,
+                imports,
                 refined_aliases,
                 resources,
                 structs,

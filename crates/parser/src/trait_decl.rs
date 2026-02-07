@@ -92,6 +92,7 @@ pub(crate) fn trait_p<'a>() -> impl Parser<'a, &'a str, TraitDecl, ErrTy<'a>> {
         .then(type_params_p().or_not())
         .then(methods.delimited_by(just('{').padded(), just('}').padded()))
         .map_with(|(((name, name_span), type_params), methods), e| TraitDecl {
+            is_exported: false,
             name,
             name_span,
             type_params: type_params.unwrap_or_default(),

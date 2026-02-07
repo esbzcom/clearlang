@@ -8,6 +8,7 @@ mod generics;
 mod expr;
 mod func;
 mod literals;
+mod module_import;
 mod path;
 mod program;
 mod resource;

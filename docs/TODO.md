@@ -706,8 +706,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.4.4 Runtime helpers + tests (`std::array::len`, `std::slice::{from_array,sub}`, array/slice bounds + length-guard coverage).
   - Note: `[T; N]` is sugar over `Array<T>` with length-contract guards; docs/ABI updated accordingly.
 - [ ] 17.5 Add module/import system with visibility controls for libraries.
-  - [ ] 17.5.1 Design: file layout, module paths, visibility keywords, and re-exports.
-  - [ ] 17.5.2 Parser/AST for `mod`/`use` and namespace nodes.
+  - [x] 17.5.1 Design: file layout, module paths, visibility keywords, and re-exports.
+  - [x] 17.5.2 Parser/AST for `import`/`export` and namespace nodes.
   - [ ] 17.5.3 Typer: module graph resolution + name shadowing diagnostics.
   - [ ] 17.5.4 Build system updates (module discovery, caching, error spans).
   - [ ] 17.5.5 Tests + docs walkthrough.
@@ -730,4 +730,5 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
 - [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
 - [ ] 18.3 Security review + fuzzing for attestation contract and payload validation.
+- [ ] 18.4 Compiled module/package import support (artifact metadata, versioning, and resolver flow).
 

@@ -24,3 +24,19 @@ pub(crate) fn path_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
         })
         .padded()
 }
+
+pub(crate) fn path_segments_p<'a>() -> impl Parser<'a, &'a str, Vec<String>, ErrTy<'a>> {
+    ident_p()
+        .then(
+            (just("::").padded().ignore_then(ident_p()))
+                .repeated()
+                .collect::<Vec<_>>(),
+        )
+        .map(|(head, tail)| {
+            let mut out = Vec::with_capacity(1 + tail.len());
+            out.push(head);
+            out.extend(tail);
+            out
+        })
+        .padded()
+}

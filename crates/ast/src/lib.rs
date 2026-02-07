@@ -6,6 +6,7 @@ pub struct Span {
 
 #[derive(Debug, Clone)]
 pub struct RefinedAlias {
+    pub is_exported: bool,
     pub name: String,
     pub name_span: Span,
     pub type_params: Vec<String>,
@@ -16,7 +17,35 @@ pub struct RefinedAlias {
 }
 
 #[derive(Debug, Clone)]
+pub struct ModuleDecl {
+    pub path: Vec<String>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImportItem {
+    pub name: String,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub enum ImportKind {
+    Module { alias: Option<String> },
+    Items { items: Vec<ImportItem> },
+}
+
+#[derive(Debug, Clone)]
+pub struct ImportDecl {
+    pub path: Vec<String>,
+    pub path_span: Span,
+    pub kind: ImportKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
 pub struct Program {
+    pub module: Option<ModuleDecl>,
+    pub imports: Vec<ImportDecl>,
     pub refined_aliases: Vec<RefinedAlias>,
     pub resources: Vec<Resource>,
     pub structs: Vec<StructDecl>,
@@ -41,6 +70,7 @@ pub struct TraitBound {
 
 #[derive(Debug, Clone)]
 pub struct StructDecl {
+    pub is_exported: bool,
     pub name: String,
     pub name_span: Span,
     pub type_params: Vec<TypeParam>,
@@ -57,6 +87,7 @@ pub struct StructField {
 
 #[derive(Debug, Clone)]
 pub struct EnumDecl {
+    pub is_exported: bool,
     pub name: String,
     pub name_span: Span,
     pub type_params: Vec<TypeParam>,
@@ -74,6 +105,7 @@ pub struct EnumVariant {
 
 #[derive(Debug, Clone)]
 pub struct Resource {
+    pub is_exported: bool,
     pub name: String,
     pub name_span: Span,
     pub fields: Vec<ResourceField>,
@@ -117,6 +149,7 @@ pub enum Stmt {
 
 #[derive(Debug, Clone)]
 pub struct Func {
+    pub is_exported: bool,
     pub effect: Effect,
     pub effect_span: Option<Span>,
     pub name: String,
@@ -141,6 +174,7 @@ pub struct TraitMethod {
 
 #[derive(Debug, Clone)]
 pub struct TraitDecl {
+    pub is_exported: bool,
     pub name: String,
     pub name_span: Span,
     pub type_params: Vec<TypeParam>,

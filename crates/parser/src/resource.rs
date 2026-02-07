@@ -115,6 +115,7 @@ pub(crate) fn resource_p<'a>() -> impl Parser<'a, &'a str, Resource, ErrTy<'a>> 
         .ignore_then(ident_p().map_with(|name, e| (name, to_span(e.span()))))
         .then(body.delimited_by(just('{').padded(), just('}').padded()))
         .map_with(|((name, name_span), (fields, drop_block)), e| Resource {
+            is_exported: false,
             name,
             name_span,
             fields,

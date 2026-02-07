@@ -32,6 +32,7 @@ pub(crate) fn refined_alias_p<'a>() -> impl Parser<'a, &'a str, RefinedAlias, Er
         .map_with(|((((name, name_span), type_params), base), predicate), e| {
             let binder = find_first_var(&predicate);
             RefinedAlias {
+                is_exported: false,
                 name,
                 name_span,
                 type_params: type_params.unwrap_or_default(),

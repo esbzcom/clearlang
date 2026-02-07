@@ -15,6 +15,7 @@ mod block;
 mod binops;
 mod calls;
 mod collections;
+mod control;
 mod eq;
 mod index;
 mod intrinsics;
@@ -27,6 +28,7 @@ use array::emit_array_len_guard;
 use block::lower_block_expr;
 use binops::lower_bin_expr;
 use calls::lower_call_expr;
+use control::{lower_if_expr, lower_try_expr};
 use index::lower_index_expr;
 use literals::{lower_array_lit, lower_tuple_lit};
 use r#match::{lower_enum_match, lower_match_sugar};
@@ -375,49 +377,13 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             }
             anyhow::bail!("match expression not supported in lowering yet")
         }
-        Expr::Try { expr, .. } => {
-            let kind = match &ctx.ret_ty {
-                Type::Option(_) => VariantKind::Option,
-                Type::Result(_, _) => VariantKind::Result,
-                other => {
-                    return Err(anyhow::anyhow!(
-                        "`?` requires Option/Result return type, found {:?}",
-                        other
-                    ));
-                }
-            };
-            let variant = lower_expr(ctx, expr, None)?;
-            let parts = ctx.variant_destructure(variant, kind);
-            let failure_tag = emit_int_const(ctx, 0);
-            let cond = fresh(ctx);
-            ctx.body.push(Instr::IBin {
-                dst: cond,
-                op: BinOpIR::Eq,
-                lhs: parts.tag,
-                rhs: failure_tag,
-                ty: IrType::Int,
-            });
-            ctx.body.push(Instr::ReturnIf { cond, ret: variant });
-            Ok(parts.payload_lo)
-        }
+        Expr::Try { expr, .. } => lower_try_expr(ctx, expr),
         Expr::If {
             cond,
             then_br,
             else_br,
             ..
-        } => {
-            let cv = lower_expr(ctx, cond, None)?;
-            let tv = lower_expr(ctx, then_br, expected.clone())?;
-            let ev = lower_expr(ctx, else_br, expected)?;
-            let dst = fresh(ctx);
-            ctx.body.push(Instr::ISelect {
-                dst,
-                cond: cv,
-                then_v: tv,
-                else_v: ev,
-            });
-            Ok(dst)
-        }
+        } => lower_if_expr(ctx, cond, then_br, else_br, expected),
         Expr::Var(name, _) => ctx
             .env
             .get(name.as_str())

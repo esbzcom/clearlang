@@ -1179,6 +1179,41 @@ fn import_items_and_aliases_work() {
 }
 
 #[test]
+fn import_std_module_and_items_work() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        import std::bytes as b
+        import std::bytes::{len}
+
+        function main() -> Int {
+            len(std::bytes::from_string("hi")) + b::len(std::bytes::from_string("a"))
+        }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("3"));
+}
+
+#[test]
 fn run_crypto_hash_stub_returns_len() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_hash.clear");

@@ -394,7 +394,67 @@ fn build_import_env(
     let mut imported_types = HashMap::new();
 
     for import in &module.program.imports {
+        let is_std = import
+            .path
+            .first()
+            .map(|seg| seg == "std")
+            .unwrap_or(false);
         let target_path = import.path.join("::");
+        if is_std {
+            match &import.kind {
+                ImportKind::Module { alias } => {
+                    let alias_name = alias
+                        .clone()
+                        .unwrap_or_else(|| import.path.last().cloned().unwrap_or_default());
+                    if alias_name.is_empty() || alias_name == "std" {
+                        return Err(module_error(
+                            "C020",
+                            "invalid module alias".to_string(),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        ));
+                    }
+                    if module.local_values.contains(&alias_name)
+                        || module.local_types.contains(&alias_name)
+                        || module_aliases.contains_key(&alias_name)
+                        || imported_values.contains_key(&alias_name)
+                        || imported_types.contains_key(&alias_name)
+                    {
+                        return Err(module_error(
+                            "C022",
+                            format!("import name `{}` conflicts with existing name", alias_name),
+                            &module.file,
+                            import.span,
+                            json_errors,
+                        ));
+                    }
+                    module_aliases.insert(alias_name, target_path.clone());
+                }
+                ImportKind::Items { items } => {
+                    for item in items {
+                        let name = item.name.clone();
+                        if module.local_values.contains(&name)
+                            || module.local_types.contains(&name)
+                            || module_aliases.contains_key(&name)
+                            || imported_values.contains_key(&name)
+                            || imported_types.contains_key(&name)
+                        {
+                            return Err(module_error(
+                                "C022",
+                                format!("import name `{}` conflicts with existing name", name),
+                                &module.file,
+                                item.span,
+                                json_errors,
+                            ));
+                        }
+                        let qualified = format!("{}::{}", target_path, name);
+                        imported_values.insert(name, qualified);
+                    }
+                }
+            }
+            continue;
+        }
         let Some(target) = modules.get(&target_path) else {
             return Err(module_error(
                 "C020",
@@ -409,7 +469,7 @@ fn build_import_env(
                 let alias_name = alias
                     .clone()
                     .unwrap_or_else(|| import.path.last().cloned().unwrap_or_default());
-                if alias_name.is_empty() {
+                if alias_name.is_empty() || alias_name == "std" {
                     return Err(module_error(
                         "C020",
                         "invalid module alias".to_string(),
@@ -574,6 +634,9 @@ fn resolve_program(module: &ModuleUnit, env: &ImportEnv) -> Program {
         let mut params = type_param_set(&imp.type_params);
         params.insert("Self".to_string());
         resolve_type(&mut imp.for_type, &ctx, &params);
+        for bound in &mut imp.where_bounds {
+            resolve_trait_bound(bound, &ctx);
+        }
         for method in &mut imp.methods {
             resolve_func(method, &ctx, &params, false);
         }

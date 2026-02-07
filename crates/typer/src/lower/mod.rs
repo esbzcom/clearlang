@@ -19,6 +19,7 @@ mod index;
 mod intrinsics;
 mod layout;
 mod r#match;
+mod structs;
 
 use array::{
     emit_array_len_guard, ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET,
@@ -29,8 +30,9 @@ use calls::lower_call_expr;
 use eq::emit_eq_for_type;
 use index::lower_index_expr;
 use r#match::{lower_enum_match, lower_match_sugar};
+use structs::{lower_field_access, lower_struct_lit};
 use layout::{
-    array_layout, std_type_info_for, struct_layout, tuple_layout,
+    array_layout, std_type_info_for, tuple_layout,
 };
 
 type FnSig = CheckFnSig;
@@ -405,73 +407,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             }
             Ok(ptr)
         }
-        Expr::StructLit { name: _, fields, .. } => {
-            let struct_ty = infer_expr_type(
-                e,
-                &ctx.type_env,
-                &ctx.fns,
-                ctx.trait_env,
-                ctx.aliases,
-                ctx.type_defs,
-                &ctx.type_params,
-                &ctx.bounds,
-            )?;
-            let resolved = base_type(&struct_ty, ctx.aliases)?;
-            let Type::Named { name: type_name, args } = resolved else {
-                anyhow::bail!("struct literal expects a struct value");
-            };
-            let (decl_fields, layout) = struct_layout(
-                ctx.type_defs,
-                ctx.aliases,
-                ctx.std_types,
-                type_name.as_str(),
-                &args,
-            )?;
-            let mut field_offsets: HashMap<&str, (u32, Type)> =
-                HashMap::with_capacity(decl_fields.len());
-            for (idx, field) in decl_fields.iter().enumerate() {
-                let offset = *layout
-                    .offsets
-                    .get(idx)
-                    .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
-                field_offsets.insert(field.name.as_str(), (offset, field.ty.clone()));
-            }
-            let ptr = emit_alloc(ctx, layout.size, layout.align);
-            for field in fields {
-                let (offset, field_ty) = field_offsets
-                    .get(field.name.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("unknown struct field `{}`", field.name))?
-                    .clone();
-                let val = lower_expr(ctx, &field.expr, Some(field_ty.clone()))?;
-                store_value(ctx, &field_ty, ptr, offset, val)?;
-            }
-            Ok(ptr)
-        }
+        Expr::StructLit { name: _, fields, .. } => lower_struct_lit(ctx, e, fields),
         Expr::FieldAccess { base, field, .. } => {
-            let base_ty = infer_expr_type(base, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
-            let resolved = base_type(&base_ty, ctx.aliases)?;
-            let Type::Named { name, args } = resolved else {
-                anyhow::bail!("field access expects a struct value");
-            };
-            let (decl_fields, layout) =
-                struct_layout(ctx.type_defs, ctx.aliases, ctx.std_types, name.as_str(), &args)?;
-            let mut field_idx: Option<usize> = None;
-            let mut field_ty: Option<Type> = None;
-            for (idx, f) in decl_fields.iter().enumerate() {
-                if f.name == *field {
-                    field_idx = Some(idx);
-                    field_ty = Some(f.ty.clone());
-                    break;
-                }
-            }
-            let idx = field_idx.ok_or_else(|| anyhow::anyhow!("unknown field `{}`", field))?;
-            let field_ty = field_ty.ok_or_else(|| anyhow::anyhow!("field type missing"))?;
-            let offset = *layout
-                .offsets
-                .get(idx)
-                .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
-            let base_ptr = lower_expr(ctx, base, None)?;
-            load_value_borrow(ctx, &field_ty, base_ptr, offset)
+            lower_field_access(ctx, base, field.as_str())
         }
         Expr::Unary { .. } => {
             anyhow::bail!("unary operators are not supported in codegen yet")

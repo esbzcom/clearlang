@@ -89,6 +89,21 @@ Rules:
 - Chain packages are modeled under `std::<chain>::...` and resolved by the host/
   toolchain (same rule as `std`).
 
+## Std/Chain Package Metadata (Phase 17.5.6)
+
+To validate `std` imports and distinguish types vs values, the toolchain ships
+with std/chain package metadata. This does not change user syntax.
+
+Minimal fields:
+- package path (e.g., `std::eth`), version, ABI/schema version.
+- module list (paths provided by the package).
+- export table: name + kind (type or value), and optional signatures.
+
+Benefits:
+- Precise C021-style errors for invalid `std` imports.
+- Correct handling of `import std::...::{TypeName}` in type positions.
+- Forward compatibility with compiled package imports (Phase 18.4).
+
 ## Resolution and Errors
 
 - Resolution is deterministic and file-based.

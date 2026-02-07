@@ -2,12 +2,14 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context, Result};
 use clg_ast::{
     Block, Expr, Func, ImportKind, MatchArm, MatchPat, Program, Span, Stmt, TraitBound, Type,
 };
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
+use serde::Deserialize;
 
 use super::helpers::{make_parse_json_error, make_single_json_error, CommandError};
 
@@ -30,6 +32,76 @@ struct ImportEnv {
     module_aliases: HashMap<String, String>,
     imported_values: HashMap<String, String>,
     imported_types: HashMap<String, String>,
+}
+
+#[derive(Deserialize)]
+struct StdMetadata {
+    schema_version: u32,
+    modules: Vec<StdModule>,
+}
+
+#[derive(Deserialize)]
+struct StdModule {
+    path: String,
+    exports: Vec<StdExport>,
+}
+
+#[derive(Deserialize)]
+struct StdExport {
+    name: String,
+    kind: StdExportKind,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+enum StdExportKind {
+    Type,
+    Value,
+}
+
+struct StdModuleIndex {
+    values: HashSet<String>,
+    types: HashSet<String>,
+}
+
+struct StdMetadataIndex {
+    modules: HashMap<String, StdModuleIndex>,
+}
+
+impl StdMetadataIndex {
+    fn load() -> Self {
+        let raw: StdMetadata = serde_json::from_str(include_str!("../../assets/std-metadata.json"))
+            .expect("invalid std metadata");
+        if raw.schema_version != 1 {
+            panic!("unsupported std metadata schema version {}", raw.schema_version);
+        }
+        let mut modules = HashMap::new();
+        for module in raw.modules {
+            let mut values = HashSet::new();
+            let mut types = HashSet::new();
+            for export in module.exports {
+                match export.kind {
+                    StdExportKind::Value => {
+                        values.insert(export.name);
+                    }
+                    StdExportKind::Type => {
+                        types.insert(export.name);
+                    }
+                }
+            }
+            modules.insert(module.path, StdModuleIndex { values, types });
+        }
+        StdMetadataIndex { modules }
+    }
+
+    fn module(&self, path: &str) -> Option<&StdModuleIndex> {
+        self.modules.get(path)
+    }
+}
+
+fn std_metadata() -> &'static StdMetadataIndex {
+    static STD_METADATA: OnceLock<StdMetadataIndex> = OnceLock::new();
+    STD_METADATA.get_or_init(StdMetadataIndex::load)
 }
 
 struct ResolveCtx<'a> {
@@ -401,6 +473,15 @@ fn build_import_env(
             .unwrap_or(false);
         let target_path = import.path.join("::");
         if is_std {
+            let std_module = std_metadata().module(&target_path).ok_or_else(|| {
+                module_error(
+                    "C020",
+                    format!("unknown module `{}`", target_path),
+                    &module.file,
+                    import.path_span,
+                    json_errors,
+                )
+            })?;
             match &import.kind {
                 ImportKind::Module { alias } => {
                     let alias_name = alias
@@ -434,6 +515,32 @@ fn build_import_env(
                 ImportKind::Items { items } => {
                     for item in items {
                         let name = item.name.clone();
+                        let is_value = std_module.values.contains(&name);
+                        let is_type = std_module.types.contains(&name);
+                        if !is_value && !is_type {
+                            return Err(module_error(
+                                "C021",
+                                format!(
+                                    "module `{}` does not export item `{}`",
+                                    target_path, name
+                                ),
+                                &module.file,
+                                item.span,
+                                json_errors,
+                            ));
+                        }
+                        if is_value && is_type {
+                            return Err(module_error(
+                                "C021",
+                                format!(
+                                    "module `{}` exports `{}` as both value and type",
+                                    target_path, name
+                                ),
+                                &module.file,
+                                item.span,
+                                json_errors,
+                            ));
+                        }
                         if module.local_values.contains(&name)
                             || module.local_types.contains(&name)
                             || module_aliases.contains_key(&name)
@@ -449,7 +556,11 @@ fn build_import_env(
                             ));
                         }
                         let qualified = format!("{}::{}", target_path, name);
-                        imported_values.insert(name, qualified);
+                        if is_value {
+                            imported_values.insert(name, qualified);
+                        } else {
+                            imported_types.insert(name, qualified);
+                        }
                     }
                 }
             }

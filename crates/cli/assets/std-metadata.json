@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "path": "std::bytes",
+      "exports": [
+        { "name": "len", "kind": "value" },
+        { "name": "concat", "kind": "value" },
+        { "name": "eq", "kind": "value" },
+        { "name": "eq_ct", "kind": "value" },
+        { "name": "from_string", "kind": "value" },
+        { "name": "to_string", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::str",
+      "exports": [
+        { "name": "len", "kind": "value" },
+        { "name": "concat", "kind": "value" },
+        { "name": "eq", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::wasi",
+      "exports": [
+        { "name": "print", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::env",
+      "exports": [
+        { "name": "time", "kind": "value" },
+        { "name": "random", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::crypto",
+      "exports": [
+        { "name": "hash", "kind": "value" },
+        { "name": "hmac", "kind": "value" },
+        { "name": "verify", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::u64",
+      "exports": [
+        { "name": "add_wrap", "kind": "value" },
+        { "name": "sub_wrap", "kind": "value" },
+        { "name": "mul_wrap", "kind": "value" },
+        { "name": "add_sat", "kind": "value" },
+        { "name": "sub_sat", "kind": "value" },
+        { "name": "mul_sat", "kind": "value" },
+        { "name": "rotl", "kind": "value" },
+        { "name": "rotr", "kind": "value" },
+        { "name": "to_bytes_le", "kind": "value" },
+        { "name": "to_bytes_be", "kind": "value" },
+        { "name": "from_bytes_le", "kind": "value" },
+        { "name": "from_bytes_be", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::u128",
+      "exports": [
+        { "name": "from_limbs", "kind": "value" },
+        { "name": "lo", "kind": "value" },
+        { "name": "hi", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::u256",
+      "exports": [
+        { "name": "from_limbs", "kind": "value" },
+        { "name": "limb0", "kind": "value" },
+        { "name": "limb1", "kind": "value" },
+        { "name": "limb2", "kind": "value" },
+        { "name": "limb3", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::list",
+      "exports": [
+        { "name": "new", "kind": "value" },
+        { "name": "len", "kind": "value" },
+        { "name": "get", "kind": "value" },
+        { "name": "push", "kind": "value" },
+        { "name": "insert", "kind": "value" },
+        { "name": "remove", "kind": "value" },
+        { "name": "pop", "kind": "value" },
+        { "name": "can_mut", "kind": "value" },
+        { "name": "push_mut", "kind": "value" },
+        { "name": "insert_mut", "kind": "value" },
+        { "name": "remove_mut", "kind": "value" },
+        { "name": "pop_mut", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::set",
+      "exports": [
+        { "name": "new", "kind": "value" },
+        { "name": "len", "kind": "value" },
+        { "name": "contains", "kind": "value" },
+        { "name": "insert", "kind": "value" },
+        { "name": "remove", "kind": "value" },
+        { "name": "can_mut", "kind": "value" },
+        { "name": "insert_mut", "kind": "value" },
+        { "name": "remove_mut", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::map",
+      "exports": [
+        { "name": "new", "kind": "value" },
+        { "name": "len", "kind": "value" },
+        { "name": "contains", "kind": "value" },
+        { "name": "get", "kind": "value" },
+        { "name": "insert", "kind": "value" },
+        { "name": "remove", "kind": "value" },
+        { "name": "can_mut", "kind": "value" },
+        { "name": "insert_mut", "kind": "value" },
+        { "name": "remove_mut", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::array",
+      "exports": [
+        { "name": "len", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::slice",
+      "exports": [
+        { "name": "len", "kind": "value" },
+        { "name": "from_array", "kind": "value" },
+        { "name": "sub", "kind": "value" }
+      ]
+    },
+    {
+      "path": "std::eth",
+      "exports": [
+        { "name": "Address", "kind": "type" }
+      ]
+    },
+    {
+      "path": "std::solana",
+      "exports": [
+        { "name": "Pubkey", "kind": "type" }
+      ]
+    },
+    {
+      "path": "std::cosmos",
+      "exports": [
+        { "name": "Addr", "kind": "type" }
+      ]
+    }
+  ]
+}

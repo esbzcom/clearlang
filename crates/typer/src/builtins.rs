@@ -499,5 +499,83 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Type::U64,
             Effect::Pure,
         ),
+        (
+            "std::eth::from_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Named {
+                name: "std::eth::Address".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::eth::from_array".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Array(Box::new(Type::U8), None),
+            }],
+            Type::Named {
+                name: "std::eth::Address".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::solana::from_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Named {
+                name: "std::solana::Pubkey".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::solana::from_array".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Array(Box::new(Type::U8), None),
+            }],
+            Type::Named {
+                name: "std::solana::Pubkey".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::cosmos::from_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Named {
+                name: "std::cosmos::Addr".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::cosmos::from_array".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "bytes".to_string(),
+                ty: Type::Array(Box::new(Type::U8), None),
+            }],
+            Type::Named {
+                name: "std::cosmos::Addr".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
     ]
 }

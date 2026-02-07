@@ -137,19 +137,25 @@
     {
       "path": "std::eth",
       "exports": [
-        { "name": "Address", "kind": "type", "layout": { "bytes": 20, "align": 1 } }
+        { "name": "Address", "kind": "type", "layout": { "bytes": 20, "align": 1 } },
+        { "name": "from_bytes", "kind": "value" },
+        { "name": "from_array", "kind": "value" }
       ]
     },
     {
       "path": "std::solana",
       "exports": [
-        { "name": "Pubkey", "kind": "type", "layout": { "bytes": 32, "align": 1 } }
+        { "name": "Pubkey", "kind": "type", "layout": { "bytes": 32, "align": 1 } },
+        { "name": "from_bytes", "kind": "value" },
+        { "name": "from_array", "kind": "value" }
       ]
     },
     {
       "path": "std::cosmos",
       "exports": [
-        { "name": "Addr", "kind": "type", "layout": { "bytes": 20, "align": 1 } }
+        { "name": "Addr", "kind": "type", "layout": { "bytes": 20, "align": 1 } },
+        { "name": "from_bytes", "kind": "value" },
+        { "name": "from_array", "kind": "value" }
       ]
     }
   ]

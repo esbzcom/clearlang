@@ -111,6 +111,11 @@ buffers. The metadata `layout.bytes` declares the canonical size (e.g., `20`
 for `std::eth::Address`), and equality compares bytes rather than pointer
 identity. This does not change user syntax.
 
+Constructors live in the chain module and are pure:
+- `std::<chain>::from_bytes(Bytes) -> <Type>`
+- `std::<chain>::from_array(Array<U8>) -> <Type>` (accepts `[U8; N]` sugar)
+Length mismatches trap with `R000` (contract violation).
+
 ## Resolution and Errors
 
 - Resolution is deterministic and file-based.

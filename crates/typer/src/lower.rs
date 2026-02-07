@@ -1,6 +1,6 @@
 use crate::check::{
     base_type, infer_expr_type, substitute_type, AliasMap, BoundsMap, FnSig as CheckFnSig,
-    LocalBinding, StdTypeMap, TraitEnv, TypeDefs, TypeSubst,
+    LocalBinding, StdTypeInfo, StdTypeMap, TraitEnv, TypeDefs, TypeSubst,
 };
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
@@ -58,6 +58,8 @@ const ARRAY_HEADER_SIZE: u32 = 8;
 const ARRAY_HEADER_ALIGN: u32 = 4;
 const ARRAY_HEADER_LEN_OFFSET: u32 = 0;
 const ARRAY_HEADER_DATA_OFFSET: u32 = 4;
+const BYTES_HEADER_LEN_OFFSET: u32 = 0;
+const BYTES_HEADER_DATA_OFFSET: u32 = 4;
 
 struct TupleLayout {
     offsets: Vec<u32>,
@@ -78,7 +80,42 @@ fn align_up(value: u32, align: u32) -> Result<u32> {
     Ok(aligned as u32)
 }
 
-fn layout_for_type(ty: &Type, aliases: &AliasMap) -> Result<(u32, u32)> {
+fn std_type_info_for(
+    ty: &Type,
+    aliases: &AliasMap,
+    std_types: &StdTypeMap,
+) -> Result<Option<StdTypeInfo>> {
+    let resolved = base_type(ty, aliases)?;
+    if let Type::Named { name, .. } = resolved {
+        if let Some(info) = std_types.get(name.as_str()) {
+            return Ok(Some(info.clone()));
+        }
+    }
+    Ok(None)
+}
+
+fn std_type_info_for_module(module: &str, std_types: &StdTypeMap) -> Result<StdTypeInfo> {
+    let prefix = format!("{}::", module);
+    let mut found: Option<StdTypeInfo> = None;
+    for (name, info) in std_types {
+        if name.starts_with(&prefix) {
+            if found.is_some() {
+                anyhow::bail!(
+                    "std module `{}` exports multiple types; constructor is ambiguous",
+                    module
+                );
+            }
+            found = Some(info.clone());
+        }
+    }
+    found.ok_or_else(|| anyhow::anyhow!("std module `{}` has no value type metadata", module))
+}
+
+fn layout_for_type(
+    ty: &Type,
+    aliases: &AliasMap,
+    std_types: &StdTypeMap,
+) -> Result<(u32, u32)> {
     let resolved = base_type(ty, aliases)?;
     match resolved {
         Type::Int | Type::Bool => Ok((4, 4)),
@@ -86,15 +123,26 @@ fn layout_for_type(ty: &Type, aliases: &AliasMap) -> Result<(u32, u32)> {
         Type::U64 => Ok((8, 8)),
         Type::U128 | Type::U256 => Ok((4, 4)),
         Type::String | Type::Bytes => Ok((4, 4)),
-        Type::Named { .. } => Ok((4, 4)),
+        Type::Named { name, .. } => {
+            if let Some(info) = std_types.get(name.as_str()) {
+                Ok((info.byte_len, info.align))
+            } else {
+                Ok((4, 4))
+            }
+        }
         Type::Option(_) | Type::Result(_, _) => Ok((4, 4)),
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => Ok((4, 4)),
         Type::Array(_, _) | Type::Slice(_) | Type::Tuple(_) => Ok((4, 4)),
     }
 }
 
-fn array_layout(inner: &Type, len: u32, aliases: &AliasMap) -> Result<ArrayLayout> {
-    let (elem_size, elem_align) = layout_for_type(inner, aliases)?;
+fn array_layout(
+    inner: &Type,
+    len: u32,
+    aliases: &AliasMap,
+    std_types: &StdTypeMap,
+) -> Result<ArrayLayout> {
+    let (elem_size, elem_align) = layout_for_type(inner, aliases, std_types)?;
     let stride = align_up(elem_size, elem_align)?;
     let total = (stride as u64) * (len as u64);
     if total > u32::MAX as u64 {
@@ -107,12 +155,16 @@ fn array_layout(inner: &Type, len: u32, aliases: &AliasMap) -> Result<ArrayLayou
     })
 }
 
-fn tuple_layout(elems: &[Type], aliases: &AliasMap) -> Result<TupleLayout> {
+fn tuple_layout(
+    elems: &[Type],
+    aliases: &AliasMap,
+    std_types: &StdTypeMap,
+) -> Result<TupleLayout> {
     let mut offsets = Vec::with_capacity(elems.len());
     let mut offset: u32 = 0;
     let mut max_align: u32 = 1;
     for elem in elems {
-        let (size, align) = layout_for_type(elem, aliases)?;
+        let (size, align) = layout_for_type(elem, aliases, std_types)?;
         max_align = max_align.max(align);
         offset = align_up(offset, align)?;
         offsets.push(offset);
@@ -128,8 +180,12 @@ fn tuple_layout(elems: &[Type], aliases: &AliasMap) -> Result<TupleLayout> {
     })
 }
 
-fn collection_layout(elem_ty: &Type, aliases: &AliasMap) -> Result<(u32, u32, u32)> {
-    let (size, align) = layout_for_type(elem_ty, aliases)?;
+fn collection_layout(
+    elem_ty: &Type,
+    aliases: &AliasMap,
+    std_types: &StdTypeMap,
+) -> Result<(u32, u32, u32)> {
+    let (size, align) = layout_for_type(elem_ty, aliases, std_types)?;
     let stride = align_up(size, align)?;
     Ok((size, align, stride))
 }
@@ -138,8 +194,9 @@ fn map_entry_layout(
     key_ty: &Type,
     val_ty: &Type,
     aliases: &AliasMap,
+    std_types: &StdTypeMap,
 ) -> Result<(u32, u32, u32, u32)> {
-    let tuple = tuple_layout(&[key_ty.clone(), val_ty.clone()], aliases)?;
+    let tuple = tuple_layout(&[key_ty.clone(), val_ty.clone()], aliases, std_types)?;
     let key_offset = *tuple
         .offsets
         .get(0)
@@ -169,6 +226,7 @@ fn build_type_param_subst(params: &[TypeParam], args: &[Type]) -> Result<TypeSub
 fn struct_layout<'a>(
     type_defs: &'a TypeDefs,
     aliases: &AliasMap,
+    std_types: &StdTypeMap,
     name: &str,
     args: &[Type],
 ) -> Result<(Vec<StructField>, TupleLayout)> {
@@ -185,7 +243,7 @@ fn struct_layout<'a>(
         fields.push(cloned);
         field_tys.push(base_type(&fields.last().unwrap().ty, aliases)?);
     }
-    let layout = tuple_layout(&field_tys, aliases)?;
+    let layout = tuple_layout(&field_tys, aliases, std_types)?;
     Ok((fields, layout))
 }
 
@@ -227,6 +285,81 @@ fn mem_ir_type(ty: &Type, aliases: &AliasMap) -> Result<IrType> {
         _ => IrType::Int,
     };
     Ok(ir)
+}
+
+fn emit_ptr_add_const(ctx: &mut LowerCtx<'_>, ptr: Value, offset: u32) -> Value {
+    if offset == 0 {
+        return ptr;
+    }
+    let off = emit_int_const(ctx, offset as i64);
+    emit_ptr_add(ctx, ptr, off)
+}
+
+fn load_value_borrow(
+    ctx: &mut LowerCtx<'_>,
+    ty: &Type,
+    ptr: Value,
+    offset: u32,
+) -> Result<Value> {
+    if std_type_info_for(ty, ctx.aliases, ctx.std_types)?.is_some() {
+        return Ok(emit_ptr_add_const(ctx, ptr, offset));
+    }
+    let mem_ty = mem_ir_type(ty, ctx.aliases)?;
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::Load {
+        dst,
+        ptr,
+        offset,
+        ty: mem_ty,
+    });
+    Ok(dst)
+}
+
+fn load_value_copy(
+    ctx: &mut LowerCtx<'_>,
+    ty: &Type,
+    ptr: Value,
+    offset: u32,
+) -> Result<Value> {
+    if let Some(info) = std_type_info_for(ty, ctx.aliases, ctx.std_types)? {
+        let src_ptr = emit_ptr_add_const(ctx, ptr, offset);
+        let dst = emit_alloc(ctx, info.byte_len, info.align);
+        let len_val = emit_int_const(ctx, info.byte_len as i64);
+        emit_memcpy_bytes(ctx, src_ptr, dst, len_val)?;
+        return Ok(dst);
+    }
+    load_value_borrow(ctx, ty, ptr, offset)
+}
+
+fn store_value(
+    ctx: &mut LowerCtx<'_>,
+    ty: &Type,
+    ptr: Value,
+    offset: u32,
+    value: Value,
+) -> Result<()> {
+    if let Some(info) = std_type_info_for(ty, ctx.aliases, ctx.std_types)? {
+        let dst_ptr = emit_ptr_add_const(ctx, ptr, offset);
+        let len_val = emit_int_const(ctx, info.byte_len as i64);
+        emit_memcpy_bytes(ctx, value, dst_ptr, len_val)?;
+        return Ok(());
+    }
+    let mem_ty = mem_ir_type(ty, ctx.aliases)?;
+    ctx.body.push(Instr::Store {
+        ptr,
+        src: value,
+        offset,
+        ty: mem_ty,
+    });
+    Ok(())
+}
+
+fn zero_value_for_type(ctx: &mut LowerCtx<'_>, ty: &Type) -> Result<Value> {
+    if std_type_info_for(ty, ctx.aliases, ctx.std_types)?.is_some() {
+        return Ok(emit_int_const(ctx, 0));
+    }
+    let mem_ty = mem_ir_type(ty, ctx.aliases)?;
+    Ok(emit_zero_for_mem_ty(ctx, mem_ty))
 }
 
 pub(crate) struct LowerCtx<'a> {
@@ -432,7 +565,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 .ok_or_else(|| anyhow::anyhow!("array literal requires at least one element"))?;
             let elem_ty = infer_expr_type(first, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
             let elem_ty = base_type(&elem_ty, ctx.aliases)?;
-            let layout = array_layout(&elem_ty, elems.len() as u32, ctx.aliases)?;
+            let layout = array_layout(&elem_ty, elems.len() as u32, ctx.aliases, ctx.std_types)?;
             let data_ptr = emit_alloc(ctx, layout.size, layout.align);
             let header_ptr = emit_alloc(ctx, ARRAY_HEADER_SIZE, ARRAY_HEADER_ALIGN);
             let len_val = emit_int_const(ctx, elems.len() as i64);
@@ -448,7 +581,6 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 offset: ARRAY_HEADER_DATA_OFFSET,
                 ty: IrType::Int,
             });
-            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
             for (idx, elem) in elems.iter().enumerate() {
                 let offset = (idx as u64)
                     .checked_mul(layout.stride as u64)
@@ -457,12 +589,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                     anyhow::bail!("array literal offset exceeds u32 limits");
                 }
                 let val = lower_expr(ctx, elem, Some(elem_ty.clone()))?;
-                ctx.body.push(Instr::Store {
-                    ptr: data_ptr,
-                    src: val,
-                    offset: offset as u32,
-                    ty: mem_ty,
-                });
+                store_value(ctx, &elem_ty, data_ptr, offset as u32, val)?;
             }
             Ok(header_ptr)
         }
@@ -472,25 +599,19 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 let ty = infer_expr_type(elem, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
                 elem_tys.push(base_type(&ty, ctx.aliases)?);
             }
-            let layout = tuple_layout(&elem_tys, ctx.aliases)?;
+            let layout = tuple_layout(&elem_tys, ctx.aliases, ctx.std_types)?;
             let ptr = emit_alloc(ctx, layout.size, layout.align);
             for (idx, elem) in elems.iter().enumerate() {
                 let elem_ty = elem_tys
                     .get(idx)
                     .cloned()
                     .ok_or_else(|| anyhow::anyhow!("tuple element missing"))?;
-                let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-                let val = lower_expr(ctx, elem, Some(elem_ty))?;
+                let val = lower_expr(ctx, elem, Some(elem_ty.clone()))?;
                 let offset = *layout
                     .offsets
                     .get(idx)
                     .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
-                ctx.body.push(Instr::Store {
-                    ptr,
-                    src: val,
-                    offset,
-                    ty: mem_ty,
-                });
+                store_value(ctx, &elem_ty, ptr, offset, val)?;
             }
             Ok(ptr)
         }
@@ -509,8 +630,13 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             let Type::Named { name: type_name, args } = resolved else {
                 anyhow::bail!("struct literal expects a struct value");
             };
-            let (decl_fields, layout) =
-                struct_layout(ctx.type_defs, ctx.aliases, type_name.as_str(), &args)?;
+            let (decl_fields, layout) = struct_layout(
+                ctx.type_defs,
+                ctx.aliases,
+                ctx.std_types,
+                type_name.as_str(),
+                &args,
+            )?;
             let mut field_offsets: HashMap<&str, (u32, Type)> =
                 HashMap::with_capacity(decl_fields.len());
             for (idx, field) in decl_fields.iter().enumerate() {
@@ -527,13 +653,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                     .ok_or_else(|| anyhow::anyhow!("unknown struct field `{}`", field.name))?
                     .clone();
                 let val = lower_expr(ctx, &field.expr, Some(field_ty.clone()))?;
-                let mem_ty = mem_ir_type(&field_ty, ctx.aliases)?;
-                ctx.body.push(Instr::Store {
-                    ptr,
-                    src: val,
-                    offset,
-                    ty: mem_ty,
-                });
+                store_value(ctx, &field_ty, ptr, offset, val)?;
             }
             Ok(ptr)
         }
@@ -544,7 +664,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 anyhow::bail!("field access expects a struct value");
             };
             let (decl_fields, layout) =
-                struct_layout(ctx.type_defs, ctx.aliases, name.as_str(), &args)?;
+                struct_layout(ctx.type_defs, ctx.aliases, ctx.std_types, name.as_str(), &args)?;
             let mut field_idx: Option<usize> = None;
             let mut field_ty: Option<Type> = None;
             for (idx, f) in decl_fields.iter().enumerate() {
@@ -561,15 +681,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 .get(idx)
                 .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
             let base_ptr = lower_expr(ctx, base, None)?;
-            let dst = fresh(ctx);
-            let mem_ty = mem_ir_type(&field_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Load {
-                dst,
-                ptr: base_ptr,
-                offset,
-                ty: mem_ty,
-            });
-            Ok(dst)
+            load_value_borrow(ctx, &field_ty, base_ptr, offset)
         }
         Expr::Unary { .. } => {
             anyhow::bail!("unary operators are not supported in codegen yet")
@@ -644,8 +756,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             match resolved {
                 Type::Array(inner, _) | Type::Slice(inner) => {
                     let elem_ty = *inner;
-                    let (_, _, stride) = collection_layout(&elem_ty, ctx.aliases)?;
-                    let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
+                    let (_, _, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
                     let len_val = emit_array_len(ctx, base_ptr);
                     let data_ptr = emit_array_data_ptr(ctx, base_ptr);
                     let idx_val = match index.as_ref() {
@@ -700,14 +811,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                         rhs: offset_val,
                         ty: IrType::Int,
                     });
-                    let dst = fresh(ctx);
-                    ctx.body.push(Instr::Load {
-                        dst,
-                        ptr: addr,
-                        offset: 0,
-                        ty: mem_ty,
-                    });
-                    Ok(dst)
+                    load_value_borrow(ctx, &elem_ty, addr, 0)
                 }
                 Type::Tuple(elems) => {
                     let idx = match index.as_ref() {
@@ -717,21 +821,13 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                     if idx < 0 || idx as usize >= elems.len() {
                         anyhow::bail!("tuple index out of bounds in lowering");
                     }
-                    let layout = tuple_layout(&elems, ctx.aliases)?;
+                    let layout = tuple_layout(&elems, ctx.aliases, ctx.std_types)?;
                     let elem_ty = elems[idx as usize].clone();
-                    let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
                     let offset = *layout
                         .offsets
                         .get(idx as usize)
                         .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
-                    let dst = fresh(ctx);
-                    ctx.body.push(Instr::Load {
-                        dst,
-                        ptr: base_ptr,
-                        offset,
-                        ty: mem_ty,
-                    });
-                    Ok(dst)
+                    load_value_borrow(ctx, &elem_ty, base_ptr, offset)
                 }
                 other => anyhow::bail!("indexing not supported for {:?}", other),
             }
@@ -739,6 +835,29 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Bin { op, lhs, rhs, .. } => {
             let lt = infer_expr_type(lhs, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
             let rt = infer_expr_type(rhs, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
+            if matches!(op, BinOp::Eq | BinOp::Neq) {
+                let std_l = std_type_info_for(&lt, ctx.aliases, ctx.std_types)?;
+                let std_r = std_type_info_for(&rt, ctx.aliases, ctx.std_types)?;
+                if std_l.is_some() || std_r.is_some() {
+                    let lv = lower_expr(ctx, lhs, None)?;
+                    let rv = lower_expr(ctx, rhs, None)?;
+                    let eq_ty = if std_l.is_some() { lt.clone() } else { rt.clone() };
+                    let eq_val = emit_eq_for_type(ctx, &eq_ty, lv, rv, ctx.aliases)?;
+                    if matches!(op, BinOp::Neq) {
+                        let zero = emit_bool_const(ctx, false);
+                        let dst = fresh(ctx);
+                        ctx.body.push(Instr::IBin {
+                            dst,
+                            op: BinOpIR::Eq,
+                            lhs: eq_val,
+                            rhs: zero,
+                            ty: IrType::Bool,
+                        });
+                        return Ok(dst);
+                    }
+                    return Ok(eq_val);
+                }
+            }
             let op_type = match op {
                 BinOp::And | BinOp::Or => Type::Bool,
                 BinOp::Eq | BinOp::Neq => {
@@ -811,7 +930,18 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
             {
                 return Ok(val);
             }
-            match callee.as_str() {
+            let callee_str = callee.as_str();
+            if let Some(module) = callee_str.strip_suffix("::from_bytes") {
+                if module.starts_with("std::") {
+                    return lower_std_from_bytes(ctx, module, callee_str, args);
+                }
+            }
+            if let Some(module) = callee_str.strip_suffix("::from_array") {
+                if module.starts_with("std::") {
+                    return lower_std_from_array(ctx, module, callee_str, args);
+                }
+            }
+            match callee_str {
             "U8" => {
                 if args.len() != 1 {
                     anyhow::bail!("`U8` expects exactly one argument");
@@ -1306,7 +1436,7 @@ fn lower_enum_constructor<'a>(
             for ty in &fields {
                 field_bases.push(base_type(ty, ctx.aliases)?);
             }
-            let layout = tuple_layout(&field_bases, ctx.aliases)?;
+            let layout = tuple_layout(&field_bases, ctx.aliases, ctx.std_types)?;
             let ptr = emit_alloc(ctx, layout.size, layout.align);
             for (idx, arg) in args.iter().enumerate() {
                 let expected = fields
@@ -1314,17 +1444,11 @@ fn lower_enum_constructor<'a>(
                     .cloned()
                     .ok_or_else(|| anyhow::anyhow!("enum variant field missing"))?;
                 let val = lower_expr(ctx, arg, Some(expected.clone()))?;
-                let mem_ty = mem_ir_type(&expected, ctx.aliases)?;
                 let offset = *layout
                     .offsets
                     .get(idx)
                     .ok_or_else(|| anyhow::anyhow!("enum variant offset missing"))?;
-                ctx.body.push(Instr::Store {
-                    ptr,
-                    src: val,
-                    offset,
-                    ty: mem_ty,
-                });
+                store_value(ctx, &expected, ptr, offset, val)?;
             }
             ptr
         }
@@ -1354,7 +1478,7 @@ fn lower_enum_match<'a>(
     let variant = lower_expr(ctx, scrutinee, None)?;
     let parts = ctx.variant_destructure(variant, VariantKind::Enum { max_tag: variant_count });
 
-    let mut result_slot: Option<(Value, Type, IrType)> = None;
+    let mut result_slot: Option<(Value, Type, Option<IrType>)> = None;
 
     ctx.body.push(Instr::BlockBegin);
     for arm in arms {
@@ -1408,7 +1532,7 @@ fn lower_enum_match<'a>(
                         for ty in &field_types {
                             field_bases.push(base_type(ty, ctx.aliases)?);
                         }
-                        let layout = tuple_layout(&field_bases, ctx.aliases)?;
+                        let layout = tuple_layout(&field_bases, ctx.aliases, ctx.std_types)?;
                         for (idx, name) in binders.iter().enumerate() {
                             let expected = field_types
                                 .get(idx)
@@ -1418,14 +1542,7 @@ fn lower_enum_match<'a>(
                                 .offsets
                                 .get(idx)
                                 .ok_or_else(|| anyhow::anyhow!("enum binder offset missing"))?;
-                            let mem_ty = mem_ir_type(&expected, ctx.aliases)?;
-                            let dst = fresh(ctx);
-                            ctx.body.push(Instr::Load {
-                                dst,
-                                ptr: parts.payload_lo,
-                                offset,
-                                ty: mem_ty,
-                            });
+                            let dst = load_value_borrow(ctx, &expected, parts.payload_lo, offset)?;
                             let key = name.as_str();
                             let prev = ctx.env.insert(key, dst);
                             let prev_ty = ctx.type_env.insert(
@@ -1454,24 +1571,30 @@ fn lower_enum_match<'a>(
                         &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds,
                     )?
                 };
-                let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
                 let (slot, _, slot_mem_ty) = if let Some(slot) = result_slot.clone() {
                     slot
+                } else if let Some(info) =
+                    std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)?
+                {
+                    let slot = emit_alloc(ctx, info.byte_len, info.align);
+                    result_slot = Some((slot, arm_ty.clone(), None));
+                    (slot, arm_ty.clone(), None)
                 } else {
+                    let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
                     let (size, align) = mem_layout_for_ir(mem_ty);
                     let slot = emit_alloc(ctx, size, align);
-                    result_slot = Some((slot, arm_ty.clone(), mem_ty));
-                    (slot, arm_ty.clone(), mem_ty)
+                    result_slot = Some((slot, arm_ty.clone(), Some(mem_ty)));
+                    (slot, arm_ty.clone(), Some(mem_ty))
                 };
-                if mem_ty != slot_mem_ty {
+                if slot_mem_ty.is_some() {
+                    let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
+                    if Some(mem_ty) != slot_mem_ty {
+                        anyhow::bail!("match arm lowered to mismatched runtime type");
+                    }
+                } else if std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)?.is_none() {
                     anyhow::bail!("match arm lowered to mismatched runtime type");
                 }
-                ctx.body.push(Instr::Store {
-                    ptr: slot,
-                    src: arm_val,
-                    offset: 0,
-                    ty: mem_ty,
-                });
+                store_value(ctx, &arm_ty, slot, 0, arm_val)?;
                 restore_scope(ctx, inserted);
                 ctx.body.push(Instr::Br { depth: 1 });
                 ctx.body.push(Instr::BlockEnd);
@@ -1488,24 +1611,30 @@ fn lower_enum_match<'a>(
                         &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds,
                     )?
                 };
-                let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
                 let (slot, _, slot_mem_ty) = if let Some(slot) = result_slot.clone() {
                     slot
+                } else if let Some(info) =
+                    std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)?
+                {
+                    let slot = emit_alloc(ctx, info.byte_len, info.align);
+                    result_slot = Some((slot, arm_ty.clone(), None));
+                    (slot, arm_ty.clone(), None)
                 } else {
+                    let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
                     let (size, align) = mem_layout_for_ir(mem_ty);
                     let slot = emit_alloc(ctx, size, align);
-                    result_slot = Some((slot, arm_ty.clone(), mem_ty));
-                    (slot, arm_ty.clone(), mem_ty)
+                    result_slot = Some((slot, arm_ty.clone(), Some(mem_ty)));
+                    (slot, arm_ty.clone(), Some(mem_ty))
                 };
-                if mem_ty != slot_mem_ty {
+                if slot_mem_ty.is_some() {
+                    let mem_ty = mem_ir_type(&arm_ty, ctx.aliases)?;
+                    if Some(mem_ty) != slot_mem_ty {
+                        anyhow::bail!("match arm lowered to mismatched runtime type");
+                    }
+                } else if std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)?.is_none() {
                     anyhow::bail!("match arm lowered to mismatched runtime type");
                 }
-                ctx.body.push(Instr::Store {
-                    ptr: slot,
-                    src: arm_val,
-                    offset: 0,
-                    ty: mem_ty,
-                });
+                store_value(ctx, &arm_ty, slot, 0, arm_val)?;
                 ctx.body.push(Instr::Br { depth: 1 });
                 ctx.body.push(Instr::BlockEnd);
             }
@@ -1516,15 +1645,19 @@ fn lower_enum_match<'a>(
 
     let (slot, arm_ty, mem_ty) = result_slot
         .ok_or_else(|| anyhow::anyhow!("match arms must not be empty"))?;
-    let dst = fresh(ctx);
-    ctx.body.push(Instr::Load {
-        dst,
-        ptr: slot,
-        offset: 0,
-        ty: mem_ty,
-    });
-    let _ = arm_ty;
-    Ok(dst)
+    if let Some(mem_ty) = mem_ty {
+        let dst = fresh(ctx);
+        ctx.body.push(Instr::Load {
+            dst,
+            ptr: slot,
+            offset: 0,
+            ty: mem_ty,
+        });
+        Ok(dst)
+    } else {
+        let _ = arm_ty;
+        Ok(slot)
+    }
 }
 
 impl<'a> LowerCtx<'a> {
@@ -1828,8 +1961,35 @@ fn emit_array_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
     emit_load_i32(ctx, ptr, ARRAY_HEADER_DATA_OFFSET)
 }
 
+fn emit_bytes_len(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_load_i32(ctx, ptr, BYTES_HEADER_LEN_OFFSET)
+}
+
+fn emit_bytes_data_ptr(ctx: &mut LowerCtx<'_>, ptr: Value) -> Value {
+    emit_ptr_add_const(ctx, ptr, BYTES_HEADER_DATA_OFFSET)
+}
+
 fn emit_array_len_guard(ctx: &mut LowerCtx<'_>, ptr: Value, expected_len: u32) {
     let actual_len = emit_array_len(ctx, ptr);
+    let expected = emit_int_const(ctx, expected_len as i64);
+    let ok = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: ok,
+        op: BinOpIR::Eq,
+        lhs: actual_len,
+        rhs: expected,
+        ty: IrType::Int,
+    });
+    ctx.body.push(Instr::Guard {
+        cond: ok,
+        trap: TrapCode::ContractViolation,
+        span: None,
+        detail: GuardKind::Require,
+    });
+}
+
+fn emit_bytes_len_guard(ctx: &mut LowerCtx<'_>, ptr: Value, expected_len: u32) {
+    let actual_len = emit_bytes_len(ctx, ptr);
     let expected = emit_int_const(ctx, expected_len as i64);
     let ok = fresh(ctx);
     ctx.body.push(Instr::IBin {
@@ -2197,7 +2357,7 @@ fn emit_eq_struct(
     rhs: Value,
     aliases: &AliasMap,
 ) -> Result<Value> {
-    let (fields, layout) = struct_layout(ctx.type_defs, aliases, name, args)?;
+    let (fields, layout) = struct_layout(ctx.type_defs, aliases, ctx.std_types, name, args)?;
     let result = emit_bool_const(ctx, true);
     ctx.body.push(Instr::BlockBegin);
     for (idx, field) in fields.iter().enumerate() {
@@ -2206,21 +2366,8 @@ fn emit_eq_struct(
             .offsets
             .get(idx)
             .ok_or_else(|| anyhow::anyhow!("struct field offset missing"))?;
-        let mem_ty = mem_ir_type(&field.ty, aliases)?;
-        let lhs_val = fresh(ctx);
-        ctx.body.push(Instr::Load {
-            dst: lhs_val,
-            ptr: lhs,
-            offset,
-            ty: mem_ty,
-        });
-        let rhs_val = fresh(ctx);
-        ctx.body.push(Instr::Load {
-            dst: rhs_val,
-            ptr: rhs,
-            offset,
-            ty: mem_ty,
-        });
+        let lhs_val = load_value_borrow(ctx, &field.ty, lhs, offset)?;
+        let rhs_val = load_value_borrow(ctx, &field.ty, rhs, offset)?;
         let eq = emit_eq_for_type(ctx, &field.ty, lhs_val, rhs_val, aliases)?;
         ctx.body.push(Instr::IBin {
             dst: result,
@@ -2241,7 +2388,7 @@ fn emit_eq_tuple(
     rhs: Value,
     aliases: &AliasMap,
 ) -> Result<Value> {
-    let layout = tuple_layout(elements, aliases)?;
+    let layout = tuple_layout(elements, aliases, ctx.std_types)?;
     let result = emit_bool_const(ctx, true);
     ctx.body.push(Instr::BlockBegin);
     for (idx, elem_ty) in elements.iter().enumerate() {
@@ -2250,21 +2397,8 @@ fn emit_eq_tuple(
             .offsets
             .get(idx)
             .ok_or_else(|| anyhow::anyhow!("tuple element offset missing"))?;
-        let mem_ty = mem_ir_type(elem_ty, aliases)?;
-        let lhs_val = fresh(ctx);
-        ctx.body.push(Instr::Load {
-            dst: lhs_val,
-            ptr: lhs,
-            offset,
-            ty: mem_ty,
-        });
-        let rhs_val = fresh(ctx);
-        ctx.body.push(Instr::Load {
-            dst: rhs_val,
-            ptr: rhs,
-            offset,
-            ty: mem_ty,
-        });
+        let lhs_val = load_value_borrow(ctx, elem_ty, lhs, offset)?;
+        let rhs_val = load_value_borrow(ctx, elem_ty, rhs, offset)?;
         let eq = emit_eq_for_type(ctx, elem_ty, lhs_val, rhs_val, aliases)?;
         ctx.body.push(Instr::IBin {
             dst: result,
@@ -2660,14 +2794,7 @@ fn emit_find_index(
         emit_ptr_add(ctx, base_ptr, key_off_val)
     };
 
-    let mem_ty = mem_ir_type(key_ty, aliases)?;
-    let key_loaded = fresh(ctx);
-    ctx.body.push(Instr::Load {
-        dst: key_loaded,
-        ptr: key_ptr,
-        offset: 0,
-        ty: mem_ty,
-    });
+    let key_loaded = load_value_borrow(ctx, key_ty, key_ptr, 0)?;
     let eq = emit_eq_for_type(ctx, key_ty, key_loaded, key_val, aliases)?;
 
     ctx.body.push(Instr::IBin {
@@ -2890,7 +3017,7 @@ fn lower_collection_call<'a>(
                 ty: IrType::Bool,
             });
             emit_collection_guard(ctx, ok, expr_span_local(&args[0]));
-            let (_size, _align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, _align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let stride_val = emit_int_const(ctx, stride as i64);
             let offset_val = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -2940,7 +3067,7 @@ fn lower_collection_call<'a>(
                     }
                 }
             };
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let len = emit_int_const(ctx, 0);
             let cap = emit_int_const(ctx, 1);
             let buf_bytes = emit_int_const(ctx, stride as i64);
@@ -2995,7 +3122,7 @@ fn lower_collection_call<'a>(
                 then_v: idx,
                 else_v: zero,
             });
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let stride_val = emit_int_const(ctx, stride as i64);
             let offset = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -3009,15 +3136,8 @@ fn lower_collection_call<'a>(
             let cap = emit_collection_cap(ctx, list_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let elem_ptr = emit_ptr_add(ctx, data_ptr, offset);
-            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-            let elem_val = fresh(ctx);
-            ctx.body.push(Instr::Load {
-                dst: elem_val,
-                ptr: elem_ptr,
-                offset: 0,
-                ty: mem_ty,
-            });
-            let zero_payload = emit_zero_for_mem_ty(ctx, mem_ty);
+            let elem_val = load_value_copy(ctx, &elem_ty, elem_ptr, 0)?;
+            let zero_payload = zero_value_for_type(ctx, &elem_ty)?;
             let payload = fresh(ctx);
             ctx.body.push(Instr::ISelect {
                 dst: payload,
@@ -3045,7 +3165,7 @@ fn lower_collection_call<'a>(
                 rhs: one,
                 ty: IrType::Int,
             });
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let stride_val = emit_int_const(ctx, stride as i64);
             let new_cap = emit_cap_from_len(ctx, new_len);
             let buf_bytes = fresh(ctx);
@@ -3078,13 +3198,7 @@ fn lower_collection_call<'a>(
                 ty: IrType::Int,
             });
             let elem_ptr = emit_ptr_add(ctx, new_data, offset);
-            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Store {
-                ptr: elem_ptr,
-                src: elem_val,
-                offset: 0,
-                ty: mem_ty,
-            });
+            store_value(ctx, &elem_ty, elem_ptr, 0, elem_val)?;
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
         }
@@ -3132,7 +3246,7 @@ fn lower_collection_call<'a>(
                 rhs: one,
                 ty: IrType::Int,
             });
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let stride_val = emit_int_const(ctx, stride as i64);
             let new_cap = emit_cap_from_len(ctx, new_len);
             let buf_bytes = fresh(ctx);
@@ -3165,13 +3279,7 @@ fn lower_collection_call<'a>(
                 ty: IrType::Int,
             });
             let elem_ptr = emit_ptr_add(ctx, new_data, offset);
-            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Store {
-                ptr: elem_ptr,
-                src: elem_val,
-                offset: 0,
-                ty: mem_ty,
-            });
+            store_value(ctx, &elem_ty, elem_ptr, 0, elem_val)?;
             let idx_plus_one = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: idx_plus_one,
@@ -3253,7 +3361,7 @@ fn lower_collection_call<'a>(
                 rhs: one,
                 ty: IrType::Int,
             });
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let stride_val = emit_int_const(ctx, stride as i64);
             let new_cap = emit_cap_from_len(ctx, new_len);
             let buf_bytes = fresh(ctx);
@@ -3355,7 +3463,7 @@ fn lower_collection_call<'a>(
                 then_v: idx,
                 else_v: zero,
             });
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let stride_val = emit_int_const(ctx, stride as i64);
             let offset = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -3369,15 +3477,8 @@ fn lower_collection_call<'a>(
             let cap = emit_collection_cap(ctx, list_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let elem_ptr = emit_ptr_add(ctx, data_ptr, offset);
-            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-            let elem_val = fresh(ctx);
-            ctx.body.push(Instr::Load {
-                dst: elem_val,
-                ptr: elem_ptr,
-                offset: 0,
-                ty: mem_ty,
-            });
-            let zero_payload = emit_zero_for_mem_ty(ctx, mem_ty);
+            let elem_val = load_value_copy(ctx, &elem_ty, elem_ptr, 0)?;
+            let zero_payload = zero_value_for_type(ctx, &elem_ty)?;
             let payload = fresh(ctx);
             ctx.body.push(Instr::ISelect {
                 dst: payload,
@@ -3412,7 +3513,7 @@ fn lower_collection_call<'a>(
                     }
                 }
             };
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let len = emit_int_const(ctx, 0);
             let cap = emit_int_const(ctx, 1);
             let buf_bytes = emit_int_const(ctx, stride as i64);
@@ -3436,7 +3537,7 @@ fn lower_collection_call<'a>(
             let elem_val = lower_expr(ctx, &args[1], Some(elem_ty.clone()))?;
             let len = emit_collection_len(ctx, set_val);
             let data_ptr = emit_collection_data_ptr(ctx, set_val);
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, set_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let (found, _idx) =
@@ -3452,7 +3553,7 @@ fn lower_collection_call<'a>(
             let elem_val = lower_expr(ctx, &args[1], Some(elem_ty.clone()))?;
             let len = emit_collection_len(ctx, set_val);
             let data_ptr = emit_collection_data_ptr(ctx, set_val);
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, set_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let (found, _idx) =
@@ -3504,13 +3605,7 @@ fn lower_collection_call<'a>(
                 ty: IrType::Int,
             });
             let elem_ptr = emit_ptr_add(ctx, new_data, offset);
-            let mem_ty = mem_ir_type(&elem_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Store {
-                ptr: elem_ptr,
-                src: elem_val,
-                offset: 0,
-                ty: mem_ty,
-            });
+            store_value(ctx, &elem_ty, elem_ptr, 0, elem_val)?;
             ctx.body.push(Instr::BlockEnd);
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
@@ -3524,7 +3619,7 @@ fn lower_collection_call<'a>(
             let elem_val = lower_expr(ctx, &args[1], Some(elem_ty.clone()))?;
             let len = emit_collection_len(ctx, set_val);
             let data_ptr = emit_collection_data_ptr(ctx, set_val);
-            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases)?;
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, set_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
             let (found, found_idx) =
@@ -3651,7 +3746,7 @@ fn lower_collection_call<'a>(
                 }
             };
             let (entry_size, entry_align, _key_offset, _val_offset) =
-                map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
+                map_entry_layout(&key_ty, &val_ty, ctx.aliases, ctx.std_types)?;
             let len = emit_int_const(ctx, 0);
             let cap = emit_int_const(ctx, 1);
             let buf_bytes = emit_int_const(ctx, entry_size as i64);
@@ -3676,7 +3771,7 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, map_val);
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, _val_offset) =
-                map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
+                map_entry_layout(&key_ty, &val_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, map_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, _idx) = emit_find_index(
@@ -3701,7 +3796,7 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, map_val);
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, val_offset) =
-                map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
+                map_entry_layout(&key_ty, &val_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, map_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, found_idx) = emit_find_index(
@@ -3738,15 +3833,8 @@ fn lower_collection_call<'a>(
                 let val_off_val = emit_int_const(ctx, val_offset as i64);
                 emit_ptr_add(ctx, base_ptr, val_off_val)
             };
-            let mem_ty = mem_ir_type(&val_ty, ctx.aliases)?;
-            let val_loaded = fresh(ctx);
-            ctx.body.push(Instr::Load {
-                dst: val_loaded,
-                ptr: val_ptr,
-                offset: 0,
-                ty: mem_ty,
-            });
-            let zero_payload = emit_zero_for_mem_ty(ctx, mem_ty);
+            let val_loaded = load_value_copy(ctx, &val_ty, val_ptr, 0)?;
+            let zero_payload = zero_value_for_type(ctx, &val_ty)?;
             let payload = fresh(ctx);
             ctx.body.push(Instr::ISelect {
                 dst: payload,
@@ -3768,7 +3856,7 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, map_val);
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, val_offset) =
-                map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
+                map_entry_layout(&key_ty, &val_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, map_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, found_idx) = emit_find_index(
@@ -3835,13 +3923,7 @@ fn lower_collection_call<'a>(
                 let val_off_val = emit_int_const(ctx, val_offset as i64);
                 emit_ptr_add(ctx, base_ptr, val_off_val)
             };
-            let val_mem_ty = mem_ir_type(&val_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Store {
-                ptr: val_ptr,
-                src: val_val,
-                offset: 0,
-                ty: val_mem_ty,
-            });
+            store_value(ctx, &val_ty, val_ptr, 0, val_val)?;
             ctx.body.push(Instr::Br { depth: 1 });
             ctx.body.push(Instr::BlockEnd);
             let offset = fresh(ctx);
@@ -3859,26 +3941,14 @@ fn lower_collection_call<'a>(
                 let key_off_val = emit_int_const(ctx, key_offset as i64);
                 emit_ptr_add(ctx, base_ptr, key_off_val)
             };
-            let key_mem_ty = mem_ir_type(&key_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Store {
-                ptr: key_ptr,
-                src: key_val,
-                offset: 0,
-                ty: key_mem_ty,
-            });
+            store_value(ctx, &key_ty, key_ptr, 0, key_val)?;
             let val_ptr = if val_offset == 0 {
                 base_ptr
             } else {
                 let val_off_val = emit_int_const(ctx, val_offset as i64);
                 emit_ptr_add(ctx, base_ptr, val_off_val)
             };
-            let val_mem_ty = mem_ir_type(&val_ty, ctx.aliases)?;
-            ctx.body.push(Instr::Store {
-                ptr: val_ptr,
-                src: val_val,
-                offset: 0,
-                ty: val_mem_ty,
-            });
+            store_value(ctx, &val_ty, val_ptr, 0, val_val)?;
             ctx.body.push(Instr::BlockEnd);
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
@@ -3893,7 +3963,7 @@ fn lower_collection_call<'a>(
             let len = emit_collection_len(ctx, map_val);
             let data_ptr = emit_collection_data_ptr(ctx, map_val);
             let (entry_size, entry_align, key_offset, _val_offset) =
-                map_entry_layout(&key_ty, &val_ty, ctx.aliases)?;
+                map_entry_layout(&key_ty, &val_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, map_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, entry_size, entry_align);
             let (found, found_idx) = emit_find_index(
@@ -4262,5 +4332,44 @@ fn lower_u256_load<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr], limb: u8) -> Re
     let value = lower_expr(ctx, &args[0], Some(Type::U256))?;
     let dst = fresh(ctx);
     ctx.body.push(Instr::U256LoadLimb { dst, value, limb });
+    Ok(dst)
+}
+
+fn lower_std_from_bytes<'a>(
+    ctx: &mut LowerCtx<'a>,
+    module: &str,
+    callee: &str,
+    args: &'a [Expr],
+) -> Result<Value> {
+    if args.len() != 1 {
+        anyhow::bail!("`{}` expects one argument", callee);
+    }
+    let info = std_type_info_for_module(module, ctx.std_types)?;
+    let bytes_ptr = lower_expr(ctx, &args[0], Some(Type::Bytes))?;
+    emit_bytes_len_guard(ctx, bytes_ptr, info.byte_len);
+    let data_ptr = emit_bytes_data_ptr(ctx, bytes_ptr);
+    let dst = emit_alloc(ctx, info.byte_len, info.align);
+    let len_val = emit_int_const(ctx, info.byte_len as i64);
+    emit_memcpy_bytes(ctx, data_ptr, dst, len_val)?;
+    Ok(dst)
+}
+
+fn lower_std_from_array<'a>(
+    ctx: &mut LowerCtx<'a>,
+    module: &str,
+    callee: &str,
+    args: &'a [Expr],
+) -> Result<Value> {
+    if args.len() != 1 {
+        anyhow::bail!("`{}` expects one argument", callee);
+    }
+    let info = std_type_info_for_module(module, ctx.std_types)?;
+    let array_ty = Type::Array(Box::new(Type::U8), None);
+    let array_ptr = lower_expr(ctx, &args[0], Some(array_ty))?;
+    emit_array_len_guard(ctx, array_ptr, info.byte_len);
+    let data_ptr = emit_array_data_ptr(ctx, array_ptr);
+    let dst = emit_alloc(ctx, info.byte_len, info.align);
+    let len_val = emit_int_const(ctx, info.byte_len as i64);
+    emit_memcpy_bytes(ctx, data_ptr, dst, len_val)?;
     Ok(dst)
 }

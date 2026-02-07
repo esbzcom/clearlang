@@ -713,6 +713,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.5.5 Tests + docs walkthrough.
   - [x] 17.5.6 Std/chain package export metadata (type/value classification for `std` imports).
   - [x] 17.5.7 Std/chain type layout metadata + value semantics (byte-wise equality).
+  - [x] 17.5.8 Std/chain value constructors (`from_bytes`/`from_array`) + runtime tests + doc updates.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
   - [ ] 17.6.1 Design: ownership rules for collections of resources.
   - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.

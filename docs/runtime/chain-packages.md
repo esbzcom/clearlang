@@ -11,6 +11,16 @@ Chain packages provide chain-scoped types and helpers on top of the runtime ABI.
 - Examples: `std::eth::Address`, `std::solana::Pubkey`, `std::cosmos::Addr`.
 - Avoid a global `Address` type; chain packages define encoding, validation, and helpers.
 
+## Value Types and Constructors
+- Chain identity types are fixed-size value types backed by inline byte buffers.
+- The std metadata declares their `byte_len` and `align` (e.g., `Address` is 20 bytes).
+- Equality compares bytes rather than pointer identity.
+- Constructors are pure and validate byte length at runtime:
+  - `std::<chain>::from_bytes(Bytes) -> <Type>`
+  - `std::<chain>::from_array(Array<U8>) -> <Type>` (accepts `[U8; N]` sugar).
+- If the input length does not match the type's declared size, the constructor traps
+  with `R000` (contract violation).
+
 ## Examples
 - `std::eth::Address`
 - `std::solana::Pubkey`

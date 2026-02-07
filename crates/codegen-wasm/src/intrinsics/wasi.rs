@@ -19,6 +19,36 @@ pub fn encode_intrinsic_wasi_print(_f: &IrFunction, fd_write_index: u32) -> Resu
     insts.i32_mul();
     insts.local_set(6);
 
+    // pointer alignment check
+    insts.local_get(0);
+    insts.i32_const(3);
+    insts.i32_and();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(0),
+        TrapOperand::local(0),
+        0,
+    );
+    insts.end();
+
+    // header within bounds (ptr + 4 <= limit)
+    insts.local_get(0);
+    insts.i32_const(4);
+    insts.i32_add();
+    insts.local_get(6);
+    insts.i32_gt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(0),
+        TrapOperand::zero(),
+        0,
+    );
+    insts.end();
+
     // len = *(buf_ptr)
     insts.local_get(0);
     insts.i32_load(MemArg {
@@ -39,6 +69,20 @@ pub fn encode_intrinsic_wasi_print(_f: &IrFunction, fd_write_index: u32) -> Resu
     insts.local_get(1);
     insts.i32_add();
     insts.local_set(5);
+
+    // data_end must not wrap past data_ptr
+    insts.local_get(5);
+    insts.local_get(2);
+    insts.i32_lt_u();
+    insts.if_(BlockType::Empty);
+    emit_runtime_trap(
+        &mut insts,
+        TrapCode::InvalidUtf8,
+        TrapOperand::local(2),
+        TrapOperand::local(5),
+        0,
+    );
+    insts.end();
 
     // data_end must be within memory
     insts.local_get(5);

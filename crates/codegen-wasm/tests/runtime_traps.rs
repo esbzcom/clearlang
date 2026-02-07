@@ -6,6 +6,7 @@ use clg_ir::{
 };
 use clg_parser::parse;
 use clg_typer::check;
+use wasmtime::Linker;
 use wasm_encoder::{CodeSection, ConstExpr, ExportKind, ExportSection, Function, FunctionSection,
                    GlobalSection, GlobalType, Module, TypeSection, ValType};
 
@@ -54,6 +55,62 @@ fn trap_r002_invalid_utf8_from_len() {
     let module = wasmtime::Module::from_binary(engine, &wasm).expect("module from bytes");
     let mut store = common::store(engine);
     let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+    let main = instance
+        .get_typed_func::<(), i32>(&mut store, "main")
+        .expect("get main");
+    let err = main.call(&mut store, ());
+    assert!(err.is_err(), "expected trap, got ok result");
+    let code = get_global(&instance, &mut store, "__clg_runtime_error_code");
+    assert_eq!(code, 3, "expected R002 (InvalidUtf8) trap code");
+}
+
+#[test]
+fn trap_r002_invalid_bytes_wasi_print() {
+    let print_fn = IrFunction {
+        name: "std::wasi::print".to_string(),
+        params: vec![IrType::Int],
+        ret: Some(IrType::Int),
+        body: vec![],
+    };
+    let main_fn = IrFunction {
+        name: "main".to_string(),
+        params: vec![],
+        ret: Some(IrType::Int),
+        body: vec![
+            IrInstr::IConst {
+                dst: Value(0),
+                ty: IrType::Int,
+                n: 1,
+            },
+            IrInstr::Call {
+                dst: Some(Value(1)),
+                callee: 0,
+                args: vec![Value(0)],
+            },
+            IrInstr::Ret { val: Value(1) },
+        ],
+    };
+    let ir = IrModule {
+        funcs: vec![print_fn, main_fn],
+    };
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module from bytes");
+    let mut store = common::store(engine);
+    let mut linker = Linker::new(engine);
+    linker
+        .func_wrap(
+            "wasi_snapshot_preview1",
+            "fd_write",
+            |_caller: wasmtime::Caller<'_, ()>, _fd: i32, _iovec: i32, _iovs_len: i32, _nwritten: i32| -> i32 {
+                0
+            },
+        )
+        .expect("linker fd_write");
+    let instance = linker
+        .instantiate(&mut store, &module)
+        .expect("instantiate");
     let main = instance
         .get_typed_func::<(), i32>(&mut store, "main")
         .expect("get main");

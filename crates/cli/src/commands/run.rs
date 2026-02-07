@@ -123,7 +123,8 @@ fn add_env_stubs(linker: &mut wt::Linker<wasmtime_wasi::WasiCtx>) -> Result<()> 
         "env_random",
         |mut caller: wt::Caller<'_, wasmtime_wasi::WasiCtx>, len: i32| -> Result<i32> {
             if len < 0 {
-                return Err(anyhow!("env_random length must be non-negative"));
+                set_runtime_error(&mut caller, TrapCode::InvalidUtf8);
+                return Ok(0);
             }
             let len_u32 = len as u32;
             let heap_ptr = get_caller_global_i32(&mut caller, "__clg_heap_ptr")? as u32;
@@ -133,7 +134,8 @@ fn add_env_stubs(linker: &mut wt::Linker<wasmtime_wasi::WasiCtx>) -> Result<()> 
             let memory = get_caller_memory(&mut caller)?;
             let mem_size = memory.data_size(&caller);
             if next as usize > mem_size {
-                return Err(anyhow!("env_random out of memory"));
+                set_runtime_error(&mut caller, TrapCode::AllocatorOom);
+                return Ok(0);
             }
 
             let data = memory.data_mut(&mut caller);
@@ -606,7 +608,7 @@ fn extract_runtime_error<T>(
         ),
         3 => (
             "R002",
-            "string/bytes runtime rejected invalid input".to_string(),
+            "runtime rejected invalid input".to_string(),
             None,
             false,
         ),

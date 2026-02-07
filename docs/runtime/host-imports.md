@@ -11,7 +11,7 @@ will be finalized during implementation.
 
 ## Conventions
 - Inputs are byte slices (`Bytes`) referencing linear memory.
-- Outputs are `Bytes` plus a status code, represented by an ABI-level wrapper.
+- Outputs are returned directly (e.g., `Bytes` pointer or `Bool`). Failures are signaled via the runtime error globals/traps (R00x) rather than out-of-band status wrappers.
 - Concrete pointer/length layouts are part of the ABI spec and will be pinned
   alongside implementation.
 

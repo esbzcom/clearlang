@@ -145,7 +145,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | V003 | verify | Module/proofs hash mismatch. |
 | R000 | runtime | Contract guard failed at runtime (detail indicates require/ensure). |
 | R001 | runtime | String allocator ran out of memory. |
-| R002 | runtime | String/Bytes runtime rejected invalid input or malformed buffer. |
+| R002 | runtime | Runtime rejected invalid input or malformed buffer. |
 | R003 | runtime | Option/Result/Enum variant tag was invalid. |
 | R004 | runtime | Runtime limits exceeded (meter/fuel/epoch). |
 | R005 | runtime | Unsigned integer overflow. |

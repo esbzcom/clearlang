@@ -849,6 +849,46 @@ fn run_env_time_and_random_stubs() {
 }
 
 #[test]
+fn run_env_random_negative_length_reports_r002() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("env_random_neg.clear");
+    let wasm_path = tmp.path().join("env_random_neg.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::bytes::len(std::env::random(0 - 1))
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R002"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+}
+
+#[test]
 fn run_crypto_hash_stub_returns_len() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("crypto_hash.clear");

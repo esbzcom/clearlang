@@ -721,7 +721,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.1.3 Specify consume/borrow behavior at collection boundaries (move-in, move-out, forbidden copy paths).
     - [x] 17.6.1.4 Define deterministic diagnostics + trap mapping for linear violations at type-check and runtime boundaries.
   - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.
-    - [ ] 17.6.2.1 Implement linear state tracking for resource values stored in collections.
+    - [x] 17.6.2.1 Implement linear state tracking for resource values stored in collections.
     - [ ] 17.6.2.2 Add targeted diagnostics for use-after-move, double-consume, and invalid borrow across collection calls.
     - [ ] 17.6.2.3 Add regression tests for accepted and rejected flow patterns (insert/remove/contains/get + match/control-flow joins).
   - [ ] 17.6.3 VC/effect integration plan + prototype tests.

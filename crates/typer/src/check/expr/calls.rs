@@ -43,6 +43,7 @@ pub(super) fn type_collection_call<'a>(
             None,
         )
     };
+    let mut local_tracker = tracker.clone();
     let normalized_callee = match callee {
         "std::list::push_mut" => "std::list::push",
         "std::list::insert_mut" => "std::list::insert",
@@ -143,12 +144,24 @@ pub(super) fn type_collection_call<'a>(
             let lty = arg_ty(0)?;
             match lty {
                 Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
                     let letxty: Type = (*inner).clone();
                     let aty = arg_ty(1)?;
                     if aty != letxty {
                         let sp = expr_span(&args[1]);
                         return Err(TyperError::element_type_mismatch(letxty, aty, sp).into());
                     }
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    if is_resource_type(&letxty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[1] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    *tracker = local_tracker;
                     Ok(Some(Type::List(Box::new(*inner))))
                 }
                 other => Err(TyperError::expected_collection("List", other, span).into()),
@@ -161,6 +174,7 @@ pub(super) fn type_collection_call<'a>(
             let lty = arg_ty(0)?;
             match lty {
                 Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
                     let elem_expected: Type = (*inner).clone();
                     let aty_elem = arg_ty(1)?;
                     if aty_elem != elem_expected {
@@ -172,6 +186,17 @@ pub(super) fn type_collection_call<'a>(
                     let ity = arg_ty(2)?;
                     let sp = expr_span(&args[2]);
                     ensure_int(ity, aliases, "index", Some(sp))?;
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    if is_resource_type(&elem_expected, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[1] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    *tracker = local_tracker;
                     Ok(Some(Type::List(Box::new(*inner))))
                 }
                 other => Err(TyperError::expected_collection("List", other, span).into()),
@@ -186,7 +211,16 @@ pub(super) fn type_collection_call<'a>(
             let sp = expr_span(&args[1]);
             ensure_int(ity, aliases, "index", Some(sp))?;
             match lty {
-                Type::List(inner) => Ok(Some(Type::List(inner))),
+                Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    Ok(Some(Type::List(inner)))
+                }
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }
@@ -196,7 +230,16 @@ pub(super) fn type_collection_call<'a>(
             }
             let lty = arg_ty(0)?;
             match lty {
-                Type::List(inner) => Ok(Some(Type::Option(inner))),
+                Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    Ok(Some(Type::Option(inner)))
+                }
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }
@@ -318,16 +361,29 @@ pub(super) fn type_collection_call<'a>(
             }
             match arg_ty(0)? {
                 Type::Map(k, v) => {
+                    let map_ty = Type::Map(k.clone(), v.clone());
                     let aty_k = arg_ty(1)?;
                     if aty_k != *k {
                         let sp = expr_span(&args[1]);
                         return Err(TyperError::element_type_mismatch(*k, aty_k, sp).into());
                     }
+                    let value_ty = (*v).clone();
                     let aty_v = arg_ty(2)?;
-                    if aty_v != *v {
+                    if aty_v != value_ty {
                         let sp = expr_span(&args[2]);
-                        return Err(TyperError::element_type_mismatch(*v, aty_v, sp).into());
+                        return Err(TyperError::element_type_mismatch(value_ty, aty_v, sp).into());
                     }
+                    if is_resource_type(&map_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    if is_resource_type(&value_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[2] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    *tracker = local_tracker;
                     Ok(Some(Type::Map(k, v)))
                 }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
@@ -339,11 +395,18 @@ pub(super) fn type_collection_call<'a>(
             }
             match arg_ty(0)? {
                 Type::Map(k, v) => {
+                    let map_ty = Type::Map(k.clone(), v.clone());
                     let aty = arg_ty(1)?;
                     if aty != *k {
                         let sp = expr_span(&args[1]);
                         return Err(TyperError::element_type_mismatch(*k, aty, sp).into());
                     }
+                    if is_resource_type(&map_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var(arg_name, *arg_span)?;
+                        }
+                    }
+                    *tracker = local_tracker;
                     Ok(Some(Type::Map(k, v)))
                 }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),

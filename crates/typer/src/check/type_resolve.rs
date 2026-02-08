@@ -99,9 +99,35 @@ pub(crate) fn is_resource_type(
     aliases: &AliasMap,
     type_defs: &TypeDefs,
 ) -> Result<bool> {
+    fn contains_resource_in_type(ty: &Type, type_defs: &TypeDefs) -> bool {
+        match ty {
+            Type::Named { name, args } => {
+                type_defs.resources.contains(name.as_str())
+                    || args
+                        .iter()
+                        .any(|arg| contains_resource_in_type(arg, type_defs))
+            }
+            Type::Option(inner) | Type::List(inner) | Type::Set(inner) | Type::Slice(inner) => {
+                contains_resource_in_type(inner, type_defs)
+            }
+            Type::Result(ok, err) | Type::Map(ok, err) => {
+                contains_resource_in_type(ok, type_defs) || contains_resource_in_type(err, type_defs)
+            }
+            Type::Array(inner, _) => contains_resource_in_type(inner, type_defs),
+            Type::Tuple(elements) => elements
+                .iter()
+                .any(|elem| contains_resource_in_type(elem, type_defs)),
+            _ => false,
+        }
+    }
+
     Ok(match base_type(ty, aliases)? {
         Type::Named { name, args } if args.is_empty() => {
             type_defs.resources.contains(name.as_str())
+        }
+        Type::List(inner) => contains_resource_in_type(&inner, type_defs),
+        Type::Map(key, val) => {
+            contains_resource_in_type(&key, type_defs) || contains_resource_in_type(&val, type_defs)
         }
         _ => false,
     })

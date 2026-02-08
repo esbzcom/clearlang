@@ -5,7 +5,7 @@ use crate::check::{
 use anyhow::Result;
 use clg_ast::{Expr, Func, ParamKind, Type};
 use clg_ir::{
-    BinOpIR, Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind,
+    Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind,
     VariantParts,
 };
 use std::collections::{HashMap, HashSet};
@@ -23,6 +23,7 @@ mod collections_map;
 mod collections_slice;
 mod collections_set;
 mod control;
+mod emit;
 mod eq;
 mod index;
 mod intrinsics;
@@ -49,6 +50,12 @@ pub(crate) use u64_ops::{
 };
 use layout::{
     std_type_info_for,
+};
+use emit::{
+    emit_alloc, emit_int_const, emit_memcpy_bytes, emit_ptr_add, emit_zero_for_mem_ty, fresh,
+};
+pub(super) use emit::{
+    emit_alloc_dyn, emit_bool_const, emit_load_i32, emit_store_i32, mem_layout_for_ir,
 };
 
 type FnSig = CheckFnSig;
@@ -355,154 +362,3 @@ impl<'a> LowerCtx<'a> {
     }
 }
 
-fn emit_int_const(ctx: &mut LowerCtx<'_>, n: i64) -> Value {
-    let dst = fresh(ctx);
-    ctx.body.push(Instr::IConst {
-        dst,
-        ty: IrType::Int,
-        n,
-    });
-    dst
-}
-
-fn emit_alloc(ctx: &mut LowerCtx<'_>, size: u32, align: u32) -> Value {
-    let dst = fresh(ctx);
-    let align = align.max(1);
-    ctx.body.push(Instr::Alloc { dst, size, align });
-    dst
-}
-
-fn emit_alloc_dyn(ctx: &mut LowerCtx<'_>, size: Value, align: u32) -> Value {
-    let dst = fresh(ctx);
-    let align = align.max(1);
-    ctx.body.push(Instr::AllocDyn { dst, size, align });
-    dst
-}
-
-fn emit_ptr_add(ctx: &mut LowerCtx<'_>, ptr: Value, offset: Value) -> Value {
-    let dst = fresh(ctx);
-    ctx.body.push(Instr::IBin {
-        dst,
-        op: BinOpIR::Add,
-        lhs: ptr,
-        rhs: offset,
-        ty: IrType::Int,
-    });
-    dst
-}
-
-fn emit_load_i32(ctx: &mut LowerCtx<'_>, ptr: Value, offset: u32) -> Value {
-    let dst = fresh(ctx);
-    ctx.body.push(Instr::Load {
-        dst,
-        ptr,
-        offset,
-        ty: IrType::Int,
-    });
-    dst
-}
-
-fn emit_store_i32(ctx: &mut LowerCtx<'_>, ptr: Value, offset: u32, src: Value) {
-    ctx.body.push(Instr::Store {
-        ptr,
-        src,
-        offset,
-        ty: IrType::Int,
-    });
-}
-
-fn emit_memcpy_bytes(
-    ctx: &mut LowerCtx<'_>,
-    src_ptr: Value,
-    dst_ptr: Value,
-    byte_len: Value,
-) -> Result<()> {
-    let idx = fresh(ctx);
-    ctx.body.push(Instr::IConst {
-        dst: idx,
-        ty: IrType::Int,
-        n: 0,
-    });
-    let one = emit_int_const(ctx, 1);
-
-    ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::LoopBegin);
-    let cond = fresh(ctx);
-    ctx.body.push(Instr::IBin {
-        dst: cond,
-        op: BinOpIR::Lt,
-        lhs: idx,
-        rhs: byte_len,
-        ty: IrType::Int,
-    });
-    ctx.body.push(Instr::BrIfEqz { cond, depth: 1 });
-
-    let src_addr = emit_ptr_add(ctx, src_ptr, idx);
-    let dst_addr = emit_ptr_add(ctx, dst_ptr, idx);
-    let byte = fresh(ctx);
-    ctx.body.push(Instr::Load {
-        dst: byte,
-        ptr: src_addr,
-        offset: 0,
-        ty: IrType::U8,
-    });
-    ctx.body.push(Instr::Store {
-        ptr: dst_addr,
-        src: byte,
-        offset: 0,
-        ty: IrType::U8,
-    });
-
-    ctx.body.push(Instr::IBin {
-        dst: idx,
-        op: BinOpIR::Add,
-        lhs: idx,
-        rhs: one,
-        ty: IrType::Int,
-    });
-    ctx.body.push(Instr::Br { depth: 0 });
-    ctx.body.push(Instr::LoopEnd);
-    ctx.body.push(Instr::BlockEnd);
-    Ok(())
-}
-
-fn emit_zero_for_mem_ty(ctx: &mut LowerCtx<'_>, mem_ty: IrType) -> Value {
-    match mem_ty {
-        IrType::U64 => emit_u64_const(ctx, 0),
-        IrType::U8 => {
-            let dst = fresh(ctx);
-            ctx.body.push(Instr::IConst {
-                dst,
-                ty: IrType::U8,
-                n: 0,
-            });
-            dst
-        }
-        IrType::Bool => emit_bool_const(ctx, false),
-        _ => emit_int_const(ctx, 0),
-    }
-}
-
-fn emit_bool_const(ctx: &mut LowerCtx<'_>, value: bool) -> Value {
-    let dst = fresh(ctx);
-    ctx.body.push(Instr::IConst {
-        dst,
-        ty: IrType::Bool,
-        n: if value { 1 } else { 0 },
-    });
-    dst
-}
-
-fn mem_layout_for_ir(ty: IrType) -> (u32, u32) {
-    match ty {
-        IrType::U8 => (1, 1),
-        IrType::U64 => (8, 8),
-        _ => (4, 4),
-    }
-}
-
-fn fresh(ctx: &mut LowerCtx<'_>) -> Value {
-    let v = Value(ctx.next);
-    ctx.next += 1;
-    v
-}

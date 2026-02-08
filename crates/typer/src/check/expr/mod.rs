@@ -1,14 +1,18 @@
 mod block;
+mod calls;
+mod call_expr;
+mod match_expr;
 mod effects;
 mod literals;
+mod ops;
+mod traits;
 mod typing;
 
 pub(super) use self::literals::{literal_can_coerce_unsigned, unsigned_literal_range_error};
 pub(crate) use self::effects::max_effect;
 pub(super) use self::typing::{consume_var_expr, type_of};
-pub(crate) use self::typing::{
-    ensure_trait_bound, infer_expr_type, trait_impl_exists, type_pattern_matches,
-};
+pub(crate) use self::typing::infer_expr_type;
+pub(crate) use self::traits::{ensure_trait_bound, trait_impl_exists, type_pattern_matches};
 use crate::errors::TyperError;
 use anyhow::{bail, Result};
 use clg_ast::{Expr, ParamKind, Span, Type};

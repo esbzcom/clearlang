@@ -1,7 +1,9 @@
+mod aliases;
 mod expr;
 mod intrinsics;
 mod monomorphize;
 mod refinement_predicate;
+mod totality;
 mod trait_env;
 mod type_defs;
 mod type_params;
@@ -12,15 +14,14 @@ use self::expr::{consume_var_expr, expr_span, max_effect, type_of, ResourceTrack
 pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::intrinsics::collect_used_intrinsics;
 use self::monomorphize::monomorphize_program;
-use self::refinement_predicate::predicate_is_contradiction;
+use self::aliases::{build_alias_map, validate_alias_predicates};
+use self::totality::enforce_totality;
 use self::trait_env::build_trait_env;
 use self::type_defs::build_type_defs;
 use self::type_params::{validate_bounds, validate_type_params};
-use self::type_resolve::resolve_aliases;
 use self::type_validation::{
-    contains_named_resource, ensure_equatable_collection_keys, ensure_no_resource_collections,
-    validate_equatable_collections, validate_known_types, validate_no_resource_collections,
-    validate_supported_types,
+    contains_named_resource, validate_equatable_collections, validate_known_types,
+    validate_no_resource_collections, validate_supported_types,
 };
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
@@ -31,8 +32,8 @@ use crate::lower::lower_func;
 use crate::vc::{generate_vcs, VerificationCondition};
 use anyhow::{Context, Result};
 use clg_ast::{
-    Block, Effect, EnumDecl, EnumVariant, Expr, Func, ImplDecl, Param, ParamKind, Program, Span,
-    Stmt, StructDecl, StructField, TraitBound, TraitDecl, TraitMethod, Type,
+    EnumDecl, EnumVariant, Expr, Func, ImplDecl, Param, ParamKind, Program, Span, StructDecl,
+    StructField, TraitBound, TraitDecl, TraitMethod, Type,
 };
 use clg_ir::Module;
 use std::collections::{HashMap, HashSet};
@@ -124,6 +125,7 @@ pub(crate) use self::type_resolve::base_type;
 pub(super) use self::type_resolve::{
     base_types_match, binding_compatible, is_resource_type, refinement_loss,
 };
+use self::totality::level_from_effect;
 pub(super) use self::type_validation::find_resource_collection;
 
 fn validate_struct_enum_resources(
@@ -160,112 +162,6 @@ fn validate_struct_enum_resources(
         }
     }
     Ok(())
-}
-
-fn enforce_totality(func: &Func) -> Result<()> {
-    if matches!(func.effect, Effect::None | Effect::Pure) {
-        check_totality_expr(&func.body, &func.name)?;
-    }
-    Ok(())
-}
-
-fn check_totality_expr(expr: &Expr, self_name: &str) -> Result<()> {
-    match expr {
-        Expr::Block { block } => check_totality_block(block, self_name)?,
-        Expr::If {
-            cond,
-            then_br,
-            else_br,
-            ..
-        } => {
-            check_totality_expr(cond, self_name)?;
-            check_totality_expr(then_br, self_name)?;
-            check_totality_expr(else_br, self_name)?;
-        }
-        Expr::Match {
-            scrutinee, arms, ..
-        } => {
-            check_totality_expr(scrutinee, self_name)?;
-            for arm in arms {
-                check_totality_expr(&arm.expr, self_name)?;
-            }
-        }
-        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
-            for elem in elems {
-                check_totality_expr(elem, self_name)?;
-            }
-        }
-        Expr::StructLit { fields, .. } => {
-            for field in fields {
-                check_totality_expr(&field.expr, self_name)?;
-            }
-        }
-        Expr::FieldAccess { base, .. } => {
-            check_totality_expr(base, self_name)?;
-        }
-        Expr::Index { base, index, .. } => {
-            check_totality_expr(base, self_name)?;
-            check_totality_expr(index, self_name)?;
-        }
-        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
-            check_totality_expr(expr, self_name)?;
-        }
-        Expr::Bin { lhs, rhs, .. } => {
-            check_totality_expr(lhs, self_name)?;
-            check_totality_expr(rhs, self_name)?;
-        }
-        Expr::Call { callee, args, span } => {
-            if callee == self_name {
-                return Err(TyperError::recursion_requires_measure(callee, *span).into());
-            }
-            for arg in args {
-                check_totality_expr(arg, self_name)?;
-            }
-        }
-        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
-    }
-    Ok(())
-}
-
-fn check_totality_block(block: &Block, self_name: &str) -> Result<()> {
-    for stmt in &block.statements {
-        match stmt {
-            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                check_totality_expr(expr.as_ref(), self_name)?;
-            }
-            Stmt::While {
-                cond,
-                invariant,
-                variant,
-                body,
-                span,
-            } => {
-                if variant.is_none() {
-                    return Err(TyperError::while_variant_required(*span).into());
-                }
-                check_totality_expr(cond.as_ref(), self_name)?;
-                check_totality_expr(invariant.as_ref(), self_name)?;
-                if let Some(v) = variant {
-                    check_totality_expr(v.as_ref(), self_name)?;
-                    if let Expr::Int(_, sp) = v.as_ref() {
-                        return Err(TyperError::variant_not_decreasing(*sp).into());
-                    }
-                }
-                check_totality_block(body.as_ref(), self_name)?;
-            }
-        }
-    }
-    if let Some(tail) = &block.tail {
-        check_totality_expr(tail.as_ref(), self_name)?;
-    }
-    Ok(())
-}
-fn level_from_effect(effect: Effect) -> EffectLevel {
-    match effect {
-        Effect::None | Effect::Pure => EffectLevel::Pure,
-        Effect::Mut => EffectLevel::Mut,
-        Effect::Io => EffectLevel::Io,
-    }
 }
 
 #[derive(Clone)]
@@ -1146,111 +1042,3 @@ fn enforce_mut_guards(expr: &Expr, guards: &HashSet<MutGuardKey>) -> Result<()> 
     Ok(())
 }
 
-fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result<AliasMap> {
-    let mut aliases: AliasMap = HashMap::with_capacity(program.refined_aliases.len());
-
-    for alias in &program.refined_aliases {
-        if !alias.type_params.is_empty() {
-            return Err(
-                TyperError::generic_alias_not_supported(alias.name.as_str(), alias.span).into(),
-            );
-        }
-        if aliases.contains_key(alias.name.as_str()) {
-            return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
-        }
-        if type_defs.resources.contains(alias.name.as_str()) {
-            return Err(
-                TyperError::type_conflicts_with_resource(&alias.name, alias.name_span).into(),
-            );
-        }
-        if type_defs.structs.contains_key(alias.name.as_str())
-            || type_defs.enums.contains_key(alias.name.as_str())
-        {
-            return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
-        }
-        let mut visited = Vec::with_capacity(program.refined_aliases.len());
-        let resolved_base = resolve_aliases(&alias.base, &aliases, &mut visited)?;
-        if contains_named_resource(&resolved_base, &type_defs.resources, &HashSet::new()) {
-            return Err(TyperError::refined_resource_not_supported(
-                alias.name.as_str(),
-                alias.span,
-            )
-            .into());
-        }
-        ensure_no_resource_collections(
-            &resolved_base,
-            Some(alias.span),
-            &type_defs.resources,
-            &HashSet::new(),
-        )?;
-        ensure_equatable_collection_keys(
-            &resolved_base,
-            Some(alias.span),
-            type_defs,
-            &aliases,
-            &HashSet::new(),
-        )?;
-
-        aliases.insert(
-            alias.name.clone(),
-            AliasDef {
-                base: resolved_base,
-                predicate: alias.predicate.clone(),
-                binder: alias.binder.clone(),
-                span: alias.span,
-            },
-        );
-    }
-    Ok(aliases)
-}
-
-fn validate_alias_predicates(
-    aliases: &AliasMap,
-    fns: &HashMap<&str, FnSig>,
-    type_defs: &TypeDefs,
-    trait_env: &TraitEnv,
-) -> Result<()> {
-    for (name, def) in aliases {
-        let mut env: HashMap<&str, LocalBinding> =
-            HashMap::with_capacity(def.binder.as_ref().map(|_| 1).unwrap_or(0));
-        if let Some(binder) = def.binder.as_ref() {
-            env.insert(
-                binder.as_str(),
-                LocalBinding {
-                    ty: def.base.clone(),
-                    kind: ParamKind::Borrow,
-                },
-            );
-        }
-        let mut tracker = ResourceTracker::new();
-        let empty_bounds: BoundsMap = HashMap::new();
-        let pred_ty = type_of(
-            &def.predicate,
-            &env,
-            &mut tracker,
-            fns,
-            trait_env,
-            aliases,
-            type_defs,
-            &HashSet::new(),
-            &empty_bounds,
-            0,
-            None,
-        )?;
-        if base_type(&pred_ty, aliases)? != Type::Bool {
-            return Err(TyperError::alias_predicate_not_bool(name.as_str(), def.span).into());
-        }
-        if let Err(err) = max_effect(&def.predicate, fns, trait_env, EffectLevel::Pure) {
-            if let Some(typer) = err.downcast_ref::<TyperError>() {
-                if typer.code == "T401" {
-                    return Err(TyperError::alias_predicate_impure(name.as_str(), def.span).into());
-                }
-            }
-            return Err(err);
-        }
-        if predicate_is_contradiction(&def.predicate, def.binder.as_deref(), &def.base) {
-            return Err(TyperError::alias_predicate_unsat(name.as_str(), def.span).into());
-        }
-    }
-    Ok(())
-}

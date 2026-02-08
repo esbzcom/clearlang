@@ -19,6 +19,7 @@ mod collections;
 mod collections_helpers;
 mod collection_types;
 mod collections_list;
+mod collections_map;
 mod collections_slice;
 mod collections_set;
 mod control;

@@ -1,0 +1,271 @@
+use anyhow::Result;
+use clg_ast::{Program, Span, Type, TypeParam};
+use std::collections::HashSet;
+
+use super::super::type_params::{substitute_type, validate_type_params};
+use super::super::type_resolve::base_type;
+use super::super::{AliasMap, TraitEnv, TypeDefs, TypeSubst};
+use crate::errors::TyperError;
+
+pub(crate) fn ensure_equatable_collection_keys(
+    ty: &Type,
+    span: Option<Span>,
+    type_defs: &TypeDefs,
+    aliases: &AliasMap,
+    type_params: &HashSet<String>,
+) -> Result<()> {
+    let mut seen = HashSet::new();
+    if let Some(offending) =
+        find_non_equatable_collection_key(ty, type_defs, aliases, type_params, &mut seen)?
+    {
+        return Err(TyperError::non_equatable_key(offending, span).into());
+    }
+    Ok(())
+}
+
+fn find_non_equatable_collection_key(
+    ty: &Type,
+    type_defs: &TypeDefs,
+    aliases: &AliasMap,
+    type_params: &HashSet<String>,
+    seen: &mut HashSet<String>,
+) -> Result<Option<Type>> {
+    let ty = base_type(ty, aliases)?;
+    match ty {
+        Type::Set(inner) => {
+            if !is_equatable_type(&inner, type_defs, aliases, type_params, seen)? {
+                Ok(Some(*inner))
+            } else {
+                Ok(None)
+            }
+        }
+        Type::Map(key, val) => {
+            if !is_equatable_type(&key, type_defs, aliases, type_params, seen)? {
+                Ok(Some(*key))
+            } else {
+                find_non_equatable_collection_key(&val, type_defs, aliases, type_params, seen)
+            }
+        }
+        Type::Option(inner) | Type::List(inner) | Type::Array(inner, _) | Type::Slice(inner) => {
+            find_non_equatable_collection_key(&inner, type_defs, aliases, type_params, seen)
+        }
+        Type::Result(ok, err) => {
+            if let Some(offending) =
+                find_non_equatable_collection_key(&ok, type_defs, aliases, type_params, seen)?
+            {
+                Ok(Some(offending))
+            } else {
+                find_non_equatable_collection_key(&err, type_defs, aliases, type_params, seen)
+            }
+        }
+        Type::Tuple(elements) => {
+            for elem in elements {
+                if let Some(offending) =
+                    find_non_equatable_collection_key(&elem, type_defs, aliases, type_params, seen)?
+                {
+                    return Ok(Some(offending));
+                }
+            }
+            Ok(None)
+        }
+        Type::Named { name, args } => {
+            if type_params.contains(&name) || name == "Self" {
+                return Ok(None);
+            }
+            if let Some(info) = type_defs.structs.get(name.as_str()) {
+                if !seen.insert(format!("struct:{name}")) {
+                    return Ok(None);
+                }
+                let subst = build_type_subst(&info.decl.type_params, &args);
+                for field in &info.decl.fields {
+                    let field_ty = substitute_type(&field.ty, &subst);
+                    if let Some(offending) = find_non_equatable_collection_key(
+                        &field_ty,
+                        type_defs,
+                        aliases,
+                        type_params,
+                        seen,
+                    )? {
+                        seen.remove(&format!("struct:{name}"));
+                        return Ok(Some(offending));
+                    }
+                }
+                seen.remove(&format!("struct:{name}"));
+                Ok(None)
+            } else if let Some(info) = type_defs.enums.get(name.as_str()) {
+                if !seen.insert(format!("enum:{name}")) {
+                    return Ok(None);
+                }
+                let subst = build_type_subst(&info.decl.type_params, &args);
+                for variant in &info.decl.variants {
+                    for field_ty in &variant.fields {
+                        let field_ty = substitute_type(field_ty, &subst);
+                        if let Some(offending) = find_non_equatable_collection_key(
+                            &field_ty,
+                            type_defs,
+                            aliases,
+                            type_params,
+                            seen,
+                        )? {
+                            seen.remove(&format!("enum:{name}"));
+                            return Ok(Some(offending));
+                        }
+                    }
+                }
+                seen.remove(&format!("enum:{name}"));
+                Ok(None)
+            } else {
+                Ok(None)
+            }
+        }
+        _ => Ok(None),
+    }
+}
+
+fn is_equatable_type(
+    ty: &Type,
+    type_defs: &TypeDefs,
+    aliases: &AliasMap,
+    type_params: &HashSet<String>,
+    seen: &mut HashSet<String>,
+) -> Result<bool> {
+    let ty = base_type(ty, aliases)?;
+    Ok(match ty {
+        Type::Int
+        | Type::Bool
+        | Type::U8
+        | Type::U64
+        | Type::U128
+        | Type::U256
+        | Type::String
+        | Type::Bytes => true,
+        Type::Option(inner) => is_equatable_type(&inner, type_defs, aliases, type_params, seen)?,
+        Type::Result(ok, err) => {
+            is_equatable_type(&ok, type_defs, aliases, type_params, seen)?
+                && is_equatable_type(&err, type_defs, aliases, type_params, seen)?
+        }
+        Type::Array(_, _) | Type::Slice(_) => false,
+        Type::Tuple(elements) => {
+            let mut ok = true;
+            for elem in elements {
+                if !is_equatable_type(&elem, type_defs, aliases, type_params, seen)? {
+                    ok = false;
+                    break;
+                }
+            }
+            ok
+        }
+        Type::List(_) | Type::Set(_) | Type::Map(_, _) => false,
+        Type::Named { name, args } => {
+            if type_params.contains(&name) || name == "Self" {
+                return Ok(true);
+            }
+            if type_defs.resources.contains(name.as_str()) {
+                return Ok(false);
+            }
+            if let Some(info) = type_defs.structs.get(name.as_str()) {
+                if !seen.insert(format!("struct:{name}")) {
+                    return Ok(true);
+                }
+                let subst = build_type_subst(&info.decl.type_params, &args);
+                for field in &info.decl.fields {
+                    let field_ty = substitute_type(&field.ty, &subst);
+                    if !is_equatable_type(&field_ty, type_defs, aliases, type_params, seen)? {
+                        seen.remove(&format!("struct:{name}"));
+                        return Ok(false);
+                    }
+                }
+                seen.remove(&format!("struct:{name}"));
+                true
+            } else if let Some(info) = type_defs.enums.get(name.as_str()) {
+                if !seen.insert(format!("enum:{name}")) {
+                    return Ok(true);
+                }
+                let subst = build_type_subst(&info.decl.type_params, &args);
+                for variant in &info.decl.variants {
+                    for field_ty in &variant.fields {
+                        let field_ty = substitute_type(field_ty, &subst);
+                        if !is_equatable_type(&field_ty, type_defs, aliases, type_params, seen)? {
+                            seen.remove(&format!("enum:{name}"));
+                            return Ok(false);
+                        }
+                    }
+                }
+                seen.remove(&format!("enum:{name}"));
+                true
+            } else {
+                true
+            }
+        }
+    })
+}
+
+fn build_type_subst(params: &[TypeParam], args: &[Type]) -> TypeSubst {
+    let mut subst = TypeSubst::with_capacity(params.len());
+    for (param, arg) in params.iter().zip(args.iter()) {
+        subst.insert(param.name.clone(), arg.clone());
+    }
+    subst
+}
+
+pub(crate) fn validate_equatable_collections(
+    program: &Program,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    trait_env: &TraitEnv,
+) -> Result<()> {
+    for res in &program.resources {
+        for field in &res.fields {
+            ensure_equatable_collection_keys(
+                &field.ty,
+                Some(field.span),
+                type_defs,
+                aliases,
+                &HashSet::new(),
+            )?;
+        }
+    }
+    for alias in &program.refined_aliases {
+        ensure_equatable_collection_keys(
+            &alias.base,
+            Some(alias.span),
+            type_defs,
+            aliases,
+            &HashSet::new(),
+        )?;
+    }
+    for s in &program.structs {
+        let type_params = validate_type_params(&s.type_params, type_defs, aliases, trait_env)?;
+        for field in &s.fields {
+            ensure_equatable_collection_keys(
+                &field.ty,
+                Some(field.span),
+                type_defs,
+                aliases,
+                &type_params,
+            )?;
+        }
+    }
+    for e in &program.enums {
+        let type_params = validate_type_params(&e.type_params, type_defs, aliases, trait_env)?;
+        for variant in &e.variants {
+            for ty in &variant.fields {
+                ensure_equatable_collection_keys(
+                    ty,
+                    Some(variant.span),
+                    type_defs,
+                    aliases,
+                    &type_params,
+                )?;
+            }
+        }
+    }
+    for func in &program.funcs {
+        let type_params = validate_type_params(&func.type_params, type_defs, aliases, trait_env)?;
+        ensure_equatable_collection_keys(&func.ret, None, type_defs, aliases, &type_params)?;
+        for param in &func.params {
+            ensure_equatable_collection_keys(&param.ty, None, type_defs, aliases, &type_params)?;
+        }
+    }
+    Ok(())
+}

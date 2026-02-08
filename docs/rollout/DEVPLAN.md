@@ -4,12 +4,15 @@
 - 17.1 User-defined structs/enums with pattern matching, lowering/codegen, runtime/ABI notes, and tests. (Done)
 - 17.2 Generics and trait/interface abstractions beyond built-in ADTs. (Done)
 - 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Done)
-- 17.4 General arrays/slices with indexing semantics and bounds checks. (Next)
-- 17.5 Module/import system with visibility controls. (Queued)
+- 17.4 General arrays/slices with indexing semantics and bounds checks. (Done)
+- 17.5 Module/import system with visibility controls. (Done)
+- 17.6 Linear-aware collections: design + typer/VC integration prototype. (Next)
+- 17.7 First-class functions and closures. (Queued)
 
 ### Suggested Sequence
-1) Finish arrays/slices semantics and module system (17.4/17.5).
-3) Revisit linear-aware collections and additional runtime packages as needed (17.6+).
+1) Start 17.6.1 design note for linear-aware collections (ownership model, consume/borrow rules, diagnostics).
+2) Implement 17.6.2 typer + diagnostics for linear-aware collection ops.
+3) Add 17.6.3 VC/effect integration with prototype tests, then revisit 17.7 scope.
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

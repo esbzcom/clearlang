@@ -1,5 +1,13 @@
 # Codex Session Context
 
+## 2026-02-08 - Phase 17 focus realignment + 17.6 kickoff prep
+- Reconciled rollout planning with `docs/TODO.md`: Phases 17.4 (arrays/slices) and 17.5 (modules/imports) are complete.
+- Set Phase 17.6 (linear-aware collections) as the active next focus in `docs/rollout/DEVPLAN.md`.
+- Expanded `docs/TODO.md` 17.6 into an actionable checklist for:
+  - design note scope and invariants (`docs/design/phase-17.6-linear-aware-collections.md`),
+  - typer/diagnostic implementation goals,
+  - VC/effect integration and prototype test coverage.
+
 ## 2025-10-01 - Phase 7.1 Option/Result Lowering plan
 - Locked in the canonical 16-byte `{tag, payload_lo, payload_hi, reserved}` layout in `docs/design/phase-7.1-option-result-runtime.md`, including the shared R003 invalid-tag trap helper.
 - Implemented `VariantInit`/`VariantLoad*` IR helpers with lowering + Wasm codegen so Option/Result constructors allocate the canonical layout and zero reserved bytes.

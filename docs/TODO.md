@@ -715,9 +715,19 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.5.7 Std/chain type layout metadata + value semantics (byte-wise equality).
   - [x] 17.5.8 Std/chain value constructors (`from_bytes`/`from_array`) + runtime tests + doc updates.
 - [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
-  - [ ] 17.6.1 Design: ownership rules for collections of resources.
+  - [x] 17.6.1 Design: ownership rules for collections of resources.
+    - [x] 17.6.1.1 Draft `docs/design/phase-17.6-linear-aware-collections.md` with goals/non-goals and safety invariants.
+    - [x] 17.6.1.2 Define ownership/alias rules for `List<Resource>`, `Set<Resource>`, and `Map<K, Resource>` (insert/get/remove/iterate).
+    - [x] 17.6.1.3 Specify consume/borrow behavior at collection boundaries (move-in, move-out, forbidden copy paths).
+    - [x] 17.6.1.4 Define deterministic diagnostics + trap mapping for linear violations at type-check and runtime boundaries.
   - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.
+    - [ ] 17.6.2.1 Implement linear state tracking for resource values stored in collections.
+    - [ ] 17.6.2.2 Add targeted diagnostics for use-after-move, double-consume, and invalid borrow across collection calls.
+    - [ ] 17.6.2.3 Add regression tests for accepted and rejected flow patterns (insert/remove/contains/get + match/control-flow joins).
   - [ ] 17.6.3 VC/effect integration plan + prototype tests.
+    - [ ] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.
+    - [ ] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.
+    - [ ] 17.6.3.3 Add prototype fixtures (`--emit-vcs`) and runtime tests for representative linear-collection workflows.
 - [ ] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
   - [ ] 17.7.1 Design: function types, capture semantics, and effect annotations.
   - [ ] 17.7.2 Parser/AST: lambdas, capture lists (if any), and type annotations.

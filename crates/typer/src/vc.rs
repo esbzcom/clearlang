@@ -1,5 +1,5 @@
-mod loops;
 mod generate;
+mod loops;
 mod refinements;
 mod smt;
 mod source;
@@ -148,6 +148,3 @@ fn snapshot_expr(expr: &Expr) -> ExprSnapshot {
     let smt2 = encoder.encode(expr);
     ExprSnapshot { ast, smt2 }
 }
-
-
-

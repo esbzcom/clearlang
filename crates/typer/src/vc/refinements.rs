@@ -227,7 +227,13 @@ pub(super) fn collect_refinement_obligations<'a>(
         }
         Expr::StructLit { fields, .. } => {
             for field in fields {
-                collect_refinement_obligations(&field.expr, aliases, fn_sigs, &mut env.clone(), out);
+                collect_refinement_obligations(
+                    &field.expr,
+                    aliases,
+                    fn_sigs,
+                    &mut env.clone(),
+                    out,
+                );
             }
             None
         }

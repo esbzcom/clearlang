@@ -13,22 +13,13 @@ fn align_up(value: i32, align: i32) -> i32 {
     (value + adj) / align * align
 }
 
-fn write_i32(
-    memory: &wasmtime::Memory,
-    store: &mut wasmtime::Store<()>,
-    addr: i32,
-    value: i32,
-) {
+fn write_i32(memory: &wasmtime::Memory, store: &mut wasmtime::Store<()>, addr: i32, value: i32) {
     memory
         .write(store, addr as usize, &value.to_le_bytes())
         .expect("write i32");
 }
 
-fn read_i32(
-    memory: &wasmtime::Memory,
-    store: &mut wasmtime::Store<()>,
-    addr: i32,
-) -> i32 {
+fn read_i32(memory: &wasmtime::Memory, store: &mut wasmtime::Store<()>, addr: i32) -> i32 {
     let mut buf = [0u8; 4];
     memory
         .read(store, addr as usize, &mut buf)
@@ -46,7 +37,11 @@ fn read_option_i32(
     (tag, payload)
 }
 
-fn get_global_i32(instance: &wasmtime::Instance, store: &mut wasmtime::Store<()>, name: &str) -> i32 {
+fn get_global_i32(
+    instance: &wasmtime::Instance,
+    store: &mut wasmtime::Store<()>,
+    name: &str,
+) -> i32 {
     let g = instance
         .get_global(&mut *store, name)
         .expect("global present");

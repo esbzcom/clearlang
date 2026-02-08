@@ -24,7 +24,11 @@ pub(crate) fn impl_p<'a>() -> impl Parser<'a, &'a str, ImplDecl, ErrTy<'a>> {
         .then(where_bounds_p().or_not())
         .then(methods.delimited_by(just('{').padded(), just('}').padded()))
         .map_with(
-            |((((type_params, (trait_name, trait_name_span)), for_type), where_bounds), methods), e| {
+            |(
+                (((type_params, (trait_name, trait_name_span)), for_type), where_bounds),
+                methods,
+            ),
+             e| {
                 let (type_params, mut bounds) = type_params.unwrap_or_default();
                 if let Some(mut extra_bounds) = where_bounds {
                     bounds.append(&mut extra_bounds);

@@ -127,7 +127,8 @@ pub(super) fn check_func<'a>(
             if let Some(err) = expr::unsigned_literal_range_error(&ret_ty, &body_ty, &f.body) {
                 return Err(err.into());
             }
-            if base_types_match(&ret_ty, &body_ty, aliases)? && refinement_loss(&ret_ty, &body_ty, aliases)
+            if base_types_match(&ret_ty, &body_ty, aliases)?
+                && refinement_loss(&ret_ty, &body_ty, aliases)
             {
                 return Err(TyperError::refinement_loss(ret_ty.clone(), body_ty, sp).into());
             }
@@ -259,11 +260,11 @@ pub(super) fn check_impl_method<'a>(
         let allow_unsigned_literal =
             expr::literal_can_coerce_unsigned(&ret_ty, &body_ty, &method.body);
         if !allow_unsigned_literal {
-            if let Some(err) = expr::unsigned_literal_range_error(&ret_ty, &body_ty, &method.body)
-            {
+            if let Some(err) = expr::unsigned_literal_range_error(&ret_ty, &body_ty, &method.body) {
                 return Err(err.into());
             }
-            if base_types_match(&ret_ty, &body_ty, aliases)? && refinement_loss(&ret_ty, &body_ty, aliases)
+            if base_types_match(&ret_ty, &body_ty, aliases)?
+                && refinement_loss(&ret_ty, &body_ty, aliases)
             {
                 return Err(TyperError::refinement_loss(ret_ty.clone(), body_ty, sp).into());
             }

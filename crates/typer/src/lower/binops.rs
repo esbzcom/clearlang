@@ -42,7 +42,11 @@ pub(super) fn lower_bin_expr<'a>(
         if std_l.is_some() || std_r.is_some() {
             let lv = lower_expr(ctx, lhs, None)?;
             let rv = lower_expr(ctx, rhs, None)?;
-            let eq_ty = if std_l.is_some() { lt.clone() } else { rt.clone() };
+            let eq_ty = if std_l.is_some() {
+                lt.clone()
+            } else {
+                rt.clone()
+            };
             let eq_val = emit_eq_for_type(ctx, &eq_ty, lv, rv, ctx.aliases)?;
             if matches!(op, BinOp::Neq) {
                 let zero = emit_bool_const(ctx, false);

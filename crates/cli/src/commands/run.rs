@@ -249,8 +249,11 @@ fn read_bytes<T>(caller: &mut wt::Caller<'_, T>, ptr: i32) -> Result<Vec<u8>, Re
     let header = data
         .get(start..start + 4)
         .ok_or(ReadBufferError::InvalidLayout)?;
-    let len = u32::from_le_bytes(header.try_into().map_err(|_| ReadBufferError::InvalidLayout)?)
-        as usize;
+    let len = u32::from_le_bytes(
+        header
+            .try_into()
+            .map_err(|_| ReadBufferError::InvalidLayout)?,
+    ) as usize;
     let end = start + 4 + len;
     if end > data.len() {
         return Err(ReadBufferError::InvalidLayout);
@@ -352,12 +355,7 @@ fn crypto_hmac_bytes(alg: &str, key: &[u8], data: &[u8]) -> Result<Vec<u8>, Cryp
     }
 }
 
-fn crypto_verify_bytes(
-    alg: &str,
-    msg: &[u8],
-    sig: &[u8],
-    pk: &[u8],
-) -> Result<bool, CryptoError> {
+fn crypto_verify_bytes(alg: &str, msg: &[u8], sig: &[u8], pk: &[u8]) -> Result<bool, CryptoError> {
     match alg {
         "ed25519" => {
             if pk.len() != 32 || sig.len() != 64 {
@@ -380,11 +378,7 @@ fn crypto_verify_bytes(
     }
 }
 
-fn crypto_hash_stub<T>(
-    caller: &mut wt::Caller<'_, T>,
-    alg_ptr: i32,
-    data_ptr: i32,
-) -> Result<i32> {
+fn crypto_hash_stub<T>(caller: &mut wt::Caller<'_, T>, alg_ptr: i32, data_ptr: i32) -> Result<i32> {
     let alg = match read_string(caller, alg_ptr) {
         Ok(value) => value,
         Err(ReadBufferError::InvalidUtf8) => {
@@ -640,24 +634,9 @@ fn extract_runtime_error<T>(
             None,
             false,
         ),
-        9 => (
-            "R008",
-            "crypto input is malformed".to_string(),
-            None,
-            false,
-        ),
-        10 => (
-            "R009",
-            "collection bounds error".to_string(),
-            None,
-            false,
-        ),
-        11 => (
-            "R010",
-            "invalid collection handle".to_string(),
-            None,
-            false,
-        ),
+        9 => ("R008", "crypto input is malformed".to_string(), None, false),
+        10 => ("R009", "collection bounds error".to_string(), None, false),
+        11 => ("R010", "invalid collection handle".to_string(), None, false),
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),
@@ -711,10 +690,9 @@ mod tests {
     #[test]
     fn crypto_hash_sha256_vector() {
         let digest = crypto_hash_bytes("sha256", b"abc").expect("hash ok");
-        let expected = hex::decode(
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-        )
-        .expect("hex");
+        let expected =
+            hex::decode("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+                .expect("hex");
         assert_eq!(digest, expected);
     }
 
@@ -726,19 +704,16 @@ mod tests {
             b"The quick brown fox jumps over the lazy dog",
         )
         .expect("hmac ok");
-        let expected = hex::decode(
-            "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
-        )
-        .expect("hex");
+        let expected =
+            hex::decode("f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8")
+                .expect("hex");
         assert_eq!(digest, expected);
     }
 
     #[test]
     fn crypto_verify_ed25519_vector_true() {
-        let pk = hex::decode(
-            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
-        )
-        .expect("pk");
+        let pk = hex::decode("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
+            .expect("pk");
         let sig = hex::decode("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
             .expect("sig");
         let ok = crypto_verify_bytes("ed25519", b"", &sig, &pk).expect("verify ok");
@@ -747,10 +722,8 @@ mod tests {
 
     #[test]
     fn crypto_verify_ed25519_wrong_sig_false() {
-        let pk = hex::decode(
-            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
-        )
-        .expect("pk");
+        let pk = hex::decode("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
+            .expect("pk");
         let mut sig = hex::decode("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
             .expect("sig");
         sig[0] ^= 0x01;

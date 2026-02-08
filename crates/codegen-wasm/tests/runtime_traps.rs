@@ -6,9 +6,11 @@ use clg_ir::{
 };
 use clg_parser::parse;
 use clg_typer::check;
+use wasm_encoder::{
+    CodeSection, ConstExpr, ExportKind, ExportSection, Function, FunctionSection, GlobalSection,
+    GlobalType, Module, TypeSection, ValType,
+};
 use wasmtime::Linker;
-use wasm_encoder::{CodeSection, ConstExpr, ExportKind, ExportSection, Function, FunctionSection,
-                   GlobalSection, GlobalType, Module, TypeSection, ValType};
 
 mod common;
 
@@ -103,9 +105,12 @@ fn trap_r002_invalid_bytes_wasi_print() {
         .func_wrap(
             "wasi_snapshot_preview1",
             "fd_write",
-            |_caller: wasmtime::Caller<'_, ()>, _fd: i32, _iovec: i32, _iovs_len: i32, _nwritten: i32| -> i32 {
-                0
-            },
+            |_caller: wasmtime::Caller<'_, ()>,
+             _fd: i32,
+             _iovec: i32,
+             _iovs_len: i32,
+             _nwritten: i32|
+             -> i32 { 0 },
         )
         .expect("linker fd_write");
     let instance = linker

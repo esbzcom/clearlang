@@ -1,5 +1,5 @@
 use super::TyperError;
-use clg_ast::{Span};
+use clg_ast::Span;
 
 impl TyperError {
     pub fn resource_use_after_consume(name: &str, consumed_at: Span, use_span: Span) -> Self {
@@ -14,7 +14,6 @@ impl TyperError {
         )
     }
 
-
     pub fn resource_double_consume(name: &str, first: Span, second: Span) -> Self {
         Self::new(
             "T802",
@@ -27,7 +26,6 @@ impl TyperError {
         )
     }
 
-
     pub fn resource_consume_borrow(name: &str, span: Span) -> Self {
         Self::new(
             "T803",
@@ -36,7 +34,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn resource_branch_mismatch(name: &str, span: Span) -> Self {
         Self::new(
@@ -49,7 +46,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn resource_not_consumed(name: &str) -> Self {
         Self::new(

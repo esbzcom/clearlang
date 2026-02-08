@@ -208,7 +208,10 @@ pub(super) fn lower_map_call<'a>(
             emit_memcpy_bytes(ctx, data_ptr, new_data, copy_bytes)?;
             ctx.body.push(Instr::BlockBegin);
             ctx.body.push(Instr::BlockBegin);
-            ctx.body.push(Instr::BrIfEqz { cond: found, depth: 0 });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: found,
+                depth: 0,
+            });
             let found_offset = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: found_offset,
@@ -306,7 +309,10 @@ pub(super) fn lower_map_call<'a>(
             let new_data = emit_alloc_dyn(ctx, buf_bytes, entry_align);
             ctx.body.push(Instr::BlockBegin);
             ctx.body.push(Instr::BlockBegin);
-            ctx.body.push(Instr::BrIfEqz { cond: found, depth: 0 });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: found,
+                depth: 0,
+            });
             let bytes_before = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: bytes_before,

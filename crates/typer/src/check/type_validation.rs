@@ -105,7 +105,8 @@ pub(super) fn validate_supported_types(
         }
     }
     for imp in &program.impls {
-        let mut impl_params = validate_type_params(&imp.type_params, type_defs, aliases, trait_env)?;
+        let mut impl_params =
+            validate_type_params(&imp.type_params, type_defs, aliases, trait_env)?;
         impl_params.insert("Self".to_string());
         ensure_supported_type(&imp.for_type, Some(imp.span), &impl_params)?;
         for method in &imp.methods {
@@ -143,10 +144,8 @@ pub(crate) fn find_resource_collection(
         Type::Option(inner) | Type::Slice(inner) => {
             find_resource_collection(inner, resource_names, type_params)
         }
-        Type::Result(ok, err) => {
-            find_resource_collection(ok, resource_names, type_params)
-                .or_else(|| find_resource_collection(err, resource_names, type_params))
-        }
+        Type::Result(ok, err) => find_resource_collection(ok, resource_names, type_params)
+            .or_else(|| find_resource_collection(err, resource_names, type_params)),
         Type::Array(inner, _) => find_resource_collection(inner, resource_names, type_params),
         Type::Tuple(elements) => {
             for elem in elements {
@@ -263,7 +262,11 @@ fn find_non_equatable_collection_key(
                 for field in &info.decl.fields {
                     let field_ty = substitute_type(&field.ty, &subst);
                     if let Some(offending) = find_non_equatable_collection_key(
-                        &field_ty, type_defs, aliases, type_params, seen,
+                        &field_ty,
+                        type_defs,
+                        aliases,
+                        type_params,
+                        seen,
                     )? {
                         seen.remove(&format!("struct:{name}"));
                         return Ok(Some(offending));
@@ -280,7 +283,11 @@ fn find_non_equatable_collection_key(
                     for field_ty in &variant.fields {
                         let field_ty = substitute_type(field_ty, &subst);
                         if let Some(offending) = find_non_equatable_collection_key(
-                            &field_ty, type_defs, aliases, type_params, seen,
+                            &field_ty,
+                            type_defs,
+                            aliases,
+                            type_params,
+                            seen,
                         )? {
                             seen.remove(&format!("enum:{name}"));
                             return Ok(Some(offending));
@@ -545,13 +552,17 @@ pub(super) fn ensure_known_type(
             }
             if aliases.contains_key(name) {
                 if !args.is_empty() {
-                    return Err(TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into());
+                    return Err(
+                        TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into(),
+                    );
                 }
                 return Ok(());
             }
             if type_defs.resources.contains(name) {
                 if !args.is_empty() {
-                    return Err(TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into());
+                    return Err(
+                        TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into(),
+                    );
                 }
                 return Ok(());
             }
@@ -589,13 +600,9 @@ pub(super) fn ensure_known_type(
             }
             if std_types.contains_key(name) {
                 if !args.is_empty() {
-                    return Err(TyperError::type_arg_count_mismatch(
-                        name,
-                        0,
-                        args.len(),
-                        span,
-                    )
-                    .into());
+                    return Err(
+                        TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into(),
+                    );
                 }
                 return Ok(());
             }

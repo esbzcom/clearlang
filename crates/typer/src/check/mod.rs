@@ -3,8 +3,8 @@ mod expr;
 mod fast_path;
 mod function_checks;
 mod intrinsics;
-mod mut_guards;
 mod monomorphize;
+mod mut_guards;
 mod refinement_predicate;
 mod totality;
 mod trait_env;
@@ -13,12 +13,12 @@ mod type_params;
 mod type_resolve;
 mod type_validation;
 
+use self::aliases::{build_alias_map, validate_alias_predicates};
 pub(crate) use self::expr::{infer_expr_type, show_ty};
-use self::function_checks::{check_func, check_impl_method};
 use self::fast_path::fast_path_without_totality_with_std;
+use self::function_checks::{check_func, check_impl_method};
 use self::intrinsics::collect_used_intrinsics;
 use self::monomorphize::monomorphize_program;
-use self::aliases::{build_alias_map, validate_alias_predicates};
 use self::totality::enforce_totality;
 use self::trait_env::build_trait_env;
 use self::type_defs::build_type_defs;
@@ -119,6 +119,7 @@ pub(crate) struct TraitEnv<'a> {
 
 pub(crate) type BoundsMap = HashMap<String, HashSet<String>>;
 pub(crate) type TypeSubst = HashMap<String, Type>;
+use self::totality::level_from_effect;
 pub(crate) use self::type_params::{
     substitute_type, type_contains_params, type_param_names, unify_type_params,
 };
@@ -126,7 +127,6 @@ pub(crate) use self::type_resolve::base_type;
 pub(super) use self::type_resolve::{
     base_types_match, binding_compatible, is_resource_type, refinement_loss,
 };
-use self::totality::level_from_effect;
 pub(super) use self::type_validation::find_resource_collection;
 
 fn validate_struct_enum_resources(
@@ -140,9 +140,10 @@ fn validate_struct_enum_resources(
         for field in &s.fields {
             let resolved = base_type(&field.ty, aliases)?;
             if contains_named_resource(&resolved, &type_defs.resources, &type_params) {
-                return Err(
-                    TyperError::resource_field_not_supported("struct", &s.name, field.span).into(),
-                );
+                return Err(TyperError::resource_field_not_supported(
+                    "struct", &s.name, field.span,
+                )
+                .into());
             }
         }
     }
@@ -192,17 +193,20 @@ pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     check_with_vcs_with_std(ast, &std_types)
 }
 
-pub fn check_with_vcs_with_std(
-    ast: &Program,
-    std_types: &StdTypeMap,
-) -> Result<TypecheckOutput> {
+pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<TypecheckOutput> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
         return fast_path_without_totality_with_std(ast, std_types);
     }
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
     let trait_env = build_trait_env(ast, &alias_map, &type_defs, std_types)?;
-    validate_no_resource_collections(ast, &type_defs.resources, &alias_map, &type_defs, &trait_env)?;
+    validate_no_resource_collections(
+        ast,
+        &type_defs.resources,
+        &alias_map,
+        &type_defs,
+        &trait_env,
+    )?;
     validate_equatable_collections(ast, &alias_map, &type_defs, &trait_env)?;
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
@@ -253,21 +257,16 @@ pub fn check_with_vcs_with_std(
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
-            check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs)
-                .with_context(|| {
-                    format!(
-                        "in impl `{}` method `{}`",
-                        imp.decl.trait_name, method.name
-                    )
-                })?;
+            check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
+                || format!("in impl `{}` method `{}`", imp.decl.trait_name, method.name),
+            )?;
         }
     }
     for f in &ast.funcs {
         enforce_totality(f)?;
     }
 
-    let mono_program =
-        monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
+    let mono_program = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
     let mut mono_fns: HashMap<&str, FnSig> =
         HashMap::with_capacity(builtins.len() + mono_program.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -408,17 +407,15 @@ pub fn check_with_vcs_with_std(
         funcs: Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len()),
     };
     for f in &mono_program.funcs {
-        module
-            .funcs
-            .push(lower_func(
-                f,
-                &mono_fns,
-                &fn_indices,
-                &alias_map,
-                &trait_env,
-                &type_defs,
-                std_types,
-            )?);
+        module.funcs.push(lower_func(
+            f,
+            &mono_fns,
+            &fn_indices,
+            &alias_map,
+            &trait_env,
+            &type_defs,
+            std_types,
+        )?);
     }
     // Append intrinsic function declarations at the end
     module.funcs.extend(intrinsic_defs);
@@ -439,17 +436,20 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
     type_check_only_with_std(ast, &std_types)
 }
 
-pub fn type_check_only_with_std(
-    ast: &Program,
-    std_types: &StdTypeMap,
-) -> Result<()> {
+pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<()> {
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
         return fast_path_without_totality_with_std(ast, std_types).map(|_| ());
     }
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
     let trait_env = build_trait_env(ast, &alias_map, &type_defs, std_types)?;
-    validate_no_resource_collections(ast, &type_defs.resources, &alias_map, &type_defs, &trait_env)?;
+    validate_no_resource_collections(
+        ast,
+        &type_defs.resources,
+        &alias_map,
+        &type_defs,
+        &trait_env,
+    )?;
     validate_equatable_collections(ast, &alias_map, &type_defs, &trait_env)?;
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
@@ -500,13 +500,9 @@ pub fn type_check_only_with_std(
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
-            check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs)
-                .with_context(|| {
-                    format!(
-                        "in impl `{}` method `{}`",
-                        imp.decl.trait_name, method.name
-                    )
-                })?;
+            check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
+                || format!("in impl `{}` method `{}`", imp.decl.trait_name, method.name),
+            )?;
         }
     }
     for f in &ast.funcs {
@@ -514,5 +510,3 @@ pub fn type_check_only_with_std(
     }
     Ok(())
 }
-
-

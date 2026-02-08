@@ -28,7 +28,13 @@ pub(super) fn fast_path_without_totality_with_std(
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
     let trait_env = build_trait_env(ast, &alias_map, &type_defs, std_types)?;
-    validate_no_resource_collections(ast, &type_defs.resources, &alias_map, &type_defs, &trait_env)?;
+    validate_no_resource_collections(
+        ast,
+        &type_defs.resources,
+        &alias_map,
+        &type_defs,
+        &trait_env,
+    )?;
     validate_equatable_collections(ast, &alias_map, &type_defs, &trait_env)?;
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
@@ -79,13 +85,9 @@ pub(super) fn fast_path_without_totality_with_std(
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
-            check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs)
-                .with_context(|| {
-                    format!(
-                        "in impl `{}` method `{}`",
-                        imp.decl.trait_name, method.name
-                    )
-                })?;
+            check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
+                || format!("in impl `{}` method `{}`", imp.decl.trait_name, method.name),
+            )?;
         }
     }
 
@@ -225,17 +227,15 @@ pub(super) fn fast_path_without_totality_with_std(
         funcs: Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len()),
     };
     for f in &mono_program.funcs {
-        module
-            .funcs
-            .push(lower_func(
-                f,
-                &mono_fns,
-                &fn_indices,
-                &alias_map,
-                &trait_env,
-                &type_defs,
-                std_types,
-            )?);
+        module.funcs.push(lower_func(
+            f,
+            &mono_fns,
+            &fn_indices,
+            &alias_map,
+            &trait_env,
+            &type_defs,
+            std_types,
+        )?);
     }
     module.funcs.extend(intrinsic_defs);
     let vcs = generate_vcs(&mono_program);

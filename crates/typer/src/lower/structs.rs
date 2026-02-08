@@ -23,7 +23,11 @@ pub(super) fn lower_struct_lit<'a>(
         &ctx.bounds,
     )?;
     let resolved = base_type(&struct_ty, ctx.aliases)?;
-    let Type::Named { name: type_name, args } = resolved else {
+    let Type::Named {
+        name: type_name,
+        args,
+    } = resolved
+    else {
         anyhow::bail!("struct literal expects a struct value");
     };
     let (decl_fields, layout) = struct_layout(
@@ -33,8 +37,7 @@ pub(super) fn lower_struct_lit<'a>(
         type_name.as_str(),
         &args,
     )?;
-    let mut field_offsets: HashMap<&str, (u32, Type)> =
-        HashMap::with_capacity(decl_fields.len());
+    let mut field_offsets: HashMap<&str, (u32, Type)> = HashMap::with_capacity(decl_fields.len());
     for (idx, field) in decl_fields.iter().enumerate() {
         let offset = *layout
             .offsets
@@ -73,8 +76,13 @@ pub(super) fn lower_field_access<'a>(
     let Type::Named { name, args } = resolved else {
         anyhow::bail!("field access expects a struct value");
     };
-    let (decl_fields, layout) =
-        struct_layout(ctx.type_defs, ctx.aliases, ctx.std_types, name.as_str(), &args)?;
+    let (decl_fields, layout) = struct_layout(
+        ctx.type_defs,
+        ctx.aliases,
+        ctx.std_types,
+        name.as_str(),
+        &args,
+    )?;
     let mut field_idx: Option<usize> = None;
     let mut field_ty: Option<Type> = None;
     for (idx, f) in decl_fields.iter().enumerate() {

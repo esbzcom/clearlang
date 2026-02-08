@@ -29,7 +29,6 @@ impl TyperError {
         }
     }
 
-
     pub fn unsigned_cast_invalid(target: &str, found: Type, span: Span) -> Self {
         Self::new(
             "T111",
@@ -45,7 +44,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn unsigned_literal_out_of_range(target: Type, value: u128, span: Span) -> Self {
         let max = match target {
@@ -71,7 +69,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn unsigned_constant_overflow(op: &str, span: Span) -> Self {
         Self::new(

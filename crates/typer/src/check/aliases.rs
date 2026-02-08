@@ -8,7 +8,9 @@ use super::type_resolve::resolve_aliases;
 use super::type_validation::{
     contains_named_resource, ensure_equatable_collection_keys, ensure_no_resource_collections,
 };
-use super::{base_type, AliasDef, AliasMap, BoundsMap, EffectLevel, FnSig, LocalBinding, TraitEnv, TypeDefs};
+use super::{
+    base_type, AliasDef, AliasMap, BoundsMap, EffectLevel, FnSig, LocalBinding, TraitEnv, TypeDefs,
+};
 use crate::errors::TyperError;
 
 pub(super) fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result<AliasMap> {

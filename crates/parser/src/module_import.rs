@@ -40,9 +40,7 @@ pub(crate) fn import_decl_p<'a>() -> impl Parser<'a, &'a str, ImportDecl, ErrTy<
 
     let alias = kw("as")
         .ignore_then(ident_p())
-        .map(|alias| ImportKind::Module {
-            alias: Some(alias),
-        });
+        .map(|alias| ImportKind::Module { alias: Some(alias) });
 
     kw("import")
         .ignore_then(path_segments_p().map_with(|path, e| (path, to_span(e.span()))))

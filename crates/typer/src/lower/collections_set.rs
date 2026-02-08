@@ -73,8 +73,16 @@ pub(super) fn lower_set_call<'a>(
             let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, set_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
-            let (found, _idx) =
-                emit_find_index(ctx, data_ptr, len, stride, elem_val, &elem_ty, 0, ctx.aliases)?;
+            let (found, _idx) = emit_find_index(
+                ctx,
+                data_ptr,
+                len,
+                stride,
+                elem_val,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
             Ok(Some(found))
         }
         "std::set::insert" => {
@@ -89,8 +97,16 @@ pub(super) fn lower_set_call<'a>(
             let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, set_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
-            let (found, _idx) =
-                emit_find_index(ctx, data_ptr, len, stride, elem_val, &elem_ty, 0, ctx.aliases)?;
+            let (found, _idx) = emit_find_index(
+                ctx,
+                data_ptr,
+                len,
+                stride,
+                elem_val,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
             let one = emit_int_const(ctx, 1);
             let len_plus_one = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -128,7 +144,10 @@ pub(super) fn lower_set_call<'a>(
             });
             emit_memcpy_bytes(ctx, data_ptr, new_data, copy_bytes)?;
             ctx.body.push(Instr::BlockBegin);
-            ctx.body.push(Instr::BrIf { cond: found, depth: 0 });
+            ctx.body.push(Instr::BrIf {
+                cond: found,
+                depth: 0,
+            });
             let offset = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: offset,
@@ -155,8 +174,16 @@ pub(super) fn lower_set_call<'a>(
             let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
             let cap = emit_collection_cap(ctx, set_val);
             emit_collection_payload_guard(ctx, data_ptr, len, cap, stride, align);
-            let (found, found_idx) =
-                emit_find_index(ctx, data_ptr, len, stride, elem_val, &elem_ty, 0, ctx.aliases)?;
+            let (found, found_idx) = emit_find_index(
+                ctx,
+                data_ptr,
+                len,
+                stride,
+                elem_val,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
             let one = emit_int_const(ctx, 1);
             let len_minus_one = fresh(ctx);
             ctx.body.push(Instr::IBin {
@@ -186,7 +213,10 @@ pub(super) fn lower_set_call<'a>(
             let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
             ctx.body.push(Instr::BlockBegin);
             ctx.body.push(Instr::BlockBegin);
-            ctx.body.push(Instr::BrIfEqz { cond: found, depth: 0 });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: found,
+                depth: 0,
+            });
             let bytes_before = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: bytes_before,

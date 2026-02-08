@@ -340,10 +340,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             .try_map(|path, span| {
                 let parts: Vec<&str> = path.split("::").collect();
                 if parts.len() < 2 {
-                    Err(Rich::custom(
-                        span,
-                        "enum pattern must be `Type::Variant`",
-                    ))
+                    Err(Rich::custom(span, "enum pattern must be `Type::Variant`"))
                 } else {
                     let (enum_path, variant) = parts.split_at(parts.len() - 1);
                     Ok((enum_path.join("::"), variant[0].to_string()))
@@ -355,15 +352,8 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 variant,
                 binders: binders.unwrap_or_default(),
             });
-        let pat = choice((
-            wildcard_pat,
-            some_pat,
-            none_pat,
-            ok_pat,
-            err_pat,
-            enum_pat,
-        ))
-        .labelled("match pattern");
+        let pat = choice((wildcard_pat, some_pat, none_pat, ok_pat, err_pat, enum_pat))
+            .labelled("match pattern");
         let arm = pat
             .then_ignore(just("=>").padded())
             .then(expr.clone())
@@ -575,7 +565,10 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                         Expr::FieldAccess {
                             base: Box::new(base),
                             field: name,
-                            span: Span { start: ls, end: span.end },
+                            span: Span {
+                                start: ls,
+                                end: span.end,
+                            },
                         }
                     }
                 },

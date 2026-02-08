@@ -321,15 +321,21 @@ fn lowers_enum_variant_constructor_with_tuple_payload() {
         .expect("make function present");
 
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::Alloc { .. })),
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::Alloc { .. })),
         "expected heap allocation for tuple payload"
     );
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::Store { .. })),
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::Store { .. })),
         "expected stores for tuple payload fields"
     );
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::VariantInit { .. })),
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::VariantInit { .. })),
         "expected VariantInit for enum constructor"
     );
 }
@@ -356,19 +362,31 @@ fn lowers_enum_match_to_tag_check_and_select() {
         .expect("pick function present");
 
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::VariantLoadTag { kind: VariantKind::Enum { max_tag: 2 }, .. })),
+        func.body.iter().any(|instr| matches!(
+            instr,
+            Instr::VariantLoadTag {
+                kind: VariantKind::Enum { max_tag: 2 },
+                ..
+            }
+        )),
         "expected VariantLoadTag with enum max_tag"
     );
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::BrIfEqz { .. })),
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::BrIfEqz { .. })),
         "expected branch on tag check for enum match lowering"
     );
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::Store { .. })),
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::Store { .. })),
         "expected Store into match result slot"
     );
     assert!(
-        func.body.iter().any(|instr| matches!(instr, Instr::Load { .. })),
+        func.body
+            .iter()
+            .any(|instr| matches!(instr, Instr::Load { .. })),
         "expected Load from match result slot"
     );
 }

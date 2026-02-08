@@ -1,6 +1,6 @@
+use super::render_type;
 use super::TyperError;
 use crate::check::show_ty;
-use super::render_type;
 use clg_ast::{Span, Type};
 
 impl TyperError {
@@ -16,7 +16,6 @@ impl TyperError {
         )
     }
 
-
     pub fn array_length_mismatch(expected: u32, found: u32, span: Span) -> Self {
         Self::new(
             "T116",
@@ -29,7 +28,6 @@ impl TyperError {
         )
     }
 
-
     pub fn tuple_index_requires_constant(span: Span) -> Self {
         Self::new(
             "T115",
@@ -41,7 +39,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn element_type_mismatch(expected: Type, found: Type, span: Span) -> Self {
         Self::new(
@@ -57,7 +54,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn non_equatable_key(found: Type, span: Option<Span>) -> Self {
         let rendered = render_type(&found);
@@ -80,7 +76,6 @@ impl TyperError {
         }
     }
 
-
     pub fn cannot_infer_collection(span: Span, kind: &str) -> Self {
         Self::new(
             "T206",
@@ -92,7 +87,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn expected_collection(kind: &str, found: Type, span: Span) -> Self {
         Self::new(
@@ -108,7 +102,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn collections_unavailable(callee: &str, span: Span) -> Self {
         Self::new(

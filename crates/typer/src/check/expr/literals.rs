@@ -1,18 +1,28 @@
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Span, Type};
 
-use super::expr_span;
 use super::super::{base_type, AliasMap};
+use super::expr_span;
 use crate::errors::TyperError;
 
-pub(super) fn ensure_int(ty: Type, aliases: &AliasMap, what: &str, span: Option<Span>) -> Result<()> {
+pub(super) fn ensure_int(
+    ty: Type,
+    aliases: &AliasMap,
+    what: &str,
+    span: Option<Span>,
+) -> Result<()> {
     if base_type(&ty, aliases)? != Type::Int {
         return Err(TyperError::int_operand(what, ty, span).into());
     }
     Ok(())
 }
 
-pub(super) fn ensure_bool(ty: Type, aliases: &AliasMap, what: &str, span: Option<Span>) -> Result<()> {
+pub(super) fn ensure_bool(
+    ty: Type,
+    aliases: &AliasMap,
+    what: &str,
+    span: Option<Span>,
+) -> Result<()> {
     if base_type(&ty, aliases)? != Type::Bool {
         return Err(TyperError::bool_operand(what, ty, span).into());
     }

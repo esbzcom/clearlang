@@ -314,7 +314,6 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     out
 }
 
-
 fn u64_bounds_smt(term: &str) -> String {
     format!("(and (<= 0 {term}) (<= {term} {U64_MAX_SMT}))")
 }

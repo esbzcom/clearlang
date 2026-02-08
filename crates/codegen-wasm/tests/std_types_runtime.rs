@@ -4,7 +4,11 @@ use clg_typer::{check_with_vcs_with_std, StdTypeInfo, StdTypeMap};
 
 mod common;
 
-fn get_global_i32(instance: &wasmtime::Instance, store: &mut wasmtime::Store<()>, name: &str) -> i32 {
+fn get_global_i32(
+    instance: &wasmtime::Instance,
+    store: &mut wasmtime::Store<()>,
+    name: &str,
+) -> i32 {
     let g = instance
         .get_global(&mut *store, name)
         .expect("global present");

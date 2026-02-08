@@ -7,9 +7,7 @@ use super::array::{
     ARRAY_HEADER_ALIGN, ARRAY_HEADER_DATA_OFFSET, ARRAY_HEADER_LEN_OFFSET, ARRAY_HEADER_SIZE,
 };
 use super::layout::{array_layout, tuple_layout};
-use super::{
-    emit_alloc, emit_int_const, emit_u64_const, fresh, lower_expr, store_value, LowerCtx,
-};
+use super::{emit_alloc, emit_int_const, emit_u64_const, fresh, lower_expr, store_value, LowerCtx};
 
 pub(super) fn lower_int_lit(
     ctx: &mut LowerCtx<'_>,
@@ -98,10 +96,7 @@ pub(super) fn lower_string_lit(ctx: &mut LowerCtx<'_>, value: &String) -> Result
     Ok(dst)
 }
 
-pub(super) fn lower_array_lit<'a>(
-    ctx: &mut LowerCtx<'a>,
-    elems: &'a [Expr],
-) -> Result<Value> {
+pub(super) fn lower_array_lit<'a>(ctx: &mut LowerCtx<'a>, elems: &'a [Expr]) -> Result<Value> {
     let first = elems
         .first()
         .ok_or_else(|| anyhow::anyhow!("array literal requires at least one element"))?;
@@ -145,10 +140,7 @@ pub(super) fn lower_array_lit<'a>(
     Ok(header_ptr)
 }
 
-pub(super) fn lower_tuple_lit<'a>(
-    ctx: &mut LowerCtx<'a>,
-    elems: &'a [Expr],
-) -> Result<Value> {
+pub(super) fn lower_tuple_lit<'a>(ctx: &mut LowerCtx<'a>, elems: &'a [Expr]) -> Result<Value> {
     let mut elem_tys = Vec::with_capacity(elems.len());
     for elem in elems {
         let ty = infer_expr_type(

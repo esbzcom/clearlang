@@ -3,9 +3,7 @@ use anyhow::Result;
 use clg_ast::Type;
 use clg_ir::{BinOpIR, Instr, IrType, Value, VariantKind};
 
-use super::eq_primitives::{
-    emit_eq_bytes_fixed, emit_eq_u128, emit_eq_u256, emit_intrinsic_eq,
-};
+use super::eq_primitives::{emit_eq_bytes_fixed, emit_eq_u128, emit_eq_u256, emit_intrinsic_eq};
 use super::layout::{build_type_param_subst, struct_layout, tuple_layout};
 use super::{emit_bool_const, emit_int_const, fresh, load_value_borrow, LowerCtx};
 
@@ -79,7 +77,10 @@ fn emit_eq_struct(
     let result = emit_bool_const(ctx, true);
     ctx.body.push(Instr::BlockBegin);
     for (idx, field) in fields.iter().enumerate() {
-        ctx.body.push(Instr::BrIfEqz { cond: result, depth: 0 });
+        ctx.body.push(Instr::BrIfEqz {
+            cond: result,
+            depth: 0,
+        });
         let offset = *layout
             .offsets
             .get(idx)
@@ -110,7 +111,10 @@ fn emit_eq_tuple(
     let result = emit_bool_const(ctx, true);
     ctx.body.push(Instr::BlockBegin);
     for (idx, elem_ty) in elements.iter().enumerate() {
-        ctx.body.push(Instr::BrIfEqz { cond: result, depth: 0 });
+        ctx.body.push(Instr::BrIfEqz {
+            cond: result,
+            depth: 0,
+        });
         let offset = *layout
             .offsets
             .get(idx)
@@ -151,7 +155,10 @@ fn emit_eq_option(
 
     ctx.body.push(Instr::BlockBegin);
     ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::BrIf { cond: tags_eq, depth: 0 });
+    ctx.body.push(Instr::BrIf {
+        cond: tags_eq,
+        depth: 0,
+    });
     ctx.body.push(Instr::IConst {
         dst: result,
         ty: IrType::Bool,
@@ -170,8 +177,17 @@ fn emit_eq_option(
         ty: IrType::Int,
     });
     ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::BrIfEqz { cond: is_some, depth: 0 });
-    let payload_eq = emit_eq_for_type(ctx, inner, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?;
+    ctx.body.push(Instr::BrIfEqz {
+        cond: is_some,
+        depth: 0,
+    });
+    let payload_eq = emit_eq_for_type(
+        ctx,
+        inner,
+        lhs_parts.payload_lo,
+        rhs_parts.payload_lo,
+        aliases,
+    )?;
     ctx.body.push(Instr::ISelect {
         dst: result,
         cond: is_some,
@@ -205,7 +221,10 @@ fn emit_eq_result(
     });
 
     ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::BrIfEqz { cond: tags_eq, depth: 0 });
+    ctx.body.push(Instr::BrIfEqz {
+        cond: tags_eq,
+        depth: 0,
+    });
 
     let tag_ok = emit_int_const(ctx, 1);
     let is_ok = fresh(ctx);
@@ -217,8 +236,17 @@ fn emit_eq_result(
         ty: IrType::Int,
     });
     ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::BrIfEqz { cond: is_ok, depth: 0 });
-    let ok_eq = emit_eq_for_type(ctx, ok_ty, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?;
+    ctx.body.push(Instr::BrIfEqz {
+        cond: is_ok,
+        depth: 0,
+    });
+    let ok_eq = emit_eq_for_type(
+        ctx,
+        ok_ty,
+        lhs_parts.payload_lo,
+        rhs_parts.payload_lo,
+        aliases,
+    )?;
     ctx.body.push(Instr::ISelect {
         dst: result,
         cond: is_ok,
@@ -237,9 +265,17 @@ fn emit_eq_result(
         ty: IrType::Int,
     });
     ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::BrIfEqz { cond: is_err, depth: 0 });
-    let err_eq =
-        emit_eq_for_type(ctx, err_ty, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?;
+    ctx.body.push(Instr::BrIfEqz {
+        cond: is_err,
+        depth: 0,
+    });
+    let err_eq = emit_eq_for_type(
+        ctx,
+        err_ty,
+        lhs_parts.payload_lo,
+        rhs_parts.payload_lo,
+        aliases,
+    )?;
     ctx.body.push(Instr::ISelect {
         dst: result,
         cond: is_err,
@@ -267,8 +303,18 @@ fn emit_eq_enum(
         .ok_or_else(|| anyhow::anyhow!("unknown enum `{}`", name))?;
     let subst = build_type_param_subst(&info.decl.type_params, args)?;
     let variant_count = info.decl.variants.len() as u32;
-    let lhs_parts = ctx.variant_destructure(lhs, VariantKind::Enum { max_tag: variant_count });
-    let rhs_parts = ctx.variant_destructure(rhs, VariantKind::Enum { max_tag: variant_count });
+    let lhs_parts = ctx.variant_destructure(
+        lhs,
+        VariantKind::Enum {
+            max_tag: variant_count,
+        },
+    );
+    let rhs_parts = ctx.variant_destructure(
+        rhs,
+        VariantKind::Enum {
+            max_tag: variant_count,
+        },
+    );
 
     let result = emit_bool_const(ctx, false);
     let tags_eq = fresh(ctx);
@@ -281,7 +327,10 @@ fn emit_eq_enum(
     });
 
     ctx.body.push(Instr::BlockBegin);
-    ctx.body.push(Instr::BrIfEqz { cond: tags_eq, depth: 0 });
+    ctx.body.push(Instr::BrIfEqz {
+        cond: tags_eq,
+        depth: 0,
+    });
 
     for (index, variant) in info.decl.variants.iter().enumerate() {
         let mut fields = Vec::with_capacity(variant.fields.len());
@@ -298,11 +347,26 @@ fn emit_eq_enum(
             ty: IrType::Int,
         });
         ctx.body.push(Instr::BlockBegin);
-        ctx.body.push(Instr::BrIfEqz { cond: tag_match, depth: 0 });
+        ctx.body.push(Instr::BrIfEqz {
+            cond: tag_match,
+            depth: 0,
+        });
         let payload_eq = match fields.len() {
             0 => emit_bool_const(ctx, true),
-            1 => emit_eq_for_type(ctx, &fields[0], lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?,
-            _ => emit_eq_tuple(ctx, &fields, lhs_parts.payload_lo, rhs_parts.payload_lo, aliases)?,
+            1 => emit_eq_for_type(
+                ctx,
+                &fields[0],
+                lhs_parts.payload_lo,
+                rhs_parts.payload_lo,
+                aliases,
+            )?,
+            _ => emit_eq_tuple(
+                ctx,
+                &fields,
+                lhs_parts.payload_lo,
+                rhs_parts.payload_lo,
+                aliases,
+            )?,
         };
         ctx.body.push(Instr::ISelect {
             dst: result,
@@ -316,4 +380,3 @@ fn emit_eq_enum(
     ctx.body.push(Instr::BlockEnd);
     Ok(result)
 }
-

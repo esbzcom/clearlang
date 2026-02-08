@@ -36,13 +36,7 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
                 );
             }
         }
-        structs.insert(
-            name,
-            StructInfo {
-                decl: s,
-                fields,
-            },
-        );
+        structs.insert(name, StructInfo { decl: s, fields });
     }
 
     for e in &program.enums {
@@ -53,22 +47,17 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
         if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
             return Err(TyperError::duplicate_type(name, e.name_span).into());
         }
-        let mut variants: HashMap<&str, &EnumVariant> =
-            HashMap::with_capacity(e.variants.len());
+        let mut variants: HashMap<&str, &EnumVariant> = HashMap::with_capacity(e.variants.len());
         for variant in &e.variants {
             if variants.insert(variant.name.as_str(), variant).is_some() {
-                return Err(
-                    TyperError::duplicate_enum_variant(variant.name.as_str(), variant.span).into(),
-                );
+                return Err(TyperError::duplicate_enum_variant(
+                    variant.name.as_str(),
+                    variant.span,
+                )
+                .into());
             }
         }
-        enums.insert(
-            name,
-            EnumInfo {
-                decl: e,
-                variants,
-            },
-        );
+        enums.insert(name, EnumInfo { decl: e, variants });
     }
 
     Ok(TypeDefs {

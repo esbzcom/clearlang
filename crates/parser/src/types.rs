@@ -111,18 +111,8 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then_ignore(just(']').padded())
             .map(|(inner, len)| Type::Array(Box::new(inner), Some(len)));
         choice((
-            option,
-            result,
-            list_t,
-            set_t,
-            map_t,
-            array_dyn,
-            slice_t,
-            array_t,
-            tuple_t,
-            base,
-            named_args,
-            named,
+            option, result, list_t, set_t, map_t, array_dyn, slice_t, array_t, tuple_t, base,
+            named_args, named,
         ))
         .boxed()
     })

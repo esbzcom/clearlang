@@ -15,7 +15,6 @@ impl TyperError {
         )
     }
 
-
     pub fn match_duplicate_arm(arm: &str, span: Span) -> Self {
         Self::new(
             "T202",
@@ -27,7 +26,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn match_invalid_scrutinee(found: Type, span: Span) -> Self {
         Self::new(
@@ -42,7 +40,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn match_arm_type_mismatch(expected: Type, found: Type, span: Span) -> Self {
         Self::new(
@@ -59,7 +56,6 @@ impl TyperError {
         )
     }
 
-
     pub fn binder_conflict(name: &str, span: Span) -> Self {
         Self::new(
             "T205",
@@ -72,14 +68,10 @@ impl TyperError {
         )
     }
 
-
     pub fn match_unreachable_arm(span: Span) -> Self {
         Self::new(
             "T209",
-            format!(
-                "at {}..{}: unreachable match arm",
-                span.start, span.end
-            ),
+            format!("at {}..{}: unreachable match arm", span.start, span.end),
             span.start,
             span.end,
         )

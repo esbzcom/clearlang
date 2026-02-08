@@ -193,10 +193,7 @@ impl SmtEncoder {
         if !arms.iter().all(|arm| {
             matches!(
                 arm.pat,
-                MatchPat::Some(_)
-                    | MatchPat::None
-                    | MatchPat::Ok(_)
-                    | MatchPat::Err(_)
+                MatchPat::Some(_) | MatchPat::None | MatchPat::Ok(_) | MatchPat::Err(_)
             )
         }) {
             return "0".to_string();
@@ -348,8 +345,22 @@ fn is_smt_symbol_char(c: char) -> bool {
     c.is_ascii_alphanumeric()
         || matches!(
             c,
-            '_' | '-' | '+' | '*' | '/' | '=' | '%' | '?' | '!' | '.' | '$' | '<' | '>' | '~'
-                | '@' | '^' | '&'
+            '_' | '-'
+                | '+'
+                | '*'
+                | '/'
+                | '='
+                | '%'
+                | '?'
+                | '!'
+                | '.'
+                | '$'
+                | '<'
+                | '>'
+                | '~'
+                | '@'
+                | '^'
+                | '&'
         )
 }
 

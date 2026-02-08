@@ -45,7 +45,16 @@ fn lower_block_statements<'a>(
         match stmt {
             Stmt::Let { name, expr, .. } => {
                 let val = lower_expr(ctx, expr.as_ref(), None)?;
-                let ty = infer_expr_type(expr.as_ref(), &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
+                let ty = infer_expr_type(
+                    expr.as_ref(),
+                    &ctx.type_env,
+                    &ctx.fns,
+                    ctx.trait_env,
+                    ctx.aliases,
+                    ctx.type_defs,
+                    &ctx.type_params,
+                    &ctx.bounds,
+                )?;
                 let key = name.as_str();
                 let prev = ctx.env.insert(key, val);
                 let prev_ty = ctx.type_env.insert(
@@ -207,4 +216,3 @@ pub(super) fn expr_span_local(e: &Expr) -> Span {
         Expr::Block { block } => block.span,
     }
 }
-

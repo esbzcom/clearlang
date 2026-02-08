@@ -7,7 +7,8 @@ use super::eq::emit_eq_for_type;
 use super::{
     emit_alloc, emit_int_const, emit_load_i32, emit_ptr_add, emit_store_i32, fresh,
     load_value_borrow, LowerCtx, COLLECTION_CAP_OFFSET, COLLECTION_DATA_OFFSET,
-    COLLECTION_FLAGS_OFFSET, COLLECTION_HEADER_ALIGN, COLLECTION_HEADER_SIZE, COLLECTION_LEN_OFFSET,
+    COLLECTION_FLAGS_OFFSET, COLLECTION_HEADER_ALIGN, COLLECTION_HEADER_SIZE,
+    COLLECTION_LEN_OFFSET,
 };
 
 pub(super) fn emit_collection_guard(ctx: &mut LowerCtx<'_>, cond: Value, span: Span) {

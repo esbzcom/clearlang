@@ -83,7 +83,10 @@ impl StdMetadataIndex {
         let raw: StdMetadata = serde_json::from_str(include_str!("../../assets/std-metadata.json"))
             .expect("invalid std metadata");
         if raw.schema_version != 2 {
-            panic!("unsupported std metadata schema version {}", raw.schema_version);
+            panic!(
+                "unsupported std metadata schema version {}",
+                raw.schema_version
+            );
         }
         let mut modules = HashMap::new();
         let mut types = HashMap::new();
@@ -122,7 +125,13 @@ impl StdMetadataIndex {
                     }
                 }
             }
-            modules.insert(module.path, StdModuleIndex { values, types: types_set });
+            modules.insert(
+                module.path,
+                StdModuleIndex {
+                    values,
+                    types: types_set,
+                },
+            );
         }
         StdMetadataIndex { modules, types }
     }
@@ -152,12 +161,8 @@ struct ResolveCtx<'a> {
 
 pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
     let root = entry.parent().unwrap_or_else(|| Path::new("."));
-    let root = root
-        .canonicalize()
-        .unwrap_or_else(|_| root.to_path_buf());
-    let entry_abs = entry
-        .canonicalize()
-        .unwrap_or_else(|_| entry.to_path_buf());
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let entry_abs = entry.canonicalize().unwrap_or_else(|_| entry.to_path_buf());
     let mut modules: Vec<ModuleUnit> = Vec::new();
     let mut by_path: HashMap<String, usize> = HashMap::new();
     let mut module_files: HashMap<String, PathBuf> = HashMap::new();
@@ -241,7 +246,10 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
                     if import_file.exists() {
                         return Err(module_error(
                             "C026",
-                            format!("module path `{}` is reserved for std", import.path.join("::")),
+                            format!(
+                                "module path `{}` is reserved for std",
+                                import.path.join("::")
+                            ),
                             &file,
                             import.path_span,
                             json_errors,
@@ -301,7 +309,9 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
     for module in &modules {
         let env = build_import_env(module, &modules_by_name, json_errors)?;
         let mut program = resolve_program(module, &env);
-        resolved.refined_aliases.append(&mut program.refined_aliases);
+        resolved
+            .refined_aliases
+            .append(&mut program.refined_aliases);
         resolved.resources.append(&mut program.resources);
         resolved.structs.append(&mut program.structs);
         resolved.enums.append(&mut program.enums);
@@ -333,10 +343,7 @@ fn parse_file(path: &Path, json_errors: bool) -> Result<Program> {
 }
 
 fn module_path_for(root: &Path, file: &Path) -> Result<Vec<String>> {
-    let rel = file
-        .strip_prefix(root)
-        .unwrap_or(file)
-        .to_path_buf();
+    let rel = file.strip_prefix(root).unwrap_or(file).to_path_buf();
     let mut parts: Vec<String> = Vec::new();
     let mut components = rel.components().peekable();
     while let Some(comp) = components.next() {
@@ -427,13 +434,7 @@ fn dfs_cycle(
                     let mut cycle = stack[start_idx..].to_vec();
                     cycle.push(target.clone());
                     let msg = format!("import cycle detected: {}", cycle.join(" -> "));
-                    return Err(module_error(
-                        "C025",
-                        msg,
-                        file,
-                        *span,
-                        json_errors,
-                    ));
+                    return Err(module_error("C025", msg, file, *span, json_errors));
                 }
                 _ => {}
             }
@@ -527,11 +528,7 @@ fn build_import_env(
     let mut imported_types = HashMap::new();
 
     for import in &module.program.imports {
-        let is_std = import
-            .path
-            .first()
-            .map(|seg| seg == "std")
-            .unwrap_or(false);
+        let is_std = import.path.first().map(|seg| seg == "std").unwrap_or(false);
         let target_path = import.path.join("::");
         if is_std {
             let std_module = std_metadata().module(&target_path).ok_or_else(|| {
@@ -581,10 +578,7 @@ fn build_import_env(
                         if !is_value && !is_type {
                             return Err(module_error(
                                 "C021",
-                                format!(
-                                    "module `{}` does not export item `{}`",
-                                    target_path, name
-                                ),
+                                format!("module `{}` does not export item `{}`", target_path, name),
                                 &module.file,
                                 item.span,
                                 json_errors,
@@ -674,10 +668,7 @@ fn build_import_env(
                     if !is_value && !is_type {
                         return Err(module_error(
                             "C021",
-                            format!(
-                                "module `{}` does not export item `{}`",
-                                target_path, name
-                            ),
+                            format!("module `{}` does not export item `{}`", target_path, name),
                             &module.file,
                             item.span,
                             json_errors,
@@ -905,7 +896,9 @@ fn resolve_expr(expr: &mut Expr, ctx: &ResolveCtx<'_>, params: &HashSet<String>)
         Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {
             resolve_expr(expr, ctx, params);
         }
-        Expr::Match { scrutinee, arms, .. } => {
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
             resolve_expr(scrutinee, ctx, params);
             for arm in arms {
                 resolve_arm(arm, ctx, params);
@@ -938,7 +931,11 @@ fn resolve_pattern(pat: &mut MatchPat, ctx: &ResolveCtx<'_>, _params: &HashSet<S
         MatchPat::EnumVariant { enum_name, .. } => {
             *enum_name = resolve_type_name(enum_name, ctx);
         }
-        MatchPat::Some(_) | MatchPat::None | MatchPat::Ok(_) | MatchPat::Err(_) | MatchPat::Wildcard => {}
+        MatchPat::Some(_)
+        | MatchPat::None
+        | MatchPat::Ok(_)
+        | MatchPat::Err(_)
+        | MatchPat::Wildcard => {}
     }
 }
 
@@ -965,7 +962,14 @@ fn resolve_type(ty: &mut Type, ctx: &ResolveCtx<'_>, params: &HashSet<String>) {
                 resolve_type(elem, ctx, params);
             }
         }
-        Type::Int | Type::U8 | Type::U64 | Type::U128 | Type::U256 | Type::Bool | Type::String | Type::Bytes => {}
+        Type::Int
+        | Type::U8
+        | Type::U64
+        | Type::U128
+        | Type::U256
+        | Type::Bool
+        | Type::String
+        | Type::Bytes => {}
     }
 }
 
@@ -1044,13 +1048,7 @@ fn module_error(
 ) -> anyhow::Error {
     if json_errors {
         CommandError::json(make_single_json_error(
-            code,
-            "build",
-            message,
-            file,
-            span.start,
-            span.end,
-            None,
+            code, "build", message, file, span.start, span.end, None,
         ))
         .into()
     } else {

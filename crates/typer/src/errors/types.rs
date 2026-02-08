@@ -26,15 +26,11 @@ impl TyperError {
         )
     }
 
-
     pub fn unknown_type(name: &str, span: Option<Span>) -> Self {
         if let Some(sp) = span {
             Self::new(
                 "T210",
-                format!(
-                    "at {}..{}: unknown type `{}`",
-                    sp.start, sp.end, name
-                ),
+                format!("at {}..{}: unknown type `{}`", sp.start, sp.end, name),
                 sp.start,
                 sp.end,
             )
@@ -42,7 +38,6 @@ impl TyperError {
             Self::new("T210", format!("unknown type `{}`", name), 0, 0)
         }
     }
-
 
     pub fn unknown_struct_field(struct_name: &str, field: &str, span: Span) -> Self {
         Self::new(
@@ -56,7 +51,6 @@ impl TyperError {
         )
     }
 
-
     pub fn missing_struct_field(struct_name: &str, field: &str, span: Span) -> Self {
         Self::new(
             "T212",
@@ -69,7 +63,6 @@ impl TyperError {
         )
     }
 
-
     pub fn duplicate_struct_field(field: &str, span: Span) -> Self {
         Self::new(
             "T213",
@@ -81,7 +74,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn struct_field_type_mismatch(
         struct_name: &str,
@@ -106,7 +98,6 @@ impl TyperError {
         )
     }
 
-
     pub fn unknown_enum_variant(label: &str, span: Span) -> Self {
         Self::new(
             "T215",
@@ -118,7 +109,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn enum_variant_arity_mismatch(
         label: &str,
@@ -137,7 +127,6 @@ impl TyperError {
         )
     }
 
-
     pub fn expected_struct(found: &str, span: Span) -> Self {
         Self::new(
             "T217",
@@ -150,7 +139,6 @@ impl TyperError {
         )
     }
 
-
     pub fn resource_field_not_supported(kind: &str, name: &str, span: Span) -> Self {
         Self::new(
             "T218",
@@ -162,7 +150,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn duplicate_enum_variant(variant: &str, span: Span) -> Self {
         Self::new(

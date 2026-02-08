@@ -78,7 +78,13 @@ pub(crate) fn trait_impl_exists(
                     ok = false;
                     break;
                 };
-                if !inner(bound.trait_name.as_str(), bound_ty, trait_env, aliases, visiting)? {
+                if !inner(
+                    bound.trait_name.as_str(),
+                    bound_ty,
+                    trait_env,
+                    aliases,
+                    visiting,
+                )? {
                     ok = false;
                     break;
                 }
@@ -91,13 +97,7 @@ pub(crate) fn trait_impl_exists(
         Ok(matches > 0)
     }
 
-    inner(
-        trait_name,
-        ty,
-        trait_env,
-        aliases,
-        &mut HashSet::new(),
-    )
+    inner(trait_name, ty, trait_env, aliases, &mut HashSet::new())
 }
 
 pub(crate) fn type_pattern_matches(
@@ -116,7 +116,9 @@ pub(crate) fn type_pattern_matches(
             Ok(true)
         }
         Type::Option(inner) => match actual {
-            Type::Option(act_inner) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            Type::Option(act_inner) => {
+                type_pattern_matches(inner, act_inner, params, subst, aliases)
+            }
             _ => Ok(false),
         },
         Type::Result(ok, err) => match actual {
@@ -135,18 +137,20 @@ pub(crate) fn type_pattern_matches(
             _ => Ok(false),
         },
         Type::Map(k, v) => match actual {
-            Type::Map(act_k, act_v) => Ok(
-                type_pattern_matches(k, act_k, params, subst, aliases)?
-                    && type_pattern_matches(v, act_v, params, subst, aliases)?,
-            ),
+            Type::Map(act_k, act_v) => Ok(type_pattern_matches(k, act_k, params, subst, aliases)?
+                && type_pattern_matches(v, act_v, params, subst, aliases)?),
             _ => Ok(false),
         },
         Type::Array(inner, _) => match actual {
-            Type::Array(act_inner, _) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            Type::Array(act_inner, _) => {
+                type_pattern_matches(inner, act_inner, params, subst, aliases)
+            }
             _ => Ok(false),
         },
         Type::Slice(inner) => match actual {
-            Type::Slice(act_inner) => type_pattern_matches(inner, act_inner, params, subst, aliases),
+            Type::Slice(act_inner) => {
+                type_pattern_matches(inner, act_inner, params, subst, aliases)
+            }
             _ => Ok(false),
         },
         Type::Tuple(elements) => match actual {

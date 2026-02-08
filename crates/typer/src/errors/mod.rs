@@ -53,11 +53,7 @@ pub(super) fn render_type(ty: &Type) -> String {
             if args.is_empty() {
                 name.to_string()
             } else {
-                let rendered = args
-                    .iter()
-                    .map(render_type)
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let rendered = args.iter().map(render_type).collect::<Vec<_>>().join(", ");
                 format!("{}<{}>", name, rendered)
             }
         }

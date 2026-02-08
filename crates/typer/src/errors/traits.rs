@@ -1,16 +1,18 @@
 use super::TyperError;
-use clg_ast::{Span};
+use clg_ast::Span;
 
 impl TyperError {
     pub fn duplicate_trait(name: &str, span: Span) -> Self {
         Self::new(
             "T230",
-            format!("at {}..{}: duplicate trait `{}`", span.start, span.end, name),
+            format!(
+                "at {}..{}: duplicate trait `{}`",
+                span.start, span.end, name
+            ),
             span.start,
             span.end,
         )
     }
-
 
     pub fn unknown_trait(name: &str, span: Span) -> Self {
         Self::new(
@@ -20,7 +22,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn duplicate_trait_method(trait_name: &str, method: &str, span: Span) -> Self {
         Self::new(
@@ -34,7 +35,6 @@ impl TyperError {
         )
     }
 
-
     pub fn trait_method_missing(trait_name: &str, method: &str, span: Span) -> Self {
         Self::new(
             "T233",
@@ -46,7 +46,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn trait_method_extra(trait_name: &str, method: &str, span: Span) -> Self {
         Self::new(
@@ -60,7 +59,6 @@ impl TyperError {
         )
     }
 
-
     pub fn trait_method_signature_mismatch(trait_name: &str, method: &str, span: Span) -> Self {
         Self::new(
             "T235",
@@ -72,7 +70,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn overlapping_impl(trait_name: &str, _left: Span, right: Span) -> Self {
         Self::new(
@@ -86,7 +83,6 @@ impl TyperError {
         )
     }
 
-
     pub fn missing_trait_bound(param: &str, trait_name: &str, span: Span) -> Self {
         Self::new(
             "T237",
@@ -98,7 +94,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn ambiguous_impl(
         trait_name: &str,
@@ -113,10 +108,7 @@ impl TyperError {
         if !candidates.is_empty() {
             let mut parts: Vec<String> = Vec::with_capacity(candidates.len());
             for (ty, sp) in candidates {
-                parts.push(format!(
-                    "impl for `{}` at {}..{}",
-                    ty, sp.start, sp.end
-                ));
+                parts.push(format!("impl for `{}` at {}..{}", ty, sp.start, sp.end));
             }
             message.push_str("; candidates: ");
             message.push_str(&parts.join(", "));

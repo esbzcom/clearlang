@@ -132,9 +132,12 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
@@ -163,9 +166,12 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
@@ -191,17 +197,21 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
                         }
                     }
                     _ => {
-                        return Err(TyperError::match_invalid_scrutinee(scrut_ty.clone(), span)
-                            .into());
+                        return Err(
+                            TyperError::match_invalid_scrutinee(scrut_ty.clone(), span).into()
+                        );
                     }
                 }
             }
@@ -258,9 +268,12 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
@@ -300,9 +313,12 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
@@ -328,17 +344,21 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
                         }
                     }
                     _ => {
-                        return Err(TyperError::match_invalid_scrutinee(scrut_ty.clone(), span)
-                            .into());
+                        return Err(
+                            TyperError::match_invalid_scrutinee(scrut_ty.clone(), span).into()
+                        );
                     }
                 }
             }
@@ -393,7 +413,7 @@ pub(super) fn type_match_expr<'a>(
                         if seen.contains(variant.as_str()) {
                             let label = format!("{}::{}", enum_name, variant);
                             return Err(
-                                TyperError::match_duplicate_arm(label.as_str(), span).into(),
+                                TyperError::match_duplicate_arm(label.as_str(), span).into()
                             );
                         }
                         if binders.len() != variant_def.fields.len() {
@@ -446,9 +466,12 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
@@ -474,9 +497,12 @@ pub(super) fn type_match_expr<'a>(
                         if let Some(rt) = &res_ty_opt {
                             if &at != rt {
                                 let sp = expr_span(&arm.expr);
-                                return Err(
-                                    TyperError::match_arm_type_mismatch(rt.clone(), at, sp).into(),
-                                );
+                                return Err(TyperError::match_arm_type_mismatch(
+                                    rt.clone(),
+                                    at,
+                                    sp,
+                                )
+                                .into());
                             }
                         } else {
                             res_ty_opt = Some(at);
@@ -490,9 +516,7 @@ pub(super) fn type_match_expr<'a>(
                             MatchPat::Err(_) => "Err".to_string(),
                             MatchPat::Wildcard => "_".to_string(),
                             MatchPat::EnumVariant {
-                                enum_name,
-                                variant,
-                                ..
+                                enum_name, variant, ..
                             } => format!("{}::{}", enum_name, variant),
                         };
                         return Err(TyperError::unknown_enum_variant(&label, span).into());

@@ -1,5 +1,5 @@
-use super::TyperError;
 use super::render_type;
+use super::TyperError;
 use clg_ast::{Span, Type};
 
 impl TyperError {
@@ -15,7 +15,6 @@ impl TyperError {
         )
     }
 
-
     pub fn alias_predicate_not_bool(name: &str, span: Span) -> Self {
         Self::new(
             "T704",
@@ -27,7 +26,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn refinement_loss(expected: Type, found: Type, span: Span) -> Self {
         Self::new(
@@ -44,7 +42,6 @@ impl TyperError {
         )
     }
 
-
     pub fn refined_resource_not_supported(name: &str, span: Span) -> Self {
         Self::new(
             "T706",
@@ -57,7 +54,6 @@ impl TyperError {
         )
     }
 
-
     pub fn alias_predicate_impure(name: &str, span: Span) -> Self {
         Self::new(
             "T707",
@@ -69,7 +65,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn alias_predicate_unsat(name: &str, span: Span) -> Self {
         Self::new(

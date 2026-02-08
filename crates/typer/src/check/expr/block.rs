@@ -2,12 +2,12 @@ use anyhow::Result;
 use clg_ast::{Block, Expr, ParamKind, Span, Stmt, Type};
 use std::collections::{HashMap, HashSet};
 
-use super::{consume_var_expr, expr_span, type_of, ResourceTracker};
-use super::literals::{ensure_bool, ensure_int};
 use super::super::{
     base_types_match, is_resource_type, refinement_loss, AliasMap, BoundsMap, FnSig, LocalBinding,
     TraitEnv, TypeDefs,
 };
+use super::literals::{ensure_bool, ensure_int};
+use super::{consume_var_expr, expr_span, type_of, ResourceTracker};
 use crate::errors::TyperError;
 
 pub(super) fn type_block_stmt<'a>(
@@ -141,15 +141,53 @@ fn type_while_stmt<'a>(
     depth: usize,
     span: Span,
 ) -> Result<()> {
-    let cty =
-        type_of(cond, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, None)?;
+    let cty = type_of(
+        cond,
+        env,
+        tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        type_params,
+        bounds,
+        depth,
+        None,
+    )?;
     ensure_bool(cty, aliases, "condition", Some(expr_span(cond)))?;
-    let inv_ty =
-        type_of(invariant, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, None)?;
-    ensure_bool(inv_ty, aliases, "loop invariant", Some(expr_span(invariant)))?;
+    let inv_ty = type_of(
+        invariant,
+        env,
+        tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        type_params,
+        bounds,
+        depth,
+        None,
+    )?;
+    ensure_bool(
+        inv_ty,
+        aliases,
+        "loop invariant",
+        Some(expr_span(invariant)),
+    )?;
     if let Some(var_expr) = variant {
-        let vty =
-            type_of(var_expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth, None)?;
+        let vty = type_of(
+            var_expr,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth,
+            None,
+        )?;
         ensure_int(vty, aliases, "loop variant", Some(expr_span(var_expr)))?;
     }
     let baseline = tracker.clone();

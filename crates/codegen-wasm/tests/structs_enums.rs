@@ -5,11 +5,7 @@ use std::convert::TryInto;
 
 mod common;
 
-fn read_i32(
-    memory: &wasmtime::Memory,
-    store: &mut wasmtime::Store<()>,
-    addr: i32,
-) -> i32 {
+fn read_i32(memory: &wasmtime::Memory, store: &mut wasmtime::Store<()>, addr: i32) -> i32 {
     let mut buf = [0u8; 4];
     memory
         .read(store, addr as usize, &mut buf)
@@ -17,11 +13,7 @@ fn read_i32(
     i32::from_le_bytes(buf)
 }
 
-fn read_i64(
-    memory: &wasmtime::Memory,
-    store: &mut wasmtime::Store<()>,
-    addr: i32,
-) -> i64 {
+fn read_i64(memory: &wasmtime::Memory, store: &mut wasmtime::Store<()>, addr: i32) -> i64 {
     let mut buf = [0u8; 8];
     memory
         .read(store, addr as usize, &mut buf)
@@ -151,7 +143,10 @@ fn enum_variant_layout_writes_payload() {
     let first = read_i32(&memory, &mut store, payload_lo);
     let second = read_i32(&memory, &mut store, payload_lo + 4);
     assert_eq!(first, 7, "first tuple field should be stored at offset 0");
-    assert_eq!(second, 11, "second tuple field should be stored at offset 4");
+    assert_eq!(
+        second, 11,
+        "second tuple field should be stored at offset 4"
+    );
 }
 
 #[test]

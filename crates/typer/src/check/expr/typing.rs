@@ -9,10 +9,10 @@ use super::super::{
 };
 use super::block::type_block;
 use super::call_expr::type_call_expr;
-use super::match_expr::type_match_expr;
 use super::literals::{
     ensure_int, int_literal_value, literal_can_coerce_unsigned, unsigned_literal_range_error,
 };
+use super::match_expr::type_match_expr;
 use super::ops::{type_bin_expr, type_unary_expr};
 use super::{expr_span, show_ty, ResourceTracker};
 use crate::errors::TyperError;
@@ -53,19 +53,45 @@ pub(crate) fn type_of<'a>(
             let first = elems
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("array literal must have at least one element"))?;
-            let elem_ty = type_of(first, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+            let elem_ty = type_of(
+                first,
+                env,
+                &mut local_tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                None,
+            )?;
             if let Some(expected_ty) = expected {
                 if let Type::Array(_, Some(len)) = base_type(expected_ty, aliases)? {
                     if elems.len() as u32 != len {
-                        return Err(
-                            TyperError::array_length_mismatch(len, elems.len() as u32, *span)
-                                .into(),
-                        );
+                        return Err(TyperError::array_length_mismatch(
+                            len,
+                            elems.len() as u32,
+                            *span,
+                        )
+                        .into());
                     }
                 }
             }
             for elem in elems.iter().skip(1) {
-                let ety = type_of(elem, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+                let ety = type_of(
+                    elem,
+                    env,
+                    &mut local_tracker,
+                    fns,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
+                    depth + 1,
+                    None,
+                )?;
                 if !binding_compatible(&elem_ty, &ety, aliases)? {
                     if literal_can_coerce_unsigned(&elem_ty, &ety, elem) {
                         continue;
@@ -141,9 +167,7 @@ pub(crate) fn type_of<'a>(
             for field in fields {
                 let field_name = field.name.as_str();
                 if !seen.insert(field_name) {
-                    return Err(
-                        TyperError::duplicate_struct_field(field_name, field.span).into(),
-                    );
+                    return Err(TyperError::duplicate_struct_field(field_name, field.span).into());
                 }
                 let Some(field_def) = struct_info.fields.get(field_name) else {
                     return Err(TyperError::unknown_struct_field(
@@ -200,7 +224,8 @@ pub(crate) fn type_of<'a>(
                     if literal_can_coerce_unsigned(&expected, &found, &field.expr) {
                         continue;
                     }
-                    if let Some(err) = unsigned_literal_range_error(&expected, &found, &field.expr) {
+                    if let Some(err) = unsigned_literal_range_error(&expected, &found, &field.expr)
+                    {
                         return Err(err.into());
                     }
                     let sp = expr_span(&field.expr);
@@ -217,7 +242,8 @@ pub(crate) fn type_of<'a>(
                     if literal_can_coerce_unsigned(&expected, &found, &field.expr) {
                         continue;
                     }
-                    if let Some(err) = unsigned_literal_range_error(&expected, &found, &field.expr) {
+                    if let Some(err) = unsigned_literal_range_error(&expected, &found, &field.expr)
+                    {
                         return Err(err.into());
                     }
                     let sp = expr_span(&field.expr);
@@ -291,8 +317,32 @@ pub(crate) fn type_of<'a>(
         }
         Expr::Index { base, index, span } => {
             let mut local_tracker = tracker.clone();
-            let base_ty = type_of(base, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
-            let idx_ty = type_of(index, env, &mut local_tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+            let base_ty = type_of(
+                base,
+                env,
+                &mut local_tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                None,
+            )?;
+            let idx_ty = type_of(
+                index,
+                env,
+                &mut local_tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                None,
+            )?;
             ensure_int(idx_ty, aliases, "index", Some(expr_span(index)))?;
             let resolved = base_type(&base_ty, aliases)?;
             match resolved {
@@ -305,9 +355,10 @@ pub(crate) fn type_of<'a>(
                         }
                         if let Some(len) = len {
                             if idx as u64 >= len as u64 {
-                                return Err(
-                                    TyperError::array_index_out_of_bounds(expr_span(index)).into()
-                                );
+                                return Err(TyperError::array_index_out_of_bounds(expr_span(
+                                    index,
+                                ))
+                                .into());
                             }
                         }
                     }
@@ -337,9 +388,12 @@ pub(crate) fn type_of<'a>(
                     *tracker = local_tracker;
                     Ok(elems[idx as usize].clone())
                 }
-                other => Err(
-                    TyperError::expected_collection("array, slice, or tuple", other, *span).into()
-                ),
+                other => {
+                    Err(
+                        TyperError::expected_collection("array, slice, or tuple", other, *span)
+                            .into(),
+                    )
+                }
             }
         }
         Expr::Block { block } => type_block(
@@ -417,7 +471,11 @@ pub(crate) fn type_of<'a>(
             Ok(tty)
         }
 
-        Expr::Match { scrutinee, arms, span } => type_match_expr(
+        Expr::Match {
+            scrutinee,
+            arms,
+            span,
+        } => type_match_expr(
             scrutinee,
             arms,
             *span,
@@ -433,7 +491,19 @@ pub(crate) fn type_of<'a>(
             expected,
         ),
         Expr::Try { expr, span } => {
-            let inner = type_of(expr, env, tracker, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)?;
+            let inner = type_of(
+                expr,
+                env,
+                tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                None,
+            )?;
             let ret_binding = env
                 .get(RETURN_KEY)
                 .cloned()

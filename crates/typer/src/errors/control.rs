@@ -15,7 +15,6 @@ impl TyperError {
         )
     }
 
-
     pub fn while_variant_required(span: Span) -> Self {
         Self::new(
             "T901",
@@ -27,7 +26,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn recursion_requires_measure(callee: &str, span: Span) -> Self {
         Self::new(
@@ -41,7 +39,6 @@ impl TyperError {
         )
     }
 
-
     pub fn variant_not_decreasing(span: Span) -> Self {
         Self::new(
             "T903",
@@ -53,7 +50,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn try_option_return_required(found: Type, span: Span) -> Self {
         Self::new(
@@ -69,7 +65,6 @@ impl TyperError {
         )
     }
 
-
     pub fn try_input_not_option_result(found: Type, span: Span) -> Self {
         Self::new(
             "T602",
@@ -83,7 +78,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn try_option_inner_mismatch(declared: Type, found: Type, span: Span) -> Self {
         Self::new(
@@ -100,7 +94,6 @@ impl TyperError {
         )
     }
 
-
     pub fn try_result_return_required(found: Type, span: Span) -> Self {
         Self::new(
             "T604",
@@ -114,7 +107,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn try_result_mismatch(
         ok_decl: Type,
@@ -138,7 +130,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn try_missing_return(span: Span) -> Self {
         Self::new(
@@ -164,7 +155,6 @@ impl TyperError {
         )
     }
 
-
     pub fn none_return_required(found: Type, span: Span) -> Self {
         Self::new(
             "T608",
@@ -179,7 +169,6 @@ impl TyperError {
         )
     }
 
-
     pub fn result_ctor_missing_return(span: Span) -> Self {
         Self::new(
             "T609",
@@ -191,7 +180,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn ok_return_required(found: Type, span: Span) -> Self {
         Self::new(
@@ -206,7 +194,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn ok_argument_mismatch(expected: Type, found: Type, span: Span) -> Self {
         Self::new(
@@ -223,7 +210,6 @@ impl TyperError {
         )
     }
 
-
     pub fn err_return_required(found: Type, span: Span) -> Self {
         Self::new(
             "T612",
@@ -237,7 +223,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn err_argument_mismatch(expected: Type, found: Type, span: Span) -> Self {
         Self::new(

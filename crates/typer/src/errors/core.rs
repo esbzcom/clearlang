@@ -15,7 +15,6 @@ impl TyperError {
         )
     }
 
-
     pub fn arity_mismatch(callee: &str, expected: usize, found: usize, span: Span) -> Self {
         Self::new(
             "T002",
@@ -27,7 +26,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn arg_type_mismatch(
         i: usize,
@@ -52,7 +50,6 @@ impl TyperError {
         )
     }
 
-
     pub fn return_type_mismatch(declared: Type, found: Type, span: Span) -> Self {
         Self::new(
             "T004",
@@ -67,7 +64,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn int_operand(what: &str, ty: Type, span: Option<Span>) -> Self {
         if let Some(sp) = span {
@@ -93,7 +89,6 @@ impl TyperError {
         }
     }
 
-
     pub fn bool_operand(what: &str, ty: Type, span: Option<Span>) -> Self {
         if let Some(sp) = span {
             Self::new(
@@ -118,7 +113,6 @@ impl TyperError {
         }
     }
 
-
     pub fn binary_operands_mismatch(op: &str, left: Type, right: Type, span: Span) -> Self {
         Self::new(
             "T013",
@@ -135,7 +129,6 @@ impl TyperError {
         )
     }
 
-
     pub fn contract_not_bool(kind: &str, ty: Type, span: Span) -> Self {
         Self::new(
             "T014",
@@ -151,7 +144,6 @@ impl TyperError {
         )
     }
 
-
     pub fn unknown_variable(name: &str, sp: Span) -> Self {
         Self::new(
             "T006",
@@ -161,16 +153,13 @@ impl TyperError {
         )
     }
 
-
     pub fn duplicate_function(name: &str) -> Self {
         Self::new("T008", format!("duplicate function `{}`", name), 0, 0)
     }
 
-
     pub fn duplicate_parameter(name: &str) -> Self {
         Self::new("T010", format!("duplicate parameter `{}`", name), 0, 0)
     }
-
 
     pub fn feature_not_supported(feature: &str, span: Span) -> Self {
         Self::new(

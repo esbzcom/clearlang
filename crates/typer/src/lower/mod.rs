@@ -5,27 +5,26 @@ use crate::check::{
 use anyhow::Result;
 use clg_ast::{Expr, Func, ParamKind, Type};
 use clg_ir::{
-    Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind,
-    VariantParts,
+    Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind, VariantParts,
 };
 use std::collections::{HashMap, HashSet};
 
 mod array;
 mod atoms;
-mod block;
 mod binops;
+mod block;
 mod calls;
+mod collection_types;
 mod collections;
 mod collections_helpers;
-mod collection_types;
 mod collections_list;
 mod collections_map;
-mod collections_slice;
 mod collections_set;
+mod collections_slice;
 mod control;
-mod eq_primitives;
 mod emit;
 mod eq;
+mod eq_primitives;
 mod index;
 mod intrinsics;
 mod layout;
@@ -36,27 +35,23 @@ mod u64_ops;
 
 use array::emit_array_len_guard;
 use atoms::{lower_return_expr, lower_unary_expr, lower_var_expr};
-use block::lower_block_expr;
 use binops::lower_bin_expr;
+use block::lower_block_expr;
 use calls::lower_call_expr;
 use control::{lower_if_expr, lower_try_expr};
-use index::lower_index_expr;
-use literals::{
-    lower_array_lit, lower_bool_lit, lower_int_lit, lower_string_lit, lower_tuple_lit,
-};
-use r#match::lower_match_expr;
-use structs::{lower_field_access, lower_struct_lit};
-pub(crate) use u64_ops::{
-    emit_u64_bin, emit_u64_const, emit_u64_overflow_flag, emit_u64_overflow_guard,
-};
-use layout::{
-    std_type_info_for,
-};
 use emit::{
     emit_alloc, emit_int_const, emit_memcpy_bytes, emit_ptr_add, emit_zero_for_mem_ty, fresh,
 };
 pub(super) use emit::{
     emit_alloc_dyn, emit_bool_const, emit_load_i32, emit_store_i32, mem_layout_for_ir,
+};
+use index::lower_index_expr;
+use layout::std_type_info_for;
+use literals::{lower_array_lit, lower_bool_lit, lower_int_lit, lower_string_lit, lower_tuple_lit};
+use r#match::lower_match_expr;
+use structs::{lower_field_access, lower_struct_lit};
+pub(crate) use u64_ops::{
+    emit_u64_bin, emit_u64_const, emit_u64_overflow_flag, emit_u64_overflow_guard,
 };
 
 type FnSig = CheckFnSig;
@@ -86,9 +81,7 @@ fn ir_ty(t: Type) -> IrType {
         | Type::Map(_, _)
         | Type::Array(_, _)
         | Type::Slice(_)
-        | Type::Tuple(_) => {
-            IrType::Int
-        }
+        | Type::Tuple(_) => IrType::Int,
     }
 }
 
@@ -111,12 +104,7 @@ fn emit_ptr_add_const(ctx: &mut LowerCtx<'_>, ptr: Value, offset: u32) -> Value 
     emit_ptr_add(ctx, ptr, off)
 }
 
-fn load_value_borrow(
-    ctx: &mut LowerCtx<'_>,
-    ty: &Type,
-    ptr: Value,
-    offset: u32,
-) -> Result<Value> {
+fn load_value_borrow(ctx: &mut LowerCtx<'_>, ty: &Type, ptr: Value, offset: u32) -> Result<Value> {
     if std_type_info_for(ty, ctx.aliases, ctx.std_types)?.is_some() {
         return Ok(emit_ptr_add_const(ctx, ptr, offset));
     }
@@ -131,12 +119,7 @@ fn load_value_borrow(
     Ok(dst)
 }
 
-fn load_value_copy(
-    ctx: &mut LowerCtx<'_>,
-    ty: &Type,
-    ptr: Value,
-    offset: u32,
-) -> Result<Value> {
+fn load_value_copy(ctx: &mut LowerCtx<'_>, ty: &Type, ptr: Value, offset: u32) -> Result<Value> {
     if let Some(info) = std_type_info_for(ty, ctx.aliases, ctx.std_types)? {
         let src_ptr = emit_ptr_add_const(ctx, ptr, offset);
         let dst = emit_alloc(ctx, info.byte_len, info.align);
@@ -301,10 +284,10 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::String(s, _) => lower_string_lit(ctx, s),
         Expr::ArrayLit { elems, .. } => lower_array_lit(ctx, elems),
         Expr::TupleLit { elems, .. } => lower_tuple_lit(ctx, elems),
-        Expr::StructLit { name: _, fields, .. } => lower_struct_lit(ctx, e, fields),
-        Expr::FieldAccess { base, field, .. } => {
-            lower_field_access(ctx, base, field.as_str())
-        }
+        Expr::StructLit {
+            name: _, fields, ..
+        } => lower_struct_lit(ctx, e, fields),
+        Expr::FieldAccess { base, field, .. } => lower_field_access(ctx, base, field.as_str()),
         Expr::Unary { .. } => lower_unary_expr(),
         Expr::Match {
             scrutinee, arms, ..
@@ -362,4 +345,3 @@ impl<'a> LowerCtx<'a> {
         }
     }
 }
-

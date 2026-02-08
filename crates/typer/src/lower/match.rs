@@ -3,12 +3,12 @@ use anyhow::Result;
 use clg_ast::{Expr, MatchArm, MatchPat, ParamKind, Type};
 use clg_ir::{BinOpIR, Instr, IrType, Value, VariantKind};
 
+use super::block::{restore_scope, ScopeEntry};
 use super::layout::{enum_variant_info, tuple_layout};
 use super::{
     emit_alloc, emit_int_const, fresh, load_value_borrow, lower_expr, mem_ir_type,
-    mem_layout_for_ir, store_value, std_type_info_for, LowerCtx,
+    mem_layout_for_ir, std_type_info_for, store_value, LowerCtx,
 };
-use super::block::{restore_scope, ScopeEntry};
 
 pub(super) fn lower_match_expr<'a>(
     ctx: &mut LowerCtx<'a>,
@@ -71,7 +71,16 @@ pub(super) fn lower_match_sugar<'a>(
         ty: IrType::Int,
     });
 
-    let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
+    let scrut_ty = infer_expr_type(
+        scrutinee,
+        &ctx.type_env,
+        &ctx.fns,
+        ctx.trait_env,
+        ctx.aliases,
+        ctx.type_defs,
+        &ctx.type_params,
+        &ctx.bounds,
+    )?;
     let binder_ty = match scrut_ty {
         Type::Option(inner) => *inner,
         Type::Result(ok, err) => {
@@ -183,7 +192,16 @@ pub(super) fn lower_enum_match<'a>(
     enum_name: &str,
     enum_args: &[Type],
 ) -> Result<Value> {
-    let scrut_ty = infer_expr_type(scrutinee, &ctx.type_env, &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds)?;
+    let scrut_ty = infer_expr_type(
+        scrutinee,
+        &ctx.type_env,
+        &ctx.fns,
+        ctx.trait_env,
+        ctx.aliases,
+        ctx.type_defs,
+        &ctx.type_params,
+        &ctx.bounds,
+    )?;
     let resolved = base_type(&scrut_ty, ctx.aliases)?;
     let Type::Named { name, .. } = resolved else {
         anyhow::bail!("enum match expects enum scrutinee");
@@ -195,7 +213,12 @@ pub(super) fn lower_enum_match<'a>(
         .ok_or_else(|| anyhow::anyhow!("unknown enum `{}`", name))?;
     let variant_count = info.decl.variants.len() as u32;
     let variant = lower_expr(ctx, scrutinee, None)?;
-    let parts = ctx.variant_destructure(variant, VariantKind::Enum { max_tag: variant_count });
+    let parts = ctx.variant_destructure(
+        variant,
+        VariantKind::Enum {
+            max_tag: variant_count,
+        },
+    );
 
     let mut result_slot: Option<(Value, Type, Option<IrType>)> = None;
 
@@ -287,14 +310,17 @@ pub(super) fn lower_enum_match<'a>(
                     infer_expr_type(
                         &arm.expr,
                         &ctx.type_env,
-                        &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds,
+                        &ctx.fns,
+                        ctx.trait_env,
+                        ctx.aliases,
+                        ctx.type_defs,
+                        &ctx.type_params,
+                        &ctx.bounds,
                     )?
                 };
                 let (slot, _, slot_mem_ty) = if let Some(slot) = result_slot.clone() {
                     slot
-                } else if let Some(info) =
-                    std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)?
-                {
+                } else if let Some(info) = std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)? {
                     let slot = emit_alloc(ctx, info.byte_len, info.align);
                     result_slot = Some((slot, arm_ty.clone(), None));
                     (slot, arm_ty.clone(), None)
@@ -327,14 +353,17 @@ pub(super) fn lower_enum_match<'a>(
                     infer_expr_type(
                         &arm.expr,
                         &ctx.type_env,
-                        &ctx.fns, ctx.trait_env, ctx.aliases, ctx.type_defs, &ctx.type_params, &ctx.bounds,
+                        &ctx.fns,
+                        ctx.trait_env,
+                        ctx.aliases,
+                        ctx.type_defs,
+                        &ctx.type_params,
+                        &ctx.bounds,
                     )?
                 };
                 let (slot, _, slot_mem_ty) = if let Some(slot) = result_slot.clone() {
                     slot
-                } else if let Some(info) =
-                    std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)?
-                {
+                } else if let Some(info) = std_type_info_for(&arm_ty, ctx.aliases, ctx.std_types)? {
                     let slot = emit_alloc(ctx, info.byte_len, info.align);
                     result_slot = Some((slot, arm_ty.clone(), None));
                     (slot, arm_ty.clone(), None)
@@ -362,8 +391,8 @@ pub(super) fn lower_enum_match<'a>(
     }
     ctx.body.push(Instr::BlockEnd);
 
-    let (slot, arm_ty, mem_ty) = result_slot
-        .ok_or_else(|| anyhow::anyhow!("match arms must not be empty"))?;
+    let (slot, arm_ty, mem_ty) =
+        result_slot.ok_or_else(|| anyhow::anyhow!("match arms must not be empty"))?;
     if let Some(mem_ty) = mem_ty {
         let dst = fresh(ctx);
         ctx.body.push(Instr::Load {
@@ -378,4 +407,3 @@ pub(super) fn lower_enum_match<'a>(
         Ok(slot)
     }
 }
-

@@ -1,4 +1,6 @@
-use crate::check::{base_type, substitute_type, AliasMap, StdTypeInfo, StdTypeMap, TypeDefs, TypeSubst};
+use crate::check::{
+    base_type, substitute_type, AliasMap, StdTypeInfo, StdTypeMap, TypeDefs, TypeSubst,
+};
 use anyhow::Result;
 use clg_ast::{StructField, Type, TypeParam};
 use std::collections::HashMap;
@@ -43,7 +45,10 @@ pub(super) fn std_type_info_for(
     Ok(None)
 }
 
-pub(super) fn std_type_info_for_module(module: &str, std_types: &StdTypeMap) -> Result<StdTypeInfo> {
+pub(super) fn std_type_info_for_module(
+    module: &str,
+    std_types: &StdTypeMap,
+) -> Result<StdTypeInfo> {
     let prefix = format!("{}::", module);
     let mut found: Option<StdTypeInfo> = None;
     for (name, info) in std_types {
@@ -60,11 +65,7 @@ pub(super) fn std_type_info_for_module(module: &str, std_types: &StdTypeMap) -> 
     found.ok_or_else(|| anyhow::anyhow!("std module `{}` has no value type metadata", module))
 }
 
-fn layout_for_type(
-    ty: &Type,
-    aliases: &AliasMap,
-    std_types: &StdTypeMap,
-) -> Result<(u32, u32)> {
+fn layout_for_type(ty: &Type, aliases: &AliasMap, std_types: &StdTypeMap) -> Result<(u32, u32)> {
     let resolved = base_type(ty, aliases)?;
     match resolved {
         Type::Int | Type::Bool => Ok((4, 4)),
@@ -214,9 +215,8 @@ pub(super) fn enum_variant_info<'a>(
             break;
         }
     }
-    let index = idx.ok_or_else(|| {
-        anyhow::anyhow!("unknown enum variant `{}::{}`", enum_name, variant_name)
-    })?;
+    let index = idx
+        .ok_or_else(|| anyhow::anyhow!("unknown enum variant `{}::{}`", enum_name, variant_name))?;
     let variant = &info.decl.variants[index];
     let mut fields = Vec::with_capacity(variant.fields.len());
     for ty in &variant.fields {
@@ -224,4 +224,3 @@ pub(super) fn enum_variant_info<'a>(
     }
     Ok((index, fields, info.decl.variants.len()))
 }
-

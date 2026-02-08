@@ -2,11 +2,13 @@ use anyhow::Result;
 use clg_ast::{BinOp, Expr, Type};
 use clg_ir::{Instr, Value};
 
-use super::{
-    emit_u64_bin, emit_u64_const, emit_u64_overflow_flag, fresh, lower_expr, LowerCtx,
-};
+use super::{emit_u64_bin, emit_u64_const, emit_u64_overflow_flag, fresh, lower_expr, LowerCtx};
 
-pub(super) fn lower_u64_wrap<'a>(ctx: &mut LowerCtx<'a>, op: BinOp, args: &'a [Expr]) -> Result<Value> {
+pub(super) fn lower_u64_wrap<'a>(
+    ctx: &mut LowerCtx<'a>,
+    op: BinOp,
+    args: &'a [Expr],
+) -> Result<Value> {
     if args.len() != 2 {
         anyhow::bail!("std::u64::*_wrap expects exactly two arguments");
     }
@@ -15,7 +17,11 @@ pub(super) fn lower_u64_wrap<'a>(ctx: &mut LowerCtx<'a>, op: BinOp, args: &'a [E
     Ok(emit_u64_bin(ctx, op, lhs, rhs))
 }
 
-pub(super) fn lower_u64_sat<'a>(ctx: &mut LowerCtx<'a>, op: BinOp, args: &'a [Expr]) -> Result<Value> {
+pub(super) fn lower_u64_sat<'a>(
+    ctx: &mut LowerCtx<'a>,
+    op: BinOp,
+    args: &'a [Expr],
+) -> Result<Value> {
     if args.len() != 2 {
         anyhow::bail!("std::u64::*_sat expects exactly two arguments");
     }
@@ -54,7 +60,11 @@ pub(super) fn lower_u128_from_limbs<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]
     Ok(dst)
 }
 
-pub(super) fn lower_u128_load<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr], limb: u8) -> Result<Value> {
+pub(super) fn lower_u128_load<'a>(
+    ctx: &mut LowerCtx<'a>,
+    args: &'a [Expr],
+    limb: u8,
+) -> Result<Value> {
     if args.len() != 1 {
         anyhow::bail!("std::u128::lo/hi expects exactly one argument");
     }
@@ -83,7 +93,11 @@ pub(super) fn lower_u256_from_limbs<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]
     Ok(dst)
 }
 
-pub(super) fn lower_u256_load<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr], limb: u8) -> Result<Value> {
+pub(super) fn lower_u256_load<'a>(
+    ctx: &mut LowerCtx<'a>,
+    args: &'a [Expr],
+    limb: u8,
+) -> Result<Value> {
     if args.len() != 1 {
         anyhow::bail!("std::u256::limb* expects exactly one argument");
     }
@@ -92,4 +106,3 @@ pub(super) fn lower_u256_load<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr], limb
     ctx.body.push(Instr::U256LoadLimb { dst, value, limb });
     Ok(dst)
 }
-

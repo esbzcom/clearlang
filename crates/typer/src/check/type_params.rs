@@ -90,9 +90,12 @@ pub(crate) fn substitute_type(ty: &Type, subst: &TypeSubst) -> Type {
         ),
         Type::Array(inner, len) => Type::Array(Box::new(substitute_type(inner, subst)), *len),
         Type::Slice(inner) => Type::Slice(Box::new(substitute_type(inner, subst))),
-        Type::Tuple(elements) => {
-            Type::Tuple(elements.iter().map(|elem| substitute_type(elem, subst)).collect())
-        }
+        Type::Tuple(elements) => Type::Tuple(
+            elements
+                .iter()
+                .map(|elem| substitute_type(elem, subst))
+                .collect(),
+        ),
         _ => ty.clone(),
     }
 }
@@ -147,7 +150,9 @@ pub(crate) fn unify_type_params(
             _ => Ok(()),
         },
         Type::Array(inner, _) => match actual {
-            Type::Array(act_inner, _) => unify_type_params(inner, act_inner, params, subst, aliases),
+            Type::Array(act_inner, _) => {
+                unify_type_params(inner, act_inner, params, subst, aliases)
+            }
             _ => Ok(()),
         },
         Type::Slice(inner) => match actual {
@@ -192,7 +197,9 @@ pub(crate) fn type_contains_params(ty: &Type, params: &HashSet<String>) -> bool 
             type_contains_params(ok, params) || type_contains_params(err, params)
         }
         Type::Array(inner, _) => type_contains_params(inner, params),
-        Type::Tuple(elements) => elements.iter().any(|elem| type_contains_params(elem, params)),
+        Type::Tuple(elements) => elements
+            .iter()
+            .any(|elem| type_contains_params(elem, params)),
         _ => false,
     }
 }

@@ -338,9 +338,7 @@ fn declares_bitwise_and_builtin_helpers() {
         output
             .vcs
             .iter()
-            .any(|vc| vc
-                .vc_smt2
-                .contains("declare-fun |std::bytes::eq_ct|")),
+            .any(|vc| vc.vc_smt2.contains("declare-fun |std::bytes::eq_ct|")),
         "expected builtin declarations for std::bytes::eq_ct"
     );
 }

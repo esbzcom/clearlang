@@ -26,7 +26,6 @@ impl TyperError {
         )
     }
 
-
     pub fn mut_guard_requires_variable(callee: &str, guard: &str, span: Span) -> Self {
         Self::new(
             "T403",
@@ -38,7 +37,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn effect_not_supported(effect: Effect) -> Self {
         let eff_str = match effect {

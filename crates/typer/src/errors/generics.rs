@@ -15,7 +15,6 @@ impl TyperError {
         )
     }
 
-
     pub fn duplicate_type_param(name: &str, span: Span) -> Self {
         Self::new(
             "T239",
@@ -27,7 +26,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn type_param_conflict(name: &str, span: Span) -> Self {
         Self::new(
@@ -41,7 +39,6 @@ impl TyperError {
         )
     }
 
-
     pub fn unknown_type_param(name: &str, span: Span) -> Self {
         Self::new(
             "T241",
@@ -53,7 +50,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn type_arg_count_mismatch(
         name: &str,
@@ -84,7 +80,6 @@ impl TyperError {
         }
     }
 
-
     pub fn type_param_has_args(name: &str, span: Option<Span>) -> Self {
         if let Some(sp) = span {
             Self::new(
@@ -106,7 +101,6 @@ impl TyperError {
         }
     }
 
-
     pub fn generic_alias_not_supported(name: &str, span: Span) -> Self {
         Self::new(
             "T244",
@@ -118,7 +112,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn impl_method_generics_not_supported(name: &str, span: Option<Span>) -> Self {
         if let Some(sp) = span {
@@ -144,7 +137,6 @@ impl TyperError {
         }
     }
 
-
     pub fn trait_type_params_not_supported(name: &str, span: Span) -> Self {
         Self::new(
             "T246",
@@ -156,7 +148,6 @@ impl TyperError {
             span.end,
         )
     }
-
 
     pub fn type_param_mismatch(name: &str, expected: Type, found: Type) -> Self {
         Self::new(

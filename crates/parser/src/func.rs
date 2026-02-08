@@ -115,7 +115,13 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
         .then(clause_p)
         .then(expr_p())
         .map(
-            |((((((((eff_opt, name), type_params), params), _arrow_ok), ret), where_bounds), clauses), body)| {
+            |(
+                (
+                    ((((((eff_opt, name), type_params), params), _arrow_ok), ret), where_bounds),
+                    clauses,
+                ),
+                body,
+            )| {
                 let (effect, effect_span) = eff_opt
                     .map(|(eff, span)| (eff, Some(span)))
                     .unwrap_or((Effect::None, None));

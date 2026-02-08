@@ -4,7 +4,11 @@ use clg_ast::Type;
 use super::{AliasMap, TypeDefs};
 use crate::errors::TyperError;
 
-pub(crate) fn resolve_aliases(ty: &Type, aliases: &AliasMap, visiting: &mut Vec<String>) -> Result<Type> {
+pub(crate) fn resolve_aliases(
+    ty: &Type,
+    aliases: &AliasMap,
+    visiting: &mut Vec<String>,
+) -> Result<Type> {
     match ty {
         Type::Named { name, args } => {
             if args.is_empty() {
@@ -90,7 +94,11 @@ pub(crate) fn base_types_match(expected: &Type, actual: &Type, aliases: &AliasMa
     })
 }
 
-pub(crate) fn is_resource_type(ty: &Type, aliases: &AliasMap, type_defs: &TypeDefs) -> Result<bool> {
+pub(crate) fn is_resource_type(
+    ty: &Type,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<bool> {
     Ok(match base_type(ty, aliases)? {
         Type::Named { name, args } if args.is_empty() => {
             type_defs.resources.contains(name.as_str())
@@ -114,7 +122,11 @@ pub(crate) fn refinement_loss(expected: &Type, actual: &Type, aliases: &AliasMap
     }
 }
 
-pub(crate) fn binding_compatible(expected: &Type, actual: &Type, aliases: &AliasMap) -> Result<bool> {
+pub(crate) fn binding_compatible(
+    expected: &Type,
+    actual: &Type,
+    aliases: &AliasMap,
+) -> Result<bool> {
     if expected == actual {
         return Ok(true);
     }

@@ -89,8 +89,7 @@ impl<'a> Monomorphizer<'a> {
     fn rewrite_func(&mut self, func: &mut Func) -> Result<()> {
         let type_params = type_param_names(&func.type_params);
         let bounds = bounds_map_from_where(&func.where_bounds);
-        let mut env: HashMap<&str, LocalBinding> =
-            HashMap::with_capacity(func.params.len() + 1);
+        let mut env: HashMap<&str, LocalBinding> = HashMap::with_capacity(func.params.len() + 1);
         env.insert(
             "$return",
             LocalBinding {
@@ -315,8 +314,7 @@ impl<'a> Monomorphizer<'a> {
                 if let Some(sig) = self.base_fns.get(callee.as_str()) {
                     if sig.type_params.is_empty() {
                         if let Some(base) = self.base_funcs.get(callee.as_str()) {
-                            let inst =
-                                instantiate_func(base, &TypeSubst::new(), callee.clone());
+                            let inst = instantiate_func(base, &TypeSubst::new(), callee.clone());
                             self.register_func(inst);
                         }
                         return Ok(());
@@ -408,15 +406,13 @@ impl<'a> Monomorphizer<'a> {
             TyperError::unknown_function(&format!("{}::{}", trait_name, method_name), span)
         })?;
         if method.params.len() != arg_types.len() {
-            return Err(
-                TyperError::arity_mismatch(
-                    &format!("{}::{}", trait_name, method_name),
-                    method.params.len(),
-                    arg_types.len(),
-                    span,
-                )
-                .into(),
-            );
+            return Err(TyperError::arity_mismatch(
+                &format!("{}::{}", trait_name, method_name),
+                method.params.len(),
+                arg_types.len(),
+                span,
+            )
+            .into());
         }
 
         let mut self_params: HashSet<String> = HashSet::with_capacity(1);
@@ -514,9 +510,7 @@ impl<'a> Monomorphizer<'a> {
             for (imp, _) in &matches {
                 candidates.push((show_ty(imp.decl.for_type.clone()), imp.decl.span));
             }
-            Err(
-                TyperError::ambiguous_impl(trait_name, &rendered, span, &candidates).into(),
-            )
+            Err(TyperError::ambiguous_impl(trait_name, &rendered, span, &candidates).into())
         }
     }
 
@@ -554,18 +548,17 @@ fn instantiate_func(base: &Func, subst: &TypeSubst, name: String) -> Func {
 }
 
 fn is_special_callee(name: &str) -> bool {
-    matches!(name, "U8" | "U64" | "U128" | "U256" | "Some" | "None" | "Ok" | "Err")
+    matches!(
+        name,
+        "U8" | "U64" | "U128" | "U256" | "Some" | "None" | "Ok" | "Err"
+    )
 }
 
 fn build_type_param_subst(params: &[TypeParam], args: &[Type]) -> Result<TypeSubst> {
     if params.len() != args.len() {
-        return Err(TyperError::type_arg_count_mismatch(
-            "type",
-            params.len(),
-            args.len(),
-            None,
-        )
-        .into());
+        return Err(
+            TyperError::type_arg_count_mismatch("type", params.len(), args.len(), None).into(),
+        );
     }
     let mut subst: TypeSubst = HashMap::new();
     for (param, arg) in params.iter().zip(args.iter()) {
@@ -735,8 +728,8 @@ fn mangle_type(ty: &Type, _aliases: &AliasMap) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clg_ast::ImplDecl;
     use crate::check::ImplInfo;
+    use clg_ast::ImplDecl;
 
     #[test]
     fn find_impl_uses_call_span_for_missing_impl() {
@@ -856,10 +849,13 @@ mod tests {
             Type::Result(Box::new(Type::Int), Box::new(Type::U256)),
             Type::List(Box::new(Type::Bytes)),
             Type::Set(Box::new(Type::U128)),
-            Type::Map(Box::new(Type::U8), Box::new(Type::Named {
-                name: "Thing".to_string(),
-                args: vec![Type::Bool],
-            })),
+            Type::Map(
+                Box::new(Type::U8),
+                Box::new(Type::Named {
+                    name: "Thing".to_string(),
+                    args: vec![Type::Bool],
+                }),
+            ),
             Type::Array(Box::new(Type::U64), None),
             Type::Tuple(vec![Type::Int, Type::Bool, Type::U8]),
         ];
@@ -889,8 +885,8 @@ mod tests {
                 .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$'),
             "mangled fn name contained disallowed char: {fn_name}"
         );
-        let impl_name = mangle_impl_method_name("Eq", &Type::Int, "eq", &aliases)
-            .expect("mangle impl");
+        let impl_name =
+            mangle_impl_method_name("Eq", &Type::Int, "eq", &aliases).expect("mangle impl");
         assert!(
             impl_name
                 .chars()

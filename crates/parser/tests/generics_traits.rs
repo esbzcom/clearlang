@@ -54,5 +54,8 @@ fn parses_where_bounds_on_functions() {
     let func = &program.funcs[0];
     assert_eq!(func.type_params.len(), 1);
     assert_eq!(func.where_bounds.len(), 2);
-    assert!(func.where_bounds.iter().any(|b| b.param == "T" && b.trait_name == "Eq"));
+    assert!(func
+        .where_bounds
+        .iter()
+        .any(|b| b.param == "T" && b.trait_name == "Eq"));
 }

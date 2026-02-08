@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 use super::super::{
     base_type, base_types_match, binding_compatible, is_resource_type, refinement_loss,
-    substitute_type, type_param_names, unify_type_params, AliasMap, BoundsMap, FnSig,
-    LocalBinding, TraitEnv, TypeDefs, TypeSubst, RETURN_KEY,
+    substitute_type, type_param_names, unify_type_params, AliasMap, BoundsMap, FnSig, LocalBinding,
+    TraitEnv, TypeDefs, TypeSubst, RETURN_KEY,
 };
 use super::calls::{type_collection_call, type_trait_call};
 use super::literals::{
@@ -412,10 +412,7 @@ pub(super) fn type_call_expr<'a>(
     }
 
     for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
-        let at = arg_types
-            .get(i)
-            .cloned()
-            .unwrap_or_else(|| p.ty.clone());
+        let at = arg_types.get(i).cloned().unwrap_or_else(|| p.ty.clone());
         let expected = if callee_params.is_empty() {
             p.ty.clone()
         } else {

@@ -33,7 +33,10 @@ pub(super) fn emit_eq_bytes_fixed(
         ty: IrType::Int,
     });
     ctx.body.push(Instr::BrIfEqz { cond, depth: 1 });
-    ctx.body.push(Instr::BrIfEqz { cond: result, depth: 1 });
+    ctx.body.push(Instr::BrIfEqz {
+        cond: result,
+        depth: 1,
+    });
 
     let lhs_ptr = emit_ptr_add(ctx, lhs, idx);
     let rhs_ptr = emit_ptr_add(ctx, rhs, idx);

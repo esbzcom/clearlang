@@ -7,11 +7,9 @@ use super::super::{
     substitute_type, unify_type_params, AliasMap, BoundsMap, FnSig, LocalBinding, TraitEnv,
     TypeDefs, TypeSubst,
 };
-use super::literals::{
-    ensure_int, literal_can_coerce_unsigned, unsigned_literal_range_error,
-};
-use super::{expr_span, type_of, ResourceTracker};
+use super::literals::{ensure_int, literal_can_coerce_unsigned, unsigned_literal_range_error};
 use super::traits::ensure_trait_bound;
+use super::{expr_span, type_of, ResourceTracker};
 use crate::errors::TyperError;
 
 pub(super) fn type_collection_call<'a>(
@@ -31,7 +29,19 @@ pub(super) fn type_collection_call<'a>(
     // Helper to get type of an expression
     let arg_ty = |i: usize| -> Result<Type> {
         let mut tmp = tracker.clone();
-        type_of(&args[i], env, &mut tmp, fns, trait_env, aliases, type_defs, type_params, bounds, depth + 1, None)
+        type_of(
+            &args[i],
+            env,
+            &mut tmp,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth + 1,
+            None,
+        )
     };
     let normalized_callee = match callee {
         "std::list::push_mut" => "std::list::push",
@@ -369,7 +379,9 @@ pub(super) fn type_trait_call<'a>(
         return Err(TyperError::unknown_function(callee, span).into());
     };
     if method.params.len() != args.len() {
-        return Err(TyperError::arity_mismatch(callee, method.params.len(), args.len(), span).into());
+        return Err(
+            TyperError::arity_mismatch(callee, method.params.len(), args.len(), span).into(),
+        );
     }
     let mut local_tracker = tracker.clone();
     let mut borrowed: Vec<String> = Vec::new();
@@ -462,4 +474,3 @@ pub(super) fn type_trait_call<'a>(
     *tracker = local_tracker;
     Ok(Some(substitute_type(&method.ret, &subst)))
 }
-

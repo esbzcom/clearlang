@@ -3,7 +3,9 @@ use clg_ast::{Func, Program, TraitMethod, Type};
 use std::collections::{HashMap, HashSet};
 
 use super::expr::expr_span;
-use super::type_params::{substitute_type, type_param_names, validate_bounds, validate_type_params};
+use super::type_params::{
+    substitute_type, type_param_names, validate_bounds, validate_type_params,
+};
 use super::type_validation::ensure_known_type;
 use super::{AliasMap, ImplInfo, StdTypeMap, TraitEnv, TraitInfo, TypeDefs, TypeSubst};
 use crate::errors::TyperError;
@@ -14,22 +16,18 @@ pub(super) fn build_trait_env<'a>(
     type_defs: &TypeDefs<'a>,
     std_types: &StdTypeMap,
 ) -> Result<TraitEnv<'a>> {
-    let mut traits: HashMap<&'a str, TraitInfo<'a>> =
-        HashMap::with_capacity(program.traits.len());
+    let mut traits: HashMap<&'a str, TraitInfo<'a>> = HashMap::with_capacity(program.traits.len());
 
     for decl in &program.traits {
         if traits.contains_key(decl.name.as_str()) {
             return Err(TyperError::duplicate_trait(&decl.name, decl.name_span).into());
         }
         if !decl.type_params.is_empty() {
-            return Err(TyperError::trait_type_params_not_supported(
-                decl.name.as_str(),
-                decl.span,
-            )
-            .into());
+            return Err(
+                TyperError::trait_type_params_not_supported(decl.name.as_str(), decl.span).into(),
+            );
         }
-        let mut methods: HashMap<&str, &TraitMethod> =
-            HashMap::with_capacity(decl.methods.len());
+        let mut methods: HashMap<&str, &TraitMethod> = HashMap::with_capacity(decl.methods.len());
         let mut self_params: HashSet<String> = HashSet::with_capacity(1);
         self_params.insert("Self".to_string());
         for method in &decl.methods {
@@ -60,13 +58,7 @@ pub(super) fn build_trait_env<'a>(
                 Some(method.span),
             )?;
         }
-        traits.insert(
-            decl.name.as_str(),
-            TraitInfo {
-                decl,
-                methods,
-            },
-        );
+        traits.insert(decl.name.as_str(), TraitInfo { decl, methods });
     }
 
     let trait_env = TraitEnv {
@@ -77,9 +69,7 @@ pub(super) fn build_trait_env<'a>(
     let mut impls: Vec<ImplInfo<'a>> = Vec::with_capacity(program.impls.len());
     for decl in &program.impls {
         let Some(trait_info) = trait_env.traits.get(decl.trait_name.as_str()) else {
-            return Err(
-                TyperError::unknown_trait(&decl.trait_name, decl.trait_name_span).into(),
-            );
+            return Err(TyperError::unknown_trait(&decl.trait_name, decl.trait_name_span).into());
         };
         let type_params = validate_type_params(&decl.type_params, type_defs, aliases, &trait_env)?;
         let _ = validate_bounds(&decl.where_bounds, &type_params, &trait_env)?;
@@ -212,7 +202,9 @@ fn validate_impl_coherence(trait_env: &TraitEnv<'_>) -> Result<()> {
                 let left_params = type_param_names(&left.type_params);
                 let right_params = type_param_names(&right.type_params);
                 if types_overlap(&left.for_type, &left_params, &right.for_type, &right_params) {
-                    return Err(TyperError::overlapping_impl(trait_name, left.span, right.span).into());
+                    return Err(
+                        TyperError::overlapping_impl(trait_name, left.span, right.span).into(),
+                    );
                 }
             }
         }
@@ -251,9 +243,9 @@ fn types_overlap(
             (Type::Named { name: ln, args: la }, Type::Named { name: rn, args: ra })
                 if ln == rn && la.len() == ra.len() =>
             {
-                la.iter().zip(ra.iter()).all(|(l, r)| {
-                    overlaps(l, left_params, r, right_params, seen)
-                })
+                la.iter()
+                    .zip(ra.iter())
+                    .all(|(l, r)| overlaps(l, left_params, r, right_params, seen))
             }
             (Type::Option(l), Type::Option(r))
             | (Type::List(l), Type::List(r))
@@ -275,11 +267,5 @@ fn types_overlap(
         }
     }
 
-    overlaps(
-        left,
-        left_params,
-        right,
-        right_params,
-        &mut HashMap::new(),
-    )
+    overlaps(left, left_params, right, right_params, &mut HashMap::new())
 }

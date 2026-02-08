@@ -3,6 +3,7 @@ mod intrinsics;
 mod monomorphize;
 mod refinement_predicate;
 mod trait_env;
+mod type_defs;
 mod type_params;
 mod type_resolve;
 mod type_validation;
@@ -13,6 +14,7 @@ use self::intrinsics::collect_used_intrinsics;
 use self::monomorphize::monomorphize_program;
 use self::refinement_predicate::predicate_is_contradiction;
 use self::trait_env::build_trait_env;
+use self::type_defs::build_type_defs;
 use self::type_params::{validate_bounds, validate_type_params};
 use self::type_resolve::resolve_aliases;
 use self::type_validation::{
@@ -123,79 +125,6 @@ pub(super) use self::type_resolve::{
     base_types_match, binding_compatible, is_resource_type, refinement_loss,
 };
 pub(super) use self::type_validation::find_resource_collection;
-
-fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
-    let mut resources: HashSet<&str> = HashSet::with_capacity(program.resources.len());
-    for res in &program.resources {
-        resources.insert(res.name.as_str());
-    }
-
-    let alias_names: HashSet<&str> = program
-        .refined_aliases
-        .iter()
-        .map(|alias| alias.name.as_str())
-        .collect();
-
-    let mut structs: HashMap<&str, StructInfo<'_>> = HashMap::with_capacity(program.structs.len());
-    let mut enums: HashMap<&str, EnumInfo<'_>> = HashMap::with_capacity(program.enums.len());
-
-    for s in &program.structs {
-        let name = s.name.as_str();
-        if resources.contains(name) {
-            return Err(TyperError::type_conflicts_with_resource(name, s.name_span).into());
-        }
-        if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
-            return Err(TyperError::duplicate_type(name, s.name_span).into());
-        }
-        let mut fields: HashMap<&str, &StructField> = HashMap::with_capacity(s.fields.len());
-        for field in &s.fields {
-            if fields.insert(field.name.as_str(), field).is_some() {
-                return Err(
-                    TyperError::duplicate_struct_field(field.name.as_str(), field.span).into(),
-                );
-            }
-        }
-        structs.insert(
-            name,
-            StructInfo {
-                decl: s,
-                fields,
-            },
-        );
-    }
-
-    for e in &program.enums {
-        let name = e.name.as_str();
-        if resources.contains(name) {
-            return Err(TyperError::type_conflicts_with_resource(name, e.name_span).into());
-        }
-        if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
-            return Err(TyperError::duplicate_type(name, e.name_span).into());
-        }
-        let mut variants: HashMap<&str, &EnumVariant> =
-            HashMap::with_capacity(e.variants.len());
-        for variant in &e.variants {
-            if variants.insert(variant.name.as_str(), variant).is_some() {
-                return Err(
-                    TyperError::duplicate_enum_variant(variant.name.as_str(), variant.span).into(),
-                );
-            }
-        }
-        enums.insert(
-            name,
-            EnumInfo {
-                decl: e,
-                variants,
-            },
-        );
-    }
-
-    Ok(TypeDefs {
-        resources,
-        structs,
-        enums,
-    })
-}
 
 fn validate_struct_enum_resources(
     program: &Program,

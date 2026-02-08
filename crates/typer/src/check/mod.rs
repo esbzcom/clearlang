@@ -1,6 +1,7 @@
 mod aliases;
 mod expr;
 mod intrinsics;
+mod mut_guards;
 mod monomorphize;
 mod refinement_predicate;
 mod totality;
@@ -13,6 +14,7 @@ mod type_validation;
 use self::expr::{consume_var_expr, expr_span, max_effect, type_of, ResourceTracker};
 pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::intrinsics::collect_used_intrinsics;
+use self::mut_guards::enforce_mut_guards;
 use self::monomorphize::monomorphize_program;
 use self::aliases::{build_alias_map, validate_alias_predicates};
 use self::totality::enforce_totality;
@@ -25,9 +27,7 @@ use self::type_validation::{
 };
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
-use crate::guards::{
-    collect_mut_calls, collect_mut_guards, guard_callee_for_kind, MutCall, MutGuardKey,
-};
+use crate::guards::collect_mut_guards;
 use crate::lower::lower_func;
 use crate::vc::{generate_vcs, VerificationCondition};
 use anyhow::{Context, Result};
@@ -1009,36 +1009,3 @@ fn check_impl_method<'a>(
     max_effect(&method.body, fns, trait_env, allowed_effect)?;
     Ok(())
 }
-fn enforce_mut_guards(expr: &Expr, guards: &HashSet<MutGuardKey>) -> Result<()> {
-    let mut calls: Vec<MutCall> = Vec::new();
-    collect_mut_calls(expr, &mut calls);
-    for call in calls {
-        let guard_name = guard_callee_for_kind(call.kind);
-        let arg_name = match call.target {
-            Some(name) => name,
-            None => {
-                return Err(TyperError::mut_guard_requires_variable(
-                    call.callee.as_str(),
-                    guard_name,
-                    call.span,
-                )
-                .into());
-            }
-        };
-        let key = MutGuardKey {
-            kind: call.kind,
-            target: arg_name.clone(),
-        };
-        if !guards.contains(&key) {
-            return Err(TyperError::mut_guard_missing(
-                call.callee.as_str(),
-                guard_name,
-                &arg_name,
-                call.span,
-            )
-            .into());
-        }
-    }
-    Ok(())
-}
-

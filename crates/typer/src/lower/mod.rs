@@ -23,6 +23,7 @@ mod collections_map;
 mod collections_slice;
 mod collections_set;
 mod control;
+mod eq_primitives;
 mod emit;
 mod eq;
 mod index;

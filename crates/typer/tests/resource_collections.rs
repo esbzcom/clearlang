@@ -95,3 +95,56 @@ function bad(consume files: List<File>) -> List<File> {
     assert!(message.contains("T801"), "unexpected error: {message}");
     assert!(message.contains("files"), "unexpected error: {message}");
 }
+
+#[test]
+fn collection_call_use_after_move_reports_t801_with_call_context() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: List<File>, consume f: File) -> Int {
+    let next = std::list::push(files, f);
+    std::list::len(files)
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T801"), "unexpected error: {message}");
+    assert!(message.contains("std::list::len"), "unexpected error: {message}");
+}
+
+#[test]
+fn collection_call_double_consume_reports_t802_with_call_context() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: List<File>, consume a: File, consume b: File) -> List<File> {
+    let next = std::list::push(files, a);
+    std::list::push(files, b)
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T802"), "unexpected error: {message}");
+    assert!(message.contains("std::list::push"), "unexpected error: {message}");
+}
+
+#[test]
+fn collection_call_consume_borrow_reports_t803_with_call_context() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: List<File>, file: File) -> List<File> {
+    std::list::push(files, file)
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T803"), "unexpected error: {message}");
+    assert!(message.contains("std::list::push"), "unexpected error: {message}");
+}

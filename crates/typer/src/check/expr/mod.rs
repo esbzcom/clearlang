@@ -111,6 +111,20 @@ impl ResourceTracker {
         }
         Ok(())
     }
+    pub(super) fn use_var_in_call(&mut self, name: &str, span: Span, callee: &str) -> Result<()> {
+        if let Some(tracked) = self.states.get(name) {
+            if let ResourceState::Consumed { span: consumed_at } = tracked.state {
+                return Err(TyperError::resource_use_after_consume_in_call(
+                    name,
+                    consumed_at,
+                    span,
+                    callee,
+                )
+                .into());
+            }
+        }
+        Ok(())
+    }
     pub(super) fn consume_var(&mut self, name: &str, span: Span) -> Result<()> {
         if let Some(tracked) = self.states.get_mut(name) {
             let mark_consumed = match &mut tracked.state {
@@ -125,6 +139,39 @@ impl ResourceTracker {
                 }
                 ResourceState::Consumed { span: first } => {
                     return Err(TyperError::resource_double_consume(name, *first, span).into());
+                }
+            };
+            if mark_consumed {
+                tracked.state = ResourceState::Consumed { span };
+            }
+        }
+        Ok(())
+    }
+    pub(super) fn consume_var_in_call(
+        &mut self,
+        name: &str,
+        span: Span,
+        callee: &str,
+    ) -> Result<()> {
+        if let Some(tracked) = self.states.get_mut(name) {
+            let mark_consumed = match &mut tracked.state {
+                ResourceState::Owned { borrows } => {
+                    if *borrows > 0 {
+                        return Err(TyperError::resource_consume_borrow_in_call(
+                            name, span, callee,
+                        )
+                        .into());
+                    }
+                    true
+                }
+                ResourceState::ActiveBorrow => {
+                    return Err(TyperError::resource_consume_borrow_in_call(name, span, callee).into());
+                }
+                ResourceState::Consumed { span: first } => {
+                    return Err(TyperError::resource_double_consume_in_call(
+                        name, *first, span, callee,
+                    )
+                    .into());
                 }
             };
             if mark_consumed {

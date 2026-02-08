@@ -722,7 +722,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.1.4 Define deterministic diagnostics + trap mapping for linear violations at type-check and runtime boundaries.
   - [ ] 17.6.2 Typer rules + diagnostics for linear-aware collection ops.
     - [x] 17.6.2.1 Implement linear state tracking for resource values stored in collections.
-    - [ ] 17.6.2.2 Add targeted diagnostics for use-after-move, double-consume, and invalid borrow across collection calls.
+    - [x] 17.6.2.2 Add targeted diagnostics for use-after-move, double-consume, and invalid borrow across collection calls.
     - [ ] 17.6.2.3 Add regression tests for accepted and rejected flow patterns (insert/remove/contains/get + match/control-flow joins).
   - [ ] 17.6.3 VC/effect integration plan + prototype tests.
     - [ ] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.

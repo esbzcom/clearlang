@@ -1,7 +1,8 @@
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Span, Type};
 
-use super::{base_type, expr_span, AliasMap};
+use super::expr_span;
+use super::super::{base_type, AliasMap};
 use crate::errors::TyperError;
 
 pub(super) fn ensure_int(ty: Type, aliases: &AliasMap, what: &str, span: Option<Span>) -> Result<()> {

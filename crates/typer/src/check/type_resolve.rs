@@ -121,16 +121,8 @@ pub(crate) fn is_resource_type(
         }
     }
 
-    Ok(match base_type(ty, aliases)? {
-        Type::Named { name, args } if args.is_empty() => {
-            type_defs.resources.contains(name.as_str())
-        }
-        Type::List(inner) => contains_resource_in_type(&inner, type_defs),
-        Type::Map(key, val) => {
-            contains_resource_in_type(&key, type_defs) || contains_resource_in_type(&val, type_defs)
-        }
-        _ => false,
-    })
+    let resolved = base_type(ty, aliases)?;
+    Ok(contains_resource_in_type(&resolved, type_defs))
 }
 
 pub(crate) fn refinement_loss(expected: &Type, actual: &Type, aliases: &AliasMap) -> bool {

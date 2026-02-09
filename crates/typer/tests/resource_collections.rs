@@ -158,7 +158,7 @@ resource File {
 
 function ok(consume files: List<File>) -> List<File> {
     let head = std::list::get(files, 0);
-    std::list::remove(files, 0)
+    files
 }
 "#;
 
@@ -169,21 +169,39 @@ function ok(consume files: List<File>) -> List<File> {
 }
 
 #[test]
-fn linear_list_remove_then_get_old_binding_reports_t801() {
+fn linear_list_remove_reports_move_out_guidance() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: List<File>) -> List<File> {
+    std::list::remove(files, 0)
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::list::remove"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
+}
+
+#[test]
+fn linear_list_pop_reports_move_out_guidance() {
     let src = r#"
 resource File {
     drop {}
 }
 
 function bad(consume files: List<File>) -> Option<File> {
-    let next = std::list::remove(files, 0);
-    std::list::get(files, 0)
+    std::list::pop(files)
 }
 "#;
 
     let message = expect_typer_error(src);
-    assert!(message.contains("T801"), "unexpected error: {message}");
-    assert!(message.contains("std::list::get"), "unexpected error: {message}");
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::list::pop"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
 }
 
 #[test]
@@ -233,9 +251,8 @@ resource File {
     drop {}
 }
 
-function ok(consume files: Map<Int, File>) -> Map<Int, File> {
-    let has = std::map::contains(files, 1);
-    std::map::remove(files, 1)
+function ok(files: Map<Int, File>) -> Bool {
+    std::map::contains(files, 1)
 }
 "#;
 
@@ -244,21 +261,56 @@ function ok(consume files: Map<Int, File>) -> Map<Int, File> {
 }
 
 #[test]
-fn linear_map_insert_then_reuse_old_binding_reports_t801() {
+fn linear_map_insert_reports_move_out_guidance() {
     let src = r#"
 resource File {
     drop {}
 }
 
-function bad(consume files: Map<Int, File>, consume f: File) -> Bool {
-    let updated = std::map::insert(files, 1, f);
-    std::map::contains(files, 1)
+function bad(consume files: Map<Int, File>, consume f: File) -> Map<Int, File> {
+    std::map::insert(files, 1, f)
 }
 "#;
 
     let message = expect_typer_error(src);
-    assert!(message.contains("T801"), "unexpected error: {message}");
-    assert!(message.contains("std::map::contains"), "unexpected error: {message}");
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::map::insert"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
+}
+
+#[test]
+fn linear_map_remove_reports_move_out_guidance() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: Map<Int, File>) -> Map<Int, File> {
+    std::map::remove(files, 1)
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::map::remove"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
+}
+
+#[test]
+fn option_resource_param_must_be_consumed() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume maybe_file: Option<File>) -> Int {
+    0
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T805"), "unexpected error: {message}");
+    assert!(message.contains("maybe_file"), "unexpected error: {message}");
 }
 
 #[test]
@@ -268,9 +320,11 @@ resource File {
     drop {}
 }
 
+function take_files(consume files: List<File>) -> List<File> { files }
+
 function bad(flag: Bool, consume files: List<File>) -> List<File> {
     if flag {
-        std::list::remove(files, 0)
+        take_files(files)
     } else {
         std::list::new()
     }
@@ -288,11 +342,13 @@ resource File {
     drop {}
 }
 
+function take_files(consume files: List<File>) -> List<File> { files }
+
 function ok(flag: Bool, consume files: List<File>) -> List<File> {
     if flag {
-        std::list::remove(files, 0)
+        take_files(files)
     } else {
-        std::list::remove(files, 0)
+        take_files(files)
     }
 }
 "#;
@@ -308,10 +364,12 @@ resource File {
     drop {}
 }
 
+function take_files(consume files: List<File>) -> List<File> { files }
+
 function bad(opt: Option<Int>, consume files: List<File>) -> List<File> {
     match opt {
-        Some(v) => std::list::remove(files, 0),
-        None => files
+        Some(v) => take_files(files),
+        None => std::list::new()
     }
 }
 "#;

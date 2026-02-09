@@ -253,6 +253,13 @@ pub(super) fn type_collection_call<'a>(
             ensure_int(ity, aliases, "index", Some(sp))?;
             match lty {
                 Type::List(inner) => {
+                    if contains_named_resource(&inner, &type_defs.resources, type_params) {
+                        return Err(TyperError::resource_collection_op_requires_ownership_api(
+                            normalized_callee,
+                            span,
+                        )
+                        .into());
+                    }
                     let list_ty = Type::List(inner.clone());
                     if is_resource_type(&list_ty, aliases, type_defs)? {
                         if let Expr::Var(arg_name, arg_span) = &args[0] {
@@ -276,6 +283,13 @@ pub(super) fn type_collection_call<'a>(
             let lty = arg_ty(0, true)?;
             match lty {
                 Type::List(inner) => {
+                    if contains_named_resource(&inner, &type_defs.resources, type_params) {
+                        return Err(TyperError::resource_collection_op_requires_ownership_api(
+                            normalized_callee,
+                            span,
+                        )
+                        .into());
+                    }
                     let list_ty = Type::List(inner.clone());
                     if is_resource_type(&list_ty, aliases, type_defs)? {
                         if let Expr::Var(arg_name, arg_span) = &args[0] {
@@ -438,6 +452,13 @@ pub(super) fn type_collection_call<'a>(
                         let sp = expr_span(&args[2]);
                         return Err(TyperError::element_type_mismatch(value_ty, aty_v, sp).into());
                     }
+                    if contains_named_resource(&value_ty, &type_defs.resources, type_params) {
+                        return Err(TyperError::resource_collection_op_requires_ownership_api(
+                            normalized_callee,
+                            span,
+                        )
+                        .into());
+                    }
                     if is_resource_type(&map_ty, aliases, type_defs)? {
                         if let Expr::Var(arg_name, arg_span) = &args[0] {
                             local_tracker.consume_var_in_call(
@@ -468,6 +489,13 @@ pub(super) fn type_collection_call<'a>(
             }
             match arg_ty(0, true)? {
                 Type::Map(k, v) => {
+                    if contains_named_resource(&v, &type_defs.resources, type_params) {
+                        return Err(TyperError::resource_collection_op_requires_ownership_api(
+                            normalized_callee,
+                            span,
+                        )
+                        .into());
+                    }
                     let map_ty = Type::Map(k.clone(), v.clone());
                     let aty = arg_ty(1, false)?;
                     if aty != *k {

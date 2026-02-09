@@ -156,5 +156,17 @@ impl TyperError {
         )
     }
 
+    pub fn resource_collection_op_requires_ownership_api(callee: &str, span: Span) -> Self {
+        Self::new(
+            "T806",
+            format!(
+                "at {}..{}: `{}` is not supported for resource collections yet; use an ownership API (e.g. `move_out`) instead",
+                span.start, span.end, callee
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     // Phase 6.6 - ADT sugar diagnostics
 }

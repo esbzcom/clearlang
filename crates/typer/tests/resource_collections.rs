@@ -150,7 +150,7 @@ function bad(consume files: List<File>, file: File) -> List<File> {
 }
 
 #[test]
-fn linear_list_get_then_remove_is_allowed() {
+fn linear_list_get_reports_move_out_guidance() {
     let src = r#"
 resource File {
     drop {}
@@ -162,8 +162,10 @@ function ok(consume files: List<File>) -> List<File> {
 }
 "#;
 
-    let ast = parse(src).expect("parse succeeds");
-    check(&ast).expect("get should be borrow-read; remove should consume");
+    let message = expect_typer_error(src);
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::list::get"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
 }
 
 #[test]
@@ -185,7 +187,47 @@ function bad(consume files: List<File>) -> Option<File> {
 }
 
 #[test]
-fn linear_map_contains_and_get_are_borrow_reads() {
+fn linear_map_get_reports_move_out_guidance() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: Map<Int, File>) -> Map<Int, File> {
+    let has = std::map::contains(files, 1);
+    let got = std::map::get(files, 1);
+    files
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::map::get"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
+}
+
+#[test]
+fn linear_map_get_with_nested_resource_reports_move_out_guidance() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: Map<Int, Option<File>>) -> Map<Int, Option<File>> {
+    let got = std::map::get(files, 1);
+    files
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("std::map::get"), "unexpected error: {message}");
+    assert!(message.contains("Option<File>"), "unexpected error: {message}");
+    assert!(message.contains("move_out"), "unexpected error: {message}");
+}
+
+#[test]
+fn linear_map_contains_is_still_allowed() {
     let src = r#"
 resource File {
     drop {}
@@ -193,13 +235,12 @@ resource File {
 
 function ok(consume files: Map<Int, File>) -> Map<Int, File> {
     let has = std::map::contains(files, 1);
-    let got = std::map::get(files, 1);
-    files
+    std::map::remove(files, 1)
 }
 "#;
 
     let ast = parse(src).expect("parse succeeds");
-    check(&ast).expect("contains/get should not consume linear map");
+    check(&ast).expect("contains should remain a borrow-read on linear maps");
 }
 
 #[test]

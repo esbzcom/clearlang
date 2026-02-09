@@ -3,9 +3,9 @@ use clg_ast::{Expr, ParamKind, Span, Type};
 use std::collections::{HashMap, HashSet};
 
 use super::super::{
-    base_type, base_types_match, binding_compatible, is_resource_type, refinement_loss,
-    substitute_type, unify_type_params, AliasMap, BoundsMap, FnSig, LocalBinding, TraitEnv,
-    TypeDefs, TypeSubst,
+    base_type, base_types_match, binding_compatible, contains_named_resource, is_resource_type,
+    refinement_loss, substitute_type, unify_type_params, AliasMap, BoundsMap, FnSig, LocalBinding,
+    TraitEnv, TypeDefs, TypeSubst,
 };
 use super::literals::{ensure_int, literal_can_coerce_unsigned, unsigned_literal_range_error};
 use super::traits::ensure_trait_bound;
@@ -148,6 +148,14 @@ pub(super) fn type_collection_call<'a>(
             ensure_int(ity, aliases, "index", Some(sp))?;
             match lty {
                 Type::List(inner) => {
+                    if contains_named_resource(&inner, &type_defs.resources, type_params) {
+                        return Err(TyperError::resource_get_requires_move_out(
+                            normalized_callee,
+                            (*inner).clone(),
+                            span,
+                        )
+                        .into());
+                    }
                     *tracker = local_tracker;
                     Ok(Some(Type::Option(inner)))
                 }
@@ -397,6 +405,14 @@ pub(super) fn type_collection_call<'a>(
                     if aty != *k {
                         let sp = expr_span(&args[1]);
                         return Err(TyperError::element_type_mismatch(*k, aty, sp).into());
+                    }
+                    if contains_named_resource(&v, &type_defs.resources, type_params) {
+                        return Err(TyperError::resource_get_requires_move_out(
+                            normalized_callee,
+                            (*v).clone(),
+                            span,
+                        )
+                        .into());
                     }
                     *tracker = local_tracker;
                     Ok(Some(Type::Option(v)))

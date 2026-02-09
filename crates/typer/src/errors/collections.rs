@@ -141,5 +141,20 @@ impl TyperError {
         }
     }
 
+    pub fn resource_get_requires_move_out(callee: &str, value_ty: Type, span: Span) -> Self {
+        Self::new(
+            "T806",
+            format!(
+                "at {}..{}: `{}` cannot return owned `{}` from a resource collection; use a move-out method (e.g. `move_out`) instead",
+                span.start,
+                span.end,
+                callee,
+                render_type(&value_ty)
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     // Phase 6.6 - ADT sugar diagnostics
 }

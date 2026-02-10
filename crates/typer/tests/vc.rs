@@ -250,6 +250,35 @@ fn mut_linear_collection_flow_emits_linear_vc_without_mut_pre() {
 }
 
 #[test]
+fn linear_branch_vc_tracks_helper_rebound_owner() {
+    let src = r#"
+        resource File { drop {} }
+
+        pure function id(consume files: List<File>) -> List<File> { files }
+
+        pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
+            let l = id(files);
+            if flag {
+                std::list::remove_take(l, 0)[0]
+            } else {
+                std::list::remove_take(l, 0)[0]
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    let vc = vcs
+        .iter()
+        .find(|vc| vc.function == "choose" && vc.vc_id == "linear:branch:0")
+        .expect("linear branch vc for helper rebound owner");
+    assert!(
+        vc.post.ast.contains("l"),
+        "expected rebound owner variable in linear branch vc"
+    );
+}
+
+#[test]
 fn generates_vc_for_refined_alias_params_and_returns() {
     let src = r#"
         type Nat = Int where n >= 0;

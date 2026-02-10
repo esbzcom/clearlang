@@ -274,7 +274,7 @@ fn expr_may_be_linear(expr: &Expr, tracked: &HashSet<String>) -> bool {
                     .first()
                     .map(|arg| expr_may_be_linear(arg, tracked))
                     .unwrap_or(false),
-                _ => false,
+                _ => args.iter().any(|arg| expr_may_be_linear(arg, tracked)),
             }
         }
         Expr::Index { base, .. } => expr_may_be_linear(base, tracked),

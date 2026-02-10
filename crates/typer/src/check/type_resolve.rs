@@ -127,7 +127,11 @@ pub(crate) fn is_resource_type(
         Type::Option(_)
         | Type::Result(_, _)
         | Type::List(_)
+        | Type::Set(_)
         | Type::Map(_, _)
+        | Type::Array(_, _)
+        | Type::Slice(_)
+        | Type::Tuple(_)
         | Type::Named { .. } => contains_resource_in_type(&resolved, type_defs),
         _ => false,
     })

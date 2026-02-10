@@ -355,6 +355,24 @@ function ok(consume files: List<File>) -> List<File> {
 }
 
 #[test]
+fn linear_list_remove_take_bound_tuple_then_partial_use_reports_t805() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: List<File>) -> Option<File> {
+    let out = std::list::remove_take(files, 0);
+    out[1]
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T805"), "unexpected error: {message}");
+    assert!(message.contains("out"), "unexpected error: {message}");
+}
+
+#[test]
 fn linear_map_insert_take_extracts_container() {
     let src = r#"
 resource File {

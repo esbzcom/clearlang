@@ -100,6 +100,8 @@ Fixtures
 - `docs/proofs/fixtures/refinement-basic.vc.json` (refinement premises only).
 - `docs/proofs/fixtures/refinement-contracts-loops.vc.json` (refinements + require/ensure + loop VCs).
 - `docs/proofs/fixtures/refinement-call-site.vc.json` (refinements + call-site obligations + require/ensure).
+- `docs/proofs/fixtures/linear-collections-branch.vc.json` (prototype linear branch VC for ownership-sensitive collection flow).
+- `docs/proofs/fixtures/linear-collections-loop.vc.json` (prototype linear loop VC plus loop invariant/variant obligations).
 
 CLI Contract
 - `clg build file.clear --emit-vcs out.json` writes exactly the array above.

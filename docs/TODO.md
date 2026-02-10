@@ -714,7 +714,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.5.6 Std/chain package export metadata (type/value classification for `std` imports).
   - [x] 17.5.7 Std/chain type layout metadata + value semantics (byte-wise equality).
   - [x] 17.5.8 Std/chain value constructors (`from_bytes`/`from_array`) + runtime tests + doc updates.
-- [ ] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
+- [x] 17.6 Linear-aware collections: design note, effects/VC plan, and phased prototype.
   - [x] 17.6.1 Design: ownership rules for collections of resources.
     - [x] 17.6.1.1 Draft `docs/design/phase-17.6-linear-aware-collections.md` with goals/non-goals and safety invariants.
     - [x] 17.6.1.2 Define ownership/alias rules for `List<Resource>`, `Set<Resource>`, and `Map<K, Resource>` (insert/get/remove/iterate).
@@ -726,10 +726,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.2.3 Add regression tests for accepted and rejected flow patterns (insert/remove/contains/get + match/control-flow joins).
     - [x] 17.6.2.4 Adopt transitive ownership for tuple wrappers around linear values; align typer validation, tests, and docs.
     - [x] 17.6.2.5 Apply transitive ownership to wrapper constructors/literals (`Some`/`Ok`/`Err`/tuples) and add regression tests.
-  - [ ] 17.6.3 VC/effect integration plan + prototype tests.
+  - [x] 17.6.3 VC/effect integration plan + prototype tests.
     - [x] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.
     - [x] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.
-    - [ ] 17.6.3.3 Add prototype fixtures (`--emit-vcs`) and runtime tests for representative linear-collection workflows.
+    - [x] 17.6.3.3 Add prototype fixtures (`--emit-vcs`) and runtime tests for representative linear-collection workflows.
 - [ ] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
   - [ ] 17.7.1 Design: function types, capture semantics, and effect annotations.
   - [ ] 17.7.2 Parser/AST: lambdas, capture lists (if any), and type annotations.

@@ -1,0 +1,70 @@
+[
+  {
+    "function": "loop_step",
+    "post": {
+      "ast": "linear_state_preserved_across_loop(files)",
+      "smt2": "(and (= cl.linear.loop.0.0.before cl.linear.loop.0.0.after) (>= cl.linear.loop.0.0.before 0) (>= cl.linear.loop.0.0.after 0))"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "true"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "(declare-const cl.linear.loop.0.0.before Int)\n(declare-const cl.linear.loop.0.0.after Int)\n(=> true (and (= cl.linear.loop.0.0.before cl.linear.loop.0.0.after) (>= cl.linear.loop.0.0.before 0) (>= cl.linear.loop.0.0.after 0)))"
+    },
+    "vc_id": "linear:loop:0",
+    "version": 2
+  },
+  {
+    "function": "loop_step",
+    "post": {
+      "ast": "n >= 0",
+      "smt2": "(>= n 0)"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "true"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "(=> true (>= n 0))"
+    },
+    "vc_id": "loop:0:invariant",
+    "version": 2
+  },
+  {
+    "function": "loop_step",
+    "post": {
+      "ast": "n' < n",
+      "smt2": "(< cl.loop.variant.next.0 n)"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "true"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "(declare-const cl.loop.variant.next.0 Int)\n(=> true (< cl.loop.variant.next.0 n))"
+    },
+    "vc_id": "loop:0:variant_decrease",
+    "version": 2
+  },
+  {
+    "function": "loop_step",
+    "post": {
+      "ast": "n >= 0",
+      "smt2": "(>= n 0)"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "true"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "(=> true (>= n 0))"
+    },
+    "vc_id": "loop:0:variant_nonneg",
+    "version": 2
+  }
+]

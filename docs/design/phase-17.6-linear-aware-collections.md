@@ -195,6 +195,15 @@ Runtime detail policy:
   - Proof layer: effect gating and VC obligations capture alias/ownership discipline.
   - Runtime layer: defensive memory/header/bounds checks enforce deterministic safety for malformed states.
 
+## 17.6.3.3 Prototype Fixtures + Runtime Workflow Tests
+- Added `--emit-vcs` fixtures for linear collection control-flow obligations:
+  - `docs/proofs/fixtures/linear-collections-branch.vc.json`
+  - `docs/proofs/fixtures/linear-collections-loop.vc.json`
+- Snapshot coverage is wired through `crates/cli/tests/vc_snapshots.rs`.
+- Added representative runtime workflow tests (collection-helper semantics used by linear APIs):
+  - `crates/codegen-wasm/tests/collections_runtime/list_ops.rs`
+  - `crates/codegen-wasm/tests/collections_runtime/map_ops.rs`
+
 ## Scope Boundary for 17.6.1.x
 - This document locks the safety contract, ownership/alias rules, consume/borrow boundary semantics, and deterministic diagnostics/trap mapping for linear containers.
 

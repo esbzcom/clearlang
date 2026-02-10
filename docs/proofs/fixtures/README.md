@@ -42,3 +42,29 @@ pure function caller(x: Int) -> Nat
   ensure { result >= 0 }
 { takes(x + 1) }
 ```
+
+## linear-collections-branch.vc.json
+Source:
+```
+resource File { drop {} }
+pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
+  if flag {
+    std::list::remove_take(files, 0)[0]
+  } else {
+    std::list::remove_take(files, 0)[0]
+  }
+}
+```
+
+## linear-collections-loop.vc.json
+Source:
+```
+resource File { drop {} }
+pure function loop_step(consume files: List<File>, n: Int) -> List<File> {
+  while n > 0 invariant { n >= 0 } variant { n } {
+    let out = std::list::remove_take(files, 0);
+    let files = out[0];
+  }
+  files
+}
+```

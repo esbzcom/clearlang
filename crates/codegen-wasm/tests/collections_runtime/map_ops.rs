@@ -488,3 +488,39 @@ fn map_remove_take_returns_updated_map() {
     assert_eq!(key, 2);
     assert_eq!(val, 20);
 }
+
+#[test]
+fn map_insert_take_then_remove_take_workflow_keeps_updated_value() {
+    let src = r#"
+        function main(m: Map<Int, Int>) -> Int {
+            let after_insert = std::map::insert_take(m, 1, 99)[0];
+            let after_remove = std::map::remove_take(after_insert, 2)[0];
+            match std::map::get(after_remove, 1) {
+                Some(v) => v,
+                None => 0
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[(1, 10), (2, 20)]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let out = main.call(&mut store, map_ptr).expect("call main");
+    assert_eq!(out, 99, "workflow should keep updated value for key 1");
+}

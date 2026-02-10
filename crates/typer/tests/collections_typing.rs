@@ -62,6 +62,14 @@ fn list_remove_types() {
 }
 
 #[test]
+fn list_remove_take_types() {
+    let src = r#"
+        pure function rm_take(l: List<Int>) -> (List<Int>, Option<Int>) { std::list::remove_take(l, 0) }
+    "#;
+    type_ok(src);
+}
+
+#[test]
 fn array_and_slice_len_types() {
     let src = r#"
         pure function alen(a: Array<Int>) -> Int { std::array::len(a) }
@@ -114,6 +122,8 @@ fn map_len_and_contains_and_insert_remove_types() {
         function m_con(m: Map<Int, String>) -> Bool { std::map::contains(m, 1) }
         function m_ins(m: Map<Int, String>) -> Map<Int, String> { std::map::insert(m, 1, "v") }
         function m_rm(m: Map<Int, String>) -> Map<Int, String> { std::map::remove(m, 1) }
+        function m_ins_take(m: Map<Int, String>) -> (Map<Int, String>, Option<String>) { std::map::insert_take(m, 1, "v") }
+        function m_rm_take(m: Map<Int, String>) -> (Map<Int, String>, Option<String>) { std::map::remove_take(m, 1) }
     "#;
     type_ok(src);
 }

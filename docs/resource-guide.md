@@ -22,8 +22,13 @@ This guide summarizes how resources work in Phase 8: declaration, ownership/borr
 
 ## Collections
 
-- Storing resources in standard `List`/`Set`/`Map` (including nested) is rejected with `T806`.
-- A future phase will cover linear-aware collections; current containers are value-only.
+- `List<Resource>` and `Map<K, Resource>` are allowed, but ownership-extracting operations must use `*_take` APIs.
+- `Set<Resource>` and other unsupported resource-container forms still raise `T806`.
+- For resource collections, use:
+  - `std::list::remove_take(l, i) -> (List<R>, Option<R>)`
+  - `std::map::insert_take(m, k, v) -> (Map<K,R>, Option<R>)`
+  - `std::map::remove_take(m, k) -> (Map<K,R>, Option<R>)`
+- Borrow-read calls like `get` on resource collections are rejected with guidance to the corresponding take API.
 
 ## Diagnostics (typer codes)
 
@@ -31,7 +36,7 @@ This guide summarizes how resources work in Phase 8: declaration, ownership/borr
 - `T802` double-consume.
 - `T803` consume while borrowed.
 - `T804` branch ownership mismatch.
-- `T806` resource inside collections.
+- `T806` unsupported resource-collection form or operation.
 
 ## Quick patterns
 

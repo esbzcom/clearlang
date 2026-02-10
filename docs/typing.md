@@ -289,13 +289,13 @@ Collections (Runtime Summary, Phase 17.3) - see `docs/collections.md`
 
 - APIs (pure):
 
-  - List: `len(List<T>)->Int`, `get(List<T>,Int)->Option<T>`, `push(List<T>,T)->List<T>`, `insert(List<T>,T,Int)->List<T>`, `remove(List<T>,Int)->List<T>`, `pop(List<T>)->Option<T>`, `new()` +' T206.
+  - List: `len(List<T>)->Int`, `get(List<T>,Int)->Option<T>`, `push(List<T>,T)->List<T>`, `insert(List<T>,T,Int)->List<T>`, `remove(List<T>,Int)->List<T>`, `remove_take(List<T>,Int)->(List<T>,Option<T>)`, `pop(List<T>)->Option<T>`, `new()` + T206.
 
-  - Set: `len(Set<T>)->Int`, `contains(Set<T>,T)->Bool`, `insert(Set<T>,T)->Set<T>`, `remove(Set<T>,T)->Set<T>`, `new()` +' T206.
+  - Set: `len(Set<T>)->Int`, `contains(Set<T>,T)->Bool`, `insert(Set<T>,T)->Set<T>`, `remove(Set<T>,T)->Set<T>`, `new()` + T206.
 
-  - Map: `len(Map<K,V>)->Int`, `contains(Map<K,V>,K)->Bool`, `get(Map<K,V>,K)->Option<V>`, `insert(Map<K,V>,K,V)->Map<K,V>`, `remove(Map<K,V>,K)->Map<K,V>`, `new()` +' T206.
+  - Map: `len(Map<K,V>)->Int`, `contains(Map<K,V>,K)->Bool`, `get(Map<K,V>,K)->Option<V>`, `insert(Map<K,V>,K,V)->Map<K,V>`, `insert_take(Map<K,V>,K,V)->(Map<K,V>,Option<V>)`, `remove(Map<K,V>,K)->Map<K,V>`, `remove_take(Map<K,V>,K)->(Map<K,V>,Option<V>)`, `new()` + T206.
 
-- Runtime: `get`/`pop` are total (`None` on out-of-bounds or empty); `insert`/`remove` trap on invalid indices (`R009`).
+- Runtime: `get`/`pop` are total (`None` on out-of-bounds or empty); `insert`/`remove` trap on invalid indices (`R009`); `remove_take`/`insert_take` return `(updated_collection, Option<value>)`.
 - Key equality: `Map`/`Set` require equatable keys; non-equatable key types raise `T220`.
 - Mutable variants: `_mut` calls require `mut` effect and a `can_mut` guard (T401/T402/T403).
 - Diagnostics: T206 (cannot infer `new()`), T207 (expected collection kind), T208 (element/key/value mismatch), T220 (non-equatable key type); index must be Int for list ops (T005).
@@ -380,6 +380,9 @@ type Bad = Int where bump(1) > 0;
 Refinement VC/SMT (Phase 10.4)
 
 - Refinement obligations are surfaced explicitly in `--emit-vcs` outputs and documented alongside the VC schema in `docs/proofs/vc-schema.md`. Worked fixtures live in `docs/proofs/fixtures` (see `refinement-basic.vc.json`, `refinement-contracts-loops.vc.json`, and `refinement-call-site.vc.json`).
+
+
+
 
 
 

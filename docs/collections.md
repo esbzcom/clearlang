@@ -31,6 +31,8 @@ List
   - Rule: Ctx l : List<T>, x : T, i : Int |- insert(l,x,i) : List<T>
 - `std::list::remove(l: List<T>, i: Int) -> List<T>`
   - Rule: Ctx l : List<T>, i : Int |- remove(l,i) : List<T>
+- `std::list::remove_take(l: List<T>, i: Int) -> (List<T>, Option<T>)`
+  - Rule: Ctx l : List<T>, i : Int |- remove_take(l,i) : (List<T>, Option<T>)
 - `std::list::pop(l: List<T>) -> Option<T>`
   - Rule: Ctx l : List<T> |- pop(l) : Option<T>
 - `std::list::new()`: element type is inferred from the expected type when available; otherwise T206.
@@ -55,8 +57,12 @@ Map
   - Rule: Ctx m : Map<K,V>, k : K |- get(m,k) : Option<V>
 - `std::map::insert(m: Map<K,V>, k: K, v: V) -> Map<K,V>`
   - Rule: Ctx m : Map<K,V>, k : K, v : V |- insert(m,k,v) : Map<K,V>
+- `std::map::insert_take(m: Map<K,V>, k: K, v: V) -> (Map<K,V>, Option<V>)`
+  - Rule: Ctx m : Map<K,V>, k : K, v : V |- insert_take(m,k,v) : (Map<K,V>, Option<V>)
 - `std::map::remove(m: Map<K,V>, k: K) -> Map<K,V>`
   - Rule: Ctx m : Map<K,V>, k : K |- remove(m,k) : Map<K,V>
+- `std::map::remove_take(m: Map<K,V>, k: K) -> (Map<K,V>, Option<V>)`
+  - Rule: Ctx m : Map<K,V>, k : K |- remove_take(m,k) : (Map<K,V>, Option<V>)
 - `std::map::new()`: key/value types are inferred from the expected type when available; otherwise T206.
 
 Mutable Variants and Guards (Phase 6.4)
@@ -81,6 +87,7 @@ Set
 
 Map
 - `insert` replaces the existing value if the key is present; `remove` is a no-op if missing.
+- `insert_take` returns `(updated_map, replaced_value_opt)` and `remove_take` returns `(updated_map, removed_value_opt)`.
 - Invalid collection handles (null, misaligned, or out-of-bounds header) trap with runtime error `R010`.
 
 Key Equality (Map/Set)

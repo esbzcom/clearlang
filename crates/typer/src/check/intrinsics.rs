@@ -148,6 +148,8 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                     | "std::map::get"
                     | "std::map::insert"
                     | "std::map::remove"
+                    | "std::map::insert_take"
+                    | "std::map::remove_take"
                     | "std::map::insert_mut"
                     | "std::map::remove_mut" => {
                         set.insert("std::str::eq");

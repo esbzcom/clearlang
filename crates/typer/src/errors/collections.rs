@@ -141,27 +141,37 @@ impl TyperError {
         }
     }
 
-    pub fn resource_get_requires_move_out(callee: &str, value_ty: Type, span: Span) -> Self {
+    pub fn resource_get_requires_move_out(
+        callee: &str,
+        value_ty: Type,
+        suggested: &str,
+        span: Span,
+    ) -> Self {
         Self::new(
             "T806",
             format!(
-                "at {}..{}: `{}` cannot return owned `{}` from a resource collection; use a move-out method (e.g. `move_out`) instead",
+                "at {}..{}: `{}` cannot return owned `{}` from a resource collection; use `{}` instead",
                 span.start,
                 span.end,
                 callee,
-                render_type(&value_ty)
+                render_type(&value_ty),
+                suggested
             ),
             span.start,
             span.end,
         )
     }
 
-    pub fn resource_collection_op_requires_ownership_api(callee: &str, span: Span) -> Self {
+    pub fn resource_collection_op_requires_ownership_api(
+        callee: &str,
+        suggested: &str,
+        span: Span,
+    ) -> Self {
         Self::new(
             "T806",
             format!(
-                "at {}..{}: `{}` is not supported for resource collections yet; use an ownership API (e.g. `move_out`) instead",
-                span.start, span.end, callee
+                "at {}..{}: `{}` is not supported for resource collections yet; use `{}` instead",
+                span.start, span.end, callee, suggested
             ),
             span.start,
             span.end,

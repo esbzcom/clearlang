@@ -152,6 +152,7 @@ pub(super) fn type_collection_call<'a>(
                         return Err(TyperError::resource_get_requires_move_out(
                             normalized_callee,
                             (*inner).clone(),
+                            "std::list::remove_take",
                             span,
                         )
                         .into());
@@ -256,6 +257,7 @@ pub(super) fn type_collection_call<'a>(
                     if contains_named_resource(&inner, &type_defs.resources, type_params) {
                         return Err(TyperError::resource_collection_op_requires_ownership_api(
                             normalized_callee,
+                            "std::list::remove_take",
                             span,
                         )
                         .into());
@@ -276,6 +278,34 @@ pub(super) fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }
+        "std::list::remove_take" => {
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
+            let lty = arg_ty(0, true)?;
+            let ity = arg_ty(1, false)?;
+            let sp = expr_span(&args[1]);
+            ensure_int(ity, aliases, "index", Some(sp))?;
+            match lty {
+                Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    let list_out = Type::List(inner.clone());
+                    let removed_out = Type::Option(inner);
+                    Ok(Some(Type::Tuple(vec![list_out, removed_out])))
+                }
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
         "std::list::pop" => {
             if args.len() != 1 {
                 return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
@@ -286,6 +316,7 @@ pub(super) fn type_collection_call<'a>(
                     if contains_named_resource(&inner, &type_defs.resources, type_params) {
                         return Err(TyperError::resource_collection_op_requires_ownership_api(
                             normalized_callee,
+                            "std::list::remove_take",
                             span,
                         )
                         .into());
@@ -424,6 +455,7 @@ pub(super) fn type_collection_call<'a>(
                         return Err(TyperError::resource_get_requires_move_out(
                             normalized_callee,
                             (*v).clone(),
+                            "std::map::remove_take",
                             span,
                         )
                         .into());
@@ -455,6 +487,7 @@ pub(super) fn type_collection_call<'a>(
                     if contains_named_resource(&value_ty, &type_defs.resources, type_params) {
                         return Err(TyperError::resource_collection_op_requires_ownership_api(
                             normalized_callee,
+                            "std::map::insert_take",
                             span,
                         )
                         .into());
@@ -483,6 +516,50 @@ pub(super) fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }
         }
+        "std::map::insert_take" => {
+            if args.len() != 3 {
+                return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into());
+            }
+            match arg_ty(0, true)? {
+                Type::Map(k, v) => {
+                    let map_ty = Type::Map(k.clone(), v.clone());
+                    let aty_k = arg_ty(1, false)?;
+                    if aty_k != *k {
+                        let sp = expr_span(&args[1]);
+                        return Err(TyperError::element_type_mismatch(*k, aty_k, sp).into());
+                    }
+                    let value_ty = (*v).clone();
+                    let aty_v = arg_ty(2, true)?;
+                    if aty_v != value_ty {
+                        let sp = expr_span(&args[2]);
+                        return Err(TyperError::element_type_mismatch(value_ty, aty_v, sp).into());
+                    }
+                    if is_resource_type(&map_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    if is_resource_type(&value_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[2] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    let map_out = Type::Map(k.clone(), v.clone());
+                    let replaced_out = Type::Option(v);
+                    Ok(Some(Type::Tuple(vec![map_out, replaced_out])))
+                }
+                other => Err(TyperError::expected_collection("Map", other, span).into()),
+            }
+        }
         "std::map::remove" => {
             if args.len() != 2 {
                 return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
@@ -492,6 +569,7 @@ pub(super) fn type_collection_call<'a>(
                     if contains_named_resource(&v, &type_defs.resources, type_params) {
                         return Err(TyperError::resource_collection_op_requires_ownership_api(
                             normalized_callee,
+                            "std::map::remove_take",
                             span,
                         )
                         .into());
@@ -513,6 +591,35 @@ pub(super) fn type_collection_call<'a>(
                     }
                     *tracker = local_tracker;
                     Ok(Some(Type::Map(k, v)))
+                }
+                other => Err(TyperError::expected_collection("Map", other, span).into()),
+            }
+        }
+        "std::map::remove_take" => {
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
+            match arg_ty(0, true)? {
+                Type::Map(k, v) => {
+                    let map_ty = Type::Map(k.clone(), v.clone());
+                    let aty = arg_ty(1, false)?;
+                    if aty != *k {
+                        let sp = expr_span(&args[1]);
+                        return Err(TyperError::element_type_mismatch(*k, aty, sp).into());
+                    }
+                    if is_resource_type(&map_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    let map_out = Type::Map(k.clone(), v.clone());
+                    let removed_out = Type::Option(v);
+                    Ok(Some(Type::Tuple(vec![map_out, removed_out])))
                 }
                 other => Err(TyperError::expected_collection("Map", other, span).into()),
             }

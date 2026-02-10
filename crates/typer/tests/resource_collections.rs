@@ -165,7 +165,10 @@ function ok(consume files: List<File>) -> List<File> {
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::list::get"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::remove_take"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -183,7 +186,10 @@ function bad(consume files: List<File>) -> List<File> {
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::list::remove"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::remove_take"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -201,7 +207,10 @@ function bad(consume files: List<File>) -> Option<File> {
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::list::pop"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::remove_take"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -221,7 +230,10 @@ function bad(consume files: Map<Int, File>) -> Map<Int, File> {
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::map::get"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::remove_take"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -241,7 +253,10 @@ function bad(consume files: Map<Int, Option<File>>) -> Map<Int, Option<File>> {
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::map::get"), "unexpected error: {message}");
     assert!(message.contains("Option<File>"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::remove_take"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -275,7 +290,10 @@ function bad(consume files: Map<Int, File>, consume f: File) -> Map<Int, File> {
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::map::insert"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::insert_take"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -293,7 +311,79 @@ function bad(consume files: Map<Int, File>) -> Map<Int, File> {
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
     assert!(message.contains("std::map::remove"), "unexpected error: {message}");
-    assert!(message.contains("move_out"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::remove_take"),
+        "unexpected error: {message}"
+    );
+}
+
+#[test]
+fn linear_list_remove_take_then_use_old_binding_reports_t801() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume files: List<File>) -> Int {
+    let out = std::list::remove_take(files, 0);
+    std::list::len(files)
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T801"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::len"),
+        "unexpected error: {message}"
+    );
+}
+
+#[test]
+fn linear_list_remove_take_extracts_container() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function ok(consume files: List<File>) -> List<File> {
+    std::list::remove_take(files, 0)[0]
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("remove_take should return updated list");
+}
+
+#[test]
+fn linear_map_insert_take_extracts_container() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function ok(consume files: Map<Int, File>, consume f: File) -> Map<Int, File> {
+    std::map::insert_take(files, 1, f)[0]
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("insert_take should return updated map");
+}
+
+#[test]
+fn linear_map_remove_take_extracts_removed_value() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function ok(consume files: Map<Int, File>) -> Option<File> {
+    std::map::remove_take(files, 1)[1]
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("remove_take should return removed value option");
 }
 
 #[test]

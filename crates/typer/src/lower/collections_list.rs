@@ -9,11 +9,33 @@ use super::collections_helpers::{
     emit_cap_from_len, emit_collection_cap, emit_collection_data_ptr, emit_collection_guard,
     emit_collection_header, emit_collection_len, emit_collection_payload_guard,
 };
-use super::layout::collection_layout;
+use super::layout::{collection_layout, tuple_layout};
 use super::{
-    emit_alloc_dyn, emit_int_const, emit_memcpy_bytes, emit_ptr_add, fresh, load_value_copy,
-    lower_expr, store_value, zero_value_for_type, LowerCtx,
+    emit_alloc, emit_alloc_dyn, emit_int_const, emit_memcpy_bytes, emit_ptr_add, fresh,
+    load_value_copy, lower_expr, store_value, zero_value_for_type, LowerCtx,
 };
+
+fn emit_tuple_pair(
+    ctx: &mut LowerCtx<'_>,
+    first_ty: Type,
+    first: Value,
+    second_ty: Type,
+    second: Value,
+) -> Result<Value> {
+    let layout = tuple_layout(&[first_ty.clone(), second_ty.clone()], ctx.aliases, ctx.std_types)?;
+    let ptr = emit_alloc(ctx, layout.size, layout.align);
+    let first_off = *layout
+        .offsets
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
+    let second_off = *layout
+        .offsets
+        .get(1)
+        .ok_or_else(|| anyhow::anyhow!("tuple offset missing"))?;
+    store_value(ctx, &first_ty, ptr, first_off, first)?;
+    store_value(ctx, &second_ty, ptr, second_off, second)?;
+    Ok(ptr)
+}
 
 pub(super) fn lower_list_call<'a>(
     ctx: &mut LowerCtx<'a>,
@@ -410,6 +432,135 @@ pub(super) fn lower_list_call<'a>(
             emit_memcpy_bytes(ctx, src_ptr, dst_ptr, bytes_after)?;
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
+        }
+        "std::list::remove_take" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::list::remove_take` expects two arguments");
+            }
+            let elem_ty = list_elem_type(ctx, &args[0])?;
+            let list_val = lower_expr(ctx, &args[0], None)?;
+            let idx = lower_expr(ctx, &args[1], Some(Type::Int))?;
+            let len = emit_collection_len(ctx, list_val);
+            let zero = emit_int_const(ctx, 0);
+            let idx_ge_zero = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_ge_zero,
+                op: BinOpIR::Ge,
+                lhs: idx,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            let idx_lt_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_lt_len,
+                op: BinOpIR::Lt,
+                lhs: idx,
+                rhs: len,
+                ty: IrType::Int,
+            });
+            let ok = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: ok,
+                op: BinOpIR::And,
+                lhs: idx_ge_zero,
+                rhs: idx_lt_len,
+                ty: IrType::Int,
+            });
+            emit_collection_guard(ctx, ok, expr_span_local(&args[1]));
+            let one = emit_int_const(ctx, 1);
+            let new_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: new_len,
+                op: BinOpIR::Sub,
+                lhs: len,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let new_cap = emit_cap_from_len(ctx, new_len);
+            let buf_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: buf_bytes,
+                op: BinOpIR::Mul,
+                lhs: new_cap,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
+            let old_data = emit_collection_data_ptr(ctx, list_val);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, old_data, len, cap, stride, align);
+            let idx_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_offset,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let removed_ptr = emit_ptr_add(ctx, old_data, idx_offset);
+            let removed_val = load_value_copy(ctx, &elem_ty, removed_ptr, 0)?;
+            let some_tag = emit_int_const(ctx, 1);
+            let zero_hi = emit_int_const(ctx, 0);
+            let removed_opt = ctx.variant_init(some_tag, removed_val, zero_hi);
+            let bytes_before = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: bytes_before,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            emit_memcpy_bytes(ctx, old_data, new_data, bytes_before)?;
+            let idx_plus_one = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_plus_one,
+                op: BinOpIR::Add,
+                lhs: idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            let remaining = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: remaining,
+                op: BinOpIR::Sub,
+                lhs: len,
+                rhs: idx_plus_one,
+                ty: IrType::Int,
+            });
+            let bytes_after = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: bytes_after,
+                op: BinOpIR::Mul,
+                lhs: remaining,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let src_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: src_offset,
+                op: BinOpIR::Mul,
+                lhs: idx_plus_one,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let src_ptr = emit_ptr_add(ctx, old_data, src_offset);
+            let dst_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: dst_offset,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let dst_ptr = emit_ptr_add(ctx, new_data, dst_offset);
+            emit_memcpy_bytes(ctx, src_ptr, dst_ptr, bytes_after)?;
+            let header = emit_collection_header(ctx, new_len, new_cap, new_data);
+            let list_out_ty = Type::List(Box::new(elem_ty.clone()));
+            let removed_out_ty = Type::Option(Box::new(elem_ty));
+            let out = emit_tuple_pair(ctx, list_out_ty, header, removed_out_ty, removed_opt)?;
+            Ok(Some(out))
         }
         "std::list::pop" => {
             if args.len() != 1 {

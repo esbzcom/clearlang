@@ -105,7 +105,7 @@ fn find_unsupported_resource_collection(
                 None
             }
         }
-        // Arrays/slices/tuples containing resources remain unsupported for now.
+        // Arrays/slices containing resources remain unsupported for now.
         Type::Array(inner, _) | Type::Slice(inner) => {
             if contains_resource(inner, resource_names, type_params) {
                 Some(ty.clone())
@@ -114,14 +114,14 @@ fn find_unsupported_resource_collection(
             }
         }
         Type::Tuple(elements) => {
-            if elements
-                .iter()
-                .any(|elem| contains_resource(elem, resource_names, type_params))
-            {
-                Some(ty.clone())
-            } else {
-                None
+            for elem in elements {
+                if let Some(found) =
+                    find_unsupported_resource_collection(elem, resource_names, type_params)
+                {
+                    return Some(found);
+                }
             }
+            None
         }
         Type::Option(inner) => {
             find_unsupported_resource_collection(inner, resource_names, type_params)

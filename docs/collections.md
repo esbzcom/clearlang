@@ -88,6 +88,7 @@ Set
 Map
 - `insert` replaces the existing value if the key is present; `remove` is a no-op if missing.
 - `insert_take` returns `(updated_map, replaced_value_opt)` and `remove_take` returns `(updated_map, removed_value_opt)`.
+- For resource values, these tuple outputs are linear-owned; both ownership paths must be consumed consistently.
 - Invalid collection handles (null, misaligned, or out-of-bounds header) trap with runtime error `R010`.
 
 Key Equality (Map/Set)

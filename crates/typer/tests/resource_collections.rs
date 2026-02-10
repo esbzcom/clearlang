@@ -36,6 +36,54 @@ function uses_map(m: Map<Int, Option<File>>) -> Int { 0 }
 }
 
 #[test]
+fn tuple_wrapping_linear_collection_outputs_is_allowed() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function step(consume files: List<File>) -> (List<File>, Option<File>) {
+    std::list::remove_take(files, 0)
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("tuple wrappers around linear outputs should type-check");
+}
+
+#[test]
+fn consume_tuple_param_with_resources_must_be_consumed() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(consume pair: (List<File>, Option<File>)) -> Int {
+    0
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T805"), "unexpected error: {message}");
+    assert!(message.contains("pair"), "unexpected error: {message}");
+}
+
+#[test]
+fn tuple_with_set_resource_is_still_rejected() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+function bad(x: (Set<File>, Int)) -> Int { 0 }
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T806"), "unexpected error: {message}");
+    assert!(message.contains("Set<File>"), "unexpected error: {message}");
+}
+
+#[test]
 fn set_of_resource_is_still_rejected() {
     let src = r#"
 resource File {

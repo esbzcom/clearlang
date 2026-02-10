@@ -31,7 +31,7 @@ Types
 
 - Slices: `Slice<T>` is a view into a contiguous array region. Slices use the same header layout as arrays and are created by stdlib helpers (`std::slice::from_array`, `std::slice::sub`). `std::slice::len` returns the runtime length.
 
-- Tuples: `(T1, T2, ...)` with arity >= 2 (used for hash/key pairs). Tuples lower to the same heap layout rules in `docs/runtime/arrays-tuples.md`. Tuple literals `(e1, e2, ...)` are supported; indexing requires a constant integer index. Resource elements are rejected by the same resource-in-collection checks that cover `List`/`Map`/`Set`.
+- Tuples: `(T1, T2, ...)` with arity >= 2 (used for hash/key pairs). Tuples lower to the same heap layout rules in `docs/runtime/arrays-tuples.md`. Tuple literals `(e1, e2, ...)` are supported; indexing requires a constant integer index. Tuples that contain resources are linear-owned and must be consumed consistently.
 
 - Chain packages: chain-scoped types (e.g., `std::eth::Address`) are defined in chain packages, not the core type system. Constructors are exposed as `std::<chain>::from_bytes(Bytes)` and `std::<chain>::from_array(Array<U8>)`.
 

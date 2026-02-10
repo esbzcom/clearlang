@@ -130,7 +130,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T803 | type | Cannot consume a borrowed resource. |
 | T804 | type | Resource ownership mismatch across branches. |
 | T805 | type | Resource must be consumed before returning. |
-| T806 | type | Unsupported resource-collection form or operation (e.g., `Set<Resource>` or non-`*_take` move-out path). |
+| T806 | type | Unsupported resource-collection form or operation (e.g., `Set<Resource>`, array/slice forms containing resources, or non-`*_take` move-out path). |
 | T901 | type | While loops in pure functions require a variant for totality. |
 | T902 | type | Recursive call requires a decreasing measure. |
 | T903 | type | Loop variant is not decreasing. |

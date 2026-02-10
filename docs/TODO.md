@@ -724,6 +724,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.2.1 Implement linear state tracking for resource values stored in collections.
     - [x] 17.6.2.2 Add targeted diagnostics for use-after-move, double-consume, and invalid borrow across collection calls.
     - [x] 17.6.2.3 Add regression tests for accepted and rejected flow patterns (insert/remove/contains/get + match/control-flow joins).
+    - [x] 17.6.2.4 Adopt transitive ownership for tuple wrappers around linear values; align typer validation, tests, and docs.
+    - [x] 17.6.2.5 Apply transitive ownership to wrapper constructors/literals (`Some`/`Ok`/`Err`/tuples) and add regression tests.
   - [ ] 17.6.3 VC/effect integration plan + prototype tests.
     - [ ] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.
     - [ ] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.

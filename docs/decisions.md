@@ -55,6 +55,17 @@ fixed-size arrays, and aligns with current pointer-based lowering.
 
 Note: Superseded in Phase 17.4 by the unified dynamic `Array<T>` header layout.
 
+## Phase 17.6 - Transitive linear ownership through wrappers
+Question: Should wrappers/composites around resources follow the same ownership rule as resources/linear collections?
+
+Options:
+- Keep special cases (e.g., tuple/Option/Result wrappers are not consistently linear-owned).
+- Apply one global transitive rule: any type containing a resource is linear-owned.
+
+Decision: Apply one global transitive rule. If a type transitively contains `Resource`, it is linear-owned (including `Option`, `Result`, tuples, and linear collection outputs).
+
+Reason: This is the most consistent and simplest model for users. It keeps ownership predictable, avoids wrapper-specific surprises, and aligns diagnostics/proofs with the same linear invariants used for direct resources and `List<Resource>`/`Map<K, Resource>`.
+
 ## Phase 15.7 - Nested array/tuple element representation
 Question: When arrays/tuples appear as elements inside another array/tuple, should they be stored inline (deep copy) or by pointer?
 

@@ -17,6 +17,12 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.6.
 - Provably correct: linear invariants are enforced by default and represented in typing/VC obligations.
 - Crypto-focused: no implicit duplication or loss of resource-backed assets.
 
+## Linear Ownership Guideline
+- Global rule: any type that transitively contains a `Resource` value is linear-owned.
+- This includes wrappers and composites such as `Option<R>`, `Result<R,E>`, `List<R>`, `Map<K,R>`, and tuples like `(List<R>, Option<R>)`.
+- Ownership transfer stays explicit at API boundaries (`push`/`insert` move-in, `*_take` move-out).
+- Phase-gated unsupported forms are still rejected with `T806` (currently `Set<Resource>` and array/slice forms containing resources).
+
 ## Non-Goals
 - Hash-table performance work or collection API expansion.
 - Mutable borrow/lifetime inference beyond current linear model.
@@ -42,6 +48,7 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.6.
 - `List<R>`, `Set<R>`, and `Map<K, R>` are linear containers when `R` is a resource type.
 - A linear container binding is itself linear: it cannot be implicitly copied, duplicated, or dropped.
 - Assignment/rebinding of linear containers follows the same ownership-state transitions as standalone resources.
+- Tuple wrappers around linear values are linear as well; all owned outputs must be consumed.
 
 ### Operation Classes
 - Move-in: consumes a resource argument and transfers ownership into the container.
@@ -112,6 +119,9 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.6.
   - The extracted resource in `out` becomes caller-owned when `Some`.
 - Borrow-read APIs do not transfer resource ownership out of the container and do not consume element/value ownership.
 - Iteration over linear containers is borrow-only unless a dedicated draining API is used.
+- Wrapper constructors/literals preserve linearity:
+  - `Some(x)`, `Ok(x)`, `Err(x)`, and tuple literals move owned resource paths from inputs into the wrapper value.
+  - Returning these wrappers counts as consuming the moved ownership paths.
 
 ### Forbidden Copy Paths
 - Implicit copies are disallowed for:
@@ -142,7 +152,7 @@ Linear-aware collection diagnostics reuse the existing linear/resource family so
 | Consume while borrow is active | type | T803 | Report consume site and active borrow origin when available. |
 | Ownership state diverges across branches/match arms | type | T804 | Report join point with conflicting branch spans. |
 | Owned linear value reaches function/block end unconsumed | type | T805 | Report declaration or last owning binding span. |
-| Unsupported container form for resources (current: `Set<Resource>` and tuples) | type | T806 | Report type location/call site with explicit unsupported-kind message. |
+| Unsupported container form for resources (current: `Set<Resource>` and array/slice forms containing resources) | type | T806 | Report type location/call site with explicit unsupported-kind message. |
 
 Notes:
 - For Phase 17.6, `T806` narrows from blanket rejection to unsupported forms only.

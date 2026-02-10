@@ -37,7 +37,8 @@ Elements are laid out using each type's runtime representation.
 | `Tuple` | 4 | 4 | i32 pointer to tuple allocation |
 
 Notes:
-- Arrays/slices/tuples cannot contain resources (enforced by the typer).
+- Arrays/slices containing resources are currently unsupported (enforced by the typer).
+- Tuples may contain resources; such tuple values are linear-owned by the same transitive ownership rule used for other wrappers.
 - `U128`/`U256` use limb buffers defined in `docs/design/phase-15.1-unsigned-ints.md`.
 - Enums use the variant layout; for multi-field variants, `payload_lo` points to a tuple allocation that follows the same layout rules.
 

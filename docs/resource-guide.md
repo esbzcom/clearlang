@@ -20,10 +20,17 @@ This guide summarizes how resources work in Phase 8: declaration, ownership/borr
 - Returning a resource counts as consuming that binding.
 - Borrow tracking is block-scoped and merges across `if`/`match`; mismatched ownership states cause `T804`.
 
+## Ownership Guideline
+
+- Global rule: if a type transitively contains a resource, that outer value is also linear-owned.
+- Examples: `File`, `Option<File>`, `List<File>`, `Map<Int, File>`, `(List<File>, Option<File>)`.
+- Consequence: wrappers do not weaken ownership; every linear-owned binding must be consumed exactly once.
+- Constructor/literal moves are explicit ownership transfers: `Some(f)`, `Ok(f)`, `Err(f)`, and `(f, x)` move ownership of `f` into the produced wrapper.
+
 ## Collections
 
 - `List<Resource>` and `Map<K, Resource>` are allowed, but ownership-extracting operations must use `*_take` APIs.
-- `Set<Resource>` and other unsupported resource-container forms still raise `T806`.
+- `Set<Resource>` and array/slice forms containing resources still raise `T806`.
 - For resource collections, use:
   - `std::list::remove_take(l, i) -> (List<R>, Option<R>)`
   - `std::map::insert_take(m, k, v) -> (Map<K,R>, Option<R>)`

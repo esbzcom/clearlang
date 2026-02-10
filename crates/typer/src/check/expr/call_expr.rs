@@ -129,6 +129,11 @@ pub(super) fn type_call_expr<'a>(
             depth + 1,
             None,
         )?;
+        if is_resource_type(&t0, aliases, type_defs)? {
+            if let Expr::Var(arg_name, arg_span) = &args[0] {
+                local_tracker.consume_var(arg_name, *arg_span)?;
+            }
+        }
         *tracker = local_tracker;
         return Ok(Type::Option(Box::new(t0)));
     }
@@ -163,6 +168,11 @@ pub(super) fn type_call_expr<'a>(
             depth + 1,
             None,
         )?;
+        if is_resource_type(&arg_ty, aliases, type_defs)? {
+            if let Expr::Var(arg_name, arg_span) = &args[0] {
+                local_tracker.consume_var(arg_name, *arg_span)?;
+            }
+        }
         let ret_binding = env
             .get(RETURN_KEY)
             .cloned()
@@ -201,6 +211,11 @@ pub(super) fn type_call_expr<'a>(
             depth + 1,
             None,
         )?;
+        if is_resource_type(&arg_ty, aliases, type_defs)? {
+            if let Expr::Var(arg_name, arg_span) = &args[0] {
+                local_tracker.consume_var(arg_name, *arg_span)?;
+            }
+        }
         let ret_binding = env
             .get(RETURN_KEY)
             .cloned()

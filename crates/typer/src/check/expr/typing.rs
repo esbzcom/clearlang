@@ -126,7 +126,7 @@ pub(crate) fn type_of<'a>(
             };
             for (idx, elem) in elems.iter().enumerate() {
                 let elem_expected = expected_elems.and_then(|elems| elems.get(idx));
-                elem_tys.push(type_of(
+                let elem_ty = type_of(
                     elem,
                     env,
                     &mut local_tracker,
@@ -138,7 +138,11 @@ pub(crate) fn type_of<'a>(
                     bounds,
                     depth + 1,
                     elem_expected,
-                )?);
+                )?;
+                if is_resource_type(&elem_ty, aliases, type_defs)? {
+                    consume_var_expr(&mut local_tracker, elem)?;
+                }
+                elem_tys.push(elem_ty);
             }
             let tuple_ty = Type::Tuple(elem_tys);
             if let Some(offending) =

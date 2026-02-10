@@ -178,6 +178,23 @@ Runtime detail policy:
   - stable `stage` (`type` or `runtime`),
   - source span on type errors and best-effort span on runtime errors.
 
+## 17.6.3.1 VC Prototype (Control-Flow Linearity)
+- VC generation now emits prototype control-flow obligations for ownership-sensitive collection operations:
+  - `linear:branch:N`: symbolic branch-state agreement for tracked linear collection owners used in `if`/`match`.
+  - `linear:loop:N`: symbolic loop-state preservation for tracked linear collection owners used in `while`.
+- These VCs are additive and do not replace existing typer diagnostics (`T801`-`T805`); they provide a proof-facing hook for later 17.6.3.x strengthening.
+
+## 17.6.3.2 Effect Gate Alignment + Proof/Runtime Split
+- Effect gate policy for linear collections:
+  - Ownership-transfer APIs (`std::list::push`, `std::list::insert`, `std::list::remove_take`, `std::map::insert_take`, `std::map::remove_take`) are treated as `pure` by construction.
+  - `_mut` aliases remain `mut`-only and require existing `can_mut` guard obligations.
+- Rationale:
+  - Linear ownership transitions are enforced statically (resource tracker + `T801`-`T805`) and by linear VC obligations (`linear:branch:*`, `linear:loop:*`).
+  - Runtime continues to execute the same deterministic collection helpers/traps (`R009`, `R010`) regardless of whether a call originated from a pure ownership API or a `_mut` alias.
+- Proof/runtime split:
+  - Proof layer: effect gating and VC obligations capture alias/ownership discipline.
+  - Runtime layer: defensive memory/header/bounds checks enforce deterministic safety for malformed states.
+
 ## Scope Boundary for 17.6.1.x
 - This document locks the safety contract, ownership/alias rules, consume/borrow boundary semantics, and deterministic diagnostics/trap mapping for linear containers.
 

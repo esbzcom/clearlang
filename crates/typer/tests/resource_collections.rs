@@ -159,7 +159,10 @@ function bad(consume files: List<File>, consume f: File) -> Int {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T801"), "unexpected error: {message}");
-    assert!(message.contains("std::list::len"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::len"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -177,7 +180,10 @@ function bad(consume files: List<File>, consume a: File, consume b: File) -> Lis
 
     let message = expect_typer_error(src);
     assert!(message.contains("T802"), "unexpected error: {message}");
-    assert!(message.contains("std::list::push"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::push"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -194,7 +200,10 @@ function bad(consume files: List<File>, file: File) -> List<File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T803"), "unexpected error: {message}");
-    assert!(message.contains("std::list::push"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::push"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]
@@ -212,7 +221,10 @@ function ok(consume files: List<File>) -> List<File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::list::get"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::get"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::list::remove_take"),
         "unexpected error: {message}"
@@ -233,7 +245,10 @@ function bad(consume files: List<File>) -> List<File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::list::remove"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::remove"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::list::remove_take"),
         "unexpected error: {message}"
@@ -254,7 +269,10 @@ function bad(consume files: List<File>) -> Option<File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::list::pop"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::list::pop"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::list::remove_take"),
         "unexpected error: {message}"
@@ -277,7 +295,10 @@ function bad(consume files: Map<Int, File>) -> Map<Int, File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::map::get"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::get"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::map::remove_take"),
         "unexpected error: {message}"
@@ -299,8 +320,14 @@ function bad(consume files: Map<Int, Option<File>>) -> Map<Int, Option<File>> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::map::get"), "unexpected error: {message}");
-    assert!(message.contains("Option<File>"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::get"),
+        "unexpected error: {message}"
+    );
+    assert!(
+        message.contains("Option<File>"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::map::remove_take"),
         "unexpected error: {message}"
@@ -337,7 +364,10 @@ function bad(consume files: Map<Int, File>, consume f: File) -> Map<Int, File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::map::insert"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::insert"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::map::insert_take"),
         "unexpected error: {message}"
@@ -358,7 +388,10 @@ function bad(consume files: Map<Int, File>) -> Map<Int, File> {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T806"), "unexpected error: {message}");
-    assert!(message.contains("std::map::remove"), "unexpected error: {message}");
+    assert!(
+        message.contains("std::map::remove"),
+        "unexpected error: {message}"
+    );
     assert!(
         message.contains("std::map::remove_take"),
         "unexpected error: {message}"
@@ -466,7 +499,10 @@ function bad(consume maybe_file: Option<File>) -> Int {
 
     let message = expect_typer_error(src);
     assert!(message.contains("T805"), "unexpected error: {message}");
-    assert!(message.contains("maybe_file"), "unexpected error: {message}");
+    assert!(
+        message.contains("maybe_file"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]

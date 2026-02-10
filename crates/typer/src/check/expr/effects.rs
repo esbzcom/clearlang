@@ -139,6 +139,14 @@ fn builtin_effect(callee: &str) -> Option<EffectLevel> {
         | "std::set::remove_mut"
         | "std::map::insert_mut"
         | "std::map::remove_mut" => Some(EffectLevel::Mut),
+        // Ownership-transfer APIs stay pure-by-construction: linearity is enforced by
+        // the type checker/resource tracker and VC obligations, while runtime behavior
+        // reuses the same deterministic collection helpers.
+        "std::list::push"
+        | "std::list::insert"
+        | "std::list::remove_take"
+        | "std::map::insert_take"
+        | "std::map::remove_take" => Some(EffectLevel::Pure),
         "std::wasi::print" | "std::env::time" | "std::env::random" => Some(EffectLevel::Io),
         _ => None,
     }

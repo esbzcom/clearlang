@@ -111,7 +111,8 @@ pub(crate) fn is_resource_type(
                 contains_resource_in_type(inner, type_defs)
             }
             Type::Result(ok, err) | Type::Map(ok, err) => {
-                contains_resource_in_type(ok, type_defs) || contains_resource_in_type(err, type_defs)
+                contains_resource_in_type(ok, type_defs)
+                    || contains_resource_in_type(err, type_defs)
             }
             Type::Array(inner, _) => contains_resource_in_type(inner, type_defs),
             Type::Tuple(elements) => elements
@@ -123,7 +124,9 @@ pub(crate) fn is_resource_type(
 
     let resolved = base_type(ty, aliases)?;
     Ok(match &resolved {
-        Type::Named { name, args } if args.is_empty() => type_defs.resources.contains(name.as_str()),
+        Type::Named { name, args } if args.is_empty() => {
+            type_defs.resources.contains(name.as_str())
+        }
         Type::Option(_)
         | Type::Result(_, _)
         | Type::List(_)

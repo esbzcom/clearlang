@@ -1,11 +1,12 @@
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
 use clg_ast::{Effect, Expr, Program, Span, Type};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{
     snapshot_expr, ContractExpr, LoopObligation, RefinementAttachment, RefinementObligation,
     RefinementPremise, VerificationCondition,
 };
+use crate::vc::linear::collect_linear_control_obligations;
 use crate::vc::loops::{collect_loops, expr_span};
 use crate::vc::refinements::{
     build_alias_map, build_fn_sigs, collect_refinement_obligations, fold_conjunction,
@@ -19,6 +20,11 @@ const U64_MAX_SMT: &str = "18446744073709551615";
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let alias_map = build_alias_map(program);
     let fn_sigs = build_fn_sigs(program, &alias_map);
+    let resource_names: HashSet<&str> = program
+        .resources
+        .iter()
+        .map(|res| res.name.as_str())
+        .collect();
     let mut out = Vec::new();
     for func in &program.funcs {
         struct EnsureItem {
@@ -113,6 +119,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             .map(premise_from_obligation)
             .collect();
         let base_refinement_prelude = refinement_prelude(&pre_obligations, None, &alias_map);
+        let linear_control = collect_linear_control_obligations(func, &resource_names);
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {
             let has_u64_ret = matches!(func.ret, Type::U64);
@@ -208,6 +215,77 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     refinements,
                 });
             }
+        }
+
+        for (idx, branch_ob) in linear_control.branches.iter().enumerate() {
+            let mut encoder = SmtEncoder::default();
+            let pre_smt = append_smt_bounds(encoder.encode(&pre_expr), &u64_param_bounds);
+            let post_ast = format!(
+                "linear_state_consistent_across_branches({})",
+                branch_ob.vars.join(", ")
+            );
+            let (linear_extra, post_smt) =
+                linear_branch_post_smt("branch", idx, branch_ob.vars.len());
+            let vc_body = format!("(=> {} {})", pre_smt, post_smt);
+            let merged_extra = merge_extras(&[&base_refinement_prelude, &linear_extra]);
+            let vc_smt2 = if merged_extra.is_empty() {
+                encoder.wrap_vc(&vc_body)
+            } else {
+                encoder.wrap_vc_with_extra(&vc_body, Some(&merged_extra))
+            };
+            let refinements = pre_premises.clone();
+            out.push(VerificationCondition {
+                function: func.name.clone(),
+                vc_id: format!("linear:branch:{}", idx),
+                pre: ContractExpr {
+                    ast: pre_ast.clone(),
+                    smt2: pre_smt.clone(),
+                    span: pre_span,
+                },
+                post: ContractExpr {
+                    ast: post_ast,
+                    smt2: post_smt,
+                    span: Some(branch_ob.span),
+                },
+                vc_smt2,
+                status: "generated",
+                refinements,
+            });
+        }
+
+        for (idx, loop_ob) in linear_control.loops.iter().enumerate() {
+            let mut encoder = SmtEncoder::default();
+            let pre_smt = append_smt_bounds(encoder.encode(&pre_expr), &u64_param_bounds);
+            let post_ast = format!(
+                "linear_state_preserved_across_loop({})",
+                loop_ob.vars.join(", ")
+            );
+            let (linear_extra, post_smt) = linear_loop_post_smt("loop", idx, loop_ob.vars.len());
+            let vc_body = format!("(=> {} {})", pre_smt, post_smt);
+            let merged_extra = merge_extras(&[&base_refinement_prelude, &linear_extra]);
+            let vc_smt2 = if merged_extra.is_empty() {
+                encoder.wrap_vc(&vc_body)
+            } else {
+                encoder.wrap_vc_with_extra(&vc_body, Some(&merged_extra))
+            };
+            let refinements = pre_premises.clone();
+            out.push(VerificationCondition {
+                function: func.name.clone(),
+                vc_id: format!("linear:loop:{}", idx),
+                pre: ContractExpr {
+                    ast: pre_ast.clone(),
+                    smt2: pre_smt.clone(),
+                    span: pre_span,
+                },
+                post: ContractExpr {
+                    ast: post_ast,
+                    smt2: post_smt,
+                    span: Some(loop_ob.span),
+                },
+                vc_smt2,
+                status: "generated",
+                refinements,
+            });
         }
 
         let mut loops: Vec<LoopObligation<'_>> = Vec::new();
@@ -334,4 +412,42 @@ fn premise_from_obligation(obligation: &RefinementObligation) -> RefinementPremi
         predicate: snapshot_expr(&obligation.predicate),
         attachment: obligation.attachment.clone(),
     }
+}
+
+fn linear_branch_post_smt(scope: &str, idx: usize, vars: usize) -> (String, String) {
+    linear_state_post_smt(scope, idx, vars, "then", "else")
+}
+
+fn linear_loop_post_smt(scope: &str, idx: usize, vars: usize) -> (String, String) {
+    linear_state_post_smt(scope, idx, vars, "before", "after")
+}
+
+fn linear_state_post_smt(
+    scope: &str,
+    idx: usize,
+    vars: usize,
+    left_label: &str,
+    right_label: &str,
+) -> (String, String) {
+    if vars == 0 {
+        return (String::new(), "true".to_string());
+    }
+
+    let mut declarations = Vec::new();
+    let mut checks = Vec::new();
+    for var_idx in 0..vars {
+        let left = format!("cl.linear.{}.{}.{}.{}", scope, idx, var_idx, left_label);
+        let right = format!("cl.linear.{}.{}.{}.{}", scope, idx, var_idx, right_label);
+        declarations.push(format!("(declare-const {} Int)", left));
+        declarations.push(format!("(declare-const {} Int)", right));
+        checks.push(format!("(= {} {})", left, right));
+        checks.push(format!("(>= {} 0)", left));
+        checks.push(format!("(>= {} 0)", right));
+    }
+    let post = if checks.len() == 1 {
+        checks[0].clone()
+    } else {
+        format!("(and {})", checks.join(" "))
+    };
+    (declarations.join("\n"), post)
 }

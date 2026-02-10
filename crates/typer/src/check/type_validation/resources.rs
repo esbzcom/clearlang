@@ -24,8 +24,7 @@ pub(crate) fn ensure_no_unsupported_resource_collections(
     resource_names: &HashSet<&str>,
     type_params: &HashSet<String>,
 ) -> Result<()> {
-    if let Some(offending) = find_unsupported_resource_collection(ty, resource_names, type_params)
-    {
+    if let Some(offending) = find_unsupported_resource_collection(ty, resource_names, type_params) {
         return Err(TyperError::resource_in_collection(offending, span).into());
     }
     Ok(())

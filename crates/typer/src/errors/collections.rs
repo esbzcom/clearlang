@@ -123,7 +123,7 @@ impl TyperError {
             Some(sp) => Self::new(
                 "T806",
                 format!(
-                    "at {}..{}: resources cannot be stored inside collections or tuples yet; found `{}`",
+                    "at {}..{}: unsupported resource-container form; found `{}`",
                     sp.start, sp.end, rendered
                 ),
                 sp.start,
@@ -132,7 +132,7 @@ impl TyperError {
             None => Self::new(
                 "T806",
                 format!(
-                    "resources cannot be stored inside collections or tuples yet; found `{}`",
+                    "unsupported resource-container form; found `{}`",
                     rendered
                 ),
                 0,

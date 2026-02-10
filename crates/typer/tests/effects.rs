@@ -143,3 +143,46 @@ fn pure_function_cannot_call_crypto_hash() {
         "expected io effect error, got {msg}"
     );
 }
+
+#[test]
+fn pure_function_can_call_linear_move_out_api() {
+    let src = r#"
+        resource File { drop {} }
+        pure function step(consume files: List<File>) -> List<File> {
+            std::list::remove_take(files, 0)[0]
+        }
+    "#;
+    type_check_only(&parse(src).expect("parse ok"))
+        .expect("linear move-out API should remain pure-by-construction");
+}
+
+#[test]
+fn mut_function_can_call_linear_move_out_api_without_mut_guard() {
+    let src = r#"
+        resource File { drop {} }
+        mut function step(consume files: List<File>) -> List<File> {
+            std::list::remove_take(files, 0)[0]
+        }
+    "#;
+    type_check_only(&parse(src).expect("parse ok"))
+        .expect("pure linear API should not require can_mut guards");
+}
+
+#[test]
+fn pure_function_cannot_call_mut_linear_collection_alias() {
+    let src = r#"
+        resource File { drop {} }
+        pure function bad(consume files: List<File>, consume f: File) -> List<File>
+            require { std::list::can_mut(files) }
+        {
+            std::list::push_mut(files, f)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("mut alias must still require mut effect");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `mut` effect"),
+        "expected mut effect error, got {msg}"
+    );
+}

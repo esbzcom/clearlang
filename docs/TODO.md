@@ -727,8 +727,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.2.4 Adopt transitive ownership for tuple wrappers around linear values; align typer validation, tests, and docs.
     - [x] 17.6.2.5 Apply transitive ownership to wrapper constructors/literals (`Some`/`Ok`/`Err`/tuples) and add regression tests.
   - [ ] 17.6.3 VC/effect integration plan + prototype tests.
-    - [ ] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.
-    - [ ] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.
+    - [x] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.
+    - [x] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.
     - [ ] 17.6.3.3 Add prototype fixtures (`--emit-vcs`) and runtime tests for representative linear-collection workflows.
 - [ ] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
   - [ ] 17.7.1 Design: function types, capture semantics, and effect annotations.

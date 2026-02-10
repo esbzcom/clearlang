@@ -1,4 +1,5 @@
 mod generate;
+mod linear;
 mod loops;
 mod refinements;
 mod smt;

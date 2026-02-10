@@ -22,7 +22,11 @@ fn emit_tuple_pair(
     second_ty: Type,
     second: Value,
 ) -> Result<Value> {
-    let layout = tuple_layout(&[first_ty.clone(), second_ty.clone()], ctx.aliases, ctx.std_types)?;
+    let layout = tuple_layout(
+        &[first_ty.clone(), second_ty.clone()],
+        ctx.aliases,
+        ctx.std_types,
+    )?;
     let ptr = emit_alloc(ctx, layout.size, layout.align);
     let first_off = *layout
         .offsets

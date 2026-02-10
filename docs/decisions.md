@@ -66,6 +66,17 @@ Decision: Apply one global transitive rule. If a type transitively contains `Res
 
 Reason: This is the most consistent and simplest model for users. It keeps ownership predictable, avoids wrapper-specific surprises, and aligns diagnostics/proofs with the same linear invariants used for direct resources and `List<Resource>`/`Map<K, Resource>`.
 
+## Phase 17.6 - Effect gates for linear collection APIs
+Question: Should linear ownership-transfer collection APIs be `pure` or `mut`?
+
+Options:
+- Make all ownership-changing collection APIs `mut`.
+- Keep ownership-transfer APIs pure-by-construction and reserve `mut` for `_mut` aliases.
+
+Decision: Keep ownership-transfer APIs (`std::list::{push,insert,remove_take}`, `std::map::{insert_take,remove_take}`) `pure` by construction; keep `_mut` aliases `mut`-gated with `can_mut` guards.
+
+Reason: Ownership safety is already enforced by linear typing and VC obligations. Keeping ownership-transfer APIs pure avoids forcing `mut` annotations where there is no ambient aliasing side effect in the language model, while preserving an explicit guarded `mut` surface for alias-sensitive workflows.
+
 ## Phase 15.7 - Nested array/tuple element representation
 Question: When arrays/tuples appear as elements inside another array/tuple, should they be stored inline (deep copy) or by pointer?
 

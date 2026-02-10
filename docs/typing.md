@@ -119,6 +119,8 @@ Effects
 
 - Mutable collection intrinsics (`std::list/set/map::*_mut`) require a guard `require { std::<collection>::can_mut(var) }` in the same function. Missing guards raise `T402`; non-variable first arguments raise `T403`.
 
+- Linear ownership-transfer APIs (`std::list::{push,insert,remove_take}` and `std::map::{insert_take,remove_take}`) are `pure` by construction.
+
 - Guard predicates are pure Bool-valued builtins that document aliasing requirements. They surface in VC generation as `mut_pre` obligations so proofs can reference the same guard expression.
 
 - Totality + loops (Phase 9)
@@ -274,6 +276,12 @@ ADT Ergonomics (Phase 6.6)
 - **Constructors**: `None`/`Some`/`Ok`/`Err` write the tag and payload words directly and zero the reserved slot. The SSA structure is locked in by `crates/typer/tests/lowering_variants.rs::option_try_lowering_preserves_payload_and_propagation` and `::result_try_lowering_tracks_ok_flow`.
 - **`Expr::Try` lowering**: propagation inspects the tag, emits `ReturnIf` to forward `None`/`Err`, and reuses the payload slot when the tag signals success. The same tests assert the value IDs stay stable across constructor/destructor pairs.
 - **VC + SMT**: the VC generator now emits the canonical `(tag, payload_lo, payload_hi)` encoding. SMT snapshots declare `cl.variant.{tag,payload_lo,payload_hi}` alongside `cl.option.mk`/`cl.result.mk` so Option/Result reasoning stays machine-friendly and solver-ready.
+- **Linear collection VC prototype (17.6.3.1)**: `--emit-vcs` now emits control-flow obligations for ownership-sensitive collection operations:
+  - `linear:branch:N` captures symbolic branch-state agreement for tracked linear collection owners.
+  - `linear:loop:N` captures symbolic loop-state preservation for tracked linear collection owners.
+- **Effect/proof/runtime split (17.6.3.2)**:
+  - `_mut` collection calls remain `mut`-gated and produce `mut_pre:*` VC obligations tied to `can_mut` guards.
+  - Linear ownership APIs (`remove_take`/`insert_take` families) remain `pure`; they rely on linear typing + `linear:*` VCs for ownership correctness while runtime keeps deterministic defensive traps (`R009`/`R010`).
 - **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations. See `docs/proofs/crypto-limitations.md` for migration options.
 - **Tooling**: CLI docs now include an `--emit-vcs` walkthrough (see `docs/introduction.md`) and the VC schema example is updated with the canonical helpers.
 

@@ -165,7 +165,9 @@ impl ResourceTracker {
                     true
                 }
                 ResourceState::ActiveBorrow => {
-                    return Err(TyperError::resource_consume_borrow_in_call(name, span, callee).into());
+                    return Err(
+                        TyperError::resource_consume_borrow_in_call(name, span, callee).into(),
+                    );
                 }
                 ResourceState::Consumed { span: first } => {
                     return Err(TyperError::resource_double_consume_in_call(

@@ -101,6 +101,7 @@ Fixtures
 - `docs/proofs/fixtures/refinement-contracts-loops.vc.json` (refinements + require/ensure + loop VCs).
 - `docs/proofs/fixtures/refinement-call-site.vc.json` (refinements + call-site obligations + require/ensure).
 - `docs/proofs/fixtures/linear-collections-branch.vc.json` (prototype linear branch VC for ownership-sensitive collection flow).
+- `docs/proofs/fixtures/linear-collections-branch-inline.vc.json` (prototype linear branch VC when owner flows through an inline call expression).
 - `docs/proofs/fixtures/linear-collections-loop.vc.json` (prototype linear loop VC plus loop invariant/variant obligations).
 
 CLI Contract

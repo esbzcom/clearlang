@@ -1,0 +1,19 @@
+[
+  {
+    "function": "choose",
+    "post": {
+      "ast": "linear_state_consistent_across_branches(files)",
+      "smt2": "(and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0))"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "true"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "(declare-const cl.linear.branch.0.0.then Int)\n(declare-const cl.linear.branch.0.0.else Int)\n(=> true (and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0)))"
+    },
+    "vc_id": "linear:branch:0",
+    "version": 2
+  }
+]

@@ -109,6 +109,39 @@ fn list_remove_take_returns_removed_value() {
 }
 
 #[test]
+fn list_remove_take_resource_returns_removed_value() {
+    let src = r#"
+        resource File { drop {} }
+        pure function main(consume l: List<File>) -> Option<File> { std::list::remove_take(l, 1)[1] }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (list_ptr, new_heap) = alloc_list(&memory, &mut store, heap_ptr, &[5, 6, 7]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let opt_ptr = main.call(&mut store, list_ptr).expect("call main");
+
+    let (tag, payload) = read_option_i32(&memory, &mut store, opt_ptr);
+    assert_eq!(tag, 1, "expected Some tag");
+    assert_eq!(payload, 6, "expected removed resource handle");
+}
+
+#[test]
 fn list_remove_take_returns_updated_list() {
     let src = r#"
         function main(l: List<Int>) -> List<Int> { std::list::remove_take(l, 1)[0] }

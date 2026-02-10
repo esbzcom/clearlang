@@ -279,6 +279,62 @@ fn linear_branch_vc_tracks_helper_rebound_owner() {
 }
 
 #[test]
+fn linear_branch_vc_tracks_inline_owner_expression() {
+    let src = r#"
+        resource File { drop {} }
+
+        pure function id(consume files: List<File>) -> List<File> { files }
+
+        pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
+            if flag {
+                std::list::remove_take(id(files), 0)[0]
+            } else {
+                std::list::remove_take(id(files), 0)[0]
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    let vc = vcs
+        .iter()
+        .find(|vc| vc.function == "choose" && vc.vc_id == "linear:branch:0")
+        .expect("linear branch vc for inline owner expression");
+    assert!(
+        vc.post.ast.contains("files"),
+        "expected underlying tracked owner in linear branch vc"
+    );
+}
+
+#[test]
+fn linear_loop_vc_tracks_inline_owner_expression() {
+    let src = r#"
+        resource File { drop {} }
+
+        pure function id(consume files: List<File>) -> List<File> { files }
+
+        pure function loop_step(consume files: List<File>, n: Int) -> List<File> {
+            while n > 0 invariant { n >= 0 } variant { n } {
+                let out = std::list::remove_take(id(files), 0);
+                let files = out[0];
+            }
+            files
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    let vc = vcs
+        .iter()
+        .find(|vc| vc.function == "loop_step" && vc.vc_id == "linear:loop:0")
+        .expect("linear loop vc for inline owner expression");
+    assert!(
+        vc.post.ast.contains("files"),
+        "expected underlying tracked owner in linear loop vc"
+    );
+}
+
+#[test]
 fn generates_vc_for_refined_alias_params_and_returns() {
     let src = r#"
         type Nat = Int where n >= 0;

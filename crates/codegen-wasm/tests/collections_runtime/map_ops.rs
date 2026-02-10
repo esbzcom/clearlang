@@ -381,6 +381,41 @@ fn map_insert_take_returns_replaced_value() {
 }
 
 #[test]
+fn map_insert_take_resource_returns_replaced_value() {
+    let src = r#"
+        resource File { drop {} }
+        pure function main(consume m: Map<Int, File>, consume f: File) -> Option<File> {
+            std::map::insert_take(m, 1, f)[1]
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[(1, 10), (2, 20)]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let opt_ptr = main.call(&mut store, (map_ptr, 99)).expect("call main");
+
+    let (tag, payload) = read_option_i32(&memory, &mut store, opt_ptr);
+    assert_eq!(tag, 1, "expected Some tag");
+    assert_eq!(payload, 10, "expected replaced resource handle");
+}
+
+#[test]
 fn map_remove_take_returns_removed_value() {
     let src = r#"
         function main(m: Map<Int, Int>) -> Option<Int> { std::map::remove_take(m, 2)[1] }
@@ -410,6 +445,41 @@ fn map_remove_take_returns_removed_value() {
     let (tag, payload) = read_option_i32(&memory, &mut store, opt_ptr);
     assert_eq!(tag, 1, "expected Some tag");
     assert_eq!(payload, 20, "expected removed value");
+}
+
+#[test]
+fn map_remove_take_resource_returns_removed_value() {
+    let src = r#"
+        resource File { drop {} }
+        pure function main(consume m: Map<Int, File>) -> Option<File> {
+            std::map::remove_take(m, 2)[1]
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[(1, 10), (2, 20)]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let opt_ptr = main.call(&mut store, map_ptr).expect("call main");
+
+    let (tag, payload) = read_option_i32(&memory, &mut store, opt_ptr);
+    assert_eq!(tag, 1, "expected Some tag");
+    assert_eq!(payload, 20, "expected removed resource handle");
 }
 
 #[test]

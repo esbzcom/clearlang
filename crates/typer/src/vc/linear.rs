@@ -207,8 +207,12 @@ fn collect_targets_block(block: &Block, tracked: &HashSet<String>, out: &mut BTr
 fn collect_targets_expr(expr: &Expr, tracked: &HashSet<String>, out: &mut BTreeSet<String>) {
     match expr {
         Expr::Call { callee, args, .. } => {
-            if let Some(target) = ownership_target(callee, args, tracked) {
-                out.insert(target.to_string());
+            if is_ownership_api(callee) {
+                if let Some(target) = ownership_target(callee, args, tracked) {
+                    out.insert(target.to_string());
+                } else if let Some(first) = args.first() {
+                    collect_tracked_vars_expr(first, tracked, out);
+                }
             }
             for arg in args {
                 collect_targets_expr(arg, tracked, out);
@@ -256,6 +260,94 @@ fn collect_targets_expr(expr: &Expr, tracked: &HashSet<String>, out: &mut BTreeS
             collect_targets_expr(expr, tracked, out);
         }
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+    }
+}
+
+fn collect_tracked_vars_block(
+    block: &Block,
+    tracked: &HashSet<String>,
+    out: &mut BTreeSet<String>,
+) {
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                collect_tracked_vars_expr(expr, tracked, out)
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_tracked_vars_expr(cond, tracked, out);
+                collect_tracked_vars_expr(invariant, tracked, out);
+                if let Some(v) = variant {
+                    collect_tracked_vars_expr(v, tracked, out);
+                }
+                collect_tracked_vars_block(body, tracked, out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_tracked_vars_expr(tail, tracked, out);
+    }
+}
+
+fn collect_tracked_vars_expr(expr: &Expr, tracked: &HashSet<String>, out: &mut BTreeSet<String>) {
+    match expr {
+        Expr::Var(name, _) => {
+            if tracked.contains(name.as_str()) {
+                out.insert(name.clone());
+            }
+        }
+        Expr::Block { block } => collect_tracked_vars_block(block, tracked, out),
+        Expr::Call { args, .. } => {
+            for arg in args {
+                collect_tracked_vars_expr(arg, tracked, out);
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_tracked_vars_expr(cond, tracked, out);
+            collect_tracked_vars_expr(then_br, tracked, out);
+            collect_tracked_vars_expr(else_br, tracked, out);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_tracked_vars_expr(scrutinee, tracked, out);
+            for arm in arms {
+                collect_tracked_vars_expr(&arm.expr, tracked, out);
+            }
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_tracked_vars_expr(lhs, tracked, out);
+            collect_tracked_vars_expr(rhs, tracked, out);
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_tracked_vars_expr(elem, tracked, out);
+            }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_tracked_vars_expr(&field.expr, tracked, out);
+            }
+        }
+        Expr::FieldAccess { base, .. } => collect_tracked_vars_expr(base, tracked, out),
+        Expr::Index { base, index, .. } => {
+            collect_tracked_vars_expr(base, tracked, out);
+            collect_tracked_vars_expr(index, tracked, out);
+        }
+        Expr::Unary { expr, .. } | Expr::Try { expr, .. } | Expr::Return { expr, .. } => {
+            collect_tracked_vars_expr(expr, tracked, out);
+        }
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => {}
     }
 }
 

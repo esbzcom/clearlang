@@ -56,6 +56,20 @@ pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
 }
 ```
 
+## linear-collections-branch-inline.vc.json
+Source:
+```
+resource File { drop {} }
+pure function id(consume files: List<File>) -> List<File> { files }
+pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
+  if flag {
+    std::list::remove_take(id(files), 0)[0]
+  } else {
+    std::list::remove_take(id(files), 0)[0]
+  }
+}
+```
+
 ## linear-collections-loop.vc.json
 Source:
 ```

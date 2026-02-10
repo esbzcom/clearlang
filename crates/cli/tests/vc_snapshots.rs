@@ -101,6 +101,21 @@ fn emit_vcs_matches_refinement_fixtures() {
         "#,
         ),
         (
+            "linear-collections-branch-inline.vc.json",
+            r#"
+            resource File { drop {} }
+            pure function id(consume files: List<File>) -> List<File> { files }
+            pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
+                if flag {
+                    std::list::remove_take(id(files), 0)[0]
+                } else {
+                    std::list::remove_take(id(files), 0)[0]
+                }
+            }
+            function main() -> Int { 0 }
+        "#,
+        ),
+        (
             "linear-collections-loop.vc.json",
             r#"
             resource File { drop {} }

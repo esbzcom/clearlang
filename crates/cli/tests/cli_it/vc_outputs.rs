@@ -186,4 +186,3 @@ fn build_emits_variant_vcs_json() {
     assert!(vc.contains("cl.variant.tag"));
     assert!(!vc.contains("unsupported"));
 }
-

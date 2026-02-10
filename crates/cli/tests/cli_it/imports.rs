@@ -454,4 +454,3 @@ fn import_std_chain_type_item_allows_build() {
         .assert()
         .success();
 }
-

@@ -187,4 +187,3 @@ fn if_branch_mismatch_reports_t301_in_json() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T301"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
 }
-

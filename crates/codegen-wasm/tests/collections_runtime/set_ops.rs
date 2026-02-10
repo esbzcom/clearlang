@@ -135,4 +135,3 @@ fn set_remove_existing() {
     assert_eq!(len, 1, "remove should decrease len");
     assert_eq!(only, 2, "remaining element should be preserved");
 }
-

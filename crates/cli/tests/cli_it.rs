@@ -25,22 +25,21 @@ fn wasmtime_run(bytes: &[u8]) -> i32 {
     main.call(&mut store, ()).expect("invoke main")
 }
 
-
 #[path = "cli_it/basic.rs"]
 mod basic;
-#[path = "cli_it/diagnostics.rs"]
-mod diagnostics;
-#[path = "cli_it/vc_outputs.rs"]
-mod vc_outputs;
-#[path = "cli_it/runtime_errors.rs"]
-mod runtime_errors;
-#[path = "cli_it/runtime_env.rs"]
-mod runtime_env;
-#[path = "cli_it/imports.rs"]
-mod imports;
 #[path = "cli_it/crypto.rs"]
 mod crypto;
+#[path = "cli_it/diagnostics.rs"]
+mod diagnostics;
+#[path = "cli_it/imports.rs"]
+mod imports;
 #[path = "cli_it/limits.rs"]
 mod limits;
 #[path = "cli_it/option_result.rs"]
 mod option_result;
+#[path = "cli_it/runtime_env.rs"]
+mod runtime_env;
+#[path = "cli_it/runtime_errors.rs"]
+mod runtime_errors;
+#[path = "cli_it/vc_outputs.rs"]
+mod vc_outputs;

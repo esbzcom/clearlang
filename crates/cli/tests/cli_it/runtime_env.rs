@@ -102,4 +102,3 @@ fn run_env_random_negative_length_reports_r002() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R002"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
 }
-

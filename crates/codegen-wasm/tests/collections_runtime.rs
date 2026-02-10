@@ -125,14 +125,13 @@ fn assert_pair_unordered(a: i32, b: i32, x: i32, y: i32) {
     );
 }
 
-
 #[path = "collections_runtime/collection_guards.rs"]
 mod collection_guards;
 #[path = "collections_runtime/list_ops.rs"]
 mod list_ops;
-#[path = "collections_runtime/set_ops.rs"]
-mod set_ops;
 #[path = "collections_runtime/map_ops.rs"]
 mod map_ops;
+#[path = "collections_runtime/set_ops.rs"]
+mod set_ops;
 #[path = "collections_runtime/structural_eq.rs"]
 mod structural_eq;

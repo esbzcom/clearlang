@@ -233,4 +233,3 @@ fn run_bytes_eq_ct_returns_true() {
         .success()
         .stdout(predicate::str::contains("1"));
 }
-

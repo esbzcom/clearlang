@@ -488,4 +488,3 @@ fn map_remove_take_returns_updated_map() {
     assert_eq!(key, 2);
     assert_eq!(val, 20);
 }
-

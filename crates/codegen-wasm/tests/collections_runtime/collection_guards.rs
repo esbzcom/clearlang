@@ -316,4 +316,3 @@ fn list_insert_oob_traps() {
     let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
     assert_eq!(code, 10, "expected R009 (CollectionBounds) trap code");
 }
-

@@ -185,4 +185,3 @@ fn runtime_string_concat_oom_reports_r001_json() {
         .contains("allocator ran out of memory"));
     assert!(e0.get("function").is_none());
 }
-

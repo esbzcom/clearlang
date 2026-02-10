@@ -198,4 +198,3 @@ fn build_contract_requires_query_function() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C011"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
 }
-

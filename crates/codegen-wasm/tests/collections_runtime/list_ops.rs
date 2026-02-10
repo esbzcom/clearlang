@@ -272,4 +272,3 @@ fn list_pop_empty_returns_none() {
     assert_eq!(tag, 0, "expected None tag");
     assert_eq!(payload, 0, "None payload should be zero");
 }
-

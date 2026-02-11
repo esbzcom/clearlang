@@ -371,6 +371,44 @@ fn linear_branch_vc_inline_owner_respects_shadowing() {
 }
 
 #[test]
+fn linear_loop_vc_inline_owner_respects_shadowing() {
+    let src = r#"
+        resource File { drop {} }
+
+        pure function id(consume x: List<File>) -> List<File> { x }
+
+        pure function loop_step(
+            consume files: List<File>,
+            consume other: List<File>,
+            n: Int
+        ) -> (List<File>, List<File>) {
+            while n > 0 invariant { n >= 0 } variant { n } {
+                let out = std::list::remove_take(id({ let files = other; files }), 0);
+                let other = out[0];
+            }
+            (files, other)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    // This shape currently trips T804 in type-checking due loop-join ownership analysis,
+    // but VC generation should still track the lexical owner (`other`) in the inline
+    // ownership-API expression.
+    let vcs = generate_vcs(&ast);
+    let vc = vcs
+        .iter()
+        .find(|vc| vc.function == "loop_step" && vc.vc_id == "linear:loop:0")
+        .expect("linear loop vc for shadowed inline owner expression");
+    assert!(
+        vc.post.ast.contains("other"),
+        "expected shadowed owner variable in linear loop vc"
+    );
+    assert!(
+        !vc.post.ast.contains("files"),
+        "did not expect outer shadowed owner variable in linear loop vc"
+    );
+}
+
+#[test]
 fn generates_vc_for_refined_alias_params_and_returns() {
     let src = r#"
         type Nat = Int where n >= 0;

@@ -335,6 +335,42 @@ fn linear_loop_vc_tracks_inline_owner_expression() {
 }
 
 #[test]
+fn linear_branch_vc_inline_owner_respects_shadowing() {
+    let src = r#"
+        resource File { drop {} }
+
+        pure function id(consume x: List<File>) -> List<File> { x }
+
+        pure function choose(
+            flag: Bool,
+            consume files: List<File>,
+            consume other: List<File>
+        ) -> List<File> {
+            if flag {
+                std::list::remove_take(id({ let files = other; files }), 0)[0]
+            } else {
+                std::list::remove_take(id({ let files = other; files }), 0)[0]
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    let vc = vcs
+        .iter()
+        .find(|vc| vc.function == "choose" && vc.vc_id == "linear:branch:0")
+        .expect("linear branch vc for shadowed inline owner expression");
+    assert!(
+        vc.post.ast.contains("other"),
+        "expected shadowed owner variable in linear branch vc"
+    );
+    assert!(
+        !vc.post.ast.contains("files"),
+        "did not expect outer shadowed owner variable in linear branch vc"
+    );
+}
+
+#[test]
 fn generates_vc_for_refined_alias_params_and_returns() {
     let src = r#"
         type Nat = Int where n >= 0;

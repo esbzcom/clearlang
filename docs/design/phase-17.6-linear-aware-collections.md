@@ -198,6 +198,7 @@ Runtime detail policy:
 ## 17.6.3.3 Prototype Fixtures + Runtime Workflow Tests
 - Added `--emit-vcs` fixtures for linear collection control-flow obligations:
   - `docs/proofs/fixtures/linear-collections-branch.vc.json`
+  - `docs/proofs/fixtures/linear-collections-branch-inline.vc.json`
   - `docs/proofs/fixtures/linear-collections-loop.vc.json`
 - Snapshot coverage is wired through `crates/cli/tests/vc_snapshots.rs`.
 - Added representative runtime workflow tests (collection-helper semantics used by linear APIs):

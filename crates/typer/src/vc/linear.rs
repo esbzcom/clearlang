@@ -268,11 +268,14 @@ fn collect_tracked_vars_block(
     tracked: &HashSet<String>,
     out: &mut BTreeSet<String>,
 ) {
+    let mut local = tracked.clone();
     for stmt in &block.statements {
         match stmt {
-            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                collect_tracked_vars_expr(expr, tracked, out)
+            Stmt::Let { name, expr, .. } => {
+                collect_tracked_vars_expr(expr, &local, out);
+                local.remove(name.as_str());
             }
+            Stmt::Expr { expr, .. } => collect_tracked_vars_expr(expr, &local, out),
             Stmt::While {
                 cond,
                 invariant,
@@ -280,17 +283,17 @@ fn collect_tracked_vars_block(
                 body,
                 ..
             } => {
-                collect_tracked_vars_expr(cond, tracked, out);
-                collect_tracked_vars_expr(invariant, tracked, out);
+                collect_tracked_vars_expr(cond, &local, out);
+                collect_tracked_vars_expr(invariant, &local, out);
                 if let Some(v) = variant {
-                    collect_tracked_vars_expr(v, tracked, out);
+                    collect_tracked_vars_expr(v, &local, out);
                 }
-                collect_tracked_vars_block(body, tracked, out);
+                collect_tracked_vars_block(body, &local, out);
             }
         }
     }
     if let Some(tail) = &block.tail {
-        collect_tracked_vars_expr(tail, tracked, out);
+        collect_tracked_vars_expr(tail, &local, out);
     }
 }
 

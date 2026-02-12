@@ -179,6 +179,31 @@ Functions
 
 - A recursion depth guard prevents runaway type-checking (limit 1024).
 
+First-Class Functions and Closures (Phase 17.7)
+
+- Function types use `function(T1, T2, ...) -> R`.
+- Lambda expressions use `(x: T, y: U) => expr`.
+- Lambda parameter type annotations are required in v1.
+- Lambda return type is inferred from the lambda body.
+
+Examples
+
+- Return a closure:
+  - `function make_adder(base: Int) -> function(Int) -> Int { (x: Int) => x + base }`
+- Pass a closure as a parameter:
+  - `io function apply(f: function(Int) -> Int, x: Int) -> Int { f(x) }`
+- Non-capturing closure:
+  - `function inc() -> function(Int) -> Int { (x: Int) => x + 1 }`
+
+v1 restrictions
+
+- Capture-list syntax is not supported (lexical capture only).
+- Capturing linear/resource values in closures is rejected.
+- Self-referential and mutually recursive closure values are rejected.
+- Calls through function-typed values are effect-checked conservatively:
+  - unknown callee effect requires `io`;
+  - local `let`-bound lambdas and direct aliases preserve known effect.
+
 
 
 Errors (examples)

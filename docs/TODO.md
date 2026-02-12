@@ -730,7 +730,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.3.1 Extend VC obligations so collection operations preserve linear invariants across branches/loops.
     - [x] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.
     - [x] 17.6.3.3 Add prototype fixtures (`--emit-vcs`) and runtime tests for representative linear-collection workflows.
-- [ ] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
+- [x] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
   - [x] 17.7.1 Design: function types, capture semantics, and effect annotations (see `docs/design/phase-17.7-closures.md`).
     - [x] 17.7.1.1 Draft `docs/design/phase-17.7-closures.md` with goals/non-goals and a design-principles check (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
     - [x] 17.7.1.2 Decide minimal function-type and lambda syntax that stays familiar and parser-deterministic.
@@ -752,7 +752,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI. (validated via lowering + runtime dispatch tests)
     - [x] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (dispatcher generation and call patching landed)
     - [x] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
-  - [ ] 17.7.5 Tests + docs examples.
+  - [x] 17.7.5 Tests + docs examples. (added runtime unknown-`code_id` trap coverage and typing guide examples/rules)
  - [ ] 17.8 Traits follow-ups (post-17.2).
    - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.
    - [ ] 17.8.2 Optional explicit impl selection syntax (only if coherence is relaxed).

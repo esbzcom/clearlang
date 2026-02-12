@@ -1,5 +1,12 @@
 # Codex Session Context
 
+## 2026-02-12 - Phase 17.7.5 closure tests/docs completion
+- Completed 17.7.5 and closed Phase 17.7 in `docs/TODO.md`.
+- Added runtime regression coverage for dispatcher unknown-`code_id` trap path in:
+  - `crates/codegen-wasm/tests/closures_runtime.rs`
+- Added user-facing closure syntax/examples/rules in:
+  - `docs/typing.md` (function types, lambdas, v1 restrictions).
+
 ## 2026-02-12 - Phase 17.7.4 closure lowering/codegen completion
 - Completed 17.7.4 end-to-end closure invoke path:
   - lowered lambdas now produce synthetic lambda-body functions with hidden `env_ptr` ABI,

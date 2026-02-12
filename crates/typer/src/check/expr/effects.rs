@@ -1,9 +1,11 @@
 use anyhow::Result;
-use clg_ast::{Block, Expr, Stmt};
+use clg_ast::{Block, Expr, MatchPat, Stmt, Type};
 use std::collections::HashMap;
 
 use super::super::{effect_label, level_from_effect, EffectLevel, FnSig, TraitEnv};
 use crate::errors::TyperError;
+
+type FnValueEffects<'a> = HashMap<&'a str, Option<EffectLevel>>;
 
 pub(crate) fn max_effect<'a>(
     e: &'a Expr,
@@ -11,17 +13,53 @@ pub(crate) fn max_effect<'a>(
     trait_env: &TraitEnv<'a>,
     allowed: EffectLevel,
 ) -> Result<EffectLevel> {
+    let fn_locals: FnValueEffects<'a> = HashMap::new();
+    max_effect_with_locals(e, fns, trait_env, allowed, &fn_locals)
+}
+
+fn max_effect_with_locals<'a>(
+    e: &'a Expr,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    allowed: EffectLevel,
+    fn_locals: &FnValueEffects<'a>,
+) -> Result<EffectLevel> {
     fn block_effect<'a>(
         block: &'a Block,
         fns: &HashMap<&'a str, FnSig>,
         trait_env: &TraitEnv<'a>,
         allowed: EffectLevel,
+        fn_locals: &FnValueEffects<'a>,
     ) -> Result<EffectLevel> {
         let mut eff = EffectLevel::Pure;
+        let mut block_locals = fn_locals.clone();
         for stmt in &block.statements {
             match stmt {
-                Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                    eff = eff.join(max_effect(expr.as_ref(), fns, trait_env, allowed)?);
+                Stmt::Let { name, expr, .. } => {
+                    eff = eff.join(max_effect_with_locals(
+                        expr.as_ref(),
+                        fns,
+                        trait_env,
+                        allowed,
+                        &block_locals,
+                    )?);
+                    match infer_fn_binding_effect(expr.as_ref(), fns, trait_env, &block_locals)? {
+                        Some(binding_effect) => {
+                            block_locals.insert(name.as_str(), binding_effect);
+                        }
+                        None => {
+                            block_locals.remove(name.as_str());
+                        }
+                    }
+                }
+                Stmt::Expr { expr, .. } => {
+                    eff = eff.join(max_effect_with_locals(
+                        expr.as_ref(),
+                        fns,
+                        trait_env,
+                        allowed,
+                        &block_locals,
+                    )?);
                 }
                 Stmt::While {
                     cond,
@@ -30,50 +68,94 @@ pub(crate) fn max_effect<'a>(
                     body,
                     ..
                 } => {
-                    eff = eff.join(max_effect(cond.as_ref(), fns, trait_env, allowed)?);
-                    eff = eff.join(max_effect(invariant.as_ref(), fns, trait_env, allowed)?);
+                    eff = eff.join(max_effect_with_locals(
+                        cond.as_ref(),
+                        fns,
+                        trait_env,
+                        allowed,
+                        &block_locals,
+                    )?);
+                    eff = eff.join(max_effect_with_locals(
+                        invariant.as_ref(),
+                        fns,
+                        trait_env,
+                        allowed,
+                        &block_locals,
+                    )?);
                     if let Some(v) = variant {
-                        eff = eff.join(max_effect(v.as_ref(), fns, trait_env, allowed)?);
+                        eff = eff.join(max_effect_with_locals(
+                            v.as_ref(),
+                            fns,
+                            trait_env,
+                            allowed,
+                            &block_locals,
+                        )?);
                     }
-                    eff = eff.join(block_effect(body.as_ref(), fns, trait_env, allowed)?);
+                    eff = eff.join(block_effect(
+                        body.as_ref(),
+                        fns,
+                        trait_env,
+                        allowed,
+                        &block_locals,
+                    )?);
                 }
             }
         }
         if let Some(tail) = &block.tail {
-            eff = eff.join(max_effect(tail.as_ref(), fns, trait_env, allowed)?);
+            eff = eff.join(max_effect_with_locals(
+                tail.as_ref(),
+                fns,
+                trait_env,
+                allowed,
+                &block_locals,
+            )?);
         }
         Ok(eff)
     }
     match e {
-        Expr::Block { block } => block_effect(block, fns, trait_env, allowed),
+        Expr::Block { block } => block_effect(block, fns, trait_env, allowed, fn_locals),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {
             Ok(EffectLevel::Pure)
         }
-        Expr::Return { expr, .. } => max_effect(expr, fns, trait_env, allowed),
-        Expr::Unary { expr, .. } => max_effect(expr, fns, trait_env, allowed),
+        Expr::Return { expr, .. } => {
+            max_effect_with_locals(expr, fns, trait_env, allowed, fn_locals)
+        }
+        Expr::Unary { expr, .. } => {
+            max_effect_with_locals(expr, fns, trait_env, allowed, fn_locals)
+        }
         Expr::Bin { lhs, rhs, .. } => {
-            let left = max_effect(lhs, fns, trait_env, allowed)?;
-            let right = max_effect(rhs, fns, trait_env, allowed)?;
+            let left = max_effect_with_locals(lhs, fns, trait_env, allowed, fn_locals)?;
+            let right = max_effect_with_locals(rhs, fns, trait_env, allowed, fn_locals)?;
             Ok(left.join(right))
         }
         Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
             let mut eff = EffectLevel::Pure;
             for elem in elems {
-                eff = eff.join(max_effect(elem, fns, trait_env, allowed)?);
+                eff = eff.join(max_effect_with_locals(
+                    elem, fns, trait_env, allowed, fn_locals,
+                )?);
             }
             Ok(eff)
         }
         Expr::StructLit { fields, .. } => {
             let mut eff = EffectLevel::Pure;
             for field in fields {
-                eff = eff.join(max_effect(&field.expr, fns, trait_env, allowed)?);
+                eff = eff.join(max_effect_with_locals(
+                    &field.expr,
+                    fns,
+                    trait_env,
+                    allowed,
+                    fn_locals,
+                )?);
             }
             Ok(eff)
         }
-        Expr::FieldAccess { base, .. } => max_effect(base, fns, trait_env, allowed),
+        Expr::FieldAccess { base, .. } => {
+            max_effect_with_locals(base, fns, trait_env, allowed, fn_locals)
+        }
         Expr::Index { base, index, .. } => {
-            let base_eff = max_effect(base, fns, trait_env, allowed)?;
-            let index_eff = max_effect(index, fns, trait_env, allowed)?;
+            let base_eff = max_effect_with_locals(base, fns, trait_env, allowed, fn_locals)?;
+            let index_eff = max_effect_with_locals(index, fns, trait_env, allowed, fn_locals)?;
             Ok(base_eff.join(index_eff))
         }
         Expr::If {
@@ -82,28 +164,58 @@ pub(crate) fn max_effect<'a>(
             else_br,
             ..
         } => {
-            let cond_eff = max_effect(cond, fns, trait_env, allowed)?;
-            let then_eff = max_effect(then_br, fns, trait_env, allowed)?;
-            let else_eff = max_effect(else_br, fns, trait_env, allowed)?;
+            let cond_eff = max_effect_with_locals(cond, fns, trait_env, allowed, fn_locals)?;
+            let then_eff = max_effect_with_locals(then_br, fns, trait_env, allowed, fn_locals)?;
+            let else_eff = max_effect_with_locals(else_br, fns, trait_env, allowed, fn_locals)?;
             Ok(cond_eff.join(then_eff).join(else_eff))
         }
         Expr::Match {
             scrutinee, arms, ..
         } => {
-            let mut eff = max_effect(scrutinee, fns, trait_env, allowed)?;
+            let mut eff = max_effect_with_locals(scrutinee, fns, trait_env, allowed, fn_locals)?;
             for arm in arms {
-                eff = eff.join(max_effect(&arm.expr, fns, trait_env, allowed)?);
+                let mut arm_locals = fn_locals.clone();
+                match &arm.pat {
+                    MatchPat::Some(name) | MatchPat::Ok(name) | MatchPat::Err(name) => {
+                        arm_locals.remove(name.as_str());
+                    }
+                    MatchPat::EnumVariant { binders, .. } => {
+                        for binder in binders {
+                            arm_locals.remove(binder.as_str());
+                        }
+                    }
+                    MatchPat::None | MatchPat::Wildcard => {}
+                }
+                eff = eff.join(max_effect_with_locals(
+                    &arm.expr,
+                    fns,
+                    trait_env,
+                    allowed,
+                    &arm_locals,
+                )?);
             }
             Ok(eff)
         }
-        Expr::Try { expr, .. } => max_effect(expr, fns, trait_env, allowed),
-        Expr::Lambda { body, .. } => max_effect(body, fns, trait_env, allowed),
+        Expr::Try { expr, .. } => max_effect_with_locals(expr, fns, trait_env, allowed, fn_locals),
+        Expr::Lambda { params, body, .. } => {
+            let mut lambda_locals = fn_locals.clone();
+            for param in params {
+                if matches!(param.ty, Type::Fn { .. }) {
+                    lambda_locals.insert(param.name.as_str(), None);
+                } else {
+                    lambda_locals.remove(param.name.as_str());
+                }
+            }
+            max_effect_with_locals(body, fns, trait_env, allowed, &lambda_locals)
+        }
         Expr::Call { callee, args, span } => {
             let mut eff = EffectLevel::Pure;
             for arg in args {
-                eff = eff.join(max_effect(arg, fns, trait_env, allowed)?);
+                eff = eff.join(max_effect_with_locals(
+                    arg, fns, trait_env, allowed, fn_locals,
+                )?);
             }
-            let call_eff = call_effect(callee, fns, trait_env);
+            let call_eff = call_effect(callee, fns, trait_env, fn_locals);
             if call_eff > allowed {
                 return Err(
                     TyperError::effect_required(callee, effect_label(call_eff), *span).into(),
@@ -114,7 +226,40 @@ pub(crate) fn max_effect<'a>(
     }
 }
 
-fn call_effect(callee: &str, fns: &HashMap<&str, FnSig>, trait_env: &TraitEnv<'_>) -> EffectLevel {
+fn infer_fn_binding_effect<'a>(
+    expr: &'a Expr,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    fn_locals: &FnValueEffects<'a>,
+) -> Result<Option<Option<EffectLevel>>> {
+    match expr {
+        Expr::Lambda { params, body, .. } => {
+            let mut lambda_locals = fn_locals.clone();
+            for param in params {
+                if matches!(param.ty, Type::Fn { .. }) {
+                    lambda_locals.insert(param.name.as_str(), None);
+                } else {
+                    lambda_locals.remove(param.name.as_str());
+                }
+            }
+            let eff =
+                max_effect_with_locals(body, fns, trait_env, EffectLevel::Io, &lambda_locals)?;
+            Ok(Some(Some(eff)))
+        }
+        Expr::Var(name, _) => Ok(fn_locals.get(name.as_str()).copied()),
+        _ => Ok(None),
+    }
+}
+
+fn call_effect(
+    callee: &str,
+    fns: &HashMap<&str, FnSig>,
+    trait_env: &TraitEnv<'_>,
+    fn_locals: &FnValueEffects<'_>,
+) -> EffectLevel {
+    if let Some(effect) = fn_locals.get(callee) {
+        return effect.unwrap_or(EffectLevel::Io);
+    }
     if let Some(level) = builtin_effect(callee) {
         return level;
     }
@@ -127,11 +272,20 @@ fn call_effect(callee: &str, fns: &HashMap<&str, FnSig>, trait_env: &TraitEnv<'_
     }
     fns.get(callee)
         .map(|sig| sig.effect)
-        .unwrap_or(EffectLevel::Pure)
+        .unwrap_or_else(|| {
+            if callee.contains("::") {
+                EffectLevel::Pure
+            } else {
+                EffectLevel::Io
+            }
+        })
 }
 
 fn builtin_effect(callee: &str) -> Option<EffectLevel> {
     match callee {
+        "Some" | "None" | "Ok" | "Err" | "U8" | "U64" | "U128" | "U256" => {
+            Some(EffectLevel::Pure)
+        }
         "std::list::push_mut"
         | "std::list::insert_mut"
         | "std::list::remove_mut"

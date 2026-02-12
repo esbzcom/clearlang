@@ -106,6 +106,17 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.7.
 - Recursion remains supported through named functions under existing totality rules; closures may call named functions.
 - Rationale: keep typing/ownership/effect reasoning deterministic without introducing closure fixpoint semantics in Phase 17.
 
+### D15. Function-Value Call Effect Policy (v1)
+- Calls through function values are effect-checked conservatively.
+- If the callee effect is unknown at type-check time (for example function-typed parameters), invocation requires `io` capability.
+- For local `let`-bound lambdas and direct aliases (`let g = f`), typer tracks known closure-body effect and uses that effect when checking later calls.
+- Rationale: preserve soundness without adding effect annotations to `function(...) -> ...` types in Phase 17.
+
+### D16. Closure Recursion Diagnostics Policy (v1)
+- Typer performs explicit closure dependency-cycle checks for `let name = (..) => ...` bindings in a block.
+- Self-cycles and mutual cycles are rejected with deterministic closure-policy diagnostics (not fallback unknown-function errors).
+- Rationale: keep recursion policy user-visible and stable while closure lowering is still pending.
+
 ## Locked Surface (v1)
 
 Function type:
@@ -145,10 +156,11 @@ Notes:
 | Lambda with missing parameter type | reject | n/a | v1 requires typed lambda params for deterministic parse/type flow. |
 | Returning closure from function | accept | accept/reject by effect/ownership rules | No special closure escape rule. |
 | Self-referential closure value | accept | reject | Rejected by D14 in v1. |
+| `pure` function calls function-typed parameter | accept | reject | Conservatively requires `io` unless callee effect is known (D15). |
 | Dynamic closure call with unknown `code_id` | n/a | n/a | Runtime trap via dispatcher (D12). |
 
 ## Decision Status
-- All originally tracked post-17.7.1 questions are now resolved as D9 through D14.
+- All originally tracked post-17.7.1 questions are now resolved as D9 through D16.
 - New questions should be added only if they introduce user-visible behavior changes not covered above.
 
 ## References

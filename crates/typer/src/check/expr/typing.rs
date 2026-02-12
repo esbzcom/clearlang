@@ -163,7 +163,12 @@ fn collect_lambda_captures(
     env: &HashMap<&str, LocalBinding>,
 ) -> HashMap<String, Span> {
     let mut scopes: Vec<HashSet<String>> = Vec::with_capacity(4);
-    scopes.push(params.iter().map(|p| p.name.clone()).collect::<HashSet<_>>());
+    scopes.push(
+        params
+            .iter()
+            .map(|p| p.name.clone())
+            .collect::<HashSet<_>>(),
+    );
     let mut captures: HashMap<String, Span> = HashMap::new();
     collect_lambda_captures_expr(body, &mut scopes, &mut captures);
     captures.retain(|name, _| env.contains_key(name.as_str()));
@@ -800,10 +805,13 @@ pub(crate) fn type_of<'a>(
 
             if let Some((exp_params, _)) = &expected_fn {
                 if exp_params.len() != params.len() {
-                    return Err(
-                        TyperError::arity_mismatch("lambda", exp_params.len(), params.len(), *span)
-                            .into(),
-                    );
+                    return Err(TyperError::arity_mismatch(
+                        "lambda",
+                        exp_params.len(),
+                        params.len(),
+                        *span,
+                    )
+                    .into());
                 }
                 for (idx, (expected_param, found_param)) in
                     exp_params.iter().zip(params.iter()).enumerate()
@@ -855,7 +863,8 @@ pub(crate) fn type_of<'a>(
                 if !binding_compatible(&expected_ret, &body_ty, aliases)? {
                     let body_span = expr_span(body.as_ref());
                     if !literal_can_coerce_unsigned(&expected_ret, &body_ty, body) {
-                        if let Some(err) = unsigned_literal_range_error(&expected_ret, &body_ty, body)
+                        if let Some(err) =
+                            unsigned_literal_range_error(&expected_ret, &body_ty, body)
                         {
                             return Err(err.into());
                         }
@@ -880,7 +889,10 @@ pub(crate) fn type_of<'a>(
             }
 
             Ok(Type::Fn {
-                params: params.iter().map(|param| param.ty.clone()).collect::<Vec<_>>(),
+                params: params
+                    .iter()
+                    .map(|param| param.ty.clone())
+                    .collect::<Vec<_>>(),
                 ret: Box::new(body_ty),
             })
         }

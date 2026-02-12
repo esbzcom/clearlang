@@ -22,8 +22,8 @@ function make_adder(base: Int) -> function(Int) -> Int {
 #[test]
 fn closure_parameter_call_typechecks() {
     let src = r#"
-function apply(f: function(Int) -> Int, x: Int) -> Int { f(x) }
-function main() -> Int { apply((n: Int) => n + 1, 41) }
+io function apply(f: function(Int) -> Int, x: Int) -> Int { f(x) }
+io function main() -> Int { apply((n: Int) => n + 1, 41) }
 "#;
 
     let ast = parse(src).expect("parse succeeds");
@@ -38,7 +38,10 @@ function bad_apply(f: function(Int) -> Int) -> Int { f(true) }
 
     let msg = expect_typer_error(src);
     assert!(msg.contains("T003"), "unexpected error: {msg}");
-    assert!(msg.contains("arg 0 type mismatch"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("arg 0 type mismatch"),
+        "unexpected error: {msg}"
+    );
 }
 
 #[test]
@@ -71,8 +74,11 @@ function bad() -> function(Int) -> Int {
 "#;
 
     let msg = expect_typer_error(src);
-    assert!(msg.contains("T001"), "unexpected error: {msg}");
-    assert!(msg.contains("unknown function `f`"), "unexpected error: {msg}");
+    assert!(msg.contains("T017"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("self-referential closure value `f`"),
+        "unexpected error: {msg}"
+    );
 }
 
 #[test]
@@ -86,8 +92,11 @@ function bad() -> Int {
 "#;
 
     let msg = expect_typer_error(src);
-    assert!(msg.contains("T001"), "unexpected error: {msg}");
-    assert!(msg.contains("unknown function `g`"), "unexpected error: {msg}");
+    assert!(msg.contains("T017"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("mutually recursive closure values `f` and `g`"),
+        "unexpected error: {msg}"
+    );
 }
 
 #[test]
@@ -100,5 +109,36 @@ pure function bad() -> function() -> Int {
 
     let msg = expect_typer_error(src);
     assert!(msg.contains("T401"), "unexpected error: {msg}");
-    assert!(msg.contains("requires `io` effect"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn function_typed_param_call_requires_conservative_effect() {
+    let src = r#"
+pure function apply(f: function(Int) -> Int, x: Int) -> Int { f(x) }
+"#;
+
+    let msg = expect_typer_error(src);
+    assert!(msg.contains("T401"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("requires `io` effect"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn local_pure_lambda_call_remains_pure() {
+    let src = r#"
+pure function use_local(x: Int) -> Int {
+    let f = (n: Int) => n + 1;
+    let g = f;
+    g(x)
+}
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    type_check_only(&ast).expect("known local pure closures should remain callable from pure code");
 }

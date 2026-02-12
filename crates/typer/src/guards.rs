@@ -78,6 +78,7 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
             }
         }
         Expr::Block { block } => collect_guards_from_block(block, out),
+        Expr::Lambda { body, .. } => collect_guards_from_expr(body, out),
         Expr::Call { args, .. } => {
             for arg in args {
                 collect_guards_from_expr(arg, out);
@@ -146,6 +147,7 @@ pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
             }
         }
         Expr::Block { block } => collect_calls_from_block(block, out),
+        Expr::Lambda { body, .. } => collect_mut_calls(body, out),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
     }
 }

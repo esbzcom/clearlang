@@ -85,6 +85,20 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .collect::<Vec<_>>()
             .map(Type::Tuple)
             .delimited_by(just('(').padded(), just(')').padded());
+        let fn_t = kw("function")
+            .ignore_then(
+                ty.clone()
+                    .separated_by(just(',').padded())
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('(').padded(), just(')').padded()),
+            )
+            .then_ignore(just("->").padded())
+            .then(ty.clone())
+            .map(|(params, ret)| Type::Fn {
+                params,
+                ret: Box::new(ret),
+            });
         let array_size = text::int(10)
             .from_str::<i64>()
             .unwrapped()
@@ -111,7 +125,7 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
             .then_ignore(just(']').padded())
             .map(|(inner, len)| Type::Array(Box::new(inner), Some(len)));
         choice((
-            option, result, list_t, set_t, map_t, array_dyn, slice_t, array_t, tuple_t, base,
+            option, result, list_t, set_t, map_t, array_dyn, slice_t, array_t, fn_t, tuple_t, base,
             named_args, named,
         ))
         .boxed()

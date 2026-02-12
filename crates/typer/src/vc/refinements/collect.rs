@@ -394,6 +394,10 @@ pub(crate) fn collect_refinement_obligations<'a>(
                 other => Some(other),
             }
         }
+        Expr::Lambda { body, .. } => {
+            collect_refinement_obligations(body.as_ref(), aliases, fn_sigs, &mut env.clone(), out);
+            None
+        }
     }
 }
 

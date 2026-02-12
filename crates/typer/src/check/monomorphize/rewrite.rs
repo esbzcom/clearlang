@@ -260,6 +260,7 @@ impl<'a> Monomorphizer<'a> {
                 }
                 Ok(())
             }
+            Expr::Lambda { body, .. } => self.rewrite_expr(body.as_mut(), env, type_params, bounds),
         }
     }
 }

@@ -71,6 +71,9 @@ fn check_totality_expr(expr: &Expr, self_name: &str) -> Result<()> {
                 check_totality_expr(arg, self_name)?;
             }
         }
+        Expr::Lambda { body, .. } => {
+            check_totality_expr(body, self_name)?;
+        }
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
     }
     Ok(())

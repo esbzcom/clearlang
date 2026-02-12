@@ -731,10 +731,25 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.6.3.2 Align `pure`/`mut` effect gates with linear collection APIs and document proof/runtime split.
     - [x] 17.6.3.3 Add prototype fixtures (`--emit-vcs`) and runtime tests for representative linear-collection workflows.
 - [ ] 17.7 First-class functions and closures (if ClearLang is to be general-purpose).
-  - [ ] 17.7.1 Design: function types, capture semantics, and effect annotations.
-  - [ ] 17.7.2 Parser/AST: lambdas, capture lists (if any), and type annotations.
+  - [x] 17.7.1 Design: function types, capture semantics, and effect annotations (see `docs/design/phase-17.7-closures.md`).
+    - [x] 17.7.1.1 Draft `docs/design/phase-17.7-closures.md` with goals/non-goals and a design-principles check (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
+    - [x] 17.7.1.2 Decide minimal function-type and lambda syntax that stays familiar and parser-deterministic.
+    - [x] 17.7.1.3 Define capture semantics (`by value` vs borrow), including linear/resource capture restrictions.
+    - [x] 17.7.1.4 Specify effect and contract behavior for closure creation/invocation plus VC obligations.
+    - [x] 17.7.1.5 Define deterministic diagnostics and a parser/typer acceptance matrix before 17.7.2 starts.
+  - [x] 17.7.2 Parser/AST: lambdas, capture lists (if any), and type annotations.
+    - [x] 17.7.2.1 Parse `function(T1, ...) -> R` function types and `(x: T, ...) => expr` lambdas.
+    - [x] 17.7.2.2 Require lambda parameter type annotations in v1; reject missing types with parser diagnostics.
+    - [x] 17.7.2.3 Do not add capture-list syntax in Phase 17; reject any capture-list-like forms clearly.
   - [ ] 17.7.3 Typer: closure typing, lifetime/capture checks, and effect compatibility.
+    - [ ] 17.7.3.1 Infer lambda return types (no explicit lambda return-type annotation in Phase 17).
+    - [ ] 17.7.3.2 Enforce lexical capture rules and reject linear/resource captures with deterministic diagnostics.
+    - [ ] 17.7.3.3 Reject self-referential and mutually recursive closure values in v1 (named-function recursion remains under existing totality rules).
   - [ ] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
+    - [ ] 17.7.4.1 Lower closures to `{ code_id, env_ptr }` runtime records with hidden `env_ptr` invoke argument.
+    - [ ] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI.
+    - [ ] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17.
+    - [ ] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
   - [ ] 17.7.5 Tests + docs examples.
  - [ ] 17.8 Traits follow-ups (post-17.2).
    - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.

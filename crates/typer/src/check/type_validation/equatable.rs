@@ -49,6 +49,20 @@ fn find_non_equatable_collection_key(
         Type::Option(inner) | Type::List(inner) | Type::Array(inner, _) | Type::Slice(inner) => {
             find_non_equatable_collection_key(&inner, type_defs, aliases, type_params, seen)
         }
+        Type::Fn { params, ret } => {
+            for param in params {
+                if let Some(offending) = find_non_equatable_collection_key(
+                    &param,
+                    type_defs,
+                    aliases,
+                    type_params,
+                    seen,
+                )? {
+                    return Ok(Some(offending));
+                }
+            }
+            find_non_equatable_collection_key(&ret, type_defs, aliases, type_params, seen)
+        }
         Type::Result(ok, err) => {
             if let Some(offending) =
                 find_non_equatable_collection_key(&ok, type_defs, aliases, type_params, seen)?
@@ -156,6 +170,7 @@ fn is_equatable_type(
             ok
         }
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => false,
+        Type::Fn { .. } => false,
         Type::Named { name, args } => {
             if type_params.contains(&name) || name == "Self" {
                 return Ok(true);

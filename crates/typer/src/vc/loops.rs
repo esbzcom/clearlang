@@ -52,6 +52,7 @@ pub(super) fn collect_loops<'a>(expr: &'a Expr, out: &mut Vec<LoopObligation<'a>
         Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
             collect_loops(expr, out);
         }
+        Expr::Lambda { body, .. } => collect_loops(body, out),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
     }
 }
@@ -99,7 +100,8 @@ pub(super) fn expr_span(e: &Expr) -> Span {
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
-        | Expr::Try { span, .. } => *span,
+        | Expr::Try { span, .. }
+        | Expr::Lambda { span, .. } => *span,
         Expr::Block { block } => block.span,
     }
 }

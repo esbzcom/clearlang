@@ -624,6 +624,9 @@ pub(crate) fn type_of<'a>(
             expected,
             *span,
         ),
+        Expr::Lambda { span, .. } => {
+            Err(TyperError::feature_not_supported("closures", *span).into())
+        }
     }
 }
 

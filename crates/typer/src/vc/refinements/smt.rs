@@ -21,6 +21,7 @@ pub(super) fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>
         | Type::Array(_, _)
         | Type::Slice(_)
         | Type::Tuple(_)
+        | Type::Fn { .. }
         | Type::Named { .. } => {
             if let Type::Named { name, args } = ty {
                 if args.is_empty() {

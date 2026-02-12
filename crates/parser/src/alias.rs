@@ -60,6 +60,7 @@ fn find_first_var(expr: &Expr) -> Option<String> {
         Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {
             find_first_var(expr)
         }
+        Expr::Lambda { body, .. } => find_first_var(body),
         Expr::Match {
             scrutinee, arms, ..
         } => find_first_var(scrutinee)

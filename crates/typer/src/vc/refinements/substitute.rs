@@ -85,6 +85,7 @@ pub(super) fn substitute_binder(expr: &Expr, binder: &str, replacement: &Expr) -
             block: Box::new(substitute_block_binder(block, binder, replacement)),
         },
         Expr::Match { .. } | Expr::If { .. } => expr.clone(),
+        Expr::Lambda { .. } => expr.clone(),
     }
 }
 
@@ -159,6 +160,7 @@ pub(crate) fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
             block: Box::new(substitute_block(block, replacement)),
         },
         Expr::Match { .. } | Expr::If { .. } => expr.clone(),
+        Expr::Lambda { .. } => expr.clone(),
     }
 }
 
@@ -267,7 +269,8 @@ fn span_of(expr: &Expr) -> Span {
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
-        | Expr::Try { span, .. } => *span,
+        | Expr::Try { span, .. }
+        | Expr::Lambda { span, .. } => *span,
         Expr::Block { block } => block.span,
     }
 }

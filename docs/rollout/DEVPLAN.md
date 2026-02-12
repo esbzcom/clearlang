@@ -6,13 +6,15 @@
 - 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Done)
 - 17.4 General arrays/slices with indexing semantics and bounds checks. (Done)
 - 17.5 Module/import system with visibility controls. (Done)
-- 17.6 Linear-aware collections: design + typer/VC integration prototype. (Next)
-- 17.7 First-class functions and closures. (Queued)
+- 17.6 Linear-aware collections: design + typer/VC integration prototype. (Done)
+- 17.7 First-class functions and closures. (Next)
 
 ### Suggested Sequence
-1) Start 17.6.1 design note for linear-aware collections (ownership model, consume/borrow rules, diagnostics).
-2) Implement 17.6.2 typer + diagnostics for linear-aware collection ops.
-3) Add 17.6.3 VC/effect integration with prototype tests, then revisit 17.7 scope.
+1) Complete 17.7.1 design lock for function types, capture semantics, effect compatibility, and parser/typer acceptance boundaries. (Done; see `docs/design/phase-17.7-closures.md`.)
+   - Locked decisions include closure ABI shape (`{ code_id, env_ptr }`), wrapper-based dispatch (no `call_indirect` in Phase 17), no capture-list syntax, inferred lambda return types, no closure-env deallocation in v1, and no self-referential closure values in v1.
+2) Implement 17.7.2 parser/AST support for lambdas and function-type syntax. (Done)
+3) Implement 17.7.3 typer checks (capture/effect compatibility, closure-call typing).
+4) Proceed to 17.7.4 lowering/codegen closure environment + dispatch wrappers.
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

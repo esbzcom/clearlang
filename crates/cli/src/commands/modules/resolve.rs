@@ -205,6 +205,16 @@ fn resolve_expr(expr: &mut Expr, ctx: &ResolveCtx<'_>, params: &HashSet<String>)
             resolve_expr(base, ctx, params);
             resolve_expr(index, ctx, params);
         }
+        Expr::Lambda {
+            params: lambda_params,
+            body,
+            ..
+        } => {
+            for param in lambda_params {
+                resolve_type(&mut param.ty, ctx, params);
+            }
+            resolve_expr(body, ctx, params);
+        }
     }
 }
 
@@ -248,6 +258,15 @@ fn resolve_type(ty: &mut Type, ctx: &ResolveCtx<'_>, params: &HashSet<String>) {
             for elem in elems {
                 resolve_type(elem, ctx, params);
             }
+        }
+        Type::Fn {
+            params: fn_params,
+            ret,
+        } => {
+            for param in fn_params {
+                resolve_type(param, ctx, params);
+            }
+            resolve_type(ret, ctx, params);
         }
         Type::Int
         | Type::U8

@@ -140,6 +140,14 @@ pub(super) fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
             }
             format!("{{ {} }}", parts.join(" "))
         }
+        Expr::Lambda { params, body, .. } => {
+            let params_src = params
+                .iter()
+                .map(|p| format!("{}: {:?}", p.name, p.ty))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("({}) => {}", params_src, expr_to_source(body, 0))
+        }
     }
 }
 

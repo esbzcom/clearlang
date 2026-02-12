@@ -212,7 +212,8 @@ pub(super) fn expr_span_local(e: &Expr) -> Span {
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
-        | Expr::Try { span, .. } => *span,
+        | Expr::Try { span, .. }
+        | Expr::Lambda { span, .. } => *span,
         Expr::Block { block } => block.span,
     }
 }

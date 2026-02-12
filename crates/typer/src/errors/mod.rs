@@ -73,5 +73,13 @@ pub(super) fn render_type(ty: &Type) -> String {
                 .join(", ");
             format!("({})", rendered)
         }
+        Type::Fn { params, ret } => {
+            let rendered = params
+                .iter()
+                .map(render_type)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("function({}) -> {}", rendered, render_type(ret))
+        }
     }
 }

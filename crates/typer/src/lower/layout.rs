@@ -82,7 +82,7 @@ fn layout_for_type(ty: &Type, aliases: &AliasMap, std_types: &StdTypeMap) -> Res
         }
         Type::Option(_) | Type::Result(_, _) => Ok((4, 4)),
         Type::List(_) | Type::Set(_) | Type::Map(_, _) => Ok((4, 4)),
-        Type::Array(_, _) | Type::Slice(_) | Type::Tuple(_) => Ok((4, 4)),
+        Type::Array(_, _) | Type::Slice(_) | Type::Tuple(_) | Type::Fn { .. } => Ok((4, 4)),
     }
 }
 

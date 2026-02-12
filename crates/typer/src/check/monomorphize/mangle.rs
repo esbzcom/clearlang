@@ -71,5 +71,14 @@ pub(super) fn mangle_type(ty: &Type, aliases: &AliasMap) -> Result<String> {
             }
             format!("Tuple${}", parts.join("$"))
         }
+        Type::Fn { params, ret } => {
+            let mut parts = Vec::with_capacity(params.len() + 2);
+            parts.push(params.len().to_string());
+            for param in params {
+                parts.push(mangle_type(param, aliases)?);
+            }
+            parts.push(mangle_type(ret, aliases)?);
+            format!("Fn${}", parts.join("$"))
+        }
     })
 }

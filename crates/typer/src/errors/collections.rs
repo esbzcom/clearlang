@@ -131,10 +131,7 @@ impl TyperError {
             ),
             None => Self::new(
                 "T806",
-                format!(
-                    "unsupported resource-container form; found `{}`",
-                    rendered
-                ),
+                format!("unsupported resource-container form; found `{}`", rendered),
                 0,
                 0,
             ),

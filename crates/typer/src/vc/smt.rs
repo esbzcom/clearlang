@@ -126,6 +126,7 @@ impl SmtEncoder {
                     "0".to_string()
                 }
             }
+            Expr::Lambda { .. } => "0".to_string(),
         }
     }
 
@@ -383,6 +384,7 @@ fn smt_sort_for_builtin(ty: &Type) -> &'static str {
         | Type::Array(_, _)
         | Type::Slice(_)
         | Type::Tuple(_)
+        | Type::Fn { .. }
         | Type::Named { .. } => "Int",
     }
 }

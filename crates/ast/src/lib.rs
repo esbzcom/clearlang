@@ -220,6 +220,13 @@ pub struct Param {
     pub ty: Type,
 }
 
+#[derive(Debug, Clone)]
+pub struct LambdaParam {
+    pub name: String,
+    pub ty: Type,
+    pub span: Span,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Int,
@@ -239,6 +246,7 @@ pub enum Type {
     Array(Box<Type>, Option<u32>),
     Slice(Box<Type>),
     Tuple(Vec<Type>),
+    Fn { params: Vec<Type>, ret: Box<Type> },
 }
 
 #[derive(Debug, Clone)]
@@ -306,6 +314,11 @@ pub enum Expr {
     },
     Try {
         expr: Box<Expr>,
+        span: Span,
+    },
+    Lambda {
+        params: Vec<LambdaParam>,
+        body: Box<Expr>,
         span: Span,
     },
 }

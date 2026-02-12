@@ -74,6 +74,7 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
                 }
             }
             Expr::Block { block } => walk_block(block, set),
+            Expr::Lambda { body, .. } => walk_expr(body, set),
             Expr::Call { callee, args, .. } => {
                 match callee.as_str() {
                     "std::bytes::len" => {

@@ -3,11 +3,12 @@ mod control;
 mod shared;
 
 use chumsky::prelude::*;
-use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Span, StructFieldInit, UnaryOp};
+use clg_ast::{BinOp, Expr, LambdaParam, MatchArm, MatchPat, Span, StructFieldInit, UnaryOp};
 
 use crate::literals::{bool_lit, int_lit, str_lit};
 use crate::path::path_name_p;
 use crate::tokens::{ctor_name_p, ident_p, kw};
+use crate::types::ty_p;
 use crate::ErrTy;
 
 use blocks::block_expr_p;
@@ -175,8 +176,83 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
+        let lambda_param = ident_p()
+            .then_ignore(just(':').padded().labelled("':'"))
+            .then(ty_p().padded())
+            .map_with(|(name, ty), e| LambdaParam {
+                name,
+                ty,
+                span: to_span(e.span()),
+            });
+
+        let typed_lambda_params = lambda_param
+            .separated_by(just(',').padded().labelled("comma"))
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(
+                just('(').padded().labelled("'('"),
+                just(')').padded().labelled("')'"),
+            )
+            .boxed();
+
+        let untyped_lambda_params = ident_p()
+            .separated_by(just(',').padded().labelled("comma"))
+            .at_least(1)
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(
+                just('(').padded().labelled("'('"),
+                just(')').padded().labelled("')'"),
+            )
+            .boxed();
+
+        let lambda_expr = typed_lambda_params
+            .clone()
+            .then_ignore(just("=>").padded().labelled("'=>'"))
+            .then(expr.clone())
+            .map_with(|(params, body), e| Expr::Lambda {
+                params,
+                body: Box::new(body),
+                span: to_span(e.span()),
+            });
+
+        let untyped_lambda_hint = untyped_lambda_params
+            .clone()
+            .then_ignore(just("=>").padded().labelled("'=>'"))
+            .then(expr.clone())
+            .try_map(|_, span| {
+                Err(Rich::custom(
+                    span,
+                    "lambda parameters require type annotations (`name: Type`)".to_string(),
+                ))
+            });
+
+        let capture_list_hint = ident_p()
+            .separated_by(just(',').padded().labelled("comma"))
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(
+                just('[').padded().labelled("'['"),
+                just(']').padded().labelled("']'"),
+            )
+            .then(choice((
+                typed_lambda_params.clone().map(|_| ()),
+                untyped_lambda_params.clone().map(|_| ()),
+            )))
+            .then_ignore(just("=>").padded().labelled("'=>'"))
+            .then(expr.clone())
+            .try_map(|_, span| {
+                Err(Rich::custom(
+                    span,
+                    "capture-list syntax is not supported in Phase 17".to_string(),
+                ))
+            });
+
         let atom_base = choice((
             contract_kw_hint,
+            capture_list_hint,
+            lambda_expr,
+            untyped_lambda_hint,
             int_lit(),
             bool_lit(),
             str_lit(),

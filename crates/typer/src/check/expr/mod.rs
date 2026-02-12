@@ -249,7 +249,8 @@ pub(super) fn expr_span(e: &Expr) -> Span {
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
-        | Expr::Try { span, .. } => *span,
+        | Expr::Try { span, .. }
+        | Expr::Lambda { span, .. } => *span,
         Expr::Block { block } => block.span,
     }
 }
@@ -287,6 +288,14 @@ pub(crate) fn show_ty(t: Type) -> String {
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("({})", rendered)
+            }
+            Type::Fn { params, ret } => {
+                let rendered = params
+                    .into_iter()
+                    .map(render)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("function({}) -> {}", rendered, render(*ret))
             }
         }
     }

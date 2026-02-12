@@ -2,6 +2,7 @@ use crate::check::{
     base_type, AliasMap, BoundsMap, FnSig as CheckFnSig, LocalBinding, StdTypeMap, TraitEnv,
     TypeDefs,
 };
+use crate::errors::TyperError;
 use anyhow::Result;
 use clg_ast::{Expr, Func, ParamKind, Type};
 use clg_ir::{
@@ -81,7 +82,8 @@ fn ir_ty(t: Type) -> IrType {
         | Type::Map(_, _)
         | Type::Array(_, _)
         | Type::Slice(_)
-        | Type::Tuple(_) => IrType::Int,
+        | Type::Tuple(_)
+        | Type::Fn { .. } => IrType::Int,
     }
 }
 
@@ -304,6 +306,9 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Bin { op, lhs, rhs, .. } => lower_bin_expr(ctx, e, op, lhs, rhs, expected),
         Expr::Call { callee, args, .. } => {
             lower_call_expr(ctx, e, callee.as_str(), args, expected.as_ref())
+        }
+        Expr::Lambda { span, .. } => {
+            Err(TyperError::feature_not_supported("closures", *span).into())
         }
     }
 }

@@ -25,7 +25,8 @@ pub(super) fn span_of(expr: &Expr) -> (usize, usize) {
         | Expr::Return { span, .. }
         | Expr::If { span, .. }
         | Expr::Unary { span, .. }
-        | Expr::Try { span, .. } => (span.start, span.end),
+        | Expr::Try { span, .. }
+        | Expr::Lambda { span, .. } => (span.start, span.end),
     }
 }
 

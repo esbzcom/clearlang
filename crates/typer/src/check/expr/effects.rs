@@ -97,6 +97,9 @@ pub(crate) fn max_effect<'a>(
             Ok(eff)
         }
         Expr::Try { expr, .. } => max_effect(expr, fns, trait_env, allowed),
+        Expr::Lambda { span, .. } => {
+            Err(TyperError::feature_not_supported("closures", *span).into())
+        }
         Expr::Call { callee, args, span } => {
             let mut eff = EffectLevel::Pure;
             for arg in args {

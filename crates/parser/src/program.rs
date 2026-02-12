@@ -260,6 +260,107 @@ fn keyword_missing_brace(line: &str, keyword: &str) -> Option<usize> {
     None
 }
 
+fn find_untyped_lambda(src: &str) -> Option<usize> {
+    let bytes = src.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'(' {
+            let start = i;
+            let mut j = i + 1;
+            let mut saw_ident = false;
+            let mut saw_colon = false;
+            let mut valid = true;
+            while j < bytes.len() && bytes[j] != b')' {
+                let b = bytes[j];
+                if b.is_ascii_whitespace() || b == b',' {
+                    j += 1;
+                    continue;
+                }
+                if b == b':' {
+                    saw_colon = true;
+                    j += 1;
+                    continue;
+                }
+                if b.is_ascii_alphabetic() || b == b'_' {
+                    saw_ident = true;
+                    j += 1;
+                    while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
+                    {
+                        j += 1;
+                    }
+                    continue;
+                }
+                valid = false;
+                break;
+            }
+            if valid && j < bytes.len() && bytes[j] == b')' && saw_ident && !saw_colon {
+                j += 1;
+                while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j + 1 < bytes.len() && bytes[j] == b'=' && bytes[j + 1] == b'>' {
+                    return Some(start);
+                }
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+fn find_capture_list_lambda(src: &str) -> Option<usize> {
+    let bytes = src.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] == b'[' {
+            let start = i;
+            let mut j = i + 1;
+            let mut valid = true;
+            while j < bytes.len() && bytes[j] != b']' {
+                let b = bytes[j];
+                if b.is_ascii_whitespace() || b == b',' {
+                    j += 1;
+                    continue;
+                }
+                if b.is_ascii_alphabetic() || b == b'_' {
+                    j += 1;
+                    while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
+                    {
+                        j += 1;
+                    }
+                    continue;
+                }
+                valid = false;
+                break;
+            }
+            if valid && j < bytes.len() && bytes[j] == b']' {
+                j += 1;
+                while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j >= bytes.len() || bytes[j] != b'(' {
+                    i += 1;
+                    continue;
+                }
+                while j < bytes.len() && bytes[j] != b')' {
+                    j += 1;
+                }
+                if j < bytes.len() && bytes[j] == b')' {
+                    j += 1;
+                    while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                        j += 1;
+                    }
+                    if j + 1 < bytes.len() && bytes[j] == b'=' && bytes[j + 1] == b'>' {
+                        return Some(start);
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
         let mut messages: Vec<String> = Vec::with_capacity(errs.len() + 1);
@@ -332,6 +433,20 @@ pub fn parse(src: &str) -> Result<Program, String> {
             if !messages.iter().any(|msg| msg.contains("')'")) && has_unclosed_paren(src) {
                 messages.push("hint: expected ')'".to_string());
             }
+        }
+        if let Some(start) = find_untyped_lambda(src) {
+            let end = start.saturating_add(1);
+            messages.push(format!(
+                "at {}..{}: error: lambda parameters require type annotations (`name: Type`)",
+                start, end
+            ));
+        }
+        if let Some(start) = find_capture_list_lambda(src) {
+            let end = start.saturating_add(1);
+            messages.push(format!(
+                "at {}..{}: error: capture-list syntax is not supported in Phase 17",
+                start, end
+            ));
         }
 
         messages.join("\n")
@@ -441,6 +556,30 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     });
                 }
                 offset += line.len();
+            }
+            if let Some(start) = find_untyped_lambda(src) {
+                let end = start.saturating_add(1);
+                items.push(ParserError {
+                    code: "P001",
+                    message: format!(
+                        "at {}..{}: error: lambda parameters require type annotations (`name: Type`)",
+                        start, end
+                    ),
+                    start,
+                    end,
+                });
+            }
+            if let Some(start) = find_capture_list_lambda(src) {
+                let end = start.saturating_add(1);
+                items.push(ParserError {
+                    code: "P001",
+                    message: format!(
+                        "at {}..{}: error: capture-list syntax is not supported in Phase 17",
+                        start, end
+                    ),
+                    start,
+                    end,
+                });
             }
             Err(items)
         }

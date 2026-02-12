@@ -47,6 +47,12 @@ fn contains_resource_type(ty: &Type, resource_names: &HashSet<&str>) -> bool {
                 || contains_resource_type(err, resource_names)
         }
         Type::Array(inner, _) => contains_resource_type(inner, resource_names),
+        Type::Fn { params, ret } => {
+            params
+                .iter()
+                .any(|param| contains_resource_type(param, resource_names))
+                || contains_resource_type(ret, resource_names)
+        }
         Type::Tuple(elements) => elements
             .iter()
             .any(|elem| contains_resource_type(elem, resource_names)),
@@ -123,6 +129,7 @@ fn collect_expr(expr: &Expr, tracked: &HashSet<String>, out: &mut LinearControlO
         Expr::Unary { expr, .. } | Expr::Try { expr, .. } | Expr::Return { expr, .. } => {
             collect_expr(expr, tracked, out);
         }
+        Expr::Lambda { body, .. } => collect_expr(body, tracked, out),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
     }
 }
@@ -259,6 +266,7 @@ fn collect_targets_expr(expr: &Expr, tracked: &HashSet<String>, out: &mut BTreeS
         Expr::Unary { expr, .. } | Expr::Try { expr, .. } | Expr::Return { expr, .. } => {
             collect_targets_expr(expr, tracked, out);
         }
+        Expr::Lambda { body, .. } => collect_targets_expr(body, tracked, out),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
     }
 }
@@ -350,6 +358,7 @@ fn collect_tracked_vars_expr(expr: &Expr, tracked: &HashSet<String>, out: &mut B
         Expr::Unary { expr, .. } | Expr::Try { expr, .. } | Expr::Return { expr, .. } => {
             collect_tracked_vars_expr(expr, tracked, out);
         }
+        Expr::Lambda { body, .. } => collect_tracked_vars_expr(body, tracked, out),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => {}
     }
 }
@@ -394,6 +403,7 @@ fn expr_may_be_linear(expr: &Expr, tracked: &HashSet<String>) -> bool {
             .iter()
             .any(|field| expr_may_be_linear(&field.expr, tracked)),
         Expr::FieldAccess { base, .. } => expr_may_be_linear(base, tracked),
+        Expr::Lambda { body, .. } => expr_may_be_linear(body, tracked),
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => false,
     }
 }

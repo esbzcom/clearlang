@@ -91,7 +91,7 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.7.
 - Dispatcher behavior:
   - branch on `code_id`,
   - call the matching synthetic lambda body with hidden `env_ptr` + user args,
-  - trap with deterministic runtime diagnostics on unknown `code_id`.
+  - trap with deterministic runtime diagnostics on unknown `code_id` (`R011`).
 - Rationale: avoids introducing table/type-index plumbing in the first closure slice while preserving deterministic behavior.
 
 ### D13. Closure Environment Lifetime Policy (v1)
@@ -159,7 +159,7 @@ Notes:
 - Diagnostics must include stable codes and deterministic spans.
 - Parser boundary: malformed `function(...) -> ...`, malformed lambda syntax, or missing lambda parameter types are parser errors.
 - Typer boundary: effect incompatibility, capture restrictions (including linear/resource capture), and closure-call type mismatch are typer errors.
-- Runtime boundary: unknown `code_id` in closure dispatch traps with a deterministic runtime diagnostic.
+- Runtime boundary: unknown `code_id` in closure dispatch traps with deterministic runtime code `R011`.
 
 ## Parser/Typer Acceptance Matrix (v1)
 

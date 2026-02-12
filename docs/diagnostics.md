@@ -161,6 +161,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | R008 | runtime | Crypto input is malformed (e.g., invalid signature encoding). |
 | R009 | runtime | Collection bounds error (e.g., list insert/remove index out of bounds). |
 | R010 | runtime | Invalid collection handle (null, misaligned, or out-of-bounds header). |
+| R011 | runtime | Closure dispatch received an unknown `code_id`. |
 | R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 
 ## Examples

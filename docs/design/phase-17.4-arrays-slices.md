@@ -1,7 +1,7 @@
 # Phase 17.4 - Arrays and Slices
 
 ## Status
-Design note only. Implementation tracked in `docs/TODO.md` under Phase 17.4.
+Design note for implemented Phase 17.4 arrays/slices semantics. Completion tracking lives in `docs/TODO.md`.
 
 ## Goals
 - Add runtime-length arrays and slice views with indexing semantics.
@@ -65,7 +65,7 @@ arr[i]
 Rules:
 - `i` must be `Int`.
 - Emit a runtime check: `0 <= i < len`, where `len` comes from the header.
-- Out-of-bounds at runtime traps with a dedicated bounds code (see Diagnostics).
+- Out-of-bounds at runtime traps via the standard guard path (`R000`, require detail).
 
 Tuple indexing remains constant-only (T115) and unchanged.
 
@@ -105,9 +105,7 @@ Compile-time:
 - T114 remains the error for constant out-of-bounds array indices.
 
 Runtime:
-- Introduce a dedicated trap code for array/slice bounds (proposed `R011`).
-  Alternatively, reuse `R009` if the project prefers a single bounds trap.
-- Update `docs/diagnostics.md` when wiring the runtime trap.
+- Runtime OOB checks use the existing guard trap path (`R000`) in Phase 17.4.
 
 ## VC/Proof Notes
 - Indexing currently relies on runtime guards rather than VC obligations.
@@ -127,5 +125,4 @@ Runtime:
   layout notes to document the dynamic header and the `[T; N]` sugar model.
 
 ## Open Questions
-- Should we allow `Slice<T>` creation from `Bytes`/`String` in Phase 17.4?
-- Should array/slice bounds reuse `R009` or use a new trap code?
+- None for Phase 17.4.

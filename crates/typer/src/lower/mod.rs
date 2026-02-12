@@ -244,7 +244,7 @@ pub(crate) fn build_dispatcher_function(
     });
     body.push(Instr::Guard {
         cond: trap_cond,
-        trap: TrapCode::InvalidBuffer,
+        trap: TrapCode::ClosureDispatchUnknownCode,
         span: None,
         detail: GuardKind::Require,
     });

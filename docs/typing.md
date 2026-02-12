@@ -203,6 +203,7 @@ v1 restrictions
 - Calls through function-typed values are effect-checked conservatively:
   - unknown callee effect requires `io`;
   - local `let`-bound lambdas and direct aliases preserve known effect.
+- Unknown closure-dispatch `code_id` traps at runtime with `R011`.
 
 
 

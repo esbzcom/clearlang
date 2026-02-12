@@ -133,5 +133,8 @@ io function main() -> Int {
     let err = main.call(&mut store, ());
     assert!(err.is_err(), "expected dispatcher unknown code_id trap");
     let code = get_global_i32(&instance, &mut store, "__clg_runtime_error_code");
-    assert_eq!(code, 11, "expected R010 (InvalidBuffer) trap code");
+    assert_eq!(
+        code, 12,
+        "expected R011 (ClosureDispatchUnknownCode) trap code"
+    );
 }

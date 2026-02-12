@@ -106,4 +106,4 @@ total size: 16 (aligned to 8)
 ```
 
 ## Implementation Status
-Tuples use this layout today. Dynamic arrays/slices are planned for Phase 17.4.
+Tuples and dynamic arrays/slices use this layout today.

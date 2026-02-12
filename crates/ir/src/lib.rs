@@ -63,6 +63,7 @@ pub enum TrapCode {
     CryptoMalformed,
     CollectionBounds,
     InvalidBuffer,
+    ClosureDispatchUnknownCode,
 }
 
 impl VariantKind {
@@ -96,6 +97,7 @@ impl TrapCode {
             TrapCode::CryptoMalformed => 9,
             TrapCode::CollectionBounds => 10,
             TrapCode::InvalidBuffer => 11,
+            TrapCode::ClosureDispatchUnknownCode => 12,
         }
     }
 }

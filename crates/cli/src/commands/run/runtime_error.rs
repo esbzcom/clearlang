@@ -87,6 +87,12 @@ pub(super) fn extract_runtime_error<T>(
         9 => ("R008", "crypto input is malformed".to_string(), None, false),
         10 => ("R009", "collection bounds error".to_string(), None, false),
         11 => ("R010", "invalid collection handle".to_string(), None, false),
+        12 => (
+            "R011",
+            "closure dispatcher received unknown code_id".to_string(),
+            None,
+            false,
+        ),
         _ => (
             "R999",
             format!("runtime trap with unknown code {}", code),

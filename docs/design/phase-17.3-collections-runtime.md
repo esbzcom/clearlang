@@ -1,7 +1,7 @@
 # Phase 17.3 - Collections Runtime Semantics
 
 ## Status
-Design note with implementation in progress; see `docs/TODO.md` under Phase 17.3.
+Design note for the implemented Phase 17.3 collections runtime; see `docs/TODO.md` for completion tracking.
 
 ## Goals
 - Provide deterministic runtime semantics for `List`, `Set`, and `Map`.

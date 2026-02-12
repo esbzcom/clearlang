@@ -1,5 +1,14 @@
 # Codex Session Context
 
+## 2026-02-12 - Phase 17.7.3 typer closure + decision closure
+- Completed and committed Phase 17.7.3 typer closure behavior and decision follow-through.
+  - `d46dd93`: closure typing/capture checks, function-typed local/param call typing, lambda-body effect integration.
+  - `a063176`: conservative effect checking for function-value calls, explicit self/mutual closure-recursion diagnostics, tests/docs rollout updates.
+- Documented decisions in `docs/design/phase-17.7-closures.md`:
+  - D15 function-value call effect policy (unknown callee effect requires `io` in v1).
+  - D16 explicit closure recursion diagnostics policy (no fallback unknown-function behavior).
+- Updated `docs/TODO.md` with completed 17.7.3.4 and 17.7.3.5 entries.
+
 ## 2026-02-11 - Phase 17.6 completion + post-review hardening
 - Completed Phase 17.6 end-to-end in `docs/TODO.md` (17.6.1 design, 17.6.2 typer diagnostics/rules, 17.6.3 VC/effect prototype + fixtures/tests).
 - Landed VC/test/doc closure for inline-owner collection flows:
@@ -16,8 +25,9 @@
   - `docs/design/phase-17.6-linear-aware-collections.md`
 
 ## Next Focus
-- Start Phase 17.7 (first-class functions + closures), beginning with 17.7.1 design decisions for function types, capture semantics, and effect compatibility.
-- Keep 17.8 trait follow-ups queued; revisit only after 17.7 design + parser/AST slices are stable.
+- Start Phase 17.7.4 lowering/codegen for closures: environment layout + invoke ABI + dispatcher wrappers.
+- Keep 17.7.5 docs/examples queued immediately after 17.7.4.
+- Keep 17.8 trait follow-ups queued until 17.7 is fully closed.
 
 ## 2026-02-08 - Phase 17 focus realignment + 17.6 kickoff prep
 - Reconciled rollout planning with `docs/TODO.md`: Phases 17.4 (arrays/slices) and 17.5 (modules/imports) are complete.

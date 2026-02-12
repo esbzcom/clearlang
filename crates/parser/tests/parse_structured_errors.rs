@@ -43,3 +43,44 @@ fn parse_errors_reports_missing_else_as_p010() {
         errs.iter().map(|e| e.code).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn parse_errors_does_not_report_lambda_hint_for_match_arm_arrow() {
+    let src = r#"
+        function main() -> Int {
+            let v = Some(1)
+            let y = match v { Some(x) => x, None => 0 }
+            let n =
+        }
+    "#;
+    let errs = parse_errors(src).expect_err("expected parse error");
+    let joined = errs
+        .iter()
+        .map(|e| e.message.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        !joined.contains("lambda parameters require type annotations"),
+        "unexpected lambda hint in non-lambda source: {joined}"
+    );
+}
+
+#[test]
+fn parse_errors_does_not_report_capture_list_hint_for_string_literal() {
+    let src = r#"
+        function main() -> Int {
+            let s = "[x](y: Int) => y"
+            let n =
+        }
+    "#;
+    let errs = parse_errors(src).expect_err("expected parse error");
+    let joined = errs
+        .iter()
+        .map(|e| e.message.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        !joined.contains("capture-list syntax is not supported"),
+        "unexpected capture-list hint in string literal source: {joined}"
+    );
+}

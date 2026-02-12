@@ -260,11 +260,84 @@ fn keyword_missing_brace(line: &str, keyword: &str) -> Option<usize> {
     None
 }
 
+fn is_ident_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
+fn prev_non_ws_byte(bytes: &[u8], mut idx: usize) -> Option<u8> {
+    while idx > 0 {
+        idx -= 1;
+        let b = bytes[idx];
+        if !b.is_ascii_whitespace() {
+            return Some(b);
+        }
+    }
+    None
+}
+
+fn can_start_lambda_like(bytes: &[u8], idx: usize) -> bool {
+    match prev_non_ws_byte(bytes, idx) {
+        None => true,
+        Some(prev) => !(is_ident_byte(prev) || prev == b')' || prev == b']'),
+    }
+}
+
 fn find_untyped_lambda(src: &str) -> Option<usize> {
     let bytes = src.as_bytes();
     let mut i = 0usize;
+    let mut in_string = false;
+    let mut in_line_comment = false;
+    let mut block_comment_depth = 0usize;
     while i < bytes.len() {
-        if bytes[i] == b'(' {
+        if in_line_comment {
+            if bytes[i] == b'\n' {
+                in_line_comment = false;
+            }
+            i += 1;
+            continue;
+        }
+        if block_comment_depth > 0 {
+            if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+                block_comment_depth += 1;
+                i += 2;
+                continue;
+            }
+            if i + 1 < bytes.len() && bytes[i] == b'*' && bytes[i + 1] == b'/' {
+                block_comment_depth -= 1;
+                i += 2;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        if in_string {
+            if bytes[i] == b'\\' {
+                i = (i + 2).min(bytes.len());
+                continue;
+            }
+            if bytes[i] == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'/' {
+            in_line_comment = true;
+            i += 2;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+            block_comment_depth = 1;
+            i += 2;
+            continue;
+        }
+        if bytes[i] == b'"' {
+            in_string = true;
+            i += 1;
+            continue;
+        }
+
+        if bytes[i] == b'(' && can_start_lambda_like(bytes, i) {
             let start = i;
             let mut j = i + 1;
             let mut saw_ident = false;
@@ -311,8 +384,59 @@ fn find_untyped_lambda(src: &str) -> Option<usize> {
 fn find_capture_list_lambda(src: &str) -> Option<usize> {
     let bytes = src.as_bytes();
     let mut i = 0usize;
+    let mut in_string = false;
+    let mut in_line_comment = false;
+    let mut block_comment_depth = 0usize;
     while i < bytes.len() {
-        if bytes[i] == b'[' {
+        if in_line_comment {
+            if bytes[i] == b'\n' {
+                in_line_comment = false;
+            }
+            i += 1;
+            continue;
+        }
+        if block_comment_depth > 0 {
+            if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+                block_comment_depth += 1;
+                i += 2;
+                continue;
+            }
+            if i + 1 < bytes.len() && bytes[i] == b'*' && bytes[i + 1] == b'/' {
+                block_comment_depth -= 1;
+                i += 2;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        if in_string {
+            if bytes[i] == b'\\' {
+                i = (i + 2).min(bytes.len());
+                continue;
+            }
+            if bytes[i] == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'/' {
+            in_line_comment = true;
+            i += 2;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+            block_comment_depth = 1;
+            i += 2;
+            continue;
+        }
+        if bytes[i] == b'"' {
+            in_string = true;
+            i += 1;
+            continue;
+        }
+
+        if bytes[i] == b'[' && can_start_lambda_like(bytes, i) {
             let start = i;
             let mut j = i + 1;
             let mut valid = true;
@@ -448,7 +572,6 @@ pub fn parse(src: &str) -> Result<Program, String> {
                 start, end
             ));
         }
-
         messages.join("\n")
     })
 }

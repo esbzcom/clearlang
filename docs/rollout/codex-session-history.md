@@ -1,5 +1,24 @@
 # Codex Session Context
 
+## 2026-02-11 - Phase 17.6 completion + post-review hardening
+- Completed Phase 17.6 end-to-end in `docs/TODO.md` (17.6.1 design, 17.6.2 typer diagnostics/rules, 17.6.3 VC/effect prototype + fixtures/tests).
+- Landed VC/test/doc closure for inline-owner collection flows:
+  - `5ac55f4` tests/docs: add linear collection VC fixtures and workflow coverage.
+  - `473dac3` typer: track rebound linear owners in VC control-flow obligations.
+  - `4c48ce7` close 17.6.3 test gaps for inline-owner linear collections.
+- Resolved review gap using the "consistency + simplicity" rule (lexical scoping wins):
+  - `ddcf5d3` typer: respect lexical shadowing in linear VC owner tracking.
+  - `50257c5` tests: cover loop inline-owner shadowing in linear VC generation.
+- Added/updated rollout-adjacent references for the new fixture and design-note alignment:
+  - `docs/proofs/fixtures/linear-collections-branch-inline.vc.json`
+  - `docs/proofs/fixtures/README.md`
+  - `docs/proofs/vc-schema.md`
+  - `docs/design/phase-17.6-linear-aware-collections.md`
+
+## Next Focus
+- Start Phase 17.7 (first-class functions + closures), beginning with 17.7.1 design decisions for function types, capture semantics, and effect compatibility.
+- Keep 17.8 trait follow-ups queued; revisit only after 17.7 design + parser/AST slices are stable.
+
 ## 2026-02-08 - Phase 17 focus realignment + 17.6 kickoff prep
 - Reconciled rollout planning with `docs/TODO.md`: Phases 17.4 (arrays/slices) and 17.5 (modules/imports) are complete.
 - Set Phase 17.6 (linear-aware collections) as the active next focus in `docs/rollout/DEVPLAN.md`.

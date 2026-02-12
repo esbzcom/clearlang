@@ -340,15 +340,19 @@ fn list_remove_take_branch_workflow_returns_branch_specific_head() {
     let heap_ptr_0 = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
     let (list_ptr_true, heap_ptr_1) = alloc_list(&memory, &mut store, heap_ptr_0, &[8, 9, 10]);
     set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_ptr_1);
-    let out_true = main.call(&mut store, (1, list_ptr_true)).expect("call main true");
+    let out_true = main
+        .call(&mut store, (1, list_ptr_true))
+        .expect("call main true");
     assert_eq!(out_true, 9, "flag=true removes head, next head should be 9");
 
     let heap_ptr_2 = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
-    let (list_ptr_false, heap_ptr_3) =
-        alloc_list(&memory, &mut store, heap_ptr_2, &[8, 9, 10]);
+    let (list_ptr_false, heap_ptr_3) = alloc_list(&memory, &mut store, heap_ptr_2, &[8, 9, 10]);
     set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_ptr_3);
     let out_false = main
         .call(&mut store, (0, list_ptr_false))
         .expect("call main false");
-    assert_eq!(out_false, 8, "flag=false removes index 1, head should stay 8");
+    assert_eq!(
+        out_false, 8,
+        "flag=false removes index 1, head should stay 8"
+    );
 }

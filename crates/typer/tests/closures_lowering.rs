@@ -2,6 +2,14 @@ use clg_ir::Instr;
 use clg_parser::parse;
 use clg_typer::check;
 
+fn find_func<'a>(module: &'a clg_ir::Module, name: &str) -> &'a clg_ir::Function {
+    module
+        .funcs
+        .iter()
+        .find(|func| func.name == name)
+        .unwrap_or_else(|| panic!("missing function `{name}`"))
+}
+
 #[test]
 fn lowers_non_capturing_lambda_to_closure_record() {
     let src = r#"
@@ -11,9 +19,14 @@ function make() -> function(Int) -> Int {
 "#;
 
     let module = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
-    assert_eq!(module.funcs.len(), 1);
-    let make = &module.funcs[0];
-    assert_eq!(make.name, "make");
+    let make = find_func(&module, "make");
+    assert!(
+        module
+            .funcs
+            .iter()
+            .any(|func| func.name.starts_with("__clg_lambda_")),
+        "expected synthetic lambda body function"
+    );
 
     assert!(
         make.body.iter().any(|instr| matches!(
@@ -49,8 +62,7 @@ function make(base: Int) -> function(Int) -> Int {
 "#;
 
     let module = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
-    assert_eq!(module.funcs.len(), 1);
-    let make = &module.funcs[0];
+    let make = find_func(&module, "make");
 
     let allocs = make
         .body
@@ -70,18 +82,59 @@ function make(base: Int) -> function(Int) -> Int {
 }
 
 #[test]
-fn lowering_rejects_dynamic_closure_dispatch_for_now() {
+fn lowers_dynamic_closure_dispatch_with_signature_wrapper() {
     let src = r#"
+function make() -> function(Int) -> Int {
+    (x: Int) => x + 1
+}
+
 io function apply(f: function(Int) -> Int, x: Int) -> Int {
     f(x)
 }
+
+io function run(x: Int) -> Int {
+    apply(make(), x)
+}
 "#;
 
-    let err = check(&parse(src).expect("parse ok")).expect_err("lowering should fail");
-    let msg = format!("{err:#}");
-    assert!(msg.contains("T017"), "unexpected error: {msg}");
+    let module = check(&parse(src).expect("parse ok")).expect("type-check+lower ok");
+    let apply = find_func(&module, "apply");
+    let (dispatcher_idx, dispatch_args) = apply
+        .body
+        .iter()
+        .find_map(|instr| match instr {
+            Instr::Call { callee, args, .. } => Some((*callee as usize, args.len())),
+            _ => None,
+        })
+        .expect("apply should call a dispatcher wrapper");
+    assert_eq!(
+        dispatch_args, 3,
+        "dispatcher call should pass code_id, env_ptr, and one user argument"
+    );
+
+    let dispatcher = module
+        .funcs
+        .get(dispatcher_idx)
+        .expect("dispatcher index should resolve");
     assert!(
-        msg.contains("dynamic closure calls"),
-        "unexpected error: {msg}"
+        dispatcher.name.starts_with("__clg_dispatch_"),
+        "expected dispatcher function call target, got `{}`",
+        dispatcher.name
+    );
+    let lambda_idx = dispatcher
+        .body
+        .iter()
+        .find_map(|instr| match instr {
+            Instr::Call { callee, .. } => Some(*callee as usize),
+            _ => None,
+        })
+        .expect("dispatcher should contain lambda case call");
+    let lambda = module
+        .funcs
+        .get(lambda_idx)
+        .expect("lambda callee index should resolve");
+    assert!(
+        lambda.name.starts_with("__clg_lambda_"),
+        "dispatcher should call synthetic lambda function"
     );
 }

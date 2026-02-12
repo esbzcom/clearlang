@@ -1,5 +1,15 @@
 # Codex Session Context
 
+## 2026-02-12 - Phase 17.7.4 closure lowering/codegen completion
+- Completed 17.7.4 end-to-end closure invoke path:
+  - lowered lambdas now produce synthetic lambda-body functions with hidden `env_ptr` ABI,
+  - dynamic closure calls now lower to signature-specific dispatcher wrappers (no `call_indirect`),
+  - dispatcher callee indices are patched deterministically after module assembly.
+- Added runtime coverage for closure dispatch in `crates/codegen-wasm/tests/closures_runtime.rs`:
+  - non-capturing closure call via function value,
+  - capturing closure call via function value.
+- Updated `docs/TODO.md` to mark 17.7.4.1 through 17.7.4.4 complete.
+
 ## 2026-02-12 - Phase 17.7.3 typer closure + decision closure
 - Completed and committed Phase 17.7.3 typer closure behavior and decision follow-through.
   - `d46dd93`: closure typing/capture checks, function-typed local/param call typing, lambda-body effect integration.

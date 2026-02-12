@@ -69,6 +69,209 @@ pub(super) const CLOSURE_RECORD_ALIGN: u32 = 4;
 pub(super) const CLOSURE_CODE_ID_OFFSET: u32 = 0;
 pub(super) const CLOSURE_ENV_PTR_OFFSET: u32 = 4;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct DispatcherSignature {
+    pub params: Vec<Type>,
+    pub ret: Type,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct LambdaDispatchCase {
+    pub code_id: u32,
+    pub function_name: String,
+    pub signature: DispatcherSignature,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct DispatcherCallPatch {
+    pub function_name: String,
+    pub instr_index: usize,
+    pub signature: DispatcherSignature,
+}
+
+pub(crate) struct LoweredFuncArtifacts {
+    pub function: IrFunction,
+    pub generated_functions: Vec<IrFunction>,
+    pub lambda_cases: Vec<LambdaDispatchCase>,
+    pub dispatcher_patches: Vec<DispatcherCallPatch>,
+}
+
+fn signature_sort_key(sig: &DispatcherSignature) -> String {
+    let params = sig
+        .params
+        .iter()
+        .cloned()
+        .map(show_type_for_dispatch)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "function({params}) -> {}",
+        show_type_for_dispatch(sig.ret.clone())
+    )
+}
+
+fn show_type_for_dispatch(ty: Type) -> String {
+    match ty {
+        Type::Int => "Int".to_string(),
+        Type::U8 => "U8".to_string(),
+        Type::U64 => "U64".to_string(),
+        Type::U128 => "U128".to_string(),
+        Type::U256 => "U256".to_string(),
+        Type::Bool => "Bool".to_string(),
+        Type::String => "String".to_string(),
+        Type::Bytes => "Bytes".to_string(),
+        Type::Named { name, args } => {
+            if args.is_empty() {
+                name
+            } else {
+                let rendered = args
+                    .into_iter()
+                    .map(show_type_for_dispatch)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{}<{}>", name, rendered)
+            }
+        }
+        Type::Option(inner) => format!("Option<{}>", show_type_for_dispatch(*inner)),
+        Type::Result(ok, err) => format!(
+            "Result<{}, {}>",
+            show_type_for_dispatch(*ok),
+            show_type_for_dispatch(*err)
+        ),
+        Type::List(inner) => format!("List<{}>", show_type_for_dispatch(*inner)),
+        Type::Set(inner) => format!("Set<{}>", show_type_for_dispatch(*inner)),
+        Type::Map(key, val) => format!(
+            "Map<{}, {}>",
+            show_type_for_dispatch(*key),
+            show_type_for_dispatch(*val)
+        ),
+        Type::Array(inner, Some(len)) => format!("[{}; {}]", show_type_for_dispatch(*inner), len),
+        Type::Array(inner, None) => format!("Array<{}>", show_type_for_dispatch(*inner)),
+        Type::Slice(inner) => format!("Slice<{}>", show_type_for_dispatch(*inner)),
+        Type::Tuple(elements) => {
+            let rendered = elements
+                .into_iter()
+                .map(show_type_for_dispatch)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("({})", rendered)
+        }
+        Type::Fn { params, ret } => {
+            let rendered = params
+                .into_iter()
+                .map(show_type_for_dispatch)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("function({}) -> {}", rendered, show_type_for_dispatch(*ret))
+        }
+    }
+}
+
+pub(crate) fn dispatcher_name(sig: &DispatcherSignature) -> String {
+    let mut out = String::from("__clg_dispatch_");
+    for ch in signature_sort_key(sig).chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            out.push('_');
+        }
+    }
+    out
+}
+
+pub(crate) fn build_dispatcher_function(
+    sig: &DispatcherSignature,
+    cases: &[LambdaDispatchCase],
+    lambda_fn_indices: &HashMap<String, u32>,
+) -> Result<IrFunction> {
+    let mut ordered_cases = cases.to_vec();
+    ordered_cases.sort_by_key(|case| case.code_id);
+
+    let mut body: Vec<Instr> = Vec::new();
+    let mut next: u32 = (2 + sig.params.len()) as u32;
+    let code_id_param = Value(0);
+    let env_ptr_param = Value(1);
+    let user_params = (0..sig.params.len())
+        .map(|idx| Value(2 + idx as u32))
+        .collect::<Vec<_>>();
+
+    for case in &ordered_cases {
+        let Some(lambda_idx) = lambda_fn_indices.get(case.function_name.as_str()).copied() else {
+            anyhow::bail!(
+                "missing lambda function `{}` while building dispatcher",
+                case.function_name
+            );
+        };
+        let case_id = Value(next);
+        next += 1;
+        body.push(Instr::IConst {
+            dst: case_id,
+            ty: IrType::Int,
+            n: case.code_id as i64,
+        });
+        let cond = Value(next);
+        next += 1;
+        body.push(Instr::IBin {
+            dst: cond,
+            op: clg_ir::BinOpIR::Eq,
+            lhs: code_id_param,
+            rhs: case_id,
+            ty: IrType::Int,
+        });
+        body.push(Instr::BlockBegin);
+        body.push(Instr::BrIfEqz { cond, depth: 0 });
+        let mut call_args: Vec<Value> = Vec::with_capacity(1 + user_params.len());
+        call_args.push(env_ptr_param);
+        call_args.extend(user_params.iter().copied());
+        let call_dst = Value(next);
+        next += 1;
+        body.push(Instr::Call {
+            dst: Some(call_dst),
+            callee: lambda_idx,
+            args: call_args,
+        });
+        body.push(Instr::ReturnIf {
+            cond,
+            ret: call_dst,
+        });
+        body.push(Instr::BlockEnd);
+    }
+
+    let trap_cond = Value(next);
+    next += 1;
+    body.push(Instr::IConst {
+        dst: trap_cond,
+        ty: IrType::Bool,
+        n: 0,
+    });
+    body.push(Instr::Guard {
+        cond: trap_cond,
+        trap: TrapCode::InvalidBuffer,
+        span: None,
+        detail: GuardKind::Require,
+    });
+    let ret_zero = Value(next);
+    body.push(Instr::IConst {
+        dst: ret_zero,
+        ty: ir_ty(sig.ret.clone()),
+        n: 0,
+    });
+    body.push(Instr::Ret { val: ret_zero });
+
+    Ok(IrFunction {
+        name: dispatcher_name(sig),
+        params: {
+            let mut params = Vec::with_capacity(2 + sig.params.len());
+            params.push(IrType::Int); // code_id
+            params.push(IrType::Int); // env_ptr
+            params.extend(sig.params.iter().cloned().map(ir_ty));
+            params
+        },
+        ret: Some(ir_ty(sig.ret.clone())),
+        body,
+    })
+}
+
 fn ir_ty(t: Type) -> IrType {
     match t {
         Type::Int => IrType::Int,
@@ -111,7 +314,12 @@ fn emit_ptr_add_const(ctx: &mut LowerCtx<'_>, ptr: Value, offset: u32) -> Value 
     emit_ptr_add(ctx, ptr, off)
 }
 
-fn load_value_borrow(ctx: &mut LowerCtx<'_>, ty: &Type, ptr: Value, offset: u32) -> Result<Value> {
+pub(super) fn load_value_borrow(
+    ctx: &mut LowerCtx<'_>,
+    ty: &Type,
+    ptr: Value,
+    offset: u32,
+) -> Result<Value> {
     if std_type_info_for(ty, ctx.aliases, ctx.std_types)?.is_some() {
         return Ok(emit_ptr_add_const(ctx, ptr, offset));
     }
@@ -183,6 +391,10 @@ pub(crate) struct LowerCtx<'a> {
     pub body: Vec<Instr>,
     pub ret_ty: Type,
     pub next_closure_code_id: u32,
+    pub function_name: String,
+    pub generated_functions: Vec<IrFunction>,
+    pub lambda_cases: Vec<LambdaDispatchCase>,
+    pub dispatcher_patches: Vec<DispatcherCallPatch>,
 }
 
 pub(crate) fn lower_func<'a>(
@@ -194,7 +406,7 @@ pub(crate) fn lower_func<'a>(
     type_defs: &'a TypeDefs<'a>,
     std_types: &'a StdTypeMap,
     next_closure_code_id: &mut u32,
-) -> Result<IrFunction> {
+) -> Result<LoweredFuncArtifacts> {
     let mut env: HashMap<&str, Value> = HashMap::new();
     let mut type_env: HashMap<&str, LocalBinding> = HashMap::new();
     type_env.insert(
@@ -237,6 +449,10 @@ pub(crate) fn lower_func<'a>(
         body: Vec::new(),
         ret_ty: f.ret.clone(),
         next_closure_code_id: *next_closure_code_id,
+        function_name: f.name.clone(),
+        generated_functions: Vec::new(),
+        lambda_cases: Vec::new(),
+        dispatcher_patches: Vec::new(),
     };
 
     for (i, p) in f.params.iter().enumerate() {
@@ -278,11 +494,16 @@ pub(crate) fn lower_func<'a>(
     ctx.body.push(Instr::Ret { val: ret_val });
     *next_closure_code_id = ctx.next_closure_code_id;
 
-    Ok(IrFunction {
-        name: f.name.clone(),
-        params: f.params.iter().map(|p| ir_ty(p.ty.clone())).collect(),
-        ret: Some(ir_ty(f.ret.clone())),
-        body: ctx.body,
+    Ok(LoweredFuncArtifacts {
+        function: IrFunction {
+            name: f.name.clone(),
+            params: f.params.iter().map(|p| ir_ty(p.ty.clone())).collect(),
+            ret: Some(ir_ty(f.ret.clone())),
+            body: ctx.body,
+        },
+        generated_functions: ctx.generated_functions,
+        lambda_cases: ctx.lambda_cases,
+        dispatcher_patches: ctx.dispatcher_patches,
     })
 }
 
@@ -316,7 +537,7 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Call { callee, args, .. } => {
             lower_call_expr(ctx, e, callee.as_str(), args, expected.as_ref())
         }
-        Expr::Lambda { params, body, .. } => lower_lambda_expr(ctx, params, body.as_ref()),
+        Expr::Lambda { .. } => lower_lambda_expr(ctx, e, expected.as_ref()),
     }
 }
 

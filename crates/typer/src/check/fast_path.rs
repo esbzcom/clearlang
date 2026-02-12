@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clg_ast::Program;
-use clg_ir::Module;
+use clg_ir::{Instr, Module};
 use std::collections::HashMap;
 
 use super::aliases::{build_alias_map, validate_alias_predicates};
@@ -18,7 +18,7 @@ use super::type_validation::{
 use super::{validate_struct_enum_resources, FnSig, StdTypeMap, TypecheckOutput};
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
-use crate::lower::lower_func;
+use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
 use crate::vc::generate_vcs;
 
 pub(super) fn fast_path_without_totality_with_std(
@@ -223,12 +223,14 @@ pub(super) fn fast_path_without_totality_with_std(
         }
     }
 
-    let mut module = Module {
-        funcs: Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len()),
-    };
+    let mut lowered_funcs: Vec<clg_ir::Function> =
+        Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len());
+    let mut generated_lambda_funcs: Vec<clg_ir::Function> = Vec::new();
+    let mut lambda_cases = Vec::new();
+    let mut dispatcher_patches = Vec::new();
     let mut next_closure_code_id: u32 = 1;
     for f in &mono_program.funcs {
-        module.funcs.push(lower_func(
+        let lowered = lower_func(
             f,
             &mono_fns,
             &fn_indices,
@@ -237,9 +239,114 @@ pub(super) fn fast_path_without_totality_with_std(
             &type_defs,
             std_types,
             &mut next_closure_code_id,
-        )?);
+        )?;
+        lowered_funcs.push(lowered.function);
+        generated_lambda_funcs.extend(lowered.generated_functions);
+        lambda_cases.extend(lowered.lambda_cases);
+        dispatcher_patches.extend(lowered.dispatcher_patches);
     }
-    module.funcs.extend(intrinsic_defs);
+    lowered_funcs.extend(intrinsic_defs);
+
+    let lambda_start_idx = lowered_funcs.len() as u32;
+    let mut lambda_fn_indices: HashMap<String, u32> =
+        HashMap::with_capacity(generated_lambda_funcs.len());
+    for (i, func) in generated_lambda_funcs.iter().enumerate() {
+        if lambda_fn_indices
+            .insert(func.name.clone(), lambda_start_idx + i as u32)
+            .is_some()
+        {
+            anyhow::bail!("duplicate generated lambda function `{}`", func.name);
+        }
+    }
+    lowered_funcs.extend(generated_lambda_funcs);
+
+    let mut dispatch_groups: HashMap<
+        String,
+        (
+            crate::lower::DispatcherSignature,
+            Vec<crate::lower::LambdaDispatchCase>,
+        ),
+    > = HashMap::new();
+    for patch in &dispatcher_patches {
+        let key = dispatcher_name(&patch.signature);
+        dispatch_groups
+            .entry(key)
+            .or_insert_with(|| (patch.signature.clone(), Vec::new()));
+    }
+    for case in lambda_cases {
+        let key = dispatcher_name(&case.signature);
+        let entry = dispatch_groups
+            .entry(key)
+            .or_insert_with(|| (case.signature.clone(), Vec::new()));
+        entry.1.push(case);
+    }
+
+    let mut dispatcher_names = dispatch_groups.keys().cloned().collect::<Vec<_>>();
+    dispatcher_names.sort();
+    let mut dispatcher_defs: Vec<clg_ir::Function> = Vec::with_capacity(dispatcher_names.len());
+    let mut dispatcher_indices: HashMap<String, u32> =
+        HashMap::with_capacity(dispatcher_names.len());
+    for name in &dispatcher_names {
+        let (sig, cases) = dispatch_groups
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("missing dispatcher group `{name}`"))?;
+        let idx = (lowered_funcs.len() + dispatcher_defs.len()) as u32;
+        dispatcher_indices.insert(name.clone(), idx);
+        dispatcher_defs.push(build_dispatcher_function(sig, cases, &lambda_fn_indices)?);
+    }
+
+    let mut function_indices_by_name: HashMap<String, usize> =
+        HashMap::with_capacity(lowered_funcs.len());
+    for (idx, func) in lowered_funcs.iter().enumerate() {
+        if function_indices_by_name
+            .insert(func.name.clone(), idx)
+            .is_some()
+        {
+            anyhow::bail!("duplicate lowered function `{}`", func.name);
+        }
+    }
+    for patch in dispatcher_patches {
+        let dispatcher_key = dispatcher_name(&patch.signature);
+        let dispatcher_idx = dispatcher_indices
+            .get(&dispatcher_key)
+            .copied()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "missing dispatcher function for signature in `{}`",
+                    patch.function_name
+                )
+            })?;
+        let func_idx = function_indices_by_name
+            .get(patch.function_name.as_str())
+            .copied()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "missing function `{}` for dispatcher patch",
+                    patch.function_name
+                )
+            })?;
+        let Some(instr) = lowered_funcs
+            .get_mut(func_idx)
+            .and_then(|f| f.body.get_mut(patch.instr_index))
+        else {
+            anyhow::bail!(
+                "invalid dispatcher patch index {} in function `{}`",
+                patch.instr_index,
+                patch.function_name
+            );
+        };
+        match instr {
+            Instr::Call { callee, .. } => *callee = dispatcher_idx,
+            _ => anyhow::bail!(
+                "dispatcher patch in `{}` did not target a call instruction",
+                patch.function_name
+            ),
+        }
+    }
+    lowered_funcs.extend(dispatcher_defs);
+    let module = Module {
+        funcs: lowered_funcs,
+    };
     let vcs = generate_vcs(&mono_program);
     Ok(TypecheckOutput {
         ir: module,

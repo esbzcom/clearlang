@@ -7,7 +7,7 @@
 - 17.4 General arrays/slices with indexing semantics and bounds checks. (Done)
 - 17.5 Module/import system with visibility controls. (Done)
 - 17.6 Linear-aware collections: design + typer/VC integration prototype. (Done)
-- 17.7 First-class functions and closures. (In progress: 17.7.4 next)
+- 17.7 First-class functions and closures. (In progress: 17.7.5 docs/examples pass)
 
 ### Suggested Sequence
 1) Complete 17.7.1 design lock for function types, capture semantics, effect compatibility, and parser/typer acceptance boundaries. (Done; see `docs/design/phase-17.7-closures.md`.)
@@ -15,8 +15,8 @@
 2) Implement 17.7.2 parser/AST support for lambdas and function-type syntax. (Done)
 3) Implement 17.7.3 typer checks (capture/effect compatibility, closure-call typing). (Done)
    - Completed closure typing/capture checks, explicit self/mutual closure recursion diagnostics, and conservative effect checking for function-value calls.
-4) Proceed to 17.7.4 lowering/codegen closure environment + dispatch wrappers.
-5) Finish 17.7.5 examples/docs pass once 17.7.4 lands.
+4) Implement 17.7.4 lowering/codegen closure environment + dispatch wrappers. (Done)
+5) Finish 17.7.5 examples/docs pass.
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

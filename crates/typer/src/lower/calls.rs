@@ -1,5 +1,4 @@
 use crate::check::{base_type, infer_expr_type};
-use crate::errors::TyperError;
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Type};
@@ -16,7 +15,9 @@ use super::intrinsics::{
 use super::layout::std_type_info_for_module;
 use super::r#match::lower_enum_constructor;
 use super::{
-    emit_alloc, emit_int_const, emit_memcpy_bytes, emit_u64_const, fresh, lower_expr, LowerCtx,
+    emit_alloc, emit_int_const, emit_load_i32, emit_memcpy_bytes, emit_u64_const, fresh,
+    lower_expr, DispatcherCallPatch, DispatcherSignature, LowerCtx, CLOSURE_CODE_ID_OFFSET,
+    CLOSURE_ENV_PTR_OFFSET,
 };
 
 pub(super) fn lower_call_expr<'a>(
@@ -169,15 +170,49 @@ pub(super) fn lower_call_expr<'a>(
         }
         _ => {
             if let Some(binding) = ctx.type_env.get(callee) {
-                if matches!(base_type(&binding.ty, ctx.aliases)?, Type::Fn { .. }) {
-                    if let Expr::Call { span, .. } = call_expr {
-                        return Err(TyperError::feature_not_supported(
-                            "dynamic closure calls",
-                            *span,
-                        )
-                        .into());
+                let binding_ty = binding.ty.clone();
+                if let Type::Fn {
+                    params: fn_params,
+                    ret: fn_ret,
+                } = base_type(&binding_ty, ctx.aliases)?
+                {
+                    if fn_params.len() != args.len() {
+                        anyhow::bail!(
+                            "arity mismatch in dynamic closure call `{}`: expected {}, found {}",
+                            callee,
+                            fn_params.len(),
+                            args.len()
+                        );
                     }
-                    anyhow::bail!("dynamic closure calls are not supported in lowering yet");
+                    let closure_ptr =
+                        ctx.env.get(callee).copied().ok_or_else(|| {
+                            anyhow::anyhow!("missing closure value for `{}`", callee)
+                        })?;
+                    let code_id = emit_load_i32(ctx, closure_ptr, CLOSURE_CODE_ID_OFFSET);
+                    let env_ptr = emit_load_i32(ctx, closure_ptr, CLOSURE_ENV_PTR_OFFSET);
+                    let mut call_args: Vec<Value> = Vec::with_capacity(2 + args.len());
+                    call_args.push(code_id);
+                    call_args.push(env_ptr);
+                    for (idx, arg) in args.iter().enumerate() {
+                        let expected_ty = fn_params.get(idx).cloned();
+                        call_args.push(lower_expr(ctx, arg, expected_ty)?);
+                    }
+                    let dst = fresh(ctx);
+                    let instr_index = ctx.body.len();
+                    ctx.body.push(Instr::Call {
+                        dst: Some(dst),
+                        callee: 0,
+                        args: call_args,
+                    });
+                    ctx.dispatcher_patches.push(DispatcherCallPatch {
+                        function_name: ctx.function_name.clone(),
+                        instr_index,
+                        signature: DispatcherSignature {
+                            params: fn_params,
+                            ret: (*fn_ret).clone(),
+                        },
+                    });
+                    return Ok(dst);
                 }
             }
             if let Some((enum_name, variant_name)) = callee.rsplit_once("::") {

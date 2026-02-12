@@ -747,11 +747,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.3.3 Reject self-referential and mutually recursive closure values in v1 (named-function recursion remains under existing totality rules).
     - [x] 17.7.3.4 Conservatively effect-check calls through function values (unknown callee effect requires `io`).
     - [x] 17.7.3.5 Emit explicit closure recursion diagnostics (self/mutual cycles) instead of fallback unknown-function errors.
-  - [ ] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
-    - [ ] 17.7.4.1 Lower closures to `{ code_id, env_ptr }` runtime records with hidden `env_ptr` invoke argument. (record/env allocation landed with module-global deterministic `code_id`; invoke/dispatcher wiring still pending)
-    - [ ] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI. (`env_ptr = 0` lowering path landed; invoke ABI still pending with dispatcher wiring)
-    - [ ] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (current lowering rejects dynamic closure calls with deterministic `T017`)
-    - [ ] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
+  - [x] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
+    - [x] 17.7.4.1 Lower closures to `{ code_id, env_ptr }` runtime records with hidden `env_ptr` invoke argument. (invoke ABI now wired through generated lambda bodies + dispatcher calls)
+    - [x] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI. (validated via lowering + runtime dispatch tests)
+    - [x] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (dispatcher generation and call patching landed)
+    - [x] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
   - [ ] 17.7.5 Tests + docs examples.
  - [ ] 17.8 Traits follow-ups (post-17.2).
    - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.

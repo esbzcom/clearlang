@@ -42,6 +42,12 @@ fn ensure_supported_type(
             ensure_supported_type(ok, span, type_params)?;
             ensure_supported_type(err, span, type_params)
         }
+        Type::Fn { params, ret } => {
+            for param in params {
+                ensure_supported_type(param, span, type_params)?;
+            }
+            ensure_supported_type(ret, span, type_params)
+        }
         _ => Ok(()),
     }
 }

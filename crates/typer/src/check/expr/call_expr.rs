@@ -252,6 +252,92 @@ pub(super) fn type_call_expr<'a>(
     )? {
         return Ok(trait_ty);
     }
+    if let Some(binding) = env.get(callee) {
+        if let Type::Fn {
+            params: fn_params,
+            ret,
+        } = base_type(&binding.ty, aliases)?
+        {
+            if fn_params.len() != args.len() {
+                return Err(
+                    TyperError::arity_mismatch(callee, fn_params.len(), args.len(), span).into(),
+                );
+            }
+            let mut local_tracker = tracker.clone();
+            let mut arg_types: Vec<Type> = Vec::with_capacity(args.len());
+            for (expected_param_ty, arg) in fn_params.iter().zip(args.iter()) {
+                let at = type_of(
+                    arg,
+                    env,
+                    &mut local_tracker,
+                    fns,
+                    trait_env,
+                    aliases,
+                    type_defs,
+                    type_params,
+                    bounds,
+                    depth + 1,
+                    Some(expected_param_ty),
+                )?;
+                arg_types.push(at);
+            }
+            for (i, ((expected_param_ty, found_arg_ty), arg_expr)) in fn_params
+                .iter()
+                .zip(arg_types.iter())
+                .zip(args.iter())
+                .enumerate()
+            {
+                if !base_types_match(expected_param_ty, found_arg_ty, aliases)? {
+                    if literal_can_coerce_unsigned(expected_param_ty, found_arg_ty, arg_expr) {
+                        continue;
+                    }
+                    if let Some(err) =
+                        unsigned_literal_range_error(expected_param_ty, found_arg_ty, arg_expr)
+                    {
+                        return Err(err.into());
+                    }
+                    let sp = expr_span(arg_expr);
+                    return Err(TyperError::arg_type_mismatch(
+                        i,
+                        callee,
+                        expected_param_ty.clone(),
+                        found_arg_ty.clone(),
+                        sp,
+                    )
+                    .into());
+                }
+                if !binding_compatible(expected_param_ty, found_arg_ty, aliases)? {
+                    if literal_can_coerce_unsigned(expected_param_ty, found_arg_ty, arg_expr) {
+                        continue;
+                    }
+                    if let Some(err) =
+                        unsigned_literal_range_error(expected_param_ty, found_arg_ty, arg_expr)
+                    {
+                        return Err(err.into());
+                    }
+                    let sp = expr_span(arg_expr);
+                    if refinement_loss(expected_param_ty, found_arg_ty, aliases) {
+                        return Err(TyperError::refinement_loss(
+                            expected_param_ty.clone(),
+                            found_arg_ty.clone(),
+                            sp,
+                        )
+                        .into());
+                    }
+                    return Err(TyperError::arg_type_mismatch(
+                        i,
+                        callee,
+                        expected_param_ty.clone(),
+                        found_arg_ty.clone(),
+                        sp,
+                    )
+                    .into());
+                }
+            }
+            *tracker = local_tracker;
+            return Ok((*ret).clone());
+        }
+    }
     if let Some((enum_name, variant_name)) = callee.rsplit_once("::") {
         if let Some(enum_info) = type_defs.enums.get(enum_name) {
             let Some(variant_def) = enum_info.variants.get(variant_name) else {

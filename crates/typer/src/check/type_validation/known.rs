@@ -97,6 +97,12 @@ pub(crate) fn ensure_known_type(
             ensure_known_type(ok, aliases, type_defs, type_params, std_types, span)?;
             ensure_known_type(err, aliases, type_defs, type_params, std_types, span)
         }
+        Type::Fn { params, ret } => {
+            for param in params {
+                ensure_known_type(param, aliases, type_defs, type_params, std_types, span)?;
+            }
+            ensure_known_type(ret, aliases, type_defs, type_params, std_types, span)
+        }
         _ => Ok(()),
     }
 }

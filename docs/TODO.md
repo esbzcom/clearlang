@@ -741,10 +741,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.2.1 Parse `function(T1, ...) -> R` function types and `(x: T, ...) => expr` lambdas.
     - [x] 17.7.2.2 Require lambda parameter type annotations in v1; reject missing types with parser diagnostics.
     - [x] 17.7.2.3 Do not add capture-list syntax in Phase 17; reject any capture-list-like forms clearly.
-  - [ ] 17.7.3 Typer: closure typing, lifetime/capture checks, and effect compatibility.
-    - [ ] 17.7.3.1 Infer lambda return types (no explicit lambda return-type annotation in Phase 17).
-    - [ ] 17.7.3.2 Enforce lexical capture rules and reject linear/resource captures with deterministic diagnostics.
-    - [ ] 17.7.3.3 Reject self-referential and mutually recursive closure values in v1 (named-function recursion remains under existing totality rules).
+  - [x] 17.7.3 Typer: closure typing, lifetime/capture checks, and effect compatibility.
+    - [x] 17.7.3.1 Infer lambda return types (no explicit lambda return-type annotation in Phase 17).
+    - [x] 17.7.3.2 Enforce lexical capture rules and reject linear/resource captures with deterministic diagnostics.
+    - [x] 17.7.3.3 Reject self-referential and mutually recursive closure values in v1 (named-function recursion remains under existing totality rules).
   - [ ] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
     - [ ] 17.7.4.1 Lower closures to `{ code_id, env_ptr }` runtime records with hidden `env_ptr` invoke argument.
     - [ ] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI.

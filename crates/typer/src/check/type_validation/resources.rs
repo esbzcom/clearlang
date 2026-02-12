@@ -66,6 +66,14 @@ pub(crate) fn find_resource_collection(
             }
             None
         }
+        Type::Fn { params, ret } => {
+            for param in params {
+                if let Some(found) = find_resource_collection(param, resource_names, type_params) {
+                    return Some(found);
+                }
+            }
+            find_resource_collection(ret, resource_names, type_params)
+        }
         _ => None,
     }
 }
@@ -129,6 +137,16 @@ fn find_unsupported_resource_collection(
             find_unsupported_resource_collection(ok, resource_names, type_params)
                 .or_else(|| find_unsupported_resource_collection(err, resource_names, type_params))
         }
+        Type::Fn { params, ret } => {
+            for param in params {
+                if let Some(found) =
+                    find_unsupported_resource_collection(param, resource_names, type_params)
+                {
+                    return Some(found);
+                }
+            }
+            find_unsupported_resource_collection(ret, resource_names, type_params)
+        }
         _ => None,
     }
 }
@@ -159,6 +177,12 @@ fn contains_resource(
         Type::Tuple(elements) => elements
             .iter()
             .any(|elem| contains_resource(elem, resource_names, type_params)),
+        Type::Fn { params, ret } => {
+            params
+                .iter()
+                .any(|param| contains_resource(param, resource_names, type_params))
+                || contains_resource(ret, resource_names, type_params)
+        }
         _ => false,
     }
 }
@@ -189,6 +213,12 @@ pub(crate) fn contains_named_resource(
         Type::Tuple(elements) => elements
             .iter()
             .any(|elem| contains_named_resource(elem, resource_names, type_params)),
+        Type::Fn { params, ret } => {
+            params
+                .iter()
+                .any(|param| contains_named_resource(param, resource_names, type_params))
+                || contains_named_resource(ret, resource_names, type_params)
+        }
         _ => false,
     }
 }

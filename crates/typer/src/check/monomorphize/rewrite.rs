@@ -260,7 +260,19 @@ impl<'a> Monomorphizer<'a> {
                 }
                 Ok(())
             }
-            Expr::Lambda { body, .. } => self.rewrite_expr(body.as_mut(), env, type_params, bounds),
+            Expr::Lambda { params, body, .. } => {
+                let mut lambda_env = env.clone();
+                for param in params {
+                    lambda_env.insert(
+                        param.name.as_str(),
+                        LocalBinding {
+                            ty: param.ty.clone(),
+                            kind: ParamKind::Borrow,
+                        },
+                    );
+                }
+                self.rewrite_expr(body.as_mut(), &mut lambda_env, type_params, bounds)
+            }
         }
     }
 }

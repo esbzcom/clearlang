@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clg_ast::{Expr, Type};
+use clg_ast::{Block, Expr, MatchPat, ParamKind, Span, Stmt, Type};
 use std::collections::{HashMap, HashSet};
 
 use super::super::{
@@ -22,6 +22,154 @@ pub(crate) fn consume_var_expr(tracker: &mut ResourceTracker, expr: &Expr) -> Re
     }
     Ok(())
 }
+
+fn name_is_bound(name: &str, scopes: &[HashSet<String>]) -> bool {
+    scopes.iter().rev().any(|scope| scope.contains(name))
+}
+
+fn record_capture(name: &str, span: Span, captures: &mut HashMap<String, Span>) {
+    captures.entry(name.to_string()).or_insert(span);
+}
+
+fn collect_lambda_captures_expr(
+    expr: &Expr,
+    scopes: &mut Vec<HashSet<String>>,
+    captures: &mut HashMap<String, Span>,
+) {
+    match expr {
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) => {}
+        Expr::Var(name, span) => {
+            if !name_is_bound(name, scopes) {
+                record_capture(name, *span, captures);
+            }
+        }
+        Expr::Call { callee, args, span } => {
+            if !callee.contains("::") && !name_is_bound(callee, scopes) {
+                record_capture(callee, *span, captures);
+            }
+            for arg in args {
+                collect_lambda_captures_expr(arg, scopes, captures);
+            }
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_lambda_captures_expr(elem, scopes, captures);
+            }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_lambda_captures_expr(&field.expr, scopes, captures);
+            }
+        }
+        Expr::FieldAccess { base, .. } => collect_lambda_captures_expr(base, scopes, captures),
+        Expr::Index { base, index, .. } => {
+            collect_lambda_captures_expr(base, scopes, captures);
+            collect_lambda_captures_expr(index, scopes, captures);
+        }
+        Expr::Block { block } => collect_lambda_captures_block(block, scopes, captures),
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_lambda_captures_expr(lhs, scopes, captures);
+            collect_lambda_captures_expr(rhs, scopes, captures);
+        }
+        Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {
+            collect_lambda_captures_expr(expr, scopes, captures)
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_lambda_captures_expr(cond, scopes, captures);
+            collect_lambda_captures_expr(then_br, scopes, captures);
+            collect_lambda_captures_expr(else_br, scopes, captures);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_lambda_captures_expr(scrutinee, scopes, captures);
+            for arm in arms {
+                scopes.push(HashSet::new());
+                if let Some(scope) = scopes.last_mut() {
+                    match &arm.pat {
+                        MatchPat::Some(name) | MatchPat::Ok(name) | MatchPat::Err(name) => {
+                            scope.insert(name.clone());
+                        }
+                        MatchPat::EnumVariant { binders, .. } => {
+                            for binder in binders {
+                                scope.insert(binder.clone());
+                            }
+                        }
+                        MatchPat::None | MatchPat::Wildcard => {}
+                    }
+                }
+                collect_lambda_captures_expr(&arm.expr, scopes, captures);
+                scopes.pop();
+            }
+        }
+        Expr::Lambda { params, body, .. } => {
+            scopes.push(HashSet::new());
+            if let Some(scope) = scopes.last_mut() {
+                for param in params {
+                    scope.insert(param.name.clone());
+                }
+            }
+            collect_lambda_captures_expr(body, scopes, captures);
+            scopes.pop();
+        }
+    }
+}
+
+fn collect_lambda_captures_block(
+    block: &Block,
+    scopes: &mut Vec<HashSet<String>>,
+    captures: &mut HashMap<String, Span>,
+) {
+    scopes.push(HashSet::new());
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { name, expr, .. } => {
+                collect_lambda_captures_expr(expr, scopes, captures);
+                if let Some(scope) = scopes.last_mut() {
+                    scope.insert(name.clone());
+                }
+            }
+            Stmt::Expr { expr, .. } => collect_lambda_captures_expr(expr, scopes, captures),
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_lambda_captures_expr(cond, scopes, captures);
+                collect_lambda_captures_expr(invariant, scopes, captures);
+                if let Some(v) = variant {
+                    collect_lambda_captures_expr(v, scopes, captures);
+                }
+                collect_lambda_captures_block(body, scopes, captures);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_lambda_captures_expr(tail, scopes, captures);
+    }
+    scopes.pop();
+}
+
+fn collect_lambda_captures(
+    params: &[clg_ast::LambdaParam],
+    body: &Expr,
+    env: &HashMap<&str, LocalBinding>,
+) -> HashMap<String, Span> {
+    let mut scopes: Vec<HashSet<String>> = Vec::with_capacity(4);
+    scopes.push(params.iter().map(|p| p.name.clone()).collect::<HashSet<_>>());
+    let mut captures: HashMap<String, Span> = HashMap::new();
+    collect_lambda_captures_expr(body, &mut scopes, &mut captures);
+    captures.retain(|name, _| env.contains_key(name.as_str()));
+    captures
+}
+
 pub(crate) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,
@@ -624,8 +772,117 @@ pub(crate) fn type_of<'a>(
             expected,
             *span,
         ),
-        Expr::Lambda { span, .. } => {
-            Err(TyperError::feature_not_supported("closures", *span).into())
+        Expr::Lambda { params, body, span } => {
+            let captures = collect_lambda_captures(params, body.as_ref(), env);
+            for (name, capture_span) in captures {
+                if let Some(binding) = env.get(name.as_str()) {
+                    if is_resource_type(&binding.ty, aliases, type_defs)? {
+                        return Err(TyperError::feature_not_supported(
+                            &format!("capturing resource value `{}` in closures", name),
+                            capture_span,
+                        )
+                        .into());
+                    }
+                }
+            }
+
+            let expected_fn = if let Some(exp) = expected {
+                match base_type(exp, aliases)? {
+                    Type::Fn {
+                        params: exp_params,
+                        ret: exp_ret,
+                    } => Some((exp_params, exp_ret)),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+
+            if let Some((exp_params, _)) = &expected_fn {
+                if exp_params.len() != params.len() {
+                    return Err(
+                        TyperError::arity_mismatch("lambda", exp_params.len(), params.len(), *span)
+                            .into(),
+                    );
+                }
+                for (idx, (expected_param, found_param)) in
+                    exp_params.iter().zip(params.iter()).enumerate()
+                {
+                    if !base_types_match(expected_param, &found_param.ty, aliases)? {
+                        return Err(TyperError::arg_type_mismatch(
+                            idx,
+                            "lambda",
+                            expected_param.clone(),
+                            found_param.ty.clone(),
+                            found_param.span,
+                        )
+                        .into());
+                    }
+                }
+            }
+
+            let mut lambda_env = env.clone();
+            let mut seen_params: HashSet<&str> = HashSet::with_capacity(params.len());
+            for param in params {
+                if !seen_params.insert(param.name.as_str()) {
+                    return Err(TyperError::duplicate_parameter(param.name.as_str()).into());
+                }
+                lambda_env.insert(
+                    param.name.as_str(),
+                    LocalBinding {
+                        ty: param.ty.clone(),
+                        kind: ParamKind::Borrow,
+                    },
+                );
+            }
+
+            let mut lambda_tracker = tracker.clone();
+            let expected_ret = expected_fn.as_ref().map(|(_, ret)| ret.as_ref());
+            let body_ty = type_of(
+                body,
+                &lambda_env,
+                &mut lambda_tracker,
+                fns,
+                trait_env,
+                aliases,
+                type_defs,
+                type_params,
+                bounds,
+                depth + 1,
+                expected_ret,
+            )?;
+            if let Some((_, expected_ret)) = expected_fn {
+                if !binding_compatible(&expected_ret, &body_ty, aliases)? {
+                    let body_span = expr_span(body.as_ref());
+                    if !literal_can_coerce_unsigned(&expected_ret, &body_ty, body) {
+                        if let Some(err) = unsigned_literal_range_error(&expected_ret, &body_ty, body)
+                        {
+                            return Err(err.into());
+                        }
+                        if base_types_match(&expected_ret, &body_ty, aliases)?
+                            && refinement_loss(&expected_ret, &body_ty, aliases)
+                        {
+                            return Err(TyperError::refinement_loss(
+                                expected_ret.as_ref().clone(),
+                                body_ty.clone(),
+                                body_span,
+                            )
+                            .into());
+                        }
+                        return Err(TyperError::return_type_mismatch(
+                            expected_ret.as_ref().clone(),
+                            body_ty.clone(),
+                            body_span,
+                        )
+                        .into());
+                    }
+                }
+            }
+
+            Ok(Type::Fn {
+                params: params.iter().map(|param| param.ty.clone()).collect::<Vec<_>>(),
+                ret: Box::new(body_ty),
+            })
         }
     }
 }

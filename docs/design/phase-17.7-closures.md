@@ -117,6 +117,21 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.7.
 - Self-cycles and mutual cycles are rejected with deterministic closure-policy diagnostics (not fallback unknown-function errors).
 - Rationale: keep recursion policy user-visible and stable while closure lowering is still pending.
 
+### D17. `code_id` Scope Policy (v1)
+- `code_id` values are unique across the whole compiled module, not per enclosing function.
+- Allocation is deterministic in lowering order so diagnostics and runtime behavior are reproducible.
+- Rationale: keeps closure identity stable and avoids namespace coupling between signature dispatchers and function-local state.
+
+### D18. Dispatcher Construction Boundary (v1)
+- Signature-specific closure dispatchers are generated at lowering/IR construction time.
+- Wasm codegen remains a mechanical encoder of IR instructions and does not own closure semantic decisions.
+- Rationale: preserves proof/debug determinism and keeps closure behavior testable at IR-level before backend encoding.
+
+### D19. Completion Criteria Policy for 17.7.4.1/17.7.4.2
+- 17.7.4.1/17.7.4.2 are not marked complete until end-to-end invoke path is wired (dispatcher + hidden `env_ptr` ABI + runtime tests).
+- Partial milestones (record layout, capture env allocation, `env_ptr = 0` for non-capturing lambdas) are tracked as in-progress notes in TODO.
+- Rationale: prevents premature "done" status and keeps rollout state aligned with observable runtime behavior.
+
 ## Locked Surface (v1)
 
 Function type:
@@ -160,7 +175,7 @@ Notes:
 | Dynamic closure call with unknown `code_id` | n/a | n/a | Runtime trap via dispatcher (D12). |
 
 ## Decision Status
-- All originally tracked post-17.7.1 questions are now resolved as D9 through D16.
+- All originally tracked post-17.7.1 questions are now resolved as D9 through D19.
 - New questions should be added only if they introduce user-visible behavior changes not covered above.
 
 ## References

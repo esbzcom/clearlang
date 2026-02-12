@@ -406,6 +406,7 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
     let mut module = Module {
         funcs: Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len()),
     };
+    let mut next_closure_code_id: u32 = 1;
     for f in &mono_program.funcs {
         module.funcs.push(lower_func(
             f,
@@ -415,6 +416,7 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
             &trait_env,
             &type_defs,
             std_types,
+            &mut next_closure_code_id,
         )?);
     }
     // Append intrinsic function declarations at the end

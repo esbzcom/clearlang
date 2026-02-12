@@ -748,9 +748,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.3.4 Conservatively effect-check calls through function values (unknown callee effect requires `io`).
     - [x] 17.7.3.5 Emit explicit closure recursion diagnostics (self/mutual cycles) instead of fallback unknown-function errors.
   - [ ] 17.7.4 Lowering/codegen: closure environment layout + call ABI.
-    - [ ] 17.7.4.1 Lower closures to `{ code_id, env_ptr }` runtime records with hidden `env_ptr` invoke argument.
-    - [ ] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI.
-    - [ ] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17.
+    - [ ] 17.7.4.1 Lower closures to `{ code_id, env_ptr }` runtime records with hidden `env_ptr` invoke argument. (record/env allocation landed with module-global deterministic `code_id`; invoke/dispatcher wiring still pending)
+    - [ ] 17.7.4.2 Use `env_ptr = 0` for non-capturing lambdas while preserving one invoke ABI. (`env_ptr = 0` lowering path landed; invoke ABI still pending with dispatcher wiring)
+    - [ ] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (current lowering rejects dynamic closure calls with deterministic `T017`)
     - [ ] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
   - [ ] 17.7.5 Tests + docs examples.
  - [ ] 17.8 Traits follow-ups (post-17.2).

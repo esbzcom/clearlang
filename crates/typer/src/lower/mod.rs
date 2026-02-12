@@ -2,7 +2,6 @@ use crate::check::{
     base_type, AliasMap, BoundsMap, FnSig as CheckFnSig, LocalBinding, StdTypeMap, TraitEnv,
     TypeDefs,
 };
-use crate::errors::TyperError;
 use anyhow::Result;
 use clg_ast::{Expr, Func, ParamKind, Type};
 use clg_ir::{
@@ -15,6 +14,7 @@ mod atoms;
 mod binops;
 mod block;
 mod calls;
+mod closures;
 mod collection_types;
 mod collections;
 mod collections_helpers;
@@ -39,6 +39,7 @@ use atoms::{lower_return_expr, lower_unary_expr, lower_var_expr};
 use binops::lower_bin_expr;
 use block::lower_block_expr;
 use calls::lower_call_expr;
+use closures::lower_lambda_expr;
 use control::{lower_if_expr, lower_try_expr};
 use emit::{
     emit_alloc, emit_int_const, emit_memcpy_bytes, emit_ptr_add, emit_zero_for_mem_ty, fresh,
@@ -63,6 +64,10 @@ const COLLECTION_LEN_OFFSET: u32 = 0;
 const COLLECTION_CAP_OFFSET: u32 = 4;
 const COLLECTION_FLAGS_OFFSET: u32 = 8;
 const COLLECTION_DATA_OFFSET: u32 = 12;
+pub(super) const CLOSURE_RECORD_SIZE: u32 = 8;
+pub(super) const CLOSURE_RECORD_ALIGN: u32 = 4;
+pub(super) const CLOSURE_CODE_ID_OFFSET: u32 = 0;
+pub(super) const CLOSURE_ENV_PTR_OFFSET: u32 = 4;
 
 fn ir_ty(t: Type) -> IrType {
     match t {
@@ -132,7 +137,7 @@ fn load_value_copy(ctx: &mut LowerCtx<'_>, ty: &Type, ptr: Value, offset: u32) -
     load_value_borrow(ctx, ty, ptr, offset)
 }
 
-fn store_value(
+pub(super) fn store_value(
     ctx: &mut LowerCtx<'_>,
     ty: &Type,
     ptr: Value,
@@ -177,6 +182,7 @@ pub(crate) struct LowerCtx<'a> {
     pub bounds: BoundsMap,
     pub body: Vec<Instr>,
     pub ret_ty: Type,
+    pub next_closure_code_id: u32,
 }
 
 pub(crate) fn lower_func<'a>(
@@ -187,6 +193,7 @@ pub(crate) fn lower_func<'a>(
     trait_env: &'a TraitEnv<'a>,
     type_defs: &'a TypeDefs<'a>,
     std_types: &'a StdTypeMap,
+    next_closure_code_id: &mut u32,
 ) -> Result<IrFunction> {
     let mut env: HashMap<&str, Value> = HashMap::new();
     let mut type_env: HashMap<&str, LocalBinding> = HashMap::new();
@@ -229,6 +236,7 @@ pub(crate) fn lower_func<'a>(
         },
         body: Vec::new(),
         ret_ty: f.ret.clone(),
+        next_closure_code_id: *next_closure_code_id,
     };
 
     for (i, p) in f.params.iter().enumerate() {
@@ -268,6 +276,7 @@ pub(crate) fn lower_func<'a>(
     }
 
     ctx.body.push(Instr::Ret { val: ret_val });
+    *next_closure_code_id = ctx.next_closure_code_id;
 
     Ok(IrFunction {
         name: f.name.clone(),
@@ -307,13 +316,17 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Call { callee, args, .. } => {
             lower_call_expr(ctx, e, callee.as_str(), args, expected.as_ref())
         }
-        Expr::Lambda { span, .. } => {
-            Err(TyperError::feature_not_supported("closures", *span).into())
-        }
+        Expr::Lambda { params, body, .. } => lower_lambda_expr(ctx, params, body.as_ref()),
     }
 }
 
 impl<'a> LowerCtx<'a> {
+    fn next_lambda_code_id(&mut self) -> u32 {
+        let out = self.next_closure_code_id;
+        self.next_closure_code_id += 1;
+        out
+    }
+
     fn variant_init(&mut self, tag: Value, payload_lo: Value, payload_hi: Value) -> Value {
         let dst = fresh(self);
         self.body.push(Instr::VariantInit {

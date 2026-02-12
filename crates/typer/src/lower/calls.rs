@@ -1,4 +1,5 @@
 use crate::check::{base_type, infer_expr_type};
+use crate::errors::TyperError;
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Type};
@@ -167,6 +168,18 @@ pub(super) fn lower_call_expr<'a>(
             Ok(ctx.variant_init(tag, payload, zero))
         }
         _ => {
+            if let Some(binding) = ctx.type_env.get(callee) {
+                if matches!(base_type(&binding.ty, ctx.aliases)?, Type::Fn { .. }) {
+                    if let Expr::Call { span, .. } = call_expr {
+                        return Err(TyperError::feature_not_supported(
+                            "dynamic closure calls",
+                            *span,
+                        )
+                        .into());
+                    }
+                    anyhow::bail!("dynamic closure calls are not supported in lowering yet");
+                }
+            }
             if let Some((enum_name, variant_name)) = callee.rsplit_once("::") {
                 if ctx.type_defs.enums.contains_key(enum_name) {
                     let call_ty = infer_expr_type(

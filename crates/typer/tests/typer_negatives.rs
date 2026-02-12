@@ -65,6 +65,21 @@ fn errors_on_duplicate_function_names() {
     assert!(format!("{err:#}").contains("duplicate function"));
 }
 
+#[test]
+fn errors_on_reserved_internal_function_namespace() {
+    let src = r#"
+        function __clg_user_helper() -> Int { 1 }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should reject reserved compiler function namespace");
+    let s = format!("{err:#}");
+    assert!(s.contains("T017"), "unexpected error: {s}");
+    assert!(
+        s.contains("reserved compiler namespace `__clg_`"),
+        "unexpected error: {s}"
+    );
+}
+
 // Arg type mismatch on the second parameter (index 1)
 #[test]
 fn errors_on_second_arg_type_mismatch() {

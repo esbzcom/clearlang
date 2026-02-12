@@ -172,4 +172,16 @@ impl TyperError {
             span.end,
         )
     }
+
+    pub fn reserved_function_namespace(name: &str) -> Self {
+        Self::new(
+            "T017",
+            format!(
+                "function name `{}` uses reserved compiler namespace `__clg_`",
+                name
+            ),
+            0,
+            0,
+        )
+    }
 }

@@ -15,7 +15,10 @@ use super::type_validation::{
     validate_equatable_collections, validate_known_types, validate_no_resource_collections,
     validate_supported_types,
 };
-use super::{validate_struct_enum_resources, FnSig, StdTypeMap, TypecheckOutput};
+use super::{
+    ensure_user_function_name_allowed, validate_struct_enum_resources, FnSig, StdTypeMap,
+    TypecheckOutput,
+};
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
 use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
@@ -55,6 +58,7 @@ pub(super) fn fast_path_without_totality_with_std(
     }
 
     for f in &ast.funcs {
+        ensure_user_function_name_allowed(&f.name)?;
         if alias_map.contains_key(f.name.as_str()) {
             return Err(TyperError::duplicate_function(&f.name).into());
         }

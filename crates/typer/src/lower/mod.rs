@@ -8,6 +8,7 @@ use clg_ir::{
     Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind, VariantParts,
 };
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 
 mod array;
 mod atoms;
@@ -169,12 +170,9 @@ fn show_type_for_dispatch(ty: Type) -> String {
 
 pub(crate) fn dispatcher_name(sig: &DispatcherSignature) -> String {
     let mut out = String::from("__clg_dispatch_");
-    for ch in signature_sort_key(sig).chars() {
-        if ch.is_ascii_alphanumeric() {
-            out.push(ch.to_ascii_lowercase());
-        } else {
-            out.push('_');
-        }
+    // Encode the canonical signature bytes as hex to avoid lossy name collisions.
+    for byte in signature_sort_key(sig).bytes() {
+        let _ = write!(&mut out, "{byte:02x}");
     }
     out
 }

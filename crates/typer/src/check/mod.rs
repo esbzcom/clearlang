@@ -188,6 +188,13 @@ pub struct TypecheckOutput {
     pub mono_program: Program,
 }
 
+pub(super) fn ensure_user_function_name_allowed(name: &str) -> Result<()> {
+    if name.starts_with("__clg_") {
+        return Err(TyperError::reserved_function_namespace(name).into());
+    }
+    Ok(())
+}
+
 pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     let std_types = StdTypeMap::new();
     check_with_vcs_with_std(ast, &std_types)
@@ -227,6 +234,7 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
     }
 
     for f in &ast.funcs {
+        ensure_user_function_name_allowed(&f.name)?;
         if alias_map.contains_key(f.name.as_str()) {
             return Err(TyperError::duplicate_function(&f.name).into());
         }
@@ -578,6 +586,7 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
     }
 
     for f in &ast.funcs {
+        ensure_user_function_name_allowed(&f.name)?;
         if alias_map.contains_key(f.name.as_str()) {
             return Err(TyperError::duplicate_function(&f.name).into());
         }

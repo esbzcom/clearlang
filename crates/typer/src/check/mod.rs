@@ -16,7 +16,7 @@ mod type_validation;
 use self::aliases::{build_alias_map, validate_alias_predicates};
 pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::fast_path::fast_path_without_totality_with_std;
-use self::function_checks::{check_func, check_impl_method};
+use self::function_checks::{check_func, check_impl_method, check_trait_default_method};
 use self::intrinsics::collect_used_intrinsics;
 use self::monomorphize::monomorphize_program;
 use self::totality::enforce_totality;
@@ -262,6 +262,21 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
     for f in &ast.funcs {
         check_func(f, &fns, &trait_env, &alias_map, &type_defs)
             .with_context(|| format!("in function `{}`", f.name))?;
+    }
+    for tr in &ast.traits {
+        for method in &tr.methods {
+            check_trait_default_method(
+                tr.name.as_str(),
+                method,
+                &fns,
+                &trait_env,
+                &alias_map,
+                &type_defs,
+            )
+            .with_context(|| {
+                format!("in trait `{}` default method `{}`", tr.name, method.name)
+            })?;
+        }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
@@ -614,6 +629,21 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
     for f in &ast.funcs {
         check_func(f, &fns, &trait_env, &alias_map, &type_defs)
             .with_context(|| format!("in function `{}`", f.name))?;
+    }
+    for tr in &ast.traits {
+        for method in &tr.methods {
+            check_trait_default_method(
+                tr.name.as_str(),
+                method,
+                &fns,
+                &trait_env,
+                &alias_map,
+                &type_defs,
+            )
+            .with_context(|| {
+                format!("in trait `{}` default method `{}`", tr.name, method.name)
+            })?;
+        }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {

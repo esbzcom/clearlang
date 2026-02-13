@@ -1,5 +1,21 @@
 # Codex Session Context
 
+## 2026-02-13 - Phase 17.8.1.3 trait-default effect exactness
+- Implemented exact effect enforcement for trait default method bodies:
+  - `crates/typer/src/check/function_checks.rs`: added trait-default checker that type-checks the default body under `Self` bounds and enforces exact effect equality.
+  - `crates/typer/src/check/mod.rs` and `crates/typer/src/check/fast_path.rs`: wired trait-default checking into both normal and fast-path typecheck flows.
+  - `crates/typer/src/errors/traits.rs`: added `T249` (`trait default method body effect mismatch`).
+- Added tests:
+  - `crates/typer/tests/generics_traits_negatives.rs`: mismatch when body is stronger than declared; mismatch when body is weaker than declared.
+- Docs:
+  - `docs/diagnostics.md`: added `T249` to the error-code table.
+- Validation:
+  - `cargo test -p clg-typer --tests`
+  - `cargo test -p clg-cli --test diagnostics_codes`
+- Roadmap updates:
+  - marked 17.8.1.3 complete in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` to make 17.8.1.5 the next sub-step.
+
 ## 2026-02-13 - Phase 17.8.1.2 typer default-method omission
 - Implemented 17.8.1.2 behavior:
   - `crates/typer/src/check/trait_env.rs` now allows an impl to omit a trait method only when that trait method has a default body; non-default omissions still emit `T233`.

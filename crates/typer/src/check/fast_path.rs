@@ -4,7 +4,7 @@ use clg_ir::{Instr, Module};
 use std::collections::HashMap;
 
 use super::aliases::{build_alias_map, validate_alias_predicates};
-use super::function_checks::{check_func, check_impl_method};
+use super::function_checks::{check_func, check_impl_method, check_trait_default_method};
 use super::intrinsics::collect_used_intrinsics;
 use super::monomorphize::monomorphize_program;
 use super::totality::level_from_effect;
@@ -86,6 +86,21 @@ pub(super) fn fast_path_without_totality_with_std(
     for f in &ast.funcs {
         check_func(f, &fns, &trait_env, &alias_map, &type_defs)
             .with_context(|| format!("in function `{}`", f.name))?;
+    }
+    for tr in &ast.traits {
+        for method in &tr.methods {
+            check_trait_default_method(
+                tr.name.as_str(),
+                method,
+                &fns,
+                &trait_env,
+                &alias_map,
+                &type_defs,
+            )
+            .with_context(|| {
+                format!("in trait `{}` default method `{}`", tr.name, method.name)
+            })?;
+        }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {

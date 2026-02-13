@@ -100,6 +100,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T246 | type | Trait type parameters not supported yet. |
 | T247 | type | Conflicting inferred types for a type parameter. |
 | T248 | type | Ambiguous impl for a trait on a type. |
+| T249 | type | Trait default method body effect does not match declared effect. |
 | T301 | type | Branch type mismatch in expression-form `if`/`else`. |
 | T401 | type | Call requires a stronger effect. |
 | T402 | type | Missing required mut guard for a mut call. |

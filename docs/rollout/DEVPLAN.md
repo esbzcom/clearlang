@@ -25,7 +25,8 @@
 1) Complete 17.8.1.0 design lock for trait default methods, including README design-principles check (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and acceptance boundaries. (Done; see `docs/design/phase-17.8-trait-defaults.md`.)
 2) Implement 17.8.1.1 parser/AST support for trait methods in either declaration form (`...;`) or default-body form (`... { ... }`) with deterministic diagnostics. (Done; AST + parser + parser regression tests landed.)
 3) Implement 17.8.1.2 typer behavior to allow omitted impl methods only when trait defaults exist. (Done; missing non-default methods still report `T233`.)
-4) Continue with 17.8.1.3 effect enforcement for trait default bodies.
+4) Implement 17.8.1.3 exact effect enforcement for trait default bodies. (Done; dedicated `T249` mismatch diagnostic + typer tests landed.)
+5) Continue with 17.8.1.5 docs/tests expansion for defaults, missing overrides, and effect mismatches.
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

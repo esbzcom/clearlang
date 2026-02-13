@@ -1,18 +1,18 @@
 use anyhow::Result;
-use clg_ast::{Func, ParamKind, Type};
-use std::collections::HashMap;
+use clg_ast::{Func, ParamKind, TraitMethod, Type};
+use std::collections::{HashMap, HashSet};
 
 use super::expr::{self, consume_var_expr, expr_span, max_effect, type_of, ResourceTracker};
 use super::mut_guards::enforce_mut_guards;
 use super::totality::level_from_effect;
 use super::type_params::validate_bounds;
 use super::{
-    base_type, base_types_match, binding_compatible, is_resource_type, refinement_loss,
-    substitute_type, type_param_names, AliasMap, EffectLevel, FnSig, ImplInfo, LocalBinding,
-    TypeDefs, TypeSubst, RETURN_KEY,
+    base_type, base_types_match, binding_compatible, effect_label, is_resource_type,
+    refinement_loss, substitute_type, type_param_names, AliasMap, BoundsMap, EffectLevel, FnSig,
+    ImplInfo, LocalBinding, TypeDefs, TypeSubst, RETURN_KEY,
 };
 use crate::errors::TyperError;
-use crate::guards::collect_mut_guards;
+use crate::guards::{collect_mut_guards, MutGuardKey};
 
 pub(super) fn check_func<'a>(
     f: &'a Func,
@@ -280,5 +280,108 @@ pub(super) fn check_impl_method<'a>(
         enforce_mut_guards(&method.body, &guard_keys)?;
     }
     max_effect(&method.body, fns, trait_env, allowed_effect)?;
+    Ok(())
+}
+
+pub(super) fn check_trait_default_method<'a>(
+    trait_name: &str,
+    method: &'a TraitMethod,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &super::TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
+    let Some(body) = method.default_body.as_ref() else {
+        return Ok(());
+    };
+
+    let mut type_params: HashSet<String> = HashSet::with_capacity(1);
+    type_params.insert("Self".to_string());
+
+    let mut bounds: BoundsMap = HashMap::with_capacity(1);
+    let mut self_bounds = HashSet::with_capacity(1);
+    self_bounds.insert(trait_name.to_string());
+    bounds.insert("Self".to_string(), self_bounds);
+
+    let ret_ty = method.ret.clone();
+    let mut env: HashMap<&str, LocalBinding> = HashMap::with_capacity(method.params.len() + 1);
+    env.insert(
+        RETURN_KEY,
+        LocalBinding {
+            ty: ret_ty.clone(),
+            kind: ParamKind::Borrow,
+        },
+    );
+
+    let mut tracker = ResourceTracker::with_capacity(method.params.len());
+    for p in &method.params {
+        let resolved_ty = base_type(&p.ty, aliases)?;
+        if env
+            .insert(
+                p.name.as_str(),
+                LocalBinding {
+                    ty: p.ty.clone(),
+                    kind: p.kind,
+                },
+            )
+            .is_some()
+        {
+            return Err(TyperError::duplicate_parameter(&p.name).into());
+        }
+        let is_resource = is_resource_type(&resolved_ty, aliases, type_defs)?;
+        tracker.register_param(p.name.as_str(), p.kind, is_resource);
+    }
+
+    let body_ty = type_of(
+        body,
+        &env,
+        &mut tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        &type_params,
+        &bounds,
+        0,
+        Some(&ret_ty),
+    )?;
+    if !binding_compatible(&ret_ty, &body_ty, aliases)? {
+        let sp = expr_span(body);
+        let allow_unsigned_literal = expr::literal_can_coerce_unsigned(&ret_ty, &body_ty, body);
+        if !allow_unsigned_literal {
+            if let Some(err) = expr::unsigned_literal_range_error(&ret_ty, &body_ty, body) {
+                return Err(err.into());
+            }
+            if base_types_match(&ret_ty, &body_ty, aliases)?
+                && refinement_loss(&ret_ty, &body_ty, aliases)
+            {
+                return Err(TyperError::refinement_loss(ret_ty.clone(), body_ty, sp).into());
+            }
+            return Err(TyperError::return_type_mismatch(ret_ty.clone(), body_ty, sp).into());
+        }
+    }
+
+    if is_resource_type(&ret_ty, aliases, type_defs)? {
+        consume_var_expr(&mut tracker, body)?;
+    }
+    tracker.ensure_consumed()?;
+
+    let declared_effect = level_from_effect(method.effect);
+    if declared_effect >= EffectLevel::Mut {
+        let guard_keys: HashSet<MutGuardKey> = HashSet::new();
+        enforce_mut_guards(body, &guard_keys)?;
+    }
+
+    let inferred_effect = max_effect(body, fns, trait_env, EffectLevel::Io)?;
+    if inferred_effect != declared_effect {
+        return Err(TyperError::trait_default_effect_mismatch(
+            trait_name,
+            method.name.as_str(),
+            effect_label(declared_effect),
+            effect_label(inferred_effect),
+            method.span,
+        )
+        .into());
+    }
     Ok(())
 }

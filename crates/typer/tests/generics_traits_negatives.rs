@@ -71,3 +71,27 @@ fn impl_missing_non_default_trait_method_errors() {
     "#;
     type_err_code(src, "T233");
 }
+
+#[test]
+fn trait_default_body_effect_mismatch_stronger_than_declared_errors() {
+    let src = r#"
+        trait Probe {
+            pure function ping(a: Self, b: Self) -> Bool { std::env::time() == 0 }
+        }
+
+        impl Probe for Int { }
+    "#;
+    type_err_code(src, "T249");
+}
+
+#[test]
+fn trait_default_body_effect_mismatch_weaker_than_declared_errors() {
+    let src = r#"
+        trait Probe {
+            io function ping(a: Self, b: Self) -> Bool { true }
+        }
+
+        impl Probe for Int { }
+    "#;
+    type_err_code(src, "T249");
+}

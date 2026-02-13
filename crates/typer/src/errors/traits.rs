@@ -115,4 +115,22 @@ impl TyperError {
         }
         Self::new("T248", message, span.start, span.end)
     }
+
+    pub fn trait_default_effect_mismatch(
+        trait_name: &str,
+        method: &str,
+        declared: &str,
+        inferred: &str,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            "T249",
+            format!(
+                "at {}..{}: trait `{}` default method `{}` declares `{}` effect but body requires `{}`",
+                span.start, span.end, trait_name, method, declared, inferred
+            ),
+            span.start,
+            span.end,
+        )
+    }
 }

@@ -755,8 +755,18 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.7.5 Tests + docs examples. (added runtime unknown-`code_id` trap coverage and typing guide examples/rules)
  - [ ] 17.8 Traits follow-ups (post-17.2).
    - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.
+     - [ ] 17.8.1.1 Parser/AST: allow trait methods to use either declaration form (`...;`) or default-body form (`... { ... }`).
+     - [ ] 17.8.1.2 Typer: permit impls to omit methods only when the trait provides defaults; keep missing-method diagnostics for non-default methods.
+     - [ ] 17.8.1.3 Effect rules: require default-body effect to match the declared trait-method effect exactly.
+     - [x] 17.8.1.4 Override signature/effect matching remains enforced for impl-provided methods (baseline already implemented in 17.2).
+     - [ ] 17.8.1.5 Tests/docs: parser + typer positive/negative coverage for defaults, missing overrides, and effect mismatches.
    - [ ] 17.8.2 Optional explicit impl selection syntax (only if coherence is relaxed).
+     - [x] 17.8.2.1 Keep strict coherence as default behavior (baseline from 17.2); explicit impl selection remains unsupported while coherence is strict.
+     - [ ] 17.8.2.2 If coherence is relaxed later, add a design note plus parser/typer/diagnostics for explicit impl selection.
    - [ ] 17.8.3 Proof/debug name shortening (optional hash suffix for long mangled names).
+     - [ ] 17.8.3.1 Add an optional deterministic shortening mode for long mangled names (hash suffix).
+     - [ ] 17.8.3.2 Preserve uniqueness/collision safety guarantees and stable reproducibility.
+     - [ ] 17.8.3.3 Keep proof/debug traceability by documenting and testing the shortened-name mapping.
 
 ### 18 Production hardening + attestation
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).

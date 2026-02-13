@@ -765,7 +765,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
        - [x] Parser: accept both forms while preserving deterministic parsing for trait blocks.
        - [x] Diagnostics: reject mixed/invalid method forms with stable parser codes and spans.
        - [x] Tests: add parser positive/negative coverage for both forms and malformed default bodies.
-     - [ ] 17.8.1.2 Typer: permit impls to omit methods only when the trait provides defaults; keep missing-method diagnostics for non-default methods.
+     - [x] 17.8.1.2 Typer: permit impls to omit methods only when the trait provides defaults; keep missing-method diagnostics for non-default methods.
      - [ ] 17.8.1.3 Effect rules: require default-body effect to match the declared trait-method effect exactly.
      - [x] 17.8.1.4 Override signature/effect matching remains enforced for impl-provided methods (baseline already implemented in 17.2).
      - [ ] 17.8.1.5 Tests/docs: parser + typer positive/negative coverage for defaults, missing overrides, and effect mismatches.

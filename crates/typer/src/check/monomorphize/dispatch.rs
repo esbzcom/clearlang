@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
-use clg_ast::{Span, Type};
+use clg_ast::{Func, Span, Type};
 
 use crate::errors::TyperError;
 
@@ -10,6 +10,25 @@ use super::super::{show_ty, type_param_names, unify_type_params, BoundsMap, Type
 use super::helpers::instantiate_func;
 use super::mangle::{mangle_fn_name, mangle_impl_method_name};
 use super::Monomorphizer;
+
+fn trait_default_base_func(method_name: &str, method: &clg_ast::TraitMethod) -> Result<Func> {
+    let Some(body) = method.default_body.clone() else {
+        anyhow::bail!("missing impl method `{}`", method_name);
+    };
+    Ok(Func {
+        is_exported: false,
+        effect: method.effect,
+        effect_span: method.effect_span,
+        name: method.name.clone(),
+        type_params: Vec::new(),
+        params: method.params.clone(),
+        ret: method.ret.clone(),
+        where_bounds: Vec::new(),
+        requires: Vec::new(),
+        ensures: Vec::new(),
+        body,
+    })
+}
 
 impl<'a> Monomorphizer<'a> {
     pub(super) fn resolve_generic_call(
@@ -116,16 +135,16 @@ impl<'a> Monomorphizer<'a> {
         )?;
 
         let (imp, impl_subst) = self.find_impl(trait_name, &self_ty, span)?;
-        let impl_method = imp
-            .methods
-            .get(method_name)
-            .ok_or_else(|| anyhow::anyhow!("missing impl method `{}`", method_name))?;
-
         let mut full_subst = impl_subst;
         full_subst.insert("Self".to_string(), self_ty.clone());
         let mangled = mangle_impl_method_name(trait_name, &self_ty, method_name, self.aliases)?;
         if !self.mono_map.contains_key(mangled.as_str()) {
-            let inst = instantiate_func(impl_method, &full_subst, mangled.clone());
+            let inst = if let Some(impl_method) = imp.methods.get(method_name) {
+                instantiate_func(impl_method, &full_subst, mangled.clone())
+            } else {
+                let base = trait_default_base_func(method_name, method)?;
+                instantiate_func(&base, &full_subst, mangled.clone())
+            };
             self.register_func(inst);
         }
         Ok(mangled)

@@ -1,5 +1,18 @@
 # Codex Session Context
 
+## 2026-02-13 - Phase 17.8.1.2 typer default-method omission
+- Implemented 17.8.1.2 behavior:
+  - `crates/typer/src/check/trait_env.rs` now allows an impl to omit a trait method only when that trait method has a default body; non-default omissions still emit `T233`.
+  - `crates/typer/src/check/monomorphize/dispatch.rs` now falls back to trait default method bodies when an impl omits the method, instantiating the canonical mangled impl symbol.
+- Added regression coverage:
+  - `crates/typer/tests/generics_traits.rs`: positive case for omitted impl method with trait default.
+  - `crates/typer/tests/generics_traits_negatives.rs`: missing non-default method still errors with `T233`.
+- Validation:
+  - `cargo test -p clg-typer --tests`
+- Roadmap updates:
+  - marked 17.8.1.2 complete in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` to set 17.8.1.3 as the next step.
+
 ## 2026-02-13 - Phase 17.8.1.1 parser/AST trait defaults
 - Implemented parser/AST support for trait default methods (`... { ... }`) while keeping declaration form (`...;`):
   - `crates/ast/src/lib.rs`: `TraitMethod` now carries `default_body: Option<Expr>`.

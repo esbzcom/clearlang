@@ -44,6 +44,25 @@ fn monomorphizes_trait_impl_calls() {
 }
 
 #[test]
+fn monomorphizes_trait_default_method_when_impl_omits_it() {
+    let src = r#"
+        trait Eq {
+            pure function eq(a: Self, b: Self) -> Bool { a == b }
+        }
+
+        impl Eq for Int { }
+
+        function main() -> Bool {
+            Eq::eq(1, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
+}
+
+#[test]
 fn lowers_generic_structs_and_enums() {
     let src = r#"
         struct Box<T> {

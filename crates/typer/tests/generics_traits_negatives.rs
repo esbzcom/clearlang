@@ -59,3 +59,15 @@ fn overlapping_impls_are_rejected() {
     "#;
     type_err_code(src, "T236");
 }
+
+#[test]
+fn impl_missing_non_default_trait_method_errors() {
+    let src = r#"
+        trait Eq {
+            pure function eq(a: Self, b: Self) -> Bool;
+        }
+
+        impl Eq for Int { }
+    "#;
+    type_err_code(src, "T233");
+}

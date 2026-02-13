@@ -102,20 +102,21 @@ pub(super) fn build_trait_env<'a>(
         }
 
         for (name, trait_method) in &trait_info.methods {
-            let Some(impl_method) = methods.get(name) else {
+            if let Some(impl_method) = methods.get(name) {
+                validate_impl_method_signature(
+                    decl.trait_name.as_str(),
+                    trait_method,
+                    impl_method,
+                    &decl.for_type,
+                )?;
+            } else if trait_method.default_body.is_none() {
                 return Err(TyperError::trait_method_missing(
                     decl.trait_name.as_str(),
                     name,
                     decl.span,
                 )
                 .into());
-            };
-            validate_impl_method_signature(
-                decl.trait_name.as_str(),
-                trait_method,
-                impl_method,
-                &decl.for_type,
-            )?;
+            }
         }
         for name in methods.keys() {
             if !trait_info.methods.contains_key(name) {

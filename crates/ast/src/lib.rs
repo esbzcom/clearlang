@@ -169,6 +169,7 @@ pub struct TraitMethod {
     pub name: String,
     pub params: Vec<Param>,
     pub ret: Type,
+    pub default_body: Option<Expr>,
     pub span: Span,
 }
 

@@ -120,3 +120,17 @@ fn rejects_trailing_effect_after_signature() {
         "error should indicate the body opening '{{' or a parse expectation, got: {err}"
     );
 }
+
+#[test]
+fn trait_method_rejects_mixed_declaration_and_default_body_forms() {
+    let src = r#"
+        trait Bad {
+            pure function eq(a: Self, b: Self) -> Bool; { a == b }
+        }
+    "#;
+    let err = parse(src).expect_err("should reject mixed ';' and '{...}' method form");
+    assert!(
+        err.contains("expected") || err.contains("trait") || err.contains("';'"),
+        "error should signal malformed trait method form, got: {err}"
+    );
+}

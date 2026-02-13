@@ -760,11 +760,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
        - [x] Include a design-principles check from README (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
        - [x] Freeze v1 scope: declaration or default-body trait methods only; no dynamic dispatch or trait-state features.
        - [x] Define deterministic diagnostics for unsupported forms and effect mismatches.
-     - [ ] 17.8.1.1 Parser/AST: allow trait methods to use either declaration form (`...;`) or default-body form (`... { ... }`).
-       - [ ] AST: represent an optional default body on trait methods without regressing existing trait signatures.
-       - [ ] Parser: accept both forms while preserving deterministic parsing for trait blocks.
-       - [ ] Diagnostics: reject mixed/invalid method forms with stable parser codes and spans.
-       - [ ] Tests: add parser positive/negative coverage for both forms and malformed default bodies.
+     - [x] 17.8.1.1 Parser/AST: allow trait methods to use either declaration form (`...;`) or default-body form (`... { ... }`).
+       - [x] AST: represent an optional default body on trait methods without regressing existing trait signatures.
+       - [x] Parser: accept both forms while preserving deterministic parsing for trait blocks.
+       - [x] Diagnostics: reject mixed/invalid method forms with stable parser codes and spans.
+       - [x] Tests: add parser positive/negative coverage for both forms and malformed default bodies.
      - [ ] 17.8.1.2 Typer: permit impls to omit methods only when the trait provides defaults; keep missing-method diagnostics for non-default methods.
      - [ ] 17.8.1.3 Effect rules: require default-body effect to match the declared trait-method effect exactly.
      - [x] 17.8.1.4 Override signature/effect matching remains enforced for impl-provided methods (baseline already implemented in 17.2).

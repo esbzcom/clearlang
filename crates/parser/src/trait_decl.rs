@@ -1,9 +1,10 @@
+use crate::expr::expr_p;
 use crate::generics::type_params_p;
 use crate::tokens::{func_name_p, ident_p, kw};
 use crate::types::{effect_p, ty_p};
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::{Effect, Param, ParamKind, Span, TraitDecl, TraitMethod};
+use clg_ast::{Effect, Expr, Param, ParamKind, Span, TraitDecl, TraitMethod};
 
 fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
     Span {
@@ -50,6 +51,21 @@ fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
 }
 
 fn trait_method_p<'a>() -> impl Parser<'a, &'a str, TraitMethod, ErrTy<'a>> {
+    let method_tail = choice((
+        just(';').padded().to(None),
+        expr_p()
+            .padded()
+            .or_not()
+            .try_map(|maybe_expr, span| match maybe_expr {
+                Some(Expr::Block { .. }) => Ok(maybe_expr),
+                Some(_) => Err(Rich::custom(
+                    span,
+                    "trait default method body must use block form `{ ... }`",
+                )),
+                None => Err(Rich::custom(span, "expected ';' or default method body")),
+            }),
+    ));
+
     effect_p()
         .map_with(|eff, e| (eff, to_span(e.span())))
         .or_not()
@@ -68,8 +84,8 @@ fn trait_method_p<'a>() -> impl Parser<'a, &'a str, TraitMethod, ErrTy<'a>> {
             ),
         )
         .then(ty_p().padded())
-        .then_ignore(just(';').padded().labelled("';'"))
-        .map_with(|((((eff_opt, name), params), _arrow_ok), ret), e| {
+        .then(method_tail)
+        .map_with(|(((((eff_opt, name), params), _arrow_ok), ret), default_body), e| {
             let (effect, effect_span) = eff_opt
                 .map(|(eff, span)| (eff, Some(span)))
                 .unwrap_or((Effect::None, None));
@@ -79,6 +95,7 @@ fn trait_method_p<'a>() -> impl Parser<'a, &'a str, TraitMethod, ErrTy<'a>> {
                 name,
                 params,
                 ret,
+                default_body,
                 span: to_span(e.span()),
             }
         })

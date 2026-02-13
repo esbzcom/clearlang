@@ -1,5 +1,19 @@
 # Codex Session Context
 
+## 2026-02-13 - Phase 17.8.1.1 parser/AST trait defaults
+- Implemented parser/AST support for trait default methods (`... { ... }`) while keeping declaration form (`...;`):
+  - `crates/ast/src/lib.rs`: `TraitMethod` now carries `default_body: Option<Expr>`.
+  - `crates/parser/src/trait_decl.rs`: parser accepts either `;` or a block default body.
+- Added parser coverage:
+  - positive: `crates/parser/tests/generics_traits.rs` validates declaration + default-body forms.
+  - negative: `crates/parser/tests/parse_negatives.rs` rejects malformed mixed `; { ... }` forms.
+- Validation:
+  - `cargo test -p clg-parser`
+  - `cargo test -p clg-typer --tests`
+- Roadmap updates:
+  - marked 17.8.1.1 complete in `docs/TODO.md`,
+  - marked DEVPLAN execution slice step 2 done in `docs/rollout/DEVPLAN.md`.
+
 ## 2026-02-13 - Phase 17.8.1.0 design lock for trait defaults
 - Added `docs/design/phase-17.8-trait-defaults.md` to lock 17.8.1.0 decisions.
 - Captured:

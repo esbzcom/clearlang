@@ -20,11 +20,11 @@ fn monomorphizes_generic_function_calls() {
 #[test]
 fn monomorphizes_trait_impl_calls() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 
@@ -46,14 +46,35 @@ fn monomorphizes_trait_impl_calls() {
 #[test]
 fn monomorphizes_trait_default_method_when_impl_omits_it() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool { a == b }
         }
 
-        impl Eq for Int { }
+        implementation Eq for Int { }
 
         function main() -> Bool {
             Eq::eq(1, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
+}
+
+#[test]
+fn impl_can_override_trait_default_method() {
+    let src = r#"
+        interface Eq {
+            pure function eq(a: Self, b: Self) -> Bool { true }
+        }
+
+        implementation Eq for Int {
+            pure function eq(a: Int, b: Int) -> Bool { a == b }
+        }
+
+        function main() -> Bool {
+            Eq::eq(1, 2)
         }
     "#;
     let ast = parse(src).expect("parse");
@@ -89,17 +110,17 @@ fn lowers_generic_structs_and_enums() {
 #[test]
 fn impl_with_inline_bounds_works() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 
         struct Box<T> { value: T; }
 
-        impl<T: Eq> Eq for Box<T> {
+        implementation<T: Eq> Eq for Box<T> {
             pure function eq(a: Box<T>, b: Box<T>) -> Bool {
                 Eq::eq(a.value, b.value)
             }
@@ -116,17 +137,17 @@ fn impl_with_inline_bounds_works() {
 #[test]
 fn impl_with_where_bounds_works() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 
         struct Box<T> { value: T; }
 
-        impl<T> Eq for Box<T> where T: Eq {
+        implementation<T> Eq for Box<T> where T: Eq {
             pure function eq(a: Box<T>, b: Box<T>) -> Bool {
                 Eq::eq(a.value, b.value)
             }
@@ -143,11 +164,11 @@ fn impl_with_where_bounds_works() {
 #[test]
 fn monomorphizes_trait_calls_in_contracts_and_invariants() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 

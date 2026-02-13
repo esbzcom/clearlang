@@ -1,19 +1,19 @@
-# Phase 17.2 - Generics and Traits
+# Phase 17.2 - Generics and Interfaces
 
 ## Status
 - Design note only. Implementation tracked in `docs/TODO.md` under Phase 17.2.
 
 ## Goals
 - Add type parameters to `struct`, `enum`, `function`, and `type` aliases.
-- Introduce traits/interfaces with static dispatch and trait bounds.
+- Introduce interfaces with static dispatch and interface bounds.
 - Enable generic stdlib collections (`List<T>`, `Map<K,V>`, `Set<T>`) and shared helpers.
 - Keep compilation deterministic and simple via monomorphization.
 
 ## Non-Goals
-- Trait objects or dynamic dispatch.
-- Specialization, negative impls, or overlapping impls.
+- Interface objects or dynamic dispatch.
+- Specialization, negative implementations, or overlapping implementations.
 - Higher-kinded types, higher-rank polymorphism, or generic associated types.
-- Default trait method bodies (possible later extension).
+- Default interface method bodies (possible later extension).
 - Operator overloading or implicit coercions.
 
 ## Syntax (Draft)
@@ -37,18 +37,18 @@ pure function id<T>(x: T) -> T {
 }
 ```
 
-Traits and impls (static dispatch):
+Interfaces and implementations (static dispatch):
 ```
-trait Eq {
+interface Eq {
     pure function eq(a: Self, b: Self) -> Bool;
 }
 
-impl Eq for Int {
+implementation Eq for Int {
     pure function eq(a: Int, b: Int) -> Bool { a == b }
 }
 ```
 
-Trait bounds (inline and `where`):
+Interface bounds (inline and `where`):
 ```
 pure function eq_pair<T: Eq>(a: T, b: T) -> Bool {
     Eq::eq(a, b)
@@ -69,9 +69,9 @@ let z = std::map::new<K,V>();
 ```
 
 Notes:
-- Trait methods are declared as signatures only; no default bodies in this phase.
-- `Self` is only valid inside trait and impl declarations.
-- Trait methods are called with `Trait::method(...)` (no dot-method syntax yet).
+- Interface methods are declared as signatures only; no default bodies in this phase.
+- `Self` is only valid inside interface and implementation declarations.
+- Interface methods are called with `Interface::method(...)` (no dot-method syntax yet).
 - Type arguments use `Name<T, U>` and `call<T>(...)` syntax.
 
 ### Bounds Placement and Syntax (Draft)
@@ -80,7 +80,7 @@ Notes:
   - `function f<T: Eq>(x: T) -> Bool { ... }`
 - A `where` clause appears after the return type and before any `require`/`ensure`
   clauses and the function body.
-- Multiple bounds are comma-separated. If multiple traits are required for a
+- Multiple bounds are comma-separated. If multiple interfaces are required for a
   single parameter, repeat the parameter name:
   - `where T: Eq, T: Hash`
 
@@ -92,12 +92,12 @@ Notes:
   - Expected type (contextual return type).
 - If inference is ambiguous or unused type parameters remain, emit a diagnostic
   and require explicit type arguments.
-- Trait bounds are not inferred; they must appear inline or in a `where` clause.
-- Trait bounds are required when calling a trait method; bounds are checked
+- Interface bounds are not inferred; they must appear inline or in a `where` clause.
+- Interface bounds are required when calling an interface method; bounds are checked
   when monomorphizing each call site.
 
 ### Effects and Contracts
-- Trait method signatures include effects; impls must match exactly.
+- Interface method signatures include effects; implementations must match exactly.
 - `require`/`ensure` clauses on generic functions are preserved per instantiation.
 - Pure/Mut/Io rules apply after monomorphization (no special-casing for generics).
 
@@ -109,16 +109,16 @@ Notes:
 
 ## Coherence Rules (Draft)
 
-- For each `(Trait, ConcreteType)` pair, there must be exactly one applicable
-  `impl` after type substitution.
-- Overlapping impls are rejected, even if one is "more specific."
+- For each `(Interface, ConcreteType)` pair, there must be exactly one applicable
+  `implementation` after type substitution.
+- Overlapping implementations are rejected, even if one is "more specific."
 - There is no orphan rule yet (no module system); this will be revisited in
   Phase 17.5 to avoid cross-module conflicts.
 
 ## Monomorphization Model
 
 - All generics are monomorphized at compile time into concrete copies.
-- Trait calls are resolved to the concrete `impl` function at compile time.
+- Interface calls are resolved to the concrete `implementation` function at compile time.
 - No vtables or dynamic dispatch are generated.
 - VCs and proofs are generated per monomorphized instance only (uninstantiated
   generics produce no proof artifacts).
@@ -131,7 +131,7 @@ The `$` character is reserved for mangling and is not allowed in user-defined
 identifiers.
 
 - Function instantiations: `name$T1$T2$...` (no trailing `$`).
-- Impl method instantiations: `impl$Trait$Self$method`.
+- Implementation method instantiations: `impl$Trait$Self$method`.
 - Type mangling:
   - Primitives: `Int`, `U8`, `U64`, `U128`, `U256`, `Bool`, `String`, `Bytes`.
   - Named: `N$Name$arity$Arg1$Arg2$...` (arity included for parseability).
@@ -155,15 +155,15 @@ identifiers.
 - Generic parameter count mismatch on types or calls.
 - Ambiguous type inference for a generic function call.
 - Unused type parameters on a declaration.
-- Missing or unsatisfied trait bounds.
-- Overlapping or duplicate impls.
+- Missing or unsatisfied interface bounds.
+- Overlapping or duplicate implementations.
 
 ## Open Questions
 
-- Whether to allow default trait method bodies (and how to check effects).
+- Whether to allow default interface method bodies (and how to check effects).
   - Recommended: defer; if added later, require explicit effect on the default
     body and enforce exact effect matching on overrides.
-- Syntax for explicitly selecting an impl when multiple could match (if ever
+- Syntax for explicitly selecting an implementation when multiple could match (if ever
   allowed).
   - Recommended: avoid; keep coherence strict so selection is never required.
 - How to serialize generic instantiations in debug names and proof metadata.
@@ -172,6 +172,6 @@ identifiers.
 
 ## Decisions (Phase 17.2)
 
-- Default trait method bodies: deferred.
-- Explicit impl selection: not supported.
+- Default interface method bodies: deferred.
+- Explicit implementation selection: not supported.
 - Debug/proof names: identifier-safe mangling as documented above.

@@ -205,6 +205,22 @@ v1 restrictions
   - local `let`-bound lambdas and direct aliases preserve known effect.
 - Unknown closure-dispatch `code_id` traps at runtime with `R011`.
 
+Interfaces and Default Methods (Phase 17.8.1)
+
+- Interface methods support two forms:
+  - declaration form: `effect function name(params...) -> Ret;`
+  - default-body form: `effect function name(params...) -> Ret { ... }`
+- Implementation omission rule:
+  - implementations may omit a method only if the interface method has a default body.
+  - omitting a non-default method is `T233`.
+- Override rule:
+  - implementation-provided overrides must match interface method signature and effect exactly (`T235`).
+- Default-body effect rule:
+  - the default body must require exactly the declared method effect.
+  - stronger or weaker body effects are rejected with `T249`.
+- Dispatch model:
+  - interface calls remain static; omitted implementation methods resolve to the interface default body during monomorphization.
+
 
 
 Errors (examples)

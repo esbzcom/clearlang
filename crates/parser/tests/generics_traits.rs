@@ -8,11 +8,11 @@ fn parses_struct_trait_impl_and_generic_types() {
             value: T;
         }
 
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 
@@ -38,7 +38,7 @@ fn parses_struct_trait_impl_and_generic_types() {
 #[test]
 fn parses_where_bounds_on_functions() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
@@ -63,7 +63,7 @@ fn parses_where_bounds_on_functions() {
 #[test]
 fn parses_trait_method_default_body_and_declaration_forms() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
             pure function neq(a: Self, b: Self) -> Bool { !Eq::eq(a, b) }
         }

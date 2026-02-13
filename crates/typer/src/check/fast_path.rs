@@ -98,14 +98,14 @@ pub(super) fn fast_path_without_totality_with_std(
                 &type_defs,
             )
             .with_context(|| {
-                format!("in trait `{}` default method `{}`", tr.name, method.name)
+                format!("in interface `{}` default method `{}`", tr.name, method.name)
             })?;
         }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
             check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
-                || format!("in impl `{}` method `{}`", imp.decl.trait_name, method.name),
+                || format!("in implementation `{}` method `{}`", imp.decl.trait_name, method.name),
             )?;
         }
     }

@@ -60,7 +60,7 @@ fn trait_method_p<'a>() -> impl Parser<'a, &'a str, TraitMethod, ErrTy<'a>> {
                 Some(Expr::Block { .. }) => Ok(maybe_expr),
                 Some(_) => Err(Rich::custom(
                     span,
-                    "trait default method body must use block form `{ ... }`",
+                    "interface default method body must use block form `{ ... }`",
                 )),
                 None => Err(Rich::custom(span, "expected ';' or default method body")),
             }),
@@ -104,7 +104,7 @@ fn trait_method_p<'a>() -> impl Parser<'a, &'a str, TraitMethod, ErrTy<'a>> {
 pub(crate) fn trait_p<'a>() -> impl Parser<'a, &'a str, TraitDecl, ErrTy<'a>> {
     let methods = trait_method_p().repeated().collect::<Vec<_>>();
 
-    kw("trait")
+    kw("interface")
         .ignore_then(ident_p().map_with(|name, e| (name, to_span(e.span()))))
         .then(type_params_p().or_not())
         .then(methods.delimited_by(just('{').padded(), just('}').padded()))

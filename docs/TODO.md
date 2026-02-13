@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 17.8 - trait follow-ups after completing Phase 17.7 closures.
+Current focus: Phase 17.8 - interface follow-ups after completing Phase 17.7 closures.
 
 3.1 Typer Core
 
@@ -677,10 +677,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.1.3 Typer: field/variant checking, pattern matching, exhaustiveness, and unreachable arms.
   - [x] 17.1.4 Lowering/codegen: concrete layout + tag/payload strategy.
   - [x] 17.1.5 Runtime/ABI notes + tests for constructors, match, and layout.
-- [x] 17.2 Add generics and trait/interface abstractions beyond built-in ADTs.
-  - [x] 17.2.1 Design: generics syntax, trait bounds, coherence rules, monomorphization strategy, and canonical instantiation mangling for debug/proof metadata.
-  - [x] 17.2.2 Parser/AST: type params, bounds, and impl blocks. (Scaffolding only; no typechecking/trait resolution yet.)
-  - [x] 17.2.3 Typer: inference, trait resolution, and error diagnostics.
+- [x] 17.2 Add generics and interface abstractions beyond built-in ADTs.
+  - [x] 17.2.1 Design: generics syntax, interface bounds, coherence rules, monomorphization strategy, and canonical instantiation mangling for debug/proof metadata.
+  - [x] 17.2.2 Parser/AST: type params, bounds, and implementation blocks. (Scaffolding only; no typechecking/interface resolution yet.)
+  - [x] 17.2.3 Typer: inference, interface resolution, and error diagnostics.
   - [x] 17.2.4 Lowering/codegen: monomorphization or dictionary passing + caching.
   - [x] 17.2.5 Stdlib updates + regression tests.
 - [x] 17.3 Provide real collections runtime semantics for `List`/`Map`/`Set` (not just typing stubs).
@@ -753,25 +753,31 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (dispatcher generation and call patching landed)
     - [x] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
   - [x] 17.7.5 Tests + docs examples. (added runtime unknown-`code_id` trap coverage and typing guide examples/rules)
-  - [ ] 17.8 Traits follow-ups (post-17.2).
-   - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.
+  - [ ] 17.8 Interface follow-ups (post-17.2).
+   - [x] 17.8.1 Default interface method bodies with explicit effect checking and override rules.
      - [x] 17.8.1.0 Design lock + acceptance matrix before parser changes.
-       - [x] Add `docs/design/phase-17.8-trait-defaults.md` with syntax, typing, and non-goals.
-       - [x] Include a design-principles check from README (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
-       - [x] Freeze v1 scope: declaration or default-body trait methods only; no dynamic dispatch or trait-state features.
-       - [x] Define deterministic diagnostics for unsupported forms and effect mismatches.
-     - [x] 17.8.1.1 Parser/AST: allow trait methods to use either declaration form (`...;`) or default-body form (`... { ... }`).
-       - [x] AST: represent an optional default body on trait methods without regressing existing trait signatures.
-       - [x] Parser: accept both forms while preserving deterministic parsing for trait blocks.
+        - [x] Add `docs/design/phase-17.8-trait-defaults.md` with syntax, typing, and non-goals.
+        - [x] Include a design-principles check from README (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
+        - [x] Freeze v1 scope: declaration or default-body interface methods only; no dynamic dispatch or interface-state features.
+        - [x] Define deterministic diagnostics for unsupported forms and effect mismatches.
+     - [x] 17.8.1.1 Parser/AST: allow interface methods to use either declaration form (`...;`) or default-body form (`... { ... }`).
+       - [x] AST: represent an optional default body on interface methods without regressing existing interface signatures.
+       - [x] Parser: accept both forms while preserving deterministic parsing for interface blocks.
        - [x] Diagnostics: reject mixed/invalid method forms with stable parser codes and spans.
        - [x] Tests: add parser positive/negative coverage for both forms and malformed default bodies.
-     - [x] 17.8.1.2 Typer: permit impls to omit methods only when the trait provides defaults; keep missing-method diagnostics for non-default methods.
-     - [x] 17.8.1.3 Effect rules: require default-body effect to match the declared trait-method effect exactly.
-     - [x] 17.8.1.4 Override signature/effect matching remains enforced for impl-provided methods (baseline already implemented in 17.2).
-     - [ ] 17.8.1.5 Tests/docs: parser + typer positive/negative coverage for defaults, missing overrides, and effect mismatches.
-   - [ ] 17.8.2 Optional explicit impl selection syntax (only if coherence is relaxed).
-     - [x] 17.8.2.1 Keep strict coherence as default behavior (baseline from 17.2); explicit impl selection remains unsupported while coherence is strict.
-     - [ ] 17.8.2.2 If coherence is relaxed later, add a design note plus parser/typer/diagnostics for explicit impl selection.
+     - [x] 17.8.1.2 Typer: permit implementations to omit methods only when the interface provides defaults; keep missing-method diagnostics for non-default methods.
+     - [x] 17.8.1.3 Effect rules: require default-body effect to match the declared interface-method effect exactly.
+     - [x] 17.8.1.4 Override signature/effect matching remains enforced for implementation-provided methods (baseline already implemented in 17.2).
+     - [x] 17.8.1.5 Tests/docs: parser + typer positive/negative coverage for defaults, missing overrides, and effect mismatches.
+    - [x] 17.8.4 Hard switch keyword surface: `trait`/`impl` -> `interface`/`implementation` (pre-release, no compatibility shim).
+      - [x] 17.8.4.1 Parser/keywords: replace accepted declaration keywords (`trait` -> `interface`, `impl` -> `implementation`) and keep grammar deterministic.
+      - [x] 17.8.4.2 Reserved words: update identifier rejection lists and keyword helpers to reserve the new words; drop old ones from accepted grammar.
+      - [x] 17.8.4.3 Diagnostics/docs wording: update parser/typer messages and docs/examples to use `interface`/`implementation` terminology.
+      - [x] 17.8.4.4 Tests/fixtures migration: rewrite parser/typer/integration samples using old keywords and keep coverage equivalent.
+      - [x] 17.8.4.5 One-shot migration sweep: repo-wide source + docs rename and final validation run (`clg-parser`, `clg-typer`, `clg-cli` tests).
+    - [ ] 17.8.2 Optional explicit implementation selection syntax (only if coherence is relaxed).
+      - [x] 17.8.2.1 Keep strict coherence as default behavior (baseline from 17.2); explicit implementation selection remains unsupported while coherence is strict.
+      - [ ] 17.8.2.2 If coherence is relaxed later, add a design note plus parser/typer/diagnostics for explicit implementation selection.
    - [ ] 17.8.3 Proof/debug name shortening (optional hash suffix for long mangled names).
      - [ ] 17.8.3.1 Add an optional deterministic shortening mode for long mangled names (hash suffix).
      - [ ] 17.8.3.2 Preserve uniqueness/collision safety guarantees and stable reproducibility.

@@ -11,11 +11,11 @@ fn type_err_code(src: &str, code: &str) {
 #[test]
 fn trait_call_without_bound_errors() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 
@@ -29,7 +29,7 @@ fn trait_call_without_bound_errors() {
 #[test]
 fn trait_call_missing_impl_for_concrete_type_errors() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
@@ -45,15 +45,15 @@ fn trait_call_missing_impl_for_concrete_type_errors() {
 #[test]
 fn overlapping_impls_are_rejected() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
 
-        impl Eq for Int {
+        implementation Eq for Int {
             pure function eq(a: Int, b: Int) -> Bool { a == b }
         }
     "#;
@@ -63,11 +63,11 @@ fn overlapping_impls_are_rejected() {
 #[test]
 fn impl_missing_non_default_trait_method_errors() {
     let src = r#"
-        trait Eq {
+        interface Eq {
             pure function eq(a: Self, b: Self) -> Bool;
         }
 
-        impl Eq for Int { }
+        implementation Eq for Int { }
     "#;
     type_err_code(src, "T233");
 }
@@ -75,11 +75,11 @@ fn impl_missing_non_default_trait_method_errors() {
 #[test]
 fn trait_default_body_effect_mismatch_stronger_than_declared_errors() {
     let src = r#"
-        trait Probe {
+        interface Probe {
             pure function ping(a: Self, b: Self) -> Bool { std::env::time() == 0 }
         }
 
-        impl Probe for Int { }
+        implementation Probe for Int { }
     "#;
     type_err_code(src, "T249");
 }
@@ -87,11 +87,25 @@ fn trait_default_body_effect_mismatch_stronger_than_declared_errors() {
 #[test]
 fn trait_default_body_effect_mismatch_weaker_than_declared_errors() {
     let src = r#"
-        trait Probe {
+        interface Probe {
             io function ping(a: Self, b: Self) -> Bool { true }
         }
 
-        impl Probe for Int { }
+        implementation Probe for Int { }
     "#;
     type_err_code(src, "T249");
+}
+
+#[test]
+fn impl_override_default_method_effect_mismatch_errors() {
+    let src = r#"
+        interface Probe {
+            pure function ping(a: Self, b: Self) -> Bool { true }
+        }
+
+        implementation Probe for Int {
+            io function ping(a: Int, b: Int) -> Bool { std::env::time() == 0 }
+        }
+    "#;
+    type_err_code(src, "T235");
 }

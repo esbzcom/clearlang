@@ -1,5 +1,49 @@
 # Codex Session Context
 
+## 2026-02-13 - Phase 17.8.4 keyword hard switch completed
+- Implemented the pre-release hard switch from `trait`/`impl` to `interface`/`implementation` with no compatibility shim:
+  - `crates/parser/src/trait_decl.rs`: parser now accepts `interface`; default-body parser diagnostic now references interface wording.
+  - `crates/parser/src/impl_decl.rs`: parser now accepts `implementation`.
+  - `crates/parser/src/tokens.rs`: reserved-word lists now reserve `interface`/`implementation` instead of `trait`/`impl`.
+  - `crates/parser/src/program.rs`: export diagnostic now says "implementation blocks cannot be exported".
+- Updated user-facing typer diagnostics/context wording:
+  - `crates/typer/src/errors/traits.rs`: messages now use interface/implementation terminology while preserving existing codes (`T230`-`T249`).
+  - `crates/typer/src/check/mod.rs` and `crates/typer/src/check/fast_path.rs`: context strings now use interface/implementation wording.
+- Migrated parser/typer fixtures and regression coverage:
+  - `crates/parser/tests/generics_traits.rs`
+  - `crates/parser/tests/parse_negatives.rs` (added explicit rejection tests for legacy `trait` and `impl` keywords)
+  - `crates/typer/tests/generics_traits.rs`
+  - `crates/typer/tests/generics_traits_negatives.rs`
+  - `crates/typer/src/check/monomorphize/tests.rs` (diagnostic substring expectation update)
+- Updated docs wording/examples for the new surface:
+  - `docs/diagnostics.md`
+  - `docs/typing.md`
+  - `docs/design/phase-17.2-generics-traits.md`
+  - `docs/design/phase-17.5-modules-imports.md`
+  - `docs/design/phase-17.8-trait-defaults.md`
+  - `docs/TODO.md`
+  - `docs/rollout/DEVPLAN.md`
+- Validation:
+  - `cargo test -p clg-parser`
+  - `cargo test -p clg-typer --tests`
+  - `cargo test -p clg-cli --test diagnostics_codes`
+
+## 2026-02-13 - Phase 17.8 hard-switch decision documented
+- Recorded the pre-release hard-switch decision to rename keyword surface from `trait`/`impl` to `interface`/`implementation` (no backward-compatibility shim).
+- Added an actionable checklist in `docs/TODO.md` under Phase 17.8 (`17.8.4.1` through `17.8.4.5`) covering parser keywords, reserved words, diagnostics/docs wording, tests/fixtures migration, and final validation.
+- Updated `docs/rollout/DEVPLAN.md` so the next execution slice starts with 17.8.4 before optional name-shortening work.
+
+## 2026-02-13 - Phase 17.8.1.5 tests/docs closure
+- Closed 17.8.1.5 with docs and regression coverage updates:
+  - `docs/typing.md`: added a dedicated "Traits and Default Methods (Phase 17.8.1)" section covering dual syntax forms, omission/override rules, exact-effect policy, and static dispatch behavior.
+  - `crates/typer/tests/generics_traits.rs`: added positive coverage for explicit impl override when a trait default exists.
+  - `crates/typer/tests/generics_traits_negatives.rs`: added negative coverage for override effect mismatch (`T235`) with trait defaults present.
+- Validation:
+  - `cargo test -p clg-typer --tests`
+- Roadmap updates:
+  - marked 17.8.1.5 complete and set 17.8.1 parent to complete in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` to move next execution toward 17.8.3.1.
+
 ## 2026-02-13 - Phase 17.8.1.3 trait-default effect exactness
 - Implemented exact effect enforcement for trait default method bodies:
   - `crates/typer/src/check/function_checks.rs`: added trait-default checker that type-checks the default body under `Self` bounds and enforces exact effect equality.

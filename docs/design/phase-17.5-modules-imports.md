@@ -43,7 +43,7 @@ Decision: `export` is the only visibility modifier.
 
 Rules:
 - All top-level items are private to their module unless marked `export`.
-- `export` can be applied to: `function`, `struct`, `enum`, `trait`, `type`, `resource`.
+- `export` can be applied to: `function`, `struct`, `enum`, `interface`, `type`, `resource`.
 - Exported items are visible to any other module.
 - There is no per-field visibility in Phase 17.5.
 

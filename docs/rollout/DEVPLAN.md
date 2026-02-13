@@ -2,7 +2,7 @@
 
 ## Current Focus - Phase 17: Language Gaps + Collections
 - 17.1 User-defined structs/enums with pattern matching, lowering/codegen, runtime/ABI notes, and tests. (Done)
-- 17.2 Generics and trait/interface abstractions beyond built-in ADTs. (Done)
+- 17.2 Generics and interface abstractions beyond built-in ADTs. (Done)
 - 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Done)
 - 17.4 General arrays/slices with indexing semantics and bounds checks. (Done)
 - 17.5 Module/import system with visibility controls. (Done)
@@ -19,14 +19,20 @@
 5) Finish 17.7.5 examples/docs pass. (Done)
 
 ## Next Focus
-- 17.8 Traits follow-ups (default bodies, optional explicit impl selection syntax if needed, and name-shortening ergonomics).
+- 17.8 Interface follow-ups (default bodies, optional explicit implementation selection syntax if needed, and name-shortening ergonomics).
 
 ### Next Execution Slice (Prepared)
-1) Complete 17.8.1.0 design lock for trait default methods, including README design-principles check (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and acceptance boundaries. (Done; see `docs/design/phase-17.8-trait-defaults.md`.)
-2) Implement 17.8.1.1 parser/AST support for trait methods in either declaration form (`...;`) or default-body form (`... { ... }`) with deterministic diagnostics. (Done; AST + parser + parser regression tests landed.)
-3) Implement 17.8.1.2 typer behavior to allow omitted impl methods only when trait defaults exist. (Done; missing non-default methods still report `T233`.)
-4) Implement 17.8.1.3 exact effect enforcement for trait default bodies. (Done; dedicated `T249` mismatch diagnostic + typer tests landed.)
-5) Continue with 17.8.1.5 docs/tests expansion for defaults, missing overrides, and effect mismatches.
+1) Complete 17.8.1.0 design lock for interface default methods, including README design-principles check (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and acceptance boundaries. (Done; see `docs/design/phase-17.8-trait-defaults.md`.)
+2) Implement 17.8.1.1 parser/AST support for interface methods in either declaration form (`...;`) or default-body form (`... { ... }`) with deterministic diagnostics. (Done; AST + parser + parser regression tests landed.)
+3) Implement 17.8.1.2 typer behavior to allow omitted implementation methods only when interface defaults exist. (Done; missing non-default methods still report `T233`.)
+4) Implement 17.8.1.3 exact effect enforcement for interface default bodies. (Done; dedicated `T249` mismatch diagnostic + typer tests landed.)
+5) Complete 17.8.1.5 docs/tests expansion for defaults, missing overrides, and effect mismatches. (Done; typing docs + override/default regression coverage landed.)
+6) Complete 17.8.4 hard switch keyword surface (`trait`/`impl` -> `interface`/`implementation`) while unreleased (no compatibility layer). (Done; parser keywords/reserved words/tests/docs migrated; parser+typer+cli validation green.)
+
+### Next Execution Slice
+1) Keep 17.8.2.2 deferred while coherence remains strict.
+2) Continue 17.8.3.1 optional deterministic shortening mode for long mangled names after the keyword migration settles.
+3) Decide whether to rename internal mangling/debug labels (`impl$...`) to align with the external `implementation` keyword.
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.
@@ -41,7 +47,7 @@
 - Phase 1-5: parser/typer/IR + Wasm pipeline foundations.
 
 ## Upcoming Phases (High-Level)
-- **Phase 17 - Language gaps + collections**: user-defined structs/enums, generics/traits, runtime collections, arrays/slices, module system, linear-aware collections.
+- **Phase 17 - Language gaps + collections**: user-defined structs/enums, generics/interfaces, runtime collections, arrays/slices, module system, linear-aware collections.
 
 ### Notes
 - `docs/TODO.md` is the canonical checklist; keep this file high-level.

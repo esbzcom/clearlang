@@ -104,7 +104,7 @@ fn find_impl_uses_call_span_for_ambiguous_impl() {
     assert_eq!(te.start, span.start);
     assert_eq!(te.end, span.end);
     assert!(te.message.contains("candidates"));
-    assert!(te.message.contains("impl for `Int`"));
+    assert!(te.message.contains("implementation for `Int`"));
     assert!(te.message.contains("1..2"));
     assert!(te.message.contains("3..4"));
 }

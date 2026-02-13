@@ -63,7 +63,7 @@ fn apply_export<'a>(item: Item, export_span: Span) -> Result<Item, Rich<'a, char
         }
         Item::Impl(_) => Err(Rich::custom(
             chumsky::span::SimpleSpan::new((), export_span.start..export_span.end),
-            "impl blocks cannot be exported",
+            "implementation blocks cannot be exported",
         )),
     }
 }

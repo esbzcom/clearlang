@@ -6,7 +6,7 @@ impl TyperError {
         Self::new(
             "T230",
             format!(
-                "at {}..{}: duplicate trait `{}`",
+                "at {}..{}: duplicate interface `{}`",
                 span.start, span.end, name
             ),
             span.start,
@@ -17,7 +17,7 @@ impl TyperError {
     pub fn unknown_trait(name: &str, span: Span) -> Self {
         Self::new(
             "T231",
-            format!("at {}..{}: unknown trait `{}`", span.start, span.end, name),
+            format!("at {}..{}: unknown interface `{}`", span.start, span.end, name),
             span.start,
             span.end,
         )
@@ -27,7 +27,7 @@ impl TyperError {
         Self::new(
             "T232",
             format!(
-                "at {}..{}: duplicate method `{}` in trait `{}`",
+                "at {}..{}: duplicate method `{}` in interface `{}`",
                 span.start, span.end, method, trait_name
             ),
             span.start,
@@ -39,7 +39,7 @@ impl TyperError {
         Self::new(
             "T233",
             format!(
-                "at {}..{}: impl for `{}` is missing method `{}`",
+                "at {}..{}: implementation for `{}` is missing method `{}`",
                 span.start, span.end, trait_name, method
             ),
             span.start,
@@ -51,7 +51,7 @@ impl TyperError {
         Self::new(
             "T234",
             format!(
-                "at {}..{}: impl for `{}` contains extra method `{}`",
+                "at {}..{}: implementation for `{}` contains extra method `{}`",
                 span.start, span.end, trait_name, method
             ),
             span.start,
@@ -63,7 +63,7 @@ impl TyperError {
         Self::new(
             "T235",
             format!(
-                "at {}..{}: method `{}` does not match trait `{}` signature",
+                "at {}..{}: method `{}` does not match interface `{}` signature",
                 span.start, span.end, method, trait_name
             ),
             span.start,
@@ -75,7 +75,7 @@ impl TyperError {
         Self::new(
             "T236",
             format!(
-                "at {}..{}: overlapping impls for trait `{}`",
+                "at {}..{}: overlapping implementations for interface `{}`",
                 right.start, right.end, trait_name
             ),
             right.start,
@@ -87,7 +87,7 @@ impl TyperError {
         Self::new(
             "T237",
             format!(
-                "at {}..{}: missing trait `{}` for `{}`",
+                "at {}..{}: missing interface `{}` for `{}`",
                 span.start, span.end, trait_name, param
             ),
             span.start,
@@ -102,13 +102,16 @@ impl TyperError {
         candidates: &[(String, Span)],
     ) -> Self {
         let mut message = format!(
-            "at {}..{}: ambiguous impl for trait `{}` on `{}`",
+            "at {}..{}: ambiguous implementation for interface `{}` on `{}`",
             span.start, span.end, trait_name, param
         );
         if !candidates.is_empty() {
             let mut parts: Vec<String> = Vec::with_capacity(candidates.len());
             for (ty, sp) in candidates {
-                parts.push(format!("impl for `{}` at {}..{}", ty, sp.start, sp.end));
+                parts.push(format!(
+                    "implementation for `{}` at {}..{}",
+                    ty, sp.start, sp.end
+                ));
             }
             message.push_str("; candidates: ");
             message.push_str(&parts.join(", "));
@@ -126,7 +129,7 @@ impl TyperError {
         Self::new(
             "T249",
             format!(
-                "at {}..{}: trait `{}` default method `{}` declares `{}` effect but body requires `{}`",
+                "at {}..{}: interface `{}` default method `{}` declares `{}` effect but body requires `{}`",
                 span.start, span.end, trait_name, method, declared, inferred
             ),
             span.start,

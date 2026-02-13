@@ -124,13 +124,45 @@ fn rejects_trailing_effect_after_signature() {
 #[test]
 fn trait_method_rejects_mixed_declaration_and_default_body_forms() {
     let src = r#"
-        trait Bad {
+        interface Bad {
             pure function eq(a: Self, b: Self) -> Bool; { a == b }
         }
     "#;
     let err = parse(src).expect_err("should reject mixed ';' and '{...}' method form");
     assert!(
-        err.contains("expected") || err.contains("trait") || err.contains("';'"),
-        "error should signal malformed trait method form, got: {err}"
+        err.contains("expected") || err.contains("interface") || err.contains("';'"),
+        "error should signal malformed interface method form, got: {err}"
+    );
+}
+
+#[test]
+fn rejects_legacy_trait_keyword_after_hard_switch() {
+    let src = r#"
+        trait Eq {
+            pure function eq(a: Self, b: Self) -> Bool;
+        }
+    "#;
+    let err = parse(src).expect_err("legacy `trait` keyword should be rejected");
+    assert!(
+        err.contains("expected") || err.contains("interface"),
+        "error should mention expected `interface` keyword surface, got: {err}"
+    );
+}
+
+#[test]
+fn rejects_legacy_impl_keyword_after_hard_switch() {
+    let src = r#"
+        interface Eq {
+            pure function eq(a: Self, b: Self) -> Bool;
+        }
+
+        impl Eq for Int {
+            pure function eq(a: Int, b: Int) -> Bool { a == b }
+        }
+    "#;
+    let err = parse(src).expect_err("legacy `impl` keyword should be rejected");
+    assert!(
+        err.contains("expected") || err.contains("implementation"),
+        "error should mention expected `implementation` keyword surface, got: {err}"
     );
 }

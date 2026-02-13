@@ -274,14 +274,14 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
                 &type_defs,
             )
             .with_context(|| {
-                format!("in trait `{}` default method `{}`", tr.name, method.name)
+                format!("in interface `{}` default method `{}`", tr.name, method.name)
             })?;
         }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
             check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
-                || format!("in impl `{}` method `{}`", imp.decl.trait_name, method.name),
+                || format!("in implementation `{}` method `{}`", imp.decl.trait_name, method.name),
             )?;
         }
     }
@@ -641,14 +641,14 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
                 &type_defs,
             )
             .with_context(|| {
-                format!("in trait `{}` default method `{}`", tr.name, method.name)
+                format!("in interface `{}` default method `{}`", tr.name, method.name)
             })?;
         }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
             check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
-                || format!("in impl `{}` method `{}`", imp.decl.trait_name, method.name),
+                || format!("in implementation `{}` method `{}`", imp.decl.trait_name, method.name),
             )?;
         }
     }

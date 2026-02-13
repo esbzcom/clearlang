@@ -1,6 +1,6 @@
 # ClearLang TODO
 
-A focused, actionable checklist to move from Phase 11 and beyond.
+A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 0 -" Workspace & Toolchain (Done)
 
@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 11 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 11 - proof-carrying Wasm verification.
+Current focus: Phase 17.8 - trait follow-ups after completing Phase 17.7 closures.
 
 3.1 Typer Core
 
@@ -753,9 +753,18 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (dispatcher generation and call patching landed)
     - [x] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
   - [x] 17.7.5 Tests + docs examples. (added runtime unknown-`code_id` trap coverage and typing guide examples/rules)
- - [ ] 17.8 Traits follow-ups (post-17.2).
+  - [ ] 17.8 Traits follow-ups (post-17.2).
    - [ ] 17.8.1 Default trait method bodies with explicit effect checking and override rules.
+     - [x] 17.8.1.0 Design lock + acceptance matrix before parser changes.
+       - [x] Add `docs/design/phase-17.8-trait-defaults.md` with syntax, typing, and non-goals.
+       - [x] Include a design-principles check from README (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
+       - [x] Freeze v1 scope: declaration or default-body trait methods only; no dynamic dispatch or trait-state features.
+       - [x] Define deterministic diagnostics for unsupported forms and effect mismatches.
      - [ ] 17.8.1.1 Parser/AST: allow trait methods to use either declaration form (`...;`) or default-body form (`... { ... }`).
+       - [ ] AST: represent an optional default body on trait methods without regressing existing trait signatures.
+       - [ ] Parser: accept both forms while preserving deterministic parsing for trait blocks.
+       - [ ] Diagnostics: reject mixed/invalid method forms with stable parser codes and spans.
+       - [ ] Tests: add parser positive/negative coverage for both forms and malformed default bodies.
      - [ ] 17.8.1.2 Typer: permit impls to omit methods only when the trait provides defaults; keep missing-method diagnostics for non-default methods.
      - [ ] 17.8.1.3 Effect rules: require default-body effect to match the declared trait-method effect exactly.
      - [x] 17.8.1.4 Override signature/effect matching remains enforced for impl-provided methods (baseline already implemented in 17.2).

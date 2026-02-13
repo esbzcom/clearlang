@@ -1,5 +1,16 @@
 # Codex Session Context
 
+## 2026-02-13 - Phase 17.8.1.0 design lock for trait defaults
+- Added `docs/design/phase-17.8-trait-defaults.md` to lock 17.8.1.0 decisions.
+- Captured:
+  - dual trait-method surface (`...;` declaration or `... { ... }` default body),
+  - impl completeness behavior (reuse `T233`/`T234`/`T235`),
+  - exact-effect requirement for default bodies with planned dedicated code `T249`,
+  - acceptance matrix and deterministic diagnostics policy.
+- Updated roadmap state:
+  - marked 17.8.1.0 complete in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` to mark step 1 done and point to 17.8.1.1 next.
+
 ## 2026-02-12 - Phase 17.7.5 closure tests/docs completion
 - Completed 17.7.5 and closed Phase 17.7 in `docs/TODO.md`.
 - Added runtime regression coverage for dispatcher unknown-`code_id` trap path in:

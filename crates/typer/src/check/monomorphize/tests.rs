@@ -5,7 +5,10 @@ use clg_ast::{Func, ImplDecl, Span, Type};
 use crate::check::ImplInfo;
 use crate::errors::TyperError;
 
-use super::mangle::{mangle_fn_name, mangle_impl_method_name, mangle_type};
+use super::mangle::{
+    mangle_fn_name, mangle_fn_name_with_config, mangle_impl_method_name,
+    mangle_impl_method_name_with_config, mangle_type, MangleConfig,
+};
 use super::*;
 
 #[test]
@@ -169,4 +172,82 @@ fn mangled_names_use_identifier_safe_chars() {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$'),
         "mangled impl name contained disallowed char: {impl_name}"
     );
+}
+
+#[test]
+fn optional_mangling_shortening_uses_deterministic_hash_suffix() {
+    let aliases: AliasMap = HashMap::new();
+    let cfg = MangleConfig {
+        shorten_max_len: Some(40),
+    };
+    let args = vec![
+        Type::Named {
+            name: "VeryLongContainerTypeName".to_string(),
+            args: vec![
+                Type::Named {
+                    name: "VeryLongInnerTypeName".to_string(),
+                    args: vec![Type::Tuple(vec![Type::U256, Type::U256, Type::U256])],
+                },
+                Type::Named {
+                    name: "AnotherLongInnerTypeName".to_string(),
+                    args: vec![Type::Result(Box::new(Type::String), Box::new(Type::Bytes))],
+                },
+            ],
+        },
+        Type::Map(
+            Box::new(Type::Named {
+                name: "KeyTypeWithLongName".to_string(),
+                args: vec![Type::U128],
+            }),
+            Box::new(Type::Named {
+                name: "ValueTypeWithLongName".to_string(),
+                args: vec![Type::List(Box::new(Type::Named {
+                    name: "EntryTypeWithLongName".to_string(),
+                    args: vec![Type::Bool],
+                }))],
+            }),
+        ),
+    ];
+    let name_a = mangle_fn_name_with_config("extremely_long_function_name", &args, &aliases, cfg)
+        .expect("mangle fn");
+    let name_b = mangle_fn_name_with_config("extremely_long_function_name", &args, &aliases, cfg)
+        .expect("mangle fn");
+    assert_eq!(name_a, name_b, "shortening must be deterministic");
+    assert!(
+        name_a.len() <= 40,
+        "shortened name exceeds max length: {}",
+        name_a.len()
+    );
+    assert!(
+        name_a.contains("$h"),
+        "shortened name should include hash suffix marker: {name_a}"
+    );
+    assert!(
+        name_a
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$'),
+        "shortened name contained disallowed char: {name_a}"
+    );
+}
+
+#[test]
+fn optional_mangling_shortening_distinguishes_different_inputs() {
+    let aliases: AliasMap = HashMap::new();
+    let cfg = MangleConfig {
+        shorten_max_len: Some(36),
+    };
+    let self_ty = Type::Named {
+        name: "VeryLongTypeForImplName".to_string(),
+        args: vec![Type::Tuple(vec![Type::Int, Type::Bool, Type::U256])],
+    };
+    let eq_name = mangle_impl_method_name_with_config("Eq", &self_ty, "eq", &aliases, cfg)
+        .expect("mangle impl eq");
+    let cmp_name = mangle_impl_method_name_with_config("Eq", &self_ty, "cmp", &aliases, cfg)
+        .expect("mangle impl cmp");
+    assert_ne!(
+        eq_name, cmp_name,
+        "different method inputs should not collapse to same shortened name in test coverage"
+    );
+    assert!(eq_name.len() <= 36);
+    assert!(cmp_name.len() <= 36);
 }

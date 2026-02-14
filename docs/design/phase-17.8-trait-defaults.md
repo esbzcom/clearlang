@@ -47,6 +47,7 @@ Mixed forms are invalid (for example, both `;` and `{ ... }` on one method).
 
 ### D4. Coherence/Dispatch Policy
 - Interface defaults do not change coherence.
+- Strict coherence is locked in this phase: overlapping implementations are conflicts and must fail at compile time (`T236`), and any unresolved ambiguity at call resolution must fail (`T248`).
 - Interface calls remain statically resolved at compile time.
 - No runtime dispatch table/vtable semantics are introduced.
 
@@ -89,11 +90,14 @@ interface Bad {
 | Implementation omits interface method with default | accept | accept | Inherits interface default. |
 | Implementation defines method not in interface | accept | reject | `T234` |
 | Implementation override signature/effect mismatch | accept | reject | `T235` (existing Phase 17.2 rule). |
+| Overlapping implementations for the same interface/type | accept | reject | `T236` (strict coherence). |
+| Ambiguous implementation resolution at a call site | accept | reject | `T248` (no implicit selection). |
 | Default body violates declared effect | accept | reject | `T249` (planned dedicated code). |
 | Explicit implementation-selection syntax attempt | reject/accept | reject | Parse error or `T017` (unsupported in strict coherence model). |
 
 ## Diagnostics Plan (Locked for 17.8.1)
 - Reuse existing interface diagnostics: `T233`, `T234`, `T235`.
+- Keep strict coherence diagnostics explicit: `T236` for overlap conflicts and `T248` for ambiguity.
 - Add dedicated `T249`: interface default body effect mismatch.
 - Keep parse failures deterministic via stable parser diagnostics for invalid interface method forms.
 

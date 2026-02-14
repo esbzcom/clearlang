@@ -1,5 +1,19 @@
 # Codex Session Context
 
+## 2026-02-14 - Phase 17.8.3.1 optional mangling shortening
+- Implemented an optional deterministic shortening mode for long mangled names:
+  - `crates/typer/src/check/monomorphize/mangle.rs`:
+    - added `MangleConfig` with env-based config (`CLG_MANGLE_MAX_LEN`),
+    - added deterministic FNV-1a hash suffix shortening (`$h<16-hex>`),
+    - preserved default behavior when shortening mode is not enabled.
+  - `crates/typer/src/check/monomorphize/tests.rs`:
+    - added coverage for deterministic shortened output, max-length enforcement, charset safety, and distinct-input differentiation.
+- Roadmap/docs updates:
+  - removed deferred `17.8.2.2` from `docs/TODO.md` per strict-coherence decision (no relax plan),
+  - marked `17.8.3.1` complete in `docs/TODO.md`,
+  - updated next execution slice in `docs/rollout/DEVPLAN.md` to focus on `17.8.3.2` and `17.8.3.3`,
+  - documented the optional shortening mode in `docs/design/phase-17.2-generics-traits.md`.
+
 ## 2026-02-13 - Phase 17.8.4 keyword hard switch completed
 - Implemented the pre-release hard switch from `trait`/`impl` to `interface`/`implementation` with no compatibility shim:
   - `crates/parser/src/trait_decl.rs`: parser now accepts `interface`; default-body parser diagnostic now references interface wording.

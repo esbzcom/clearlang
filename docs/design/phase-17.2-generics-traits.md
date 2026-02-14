@@ -132,6 +132,9 @@ identifiers.
 
 - Function instantiations: `name$T1$T2$...` (no trailing `$`).
 - Implementation method instantiations: `impl$Trait$Self$method`.
+- Optional shortening mode (Phase 17.8.3.1): when `CLG_MANGLE_MAX_LEN` is set,
+  long mangled function/implementation names are truncated deterministically with
+  an `$h<fnv64-hex>` suffix.
 - Type mangling:
   - Primitives: `Int`, `U8`, `U64`, `U128`, `U256`, `Bool`, `String`, `Bytes`.
   - Named: `N$Name$arity$Arg1$Arg2$...` (arity included for parseability).

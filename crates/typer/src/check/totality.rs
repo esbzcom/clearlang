@@ -63,7 +63,12 @@ fn check_totality_expr(expr: &Expr, self_name: &str) -> Result<()> {
             check_totality_expr(lhs, self_name)?;
             check_totality_expr(rhs, self_name)?;
         }
-        Expr::Call { callee, args, span } => {
+        Expr::Call {
+            callee,
+            args,
+            type_args: _,
+            span,
+        } => {
             if callee == self_name {
                 return Err(TyperError::recursion_requires_measure(callee, *span).into());
             }

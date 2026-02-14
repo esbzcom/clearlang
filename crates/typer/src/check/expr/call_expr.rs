@@ -19,6 +19,7 @@ use crate::errors::TyperError;
 pub(super) fn type_call_expr<'a>(
     callee: &str,
     args: &'a [Expr],
+    explicit_type_args: &[Type],
     env: &HashMap<&'a str, LocalBinding>,
     tracker: &mut ResourceTracker,
     fns: &HashMap<&'a str, FnSig>,
@@ -31,6 +32,20 @@ pub(super) fn type_call_expr<'a>(
     expected: Option<&Type>,
     span: Span,
 ) -> Result<Type> {
+    let explicit_type_args_len = explicit_type_args.len();
+    let reject_explicit_type_args = |name: &str| -> Result<Type> {
+        Err(TyperError::type_arg_count_mismatch(name, 0, explicit_type_args_len, Some(span)).into())
+    };
+    let is_collection_callee = callee.starts_with("std::list::")
+        || callee.starts_with("std::set::")
+        || callee.starts_with("std::map::")
+        || callee.starts_with("std::array::")
+        || callee.starts_with("std::slice::");
+
+    if explicit_type_args_len > 0 && is_collection_callee {
+        return reject_explicit_type_args(callee);
+    }
+
     if args.is_empty() {
         if let Some(exp) = expected {
             let exp_base = base_type(exp, aliases)?;
@@ -62,6 +77,9 @@ pub(super) fn type_call_expr<'a>(
         return Ok(t);
     }
     if callee == "U8" || callee == "U64" || callee == "U128" || callee == "U256" {
+        if explicit_type_args_len > 0 {
+            return reject_explicit_type_args(callee);
+        }
         if args.len() != 1 {
             return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
         }
@@ -112,6 +130,9 @@ pub(super) fn type_call_expr<'a>(
     }
     // Phase 4.5 - ADT constructors (partial): Some(T) infers Option<T>
     if callee == "Some" {
+        if explicit_type_args_len > 0 {
+            return reject_explicit_type_args(callee);
+        }
         if args.len() != 1 {
             return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
         }
@@ -138,6 +159,9 @@ pub(super) fn type_call_expr<'a>(
         return Ok(Type::Option(Box::new(t0)));
     }
     if callee == "None" {
+        if explicit_type_args_len > 0 {
+            return reject_explicit_type_args(callee);
+        }
         if !args.is_empty() {
             return Err(TyperError::arity_mismatch(callee, 0, args.len(), span).into());
         }
@@ -151,6 +175,9 @@ pub(super) fn type_call_expr<'a>(
         };
     }
     if callee == "Ok" {
+        if explicit_type_args_len > 0 {
+            return reject_explicit_type_args(callee);
+        }
         if args.len() != 1 {
             return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
         }
@@ -194,6 +221,9 @@ pub(super) fn type_call_expr<'a>(
         return result_ty;
     }
     if callee == "Err" {
+        if explicit_type_args_len > 0 {
+            return reject_explicit_type_args(callee);
+        }
         if args.len() != 1 {
             return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
         }
@@ -236,6 +266,13 @@ pub(super) fn type_call_expr<'a>(
         }
         return result_ty;
     }
+    if explicit_type_args_len > 0 {
+        if let Some((trait_name, _)) = callee.rsplit_once("::") {
+            if trait_env.traits.contains_key(trait_name) {
+                return reject_explicit_type_args(callee);
+            }
+        }
+    }
     if let Some(trait_ty) = type_trait_call(
         callee,
         args,
@@ -253,6 +290,9 @@ pub(super) fn type_call_expr<'a>(
         return Ok(trait_ty);
     }
     if let Some(binding) = env.get(callee) {
+        if explicit_type_args_len > 0 {
+            return reject_explicit_type_args(callee);
+        }
         if let Type::Fn {
             params: fn_params,
             ret,
@@ -340,6 +380,9 @@ pub(super) fn type_call_expr<'a>(
     }
     if let Some((enum_name, variant_name)) = callee.rsplit_once("::") {
         if let Some(enum_info) = type_defs.enums.get(enum_name) {
+            if explicit_type_args_len > 0 {
+                return reject_explicit_type_args(callee);
+            }
             let Some(variant_def) = enum_info.variants.get(variant_name) else {
                 let label = format!("{enum_name}::{variant_name}");
                 return Err(TyperError::unknown_enum_variant(&label, span).into());
@@ -440,11 +483,58 @@ pub(super) fn type_call_expr<'a>(
     if params.len() != args.len() {
         return Err(TyperError::arity_mismatch(callee, params.len(), args.len(), span).into());
     }
+
+    if explicit_type_args_len > 0 && callee_params.is_empty() {
+        return reject_explicit_type_args(callee);
+    }
+
     let mut local_tracker = tracker.clone();
     let mut borrowed: Vec<String> = Vec::new();
+    let mut subst: TypeSubst = HashMap::new();
+    if !callee_params.is_empty() && explicit_type_args_len > 0 {
+        if explicit_type_args_len != callee_params.len() {
+            return Err(TyperError::type_arg_count_mismatch(
+                callee,
+                callee_params.len(),
+                explicit_type_args_len,
+                Some(span),
+            )
+            .into());
+        }
+        for (name, ty) in callee_params.iter().zip(explicit_type_args.iter()) {
+            subst.insert(name.clone(), ty.clone());
+        }
+        for bound in &callee_bounds {
+            let Some(bound_ty) = subst.get(&bound.param) else {
+                return Err(TyperError::cannot_infer_type_params(callee, span).into());
+            };
+            ensure_trait_bound(
+                bound_ty,
+                bound.trait_name.as_str(),
+                type_params,
+                bounds,
+                trait_env,
+                aliases,
+                span,
+            )?;
+        }
+    }
+
+    let explicit_param_types: Vec<Type> = if !callee_params.is_empty() && explicit_type_args_len > 0
+    {
+        let mut out = Vec::with_capacity(params.len());
+        for param in &params {
+            out.push(substitute_type(&param.ty, &subst));
+        }
+        out
+    } else {
+        Vec::new()
+    };
     let mut arg_types: Vec<Type> = Vec::with_capacity(args.len());
-    for (p, a) in params.iter().zip(args.iter()) {
-        let arg_expected = if callee_params.is_empty() {
+    for (i, (p, a)) in params.iter().zip(args.iter()).enumerate() {
+        let arg_expected = if !explicit_param_types.is_empty() {
+            explicit_param_types.get(i)
+        } else if callee_params.is_empty() {
             Some(&p.ty)
         } else {
             None
@@ -463,7 +553,9 @@ pub(super) fn type_call_expr<'a>(
             arg_expected,
         )?;
         arg_types.push(at.clone());
-        let resource_check_ty = if callee_params.is_empty() {
+        let resource_check_ty = if !explicit_param_types.is_empty() {
+            explicit_param_types[i].clone()
+        } else if callee_params.is_empty() {
             p.ty.clone()
         } else {
             at.clone()
@@ -485,8 +577,7 @@ pub(super) fn type_call_expr<'a>(
         }
     }
 
-    let mut subst: TypeSubst = HashMap::new();
-    if !callee_params.is_empty() {
+    if !callee_params.is_empty() && explicit_type_args_len == 0 {
         let callee_param_set: HashSet<String> = callee_params.iter().cloned().collect();
         for (param, arg_ty) in params.iter().zip(arg_types.iter()) {
             unify_type_params(&param.ty, arg_ty, &callee_param_set, &mut subst, aliases)?;

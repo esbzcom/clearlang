@@ -26,12 +26,21 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 just(')').padded().labelled("')'"),
             );
 
+        let call_type_args = ty_p()
+            .padded()
+            .separated_by(just(',').padded().labelled("comma"))
+            .allow_trailing()
+            .collect::<Vec<_>>()
+            .delimited_by(just('<').padded(), just('>').padded());
+
         let call_expr = path_name_p()
+            .then(call_type_args.or_not())
             .then(call_args.clone())
-            .map_with(|(name, args), e| {
+            .map_with(|((name, type_args), args), e| {
                 let sp: chumsky::span::SimpleSpan<usize> = e.span();
                 Expr::Call {
                     callee: name,
+                    type_args: type_args.unwrap_or_default(),
                     args,
                     span: Span {
                         start: sp.start,
@@ -46,6 +55,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 let sp: chumsky::span::SimpleSpan<usize> = e.span();
                 Expr::Call {
                     callee: name.to_string(),
+                    type_args: Vec::new(),
                     args,
                     span: Span {
                         start: sp.start,
@@ -62,6 +72,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                     let sp: chumsky::span::SimpleSpan<usize> = e.span();
                     Expr::Call {
                         callee: name,
+                        type_args: Vec::new(),
                         args,
                         span: Span {
                             start: sp.start,

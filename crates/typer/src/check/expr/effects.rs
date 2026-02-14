@@ -208,7 +208,12 @@ fn max_effect_with_locals<'a>(
             }
             max_effect_with_locals(body, fns, trait_env, allowed, &lambda_locals)
         }
-        Expr::Call { callee, args, span } => {
+        Expr::Call {
+            callee,
+            args,
+            type_args: _,
+            span,
+        } => {
             let mut eff = EffectLevel::Pure;
             for arg in args {
                 eff = eff.join(max_effect_with_locals(
@@ -270,22 +275,18 @@ fn call_effect(
             }
         }
     }
-    fns.get(callee)
-        .map(|sig| sig.effect)
-        .unwrap_or_else(|| {
-            if callee.contains("::") {
-                EffectLevel::Pure
-            } else {
-                EffectLevel::Io
-            }
-        })
+    fns.get(callee).map(|sig| sig.effect).unwrap_or_else(|| {
+        if callee.contains("::") {
+            EffectLevel::Pure
+        } else {
+            EffectLevel::Io
+        }
+    })
 }
 
 fn builtin_effect(callee: &str) -> Option<EffectLevel> {
     match callee {
-        "Some" | "None" | "Ok" | "Err" | "U8" | "U64" | "U128" | "U256" => {
-            Some(EffectLevel::Pure)
-        }
+        "Some" | "None" | "Ok" | "Err" | "U8" | "U64" | "U128" | "U256" => Some(EffectLevel::Pure),
         "std::list::push_mut"
         | "std::list::insert_mut"
         | "std::list::remove_mut"

@@ -39,18 +39,34 @@ impl<'a> Monomorphizer<'a> {
         callee: &str,
         sig: &super::super::FnSig,
         arg_types: &[Type],
+        explicit_type_args: &[Type],
         type_params: &HashSet<String>,
         bounds: &BoundsMap,
         span: Span,
     ) -> Result<String> {
         let mut subst: TypeSubst = HashMap::new();
-        let param_set: HashSet<String> = sig.type_params.iter().cloned().collect();
-        for (param, arg_ty) in sig.params.iter().zip(arg_types.iter()) {
-            unify_type_params(&param.ty, arg_ty, &param_set, &mut subst, self.aliases)?;
-        }
-        for name in &sig.type_params {
-            if !subst.contains_key(name) {
-                return Err(TyperError::cannot_infer_type_params(callee, span).into());
+        if explicit_type_args.is_empty() {
+            let param_set: HashSet<String> = sig.type_params.iter().cloned().collect();
+            for (param, arg_ty) in sig.params.iter().zip(arg_types.iter()) {
+                unify_type_params(&param.ty, arg_ty, &param_set, &mut subst, self.aliases)?;
+            }
+            for name in &sig.type_params {
+                if !subst.contains_key(name) {
+                    return Err(TyperError::cannot_infer_type_params(callee, span).into());
+                }
+            }
+        } else {
+            if explicit_type_args.len() != sig.type_params.len() {
+                return Err(TyperError::type_arg_count_mismatch(
+                    callee,
+                    sig.type_params.len(),
+                    explicit_type_args.len(),
+                    Some(span),
+                )
+                .into());
+            }
+            for (name, ty) in sig.type_params.iter().zip(explicit_type_args.iter()) {
+                subst.insert(name.clone(), ty.clone());
             }
         }
         for bound in &sig.bounds {

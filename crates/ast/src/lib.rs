@@ -285,6 +285,7 @@ pub enum Expr {
     },
     Call {
         callee: String,
+        type_args: Vec<Type>,
         args: Vec<Expr>,
         span: Span,
     },

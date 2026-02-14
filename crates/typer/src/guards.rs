@@ -90,7 +90,12 @@ fn collect_guards_from_expr(expr: &Expr, out: &mut HashSet<MutGuardKey>) {
 
 pub fn collect_mut_calls(expr: &Expr, out: &mut Vec<MutCall>) {
     match expr {
-        Expr::Call { callee, args, span } => {
+        Expr::Call {
+            callee,
+            args,
+            type_args: _,
+            span,
+        } => {
             if let Some(kind) = mut_collection_kind(callee.as_str()) {
                 let target = args.first().and_then(guard_target);
                 out.push(MutCall {

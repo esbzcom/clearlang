@@ -691,7 +691,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.3.5 Enforce equatable key constraints for `Map`/`Set` in the typer (T220) with regression tests.
   - [x] 17.3.6 Add `R009` collection bounds trap plumbing (IR + CLI) with a runtime trap test.
   - [x] 17.3.7 Allow `std::list::new`/`std::set::new`/`std::map::new` to infer from expected types (keep T206 when no expected context).
-  - [x] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples/arrays) and add runtime coverage.
+  - [x] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples; arrays remain deferred) and add runtime coverage.
   - [x] 17.3.9 Add runtime tests for `list::get`/`list::pop`, `set::contains`, `map::contains`/`map::get`, and no-op remove cases.
   - [x] 17.3.10 Docs refresh: update `docs/collections.md` + `docs/design/phase-17.3-collections-runtime.md` to reflect `new()` inference and current `can_mut` behavior.
   - [x] 17.3.11 Clarify invalid-handle behavior for collections and align trap code/docs (R002 vs new code) or add explicit pointer validation.
@@ -753,7 +753,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 17.7.4.3 Implement signature-specific dispatcher wrappers for dynamic closure calls; do not add `call_indirect` table dispatch in Phase 17. (dispatcher generation and call patching landed)
     - [x] 17.7.4.4 Allocate closure environments with the shared bump allocator and keep no-deallocation semantics in v1.
   - [x] 17.7.5 Tests + docs examples. (added runtime unknown-`code_id` trap coverage and typing guide examples/rules)
-  - [ ] 17.8 Interface follow-ups (post-17.2).
+  - [x] 17.8 Interface follow-ups (post-17.2).
    - [x] 17.8.1 Default interface method bodies with explicit effect checking and override rules.
      - [x] 17.8.1.0 Design lock + acceptance matrix before parser changes.
         - [x] Add `docs/design/phase-17.8-trait-defaults.md` with syntax, typing, and non-goals.
@@ -775,13 +775,34 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
       - [x] 17.8.4.3 Diagnostics/docs wording: update parser/typer messages and docs/examples to use `interface`/`implementation` terminology.
       - [x] 17.8.4.4 Tests/fixtures migration: rewrite parser/typer/integration samples using old keywords and keep coverage equivalent.
       - [x] 17.8.4.5 One-shot migration sweep: repo-wide source + docs rename and final validation run (`clg-parser`, `clg-typer`, `clg-cli` tests).
-    - [ ] 17.8.2 Optional explicit implementation selection syntax (only if coherence is relaxed).
+    - [x] 17.8.2 Optional explicit implementation selection syntax (only if coherence is relaxed).
       - [x] 17.8.2.1 Keep strict coherence as default behavior (baseline from 17.2); explicit implementation selection remains unsupported while coherence is strict.
         - [x] Lock conflict policy: overlapping implementations are compile-time conflicts (`T236`), and ambiguous resolution is a compile-time error (`T248`) with no implicit fallback.
     - [x] 17.8.3 Proof/debug name shortening (optional hash suffix for long mangled names).
       - [x] 17.8.3.1 Add an optional deterministic shortening mode for long mangled names (hash suffix).
       - [x] 17.8.3.2 Preserve uniqueness/collision safety guarantees and stable reproducibility.
       - [x] 17.8.3.3 Keep proof/debug traceability by documenting and testing the shortened-name mapping.
+  - [ ] 17.9 Remaining language gaps (post-17.8).
+    - [x] 17.9.1 Generic call-site explicit type arguments (`f<T>(...)`) end-to-end.
+      - [x] 17.9.1.1 Parser/AST: support optional call-site type-argument lists on calls.
+      - [x] 17.9.1.2 Typer: integrate explicit type args with inference fallback and deterministic ambiguity errors.
+      - [x] 17.9.1.3 Monomorphization/lowering: wire explicit call-site instantiations and add regression coverage.
+      - [x] 17.9.1.4 Docs/tests: update examples and diagnostics guidance for explicit generic calls.
+    - [x] 17.9.2 Map/Set key-equatability parity for arrays.
+      - [x] 17.9.2.1 Decide policy: support `Array<T>` keys when `T` is equatable, or explicitly document exclusion.
+      - [x] 17.9.2.2 Align typer/runtime equality implementation with the decided policy; add positive/negative tests.
+      - [x] 17.9.2.3 Reconcile `docs/TODO.md` and design/docs wording for 17.3.8 array-key expectations.
+    - [ ] 17.9.3 Module ergonomics follow-ups (language surface).
+      - [ ] 17.9.3.1 Re-exports (`export import`) design + implementation, or explicit defer note with rationale.
+      - [ ] 17.9.3.2 Item import aliasing (`import m::{A as B}`) support, or explicit defer note with rationale.
+      - [ ] 17.9.3.3 Glob import policy (`*`) revisit with deterministic parser/typer diagnostics either way.
+    - [ ] 17.9.4 Resource user-defined type surface.
+      - [ ] 17.9.4.1 Design + parser/typer rules for `resource struct`/`resource enum`, or explicit defer-to-next-phase note.
+      - [ ] 17.9.4.2 Ownership/linearity interaction tests across collections, pattern matching, and closures.
+    - [ ] 17.9.5 Closure language-surface follow-ups (v1 restriction revisit).
+      - [ ] 17.9.5.1 Explicit capture-list syntax decision (ship or reject) with stable diagnostics.
+      - [ ] 17.9.5.2 Revisit closure self/mutual recursion policy with deterministic typer behavior.
+      - [ ] 17.9.5.3 Closure environment reclamation strategy decision (keep no-free vs add bounded deallocation plan).
 
 ### 18 Production hardening + attestation
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).

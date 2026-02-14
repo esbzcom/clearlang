@@ -27,6 +27,13 @@ pub(super) fn instantiate_func(base: &Func, subst: &TypeSubst, name: String) -> 
         param.ty = substitute_type(&param.ty, subst);
     }
     func.ret = substitute_type(&func.ret, subst);
+    for req in &mut func.requires {
+        substitute_expr_type_args(&mut req.expr, subst);
+    }
+    substitute_expr_type_args(&mut func.body, subst);
+    for ens in &mut func.ensures {
+        substitute_expr_type_args(&mut ens.expr, subst);
+    }
     func
 }
 
@@ -138,5 +145,93 @@ pub(super) fn restore_scope<'a>(
         } else {
             env.remove(entry.name);
         }
+    }
+}
+
+fn substitute_expr_type_args(expr: &mut clg_ast::Expr, subst: &TypeSubst) {
+    match expr {
+        clg_ast::Expr::Int(_, _)
+        | clg_ast::Expr::Bool(_, _)
+        | clg_ast::Expr::String(_, _)
+        | clg_ast::Expr::Var(_, _) => {}
+        clg_ast::Expr::ArrayLit { elems, .. } | clg_ast::Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                substitute_expr_type_args(elem, subst);
+            }
+        }
+        clg_ast::Expr::StructLit { fields, .. } => {
+            for field in fields {
+                substitute_expr_type_args(&mut field.expr, subst);
+            }
+        }
+        clg_ast::Expr::FieldAccess { base, .. } => substitute_expr_type_args(base, subst),
+        clg_ast::Expr::Block { block } => substitute_block_type_args(block, subst),
+        clg_ast::Expr::Bin { lhs, rhs, .. } => {
+            substitute_expr_type_args(lhs, subst);
+            substitute_expr_type_args(rhs, subst);
+        }
+        clg_ast::Expr::Call {
+            type_args, args, ..
+        } => {
+            for ty in type_args {
+                *ty = substitute_type(ty, subst);
+            }
+            for arg in args {
+                substitute_expr_type_args(arg, subst);
+            }
+        }
+        clg_ast::Expr::Return { expr, .. }
+        | clg_ast::Expr::Unary { expr, .. }
+        | clg_ast::Expr::Try { expr, .. } => substitute_expr_type_args(expr, subst),
+        clg_ast::Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            substitute_expr_type_args(scrutinee, subst);
+            for arm in arms {
+                substitute_expr_type_args(&mut arm.expr, subst);
+            }
+        }
+        clg_ast::Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            substitute_expr_type_args(cond, subst);
+            substitute_expr_type_args(then_br, subst);
+            substitute_expr_type_args(else_br, subst);
+        }
+        clg_ast::Expr::Index { base, index, .. } => {
+            substitute_expr_type_args(base, subst);
+            substitute_expr_type_args(index, subst);
+        }
+        clg_ast::Expr::Lambda { body, .. } => substitute_expr_type_args(body, subst),
+    }
+}
+
+fn substitute_block_type_args(block: &mut clg_ast::Block, subst: &TypeSubst) {
+    for stmt in &mut block.statements {
+        match stmt {
+            clg_ast::Stmt::Let { expr, .. } | clg_ast::Stmt::Expr { expr, .. } => {
+                substitute_expr_type_args(expr, subst);
+            }
+            clg_ast::Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                substitute_expr_type_args(cond, subst);
+                substitute_expr_type_args(invariant, subst);
+                if let Some(variant) = variant {
+                    substitute_expr_type_args(variant, subst);
+                }
+                substitute_block_type_args(body, subst);
+            }
+        }
+    }
+    if let Some(tail) = &mut block.tail {
+        substitute_expr_type_args(tail, subst);
     }
 }

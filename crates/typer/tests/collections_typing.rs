@@ -243,3 +243,11 @@ fn map_rejects_non_equatable_key() {
     "#;
     type_err_code(src, "T220");
 }
+
+#[test]
+fn map_rejects_array_key_until_array_equality_lands() {
+    let src = r#"
+        function bad(m: Map<Array<Int>, String>) -> Int { std::map::len(m) }
+    "#;
+    type_err_code(src, "T220");
+}

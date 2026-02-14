@@ -174,8 +174,16 @@ fn resolve_expr(expr: &mut Expr, ctx: &ResolveCtx<'_>, params: &HashSet<String>)
             resolve_expr(lhs, ctx, params);
             resolve_expr(rhs, ctx, params);
         }
-        Expr::Call { callee, args, .. } => {
+        Expr::Call {
+            callee,
+            type_args,
+            args,
+            ..
+        } => {
             *callee = resolve_callee(callee, ctx);
+            for ty in type_args {
+                resolve_type(ty, ctx, params);
+            }
             for arg in args {
                 resolve_expr(arg, ctx, params);
             }

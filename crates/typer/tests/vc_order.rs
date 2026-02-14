@@ -34,6 +34,7 @@ fn vcs_are_sorted_by_function_and_id() {
         span: span(),
         expr: Expr::Call {
             callee: "std::list::can_mut".into(),
+            type_args: vec![],
             args: vec![Expr::Var("l".into(), span())],
             span: span(),
         },
@@ -55,6 +56,7 @@ fn vcs_are_sorted_by_function_and_id() {
         ensures: vec![],
         body: Expr::Call {
             callee: "std::list::push_mut".into(),
+            type_args: vec![],
             args: vec![Expr::Var("l".into(), span()), Expr::Int(1, span())],
             span: span(),
         },

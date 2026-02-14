@@ -181,6 +181,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 let guard_span = call.span;
                 let guard_expr = Expr::Call {
                     callee: guard_callee_for_kind(call.kind).to_string(),
+                    type_args: Vec::new(),
                     args: vec![Expr::Var(arg_name.clone(), guard_span)],
                     span: guard_span,
                 };

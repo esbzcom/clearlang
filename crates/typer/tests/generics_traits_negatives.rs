@@ -109,3 +109,27 @@ fn impl_override_default_method_effect_mismatch_errors() {
     "#;
     type_err_code(src, "T235");
 }
+
+#[test]
+fn explicit_type_arg_count_mismatch_errors() {
+    let src = r#"
+        pure function id<T>(x: T) -> T { x }
+
+        function main() -> Int {
+            id<Int, Bool>(1)
+        }
+    "#;
+    type_err_code(src, "T242");
+}
+
+#[test]
+fn explicit_type_args_on_nongeneric_call_error() {
+    let src = r#"
+        pure function inc(x: Int) -> Int { x + 1 }
+
+        function main() -> Int {
+            inc<Int>(1)
+        }
+    "#;
+    type_err_code(src, "T242");
+}

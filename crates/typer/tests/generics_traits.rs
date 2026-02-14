@@ -18,6 +18,22 @@ fn monomorphizes_generic_function_calls() {
 }
 
 #[test]
+fn monomorphizes_generic_function_calls_with_explicit_type_args() {
+    let src = r#"
+        pure function id<T>(x: T) -> T { x }
+
+        function main() -> Int {
+            id<Int>(1)
+        }
+    "#;
+    let ast = parse(src).expect("parse");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.iter().any(|name| *name == "id$Int"));
+    assert!(names.iter().any(|name| *name == "main"));
+}
+
+#[test]
 fn monomorphizes_trait_impl_calls() {
     let src = r#"
         interface Eq {

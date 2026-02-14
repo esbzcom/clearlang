@@ -43,7 +43,12 @@ fn collect_lambda_captures_expr(
                 record_capture(name, *span, captures);
             }
         }
-        Expr::Call { callee, args, span } => {
+        Expr::Call {
+            callee,
+            args,
+            type_args: _,
+            span,
+        } => {
             if !callee.contains("::") && !name_is_bound(callee, scopes) {
                 record_capture(callee, *span, captures);
             }
@@ -762,9 +767,15 @@ pub(crate) fn type_of<'a>(
             bounds,
             depth,
         ),
-        Expr::Call { callee, args, span } => type_call_expr(
+        Expr::Call {
+            callee,
+            args,
+            type_args,
+            span,
+        } => type_call_expr(
             callee.as_str(),
             args,
+            type_args,
             env,
             tracker,
             fns,

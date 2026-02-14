@@ -22,7 +22,12 @@ fn collect_closure_calls_expr<'a>(
 ) {
     match expr {
         Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
-        Expr::Call { callee, args, span } => {
+        Expr::Call {
+            callee,
+            args,
+            type_args: _,
+            span,
+        } => {
             let callee_name = callee.as_str();
             if !callee_name.contains("::")
                 && closure_names.contains(callee_name)

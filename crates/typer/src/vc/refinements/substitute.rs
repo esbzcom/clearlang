@@ -65,8 +65,14 @@ pub(super) fn substitute_binder(expr: &Expr, binder: &str, replacement: &Expr) -
             expr: Box::new(substitute_binder(expr, binder, replacement)),
             span: *span,
         },
-        Expr::Call { callee, args, span } => Expr::Call {
+        Expr::Call {
+            callee,
+            type_args,
+            args,
+            span,
+        } => Expr::Call {
             callee: callee.clone(),
+            type_args: type_args.clone(),
             args: args
                 .iter()
                 .map(|a| substitute_binder(a, binder, replacement))
@@ -140,8 +146,14 @@ pub(crate) fn substitute_result(expr: &Expr, replacement: &Expr) -> Expr {
             expr: Box::new(substitute_result(expr, replacement)),
             span: *span,
         },
-        Expr::Call { callee, args, span } => Expr::Call {
+        Expr::Call {
+            callee,
+            type_args,
+            args,
+            span,
+        } => Expr::Call {
             callee: callee.clone(),
+            type_args: type_args.clone(),
             args: args
                 .iter()
                 .map(|a| substitute_result(a, replacement))

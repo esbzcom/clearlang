@@ -79,3 +79,31 @@ fn parses_trait_method_default_body_and_declaration_forms() {
         Some(Expr::Block { .. })
     ));
 }
+
+#[test]
+fn parses_explicit_type_args_in_call_sites() {
+    let src = r#"
+        pure function id<T>(x: T) -> T { x }
+        function main() -> Int { id<Int>(1) }
+    "#;
+
+    let program = parse(src).expect("parse ok");
+    assert_eq!(program.funcs.len(), 2);
+    match &program.funcs[1].body {
+        Expr::Block { block } => match block.tail.as_deref() {
+            Some(Expr::Call {
+                callee,
+                type_args,
+                args,
+                ..
+            }) => {
+                assert_eq!(callee, "id");
+                assert_eq!(type_args.len(), 1);
+                assert!(matches!(type_args[0], Type::Int));
+                assert_eq!(args.len(), 1);
+            }
+            other => panic!("expected call tail expr, found: {other:?}"),
+        },
+        other => panic!("expected block body, found: {other:?}"),
+    }
+}

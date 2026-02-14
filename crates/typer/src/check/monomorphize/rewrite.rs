@@ -188,7 +188,12 @@ impl<'a> Monomorphizer<'a> {
                 }
                 Ok(())
             }
-            Expr::Call { callee, args, span } => {
+            Expr::Call {
+                callee,
+                type_args,
+                args,
+                span,
+            } => {
                 let arg_types: Vec<Type> = args
                     .iter()
                     .map(|arg| {
@@ -251,11 +256,13 @@ impl<'a> Monomorphizer<'a> {
                         callee.as_str(),
                         sig,
                         &arg_types,
+                        type_args.as_slice(),
                         type_params,
                         bounds,
                         *span,
                     )?;
                     *callee = new_name;
+                    type_args.clear();
                     return Ok(());
                 }
                 Ok(())

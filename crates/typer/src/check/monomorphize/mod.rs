@@ -1,7 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use anyhow::Result;
-use clg_ast::{Func, Program};
+use clg_ast::{Func, Program, Span};
+use crate::errors::TyperError;
 
 use super::{AliasMap, FnSig, TraitEnv, TypeDefs};
 
@@ -34,6 +35,7 @@ pub(super) fn monomorphize_program<'a>(
         type_defs,
         mono_funcs: Vec::new(),
         mono_map: HashMap::new(),
+        mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
     };
 
@@ -61,6 +63,7 @@ struct Monomorphizer<'a> {
     type_defs: &'a TypeDefs<'a>,
     mono_funcs: Vec<Func>,
     mono_map: HashMap<String, usize>,
+    mangled_name_origins: HashMap<String, String>,
     queue: VecDeque<usize>,
 }
 
@@ -97,5 +100,23 @@ impl<'a> Monomorphizer<'a> {
             return false;
         };
         info.variants.contains_key(variant_name)
+    }
+
+    fn track_mangled_name_origin(&mut self, emitted_name: &str, canonical_name: &str, span: Span) -> Result<()> {
+        if let Some(existing) = self.mangled_name_origins.get(emitted_name) {
+            if existing != canonical_name {
+                return Err(TyperError::mangled_name_collision(
+                    emitted_name,
+                    existing,
+                    canonical_name,
+                    span,
+                )
+                .into());
+            }
+            return Ok(());
+        }
+        self.mangled_name_origins
+            .insert(emitted_name.to_string(), canonical_name.to_string());
+        Ok(())
     }
 }

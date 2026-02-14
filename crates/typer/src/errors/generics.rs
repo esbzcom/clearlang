@@ -162,4 +162,21 @@ impl TyperError {
             0,
         )
     }
+
+    pub fn mangled_name_collision(
+        emitted_name: &str,
+        existing_canonical: &str,
+        new_canonical: &str,
+        span: Span,
+    ) -> Self {
+        Self::new(
+            "T250",
+            format!(
+                "at {}..{}: mangled name collision for `{}` under shortening mode; canonical names `{}` and `{}` mapped to the same emitted name. Increase `CLG_MANGLE_MAX_LEN` or unset it.",
+                span.start, span.end, emitted_name, existing_canonical, new_canonical
+            ),
+            span.start,
+            span.end,
+        )
+    }
 }

@@ -30,8 +30,8 @@
 6) Complete 17.8.4 hard switch keyword surface (`trait`/`impl` -> `interface`/`implementation`) while unreleased (no compatibility layer). (Done; parser keywords/reserved words/tests/docs migrated; parser+typer+cli validation green.)
 
 ### Next Execution Slice
-1) Continue 17.8.3.2 collision safety/stability guarantees for optional deterministic mangling shortening.
-2) Continue 17.8.3.3 proof/debug traceability docs/tests for shortened-name mapping.
+1) Continue 17.8.3.3 proof/debug traceability docs/tests for shortened-name mapping.
+2) Decide whether to expose a machine-readable emitted-name -> canonical-name map artifact for proofs/debug tools.
 3) Decide whether to rename internal mangling/debug labels (`impl$...`) to align with the external `implementation` keyword.
 
 ## Recently Completed

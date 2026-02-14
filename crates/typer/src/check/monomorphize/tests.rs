@@ -33,6 +33,7 @@ fn find_impl_uses_call_span_for_missing_impl() {
         type_defs: &type_defs,
         mono_funcs: Vec::new(),
         mono_map: HashMap::new(),
+        mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
     };
     let span = Span { start: 12, end: 34 };
@@ -95,6 +96,7 @@ fn find_impl_uses_call_span_for_ambiguous_impl() {
         type_defs: &type_defs,
         mono_funcs: Vec::new(),
         mono_map: HashMap::new(),
+        mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
     };
     let span = Span { start: 55, end: 89 };
@@ -250,4 +252,42 @@ fn optional_mangling_shortening_distinguishes_different_inputs() {
     );
     assert!(eq_name.len() <= 36);
     assert!(cmp_name.len() <= 36);
+}
+
+#[test]
+fn mangling_shortening_collision_reports_t250() {
+    let trait_env = TraitEnv {
+        traits: HashMap::new(),
+        impls: Vec::new(),
+    };
+    let aliases: AliasMap = HashMap::new();
+    let type_defs = TypeDefs {
+        resources: HashSet::new(),
+        structs: HashMap::new(),
+        enums: HashMap::new(),
+    };
+    let base_fns: HashMap<&str, FnSig> = HashMap::new();
+    let base_funcs: HashMap<&str, &Func> = HashMap::new();
+    let mut mono = Monomorphizer {
+        base_fns: &base_fns,
+        base_funcs,
+        trait_env: &trait_env,
+        aliases: &aliases,
+        type_defs: &type_defs,
+        mono_funcs: Vec::new(),
+        mono_map: HashMap::new(),
+        mangled_name_origins: HashMap::new(),
+        queue: VecDeque::new(),
+    };
+
+    let span = Span { start: 7, end: 9 };
+    mono.track_mangled_name_origin("$", "full_name_A", span)
+        .expect("first origin insert");
+    let err = mono
+        .track_mangled_name_origin("$", "full_name_B", span)
+        .expect_err("expected deterministic collision error");
+    let te = err.downcast_ref::<TyperError>().expect("typer error");
+    assert_eq!(te.code, "T250");
+    assert!(te.message.contains("full_name_A"));
+    assert!(te.message.contains("full_name_B"));
 }

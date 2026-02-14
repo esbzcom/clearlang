@@ -101,6 +101,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T247 | type | Conflicting inferred types for a type parameter. |
 | T248 | type | Ambiguous implementation for an interface on a type. |
 | T249 | type | Interface default method body effect does not match declared effect. |
+| T250 | type | Mangled-name collision under shortening mode (`CLG_MANGLE_MAX_LEN`). |
 | T301 | type | Branch type mismatch in expression-form `if`/`else`. |
 | T401 | type | Call requires a stronger effect. |
 | T402 | type | Missing required mut guard for a mut call. |

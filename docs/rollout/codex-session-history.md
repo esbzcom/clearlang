@@ -1,5 +1,18 @@
 # Codex Session Context
 
+## 2026-02-14 - Phase 17.8.3.2 shortening collision safety
+- Added deterministic collision safety for optional mangling shortening:
+  - `crates/typer/src/check/monomorphize/mod.rs`: added tracking map from emitted mangled names to canonical (unshortened) names.
+  - `crates/typer/src/check/monomorphize/dispatch.rs`: records canonical and emitted names for both generic functions and interface implementations, rejecting collisions.
+  - `crates/typer/src/errors/generics.rs`: added `T250` for emitted-name collisions under shortening mode.
+- Added coverage:
+  - `crates/typer/src/check/monomorphize/tests.rs`: new collision test ensures conflicting origins for one emitted name fail with `T250`.
+- Docs/roadmap updates:
+  - `docs/diagnostics.md`: added `T250`.
+  - `docs/TODO.md`: marked `17.8.3.2` complete.
+  - `docs/design/phase-17.2-generics-traits.md`: documented collision-safety behavior.
+  - `docs/rollout/DEVPLAN.md`: next execution now focuses on `17.8.3.3` traceability.
+
 ## 2026-02-14 - Phase 17.8.3.1 optional mangling shortening
 - Implemented an optional deterministic shortening mode for long mangled names:
   - `crates/typer/src/check/monomorphize/mangle.rs`:

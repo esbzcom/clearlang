@@ -8,7 +8,10 @@ use crate::errors::TyperError;
 use super::super::expr::{ensure_trait_bound, trait_impl_exists, type_pattern_matches};
 use super::super::{show_ty, type_param_names, unify_type_params, BoundsMap, TypeSubst};
 use super::helpers::instantiate_func;
-use super::mangle::{mangle_fn_name, mangle_impl_method_name};
+use super::mangle::{
+    mangle_fn_name, mangle_fn_name_with_config, mangle_impl_method_name,
+    mangle_impl_method_name_with_config, MangleConfig,
+};
 use super::Monomorphizer;
 
 fn trait_default_base_func(method_name: &str, method: &clg_ast::TraitMethod) -> Result<Func> {
@@ -72,7 +75,16 @@ impl<'a> Monomorphizer<'a> {
             };
             args_vec.push(ty.clone());
         }
+        let canonical = mangle_fn_name_with_config(
+            callee,
+            &args_vec,
+            self.aliases,
+            MangleConfig {
+                shorten_max_len: None,
+            },
+        )?;
         let mangled = mangle_fn_name(callee, &args_vec, self.aliases)?;
+        self.track_mangled_name_origin(&mangled, &canonical, span)?;
         if !self.mono_map.contains_key(mangled.as_str()) {
             let base = self
                 .base_funcs
@@ -134,10 +146,20 @@ impl<'a> Monomorphizer<'a> {
             span,
         )?;
 
+        let canonical = mangle_impl_method_name_with_config(
+            trait_name,
+            &self_ty,
+            method_name,
+            self.aliases,
+            MangleConfig {
+                shorten_max_len: None,
+            },
+        )?;
+        let mangled = mangle_impl_method_name(trait_name, &self_ty, method_name, self.aliases)?;
+        self.track_mangled_name_origin(&mangled, &canonical, span)?;
         let (imp, impl_subst) = self.find_impl(trait_name, &self_ty, span)?;
         let mut full_subst = impl_subst;
         full_subst.insert("Self".to_string(), self_ty.clone());
-        let mangled = mangle_impl_method_name(trait_name, &self_ty, method_name, self.aliases)?;
         if !self.mono_map.contains_key(mangled.as_str()) {
             let inst = if let Some(impl_method) = imp.methods.get(method_name) {
                 instantiate_func(impl_method, &full_subst, mangled.clone())

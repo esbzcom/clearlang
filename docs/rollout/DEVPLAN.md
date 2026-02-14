@@ -30,9 +30,9 @@
 6) Complete 17.8.4 hard switch keyword surface (`trait`/`impl` -> `interface`/`implementation`) while unreleased (no compatibility layer). (Done; parser keywords/reserved words/tests/docs migrated; parser+typer+cli validation green.)
 
 ### Next Execution Slice
-1) Continue 17.8.3.3 proof/debug traceability docs/tests for shortened-name mapping.
-2) Decide whether to expose a machine-readable emitted-name -> canonical-name map artifact for proofs/debug tools.
-3) Decide whether to rename internal mangling/debug labels (`impl$...`) to align with the external `implementation` keyword.
+1) Decide whether to rename internal mangling/debug labels (`impl$...`) to align with the external `implementation` keyword.
+2) Keep strict coherence baseline (17.8.2.1) and either close 17.8.2 as intentionally deferred or scope a concrete prerequisite for revisiting it.
+3) Prepare Phase 18 kickoff slice (attestation registry hardening + key lifecycle checklist).
 
 ## Recently Completed
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

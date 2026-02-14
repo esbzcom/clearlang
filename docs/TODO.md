@@ -778,10 +778,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [ ] 17.8.2 Optional explicit implementation selection syntax (only if coherence is relaxed).
       - [x] 17.8.2.1 Keep strict coherence as default behavior (baseline from 17.2); explicit implementation selection remains unsupported while coherence is strict.
         - [x] Lock conflict policy: overlapping implementations are compile-time conflicts (`T236`), and ambiguous resolution is a compile-time error (`T248`) with no implicit fallback.
-    - [ ] 17.8.3 Proof/debug name shortening (optional hash suffix for long mangled names).
+    - [x] 17.8.3 Proof/debug name shortening (optional hash suffix for long mangled names).
       - [x] 17.8.3.1 Add an optional deterministic shortening mode for long mangled names (hash suffix).
       - [x] 17.8.3.2 Preserve uniqueness/collision safety guarantees and stable reproducibility.
-      - [ ] 17.8.3.3 Keep proof/debug traceability by documenting and testing the shortened-name mapping.
+      - [x] 17.8.3.3 Keep proof/debug traceability by documenting and testing the shortened-name mapping.
 
 ### 18 Production hardening + attestation
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).

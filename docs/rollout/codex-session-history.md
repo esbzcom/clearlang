@@ -1,5 +1,20 @@
 # Codex Session Context
 
+## 2026-02-14 - Phase 17.8.3.3 shortened-name traceability
+- Implemented emitted-name to canonical-name traceability in proof/debug artifacts:
+  - `crates/typer/src/check/monomorphize/mod.rs`: `monomorphize_program` now returns both the monomorphized program and the emitted->canonical mangled-name origin map.
+  - `crates/typer/src/check/mod.rs` and `crates/typer/src/check/fast_path.rs`: wired the map into `TypecheckOutput`.
+  - `crates/cli/src/commands/build.rs`: `--emit-vcs` JSON now writes optional `canonical_function` when function names are shortened.
+  - `crates/cli/src/proofs.rs`: `clearlang.proof` function entries now include optional `canonical_name` for shortened symbols.
+- Added regression coverage:
+  - `crates/cli/tests/cli_it/vc_outputs.rs`: new test forces shortening via `CLG_MANGLE_MAX_LEN` and verifies canonical mapping in both VC JSON and proof section CBOR.
+- Docs/roadmap updates:
+  - `docs/proofs/vc-schema.md`: documented optional `canonical_function`.
+  - `docs/proofs/proof-section.md`: documented optional function-level `canonical_name`.
+  - `docs/design/phase-17.2-generics-traits.md`: recorded 17.8.3.3 traceability policy.
+  - `docs/TODO.md`: marked `17.8.3` and `17.8.3.3` complete.
+  - `docs/rollout/DEVPLAN.md`: moved next execution slice beyond 17.8.3.
+
 ## 2026-02-14 - Phase 17.8.3.2 shortening collision safety
 - Added deterministic collision safety for optional mangling shortening:
   - `crates/typer/src/check/monomorphize/mod.rs`: added tracking map from emitted mangled names to canonical (unshortened) names.

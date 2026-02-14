@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::{anyhow, Result};
 use clg_ast::Program;
@@ -91,6 +91,8 @@ pub struct ProofVc {
 pub struct ProofFunction {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub canonical_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub requires: Option<ProofExpr>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ensures: Vec<ProofExpr>,
@@ -118,6 +120,7 @@ impl ProofPackage {
     pub fn from_program(
         program: &Program,
         vcs: &[VerificationCondition],
+        mangled_name_origins: &HashMap<String, String>,
         toolchain: String,
     ) -> ProofPackage {
         let mut grouped: BTreeMap<String, Vec<ProofVc>> = BTreeMap::new();
@@ -216,6 +219,7 @@ impl ProofPackage {
 
             functions.push(ProofFunction {
                 name: func.name.clone(),
+                canonical_name: canonical_name_for(&func.name, mangled_name_origins),
                 requires: prefers,
                 ensures,
                 vcs: fn_vcs,
@@ -279,6 +283,17 @@ impl ProofExpr {
             }),
         }
     }
+}
+
+fn canonical_name_for(
+    emitted_name: &str,
+    mangled_name_origins: &HashMap<String, String>,
+) -> Option<String> {
+    let canonical = mangled_name_origins.get(emitted_name)?;
+    if canonical == emitted_name {
+        return None;
+    }
+    Some(canonical.clone())
 }
 
 pub fn compute_proofs_hash_from_vcs(vcs: &[(String, ProofVc)]) -> [u8; 32] {

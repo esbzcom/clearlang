@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use super::aliases::{build_alias_map, validate_alias_predicates};
 use super::function_checks::{check_func, check_impl_method, check_trait_default_method};
 use super::intrinsics::collect_used_intrinsics;
-use super::monomorphize::monomorphize_program;
+use super::monomorphize::{monomorphize_program, MonomorphizeOutput};
 use super::totality::level_from_effect;
 use super::trait_env::build_trait_env;
 use super::type_defs::build_type_defs;
@@ -98,19 +98,30 @@ pub(super) fn fast_path_without_totality_with_std(
                 &type_defs,
             )
             .with_context(|| {
-                format!("in interface `{}` default method `{}`", tr.name, method.name)
+                format!(
+                    "in interface `{}` default method `{}`",
+                    tr.name, method.name
+                )
             })?;
         }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
             check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
-                || format!("in implementation `{}` method `{}`", imp.decl.trait_name, method.name),
+                || {
+                    format!(
+                        "in implementation `{}` method `{}`",
+                        imp.decl.trait_name, method.name
+                    )
+                },
             )?;
         }
     }
 
-    let mono_program = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
+    let MonomorphizeOutput {
+        program: mono_program,
+        mangled_name_origins,
+    } = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
     let mut mono_fns: HashMap<&str, FnSig> =
         HashMap::with_capacity(builtins.len() + mono_program.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -371,5 +382,6 @@ pub(super) fn fast_path_without_totality_with_std(
         ir: module,
         vcs,
         mono_program,
+        mangled_name_origins,
     })
 }

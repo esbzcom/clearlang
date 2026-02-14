@@ -12,6 +12,7 @@ Top-Level
 VC Object (v2)
 - `version`: number (2)
 - `function`: string (fully-qualified name)
+- `canonical_function`: string - optional canonical unshortened function name when `function` was shortened for mangling/debug limits
 - `vc_id`: string (stable per function; `vc:0`, `vc:1`, ...)
 - `pre`: object - AST string and SMT2
   - `ast`: string (surface syntax of precondition)
@@ -60,6 +61,7 @@ Attachment Details (kind)
 Notes
 - `refinements.premises` are trace data; `pre`/`post` and `vc.smt2` include the substituted predicates.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
+- `canonical_function` appears only when `CLG_MANGLE_MAX_LEN` shortening changed the emitted function symbol.
 
 Example
 ```json

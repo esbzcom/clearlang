@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -77,6 +78,7 @@ pub fn run(
         ir,
         vcs,
         mono_program,
+        mangled_name_origins,
     } = type_output;
 
     let fail_build = |code: &'static str, message: &str, function: Option<String>| -> Result<()> {
@@ -109,9 +111,14 @@ pub fn run(
     };
 
     let toolchain = format!("clg-cli/{}", env!("CARGO_PKG_VERSION"));
-    let proof_package = emit_vcs
-        .as_ref()
-        .map(|_| ProofPackage::from_program(&mono_program, &vcs, toolchain.clone()));
+    let proof_package = emit_vcs.as_ref().map(|_| {
+        ProofPackage::from_program(
+            &mono_program,
+            &vcs,
+            &mangled_name_origins,
+            toolchain.clone(),
+        )
+    });
 
     let zero_section = proof_package
         .as_ref()
@@ -162,7 +169,7 @@ pub fn run(
 
     if let Some(vcs_path) = emit_vcs {
         let _stage = timings.start(logger, "emit_vcs");
-        write_vcs_json(&vcs, &vcs_path, &file)?;
+        write_vcs_json(&vcs, &mangled_name_origins, &vcs_path, &file)?;
     }
 
     if sign {
@@ -219,7 +226,12 @@ pub fn run(
     Ok(())
 }
 
-fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Result<()> {
+fn write_vcs_json(
+    vcs: &[VerificationCondition],
+    mangled_name_origins: &HashMap<String, String>,
+    path: &Path,
+    src: &Path,
+) -> Result<()> {
     use serde_json::json;
 
     fn refinement_attachment_json(att: &clg_typer::RefinementAttachment) -> serde_json::Value {
@@ -280,6 +292,9 @@ fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Res
         let mut obj = serde_json::Map::new();
         obj.insert("version".to_string(), json!(2));
         obj.insert("function".to_string(), json!(vc.function));
+        if let Some(canonical) = canonical_name_for(&vc.function, mangled_name_origins) {
+            obj.insert("canonical_function".to_string(), json!(canonical));
+        }
         obj.insert("vc_id".to_string(), json!(vc.vc_id));
         obj.insert(
             "pre".to_string(),
@@ -328,6 +343,17 @@ fn write_vcs_json(vcs: &[VerificationCondition], path: &Path, src: &Path) -> Res
     let data = serde_json::to_vec_pretty(&serde_json::Value::Array(items))?;
     fs::write(path, data).with_context(|| format!("writing {}", path.display()))?;
     Ok(())
+}
+
+fn canonical_name_for(
+    emitted_name: &str,
+    mangled_name_origins: &HashMap<String, String>,
+) -> Option<String> {
+    let canonical = mangled_name_origins.get(emitted_name)?;
+    if canonical == emitted_name {
+        return None;
+    }
+    Some(canonical.clone())
 }
 
 fn contract_exports(ast: &Program, file: &Path, json_errors: bool) -> Result<Vec<ExportAlias>> {

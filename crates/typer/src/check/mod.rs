@@ -18,7 +18,7 @@ pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::fast_path::fast_path_without_totality_with_std;
 use self::function_checks::{check_func, check_impl_method, check_trait_default_method};
 use self::intrinsics::collect_used_intrinsics;
-use self::monomorphize::monomorphize_program;
+use self::monomorphize::{monomorphize_program, MonomorphizeOutput};
 use self::totality::enforce_totality;
 use self::trait_env::build_trait_env;
 use self::type_defs::build_type_defs;
@@ -186,6 +186,7 @@ pub struct TypecheckOutput {
     pub ir: Module,
     pub vcs: Vec<VerificationCondition>,
     pub mono_program: Program,
+    pub mangled_name_origins: HashMap<String, String>,
 }
 
 pub(super) fn ensure_user_function_name_allowed(name: &str) -> Result<()> {
@@ -274,14 +275,22 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
                 &type_defs,
             )
             .with_context(|| {
-                format!("in interface `{}` default method `{}`", tr.name, method.name)
+                format!(
+                    "in interface `{}` default method `{}`",
+                    tr.name, method.name
+                )
             })?;
         }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
             check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
-                || format!("in implementation `{}` method `{}`", imp.decl.trait_name, method.name),
+                || {
+                    format!(
+                        "in implementation `{}` method `{}`",
+                        imp.decl.trait_name, method.name
+                    )
+                },
             )?;
         }
     }
@@ -289,7 +298,10 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
         enforce_totality(f)?;
     }
 
-    let mono_program = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
+    let MonomorphizeOutput {
+        program: mono_program,
+        mangled_name_origins,
+    } = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
     let mut mono_fns: HashMap<&str, FnSig> =
         HashMap::with_capacity(builtins.len() + mono_program.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -555,6 +567,7 @@ pub fn check_with_vcs_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<
         ir: module,
         vcs,
         mono_program,
+        mangled_name_origins,
     })
 }
 
@@ -641,14 +654,22 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
                 &type_defs,
             )
             .with_context(|| {
-                format!("in interface `{}` default method `{}`", tr.name, method.name)
+                format!(
+                    "in interface `{}` default method `{}`",
+                    tr.name, method.name
+                )
             })?;
         }
     }
     for imp in &trait_env.impls {
         for method in &imp.decl.methods {
             check_impl_method(method, imp, &fns, &trait_env, &alias_map, &type_defs).with_context(
-                || format!("in implementation `{}` method `{}`", imp.decl.trait_name, method.name),
+                || {
+                    format!(
+                        "in implementation `{}` method `{}`",
+                        imp.decl.trait_name, method.name
+                    )
+                },
             )?;
         }
     }

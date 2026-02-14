@@ -50,6 +50,7 @@ Each element in `functions` is a CBOR map with keys:
 | Key        | Type                   | Description                                           |
 |------------|------------------------|-------------------------------------------------------|
 | `name`     | text                   | Function identifier (matches Wasm export when present).|
+| `canonical_name` | optional text     | Canonical unshortened function name when `name` was shortened. |
 | `requires` | optional proof expr map | Combined `require` clauses as a `ProofExpr`.            |
 | `ensures`  | array of ensure maps   | One per `ensure` clause.                              |
 | `vcs`      | array of VC maps       | Verification conditions emitted for the function.     |
@@ -119,7 +120,7 @@ the payload, checks the signature, then inspects the embedded `clearlang.proof` 
 
 ## Backwards Compatibility
 
-- v1 sections remain parseable; v2 adds optional `refinements` on VC entries.
+- v1 sections remain parseable; v2 adds optional `refinements` on VC entries and optional `canonical_name` on function entries.
 - Future versions must bump `version` and keep earlier versions parseable.
 - New fields should be optional to avoid breaking existing tooling.
 - When proofs become mandatory, the `proof` field will be required for `status = "proved"`.

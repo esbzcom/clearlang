@@ -1,8 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
+use crate::errors::TyperError;
 use anyhow::Result;
 use clg_ast::{Func, Program, Span};
-use crate::errors::TyperError;
 
 use super::{AliasMap, FnSig, TraitEnv, TypeDefs};
 
@@ -15,13 +15,18 @@ mod tests;
 
 use helpers::instantiate_func;
 
+pub(super) struct MonomorphizeOutput {
+    pub program: Program,
+    pub mangled_name_origins: HashMap<String, String>,
+}
+
 pub(super) fn monomorphize_program<'a>(
     program: &'a Program,
     fns: &'a HashMap<&'a str, FnSig>,
     trait_env: &'a TraitEnv<'a>,
     aliases: &'a AliasMap,
     type_defs: &'a TypeDefs<'a>,
-) -> Result<Program> {
+) -> Result<MonomorphizeOutput> {
     let mut base_funcs: HashMap<&'a str, &'a Func> = HashMap::with_capacity(program.funcs.len());
     for func in &program.funcs {
         base_funcs.insert(func.name.as_str(), func);
@@ -52,7 +57,10 @@ pub(super) fn monomorphize_program<'a>(
     out.funcs = mono.mono_funcs;
     out.traits = Vec::new();
     out.impls = Vec::new();
-    Ok(out)
+    Ok(MonomorphizeOutput {
+        program: out,
+        mangled_name_origins: mono.mangled_name_origins,
+    })
 }
 
 struct Monomorphizer<'a> {
@@ -102,7 +110,12 @@ impl<'a> Monomorphizer<'a> {
         info.variants.contains_key(variant_name)
     }
 
-    fn track_mangled_name_origin(&mut self, emitted_name: &str, canonical_name: &str, span: Span) -> Result<()> {
+    fn track_mangled_name_origin(
+        &mut self,
+        emitted_name: &str,
+        canonical_name: &str,
+        span: Span,
+    ) -> Result<()> {
         if let Some(existing) = self.mangled_name_origins.get(emitted_name) {
             if existing != canonical_name {
                 return Err(TyperError::mangled_name_collision(

@@ -1,4 +1,6 @@
 use super::*;
+use serde::Deserialize;
+use wasmparser::{Parser, Payload};
 
 #[test]
 fn build_emits_vcs_json() {
@@ -185,4 +187,102 @@ fn build_emits_variant_vcs_json() {
         .expect("vc smt2");
     assert!(vc.contains("cl.variant.tag"));
     assert!(!vc.contains("unsupported"));
+}
+
+#[derive(Deserialize)]
+struct ProofFunctionTraceEntry {
+    name: String,
+    #[serde(default)]
+    canonical_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ProofTraceSection {
+    functions: Vec<ProofFunctionTraceEntry>,
+}
+
+#[test]
+fn build_emits_shortened_name_traceability_mapping() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("trace.clear");
+    let wasm_path = tmp.path().join("trace.wasm");
+    let vcs_path = tmp.path().join("trace.vc.json");
+    let src = r#"
+        pure function incredibly_descriptive_generic_identity_for_traceability_demo<T>(x: T) -> T
+            ensure { result == result }
+        { x }
+        function main() -> Int {
+            incredibly_descriptive_generic_identity_for_traceability_demo(1)
+        }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_MANGLE_MAX_LEN", "24")
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let mapped_vc = arr
+        .iter()
+        .find_map(|entry| {
+            let emitted = entry.get("function")?.as_str()?;
+            let canonical = entry.get("canonical_function")?.as_str()?;
+            Some((emitted.to_string(), canonical.to_string()))
+        })
+        .expect("vc with canonical_function");
+
+    assert!(
+        mapped_vc.0.len() <= 24,
+        "emitted name should respect CLG_MANGLE_MAX_LEN"
+    );
+    assert!(
+        mapped_vc.1.len() > mapped_vc.0.len(),
+        "canonical name should preserve full mangled path"
+    );
+    assert!(
+        mapped_vc
+            .1
+            .contains("incredibly_descriptive_generic_identity_for_traceability_demo"),
+        "canonical name should keep full symbol prefix"
+    );
+    assert!(
+        mapped_vc.1.ends_with("$Int"),
+        "canonical name should keep type instantiation suffix"
+    );
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let mut proof_data = None;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                proof_data = Some(section.data().to_vec());
+                break;
+            }
+        }
+    }
+
+    let proof_data = proof_data.expect("proof section");
+    let section: ProofTraceSection = serde_cbor::from_slice(&proof_data).expect("decode proof");
+    let mapped_fn = section
+        .functions
+        .iter()
+        .find_map(|f| {
+            let canonical = f.canonical_name.as_ref()?;
+            Some((f.name.as_str(), canonical.as_str()))
+        })
+        .expect("proof function with canonical_name");
+
+    assert_eq!(mapped_fn.0, mapped_vc.0);
+    assert_eq!(mapped_fn.1, mapped_vc.1);
 }

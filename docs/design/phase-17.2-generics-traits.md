@@ -137,6 +137,8 @@ identifiers.
   an `$h<fnv64-hex>` suffix.
   - Collision safety (Phase 17.8.3.2): if two canonical names map to the same
     emitted shortened name, type-checking fails deterministically (`T250`).
+  - Proof/debug traceability (Phase 17.8.3.3): emitted artifacts carry optional
+    canonical-name mapping fields so tools can recover the unshortened symbol.
 - Type mangling:
   - Primitives: `Int`, `U8`, `U64`, `U128`, `U256`, `Bool`, `String`, `Bytes`.
   - Named: `N$Name$arity$Arg1$Arg2$...` (arity included for parseability).

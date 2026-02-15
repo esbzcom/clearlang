@@ -98,6 +98,8 @@ Implementation tracking lives in `docs/TODO.md` under Phase 17.7.
 - Capturing closure environments are heap-allocated using the existing shared bump allocator.
 - No environment deallocation is introduced in Phase 17 (same policy as current collection/runtime allocations).
 - Environment lifetime is module-instance lifetime under `clg run`; dropping closure values does not reclaim memory in v1.
+- Product-line decision: keep the no-free policy (no bounded reclamation rollout planned in the near term).
+- Operational guidance: long-running hosts should recycle module instances/workers to bound closure-environment memory growth.
 - Allocation failure reuses existing allocator OOM trap behavior/codes.
 
 ### D14. Recursive/Self-Referential Closures Policy (v1)

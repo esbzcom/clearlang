@@ -805,12 +805,14 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
         - [x] Parser: accept `resource struct` and `resource enum` declarations.
         - [x] Typer: allow resource fields only on resource-marked structs/enums; keep `T218` for non-resource structs/enums containing resource fields.
       - [x] 17.9.4.2 Ownership/linearity interaction tests across collections, pattern matching, and closures.
-    - [ ] 17.9.5 Closure language-surface follow-ups (v1 restriction revisit).
+    - [x] 17.9.5 Closure language-surface follow-ups (v1 restriction revisit).
       - [x] 17.9.5.1 Explicit capture-list syntax rejected for v1 with stable diagnostics.
         - [x] Parser diagnostics: emit dedicated code `P012` for capture-list forms (`[x](...) => ...`) instead of generic parse-only reporting.
       - [x] 17.9.5.2 Keep self/mutual closure recursion rejected in v1 with deterministic typer behavior.
         - [x] Typer diagnostics: mutual-recursion pair names are rendered in canonical order, independent of declaration order.
-      - [ ] 17.9.5.3 Closure environment reclamation strategy decision (keep no-free vs add bounded deallocation plan).
+      - [x] 17.9.5.3 Closure environment reclamation strategy: keep no-free policy for this product line.
+        - [x] Decision: closure environments remain module-instance-lifetime allocations; dropping closure values does not reclaim memory.
+        - [x] Operational guidance: long-running hosts should recycle module instances/workers to bound closure-environment memory growth.
 
 ### 18 Production hardening + attestation
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).

@@ -10,6 +10,11 @@ Baseline registry hardening has been implemented:
 - attestation revocation,
 - schema-version allowlist checks,
 - canonical `attestation_id` validation against `(registry, payload_hash, signer, schema_version)`.
+- input hardening for payload hash and URI bounds.
+
+Baseline security-review and fuzzing slice has also landed:
+- contract property/fuzz tests for authorization, schema gating, ID mismatch, and revocation authorization,
+- payload envelope validation checks with negative unit coverage.
 
 Remaining production work is still required (notably fuzzing/audit depth and DA operations policy).
 

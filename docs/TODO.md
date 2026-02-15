@@ -828,7 +828,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 18.0.0.8 Deferred resource/type-surface limits: `Set<Resource>`, resource arrays/slices, array-key equality.
     - [x] 18.0.0.9 External trust anchor choice for `verify` mode (Lean vs Coq first) and version pinning policy.
     - [x] 18.0.0.10 Assurance policy baseline: explicit acceptance criteria per tier (`L0`-`L3`) for production release gates.
-  - [ ] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
+  - [x] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
   - [ ] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
   - [ ] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
   - [ ] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
@@ -847,7 +847,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 18.1.2 Contract: canonical `attestation_id` validation and explicit revocation flow (signer or owner).
   - [x] 18.1.3 Tests/docs: hardening behavior coverage and updated registry workflow docs (`contracts/attestation/*`, `docs/design/phase-18.1-attestation-hardening.md`).
 - [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
-- [ ] 18.3 Security review + fuzzing for attestation contract and payload validation.
+- [x] 18.3 Security review + fuzzing for attestation contract and payload validation.
+  - [x] 18.3.1 Contract fuzz/property tests for authorization, schema gating, ID mismatch, and revocation authorization.
+  - [x] 18.3.2 Payload envelope validation checks with negative coverage (schema/version/address/hex/scope consistency).
+  - [x] 18.3.3 Security review note with resolved findings and residual-risk tracking (`docs/design/phase-18.3-attestation-security-review.md`).
 - [ ] 18.4 Compiled module/package import support (artifact metadata, versioning, and resolver flow).
 
 ### 19 High-assurance ergonomics (easier alternative to Coq/Agda/Lean/F*)

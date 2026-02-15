@@ -2,18 +2,18 @@
 
 ## Current Focus - Phase 18: Production hardening + attestation
 - 18.0.0 open questions are now decision-locked (see `docs/design/phase-18.0-open-questions.md`).
-- Next active work is execution against that lock: 18.1, 18.2, 18.3, 18.4.
+- Security gate is complete (`18.1` + `18.3`).
+- Next active work is reliability/ecosystem execution: `18.2` then `18.4`.
 
 ### Suggested Sequence
-1) Complete 18.1 attestation registry hardening (authorization, key rotation, revocation, schema versioning).
-2) Complete 18.3 security review and fuzzing for contract/payload validation.
-3) Complete 18.2 data availability policy and operational drills.
-4) Complete 18.4 compiled module/package import support.
-5) Execute 18.0.5 and 18.0.6 implementation follow-through from the 18.0.0 decision lock.
+1) Complete 18.2 data availability policy and operational drills.
+2) Complete 18.4 compiled module/package import support.
+3) Execute 18.0.5 and 18.0.6 implementation follow-through from the 18.0.0 decision lock.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
 - **Phase 18 kickoff decision gate (`18.0.0`)**: resolved and documented in `docs/design/phase-18.0-open-questions.md`.
+- **Phase 18 security gate (`18.0.1`)**: completed via `18.1` hardening and `18.3` review/fuzzing.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

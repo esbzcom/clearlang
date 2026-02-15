@@ -23,6 +23,7 @@ Implementation:
 - The deployer becomes `owner`.
 - `owner` can authorize/deauthorize signers via `setSignerAuthorization`.
 - `owner` can transfer ownership via `transferOwnership`.
+- New owner is auto-authorized as a signer during ownership transfer.
 
 ### Schema Versioning
 - Registry tracks `allowedSchemaVersions`.
@@ -34,6 +35,8 @@ Implementation:
 - `register` validates:
   - caller authorization,
   - schema support,
+  - non-zero `payloadHash`,
+  - bounded URI input (`1..=512` bytes),
   - uniqueness,
   - canonical id match.
 - Canonical id:

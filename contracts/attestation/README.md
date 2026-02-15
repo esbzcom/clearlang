@@ -26,7 +26,9 @@ This folder contains the attestation registry contract and payload examples.
 
 Notes:
 - `sample-payload.json` uses placeholder hashes/signature values and is not a valid, verifiable payload.
+- `sample-payload.json` now includes `schema_version` to match hardened registry ID binding.
 - `attestation_id` is validated on-chain against `(registry, payload_hash, signer, schema_version)`.
+- `register` rejects zero payload hashes, empty URIs, and URIs above `MAX_URI_BYTES` (512).
 - Runtime and CI policy should treat revocation as a hard failure for release attestations.
 - Additional production work (audits/fuzzing/ops controls) is tracked in Phase 18.
 

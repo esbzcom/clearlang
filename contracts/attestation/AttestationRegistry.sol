@@ -5,6 +5,8 @@ pragma solidity ^0.8.20;
 /// @notice Registry for ClearLang proof attestations with signer authz,
 ///         key rotation controls, revocation, and schema versioning.
 contract AttestationRegistry {
+    uint256 public constant MAX_URI_BYTES = 512;
+
     struct Attestation {
         address signer;
         bytes32 payloadHash;
@@ -53,6 +55,10 @@ contract AttestationRegistry {
         require(newOwner != address(0), "owner zero");
         address previousOwner = owner;
         owner = newOwner;
+        if (!authorizedSigners[newOwner]) {
+            authorizedSigners[newOwner] = true;
+            emit SignerAuthorizationChanged(newOwner, true);
+        }
         emit OwnershipTransferred(previousOwner, newOwner);
     }
 
@@ -84,6 +90,10 @@ contract AttestationRegistry {
     {
         require(authorizedSigners[msg.sender], "unauthorized signer");
         require(allowedSchemaVersions[schemaVersion], "unsupported schema");
+        require(payloadHash != bytes32(0), "payload hash zero");
+        uint256 uriLen = bytes(uri).length;
+        require(uriLen > 0, "uri empty");
+        require(uriLen <= MAX_URI_BYTES, "uri too long");
         require(attestations[attestationId].timestamp == 0, "attestation exists");
         require(
             attestationId == computeAttestationId(payloadHash, msg.sender, schemaVersion),

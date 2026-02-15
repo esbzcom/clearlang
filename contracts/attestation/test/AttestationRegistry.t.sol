@@ -2,22 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "../AttestationRegistry.sol";
-
-contract RegistryCaller {
-    function register(
-        AttestationRegistry registry,
-        bytes32 attestationId,
-        bytes32 payloadHash,
-        string calldata uri,
-        uint32 schemaVersion
-    ) external {
-        registry.register(attestationId, payloadHash, uri, schemaVersion);
-    }
-
-    function revoke(AttestationRegistry registry, bytes32 attestationId) external {
-        registry.revoke(attestationId);
-    }
-}
+import "./RegistryCaller.sol";
 
 contract AttestationRegistryTest {
     function test_register_and_get_roundtrip() public {
@@ -116,6 +101,63 @@ contract AttestationRegistryTest {
             reverted = true;
         }
         assert(reverted);
+    }
+
+    function test_register_rejects_zero_payload_hash() public {
+        AttestationRegistry registry = new AttestationRegistry();
+        bytes32 payloadHash = bytes32(0);
+        bytes32 attestationId = registry.computeAttestationId(payloadHash, address(this), 1);
+
+        bool reverted = false;
+        try registry.register(attestationId, payloadHash, "ipfs://zero", 1) {
+        } catch {
+            reverted = true;
+        }
+        assert(reverted);
+    }
+
+    function test_register_rejects_empty_uri() public {
+        AttestationRegistry registry = new AttestationRegistry();
+        bytes32 payloadHash = keccak256("payload");
+        bytes32 attestationId = registry.computeAttestationId(payloadHash, address(this), 1);
+
+        bool reverted = false;
+        try registry.register(attestationId, payloadHash, "", 1) {
+        } catch {
+            reverted = true;
+        }
+        assert(reverted);
+    }
+
+    function test_register_rejects_uri_above_limit() public {
+        AttestationRegistry registry = new AttestationRegistry();
+        bytes32 payloadHash = keccak256("payload");
+        bytes32 attestationId = registry.computeAttestationId(payloadHash, address(this), 1);
+        bytes memory longBytes = new bytes(registry.MAX_URI_BYTES() + 1);
+        for (uint256 i = 0; i < longBytes.length; i++) {
+            longBytes[i] = bytes1(uint8(97 + (i % 26)));
+        }
+        string memory longUri = string(longBytes);
+
+        bool reverted = false;
+        try registry.register(attestationId, payloadHash, longUri, 1) {
+        } catch {
+            reverted = true;
+        }
+        assert(reverted);
+    }
+
+    function test_transfer_ownership_auto_authorizes_new_owner() public {
+        AttestationRegistry registry = new AttestationRegistry();
+        RegistryCaller newOwner = new RegistryCaller();
+        registry.transferOwnership(address(newOwner));
+
+        bytes32 payloadHash = keccak256("payload");
+        bytes32 attestationId = registry.computeAttestationId(payloadHash, address(newOwner), 1);
+        newOwner.register(registry, attestationId, payloadHash, "ipfs://new-owner", 1);
+
+        AttestationRegistry.Attestation memory stored = registry.get(attestationId);
+        assert(stored.signer == address(newOwner));
     }
 
     function test_signer_can_revoke() public {

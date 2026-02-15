@@ -816,26 +816,61 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 18 Production hardening + attestation
 - [ ] 18.0 Real-world readiness priorities (execution order).
+  - [ ] 18.0.0 Undecided open questions (must be resolved before proceeding with 18.0.1+ execution gates).
+    - [ ] 18.0.0.1 Interface/implementation generics policy (`T246`/`T245`): v1 restriction vs bounded support scope.
+    - [ ] 18.0.0.2 Generic refinement aliases (`T244`): keep deferred vs introduce bounded substitution strategy.
+    - [ ] 18.0.0.3 Collection backend strategy: keep deterministic linear-search `Map`/`Set` vs introduce deterministic hashing profile.
+    - [ ] 18.0.0.4 Unsigned arithmetic scope: `U128`/`U256` modeling depth required for production proof workloads.
+    - [ ] 18.0.0.5 Bitwise/shift proof model: full SMT encoding vs explicit assumption boundaries.
+    - [ ] 18.0.0.6 Crypto proof model: axiom-based baseline vs stronger per-primitive encodings.
+    - [ ] 18.0.0.7 Inline refinements on params/returns: keep alias-only ergonomics vs add inline surface now.
+    - [ ] 18.0.0.8 Deferred resource/type-surface limits: `Set<Resource>`, resource arrays/slices, array-key equality.
+    - [ ] 18.0.0.9 External trust anchor choice for `verify` mode (Lean vs Coq first) and version pinning policy.
+    - [ ] 18.0.0.10 Assurance policy baseline: explicit acceptance criteria per tier (`L0`-`L3`) for production release gates.
   - [ ] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
   - [ ] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
   - [ ] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
   - [ ] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
-  - [ ] 18.0.5 P2 Language ergonomics review: keep re-export/glob/item-aliasing deferred unless concrete SDK pain justifies complexity.
-    - [ ] 18.0.5.1 Evaluate facade-module pain in real SDKs and decide whether to introduce a constrained re-export form.
-    - [ ] 18.0.5.2 Re-evaluate item import aliasing only if import verbosity causes measurable adoption friction.
-    - [ ] 18.0.5.3 Re-evaluate glob imports only with strict deterministic conflict diagnostics and style guardrails.
-    - [ ] 18.0.5.4 Revisit closure-value recursion policy (`let f = (...) => f(...)`) only with explicit syntax and deterministic typing semantics.
-    - [ ] 18.0.5.5 Revisit interface generics and impl-method generic parameters (`T246`/`T245`) with deterministic coherence and diagnostics constraints.
-    - [ ] 18.0.5.6 Revisit collection runtime scalability (`Map`/`Set` hashing backend vs current linear-search model) with deterministic behavior constraints.
-  - [ ] 18.0.6 P2 Proof-modeling review: track unsigned/bitwise/crypto SMT limitations and prioritize upgrades based on production proof workloads.
-    - [ ] 18.0.6.1 Decide whether to extend unsigned arithmetic modeling (U128/U256) beyond current conservative coverage.
-    - [ ] 18.0.6.2 Add a concrete roadmap for bitwise/shift SMT modeling vs explicitly documented assumptions.
-    - [ ] 18.0.6.3 Define proof-story upgrades for crypto intrinsics (axioms vs stronger encodings) driven by production verifier requirements.
-    - [ ] 18.0.6.4 Revisit inline refinements on params/returns (currently alias-only) when proof ergonomics becomes a bottleneck.
-    - [ ] 18.0.6.5 Revisit deferred resource/type-surface limits (`Set<Resource>`, resource arrays/slices, array-key equality) with explicit soundness constraints.
-    - [ ] 18.0.6.6 Revisit generic refinement aliases (`T244`) with a bounded substitution/VC strategy and deterministic error model.
+  - [ ] 18.0.5 P2 Language ergonomics execution (after 18.0.0 decisions are locked).
+    - [ ] 18.0.5.1 For each accepted ergonomics change from 18.0.0, publish a design lock (syntax, typing, diagnostics, non-goals) before implementation.
+    - [ ] 18.0.5.2 For each rejected/deferred ergonomics item from 18.0.0, add explicit parser/typer diagnostics and docs rationale (no silent fallback behavior).
+    - [ ] 18.0.5.3 Implement accepted changes with deterministic resolution rules and migration tests/fixtures.
+    - [ ] 18.0.5.4 Add SDK usability checks (import ergonomics, error quality, migration friction) and fail gates if metrics regress.
+  - [ ] 18.0.6 P2 Proof-model execution (after 18.0.0 decisions are locked).
+    - [ ] 18.0.6.1 Implement selected unsigned/bitwise/crypto modeling paths and record exact assumption boundaries in emitted artifacts.
+    - [ ] 18.0.6.2 Add proof-regression CI suites so assurance tiers cannot silently downgrade on existing fixtures.
+    - [ ] 18.0.6.3 Publish and maintain a proof-coverage matrix per language feature/intrinsic (`proved` vs `assumed`, mapped to `L0`-`L3`).
+    - [ ] 18.0.6.4 Roll strict-mode defaults forward only after the proof-coverage matrix and CI gates are green.
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
 - [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
 - [ ] 18.3 Security review + fuzzing for attestation contract and payload validation.
 - [ ] 18.4 Compiled module/package import support (artifact metadata, versioning, and resolver flow).
+
+### 19 High-assurance ergonomics (easier alternative to Coq/Agda/Lean/F*)
+- [ ] 19.0 Target and guardrails (execution order).
+  - [ ] 19.0.1 Define ClearLang success target: theorem-prover-grade assurance for bounded program classes, with lower user complexity.
+  - [ ] 19.0.2 Keep README design-principles gate on all 19.x changes (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
+  - [ ] 19.0.3 Ship Phase 19 behind explicit compiler modes so production users can choose strictness without ambiguity.
+  - [ ] 19.0.4 Document explicit non-goal: do not claim universal proof-power superiority over Coq/Agda/Lean/F*; target practical production assurance with simpler UX.
+- [ ] 19.1 Assurance levels + trust boundary model (no hidden assumptions).
+  - [ ] 19.1.1 Introduce explicit assurance tiers in diagnostics/artifacts (`L0` assumed, `L1` checked core, `L2` verified module, `L3` verified package profile).
+  - [ ] 19.1.2 Require every non-proved primitive/external dependency to be labeled as `assumed` in emitted reports.
+  - [ ] 19.1.3 Fail closed in strict mode: block `L3` claims if any unlabeled assumptions remain.
+  - [ ] 19.1.4 Add external trust-anchor integration for compile-time `verify` mode (pinned Lean/Coq checker versions), while keeping runtime bundles kernel-free.
+- [ ] 19.2 Proof coverage completion for current language surface.
+  - [ ] 19.2.1 Close unsigned/bitwise SMT gaps (`U128`/`U256`, shifts, masks) or downgrade affected checks to explicit assumptions.
+  - [ ] 19.2.2 Add deterministic modeling policy for crypto intrinsics with per-intrinsic assurance level in outputs.
+  - [ ] 19.2.3 Complete refinement ergonomics needed for production proofs (inline param/return refinements + generic refinement aliases if sound).
+- [ ] 19.3 Verified-by-construction standard profile.
+  - [ ] 19.3.1 Define a `strict` language profile that forbids unsupported/deferred constructs and external unchecked calls by default.
+  - [ ] 19.3.2 Publish a "verified std/core subset" with proof-backed contracts and regression obligations.
+  - [ ] 19.3.3 Add CI gate: no profile regression if a change lowers assurance level for existing fixtures.
+- [ ] 19.4 Usability-first proof workflow (the "easier" part).
+  - [ ] 19.4.1 Add diagnostic hints that suggest the minimal contract/invariant needed to discharge each failed VC.
+  - [ ] 19.4.2 Add proof-failure slicing/counterexample reporting that maps directly to user source spans.
+  - [ ] 19.4.3 Provide AI-oriented machine-readable proof context bundle (`VC`, assumptions, model snippet, span map).
+- [ ] 19.5 Explainable assurance artifacts for audits.
+  - [ ] 19.5.1 Emit a signed assurance manifest per build (levels, assumptions, dependency trust labels, toolchain fingerprint).
+  - [ ] 19.5.2 Add `clg verify --explain` summary output for humans (what is proved, what is assumed, why).
+  - [ ] 19.5.3 Add policy checks for release pipelines (reject manifests below required assurance tier).
 

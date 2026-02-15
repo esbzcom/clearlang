@@ -1,40 +1,21 @@
 # ClearLang Development Plan
 
-## Current Focus - Phase 17: Language Gaps + Collections
-- 17.1 User-defined structs/enums with pattern matching, lowering/codegen, runtime/ABI notes, and tests. (Done)
-- 17.2 Generics and interface abstractions beyond built-in ADTs. (Done)
-- 17.3 Real runtime semantics for `List`/`Map`/`Set` (beyond typing stubs). (Done)
-- 17.4 General arrays/slices with indexing semantics and bounds checks. (Done)
-- 17.5 Module/import system with visibility controls. (Done)
-- 17.6 Linear-aware collections: design + typer/VC integration prototype. (Done)
-- 17.7 First-class functions and closures. (Done)
+## Current Focus - Phase 18: Production hardening + attestation
+- 18.0.0 open questions are now decision-locked (see `docs/design/phase-18.0-open-questions.md`).
+- Next active work is execution against that lock: 18.1, 18.2, 18.3, 18.4.
 
 ### Suggested Sequence
-1) Complete 17.7.1 design lock for function types, capture semantics, effect compatibility, and parser/typer acceptance boundaries. (Done; see `docs/design/phase-17.7-closures.md`.)
-   - Locked decisions include closure ABI shape (`{ code_id, env_ptr }`), wrapper-based dispatch (no `call_indirect` in Phase 17), no capture-list syntax, inferred lambda return types, no closure-env deallocation in v1, and no self-referential closure values in v1.
-2) Implement 17.7.2 parser/AST support for lambdas and function-type syntax. (Done)
-3) Implement 17.7.3 typer checks (capture/effect compatibility, closure-call typing). (Done)
-   - Completed closure typing/capture checks, explicit self/mutual closure recursion diagnostics, and conservative effect checking for function-value calls.
-4) Implement 17.7.4 lowering/codegen closure environment + dispatch wrappers. (Done)
-5) Finish 17.7.5 examples/docs pass. (Done)
-
-## Next Focus
-- 17.8 Interface follow-ups (default bodies, optional explicit implementation selection syntax if needed, and name-shortening ergonomics).
-
-### Next Execution Slice (Prepared)
-1) Complete 17.8.1.0 design lock for interface default methods, including README design-principles check (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and acceptance boundaries. (Done; see `docs/design/phase-17.8-trait-defaults.md`.)
-2) Implement 17.8.1.1 parser/AST support for interface methods in either declaration form (`...;`) or default-body form (`... { ... }`) with deterministic diagnostics. (Done; AST + parser + parser regression tests landed.)
-3) Implement 17.8.1.2 typer behavior to allow omitted implementation methods only when interface defaults exist. (Done; missing non-default methods still report `T233`.)
-4) Implement 17.8.1.3 exact effect enforcement for interface default bodies. (Done; dedicated `T249` mismatch diagnostic + typer tests landed.)
-5) Complete 17.8.1.5 docs/tests expansion for defaults, missing overrides, and effect mismatches. (Done; typing docs + override/default regression coverage landed.)
-6) Complete 17.8.4 hard switch keyword surface (`trait`/`impl` -> `interface`/`implementation`) while unreleased (no compatibility layer). (Done; parser keywords/reserved words/tests/docs migrated; parser+typer+cli validation green.)
-
-### Next Execution Slice
-1) Decide whether to rename internal mangling/debug labels (`impl$...`) to align with the external `implementation` keyword.
-2) Keep strict coherence baseline (17.8.2.1) and either close 17.8.2 as intentionally deferred or scope a concrete prerequisite for revisiting it.
-3) Prepare Phase 18 kickoff slice (attestation registry hardening + key lifecycle checklist).
+1) Complete 18.1 attestation registry hardening (authorization, key rotation, revocation, schema versioning).
+2) Complete 18.3 security review and fuzzing for contract/payload validation.
+3) Complete 18.2 data availability policy and operational drills.
+4) Complete 18.4 compiled module/package import support.
+5) Execute 18.0.5 and 18.0.6 implementation follow-through from the 18.0.0 decision lock.
 
 ## Recently Completed
+- **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
+- **Phase 18 kickoff decision gate (`18.0.0`)**: resolved and documented in `docs/design/phase-18.0-open-questions.md`.
+
+## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.
 - **Phases 12-15 (per `docs/TODO.md`)**: safety/tooling hardening, DX improvements, runtime decoupling, and unsigned/bitwise expansion.
 
@@ -47,7 +28,8 @@
 - Phase 1-5: parser/typer/IR + Wasm pipeline foundations.
 
 ## Upcoming Phases (High-Level)
-- **Phase 17 - Language gaps + collections**: user-defined structs/enums, generics/interfaces, runtime collections, arrays/slices, module system, linear-aware collections.
+- **Phase 18 - Production hardening + attestation**: security/reliability gates, package imports, and proof-model execution follow-through.
+- **Phase 19 - High-assurance ergonomics**: trust tiers, strict verify profile, and explainable assurance artifacts.
 
 ### Notes
 - `docs/TODO.md` is the canonical checklist; keep this file high-level.

@@ -2,6 +2,17 @@
 
 This document explains what is required beyond the Phase 16.7 "minimal reference implementation" and how to migrate from the reference into a production-ready attestation system.
 
+## Phase 18.1 Status Update
+
+Baseline registry hardening has been implemented:
+- signer authorization and owner controls,
+- signer key rotation/deauthorization controls,
+- attestation revocation,
+- schema-version allowlist checks,
+- canonical `attestation_id` validation against `(registry, payload_hash, signer, schema_version)`.
+
+Remaining production work is still required (notably fuzzing/audit depth and DA operations policy).
+
 ## What "Minimal Reference Implementation" Means
 
 The reference implementation is a small, auditable prototype that proves the end-to-end design:

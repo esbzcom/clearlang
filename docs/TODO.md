@@ -816,17 +816,18 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 18 Production hardening + attestation
 - [ ] 18.0 Real-world readiness priorities (execution order).
-  - [ ] 18.0.0 Undecided open questions (must be resolved before proceeding with 18.0.1+ execution gates).
-    - [ ] 18.0.0.1 Interface/implementation generics policy (`T246`/`T245`): v1 restriction vs bounded support scope.
-    - [ ] 18.0.0.2 Generic refinement aliases (`T244`): keep deferred vs introduce bounded substitution strategy.
-    - [ ] 18.0.0.3 Collection backend strategy: keep deterministic linear-search `Map`/`Set` vs introduce deterministic hashing profile.
-    - [ ] 18.0.0.4 Unsigned arithmetic scope: `U128`/`U256` modeling depth required for production proof workloads.
-    - [ ] 18.0.0.5 Bitwise/shift proof model: full SMT encoding vs explicit assumption boundaries.
-    - [ ] 18.0.0.6 Crypto proof model: axiom-based baseline vs stronger per-primitive encodings.
-    - [ ] 18.0.0.7 Inline refinements on params/returns: keep alias-only ergonomics vs add inline surface now.
-    - [ ] 18.0.0.8 Deferred resource/type-surface limits: `Set<Resource>`, resource arrays/slices, array-key equality.
-    - [ ] 18.0.0.9 External trust anchor choice for `verify` mode (Lean vs Coq first) and version pinning policy.
-    - [ ] 18.0.0.10 Assurance policy baseline: explicit acceptance criteria per tier (`L0`-`L3`) for production release gates.
+  - [x] 18.0.0 Undecided open questions (must be resolved before proceeding with 18.0.1+ execution gates).
+    - [x] 18.0.0.0 Decision lock published: `docs/design/phase-18.0-open-questions.md`.
+    - [x] 18.0.0.1 Interface/implementation generics policy (`T246`/`T245`): v1 restriction vs bounded support scope.
+    - [x] 18.0.0.2 Generic refinement aliases (`T244`): keep deferred vs introduce bounded substitution strategy.
+    - [x] 18.0.0.3 Collection backend strategy: keep deterministic linear-search `Map`/`Set` vs introduce deterministic hashing profile.
+    - [x] 18.0.0.4 Unsigned arithmetic scope: `U128`/`U256` modeling depth required for production proof workloads.
+    - [x] 18.0.0.5 Bitwise/shift proof model: full SMT encoding vs explicit assumption boundaries.
+    - [x] 18.0.0.6 Crypto proof model: axiom-based baseline vs stronger per-primitive encodings.
+    - [x] 18.0.0.7 Inline refinements on params/returns: keep alias-only ergonomics vs add inline surface now.
+    - [x] 18.0.0.8 Deferred resource/type-surface limits: `Set<Resource>`, resource arrays/slices, array-key equality.
+    - [x] 18.0.0.9 External trust anchor choice for `verify` mode (Lean vs Coq first) and version pinning policy.
+    - [x] 18.0.0.10 Assurance policy baseline: explicit acceptance criteria per tier (`L0`-`L3`) for production release gates.
   - [ ] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
   - [ ] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
   - [ ] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
@@ -841,7 +842,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [ ] 18.0.6.2 Add proof-regression CI suites so assurance tiers cannot silently downgrade on existing fixtures.
     - [ ] 18.0.6.3 Publish and maintain a proof-coverage matrix per language feature/intrinsic (`proved` vs `assumed`, mapped to `L0`-`L3`).
     - [ ] 18.0.6.4 Roll strict-mode defaults forward only after the proof-coverage matrix and CI gates are green.
-- [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
+- [x] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
+  - [x] 18.1.1 Contract: owner-controlled signer authorization, signer deauthorization (rotation), and schema-version allowlist.
+  - [x] 18.1.2 Contract: canonical `attestation_id` validation and explicit revocation flow (signer or owner).
+  - [x] 18.1.3 Tests/docs: hardening behavior coverage and updated registry workflow docs (`contracts/attestation/*`, `docs/design/phase-18.1-attestation-hardening.md`).
 - [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
 - [ ] 18.3 Security review + fuzzing for attestation contract and payload validation.
 - [ ] 18.4 Compiled module/package import support (artifact metadata, versioning, and resolver flow).

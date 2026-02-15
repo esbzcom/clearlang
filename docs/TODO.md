@@ -792,12 +792,14 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
       - [x] 17.9.2.1 Decide policy: support `Array<T>` keys when `T` is equatable, or explicitly document exclusion.
       - [x] 17.9.2.2 Align typer/runtime equality implementation with the decided policy; add positive/negative tests.
       - [x] 17.9.2.3 Reconcile `docs/TODO.md` and design/docs wording for 17.3.8 array-key expectations.
-    - [ ] 17.9.3 Module ergonomics follow-ups (language surface).
+    - [x] 17.9.3 Module ergonomics follow-ups (language surface).
       - [x] 17.9.3.1 Re-exports (`export import`) explicitly disallowed for v1 and deferred.
         - [x] Rationale: keep module resolution explicit/deterministic and avoid transitive export ambiguity; revisit post-v1 only if facade use cases justify added complexity.
         - [x] 17.9.3.1.1 Diagnostics: reject `export import` with explicit parser error code/message (P011) instead of only generic parse failure.
-      - [ ] 17.9.3.2 Item import aliasing (`import m::{A as B}`) support, or explicit defer note with rationale.
-      - [ ] 17.9.3.3 Glob import policy (`*`) revisit with deterministic parser/typer diagnostics either way.
+      - [x] 17.9.3.2 Item import aliasing (`import m::{A as B}`) explicitly disallowed for v1 and deferred.
+        - [x] Rationale: keep imports explicit and minimal in v1; module aliasing (`import m as x`) and fully qualified paths already cover naming needs without adding item-level alias semantics.
+      - [x] 17.9.3.3 Glob imports (`*`) explicitly disallowed for v1 and deferred.
+        - [x] Rationale: avoid implicit name injection/shadowing and keep resolution + diagnostics deterministic and AI-friendly.
     - [ ] 17.9.4 Resource user-defined type surface.
       - [ ] 17.9.4.1 Design + parser/typer rules for `resource struct`/`resource enum`, or explicit defer-to-next-phase note.
       - [ ] 17.9.4.2 Ownership/linearity interaction tests across collections, pattern matching, and closures.

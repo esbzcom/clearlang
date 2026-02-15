@@ -240,7 +240,7 @@ Errors (examples)
 
 - Operand types: `left/right operand must be Int, found 'Ty'`.
 
-- Effects: `effect 'mut'/'io' not supported yet; use 'pure' or omit`.
+- Effects: `pure`/`mut`/`io` are supported; effect-gating errors use `T401`/`T402`/`T403` when a call requires stronger capability or a missing mutability guard.
 
 - Mutable effects: `T401` (missing `mut` effect), `T402` (missing `std::<collection>::can_mut` guard), `T403` (guard argument must be a variable).
 
@@ -304,7 +304,7 @@ Proposed typer error codes (JSON-stable):
 
 Notes
 
-- Parsing exists for `match` in expressions; typing initially emits a clear "not supported yet" error code (T012). The above replaces that once enabled.
+- `match` parsing, typing, lowering, and runtime diagnostics are fully enabled for Option/Result and user enums in the current implementation.
 
 
 ADT Ergonomics (Phase 6.6)

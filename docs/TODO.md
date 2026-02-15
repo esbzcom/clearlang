@@ -782,7 +782,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
       - [x] 17.8.3.1 Add an optional deterministic shortening mode for long mangled names (hash suffix).
       - [x] 17.8.3.2 Preserve uniqueness/collision safety guarantees and stable reproducibility.
       - [x] 17.8.3.3 Keep proof/debug traceability by documenting and testing the shortened-name mapping.
-  - [ ] 17.9 Remaining language gaps (post-17.8).
+  - [x] 17.9 Remaining language gaps (post-17.8).
     - [x] 17.9.1 Generic call-site explicit type arguments (`f<T>(...)`) end-to-end.
       - [x] 17.9.1.1 Parser/AST: support optional call-site type-argument lists on calls.
       - [x] 17.9.1.2 Typer: integrate explicit type args with inference fallback and deterministic ambiguity errors.
@@ -815,6 +815,25 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
         - [x] Operational guidance: long-running hosts should recycle module instances/workers to bound closure-environment memory growth.
 
 ### 18 Production hardening + attestation
+- [ ] 18.0 Real-world readiness priorities (execution order).
+  - [ ] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
+  - [ ] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
+  - [ ] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
+  - [ ] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
+  - [ ] 18.0.5 P2 Language ergonomics review: keep re-export/glob/item-aliasing deferred unless concrete SDK pain justifies complexity.
+    - [ ] 18.0.5.1 Evaluate facade-module pain in real SDKs and decide whether to introduce a constrained re-export form.
+    - [ ] 18.0.5.2 Re-evaluate item import aliasing only if import verbosity causes measurable adoption friction.
+    - [ ] 18.0.5.3 Re-evaluate glob imports only with strict deterministic conflict diagnostics and style guardrails.
+    - [ ] 18.0.5.4 Revisit closure-value recursion policy (`let f = (...) => f(...)`) only with explicit syntax and deterministic typing semantics.
+    - [ ] 18.0.5.5 Revisit interface generics and impl-method generic parameters (`T246`/`T245`) with deterministic coherence and diagnostics constraints.
+    - [ ] 18.0.5.6 Revisit collection runtime scalability (`Map`/`Set` hashing backend vs current linear-search model) with deterministic behavior constraints.
+  - [ ] 18.0.6 P2 Proof-modeling review: track unsigned/bitwise/crypto SMT limitations and prioritize upgrades based on production proof workloads.
+    - [ ] 18.0.6.1 Decide whether to extend unsigned arithmetic modeling (U128/U256) beyond current conservative coverage.
+    - [ ] 18.0.6.2 Add a concrete roadmap for bitwise/shift SMT modeling vs explicitly documented assumptions.
+    - [ ] 18.0.6.3 Define proof-story upgrades for crypto intrinsics (axioms vs stronger encodings) driven by production verifier requirements.
+    - [ ] 18.0.6.4 Revisit inline refinements on params/returns (currently alias-only) when proof ergonomics becomes a bottleneck.
+    - [ ] 18.0.6.5 Revisit deferred resource/type-surface limits (`Set<Resource>`, resource arrays/slices, array-key equality) with explicit soundness constraints.
+    - [ ] 18.0.6.6 Revisit generic refinement aliases (`T244`) with a bounded substitution/VC strategy and deterministic error model.
 - [ ] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
 - [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
 - [ ] 18.3 Security review + fuzzing for attestation contract and payload validation.

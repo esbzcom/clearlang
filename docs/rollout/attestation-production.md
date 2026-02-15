@@ -18,6 +18,18 @@ Baseline security-review and fuzzing slice has also landed:
 
 Remaining production work is still required (notably fuzzing/audit depth and DA operations policy).
 
+## Phase 18.2 Status Update
+
+Data-availability policy has been locked:
+- dual-provider pinning plus backup archive baseline,
+- explicit retention classes and pruning constraints,
+- RPO/RTO targets with monthly restore drills,
+- release-evidence requirements for DA health.
+
+References:
+- Policy: `docs/design/phase-18.2-attestation-data-availability.md`
+- Drill runbook: `docs/rollout/attestation-da-drill.md`
+
 ## What "Minimal Reference Implementation" Means
 
 The reference implementation is a small, auditable prototype that proves the end-to-end design:

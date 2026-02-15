@@ -829,7 +829,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 18.0.0.9 External trust anchor choice for `verify` mode (Lean vs Coq first) and version pinning policy.
     - [x] 18.0.0.10 Assurance policy baseline: explicit acceptance criteria per tier (`L0`-`L3`) for production release gates.
   - [x] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
-  - [ ] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
+  - [x] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
   - [ ] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
   - [ ] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
   - [ ] 18.0.5 P2 Language ergonomics execution (after 18.0.0 decisions are locked).
@@ -846,7 +846,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 18.1.1 Contract: owner-controlled signer authorization, signer deauthorization (rotation), and schema-version allowlist.
   - [x] 18.1.2 Contract: canonical `attestation_id` validation and explicit revocation flow (signer or owner).
   - [x] 18.1.3 Tests/docs: hardening behavior coverage and updated registry workflow docs (`contracts/attestation/*`, `docs/design/phase-18.1-attestation-hardening.md`).
-- [ ] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
+- [x] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
+  - [x] 18.2.1 Policy lock: storage topology, integrity invariants, backup cadence, and retention classes (`docs/design/phase-18.2-attestation-data-availability.md`).
+  - [x] 18.2.2 Recovery objectives: explicit RPO/RTO thresholds and release evidence requirements.
+  - [x] 18.2.3 Operations drill runbook: monthly backup/restore drill with pass/fail criteria (`docs/rollout/attestation-da-drill.md`).
 - [x] 18.3 Security review + fuzzing for attestation contract and payload validation.
   - [x] 18.3.1 Contract fuzz/property tests for authorization, schema gating, ID mismatch, and revocation authorization.
   - [x] 18.3.2 Payload envelope validation checks with negative coverage (schema/version/address/hex/scope consistency).

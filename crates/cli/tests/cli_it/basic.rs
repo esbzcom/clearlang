@@ -146,6 +146,44 @@ fn parse_rejects_export_import_with_explicit_code() {
 }
 
 #[test]
+fn parse_rejects_capture_list_with_explicit_code() {
+    let src = r#"
+        function bad() -> function(Int) -> Int {
+            [x](y: Int) => y + x
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("capture_list.clear");
+    fs::write(&file, src).expect("write");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "parse"]).arg(&file);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errs.is_empty(), "expected parse errors");
+    assert!(
+        errs.iter()
+            .any(|e| e.get("code").and_then(|s| s.as_str()) == Some("P012")),
+        "expected P012 in {:?}",
+        errs
+    );
+    assert!(
+        errs.iter().any(|e| {
+            e.get("message")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .contains("capture-list syntax is not supported in v1")
+        }),
+        "expected explicit capture-list message"
+    );
+}
+
+#[test]
 fn build_failure_for_non_int_or_missing_main() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("bad.wasm");

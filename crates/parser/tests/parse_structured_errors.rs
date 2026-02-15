@@ -86,6 +86,27 @@ fn parse_errors_does_not_report_capture_list_hint_for_string_literal() {
 }
 
 #[test]
+fn parse_errors_reports_capture_list_as_p012() {
+    let src = r#"
+        function bad() -> function(Int) -> Int {
+            [x](y: Int) => y + x
+        }
+    "#;
+    let errs = parse_errors(src).expect_err("capture-list syntax should error");
+    assert!(
+        errs.iter().any(|e| e.code == "P012"),
+        "expected P012, got {:?}",
+        errs.iter().map(|e| e.code).collect::<Vec<_>>()
+    );
+    assert!(
+        errs.iter()
+            .any(|e| e.message.contains("capture-list syntax is not supported in v1")),
+        "expected explicit capture-list rejection message, got {:?}",
+        errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn parse_errors_reports_export_import_as_p011() {
     let src = r#"
         export import foo::bar::{Baz};

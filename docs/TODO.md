@@ -806,7 +806,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
         - [x] Typer: allow resource fields only on resource-marked structs/enums; keep `T218` for non-resource structs/enums containing resource fields.
       - [x] 17.9.4.2 Ownership/linearity interaction tests across collections, pattern matching, and closures.
     - [ ] 17.9.5 Closure language-surface follow-ups (v1 restriction revisit).
-      - [ ] 17.9.5.1 Explicit capture-list syntax decision (ship or reject) with stable diagnostics.
+      - [x] 17.9.5.1 Explicit capture-list syntax rejected for v1 with stable diagnostics.
+        - [x] Parser diagnostics: emit dedicated code `P012` for capture-list forms (`[x](...) => ...`) instead of generic parse-only reporting.
       - [ ] 17.9.5.2 Revisit closure self/mutual recursion policy with deterministic typer behavior.
       - [ ] 17.9.5.3 Closure environment reclamation strategy decision (keep no-free vs add bounded deallocation plan).
 

@@ -593,7 +593,7 @@ pub fn parse(src: &str) -> Result<Program, String> {
         if let Some(start) = find_capture_list_lambda(src) {
             let end = start.saturating_add(1);
             messages.push(format!(
-                "at {}..{}: error: capture-list syntax is not supported in Phase 17",
+                "at {}..{}: error: capture-list syntax is not supported in v1",
                 start, end
             ));
         }
@@ -726,9 +726,9 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
             if let Some(start) = find_capture_list_lambda(src) {
                 let end = start.saturating_add(1);
                 items.push(ParserError {
-                    code: "P001",
+                    code: "P012",
                     message: format!(
-                        "at {}..{}: error: capture-list syntax is not supported in Phase 17",
+                        "at {}..{}: error: capture-list syntax is not supported in v1",
                         start, end
                     ),
                     start,

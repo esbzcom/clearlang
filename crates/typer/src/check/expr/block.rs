@@ -205,32 +205,94 @@ fn reject_recursive_closure_values(block: &Block) -> Result<()> {
         }
     }
 
+    let mut best_self: Option<(usize, Span)> = None;
     for (idx, outgoing) in edges.iter().enumerate() {
         for (next, call_span) in outgoing {
-            if *next == idx {
-                let (name, _, _) = closure_bindings[idx];
-                return Err(TyperError::feature_not_supported(
-                    &format!("self-referential closure value `{name}`"),
-                    *call_span,
-                )
-                .into());
+            if *next != idx {
+                continue;
+            }
+            match best_self {
+                None => best_self = Some((idx, *call_span)),
+                Some((best_idx, best_span)) => {
+                    let (name, _, _) = closure_bindings[idx];
+                    let (best_name, _, _) = closure_bindings[best_idx];
+                    if (
+                        call_span.start,
+                        call_span.end,
+                        name,
+                    ) < (
+                        best_span.start,
+                        best_span.end,
+                        best_name,
+                    ) {
+                        best_self = Some((idx, *call_span));
+                    }
+                }
+            }
+        }
+    }
+    if let Some((idx, call_span)) = best_self {
+        let (name, _, _) = closure_bindings[idx];
+        return Err(
+            TyperError::feature_not_supported(
+                &format!("self-referential closure value `{name}`"),
+                call_span,
+            )
+            .into(),
+        );
+    }
+
+    let mut best_mutual: Option<(usize, usize, Span)> = None;
+    for (idx, outgoing) in edges.iter().enumerate() {
+        for (next, call_span) in outgoing {
+            let mut visited = vec![false; edges.len()];
+            if !has_path(*next, idx, &edges, &mut visited) {
+                continue;
+            }
+            let (left_idx, right_idx) = {
+                let (a_name, _, _) = closure_bindings[idx];
+                let (b_name, _, _) = closure_bindings[*next];
+                if a_name <= b_name {
+                    (idx, *next)
+                } else {
+                    (*next, idx)
+                }
+            };
+            match best_mutual {
+                None => best_mutual = Some((left_idx, right_idx, *call_span)),
+                Some((best_left, best_right, best_span)) => {
+                    let (left_name, _, _) = closure_bindings[left_idx];
+                    let (right_name, _, _) = closure_bindings[right_idx];
+                    let (best_left_name, _, _) = closure_bindings[best_left];
+                    let (best_right_name, _, _) = closure_bindings[best_right];
+                    if (
+                        call_span.start,
+                        call_span.end,
+                        left_name,
+                        right_name,
+                    ) < (
+                        best_span.start,
+                        best_span.end,
+                        best_left_name,
+                        best_right_name,
+                    ) {
+                        best_mutual = Some((left_idx, right_idx, *call_span));
+                    }
+                }
             }
         }
     }
 
-    for (idx, outgoing) in edges.iter().enumerate() {
-        for (next, call_span) in outgoing {
-            let mut visited = vec![false; edges.len()];
-            if has_path(*next, idx, &edges, &mut visited) {
-                let (from_name, _, _) = closure_bindings[idx];
-                let (to_name, _, _) = closure_bindings[*next];
-                return Err(TyperError::feature_not_supported(
-                    &format!("mutually recursive closure values `{from_name}` and `{to_name}`"),
-                    *call_span,
-                )
-                .into());
-            }
-        }
+    if let Some((left_idx, right_idx, call_span)) = best_mutual {
+        let (left_name, _, _) = closure_bindings[left_idx];
+        let (right_name, _, _) = closure_bindings[right_idx];
+        return Err(
+            TyperError::feature_not_supported(
+                &format!("mutually recursive closure values `{left_name}` and `{right_name}`"),
+                call_span,
+            )
+            .into(),
+        );
     }
 
     Ok(())

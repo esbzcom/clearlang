@@ -149,6 +149,24 @@ function bad() -> Int {
 }
 
 #[test]
+fn mutually_recursive_closure_values_use_canonical_name_order() {
+    let src = r#"
+function bad() -> Int {
+    let g = (x: Int) => f(x);
+    let f = (x: Int) => g(x);
+    0
+}
+"#;
+
+    let msg = expect_typer_error(src);
+    assert!(msg.contains("T017"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("mutually recursive closure values `f` and `g`"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
 fn lambda_body_effect_must_fit_enclosing_function_effect() {
     let src = r#"
 pure function bad() -> function() -> Int {

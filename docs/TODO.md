@@ -808,7 +808,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [ ] 17.9.5 Closure language-surface follow-ups (v1 restriction revisit).
       - [x] 17.9.5.1 Explicit capture-list syntax rejected for v1 with stable diagnostics.
         - [x] Parser diagnostics: emit dedicated code `P012` for capture-list forms (`[x](...) => ...`) instead of generic parse-only reporting.
-      - [ ] 17.9.5.2 Revisit closure self/mutual recursion policy with deterministic typer behavior.
+      - [x] 17.9.5.2 Keep self/mutual closure recursion rejected in v1 with deterministic typer behavior.
+        - [x] Typer diagnostics: mutual-recursion pair names are rendered in canonical order, independent of declaration order.
       - [ ] 17.9.5.3 Closure environment reclamation strategy decision (keep no-free vs add bounded deallocation plan).
 
 ### 18 Production hardening + attestation

@@ -200,6 +200,7 @@ v1 restrictions
 - Capture-list syntax is not supported (lexical capture only).
 - Capturing linear/resource values in closures is rejected.
 - Self-referential and mutually recursive closure values are rejected.
+  - Mutual-recursion diagnostics use canonical closure-name ordering for deterministic output.
 - Calls through function-typed values are effect-checked conservatively:
   - unknown callee effect requires `io`;
   - local `let`-bound lambdas and direct aliases preserve known effect.

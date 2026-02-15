@@ -793,7 +793,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
       - [x] 17.9.2.2 Align typer/runtime equality implementation with the decided policy; add positive/negative tests.
       - [x] 17.9.2.3 Reconcile `docs/TODO.md` and design/docs wording for 17.3.8 array-key expectations.
     - [ ] 17.9.3 Module ergonomics follow-ups (language surface).
-      - [ ] 17.9.3.1 Re-exports (`export import`) design + implementation, or explicit defer note with rationale.
+      - [x] 17.9.3.1 Re-exports (`export import`) explicitly disallowed for v1 and deferred.
+        - [x] Rationale: keep module resolution explicit/deterministic and avoid transitive export ambiguity; revisit post-v1 only if facade use cases justify added complexity.
+        - [x] 17.9.3.1.1 Diagnostics: reject `export import` with explicit parser error code/message (P011) instead of only generic parse failure.
       - [ ] 17.9.3.2 Item import aliasing (`import m::{A as B}`) support, or explicit defer note with rationale.
       - [ ] 17.9.3.3 Glob import policy (`*`) revisit with deterministic parser/typer diagnostics either way.
     - [ ] 17.9.4 Resource user-defined type surface.

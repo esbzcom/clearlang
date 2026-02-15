@@ -37,6 +37,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | --- | --- | --- |
 | P001 | parse | Generic parse error. |
 | P010 | parse | Missing `else` in expression-form `if`. |
+| P011 | parse | Re-export syntax `export import` is not supported in v1. |
 | T000 | type | Fallback for internal type-check failures. |
 | T001 | type | Unknown function. |
 | T002 | type | Arity mismatch. |

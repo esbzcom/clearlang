@@ -84,3 +84,22 @@ fn parse_errors_does_not_report_capture_list_hint_for_string_literal() {
         "unexpected capture-list hint in string literal source: {joined}"
     );
 }
+
+#[test]
+fn parse_errors_reports_export_import_as_p011() {
+    let src = r#"
+        export import foo::bar::{Baz};
+    "#;
+    let errs = parse_errors(src).expect_err("export import should be rejected");
+    assert!(
+        errs.iter().any(|e| e.code == "P011"),
+        "expected P011, got {:?}",
+        errs.iter().map(|e| e.code).collect::<Vec<_>>()
+    );
+    assert!(
+        errs.iter()
+            .any(|e| e.message.contains("`export import` is not supported in v1")),
+        "expected explicit export import message, got {:?}",
+        errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
+    );
+}

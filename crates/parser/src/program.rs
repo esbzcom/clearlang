@@ -485,6 +485,31 @@ fn find_capture_list_lambda(src: &str) -> Option<usize> {
     None
 }
 
+fn find_export_import(src: &str) -> Option<(usize, usize)> {
+    const PREFIX: &str = "export import";
+    let mut offset = 0usize;
+    for line in src.split_inclusive('\n') {
+        let line_no_nl = line.strip_suffix('\n').unwrap_or(line);
+        let line_text = line_no_nl.strip_suffix('\r').unwrap_or(line_no_nl);
+        let trimmed = line_text.trim_start();
+        if let Some(rest) = trimmed.strip_prefix(PREFIX) {
+            let boundary_ok = rest
+                .chars()
+                .next()
+                .map(|c| c.is_whitespace() || c == ';')
+                .unwrap_or(true);
+            if boundary_ok {
+                let leading = line_text.len().saturating_sub(trimmed.len());
+                let start = offset + leading;
+                let end = start + PREFIX.len();
+                return Some((start, end));
+            }
+        }
+        offset += line.len();
+    }
+    None
+}
+
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
         let mut messages: Vec<String> = Vec::with_capacity(errs.len() + 1);
@@ -569,6 +594,12 @@ pub fn parse(src: &str) -> Result<Program, String> {
             let end = start.saturating_add(1);
             messages.push(format!(
                 "at {}..{}: error: capture-list syntax is not supported in Phase 17",
+                start, end
+            ));
+        }
+        if let Some((start, end)) = find_export_import(src) {
+            messages.push(format!(
+                "at {}..{}: error: `export import` is not supported in v1; import directly in each module",
                 start, end
             ));
         }
@@ -698,6 +729,17 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     code: "P001",
                     message: format!(
                         "at {}..{}: error: capture-list syntax is not supported in Phase 17",
+                        start, end
+                    ),
+                    start,
+                    end,
+                });
+            }
+            if let Some((start, end)) = find_export_import(src) {
+                items.push(ParserError {
+                    code: "P011",
+                    message: format!(
+                        "at {}..{}: error: `export import` is not supported in v1; import directly in each module",
                         start, end
                     ),
                     start,

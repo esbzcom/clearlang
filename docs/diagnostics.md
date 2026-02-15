@@ -79,7 +79,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T215 | type | Unknown enum variant. |
 | T216 | type | Enum variant arity mismatch. |
 | T217 | type | Expected struct type (field access or literal). |
-| T218 | type | Resource fields are not allowed in structs/enums yet. |
+| T218 | type | Resource fields require `resource struct`/`resource enum`. |
 | T219 | type | Duplicate enum variant. |
 | T220 | type | Non-equatable key type for `Map`/`Set`. |
 | T230 | type | Duplicate interface. |

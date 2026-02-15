@@ -801,7 +801,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
       - [x] 17.9.3.3 Glob imports (`*`) explicitly disallowed for v1 and deferred.
         - [x] Rationale: avoid implicit name injection/shadowing and keep resolution + diagnostics deterministic and AI-friendly.
     - [ ] 17.9.4 Resource user-defined type surface.
-      - [ ] 17.9.4.1 Design + parser/typer rules for `resource struct`/`resource enum`, or explicit defer-to-next-phase note.
+      - [x] 17.9.4.1 Implement parser/typer rules for `resource struct`/`resource enum`.
+        - [x] Parser: accept `resource struct` and `resource enum` declarations.
+        - [x] Typer: allow resource fields only on resource-marked structs/enums; keep `T218` for non-resource structs/enums containing resource fields.
       - [ ] 17.9.4.2 Ownership/linearity interaction tests across collections, pattern matching, and closures.
     - [ ] 17.9.5 Closure language-surface follow-ups (v1 restriction revisit).
       - [ ] 17.9.5.1 Explicit capture-list syntax decision (ship or reject) with stable diagnostics.

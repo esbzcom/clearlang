@@ -59,9 +59,9 @@ enum Event {
 
 ### Resource Interactions
 
-- Non-resource structs/enums cannot contain resource fields (same rule as existing collections).
-- Existing `resource` declarations remain the only way to define resource types in this phase.
-- A future extension can add `resource struct`/`resource enum` once ownership rules are clear.
+- Non-resource structs/enums cannot contain resource fields.
+- Resource fields are allowed on `resource struct` / `resource enum`.
+- Existing `resource Name { ... drop { ... } }` declarations remain supported.
 
 ## Runtime Layout
 

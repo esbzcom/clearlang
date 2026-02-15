@@ -71,6 +71,7 @@ pub struct TraitBound {
 #[derive(Debug, Clone)]
 pub struct StructDecl {
     pub is_exported: bool,
+    pub is_resource: bool,
     pub name: String,
     pub name_span: Span,
     pub type_params: Vec<TypeParam>,
@@ -88,6 +89,7 @@ pub struct StructField {
 #[derive(Debug, Clone)]
 pub struct EnumDecl {
     pub is_exported: bool,
+    pub is_resource: bool,
     pub name: String,
     pub name_span: Span,
     pub type_params: Vec<TypeParam>,

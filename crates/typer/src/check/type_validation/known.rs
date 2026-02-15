@@ -31,14 +31,6 @@ pub(crate) fn ensure_known_type(
                 }
                 return Ok(());
             }
-            if type_defs.resources.contains(name) {
-                if !args.is_empty() {
-                    return Err(
-                        TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into(),
-                    );
-                }
-                return Ok(());
-            }
             if let Some(struct_info) = type_defs.structs.get(name) {
                 let expected = struct_info.decl.type_params.len();
                 if expected != args.len() {
@@ -68,6 +60,14 @@ pub(crate) fn ensure_known_type(
                 }
                 for arg in args {
                     ensure_known_type(arg, aliases, type_defs, type_params, std_types, span)?;
+                }
+                return Ok(());
+            }
+            if type_defs.resources.contains(name) {
+                if !args.is_empty() {
+                    return Err(
+                        TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into(),
+                    );
                 }
                 return Ok(());
             }

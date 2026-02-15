@@ -143,7 +143,7 @@ impl TyperError {
         Self::new(
             "T218",
             format!(
-                "at {}..{}: resources are not allowed in {} `{}` fields yet",
+                "at {}..{}: resource fields require `resource {}` on `{}`",
                 span.start, span.end, kind, name
             ),
             span.start,

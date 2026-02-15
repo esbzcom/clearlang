@@ -146,7 +146,65 @@ fn match_unreachable_arm_reports_t209() {
                 _ => 0,
                 Shape::Empty => 1
             }
-        }
+    }
     "#;
     type_err_code(src, "T209");
+}
+
+#[test]
+fn non_resource_struct_with_resource_field_errors_t218() {
+    let src = r#"
+        resource File { drop {} }
+
+        struct Holder {
+            file: File;
+        }
+
+        function main(consume f: File) -> File { f }
+    "#;
+    type_err_code(src, "T218");
+}
+
+#[test]
+fn resource_struct_allows_resource_fields() {
+    let src = r#"
+        resource File { drop {} }
+
+        resource struct Holder {
+            file: File;
+        }
+
+        function take(consume h: Holder) -> Holder { h }
+    "#;
+    type_ok(src);
+}
+
+#[test]
+fn non_resource_enum_with_resource_variant_field_errors_t218() {
+    let src = r#"
+        resource File { drop {} }
+
+        enum Holder {
+            Has(File),
+            Empty
+        }
+
+        function main(consume f: File) -> File { f }
+    "#;
+    type_err_code(src, "T218");
+}
+
+#[test]
+fn resource_enum_allows_resource_variant_fields() {
+    let src = r#"
+        resource File { drop {} }
+
+        resource enum Holder {
+            Has(File),
+            Empty
+        }
+
+        function take(consume h: Holder) -> Holder { h }
+    "#;
+    type_ok(src);
 }

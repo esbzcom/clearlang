@@ -36,12 +36,15 @@ pub(crate) fn enum_p<'a>() -> impl Parser<'a, &'a str, EnumDecl, ErrTy<'a>> {
         .allow_trailing()
         .collect::<Vec<_>>();
 
-    kw("enum")
-        .ignore_then(ident_p().map_with(|name, e| (name, to_span(e.span()))))
+    let resource_prefix = kw("resource").or_not().map(|prefix| prefix.is_some());
+
+    resource_prefix
+        .then(kw("enum").ignore_then(ident_p().map_with(|name, e| (name, to_span(e.span())))))
         .then(type_params_p().or_not())
         .then(variants.delimited_by(just('{').padded(), just('}').padded()))
-        .map_with(|(((name, name_span), type_params), variants), e| EnumDecl {
+        .map_with(|(((is_resource, (name, name_span)), type_params), variants), e| EnumDecl {
             is_exported: false,
+            is_resource,
             name,
             name_span,
             type_params: type_params.unwrap_or_default(),

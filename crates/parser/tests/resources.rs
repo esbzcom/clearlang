@@ -75,3 +75,42 @@ function take(consume handle: File) -> Int { 0 }
         clg_ast::Type::Named { ref name, ref args } if name == "File" && args.is_empty()
     ));
 }
+
+#[test]
+fn parse_resource_struct_declaration() {
+    let src = r#"
+resource struct Wallet {
+    owner: String;
+}
+
+function main() -> Int { 0 }
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    assert_eq!(ast.resources.len(), 0);
+    assert_eq!(ast.structs.len(), 1);
+    let wallet = &ast.structs[0];
+    assert!(wallet.is_resource);
+    assert_eq!(wallet.name, "Wallet");
+    assert_eq!(wallet.fields.len(), 1);
+}
+
+#[test]
+fn parse_resource_enum_declaration() {
+    let src = r#"
+resource enum Asset {
+    Coin(Int),
+    Empty
+}
+
+function main() -> Int { 0 }
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    assert_eq!(ast.resources.len(), 0);
+    assert_eq!(ast.enums.len(), 1);
+    let asset = &ast.enums[0];
+    assert!(asset.is_resource);
+    assert_eq!(asset.name, "Asset");
+    assert_eq!(asset.variants.len(), 2);
+}

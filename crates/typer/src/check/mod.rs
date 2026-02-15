@@ -137,6 +137,9 @@ fn validate_struct_enum_resources(
 ) -> Result<()> {
     for s in &program.structs {
         let type_params = validate_type_params(&s.type_params, type_defs, aliases, trait_env)?;
+        if s.is_resource {
+            continue;
+        }
         for field in &s.fields {
             let resolved = base_type(&field.ty, aliases)?;
             if contains_named_resource(&resolved, &type_defs.resources, &type_params) {
@@ -149,6 +152,9 @@ fn validate_struct_enum_resources(
     }
     for e in &program.enums {
         let type_params = validate_type_params(&e.type_params, type_defs, aliases, trait_env)?;
+        if e.is_resource {
+            continue;
+        }
         for variant in &e.variants {
             for ty in &variant.fields {
                 let resolved = base_type(ty, aliases)?;

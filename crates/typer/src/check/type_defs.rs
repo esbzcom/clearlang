@@ -6,10 +6,14 @@ use super::{EnumInfo, StructInfo, TypeDefs};
 use crate::errors::TyperError;
 
 pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
-    let mut resources: HashSet<&str> = HashSet::with_capacity(program.resources.len());
+    let mut resource_decl_names: HashSet<&str> = HashSet::with_capacity(program.resources.len());
     for res in &program.resources {
-        resources.insert(res.name.as_str());
+        let name = res.name.as_str();
+        if !resource_decl_names.insert(name) {
+            return Err(TyperError::duplicate_type(name, res.name_span).into());
+        }
     }
+    let mut resources = resource_decl_names.clone();
 
     let alias_names: HashSet<&str> = program
         .refined_aliases
@@ -22,7 +26,7 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
 
     for s in &program.structs {
         let name = s.name.as_str();
-        if resources.contains(name) {
+        if resource_decl_names.contains(name) {
             return Err(TyperError::type_conflicts_with_resource(name, s.name_span).into());
         }
         if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
@@ -36,12 +40,15 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
                 );
             }
         }
+        if s.is_resource {
+            resources.insert(name);
+        }
         structs.insert(name, StructInfo { decl: s, fields });
     }
 
     for e in &program.enums {
         let name = e.name.as_str();
-        if resources.contains(name) {
+        if resource_decl_names.contains(name) {
             return Err(TyperError::type_conflicts_with_resource(name, e.name_span).into());
         }
         if alias_names.contains(name) || structs.contains_key(name) || enums.contains_key(name) {
@@ -56,6 +63,9 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
                 )
                 .into());
             }
+        }
+        if e.is_resource {
+            resources.insert(name);
         }
         enums.insert(name, EnumInfo { decl: e, variants });
     }

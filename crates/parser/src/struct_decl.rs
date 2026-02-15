@@ -27,16 +27,21 @@ fn struct_fields_p<'a>() -> impl Parser<'a, &'a str, Vec<StructField>, ErrTy<'a>
 }
 
 pub(crate) fn struct_p<'a>() -> impl Parser<'a, &'a str, StructDecl, ErrTy<'a>> {
-    kw("struct")
-        .ignore_then(ident_p().map_with(|name, e| (name, to_span(e.span()))))
+    let resource_prefix = kw("resource").or_not().map(|prefix| prefix.is_some());
+
+    resource_prefix
+        .then(kw("struct").ignore_then(ident_p().map_with(|name, e| (name, to_span(e.span())))))
         .then(type_params_p().or_not())
         .then(struct_fields_p().delimited_by(just('{').padded(), just('}').padded()))
-        .map_with(|(((name, name_span), type_params), fields), e| StructDecl {
-            is_exported: false,
-            name,
-            name_span,
-            type_params: type_params.unwrap_or_default(),
-            fields,
-            span: to_span(e.span()),
-        })
+        .map_with(
+            |(((is_resource, (name, name_span)), type_params), fields), e| StructDecl {
+                is_exported: false,
+                is_resource,
+                name,
+                name_span,
+                type_params: type_params.unwrap_or_default(),
+                fields,
+                span: to_span(e.span()),
+            },
+        )
 }

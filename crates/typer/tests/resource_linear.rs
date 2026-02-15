@@ -214,3 +214,34 @@ function choose(opt: Option<File>, consume fallback: File) -> Int {
     let message = expect_typer_error(src);
     assert!(message.contains("T804"), "unexpected error: {message}");
 }
+
+#[test]
+fn resource_enum_branch_mismatch_reports_t804_in_match() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+resource enum Holder {
+    One(File),
+    Empty
+}
+
+function take(consume h: Holder) -> Holder { h }
+
+function choose(consume h: Holder) -> Int {
+    match h {
+        Holder::One(file) => {
+            0
+        },
+        Holder::Empty => {
+            take(h);
+            0
+        }
+    }
+}
+"#;
+
+    let message = expect_typer_error(src);
+    assert!(message.contains("T804"), "unexpected error: {message}");
+}

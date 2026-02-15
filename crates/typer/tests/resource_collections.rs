@@ -22,6 +22,24 @@ function count(files: List<File>) -> Int { 0 }
 }
 
 #[test]
+fn list_of_resource_struct_in_params_is_allowed() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+resource struct Holder {
+    file: File;
+}
+
+function count(items: List<Holder>) -> Int { std::list::len(items) }
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("List<resource struct> params should type-check");
+}
+
+#[test]
 fn map_with_nested_resource_value_is_allowed() {
     let src = r#"
 resource File {
@@ -33,6 +51,25 @@ function uses_map(m: Map<Int, Option<File>>) -> Int { 0 }
 
     let ast = parse(src).expect("parse succeeds");
     check(&ast).expect("Map<K, Resource> params should type-check");
+}
+
+#[test]
+fn map_with_resource_enum_value_is_allowed() {
+    let src = r#"
+resource File {
+    drop {}
+}
+
+resource enum Holder {
+    One(File),
+    Empty
+}
+
+function uses_map(m: Map<Int, Holder>) -> Int { std::map::len(m) }
+"#;
+
+    let ast = parse(src).expect("parse succeeds");
+    check(&ast).expect("Map<K, resource enum> params should type-check");
 }
 
 #[test]

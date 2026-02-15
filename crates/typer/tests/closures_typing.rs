@@ -65,6 +65,55 @@ function bad(consume f: File) -> function(Int) -> Int {
 }
 
 #[test]
+fn capturing_resource_struct_value_in_lambda_is_rejected() {
+    let src = r#"
+resource File { drop {} }
+
+resource struct Holder {
+    file: File;
+}
+
+function score(h: Holder) -> Int { 1 }
+
+function bad(consume h: Holder) -> function(Int) -> Int {
+    (x: Int) => x + score(h)
+}
+"#;
+
+    let msg = expect_typer_error(src);
+    assert!(msg.contains("T017"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("capturing resource value `h` in closures"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn capturing_resource_enum_value_in_lambda_is_rejected() {
+    let src = r#"
+resource File { drop {} }
+
+resource enum Holder {
+    One(File),
+    Empty
+}
+
+function score(h: Holder) -> Int { 1 }
+
+function bad(consume h: Holder) -> function(Int) -> Int {
+    (x: Int) => x + score(h)
+}
+"#;
+
+    let msg = expect_typer_error(src);
+    assert!(msg.contains("T017"), "unexpected error: {msg}");
+    assert!(
+        msg.contains("capturing resource value `h` in closures"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
 fn self_referential_closure_value_is_rejected_in_v1() {
     let src = r#"
 function bad() -> function(Int) -> Int {

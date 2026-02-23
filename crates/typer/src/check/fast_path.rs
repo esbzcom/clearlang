@@ -22,7 +22,7 @@ use super::{
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
 use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
-use crate::vc::generate_vcs;
+use crate::vc::{generate_vcs_with_dependencies, AssumptionDependencies};
 
 pub(super) fn fast_path_without_totality_with_std_and_external(
     ast: &Program,
@@ -187,6 +187,17 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
 
     let used_intrinsics = collect_used_intrinsics(&mono_program);
     let called_functions = collect_called_functions(&mono_program);
+    let assumption_dependencies = AssumptionDependencies {
+        non_proved_primitives: used_intrinsics
+            .iter()
+            .map(|name| (*name).to_string())
+            .collect(),
+        external_dependencies: external_builtins
+            .iter()
+            .filter(|sig| called_functions.contains(sig.name.as_str()))
+            .map(|sig| sig.name.clone())
+            .collect(),
+    };
     let mut fn_indices: HashMap<&str, u32> = HashMap::with_capacity(
         mono_program.funcs.len() + used_intrinsics.len() + external_builtins.len(),
     );
@@ -436,7 +447,7 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
     let module = Module {
         funcs: lowered_funcs,
     };
-    let vcs = generate_vcs(&mono_program);
+    let vcs = generate_vcs_with_dependencies(&mono_program, &assumption_dependencies);
     Ok(TypecheckOutput {
         ir: module,
         vcs,

@@ -19,6 +19,8 @@ const U64_MAX_SMT: &str = "18446744073709551615";
 const ASSUMPTION_UNSIGNED_ID: &str = "unsigned.int_model";
 const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
+const ASSUMPTION_PRIMITIVE_ID: &str = "primitive.unproved";
+const ASSUMPTION_EXTERNAL_ID: &str = "external.dependency";
 const ASSUMPTION_STATUS_ASSUMED: &str = "assumed";
 const ASSUMPTION_UNSIGNED_MESSAGE: &str =
     "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.";
@@ -26,8 +28,25 @@ const ASSUMPTION_BITWISE_MESSAGE: &str =
     "Bitwise and shift operators are modeled as uninterpreted SMT functions.";
 const ASSUMPTION_CRYPTO_MESSAGE: &str =
     "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.";
+const ASSUMPTION_PRIMITIVE_MESSAGE: &str =
+    "Primitive std dependencies are not formally proved and are treated as assumed boundaries.";
+const ASSUMPTION_EXTERNAL_MESSAGE: &str =
+    "External imported dependencies are outside the current proof kernel and are treated as assumed boundaries.";
 
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
+    generate_vcs_with_dependencies(program, &AssumptionDependencies::default())
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AssumptionDependencies {
+    pub non_proved_primitives: BTreeSet<String>,
+    pub external_dependencies: BTreeSet<String>,
+}
+
+pub fn generate_vcs_with_dependencies(
+    program: &Program,
+    dependencies: &AssumptionDependencies,
+) -> Vec<VerificationCondition> {
     let alias_map = build_alias_map(program);
     let fn_sigs = build_fn_sigs(program, &alias_map);
     let resource_names: HashSet<&str> = program
@@ -42,7 +61,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             span: Span,
             return_obligation: Option<RefinementObligation>,
         }
-        let function_assumptions = collect_function_assumptions(func);
+        let function_assumptions = collect_function_assumptions(func, dependencies);
 
         // VC preconditions follow runtime guard order: requires (source order),
         // then implicit alias predicates (params), then in-body obligations.
@@ -416,21 +435,26 @@ struct AssumptionUsage {
     unsigned_types: BTreeSet<String>,
     bitwise_ops: BTreeSet<String>,
     crypto_intrinsics: BTreeSet<String>,
+    primitive_dependencies: BTreeSet<String>,
+    external_dependencies: BTreeSet<String>,
 }
 
-fn collect_function_assumptions(func: &Func) -> Vec<AssumptionBoundary> {
+fn collect_function_assumptions(
+    func: &Func,
+    dependencies: &AssumptionDependencies,
+) -> Vec<AssumptionBoundary> {
     let mut usage = AssumptionUsage::default();
     for param in &func.params {
         collect_unsigned_from_type(&param.ty, &mut usage.unsigned_types);
     }
     collect_unsigned_from_type(&func.ret, &mut usage.unsigned_types);
     for req in &func.requires {
-        collect_assumption_usage_expr(&req.expr, &mut usage);
+        collect_assumption_usage_expr(&req.expr, &mut usage, dependencies);
     }
     for ensure in &func.ensures {
-        collect_assumption_usage_expr(&ensure.expr, &mut usage);
+        collect_assumption_usage_expr(&ensure.expr, &mut usage, dependencies);
     }
-    collect_assumption_usage_expr(&func.body, &mut usage);
+    collect_assumption_usage_expr(&func.body, &mut usage, dependencies);
 
     let mut assumptions = Vec::new();
     if !usage.unsigned_types.is_empty() {
@@ -458,6 +482,24 @@ fn collect_function_assumptions(func: &Func) -> Vec<AssumptionBoundary> {
             status: ASSUMPTION_STATUS_ASSUMED,
             message: ASSUMPTION_CRYPTO_MESSAGE,
             symbols: usage.crypto_intrinsics.iter().cloned().collect(),
+        });
+    }
+    if !usage.primitive_dependencies.is_empty() {
+        assumptions.push(AssumptionBoundary {
+            id: ASSUMPTION_PRIMITIVE_ID,
+            category: AssumptionCategory::Primitive,
+            status: ASSUMPTION_STATUS_ASSUMED,
+            message: ASSUMPTION_PRIMITIVE_MESSAGE,
+            symbols: usage.primitive_dependencies.iter().cloned().collect(),
+        });
+    }
+    if !usage.external_dependencies.is_empty() {
+        assumptions.push(AssumptionBoundary {
+            id: ASSUMPTION_EXTERNAL_ID,
+            category: AssumptionCategory::External,
+            status: ASSUMPTION_STATUS_ASSUMED,
+            message: ASSUMPTION_EXTERNAL_MESSAGE,
+            symbols: usage.external_dependencies.iter().cloned().collect(),
         });
     }
     assumptions
@@ -501,11 +543,15 @@ fn collect_unsigned_from_type(ty: &Type, out: &mut BTreeSet<String>) {
     }
 }
 
-fn collect_assumption_usage_block(block: &Block, out: &mut AssumptionUsage) {
+fn collect_assumption_usage_block(
+    block: &Block,
+    out: &mut AssumptionUsage,
+    dependencies: &AssumptionDependencies,
+) {
     for stmt in &block.statements {
         match stmt {
             Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
-                collect_assumption_usage_expr(expr, out);
+                collect_assumption_usage_expr(expr, out, dependencies);
             }
             Stmt::While {
                 cond,
@@ -514,41 +560,45 @@ fn collect_assumption_usage_block(block: &Block, out: &mut AssumptionUsage) {
                 body,
                 ..
             } => {
-                collect_assumption_usage_expr(cond, out);
-                collect_assumption_usage_expr(invariant, out);
+                collect_assumption_usage_expr(cond, out, dependencies);
+                collect_assumption_usage_expr(invariant, out, dependencies);
                 if let Some(variant_expr) = variant {
-                    collect_assumption_usage_expr(variant_expr, out);
+                    collect_assumption_usage_expr(variant_expr, out, dependencies);
                 }
-                collect_assumption_usage_block(body, out);
+                collect_assumption_usage_block(body, out, dependencies);
             }
         }
     }
     if let Some(tail) = &block.tail {
-        collect_assumption_usage_expr(tail, out);
+        collect_assumption_usage_expr(tail, out, dependencies);
     }
 }
 
-fn collect_assumption_usage_expr(expr: &Expr, out: &mut AssumptionUsage) {
+fn collect_assumption_usage_expr(
+    expr: &Expr,
+    out: &mut AssumptionUsage,
+    dependencies: &AssumptionDependencies,
+) {
     match expr {
         Expr::Int(..) | Expr::Bool(..) | Expr::String(..) | Expr::Var(..) => {}
         Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
             for elem in elems {
-                collect_assumption_usage_expr(elem, out);
+                collect_assumption_usage_expr(elem, out, dependencies);
             }
         }
         Expr::StructLit { fields, .. } => {
             for field in fields {
-                collect_assumption_usage_expr(&field.expr, out);
+                collect_assumption_usage_expr(&field.expr, out, dependencies);
             }
         }
-        Expr::FieldAccess { base, .. } => collect_assumption_usage_expr(base, out),
-        Expr::Block { block } => collect_assumption_usage_block(block, out),
+        Expr::FieldAccess { base, .. } => collect_assumption_usage_expr(base, out, dependencies),
+        Expr::Block { block } => collect_assumption_usage_block(block, out, dependencies),
         Expr::Bin { op, lhs, rhs, .. } => {
             if let Some(symbol) = bitwise_symbol(*op) {
                 out.bitwise_ops.insert(symbol.to_string());
             }
-            collect_assumption_usage_expr(lhs, out);
-            collect_assumption_usage_expr(rhs, out);
+            collect_assumption_usage_expr(lhs, out, dependencies);
+            collect_assumption_usage_expr(rhs, out, dependencies);
         }
         Expr::Call {
             callee,
@@ -560,7 +610,7 @@ fn collect_assumption_usage_expr(expr: &Expr, out: &mut AssumptionUsage) {
                 collect_unsigned_from_type(ty, &mut out.unsigned_types);
             }
             for arg in args {
-                collect_assumption_usage_expr(arg, out);
+                collect_assumption_usage_expr(arg, out, dependencies);
             }
             if matches!(callee.as_str(), "U8" | "U64" | "U128" | "U256") {
                 out.unsigned_types.insert(callee.clone());
@@ -577,16 +627,22 @@ fn collect_assumption_usage_expr(expr: &Expr, out: &mut AssumptionUsage) {
             if is_crypto_assumption_intrinsic(callee) {
                 out.crypto_intrinsics.insert(callee.clone());
             }
+            if dependencies.non_proved_primitives.contains(callee) {
+                out.primitive_dependencies.insert(callee.clone());
+            }
+            if dependencies.external_dependencies.contains(callee) {
+                out.external_dependencies.insert(callee.clone());
+            }
         }
         Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {
-            collect_assumption_usage_expr(expr, out);
+            collect_assumption_usage_expr(expr, out, dependencies);
         }
         Expr::Match {
             scrutinee, arms, ..
         } => {
-            collect_assumption_usage_expr(scrutinee, out);
+            collect_assumption_usage_expr(scrutinee, out, dependencies);
             for arm in arms {
-                collect_assumption_usage_expr(&arm.expr, out);
+                collect_assumption_usage_expr(&arm.expr, out, dependencies);
             }
         }
         Expr::If {
@@ -595,19 +651,19 @@ fn collect_assumption_usage_expr(expr: &Expr, out: &mut AssumptionUsage) {
             else_br,
             ..
         } => {
-            collect_assumption_usage_expr(cond, out);
-            collect_assumption_usage_expr(then_br, out);
-            collect_assumption_usage_expr(else_br, out);
+            collect_assumption_usage_expr(cond, out, dependencies);
+            collect_assumption_usage_expr(then_br, out, dependencies);
+            collect_assumption_usage_expr(else_br, out, dependencies);
         }
         Expr::Index { base, index, .. } => {
-            collect_assumption_usage_expr(base, out);
-            collect_assumption_usage_expr(index, out);
+            collect_assumption_usage_expr(base, out, dependencies);
+            collect_assumption_usage_expr(index, out, dependencies);
         }
         Expr::Lambda { params, body, .. } => {
             for param in params {
                 collect_unsigned_from_type(&param.ty, &mut out.unsigned_types);
             }
-            collect_assumption_usage_expr(body, out);
+            collect_assumption_usage_expr(body, out, dependencies);
         }
     }
 }

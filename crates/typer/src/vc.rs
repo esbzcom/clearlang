@@ -5,7 +5,7 @@ mod refinements;
 mod smt;
 mod source;
 
-pub use generate::generate_vcs;
+pub use generate::{generate_vcs, generate_vcs_with_dependencies, AssumptionDependencies};
 
 use clg_ast::{Expr, Span, Type};
 use smt::SmtEncoder;
@@ -121,6 +121,8 @@ pub enum AssumptionCategory {
     Unsigned,
     Bitwise,
     Crypto,
+    Primitive,
+    External,
 }
 
 impl AssumptionCategory {
@@ -129,6 +131,8 @@ impl AssumptionCategory {
             AssumptionCategory::Unsigned => "unsigned",
             AssumptionCategory::Bitwise => "bitwise",
             AssumptionCategory::Crypto => "crypto",
+            AssumptionCategory::Primitive => "primitive",
+            AssumptionCategory::External => "external",
         }
     }
 }

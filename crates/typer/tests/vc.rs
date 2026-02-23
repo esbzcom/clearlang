@@ -1,7 +1,9 @@
+use clg_ast::{Effect, Param, ParamKind, Type};
 use clg_parser::parse;
 use clg_typer::{
-    check_with_vcs, generate_vcs, type_check_only, AssumptionCategory, RefinementAttachmentDetail,
-    RefinementAttachmentKind, RefinementFlowKind,
+    check_with_vcs, check_with_vcs_with_std_and_external, generate_vcs, type_check_only,
+    AssumptionCategory, ExternalBuiltinSig, RefinementAttachmentDetail, RefinementAttachmentKind,
+    RefinementFlowKind, StdTypeMap,
 };
 
 #[test]
@@ -623,5 +625,57 @@ fn declares_bitwise_and_builtin_helpers() {
             .iter()
             .any(|symbol| symbol == "std::bytes::eq_ct"),
         "expected std::bytes::eq_ct boundary in crypto assumption"
+    );
+    let primitive = vc
+        .assumptions
+        .iter()
+        .find(|a| matches!(a.category, AssumptionCategory::Primitive))
+        .expect("expected primitive assumption boundary");
+    assert!(
+        primitive
+            .symbols
+            .iter()
+            .any(|symbol| symbol == "std::bytes::eq_ct"),
+        "expected std::bytes::eq_ct boundary in primitive assumption"
+    );
+}
+
+#[test]
+fn labels_external_dependencies_as_assumed_boundaries() {
+    let src = r#"
+        pure function rely(x: Int) -> Int
+            ensure { result == ext::dep(x) }
+        { ext::dep(x) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let std_types = StdTypeMap::new();
+    let external = vec![ExternalBuiltinSig {
+        name: "ext::dep".to_string(),
+        params: vec![Param {
+            kind: ParamKind::Borrow,
+            name: "x".to_string(),
+            ty: Type::Int,
+        }],
+        ret: Type::Int,
+        effect: Effect::Pure,
+    }];
+    let output = check_with_vcs_with_std_and_external(&ast, &std_types, &external)
+        .expect("type-check with external dependency");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.vc_id == "vc:0")
+        .expect("primary vc");
+    let external_boundary = vc
+        .assumptions
+        .iter()
+        .find(|a| matches!(a.category, AssumptionCategory::External))
+        .expect("expected external dependency assumption boundary");
+    assert!(
+        external_boundary
+            .symbols
+            .iter()
+            .any(|symbol| symbol == "ext::dep"),
+        "expected ext::dep symbol in external boundary"
     );
 }

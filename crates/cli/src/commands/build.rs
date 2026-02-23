@@ -533,6 +533,8 @@ fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)
 const ASSUMPTION_UNSIGNED_ID: &str = "unsigned.int_model";
 const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
+const ASSUMPTION_PRIMITIVE_ID: &str = "primitive.unproved";
+const ASSUMPTION_EXTERNAL_ID: &str = "external.dependency";
 
 fn proof_strict_for_mode(mode: CompilerMode, value: Option<bool>) -> Result<bool, &'static str> {
     match mode {
@@ -588,6 +590,8 @@ fn category_for_assumption_id(id: &str) -> Option<AssumptionCategory> {
         ASSUMPTION_UNSIGNED_ID => Some(AssumptionCategory::Unsigned),
         ASSUMPTION_BITWISE_ID => Some(AssumptionCategory::Bitwise),
         ASSUMPTION_CRYPTO_ID => Some(AssumptionCategory::Crypto),
+        ASSUMPTION_PRIMITIVE_ID => Some(AssumptionCategory::Primitive),
+        ASSUMPTION_EXTERNAL_ID => Some(AssumptionCategory::External),
         _ => None,
     }
 }
@@ -644,6 +648,11 @@ mod tests {
             assumption(super::ASSUMPTION_UNSIGNED_ID, AssumptionCategory::Unsigned),
             assumption(super::ASSUMPTION_BITWISE_ID, AssumptionCategory::Bitwise),
             assumption(super::ASSUMPTION_CRYPTO_ID, AssumptionCategory::Crypto),
+            assumption(
+                super::ASSUMPTION_PRIMITIVE_ID,
+                AssumptionCategory::Primitive,
+            ),
+            assumption(super::ASSUMPTION_EXTERNAL_ID, AssumptionCategory::External),
         ];
         assert!(
             strict_proof_violation(&[vc]).is_none(),

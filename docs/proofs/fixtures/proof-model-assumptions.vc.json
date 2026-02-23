@@ -28,6 +28,15 @@
           "symbols": [
             "std::bytes::eq_ct"
           ]
+        },
+        {
+          "category": "primitive",
+          "id": "primitive.unproved",
+          "message": "Primitive std dependencies are not formally proved and are treated as assumed boundaries.",
+          "status": "assumed",
+          "symbols": [
+            "std::bytes::eq_ct"
+          ]
         }
       ]
     },
@@ -89,6 +98,15 @@
           "category": "crypto",
           "id": "crypto.uninterpreted",
           "message": "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.",
+          "status": "assumed",
+          "symbols": [
+            "std::bytes::eq_ct"
+          ]
+        },
+        {
+          "category": "primitive",
+          "id": "primitive.unproved",
+          "message": "Primitive std dependencies are not formally proved and are treated as assumed boundaries.",
           "status": "assumed",
           "symbols": [
             "std::bytes::eq_ct"

@@ -70,7 +70,7 @@ Attachment Details (kind)
 
 Assumption Boundary
 - `id`: string (stable machine id, for example `unsigned.int_model`)
-- `category`: string (`unsigned|bitwise|crypto`)
+- `category`: string (`unsigned|bitwise|crypto|primitive|external`)
 - `status`: string (`assumed` for current Phase 18.0.6.1 scope)
 - `message`: string (human-readable boundary summary)
 - `symbols`: array of strings (exact touched symbols, such as unsigned types, operators, or intrinsic names)
@@ -79,6 +79,8 @@ Current assumption IDs
 - `unsigned.int_model`: unsigned values use SMT `Int` modeling with bounded-domain guards where available; overflow/bit-precise semantics are assumed.
 - `bitwise.uninterpreted`: bitwise/shift operators are encoded as uninterpreted SMT functions.
 - `crypto.uninterpreted`: crypto/constant-time intrinsics are encoded as uninterpreted SMT functions.
+- `primitive.unproved`: called std primitive intrinsics are outside current formal proof coverage and are treated as assumed dependencies.
+- `external.dependency`: externally imported package dependencies are treated as assumed boundaries.
 
 Assurance tier mapping (current)
 - VCs with one or more assumption boundaries are emitted as `L0` (`assumed`).

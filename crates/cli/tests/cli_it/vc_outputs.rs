@@ -321,6 +321,9 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
     assert!(assumptions
         .iter()
         .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("bitwise.uninterpreted")));
+    assert!(assumptions
+        .iter()
+        .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("primitive.unproved")));
     let crypto = assumptions
         .iter()
         .find(|item| item.get("id").and_then(|v| v.as_str()) == Some("crypto.uninterpreted"))
@@ -375,12 +378,147 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
         .iter()
         .any(|item| item.id == "bitwise.uninterpreted" && item.category == "bitwise"));
     assert!(vc_assumptions.items.iter().any(|item| {
+        item.id == "primitive.unproved"
+            && item.category == "primitive"
+            && item
+                .symbols
+                .iter()
+                .any(|symbol| symbol == "std::bytes::eq_ct")
+    }));
+    assert!(vc_assumptions.items.iter().any(|item| {
         item.id == "crypto.uninterpreted"
             && item.category == "crypto"
             && item
                 .symbols
                 .iter()
                 .any(|symbol| symbol == "std::bytes::eq_ct")
+    }));
+}
+
+#[test]
+fn build_labels_external_dependencies_as_assumed_boundaries() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let pkg_dir = root.join("pkg");
+    fs::create_dir_all(&pkg_dir).expect("create pkg dir");
+    fs::write(pkg_dir.join("extpkg.wasm"), [0u8]).expect("write package artifact");
+
+    let metadata = r#"
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "extpkg",
+      "version": "1.0.0",
+      "artifact": { "format": "wasm", "path": "pkg/extpkg.wasm" },
+      "modules": [
+        {
+          "path": "extpkg::math",
+          "exports": [
+            {
+              "name": "add2",
+              "kind": "value",
+              "effect": "pure",
+              "params": [
+                { "name": "a", "type": "Int" },
+                { "name": "b", "type": "Int" }
+              ],
+              "ret": "Int",
+              "import": { "module": "extpkg_math", "name": "add2" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+    "#;
+    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+
+    let src = r#"
+        import extpkg::math::{add2}
+
+        pure function rely(a: Int, b: Int) -> Int
+            ensure { result == add2(a, b) }
+        { add2(a, b) }
+
+        function main() -> Int { rely(1, 2) }
+    "#;
+    let src_path = root.join("main.clear");
+    let wasm_path = root.join("out.wasm");
+    let vcs_path = root.join("out.vc.json");
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .args(["--emit-vcs"])
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("rely")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("rely vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .expect("assumptions items");
+    let ext = assumptions
+        .iter()
+        .find(|item| item.get("id").and_then(|v| v.as_str()) == Some("external.dependency"))
+        .expect("external assumption item");
+    assert_eq!(
+        ext.get("category").and_then(|v| v.as_str()),
+        Some("external")
+    );
+    let ext_symbols = ext
+        .get("symbols")
+        .and_then(|v| v.as_array())
+        .expect("external symbols");
+    assert!(
+        ext_symbols
+            .iter()
+            .any(|symbol| symbol.as_str().map(|s| s.contains("add2")).unwrap_or(false)),
+        "expected add2 symbol in external dependency boundary"
+    );
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let mut proof_data = None;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                proof_data = Some(section.data().to_vec());
+                break;
+            }
+        }
+    }
+    let proof_data = proof_data.expect("proof section");
+    let section: ProofAssumptionsSection =
+        serde_cbor::from_slice(&proof_data).expect("decode proof");
+    let vc_assumptions = section
+        .functions
+        .iter()
+        .find(|f| f.name == "rely")
+        .and_then(|f| f.vcs.iter().find(|vc| vc.vc_id == "vc:0"))
+        .and_then(|vc| vc.assumptions.as_ref())
+        .expect("proof vc assumptions");
+    assert!(vc_assumptions.items.iter().any(|item| {
+        item.id == "external.dependency"
+            && item.category == "external"
+            && item.symbols.iter().any(|symbol| symbol.contains("add2"))
     }));
 }
 

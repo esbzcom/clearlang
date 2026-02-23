@@ -82,3 +82,14 @@ pure function loop_step(consume files: List<File>, n: Int) -> List<File> {
   files
 }
 ```
+
+## proof-model-assumptions.vc.json
+Source:
+```
+pure function check(a: Bytes, b: Bytes, x: U64, y: U64) -> Bool
+  ensure { result == std::bytes::eq_ct(a, b) }
+  ensure { (x & y) == x }
+{
+  std::bytes::eq_ct(a, b)
+}
+```

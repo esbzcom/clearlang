@@ -129,6 +129,18 @@ fn emit_vcs_matches_refinement_fixtures() {
             function main() -> Int { 0 }
         "#,
         ),
+        (
+            "proof-model-assumptions.vc.json",
+            r#"
+            pure function check(a: Bytes, b: Bytes, x: U64, y: U64) -> Bool
+                ensure { result == std::bytes::eq_ct(a, b) }
+                ensure { (x & y) == x }
+            {
+                std::bytes::eq_ct(a, b)
+            }
+            function main() -> Int { 0 }
+        "#,
+        ),
     ];
 
     for (fixture, source) in cases {

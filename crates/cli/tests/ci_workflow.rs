@@ -32,6 +32,20 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should enforce import ergonomics gate tests"
     );
     assert!(
+        contents.contains("cargo test -p clg-cli --test vc_snapshots"),
+        "ci should enforce proof fixture snapshot regression tests"
+    );
+    assert!(
+        contents.contains(
+            "cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section"
+        ),
+        "ci should enforce assumption-boundary proof artifact regression tests"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers"),
+        "ci should enforce typer-level bitwise/builtin proof-model regression tests"
+    );
+    assert!(
         contents.contains("cargo fmt --all -- --check"),
         "ci should enforce formatting"
     );

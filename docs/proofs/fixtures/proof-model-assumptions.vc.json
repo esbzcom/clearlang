@@ -1,0 +1,98 @@
+[
+  {
+    "assumptions": {
+      "items": [
+        {
+          "category": "unsigned",
+          "id": "unsigned.int_model",
+          "message": "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.",
+          "status": "assumed",
+          "symbols": [
+            "U64"
+          ]
+        },
+        {
+          "category": "bitwise",
+          "id": "bitwise.uninterpreted",
+          "message": "Bitwise and shift operators are modeled as uninterpreted SMT functions.",
+          "status": "assumed",
+          "symbols": [
+            "&"
+          ]
+        },
+        {
+          "category": "crypto",
+          "id": "crypto.uninterpreted",
+          "message": "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.",
+          "status": "assumed",
+          "symbols": [
+            "std::bytes::eq_ct"
+          ]
+        }
+      ]
+    },
+    "function": "check",
+    "post": {
+      "ast": "result == std::bytes::eq_ct(a, b)",
+      "smt2": "(= result (|std::bytes::eq_ct| a b))"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "(and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615)))"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
+    },
+    "vc_id": "vc:0",
+    "version": 2
+  },
+  {
+    "assumptions": {
+      "items": [
+        {
+          "category": "unsigned",
+          "id": "unsigned.int_model",
+          "message": "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.",
+          "status": "assumed",
+          "symbols": [
+            "U64"
+          ]
+        },
+        {
+          "category": "bitwise",
+          "id": "bitwise.uninterpreted",
+          "message": "Bitwise and shift operators are modeled as uninterpreted SMT functions.",
+          "status": "assumed",
+          "symbols": [
+            "&"
+          ]
+        },
+        {
+          "category": "crypto",
+          "id": "crypto.uninterpreted",
+          "message": "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.",
+          "status": "assumed",
+          "symbols": [
+            "std::bytes::eq_ct"
+          ]
+        }
+      ]
+    },
+    "function": "check",
+    "post": {
+      "ast": "x & y == x",
+      "smt2": "(= (clg.bit_and x y) x)"
+    },
+    "pre": {
+      "ast": "true",
+      "smt2": "(and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615)))"
+    },
+    "status": "generated",
+    "vc": {
+      "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
+    },
+    "vc_id": "vc:1",
+    "version": 2
+  }
+]

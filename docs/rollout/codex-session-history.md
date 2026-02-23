@@ -1,5 +1,24 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.6.2 proof-regression CI suites
+- Added explicit CI proof-regression gates in `.github/workflows/ci.yml`:
+  - `cargo test -p clg-cli --test vc_snapshots`
+  - `cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section`
+  - `cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers`
+- Added CI workflow guard assertions in `crates/cli/tests/ci_workflow.rs` so gate commands cannot be removed silently.
+- Expanded proof fixture coverage to lock assumption-boundary behavior:
+  - added `docs/proofs/fixtures/proof-model-assumptions.vc.json`,
+  - added fixture source notes in `docs/proofs/fixtures/README.md`,
+  - wired fixture into `crates/cli/tests/vc_snapshots.rs`.
+- Roadmap updates:
+  - marked `18.0.6.2` complete in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` to move next focus to `18.0.6.3`.
+- Validation:
+  - `cargo test -p clg-cli --test vc_snapshots`
+  - `cargo test -p clg-cli --test ci_workflow`
+  - `cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section`
+  - `cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers`
+
 ## 2026-02-23 - Phase 18.0.6.1 assumption-boundary artifacts
 - Implemented explicit proof-model assumption boundaries on emitted verification artifacts:
   - `crates/typer/src/vc.rs`: added `AssumptionBoundary`/`AssumptionCategory` and attached `assumptions` to `VerificationCondition`.

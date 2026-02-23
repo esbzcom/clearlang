@@ -7,12 +7,12 @@
 - Ecosystem gate is complete (`18.4`).
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
-- Proof-model execution is active (`18.0.6`); `18.0.6.1` assumption-boundary artifacts are complete.
-- Next active sub-step: `18.0.6.2` proof-regression CI suites.
+- Proof-model execution is active (`18.0.6`); `18.0.6.1` assumption-boundary artifacts and `18.0.6.2` proof-regression CI suites are complete.
+- Next active sub-step: `18.0.6.3` proof-coverage matrix publication/maintenance.
 
 ### Suggested Sequence
 1) Execute `18.0.6` proof-model follow-through from the `18.0.0` decision lock.
-2) Land `18.0.6.2` CI regression gates before strict-mode rollout planning.
+2) Land `18.0.6.3` proof-coverage matrix before strict-mode rollout planning.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -25,6 +25,7 @@
 - **Phase 18 ergonomics deterministic migration coverage (`18.0.5.3`)**: completed with migration fixtures (`clearlang-tests/migration/`) and stable JSON-code CLI IT assertions.
 - **Phase 18 ergonomics SDK usability gates (`18.0.5.4`)**: completed with CLI IT metrics checks (`crates/cli/tests/cli_it/sdk_usability.rs`) and explicit CI gate step (`.github/workflows/ci.yml`).
 - **Phase 18 proof-model assumption boundaries (`18.0.6.1`)**: completed with explicit VC/proof artifact `assumptions.items` for unsigned/bitwise/crypto modeling limits.
+- **Phase 18 proof-regression CI suites (`18.0.6.2`)**: completed with explicit CI proof gates (`vc_snapshots`, VC assumption-boundary artifact checks, typer proof-model checks) and snapshot fixture expansion.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

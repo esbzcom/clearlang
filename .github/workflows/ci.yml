@@ -29,6 +29,12 @@ jobs:
           cargo test -p clg-cli --test cli_it sdk_usability_
           cargo test -p clg-cli --test cli_it migration_
           cargo test -p clg-cli --test cli_it imports::
+      - name: Proof regression gates
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test vc_snapshots
+          cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section
+          cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers
       - name: Release build
         run: cargo build --release -p clg-cli
       - name: Validate emitted Wasm

@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.0` target/guardrails for high-assurance ergonomics.
+- Next active phase: `19.1` assurance levels + trust-boundary model.
 
 ### Suggested Sequence
-1) Execute `19.0.4` guardrails before opening 19.1 tier/runtime policy work.
+1) Execute `19.1.1`-`19.1.4` assurance-tier/trust-boundary work.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -30,6 +30,7 @@
 - **Phase 19 success-target lock (`19.0.1`)**: completed with bounded theorem-prover-grade assurance scope and measurable criteria (`docs/design/phase-19.0.1-success-target.md`).
 - **Phase 19 design-principles gate lock (`19.0.2`)**: completed with explicit policy + regression test for all `docs/design/phase-19*.md` slices (`docs/design/phase-19.0.2-design-principles-gate.md`, `crates/cli/tests/phase19_design_principles.rs`).
 - **Phase 19 compiler-modes lock (`19.0.3`)**: completed with explicit `clg build --compiler-mode {permissive,standard,strict}` semantics and deterministic diagnostics (`C029`, `C030`) (`docs/design/phase-19.0.3-compiler-modes.md`).
+- **Phase 19 non-goal clarity lock (`19.0.4`)**: completed with explicit positioning constraints (no universal proof-power superiority claim) and practical bounded-assurance framing (`docs/design/phase-19.0.4-non-goal-clarity.md`).
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

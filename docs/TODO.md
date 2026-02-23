@@ -862,11 +862,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [x] 18.4 Compiled module/package import support (artifact metadata, versioning, and resolver flow).
 
 ### 19 High-assurance ergonomics (easier alternative to Coq/Agda/Lean/F*)
-- [ ] 19.0 Target and guardrails (execution order).
+- [x] 19.0 Target and guardrails (execution order).
   - [x] 19.0.1 Define ClearLang success target: theorem-prover-grade assurance for bounded program classes, with lower user complexity. (`docs/design/phase-19.0.1-success-target.md`)
   - [x] 19.0.2 Keep README design-principles gate on all 19.x changes (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`). (`docs/design/phase-19.0.2-design-principles-gate.md`, `crates/cli/tests/phase19_design_principles.rs`)
   - [x] 19.0.3 Ship Phase 19 behind explicit compiler modes so production users can choose strictness without ambiguity. (`docs/design/phase-19.0.3-compiler-modes.md`, `--compiler-mode {permissive,standard,strict}`, diagnostics `C029`/`C030`)
-  - [ ] 19.0.4 Document explicit non-goal: do not claim universal proof-power superiority over Coq/Agda/Lean/F*; target practical production assurance with simpler UX.
+  - [x] 19.0.4 Document explicit non-goal: do not claim universal proof-power superiority over Coq/Agda/Lean/F*; target practical production assurance with simpler UX. (`docs/design/phase-19.0.4-non-goal-clarity.md`)
 - [ ] 19.1 Assurance levels + trust boundary model (no hidden assumptions).
   - [ ] 19.1.1 Introduce explicit assurance tiers in diagnostics/artifacts (`L0` assumed, `L1` checked core, `L2` verified module, `L3` verified package profile).
   - [ ] 19.1.2 Require every non-proved primitive/external dependency to be labeled as `assumed` in emitted reports.

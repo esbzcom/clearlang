@@ -9,6 +9,7 @@ Machine-readable source of truth:
 
 Strict-mode default:
 - `clg build --emit-vcs` runs strict assumption-boundary checks by default (`--proof-strict=true`).
+- Strict checks validate structured `assumptions.items` metadata, not SMT text substrings.
 
 Interpretation:
 - `proved`: VC generation/encoding coverage is implemented for this surface.

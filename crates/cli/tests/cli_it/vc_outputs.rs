@@ -323,7 +323,7 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
 }
 
 #[test]
-fn build_strict_proof_mode_reports_c014_for_unlabeled_assumption_marker() {
+fn build_strict_proof_mode_ignores_marker_like_string_literals() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("strict_marker.clear");
     let wasm_path = tmp.path().join("strict_marker.wasm");
@@ -336,28 +336,21 @@ fn build_strict_proof_mode_reports_c014_for_unlabeled_assumption_marker() {
     "#;
     fs::write(&src_path, src).expect("write source");
 
-    let mut cmd = Command::cargo_bin("clg").unwrap();
-    cmd.args(["--json-errors", "build"])
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
         .arg(&src_path)
         .args(["-o"])
         .arg(&wasm_path)
         .arg("--emit-vcs")
-        .arg(&vcs_path);
-    let output = cmd.assert().failure().get_output().stdout.clone();
-    let v: Value = serde_json::from_slice(&output).expect("json");
-    let errors = v
-        .get("errors")
-        .and_then(|errs| errs.as_array())
-        .expect("errors array");
-    let first = errors.first().expect("at least one error");
-    assert_eq!(first.get("code").and_then(|code| code.as_str()), Some("C014"));
-    assert_eq!(
-        first.get("stage").and_then(|stage| stage.as_str()),
-        Some("build")
-    );
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    assert!(wasm_path.exists(), "build should emit wasm");
     assert!(
-        !vcs_path.exists(),
-        "strict-mode failure should not emit a vc artifact"
+        vcs_path.exists(),
+        "strict mode should not fail on marker-like string literals"
     );
 }
 

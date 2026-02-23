@@ -145,7 +145,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C011 | build | Missing `query` function for contract build. |
 | C012 | build | Contract entrypoint has an invalid signature. |
 | C013 | build | Contract build reserves `init`/`handle`; use `apply` instead. |
-| C014 | build | Strict proof mode detected missing/invalid assumption boundaries for emitted VCs. |
+| C014 | build | Strict proof mode detected invalid assumption-boundary metadata for emitted VCs. |
 | C020 | build | Unknown module in import. |
 | C021 | build | Imported item is missing or not exported. |
 | C022 | build | Import name conflicts with an existing name. |

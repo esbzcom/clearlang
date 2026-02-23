@@ -1,6 +1,6 @@
 # ClearLang Development Plan
 
-## Current Focus - Phase 18: Production hardening + attestation
+## Current Focus - Phase 19: High-assurance ergonomics
 - 18.0.0 open questions are now decision-locked (see `docs/design/phase-18.0-open-questions.md`).
 - Security gate is complete (`18.1` + `18.3`).
 - Reliability gate is complete (`18.2`).
@@ -42,7 +42,6 @@
 - Phase 1-5: parser/typer/IR + Wasm pipeline foundations.
 
 ## Upcoming Phases (High-Level)
-- **Phase 18 - Production hardening + attestation**: security/reliability gates, package imports, and proof-model execution follow-through.
 - **Phase 19 - High-assurance ergonomics**: trust tiers, strict verify profile, and explainable assurance artifacts.
 
 ### Notes

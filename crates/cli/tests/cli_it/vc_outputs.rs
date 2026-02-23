@@ -322,6 +322,78 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
     }));
 }
 
+#[test]
+fn build_strict_proof_mode_reports_c014_for_unlabeled_assumption_marker() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("strict_marker.clear");
+    let wasm_path = tmp.path().join("strict_marker.wasm");
+    let vcs_path = tmp.path().join("strict_marker.vc.json");
+    let src = r#"
+        pure function marker() -> String
+            ensure { result == "clg.bit_" }
+        { "clg.bit_" }
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errors = v
+        .get("errors")
+        .and_then(|errs| errs.as_array())
+        .expect("errors array");
+    let first = errors.first().expect("at least one error");
+    assert_eq!(first.get("code").and_then(|code| code.as_str()), Some("C014"));
+    assert_eq!(
+        first.get("stage").and_then(|stage| stage.as_str()),
+        Some("build")
+    );
+    assert!(
+        !vcs_path.exists(),
+        "strict-mode failure should not emit a vc artifact"
+    );
+}
+
+#[test]
+fn build_allows_opt_out_of_strict_proof_mode() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("strict_marker_opt_out.clear");
+    let wasm_path = tmp.path().join("strict_marker_opt_out.wasm");
+    let vcs_path = tmp.path().join("strict_marker_opt_out.vc.json");
+    let src = r#"
+        pure function marker() -> String
+            ensure { result == "clg.bit_" }
+        { "clg.bit_" }
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .arg("--proof-strict=false")
+        .assert()
+        .success();
+
+    assert!(wasm_path.exists(), "build should still emit wasm");
+    assert!(
+        vcs_path.exists(),
+        "build with strict-mode opt-out should emit vcs output"
+    );
+}
+
 #[derive(Deserialize)]
 struct ProofFunctionTraceEntry {
     name: String,

@@ -11,8 +11,7 @@
 - Next active phase: `19.0` target/guardrails for high-assurance ergonomics.
 
 ### Suggested Sequence
-1) Start `19.0.1` and lock the explicit theorem-prover-grade assurance target scope.
-2) Execute `19.0.2`-`19.0.4` guardrails before opening 19.1 tier/runtime policy work.
+1) Execute `19.0.3`-`19.0.4` guardrails before opening 19.1 tier/runtime policy work.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -28,6 +27,8 @@
 - **Phase 18 proof-regression CI suites (`18.0.6.2`)**: completed with explicit CI proof gates (`vc_snapshots`, VC assumption-boundary artifact checks, typer proof-model checks) and snapshot fixture expansion.
 - **Phase 18 proof-coverage matrix (`18.0.6.3`)**: completed with published feature/intrinsic matrix (`docs/proofs/proof-coverage-matrix.{md,json}`) and CI validation (`proof_coverage_matrix` test).
 - **Phase 18 strict-mode defaults (`18.0.6.4`)**: completed by defaulting `clg build --emit-vcs` to strict assumption-boundary validation (`--proof-strict=true`) with deterministic build diagnostics (`C014`).
+- **Phase 19 success-target lock (`19.0.1`)**: completed with bounded theorem-prover-grade assurance scope and measurable criteria (`docs/design/phase-19.0.1-success-target.md`).
+- **Phase 19 design-principles gate lock (`19.0.2`)**: completed with explicit policy + regression test for all `docs/design/phase-19*.md` slices (`docs/design/phase-19.0.2-design-principles-gate.md`, `crates/cli/tests/phase19_design_principles.rs`).
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

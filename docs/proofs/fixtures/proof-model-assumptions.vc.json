@@ -14,7 +14,7 @@
         {
           "category": "bitwise",
           "id": "bitwise.uninterpreted",
-          "message": "Bitwise and shift operators are modeled as uninterpreted SMT functions.",
+          "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
           "status": "assumed",
           "symbols": [
             "&"
@@ -88,7 +88,7 @@
         {
           "category": "bitwise",
           "id": "bitwise.uninterpreted",
-          "message": "Bitwise and shift operators are modeled as uninterpreted SMT functions.",
+          "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
           "status": "assumed",
           "symbols": [
             "&"

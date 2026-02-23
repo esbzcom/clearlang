@@ -25,7 +25,7 @@ const ASSUMPTION_STATUS_ASSUMED: &str = "assumed";
 const ASSUMPTION_UNSIGNED_MESSAGE: &str =
     "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.";
 const ASSUMPTION_BITWISE_MESSAGE: &str =
-    "Bitwise and shift operators are modeled as uninterpreted SMT functions.";
+    "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.";
 const ASSUMPTION_CRYPTO_MESSAGE: &str =
     "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.";
 const ASSUMPTION_PRIMITIVE_MESSAGE: &str =
@@ -624,6 +624,9 @@ fn collect_assumption_usage_expr(
             if callee.starts_with("std::u256::") {
                 out.unsigned_types.insert("U256".to_string());
             }
+            if is_bitwise_assumption_intrinsic(callee) {
+                out.bitwise_ops.insert(callee.clone());
+            }
             if is_crypto_assumption_intrinsic(callee) {
                 out.crypto_intrinsics.insert(callee.clone());
             }
@@ -683,6 +686,18 @@ fn is_crypto_assumption_intrinsic(callee: &str) -> bool {
     matches!(
         callee,
         "std::crypto::hash" | "std::crypto::hmac" | "std::crypto::verify" | "std::bytes::eq_ct"
+    )
+}
+
+fn is_bitwise_assumption_intrinsic(callee: &str) -> bool {
+    matches!(
+        callee,
+        "std::u64::rotl"
+            | "std::u64::rotr"
+            | "std::u64::to_bytes_le"
+            | "std::u64::to_bytes_be"
+            | "std::u64::from_bytes_le"
+            | "std::u64::from_bytes_be"
     )
 }
 

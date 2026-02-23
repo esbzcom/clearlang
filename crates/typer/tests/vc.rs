@@ -641,6 +641,52 @@ fn declares_bitwise_and_builtin_helpers() {
 }
 
 #[test]
+fn labels_u64_rotate_and_byte_intrinsics_as_bitwise_assumptions() {
+    let src = r#"
+        pure function rotate_and_pack(x: U64, y: U64) -> U64
+            ensure { result == std::u64::rotl(x, y) }
+            ensure { std::u64::to_bytes_le(result) == std::u64::to_bytes_be(result) }
+        {
+            let z = std::u64::rotr(x, y);
+            std::u64::from_bytes_le(std::u64::to_bytes_le(z))
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.vc_id == "vc:0")
+        .expect("primary ensure vc");
+
+    let bitwise = vc
+        .assumptions
+        .iter()
+        .find(|a| matches!(a.category, AssumptionCategory::Bitwise))
+        .expect("expected bitwise assumption boundary");
+
+    assert!(
+        bitwise.symbols.iter().any(|s| s == "std::u64::rotl"),
+        "expected std::u64::rotl in bitwise symbols"
+    );
+    assert!(
+        bitwise.symbols.iter().any(|s| s == "std::u64::rotr"),
+        "expected std::u64::rotr in bitwise symbols"
+    );
+    assert!(
+        bitwise.symbols.iter().any(|s| s == "std::u64::to_bytes_le"),
+        "expected std::u64::to_bytes_le in bitwise symbols"
+    );
+    assert!(
+        bitwise
+            .symbols
+            .iter()
+            .any(|s| s == "std::u64::from_bytes_le"),
+        "expected std::u64::from_bytes_le in bitwise symbols"
+    );
+}
+
+#[test]
 fn labels_external_dependencies_as_assumed_boundaries() {
     let src = r#"
         pure function rely(x: Int) -> Int

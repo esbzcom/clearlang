@@ -43,3 +43,4 @@ Per-intrinsic rows live in `docs/proofs/proof-coverage-matrix.json` under ids:
 - `intrinsic.std::u256::{from_limbs,limb0,limb1,limb2,limb3}`
 
 All listed intrinsic entries are currently `assumed` and therefore `blocked` at `L3`.
+Bitwise-sensitive `std::u64` intrinsics (`rotl`, `rotr`, `to_bytes_*`, `from_bytes_*`) are explicitly downgraded under `bitwise.uninterpreted`.

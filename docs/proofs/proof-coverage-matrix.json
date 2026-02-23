@@ -280,7 +280,7 @@
       "kind": "intrinsic",
       "surface": "std::u64::from_bytes_be",
       "status": "assumed",
-      "assumption_boundary": "unsigned.int_model",
+      "assumption_boundary": "bitwise.uninterpreted",
       "tiers": {
         "L0": "assumed",
         "L1": "assumed",
@@ -293,7 +293,7 @@
       "kind": "intrinsic",
       "surface": "std::u64::from_bytes_le",
       "status": "assumed",
-      "assumption_boundary": "unsigned.int_model",
+      "assumption_boundary": "bitwise.uninterpreted",
       "tiers": {
         "L0": "assumed",
         "L1": "assumed",
@@ -332,7 +332,7 @@
       "kind": "intrinsic",
       "surface": "std::u64::rotl",
       "status": "assumed",
-      "assumption_boundary": "unsigned.int_model",
+      "assumption_boundary": "bitwise.uninterpreted",
       "tiers": {
         "L0": "assumed",
         "L1": "assumed",
@@ -345,7 +345,7 @@
       "kind": "intrinsic",
       "surface": "std::u64::rotr",
       "status": "assumed",
-      "assumption_boundary": "unsigned.int_model",
+      "assumption_boundary": "bitwise.uninterpreted",
       "tiers": {
         "L0": "assumed",
         "L1": "assumed",
@@ -384,7 +384,7 @@
       "kind": "intrinsic",
       "surface": "std::u64::to_bytes_be",
       "status": "assumed",
-      "assumption_boundary": "unsigned.int_model",
+      "assumption_boundary": "bitwise.uninterpreted",
       "tiers": {
         "L0": "assumed",
         "L1": "assumed",
@@ -397,7 +397,7 @@
       "kind": "intrinsic",
       "surface": "std::u64::to_bytes_le",
       "status": "assumed",
-      "assumption_boundary": "unsigned.int_model",
+      "assumption_boundary": "bitwise.uninterpreted",
       "tiers": {
         "L0": "assumed",
         "L1": "assumed",

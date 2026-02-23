@@ -1,5 +1,21 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 19.2.1 unsigned/bitwise downgrade closure
+- Tightened explicit assumption downgrade coverage for bitwise-sensitive unsigned intrinsics:
+  - `crates/typer/src/vc/generate.rs` now tags these calls under `bitwise.uninterpreted`:
+    - `std::u64::rotl`, `std::u64::rotr`,
+    - `std::u64::to_bytes_le`, `std::u64::to_bytes_be`,
+    - `std::u64::from_bytes_le`, `std::u64::from_bytes_be`.
+  - updated bitwise assumption message to explicitly include bitwise-sensitive `std::u64` intrinsics.
+- Added typer regression coverage:
+  - `crates/typer/tests/vc.rs` asserts bitwise assumption symbols include rotate and byte-pack intrinsics.
+- Updated proof/rollout docs:
+  - added design lock `docs/design/phase-19.2.1-unsigned-bitwise-gap-closure.md`,
+  - updated `docs/proofs/vc-schema.md` bitwise boundary wording,
+  - updated `docs/proofs/proof-coverage-matrix.md`/`.json` to reflect explicit `bitwise.uninterpreted` downgrade for the affected `std::u64` intrinsic entries,
+  - marked `19.2.1` complete in `docs/TODO.md`,
+  - moved DEVPLAN next sequence to `19.2.2`.
+
 ## 2026-02-23 - Phase 19.1.4 compile-time trust-anchor verify integration
 - Implemented trust-anchor pin integration for signed proof bundles:
   - `clg build` now accepts `--lean-checker-version` and `--coq-checker-version`.

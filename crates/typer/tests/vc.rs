@@ -1,6 +1,6 @@
 use clg_parser::parse;
 use clg_typer::{
-    check_with_vcs, generate_vcs, type_check_only, RefinementAttachmentDetail,
+    check_with_vcs, generate_vcs, type_check_only, AssumptionCategory, RefinementAttachmentDetail,
     RefinementAttachmentKind, RefinementFlowKind,
 };
 
@@ -594,5 +594,34 @@ fn declares_bitwise_and_builtin_helpers() {
             .iter()
             .any(|vc| vc.vc_smt2.contains("declare-fun |std::bytes::eq_ct|")),
         "expected builtin declarations for std::bytes::eq_ct"
+    );
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.vc_id == "vc:0")
+        .expect("primary ensure vc");
+    assert!(
+        vc.assumptions
+            .iter()
+            .any(|a| matches!(a.category, AssumptionCategory::Unsigned)),
+        "expected unsigned assumption boundary"
+    );
+    assert!(
+        vc.assumptions
+            .iter()
+            .any(|a| matches!(a.category, AssumptionCategory::Bitwise)),
+        "expected bitwise assumption boundary"
+    );
+    let crypto = vc
+        .assumptions
+        .iter()
+        .find(|a| matches!(a.category, AssumptionCategory::Crypto))
+        .expect("expected crypto assumption boundary");
+    assert!(
+        crypto
+            .symbols
+            .iter()
+            .any(|symbol| symbol == "std::bytes::eq_ct"),
+        "expected std::bytes::eq_ct boundary in crypto assumption"
     );
 }

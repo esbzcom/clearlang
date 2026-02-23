@@ -59,6 +59,7 @@ fn build_emits_vcs_json() {
         Some(src_path.to_string_lossy().as_ref())
     );
     assert!(first.get("refinements").is_none());
+    assert!(first.get("assumptions").is_none());
 }
 
 #[test]
@@ -187,6 +188,138 @@ fn build_emits_variant_vcs_json() {
         .expect("vc smt2");
     assert!(vc.contains("cl.variant.tag"));
     assert!(!vc.contains("unsupported"));
+}
+
+#[derive(Deserialize)]
+struct ProofAssumptionEntry {
+    id: String,
+    category: String,
+    #[serde(default)]
+    symbols: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct ProofAssumptionsEntry {
+    items: Vec<ProofAssumptionEntry>,
+}
+
+#[derive(Deserialize)]
+struct ProofVcAssumptionsEntry {
+    vc_id: String,
+    #[serde(default)]
+    assumptions: Option<ProofAssumptionsEntry>,
+}
+
+#[derive(Deserialize)]
+struct ProofFunctionAssumptionsEntry {
+    name: String,
+    vcs: Vec<ProofVcAssumptionsEntry>,
+}
+
+#[derive(Deserialize)]
+struct ProofAssumptionsSection {
+    functions: Vec<ProofFunctionAssumptionsEntry>,
+}
+
+#[test]
+fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("assumptions.clear");
+    let wasm_path = tmp.path().join("assumptions.wasm");
+    let vcs_path = tmp.path().join("assumptions.vc.json");
+    let src = r#"
+        pure function check(a: Bytes, b: Bytes, x: U64, y: U64) -> Bool
+            ensure { result == std::bytes::eq_ct(a, b) }
+            ensure { (x & y) == x }
+        {
+            std::bytes::eq_ct(a, b)
+        }
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("check")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("check vc:0");
+
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .expect("assumptions items");
+    assert!(assumptions
+        .iter()
+        .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("unsigned.int_model")));
+    assert!(assumptions
+        .iter()
+        .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("bitwise.uninterpreted")));
+    let crypto = assumptions
+        .iter()
+        .find(|item| item.get("id").and_then(|v| v.as_str()) == Some("crypto.uninterpreted"))
+        .expect("crypto assumption item");
+    let crypto_symbols = crypto
+        .get("symbols")
+        .and_then(|v| v.as_array())
+        .expect("crypto symbols");
+    assert!(crypto_symbols
+        .iter()
+        .any(|symbol| symbol.as_str() == Some("std::bytes::eq_ct")));
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let mut proof_data = None;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                proof_data = Some(section.data().to_vec());
+                break;
+            }
+        }
+    }
+    let proof_data = proof_data.expect("proof section");
+    let section: ProofAssumptionsSection =
+        serde_cbor::from_slice(&proof_data).expect("decode proof");
+    let vc_assumptions = section
+        .functions
+        .iter()
+        .find(|f| f.name == "check")
+        .and_then(|f| f.vcs.iter().find(|vc| vc.vc_id == "vc:0"))
+        .and_then(|vc| vc.assumptions.as_ref())
+        .expect("proof vc assumptions");
+    assert!(vc_assumptions
+        .items
+        .iter()
+        .any(|item| item.id == "unsigned.int_model" && item.category == "unsigned"));
+    assert!(vc_assumptions
+        .items
+        .iter()
+        .any(|item| item.id == "bitwise.uninterpreted" && item.category == "bitwise"));
+    assert!(vc_assumptions.items.iter().any(|item| {
+        item.id == "crypto.uninterpreted"
+            && item.category == "crypto"
+            && item
+                .symbols
+                .iter()
+                .any(|symbol| symbol == "std::bytes::eq_ct")
+    }));
 }
 
 #[derive(Deserialize)]

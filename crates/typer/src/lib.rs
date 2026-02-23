@@ -11,9 +11,9 @@ pub use check::{
 };
 pub use errors::TyperError;
 pub use vc::{
-    generate_vcs, ContractExpr, ExprSnapshot, RefinementAttachment, RefinementAttachmentDetail,
-    RefinementAttachmentKind, RefinementFlowDetail, RefinementFlowKind, RefinementPremise,
-    VerificationCondition,
+    generate_vcs, AssumptionBoundary, AssumptionCategory, ContractExpr, ExprSnapshot,
+    RefinementAttachment, RefinementAttachmentDetail, RefinementAttachmentKind,
+    RefinementFlowDetail, RefinementFlowKind, RefinementPremise, VerificationCondition,
 };
 
 // Type-check only (no lowering) — used by typer tests and tooling in Phase 4.5

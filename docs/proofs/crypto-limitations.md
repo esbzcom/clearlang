@@ -54,6 +54,7 @@ This document captures what ClearLang proofs do *not* guarantee for cryptographi
 
 ## Practical Guidance
 
+- VC artifacts expose assumption boundaries directly: `unsigned.int_model`, `bitwise.uninterpreted`, and `crypto.uninterpreted` under `assumptions.items`.
 - If a property depends on cryptographic strength, document it as an assumption in the contract or proof notes.
 - Avoid proving security-critical claims (e.g., "only signer can authorize") without an explicit attestation layer.
 - For arithmetic-level invariants that rely on overflow/bit patterns, do not rely on SMT unless bitvector encoding is enabled.

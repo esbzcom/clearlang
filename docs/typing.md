@@ -327,7 +327,7 @@ ADT Ergonomics (Phase 6.6)
 - **Effect/proof/runtime split (17.6.3.2)**:
   - `_mut` collection calls remain `mut`-gated and produce `mut_pre:*` VC obligations tied to `can_mut` guards.
   - Linear ownership APIs (`remove_take`/`insert_take` families) remain `pure`; they rely on linear typing + `linear:*` VCs for ownership correctness while runtime keeps deterministic defensive traps (`R009`/`R010`).
-- **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations. See `docs/proofs/crypto-limitations.md` for migration options.
+- **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. `--emit-vcs` and `clearlang.proof` now surface these boundaries explicitly under `assumptions.items` (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted`). Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations. See `docs/proofs/crypto-limitations.md` for migration options.
 - **Tooling**: CLI docs now include an `--emit-vcs` walkthrough (see `docs/introduction.md`) and the VC schema example is updated with the canonical helpers.
 
 ## Structs/Enums Runtime Notes (Phase 17.1)

@@ -71,6 +71,7 @@ Verification condition maps carry the data required to re-run or validate proofs
 | `status`      | text                     | `"generated"`, `"proved"`, or `"failed"`.           |
 | `proof`       | optional proof map       | Present once solver integration lands.                |
 | `refinements` | optional refinements map | Refinement premises for this VC (v2+).               |
+| `assumptions` | optional assumptions map | Explicit `assumed` proof-model boundaries for this VC (v2+). |
 
 The optional `proof` map contains `{ format: text, bytes: byte-string }` where `bytes`
 are the raw proof artifact (Alethe, LFSC, etc.). Phase 6.5 stores `null` / omits this
@@ -80,6 +81,10 @@ field; it is reserved for future phases.
 shape: `{ id, alias, binder, substitution: { ast, smt2 }, predicate: { ast, smt2 }, attachment }`,
 where `attachment` is tagged with `kind` and carries `detail` for `param`, `return`, or
 `flow` sites. See `docs/proofs/vc-schema.md` for the full refinement attachment schema.
+
+`assumptions` is a map with a single `items` array. Each item mirrors VC JSON:
+`{ id, category, status, message, symbols[] }`, where `status` is currently `assumed`
+and `symbols` lists the exact touched operators/types/intrinsics that triggered the boundary.
 
 ## Hashing Rules
 
@@ -120,7 +125,7 @@ the payload, checks the signature, then inspects the embedded `clearlang.proof` 
 
 ## Backwards Compatibility
 
-- v1 sections remain parseable; v2 adds optional `refinements` on VC entries and optional `canonical_name` on function entries.
+- v1 sections remain parseable; v2 adds optional `refinements`/`assumptions` on VC entries and optional `canonical_name` on function entries.
 - Future versions must bump `version` and keep earlier versions parseable.
 - New fields should be optional to avoid breaking existing tooling.
 - When proofs become mandatory, the `proof` field will be required for `status = "proved"`.

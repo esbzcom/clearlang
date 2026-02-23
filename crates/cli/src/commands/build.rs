@@ -7,8 +7,8 @@ use clg_ast::{Effect, Program, Type};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport};
 use clg_ir::IrType;
 use clg_typer::{
-    check_with_vcs_with_std_and_external, ExternalBuiltinSig, RefinementAttachmentDetail,
-    TypecheckOutput, TyperError, VerificationCondition,
+    check_with_vcs_with_std_and_external, AssumptionBoundary, ExternalBuiltinSig,
+    RefinementAttachmentDetail, TypecheckOutput, TyperError, VerificationCondition,
 };
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -291,6 +291,23 @@ fn write_vcs_json(
         }
     }
 
+    fn assumptions_json(assumptions: &[AssumptionBoundary]) -> serde_json::Value {
+        use serde_json::json;
+        let items: Vec<serde_json::Value> = assumptions
+            .iter()
+            .map(|assumption| {
+                json!({
+                    "id": assumption.id,
+                    "category": assumption.category.as_str(),
+                    "status": assumption.status,
+                    "message": assumption.message,
+                    "symbols": assumption.symbols,
+                })
+            })
+            .collect();
+        json!({ "items": items })
+    }
+
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
@@ -327,6 +344,9 @@ fn write_vcs_json(
         );
         obj.insert("vc".to_string(), json!({ "smt2": vc.vc_smt2 }));
         obj.insert("status".to_string(), json!(vc.status));
+        if !vc.assumptions.is_empty() {
+            obj.insert("assumptions".to_string(), assumptions_json(&vc.assumptions));
+        }
         if let Some(pos) = positions {
             obj.insert("positions".to_string(), pos);
         }

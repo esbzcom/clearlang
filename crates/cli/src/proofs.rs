@@ -2,8 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::{anyhow, Result};
 use clg_ast::Program;
-use clg_typer::RefinementAttachmentDetail;
-use clg_typer::VerificationCondition;
+use clg_typer::{AssumptionBoundary, RefinementAttachmentDetail, VerificationCondition};
 use serde::{Deserialize, Serialize};
 use wasmparser::{Parser, Payload};
 
@@ -68,6 +67,21 @@ pub struct ProofRefinements {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofAssumption {
+    pub id: String,
+    pub category: String,
+    pub status: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub symbols: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofAssumptions {
+    pub items: Vec<ProofAssumption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProofProof {
     pub format: String,
     #[serde(with = "serde_bytes")]
@@ -85,6 +99,8 @@ pub struct ProofVc {
     pub proof: Option<ProofProof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refinements: Option<ProofRefinements>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assumptions: Option<ProofAssumptions>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -170,6 +186,17 @@ impl ProofPackage {
                     .collect();
                 Some(ProofRefinements { premises })
             };
+            let assumptions = if vc.assumptions.is_empty() {
+                None
+            } else {
+                Some(ProofAssumptions {
+                    items: vc
+                        .assumptions
+                        .iter()
+                        .map(proof_assumption_from_boundary)
+                        .collect(),
+                })
+            };
             grouped
                 .entry(vc.function.clone())
                 .or_default()
@@ -181,6 +208,7 @@ impl ProofPackage {
                     status: vc.status.to_string(),
                     proof: None,
                     refinements,
+                    assumptions,
                 });
         }
 
@@ -282,6 +310,16 @@ impl ProofExpr {
                 end: s.end as u32,
             }),
         }
+    }
+}
+
+fn proof_assumption_from_boundary(boundary: &AssumptionBoundary) -> ProofAssumption {
+    ProofAssumption {
+        id: boundary.id.to_string(),
+        category: boundary.category.as_str().to_string(),
+        status: boundary.status.to_string(),
+        message: boundary.message.to_string(),
+        symbols: boundary.symbols.clone(),
     }
 }
 

@@ -1,5 +1,27 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.6.1 assumption-boundary artifacts
+- Implemented explicit proof-model assumption boundaries on emitted verification artifacts:
+  - `crates/typer/src/vc.rs`: added `AssumptionBoundary`/`AssumptionCategory` and attached `assumptions` to `VerificationCondition`.
+  - `crates/typer/src/vc/generate.rs`: added deterministic per-function assumption collection for selected Phase 18.0.0 models:
+    - `unsigned.int_model` (unsigned types/constructors/intrinsics),
+    - `bitwise.uninterpreted` (bitwise/shift operators),
+    - `crypto.uninterpreted` (`std::crypto::*` and `std::bytes::eq_ct` boundaries).
+  - `crates/cli/src/commands/build.rs`: `--emit-vcs` JSON now emits optional `assumptions: { items: [...] }`.
+  - `crates/cli/src/proofs.rs`: `clearlang.proof` VC entries now carry optional `assumptions`.
+- Regression coverage:
+  - `crates/typer/tests/vc.rs`: validates unsigned/bitwise/crypto assumption boundaries are emitted for mixed-limit modeling cases.
+  - `crates/cli/tests/cli_it/vc_outputs.rs`: validates assumption boundaries in both VC JSON and proof-section CBOR.
+- Validation:
+  - `cargo test -p clg-typer --test vc`
+  - `cargo test -p clg-cli --test cli_it vc_outputs`
+  - `cargo test -p clg-cli --test vc_snapshots`
+  - `cargo test -p clg-cli --test signing`
+- Docs/roadmap updates:
+  - `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`, `docs/proofs/crypto-limitations.md`, and `docs/typing.md` now document assumption IDs and artifact fields.
+  - marked `18.0.6.1` complete in `docs/TODO.md`.
+  - updated `docs/rollout/DEVPLAN.md` to set `18.0.6.2` as the next active sub-step.
+
 ## 2026-02-23 - Phase 18.0.5.4 SDK usability gates
 - Implemented SDK usability regression gates:
   - added `crates/cli/tests/cli_it/sdk_usability.rs` with metrics checks covering import ergonomics, error quality, and migration friction,

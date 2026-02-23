@@ -1,10 +1,10 @@
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
-use clg_ast::{Effect, Expr, Program, Span, Type};
-use std::collections::{HashMap, HashSet};
+use clg_ast::{BinOp, Block, Effect, Expr, Func, Program, Span, Stmt, Type};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use super::{
-    snapshot_expr, ContractExpr, LoopObligation, RefinementAttachment, RefinementObligation,
-    RefinementPremise, VerificationCondition,
+    snapshot_expr, AssumptionBoundary, AssumptionCategory, ContractExpr, LoopObligation,
+    RefinementAttachment, RefinementObligation, RefinementPremise, VerificationCondition,
 };
 use crate::vc::linear::collect_linear_control_obligations;
 use crate::vc::loops::{collect_loops, expr_span};
@@ -16,6 +16,16 @@ use crate::vc::smt::SmtEncoder;
 use crate::vc::source::expr_to_source;
 
 const U64_MAX_SMT: &str = "18446744073709551615";
+const ASSUMPTION_UNSIGNED_ID: &str = "unsigned.int_model";
+const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
+const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
+const ASSUMPTION_STATUS_ASSUMED: &str = "assumed";
+const ASSUMPTION_UNSIGNED_MESSAGE: &str =
+    "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.";
+const ASSUMPTION_BITWISE_MESSAGE: &str =
+    "Bitwise and shift operators are modeled as uninterpreted SMT functions.";
+const ASSUMPTION_CRYPTO_MESSAGE: &str =
+    "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.";
 
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     let alias_map = build_alias_map(program);
@@ -32,6 +42,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
             span: Span,
             return_obligation: Option<RefinementObligation>,
         }
+        let function_assumptions = collect_function_assumptions(func);
 
         // VC preconditions follow runtime guard order: requires (source order),
         // then implicit alias predicates (params), then in-body obligations.
@@ -167,6 +178,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     vc_smt2,
                     status: "generated",
                     refinements,
+                    assumptions: function_assumptions.clone(),
                 });
             }
         }
@@ -214,6 +226,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     vc_smt2,
                     status: "generated",
                     refinements,
+                    assumptions: function_assumptions.clone(),
                 });
             }
         }
@@ -251,6 +264,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 vc_smt2,
                 status: "generated",
                 refinements,
+                assumptions: function_assumptions.clone(),
             });
         }
 
@@ -286,6 +300,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 vc_smt2,
                 status: "generated",
                 refinements,
+                assumptions: function_assumptions.clone(),
             });
         }
 
@@ -319,6 +334,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                 vc_smt2,
                 status: "generated",
                 refinements,
+                assumptions: function_assumptions.clone(),
             });
 
             if let Some(var_expr) = loop_ob.variant {
@@ -349,6 +365,7 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     vc_smt2,
                     status: "generated",
                     refinements,
+                    assumptions: function_assumptions.clone(),
                 });
 
                 let mut enc_dec = SmtEncoder::default();
@@ -385,12 +402,232 @@ pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
                     vc_smt2,
                     status: "generated",
                     refinements,
+                    assumptions: function_assumptions.clone(),
                 });
             }
         }
     }
     out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
+}
+
+#[derive(Default)]
+struct AssumptionUsage {
+    unsigned_types: BTreeSet<String>,
+    bitwise_ops: BTreeSet<String>,
+    crypto_intrinsics: BTreeSet<String>,
+}
+
+fn collect_function_assumptions(func: &Func) -> Vec<AssumptionBoundary> {
+    let mut usage = AssumptionUsage::default();
+    for param in &func.params {
+        collect_unsigned_from_type(&param.ty, &mut usage.unsigned_types);
+    }
+    collect_unsigned_from_type(&func.ret, &mut usage.unsigned_types);
+    for req in &func.requires {
+        collect_assumption_usage_expr(&req.expr, &mut usage);
+    }
+    for ensure in &func.ensures {
+        collect_assumption_usage_expr(&ensure.expr, &mut usage);
+    }
+    collect_assumption_usage_expr(&func.body, &mut usage);
+
+    let mut assumptions = Vec::new();
+    if !usage.unsigned_types.is_empty() {
+        assumptions.push(AssumptionBoundary {
+            id: ASSUMPTION_UNSIGNED_ID,
+            category: AssumptionCategory::Unsigned,
+            status: ASSUMPTION_STATUS_ASSUMED,
+            message: ASSUMPTION_UNSIGNED_MESSAGE,
+            symbols: usage.unsigned_types.iter().cloned().collect(),
+        });
+    }
+    if !usage.bitwise_ops.is_empty() {
+        assumptions.push(AssumptionBoundary {
+            id: ASSUMPTION_BITWISE_ID,
+            category: AssumptionCategory::Bitwise,
+            status: ASSUMPTION_STATUS_ASSUMED,
+            message: ASSUMPTION_BITWISE_MESSAGE,
+            symbols: usage.bitwise_ops.iter().cloned().collect(),
+        });
+    }
+    if !usage.crypto_intrinsics.is_empty() {
+        assumptions.push(AssumptionBoundary {
+            id: ASSUMPTION_CRYPTO_ID,
+            category: AssumptionCategory::Crypto,
+            status: ASSUMPTION_STATUS_ASSUMED,
+            message: ASSUMPTION_CRYPTO_MESSAGE,
+            symbols: usage.crypto_intrinsics.iter().cloned().collect(),
+        });
+    }
+    assumptions
+}
+
+fn collect_unsigned_from_type(ty: &Type, out: &mut BTreeSet<String>) {
+    match ty {
+        Type::U8 => {
+            out.insert("U8".to_string());
+        }
+        Type::U64 => {
+            out.insert("U64".to_string());
+        }
+        Type::U128 => {
+            out.insert("U128".to_string());
+        }
+        Type::U256 => {
+            out.insert("U256".to_string());
+        }
+        Type::Option(inner)
+        | Type::List(inner)
+        | Type::Set(inner)
+        | Type::Array(inner, _)
+        | Type::Slice(inner) => collect_unsigned_from_type(inner, out),
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            collect_unsigned_from_type(ok, out);
+            collect_unsigned_from_type(err, out);
+        }
+        Type::Tuple(items) | Type::Named { args: items, .. } => {
+            for item in items {
+                collect_unsigned_from_type(item, out);
+            }
+        }
+        Type::Fn { params, ret } => {
+            for param in params {
+                collect_unsigned_from_type(param, out);
+            }
+            collect_unsigned_from_type(ret, out);
+        }
+        Type::Int | Type::Bool | Type::String | Type::Bytes => {}
+    }
+}
+
+fn collect_assumption_usage_block(block: &Block, out: &mut AssumptionUsage) {
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                collect_assumption_usage_expr(expr, out);
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_assumption_usage_expr(cond, out);
+                collect_assumption_usage_expr(invariant, out);
+                if let Some(variant_expr) = variant {
+                    collect_assumption_usage_expr(variant_expr, out);
+                }
+                collect_assumption_usage_block(body, out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_assumption_usage_expr(tail, out);
+    }
+}
+
+fn collect_assumption_usage_expr(expr: &Expr, out: &mut AssumptionUsage) {
+    match expr {
+        Expr::Int(..) | Expr::Bool(..) | Expr::String(..) | Expr::Var(..) => {}
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_assumption_usage_expr(elem, out);
+            }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_assumption_usage_expr(&field.expr, out);
+            }
+        }
+        Expr::FieldAccess { base, .. } => collect_assumption_usage_expr(base, out),
+        Expr::Block { block } => collect_assumption_usage_block(block, out),
+        Expr::Bin { op, lhs, rhs, .. } => {
+            if let Some(symbol) = bitwise_symbol(*op) {
+                out.bitwise_ops.insert(symbol.to_string());
+            }
+            collect_assumption_usage_expr(lhs, out);
+            collect_assumption_usage_expr(rhs, out);
+        }
+        Expr::Call {
+            callee,
+            type_args,
+            args,
+            ..
+        } => {
+            for ty in type_args {
+                collect_unsigned_from_type(ty, &mut out.unsigned_types);
+            }
+            for arg in args {
+                collect_assumption_usage_expr(arg, out);
+            }
+            if matches!(callee.as_str(), "U8" | "U64" | "U128" | "U256") {
+                out.unsigned_types.insert(callee.clone());
+            }
+            if callee.starts_with("std::u64::") {
+                out.unsigned_types.insert("U64".to_string());
+            }
+            if callee.starts_with("std::u128::") {
+                out.unsigned_types.insert("U128".to_string());
+            }
+            if callee.starts_with("std::u256::") {
+                out.unsigned_types.insert("U256".to_string());
+            }
+            if is_crypto_assumption_intrinsic(callee) {
+                out.crypto_intrinsics.insert(callee.clone());
+            }
+        }
+        Expr::Return { expr, .. } | Expr::Unary { expr, .. } | Expr::Try { expr, .. } => {
+            collect_assumption_usage_expr(expr, out);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_assumption_usage_expr(scrutinee, out);
+            for arm in arms {
+                collect_assumption_usage_expr(&arm.expr, out);
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_assumption_usage_expr(cond, out);
+            collect_assumption_usage_expr(then_br, out);
+            collect_assumption_usage_expr(else_br, out);
+        }
+        Expr::Index { base, index, .. } => {
+            collect_assumption_usage_expr(base, out);
+            collect_assumption_usage_expr(index, out);
+        }
+        Expr::Lambda { params, body, .. } => {
+            for param in params {
+                collect_unsigned_from_type(&param.ty, &mut out.unsigned_types);
+            }
+            collect_assumption_usage_expr(body, out);
+        }
+    }
+}
+
+fn bitwise_symbol(op: BinOp) -> Option<&'static str> {
+    match op {
+        BinOp::Shl => Some("<<"),
+        BinOp::Shr => Some(">>"),
+        BinOp::BitAnd => Some("&"),
+        BinOp::BitXor => Some("^"),
+        BinOp::BitOr => Some("|"),
+        _ => None,
+    }
+}
+
+fn is_crypto_assumption_intrinsic(callee: &str) -> bool {
+    matches!(
+        callee,
+        "std::crypto::hash" | "std::crypto::hmac" | "std::crypto::verify" | "std::bytes::eq_ct"
+    )
 }
 
 fn u64_bounds_smt(term: &str) -> String {

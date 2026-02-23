@@ -23,6 +23,8 @@ VC Object (v2)
 - `vc`: object - the VC implication `pre => post`
   - `smt2`: string
 - `status`: string - one of `generated|proved|failed`
+- `assumptions`: object - optional assumption boundaries (v2+)
+  - `items`: array of assumption objects (may be empty)
 - `positions`: object - optional source mapping
   - `file`: string (path)
   - `pre_start`: number (byte offset)
@@ -58,8 +60,21 @@ Attachment Details (kind)
   - `variant`: string (for match/if_let binder source)
   - `arm`: number (for match branches)
 
+Assumption Boundary
+- `id`: string (stable machine id, for example `unsigned.int_model`)
+- `category`: string (`unsigned|bitwise|crypto`)
+- `status`: string (`assumed` for current Phase 18.0.6.1 scope)
+- `message`: string (human-readable boundary summary)
+- `symbols`: array of strings (exact touched symbols, such as unsigned types, operators, or intrinsic names)
+
+Current assumption IDs
+- `unsigned.int_model`: unsigned values use SMT `Int` modeling with bounded-domain guards where available; overflow/bit-precise semantics are assumed.
+- `bitwise.uninterpreted`: bitwise/shift operators are encoded as uninterpreted SMT functions.
+- `crypto.uninterpreted`: crypto/constant-time intrinsics are encoded as uninterpreted SMT functions.
+
 Notes
 - `refinements.premises` are trace data; `pre`/`post` and `vc.smt2` include the substituted predicates.
+- `assumptions.items` enumerates model boundaries required for that VC; omission means no selected boundary was detected for that VC.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
 - `canonical_function` appears only when `CLG_MANGLE_MAX_LEN` shortening changed the emitted function symbol.
 

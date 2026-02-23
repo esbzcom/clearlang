@@ -843,7 +843,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 18.0.5.3 Implement accepted changes with deterministic resolution rules and migration tests/fixtures. (migration fixtures under `clearlang-tests/migration/` + CLI IT coverage in `crates/cli/tests/cli_it/diagnostics.rs`)
     - [x] 18.0.5.4 Add SDK usability checks (import ergonomics, error quality, migration friction) and fail gates if metrics regress. (CLI IT gates in `crates/cli/tests/cli_it/sdk_usability.rs` + CI step `SDK usability gates`)
   - [ ] 18.0.6 P2 Proof-model execution (after 18.0.0 decisions are locked).
-    - [ ] 18.0.6.1 Implement selected unsigned/bitwise/crypto modeling paths and record exact assumption boundaries in emitted artifacts.
+    - [x] 18.0.6.1 Implement selected unsigned/bitwise/crypto modeling paths and record exact assumption boundaries in emitted artifacts.
     - [ ] 18.0.6.2 Add proof-regression CI suites so assurance tiers cannot silently downgrade on existing fixtures.
     - [ ] 18.0.6.3 Publish and maintain a proof-coverage matrix per language feature/intrinsic (`proved` vs `assumed`, mapped to `L0`-`L3`).
     - [ ] 18.0.6.4 Roll strict-mode defaults forward only after the proof-coverage matrix and CI gates are green.

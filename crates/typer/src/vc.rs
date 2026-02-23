@@ -116,6 +116,32 @@ pub struct RefinementPremise {
     pub attachment: RefinementAttachment,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssumptionCategory {
+    Unsigned,
+    Bitwise,
+    Crypto,
+}
+
+impl AssumptionCategory {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AssumptionCategory::Unsigned => "unsigned",
+            AssumptionCategory::Bitwise => "bitwise",
+            AssumptionCategory::Crypto => "crypto",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AssumptionBoundary {
+    pub id: &'static str,
+    pub category: AssumptionCategory,
+    pub status: &'static str,
+    pub message: &'static str,
+    pub symbols: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct VerificationCondition {
     pub function: String,
@@ -125,6 +151,7 @@ pub struct VerificationCondition {
     pub vc_smt2: String,
     pub status: &'static str,
     pub refinements: Vec<RefinementPremise>,
+    pub assumptions: Vec<AssumptionBoundary>,
 }
 
 #[derive(Debug)]

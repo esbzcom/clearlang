@@ -144,6 +144,11 @@ pub fn run(
             fail_build("C014", &message, None)?;
         }
     }
+    if compiler_mode == CompilerMode::Strict && emit_vcs.is_some() {
+        if let Some(message) = strict_l3_claim_violation(&vcs) {
+            fail_build("C031", &message, None)?;
+        }
+    }
 
     let export_aliases = if contract {
         contract_exports(ast, &file, json_errors)?
@@ -585,6 +590,32 @@ fn strict_proof_violation(vcs: &[VerificationCondition]) -> Option<String> {
     None
 }
 
+fn strict_l3_claim_violation(vcs: &[VerificationCondition]) -> Option<String> {
+    for vc in vcs {
+        for assumption in &vc.assumptions {
+            if assumption.message.trim().is_empty() {
+                return Some(format!(
+                    "strict compiler mode L3 claim blocked: VC `{}` in function `{}` has unlabeled assumption boundary `{}` (missing message)",
+                    vc.vc_id, vc.function, assumption.id
+                ));
+            }
+            if assumption.symbols.is_empty() {
+                return Some(format!(
+                    "strict compiler mode L3 claim blocked: VC `{}` in function `{}` has unlabeled assumption boundary `{}` (missing symbols)",
+                    vc.vc_id, vc.function, assumption.id
+                ));
+            }
+            if assumption.symbols.iter().any(|symbol| symbol.trim().is_empty()) {
+                return Some(format!(
+                    "strict compiler mode L3 claim blocked: VC `{}` in function `{}` has unlabeled assumption boundary `{}` (empty symbol label)",
+                    vc.vc_id, vc.function, assumption.id
+                ));
+            }
+        }
+    }
+    None
+}
+
 fn category_for_assumption_id(id: &str) -> Option<AssumptionCategory> {
     match id {
         ASSUMPTION_UNSIGNED_ID => Some(AssumptionCategory::Unsigned),
@@ -623,13 +654,17 @@ mod tests {
         }
     }
 
-    fn assumption(id: &'static str, category: AssumptionCategory) -> AssumptionBoundary {
+    fn assumption(
+        id: &'static str,
+        category: AssumptionCategory,
+        symbols: &[&str],
+    ) -> AssumptionBoundary {
         AssumptionBoundary {
             id,
             category,
             status: "assumed",
             message: "m",
-            symbols: Vec::new(),
+            symbols: symbols.iter().map(|symbol| (*symbol).to_string()).collect(),
         }
     }
 
@@ -645,14 +680,31 @@ mod tests {
         let mut vc = sample_vc();
         vc.vc_smt2 = "(=> true true)".to_string();
         vc.assumptions = vec![
-            assumption(super::ASSUMPTION_UNSIGNED_ID, AssumptionCategory::Unsigned),
-            assumption(super::ASSUMPTION_BITWISE_ID, AssumptionCategory::Bitwise),
-            assumption(super::ASSUMPTION_CRYPTO_ID, AssumptionCategory::Crypto),
+            assumption(
+                super::ASSUMPTION_UNSIGNED_ID,
+                AssumptionCategory::Unsigned,
+                &["U64"],
+            ),
+            assumption(
+                super::ASSUMPTION_BITWISE_ID,
+                AssumptionCategory::Bitwise,
+                &["&"],
+            ),
+            assumption(
+                super::ASSUMPTION_CRYPTO_ID,
+                AssumptionCategory::Crypto,
+                &["std::bytes::eq_ct"],
+            ),
             assumption(
                 super::ASSUMPTION_PRIMITIVE_ID,
                 AssumptionCategory::Primitive,
+                &["std::bytes::eq_ct"],
             ),
-            assumption(super::ASSUMPTION_EXTERNAL_ID, AssumptionCategory::External),
+            assumption(
+                super::ASSUMPTION_EXTERNAL_ID,
+                AssumptionCategory::External,
+                &["extpkg::math::add2"],
+            ),
         ];
         assert!(
             strict_proof_violation(&[vc]).is_none(),
@@ -680,6 +732,7 @@ mod tests {
         vc.assumptions = vec![assumption(
             "unknown.assumption",
             AssumptionCategory::Bitwise,
+            &["mystery"],
         )];
         let msg = strict_proof_violation(&[vc]).expect("expected strict violation");
         assert!(msg.contains("unknown assumption boundary"));
@@ -691,9 +744,51 @@ mod tests {
         vc.assumptions = vec![assumption(
             super::ASSUMPTION_BITWISE_ID,
             AssumptionCategory::Crypto,
+            &["&"],
         )];
         let msg = strict_proof_violation(&[vc]).expect("expected strict violation");
         assert!(msg.contains("mismatched category"));
+    }
+
+    #[test]
+    fn strict_l3_claim_accepts_labeled_assumptions() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![assumption(
+            super::ASSUMPTION_EXTERNAL_ID,
+            AssumptionCategory::External,
+            &["extpkg::math::add2"],
+        )];
+        assert!(strict_l3_claim_violation(&[vc]).is_none());
+    }
+
+    #[test]
+    fn strict_l3_claim_rejects_assumption_without_symbols() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![AssumptionBoundary {
+            id: super::ASSUMPTION_EXTERNAL_ID,
+            category: AssumptionCategory::External,
+            status: "assumed",
+            message: "external dependency assumed",
+            symbols: Vec::new(),
+        }];
+        let msg =
+            strict_l3_claim_violation(&[vc]).expect("expected strict L3 claim violation message");
+        assert!(msg.contains("missing symbols"));
+    }
+
+    #[test]
+    fn strict_l3_claim_rejects_assumption_without_message() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![AssumptionBoundary {
+            id: super::ASSUMPTION_PRIMITIVE_ID,
+            category: AssumptionCategory::Primitive,
+            status: "assumed",
+            message: "",
+            symbols: vec!["std::bytes::eq_ct".to_string()],
+        }];
+        let msg =
+            strict_l3_claim_violation(&[vc]).expect("expected strict L3 claim violation message");
+        assert!(msg.contains("missing message"));
     }
 
     #[test]

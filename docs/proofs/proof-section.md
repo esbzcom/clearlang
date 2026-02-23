@@ -88,6 +88,7 @@ where `attachment` is tagged with `kind` and carries `detail` for `param`, `retu
 `{ id, category, status, message, symbols[] }`, where `status` is currently `assumed`
 and `symbols` lists the exact touched operators/types/intrinsics that triggered the boundary.
 Current categories include `unsigned`, `bitwise`, `crypto`, `primitive`, and `external`.
+In strict compiler mode, `L3` claims are blocked if any assumption item has empty `message` or empty `symbols` labeling.
 
 `assurance` is a map with:
 - `tier`: current tier (`L0` for VCs/modules with assumption boundaries, `L1` otherwise in current implementation).

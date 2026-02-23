@@ -523,6 +523,42 @@ fn build_labels_external_dependencies_as_assumed_boundaries() {
 }
 
 #[test]
+fn strict_compiler_mode_accepts_labeled_assumptions_for_l3_gate() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("strict_l3_gate.clear");
+    let wasm_path = tmp.path().join("strict_l3_gate.wasm");
+    let vcs_path = tmp.path().join("strict_l3_gate.vc.json");
+    let src = r#"
+        pure function check(a: Bytes, b: Bytes, x: U64, y: U64) -> Bool
+            ensure { result == std::bytes::eq_ct(a, b) }
+            ensure { (x & y) == x }
+        {
+            std::bytes::eq_ct(a, b)
+        }
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .args(["--emit-vcs"])
+        .arg(&vcs_path)
+        .args(["--compiler-mode", "strict"])
+        .assert()
+        .success();
+
+    assert!(wasm_path.exists(), "build should emit wasm");
+    assert!(
+        vcs_path.exists(),
+        "strict-mode build should emit vcs when assumptions are labeled"
+    );
+}
+
+#[test]
 fn build_strict_proof_mode_ignores_marker_like_string_literals() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("strict_marker.clear");

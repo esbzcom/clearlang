@@ -11,7 +11,7 @@
 - Next active phase: `19.1` assurance levels + trust-boundary model.
 
 ### Suggested Sequence
-1) Execute `19.1.3`-`19.1.4` assurance-tier/trust-boundary work.
+1) Execute `19.1.4` trust-anchor integration for compile-time verify mode.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -33,6 +33,7 @@
 - **Phase 19 non-goal clarity lock (`19.0.4`)**: completed with explicit positioning constraints (no universal proof-power superiority claim) and practical bounded-assurance framing (`docs/design/phase-19.0.4-non-goal-clarity.md`).
 - **Phase 19 assurance-tier artifacts (`19.1.1`)**: completed with explicit `L0`-`L3` tier metadata embedded in VC JSON/proof/signing artifacts and schema docs (`docs/design/phase-19.1.1-assurance-tiers.md`, `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`).
 - **Phase 19 assumed-dependency labeling (`19.1.2`)**: completed by labeling non-proved primitive and external dependencies as explicit `assumed` boundaries in VC/proof artifacts (`primitive.unproved`, `external.dependency`) with regression coverage.
+- **Phase 19 strict fail-closed L3 gate (`19.1.3`)**: completed by blocking strict-mode `L3` claims when assumption labels are incomplete (`C031`) while preserving deterministic assumption-shape checks (`C014`).
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

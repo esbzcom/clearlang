@@ -870,7 +870,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [ ] 19.1 Assurance levels + trust boundary model (no hidden assumptions).
   - [x] 19.1.1 Introduce explicit assurance tiers in diagnostics/artifacts (`L0` assumed, `L1` checked core, `L2` verified module, `L3` verified package profile). (`docs/design/phase-19.1.1-assurance-tiers.md`, `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`)
   - [x] 19.1.2 Require every non-proved primitive/external dependency to be labeled as `assumed` in emitted reports. (`docs/design/phase-19.1.2-assumed-dependency-labeling.md`, `primitive.unproved`, `external.dependency`)
-  - [ ] 19.1.3 Fail closed in strict mode: block `L3` claims if any unlabeled assumptions remain.
+  - [x] 19.1.3 Fail closed in strict mode: block `L3` claims if any unlabeled assumptions remain. (`docs/design/phase-19.1.3-strict-l3-fail-closed.md`, diagnostic `C031`)
   - [ ] 19.1.4 Add external trust-anchor integration for compile-time `verify` mode (pinned Lean/Coq checker versions), while keeping runtime bundles kernel-free.
 - [ ] 19.2 Proof coverage completion for current language surface.
   - [ ] 19.2.1 Close unsigned/bitwise SMT gaps (`U128`/`U256`, shifts, masks) or downgrade affected checks to explicit assumptions.

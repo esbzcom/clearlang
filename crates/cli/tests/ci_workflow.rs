@@ -36,6 +36,10 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should enforce proof fixture snapshot regression tests"
     );
     assert!(
+        contents.contains("cargo test -p clg-cli --test proof_coverage_matrix"),
+        "ci should enforce proof coverage matrix regression tests"
+    );
+    assert!(
         contents.contains(
             "cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section"
         ),

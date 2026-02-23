@@ -1,0 +1,409 @@
+{
+  "version": 1,
+  "generated_on": "2026-02-23",
+  "entries": [
+    {
+      "id": "feature.bitwise_shift_operators",
+      "kind": "feature",
+      "surface": "Bitwise and shift operators (&, |, ^, <<, >>)",
+      "status": "assumed",
+      "assumption_boundary": "bitwise.uninterpreted",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "feature.contract_implication_core",
+      "kind": "feature",
+      "surface": "Contracts implication over Int/Bool arithmetic, comparisons, and logical operators",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.crypto_intrinsics_model",
+      "kind": "feature",
+      "surface": "Crypto and constant-time helper semantics in VC SMT model",
+      "status": "assumed",
+      "assumption_boundary": "crypto.uninterpreted",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "feature.linear_collection_control_flow",
+      "kind": "feature",
+      "surface": "Linear collection branch/loop control-flow obligations",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.loop_obligations",
+      "kind": "feature",
+      "surface": "Loop invariant and variant (non-negative/decrease) obligation emission",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.refinement_premises",
+      "kind": "feature",
+      "surface": "Refinement alias premise substitution and attachment trace in VC artifacts",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.unsigned_integer_model",
+      "kind": "feature",
+      "surface": "Unsigned types U8/U64/U128/U256 in VC SMT model",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::bytes::eq_ct",
+      "kind": "intrinsic",
+      "surface": "std::bytes::eq_ct",
+      "status": "assumed",
+      "assumption_boundary": "crypto.uninterpreted",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::crypto::hash",
+      "kind": "intrinsic",
+      "surface": "std::crypto::hash",
+      "status": "assumed",
+      "assumption_boundary": "crypto.uninterpreted",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::crypto::hmac",
+      "kind": "intrinsic",
+      "surface": "std::crypto::hmac",
+      "status": "assumed",
+      "assumption_boundary": "crypto.uninterpreted",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::crypto::verify",
+      "kind": "intrinsic",
+      "surface": "std::crypto::verify",
+      "status": "assumed",
+      "assumption_boundary": "crypto.uninterpreted",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u128::from_limbs",
+      "kind": "intrinsic",
+      "surface": "std::u128::from_limbs",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u128::hi",
+      "kind": "intrinsic",
+      "surface": "std::u128::hi",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u128::lo",
+      "kind": "intrinsic",
+      "surface": "std::u128::lo",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u256::from_limbs",
+      "kind": "intrinsic",
+      "surface": "std::u256::from_limbs",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u256::limb0",
+      "kind": "intrinsic",
+      "surface": "std::u256::limb0",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u256::limb1",
+      "kind": "intrinsic",
+      "surface": "std::u256::limb1",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u256::limb2",
+      "kind": "intrinsic",
+      "surface": "std::u256::limb2",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u256::limb3",
+      "kind": "intrinsic",
+      "surface": "std::u256::limb3",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::add_sat",
+      "kind": "intrinsic",
+      "surface": "std::u64::add_sat",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::add_wrap",
+      "kind": "intrinsic",
+      "surface": "std::u64::add_wrap",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::from_bytes_be",
+      "kind": "intrinsic",
+      "surface": "std::u64::from_bytes_be",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::from_bytes_le",
+      "kind": "intrinsic",
+      "surface": "std::u64::from_bytes_le",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::mul_sat",
+      "kind": "intrinsic",
+      "surface": "std::u64::mul_sat",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::mul_wrap",
+      "kind": "intrinsic",
+      "surface": "std::u64::mul_wrap",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::rotl",
+      "kind": "intrinsic",
+      "surface": "std::u64::rotl",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::rotr",
+      "kind": "intrinsic",
+      "surface": "std::u64::rotr",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::sub_sat",
+      "kind": "intrinsic",
+      "surface": "std::u64::sub_sat",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::sub_wrap",
+      "kind": "intrinsic",
+      "surface": "std::u64::sub_wrap",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::to_bytes_be",
+      "kind": "intrinsic",
+      "surface": "std::u64::to_bytes_be",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::u64::to_bytes_le",
+      "kind": "intrinsic",
+      "surface": "std::u64::to_bytes_le",
+      "status": "assumed",
+      "assumption_boundary": "unsigned.int_model",
+      "tiers": {
+        "L0": "assumed",
+        "L1": "assumed",
+        "L2": "assumed",
+        "L3": "blocked"
+      }
+    }
+  ]
+}

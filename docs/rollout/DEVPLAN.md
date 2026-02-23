@@ -7,12 +7,12 @@
 - Ecosystem gate is complete (`18.4`).
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
-- Proof-model execution is active (`18.0.6`); `18.0.6.1` assumption-boundary artifacts and `18.0.6.2` proof-regression CI suites are complete.
-- Next active sub-step: `18.0.6.3` proof-coverage matrix publication/maintenance.
+- Proof-model execution is active (`18.0.6`); `18.0.6.1` assumption-boundary artifacts, `18.0.6.2` proof-regression CI suites, and `18.0.6.3` proof-coverage matrix publication are complete.
+- Next active sub-step: `18.0.6.4` strict-mode default rollout (after matrix + CI gates stay green).
 
 ### Suggested Sequence
 1) Execute `18.0.6` proof-model follow-through from the `18.0.0` decision lock.
-2) Land `18.0.6.3` proof-coverage matrix before strict-mode rollout planning.
+2) Land `18.0.6.4` strict-mode default rollout only after `18.0.6.1`-`18.0.6.3` evidence stays green.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -26,6 +26,7 @@
 - **Phase 18 ergonomics SDK usability gates (`18.0.5.4`)**: completed with CLI IT metrics checks (`crates/cli/tests/cli_it/sdk_usability.rs`) and explicit CI gate step (`.github/workflows/ci.yml`).
 - **Phase 18 proof-model assumption boundaries (`18.0.6.1`)**: completed with explicit VC/proof artifact `assumptions.items` for unsigned/bitwise/crypto modeling limits.
 - **Phase 18 proof-regression CI suites (`18.0.6.2`)**: completed with explicit CI proof gates (`vc_snapshots`, VC assumption-boundary artifact checks, typer proof-model checks) and snapshot fixture expansion.
+- **Phase 18 proof-coverage matrix (`18.0.6.3`)**: completed with published feature/intrinsic matrix (`docs/proofs/proof-coverage-matrix.{md,json}`) and CI validation (`proof_coverage_matrix` test).
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

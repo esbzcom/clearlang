@@ -1,5 +1,25 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.6.3 proof-coverage matrix publication
+- Published proof-coverage matrix artifacts:
+  - `docs/proofs/proof-coverage-matrix.md` (human-readable summary),
+  - `docs/proofs/proof-coverage-matrix.json` (machine-readable source of truth).
+- Matrix captures per-feature/per-intrinsic `proved` vs `assumed` status and maps each entry across `L0`-`L3`.
+- Added maintenance CI gate:
+  - `crates/cli/tests/proof_coverage_matrix.rs` validates schema, deterministic ordering, known assumption-boundary IDs, tier mapping invariants, and required intrinsic coverage.
+  - wired into `.github/workflows/ci.yml` (`Proof regression gates`) and guarded by `crates/cli/tests/ci_workflow.rs`.
+- Docs updates:
+  - linked matrix from `docs/proofs/vc-schema.md` and `docs/typing.md`.
+- Roadmap updates:
+  - marked `18.0.6.3` complete in `docs/TODO.md`,
+  - moved `docs/rollout/DEVPLAN.md` next focus to `18.0.6.4`.
+- Validation:
+  - `cargo test -p clg-cli --test proof_coverage_matrix`
+  - `cargo test -p clg-cli --test ci_workflow`
+  - `cargo test -p clg-cli --test vc_snapshots`
+  - `cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section`
+  - `cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers`
+
 ## 2026-02-23 - Phase 18.0.6.2 proof-regression CI suites
 - Added explicit CI proof-regression gates in `.github/workflows/ci.yml`:
   - `cargo test -p clg-cli --test vc_snapshots`

@@ -1,5 +1,17 @@
 use super::*;
 
+fn assert_single_json_error(v: &Value, code: &str, stage: &str) {
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1, "expected exactly one error, got {errs:?}");
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some(code));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some(stage));
+}
+
 #[test]
 fn type_error_reports_json_with_span_and_code() {
     // Create a small source with a type mismatch: add(1, true)
@@ -186,4 +198,38 @@ fn if_branch_mismatch_reports_t301_in_json() {
     let e0 = &errs[0];
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("T301"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
+fn migration_inline_refinement_rejection_reports_p013_deterministically() {
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "parse"])
+        .arg(repo_sample("migration/01_inline_refinement_param.clear"));
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "P013", "parse");
+}
+
+#[test]
+fn migration_deferred_ergonomics_type_restrictions_report_stable_codes() {
+    let cases = [
+        ("migration/02_interface_type_params.clear", "T246"),
+        ("migration/03_implementation_method_type_params.clear", "T245"),
+        ("migration/04_generic_refinement_alias.clear", "T244"),
+        ("migration/05_set_resource.clear", "T806"),
+        ("migration/06_array_resource.clear", "T806"),
+    ];
+
+    for (file, expected_code) in cases {
+        let tmp = tempdir().unwrap();
+        let out = tmp.path().join("out.wasm");
+        let mut cmd = Command::cargo_bin("clg").unwrap();
+        cmd.args(["--json-errors", "build"])
+            .arg(repo_sample(file))
+            .args(["-o"])
+            .arg(&out);
+        let output = cmd.assert().failure().get_output().stdout.clone();
+        let v: Value = serde_json::from_slice(&output).expect("json");
+        assert_single_json_error(&v, expected_code, "type");
+    }
 }

@@ -862,6 +862,21 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     end,
                 });
             }
+            let specialized_spans: Vec<(usize, usize)> = items
+                .iter()
+                .filter(|e| e.code == "P011" || e.code == "P012" || e.code == "P013")
+                .map(|e| (e.start, e.end))
+                .collect();
+            if !specialized_spans.is_empty() {
+                items.retain(|e| {
+                    if e.code != "P001" {
+                        return true;
+                    }
+                    !specialized_spans
+                        .iter()
+                        .any(|(s, t)| e.start < *t && *s < e.end)
+                });
+            }
             Err(items)
         }
     }

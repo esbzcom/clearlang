@@ -1,0 +1,5 @@
+resource File {
+    drop {}
+}
+
+function bad(files: [File; 2]) -> Int { 0 }

@@ -1,0 +1,5 @@
+interface Eq<T> {
+    pure function eq(a: T, b: T) -> Bool;
+}
+
+function main() -> Int { 0 }

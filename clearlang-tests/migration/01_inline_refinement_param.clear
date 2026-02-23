@@ -1,0 +1,1 @@
+function needs_nat(x: Int where x >= 0) -> Int { x }

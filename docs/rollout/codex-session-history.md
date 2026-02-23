@@ -1,5 +1,25 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.5.3 deterministic migration coverage
+- Added migration fixtures for deferred ergonomics restrictions:
+  - `clearlang-tests/migration/01_inline_refinement_param.clear` (`P013`)
+  - `clearlang-tests/migration/02_interface_type_params.clear` (`T246`)
+  - `clearlang-tests/migration/03_implementation_method_type_params.clear` (`T245`)
+  - `clearlang-tests/migration/04_generic_refinement_alias.clear` (`T244`)
+  - `clearlang-tests/migration/05_set_resource.clear` (`T806`)
+  - `clearlang-tests/migration/06_array_resource.clear` (`T806`)
+- Added deterministic CLI IT assertions in `crates/cli/tests/cli_it/diagnostics.rs`:
+  - parse/build JSON errors return exactly one expected restriction code for migration fixtures.
+- Parser deterministic-resolution refinement:
+  - when specialized parse diagnostics (`P011`, `P012`, `P013`) are emitted, overlapping generic `P001` entries are dropped in structured output to avoid fallback ambiguity.
+- Validation:
+  - `cargo test -p clg-cli --test cli_it migration_`
+  - `cargo test -p clg-parser --test parse_structured_errors`
+  - `cargo test -p clg-cli --test diagnostics_codes`
+- Roadmap updates:
+  - marked `18.0.5.3` complete in `docs/TODO.md`,
+  - moved next active sub-step to `18.0.5.4` in `docs/rollout/DEVPLAN.md`.
+
 ## 2026-02-23 - Phase 18.0.5.2 deferred-form diagnostics closure
 - Added explicit inline-refinement parse diagnostic for alias-only refinement policy:
   - parser emits `P013` when inline param/return refinement syntax is used,

@@ -1,0 +1,9 @@
+interface Boxed {
+    pure function id(a: Self) -> Self;
+}
+
+implementation Boxed for Int {
+    pure function id<T>(a: Int) -> Int { a }
+}
+
+function main() -> Int { 0 }

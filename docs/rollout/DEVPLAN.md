@@ -6,7 +6,7 @@
 - Reliability gate is complete (`18.2`).
 - Ecosystem gate is complete (`18.4`).
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
-- Next active work is language ergonomics execution: `18.0.5` (next: `18.0.5.3` deterministic implementation/tests).
+- Next active work is language ergonomics execution: `18.0.5` (next: `18.0.5.4` SDK usability checks and gates).
 
 ### Suggested Sequence
 1) Execute `18.0.5` language ergonomics follow-through from the `18.0.0` decision lock.
@@ -20,6 +20,7 @@
 - **Phase 18 runtime-ops gate (`18.0.4`)**: completed via closure-env no-free runbook (`docs/rollout/closure-env-ops-runbook.md`) and evidence index (`docs/evidence/closure-env/README.md`).
 - **Phase 18 ergonomics design lock (`18.0.5.1`)**: published in `docs/design/phase-18.0.5-language-ergonomics.md`.
 - **Phase 18 ergonomics diagnostics/docs (`18.0.5.2`)**: completed with explicit deferred-form diagnostics (`P013`, `T244`, `T245`, `T246`, `T806`) and updated rationale docs.
+- **Phase 18 ergonomics deterministic migration coverage (`18.0.5.3`)**: completed with migration fixtures (`clearlang-tests/migration/`) and stable JSON-code CLI IT assertions.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

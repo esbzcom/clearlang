@@ -85,6 +85,7 @@ fn tamper_proofs_hash(module: &Path) {
         #[serde(with = "serde_bytes")]
         proofs_hash: Vec<u8>,
         functions: serde_cbor::Value,
+        assurance: Option<serde_cbor::Value>,
     }
 
     fn to_cbor_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
@@ -179,6 +180,25 @@ fn strip_proof_section(module: &Path) {
 fn sign_and_verify_roundtrip() {
     let tmp = tempdir().unwrap();
     let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    let sig_value: serde_json::Value =
+        serde_json::from_slice(&fs::read(&sig_path).expect("read signature")).expect("json");
+    let assurance = sig_value
+        .get("payload")
+        .and_then(|v| v.get("assurance"))
+        .and_then(|v| v.as_object())
+        .expect("payload assurance");
+    assert_eq!(assurance.get("tier").and_then(|v| v.as_str()), Some("L1"));
+    assert_eq!(
+        assurance.get("label").and_then(|v| v.as_str()),
+        Some("checked core")
+    );
+    assert_eq!(
+        assurance
+            .get("levels")
+            .and_then(|v| v.get("L2"))
+            .and_then(|v| v.as_str()),
+        Some("verified module")
+    );
 
     let mut verify = Command::cargo_bin("clg").expect("bin");
     verify

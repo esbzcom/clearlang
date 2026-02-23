@@ -37,6 +37,24 @@ fn build_emits_vcs_json() {
         first.get("status").and_then(|s| s.as_str()),
         Some("generated")
     );
+    let assurance = first
+        .get("assurance")
+        .and_then(|o| o.as_object())
+        .expect("assurance obj");
+    assert_eq!(assurance.get("tier").and_then(|s| s.as_str()), Some("L1"));
+    assert_eq!(
+        assurance.get("label").and_then(|s| s.as_str()),
+        Some("checked core")
+    );
+    let levels = assurance
+        .get("levels")
+        .and_then(|o| o.as_object())
+        .expect("levels obj");
+    assert_eq!(levels.get("L0").and_then(|s| s.as_str()), Some("assumed"));
+    assert_eq!(
+        levels.get("L3").and_then(|s| s.as_str()),
+        Some("verified package profile")
+    );
     let pre = first
         .get("pre")
         .and_then(|o| o.as_object())
@@ -199,6 +217,25 @@ struct ProofAssumptionEntry {
 }
 
 #[derive(Deserialize)]
+struct AssuranceLevelsEntry {
+    #[serde(rename = "L0")]
+    l0: String,
+    #[serde(rename = "L1")]
+    l1: String,
+    #[serde(rename = "L2")]
+    l2: String,
+    #[serde(rename = "L3")]
+    l3: String,
+}
+
+#[derive(Deserialize)]
+struct AssuranceEntry {
+    tier: String,
+    label: String,
+    levels: AssuranceLevelsEntry,
+}
+
+#[derive(Deserialize)]
 struct ProofAssumptionsEntry {
     items: Vec<ProofAssumptionEntry>,
 }
@@ -208,6 +245,8 @@ struct ProofVcAssumptionsEntry {
     vc_id: String,
     #[serde(default)]
     assumptions: Option<ProofAssumptionsEntry>,
+    #[serde(default)]
+    assurance: Option<AssuranceEntry>,
 }
 
 #[derive(Deserialize)]
@@ -219,6 +258,8 @@ struct ProofFunctionAssumptionsEntry {
 #[derive(Deserialize)]
 struct ProofAssumptionsSection {
     functions: Vec<ProofFunctionAssumptionsEntry>,
+    #[serde(default)]
+    assurance: Option<AssuranceEntry>,
 }
 
 #[test]
@@ -265,6 +306,15 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
         .and_then(|v| v.get("items"))
         .and_then(|v| v.as_array())
         .expect("assumptions items");
+    let assurance = vc
+        .get("assurance")
+        .and_then(|v| v.as_object())
+        .expect("assurance");
+    assert_eq!(assurance.get("tier").and_then(|v| v.as_str()), Some("L0"));
+    assert_eq!(
+        assurance.get("label").and_then(|v| v.as_str()),
+        Some("assumed")
+    );
     assert!(assumptions
         .iter()
         .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("unsigned.int_model")));
@@ -297,12 +347,24 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
     let proof_data = proof_data.expect("proof section");
     let section: ProofAssumptionsSection =
         serde_cbor::from_slice(&proof_data).expect("decode proof");
+    let section_assurance = section.assurance.expect("section assurance");
+    assert_eq!(section_assurance.tier, "L0");
+    assert_eq!(section_assurance.label, "assumed");
+    assert_eq!(section_assurance.levels.l2, "verified module");
+    assert_eq!(section_assurance.levels.l3, "verified package profile");
     let vc_assumptions = section
         .functions
         .iter()
         .find(|f| f.name == "check")
         .and_then(|f| f.vcs.iter().find(|vc| vc.vc_id == "vc:0"))
-        .and_then(|vc| vc.assumptions.as_ref())
+        .expect("proof vc");
+    let vc_assurance = vc_assumptions.assurance.as_ref().expect("vc assurance");
+    assert_eq!(vc_assurance.tier, "L0");
+    assert_eq!(vc_assurance.levels.l0, "assumed");
+    assert_eq!(vc_assurance.levels.l1, "checked core");
+    let vc_assumptions = vc_assumptions
+        .assumptions
+        .as_ref()
         .expect("proof vc assumptions");
     assert!(vc_assumptions
         .items

@@ -11,7 +11,7 @@
 - Next active phase: `19.1` assurance levels + trust-boundary model.
 
 ### Suggested Sequence
-1) Execute `19.1.1`-`19.1.4` assurance-tier/trust-boundary work.
+1) Execute `19.1.2`-`19.1.4` assurance-tier/trust-boundary work.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -31,6 +31,7 @@
 - **Phase 19 design-principles gate lock (`19.0.2`)**: completed with explicit policy + regression test for all `docs/design/phase-19*.md` slices (`docs/design/phase-19.0.2-design-principles-gate.md`, `crates/cli/tests/phase19_design_principles.rs`).
 - **Phase 19 compiler-modes lock (`19.0.3`)**: completed with explicit `clg build --compiler-mode {permissive,standard,strict}` semantics and deterministic diagnostics (`C029`, `C030`) (`docs/design/phase-19.0.3-compiler-modes.md`).
 - **Phase 19 non-goal clarity lock (`19.0.4`)**: completed with explicit positioning constraints (no universal proof-power superiority claim) and practical bounded-assurance framing (`docs/design/phase-19.0.4-non-goal-clarity.md`).
+- **Phase 19 assurance-tier artifacts (`19.1.1`)**: completed with explicit `L0`-`L3` tier metadata embedded in VC JSON/proof/signing artifacts and schema docs (`docs/design/phase-19.1.1-assurance-tiers.md`, `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`).
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

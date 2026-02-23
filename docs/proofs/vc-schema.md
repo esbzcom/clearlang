@@ -23,6 +23,14 @@ VC Object (v2)
 - `vc`: object - the VC implication `pre => post`
   - `smt2`: string
 - `status`: string - one of `generated|proved|failed`
+- `assurance`: object - explicit assurance-tier metadata (`L0`-`L3`)
+  - `tier`: string - current VC tier (`L0` or `L1` in current implementation)
+  - `label`: string - tier label (`assumed`, `checked core`, `verified module`, `verified package profile`)
+  - `levels`: object - stable tier label map
+    - `L0`: `assumed`
+    - `L1`: `checked core`
+    - `L2`: `verified module`
+    - `L3`: `verified package profile`
 - `assumptions`: object - optional assumption boundaries (v2+)
   - `items`: array of assumption objects (may be empty)
 - `positions`: object - optional source mapping
@@ -72,9 +80,15 @@ Current assumption IDs
 - `bitwise.uninterpreted`: bitwise/shift operators are encoded as uninterpreted SMT functions.
 - `crypto.uninterpreted`: crypto/constant-time intrinsics are encoded as uninterpreted SMT functions.
 
+Assurance tier mapping (current)
+- VCs with one or more assumption boundaries are emitted as `L0` (`assumed`).
+- VCs without assumption boundaries are emitted as `L1` (`checked core`).
+- `L2` and `L3` labels are emitted in `assurance.levels` for deterministic policy tooling; these levels are not claimed by current VC emission.
+
 Notes
 - `refinements.premises` are trace data; `pre`/`post` and `vc.smt2` include the substituted predicates.
 - `assumptions.items` enumerates model boundaries required for that VC; omission means no selected boundary was detected for that VC.
+- `assurance` is always emitted so release/policy tooling can consume tier labels deterministically.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
 - Coverage status for language features/intrinsics is tracked separately in `docs/proofs/proof-coverage-matrix.md` and `docs/proofs/proof-coverage-matrix.json`.
 - `canonical_function` appears only when `CLG_MANGLE_MAX_LEN` shortening changed the emitted function symbol.

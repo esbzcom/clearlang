@@ -1,6 +1,23 @@
 [
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "countdown",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 225,
+      "post_start": 219,
+      "pre_end": 142,
+      "pre_start": 116
+    },
     "post": {
       "ast": "n >= 0",
       "smt2": "(>= n 0)"
@@ -40,7 +57,24 @@
     "version": 2
   },
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "countdown",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 240,
+      "post_start": 238,
+      "pre_end": 142,
+      "pre_start": 116
+    },
     "post": {
       "ast": "n' < n",
       "smt2": "(< cl.loop.variant.next.0 n)"
@@ -80,7 +114,24 @@
     "version": 2
   },
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "countdown",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 240,
+      "post_start": 238,
+      "pre_end": 142,
+      "pre_start": 116
+    },
     "post": {
       "ast": "n >= 0",
       "smt2": "(>= n 0)"
@@ -120,7 +171,24 @@
     "version": 2
   },
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "countdown",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 177,
+      "post_start": 149,
+      "pre_end": 142,
+      "pre_start": 116
+    },
     "post": {
       "ast": "result >= 0",
       "smt2": "(>= result 0)"

@@ -31,7 +31,24 @@
         }
       ]
     },
+    "assurance": {
+      "label": "assumed",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L0"
+    },
     "function": "check",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 154,
+      "post_start": 100,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "result == std::bytes::eq_ct(a, b)",
       "smt2": "(= result (|std::bytes::eq_ct| a b))"
@@ -79,7 +96,24 @@
         }
       ]
     },
+    "assurance": {
+      "label": "assumed",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L0"
+    },
     "function": "check",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 190,
+      "post_start": 161,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "x & y == x",
       "smt2": "(= (clg.bit_and x y) x)"

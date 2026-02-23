@@ -1,6 +1,23 @@
 [
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "choose",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 319,
+      "post_start": 142,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "linear_state_consistent_across_branches(files)",
       "smt2": "(and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0))"

@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 19.0 - high-assurance target/guardrails after Phase 18 closure.
+Current focus: Phase 19.1 - assurance tiers + trust boundary model after 19.0 guardrail closure.
 
 3.1 Typer Core
 
@@ -868,7 +868,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.0.3 Ship Phase 19 behind explicit compiler modes so production users can choose strictness without ambiguity. (`docs/design/phase-19.0.3-compiler-modes.md`, `--compiler-mode {permissive,standard,strict}`, diagnostics `C029`/`C030`)
   - [x] 19.0.4 Document explicit non-goal: do not claim universal proof-power superiority over Coq/Agda/Lean/F*; target practical production assurance with simpler UX. (`docs/design/phase-19.0.4-non-goal-clarity.md`)
 - [ ] 19.1 Assurance levels + trust boundary model (no hidden assumptions).
-  - [ ] 19.1.1 Introduce explicit assurance tiers in diagnostics/artifacts (`L0` assumed, `L1` checked core, `L2` verified module, `L3` verified package profile).
+  - [x] 19.1.1 Introduce explicit assurance tiers in diagnostics/artifacts (`L0` assumed, `L1` checked core, `L2` verified module, `L3` verified package profile). (`docs/design/phase-19.1.1-assurance-tiers.md`, `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`)
   - [ ] 19.1.2 Require every non-proved primitive/external dependency to be labeled as `assumed` in emitted reports.
   - [ ] 19.1.3 Fail closed in strict mode: block `L3` claims if any unlabeled assumptions remain.
   - [ ] 19.1.4 Add external trust-anchor integration for compile-time `verify` mode (pinned Lean/Coq checker versions), while keeping runtime bundles kernel-free.

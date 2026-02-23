@@ -1,6 +1,23 @@
 [
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "inc",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 53,
+      "post_start": 0,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "result >= 0",
       "smt2": "(>= result 0)"

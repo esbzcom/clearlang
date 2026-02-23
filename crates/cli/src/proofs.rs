@@ -82,6 +82,25 @@ pub struct ProofAssumptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofAssuranceLevels {
+    #[serde(rename = "L0")]
+    pub l0: String,
+    #[serde(rename = "L1")]
+    pub l1: String,
+    #[serde(rename = "L2")]
+    pub l2: String,
+    #[serde(rename = "L3")]
+    pub l3: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofAssurance {
+    pub tier: String,
+    pub label: String,
+    pub levels: ProofAssuranceLevels,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProofProof {
     pub format: String,
     #[serde(with = "serde_bytes")]
@@ -101,6 +120,8 @@ pub struct ProofVc {
     pub refinements: Option<ProofRefinements>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assumptions: Option<ProofAssumptions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assurance: Option<ProofAssurance>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -124,12 +145,15 @@ pub struct ProofSection {
     #[serde(with = "serde_bytes")]
     pub proofs_hash: Vec<u8>,
     pub functions: Vec<ProofFunction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assurance: Option<ProofAssurance>,
 }
 
 pub struct ProofPackage {
     toolchain: String,
     functions: Vec<ProofFunction>,
     proofs_hash: [u8; 32],
+    assurance: ProofAssurance,
 }
 
 impl ProofPackage {
@@ -209,6 +233,7 @@ impl ProofPackage {
                     proof: None,
                     refinements,
                     assumptions,
+                    assurance: Some(assurance_for_assumptions(&vc.assumptions)),
                 });
         }
 
@@ -266,6 +291,7 @@ impl ProofPackage {
             toolchain,
             functions,
             proofs_hash,
+            assurance: assurance_for_vcs(vcs),
         }
     }
 
@@ -280,6 +306,7 @@ impl ProofPackage {
             module_hash: module_hash.to_vec(),
             proofs_hash: self.proofs_hash.to_vec(),
             functions: self.functions.clone(),
+            assurance: Some(self.assurance.clone()),
         };
         to_cbor_bytes(&section)
     }
@@ -296,6 +323,7 @@ impl ProofPackage {
             "toolchain": self.toolchain,
             "timestamp": timestamp,
             "scope": scope.as_str(),
+            "assurance": self.assurance.clone(),
         })
     }
 }
@@ -320,6 +348,41 @@ fn proof_assumption_from_boundary(boundary: &AssumptionBoundary) -> ProofAssumpt
         status: boundary.status.to_string(),
         message: boundary.message.to_string(),
         symbols: boundary.symbols.clone(),
+    }
+}
+
+pub fn assurance_for_assumptions(assumptions: &[AssumptionBoundary]) -> ProofAssurance {
+    let tier = if assumptions.is_empty() { "L1" } else { "L0" };
+    proof_assurance_for_tier(tier)
+}
+
+pub fn assurance_for_vcs(vcs: &[VerificationCondition]) -> ProofAssurance {
+    if vcs.iter().any(|vc| !vc.assumptions.is_empty()) {
+        return proof_assurance_for_tier("L0");
+    }
+    proof_assurance_for_tier("L1")
+}
+
+fn proof_assurance_for_tier(tier: &str) -> ProofAssurance {
+    ProofAssurance {
+        tier: tier.to_string(),
+        label: assurance_label_for_tier(tier).to_string(),
+        levels: ProofAssuranceLevels {
+            l0: assurance_label_for_tier("L0").to_string(),
+            l1: assurance_label_for_tier("L1").to_string(),
+            l2: assurance_label_for_tier("L2").to_string(),
+            l3: assurance_label_for_tier("L3").to_string(),
+        },
+    }
+}
+
+fn assurance_label_for_tier(tier: &str) -> &'static str {
+    match tier {
+        "L0" => "assumed",
+        "L1" => "checked core",
+        "L2" => "verified module",
+        "L3" => "verified package profile",
+        _ => "unknown",
     }
 }
 

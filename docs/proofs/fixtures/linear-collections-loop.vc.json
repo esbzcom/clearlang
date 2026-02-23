@@ -1,6 +1,23 @@
 [
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "loop_step",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 328,
+      "post_start": 141,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "linear_state_preserved_across_loop(files)",
       "smt2": "(and (= cl.linear.loop.0.0.before cl.linear.loop.0.0.after) (>= cl.linear.loop.0.0.before 0) (>= cl.linear.loop.0.0.after 0))"
@@ -17,7 +34,24 @@
     "version": 2
   },
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "loop_step",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 171,
+      "post_start": 165,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "n >= 0",
       "smt2": "(>= n 0)"
@@ -34,7 +68,24 @@
     "version": 2
   },
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "loop_step",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 186,
+      "post_start": 184,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "n' < n",
       "smt2": "(< cl.loop.variant.next.0 n)"
@@ -51,7 +102,24 @@
     "version": 2
   },
   {
+    "assurance": {
+      "label": "checked core",
+      "levels": {
+        "L0": "assumed",
+        "L1": "checked core",
+        "L2": "verified module",
+        "L3": "verified package profile"
+      },
+      "tier": "L1"
+    },
     "function": "loop_step",
+    "positions": {
+      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "post_end": 186,
+      "post_start": 184,
+      "pre_end": 0,
+      "pre_start": 0
+    },
     "post": {
       "ast": "n >= 0",
       "smt2": "(>= n 0)"

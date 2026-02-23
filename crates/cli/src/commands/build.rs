@@ -17,7 +17,9 @@ use time::OffsetDateTime;
 use crate::commands::helpers::{extract_function_name, make_single_json_error, CommandError};
 use crate::commands::modules::load_program;
 use crate::logging::{LogLevel, Logger, StageTimings};
-use crate::proofs::{hash_module, module_bytes_with_zeroed_hash, ProofPackage};
+use crate::proofs::{
+    assurance_for_assumptions, hash_module, module_bytes_with_zeroed_hash, ProofPackage,
+};
 use crate::signing::{self, SignScope};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -378,6 +380,10 @@ fn write_vcs_json(
         );
         obj.insert("vc".to_string(), json!({ "smt2": vc.vc_smt2 }));
         obj.insert("status".to_string(), json!(vc.status));
+        obj.insert(
+            "assurance".to_string(),
+            serde_json::to_value(assurance_for_assumptions(&vc.assumptions))?,
+        );
         if !vc.assumptions.is_empty() {
             obj.insert("assumptions".to_string(), assumptions_json(&vc.assumptions));
         }

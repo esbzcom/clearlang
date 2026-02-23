@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 18.0.4 - runtime-ops gate for closure-env no-free policy (`docs/rollout/closure-env-ops-runbook.md`).
+Current focus: Phase 18.0.5 - language ergonomics execution from the 18.0.0 decision lock.
 
 3.1 Typer Core
 
@@ -831,12 +831,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 18.0.1 P0 Security gate: complete 18.1 + 18.3 before production rollout.
   - [x] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
   - [x] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
-  - [ ] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
-    - [ ] 18.0.4.1 Publish runbook skeleton in `docs/rollout/closure-env-ops-runbook.md` (scope, required inputs, evidence artifacts).
-    - [ ] 18.0.4.2 Define default worker recycle policy (time-based + memory-threshold triggers) and override knobs.
-    - [ ] 18.0.4.3 Define memory-budget tiers and per-tier action policy (warn, drain, recycle, incident).
-    - [ ] 18.0.4.4 Define monitoring + alerts for closure-env growth and recycle failures (signal list, thresholds, paging severity).
-    - [ ] 18.0.4.5 Add design-principles gate to runbook sign-off (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and link verification evidence.
+  - [x] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
+    - [x] 18.0.4.1 Publish runbook skeleton in `docs/rollout/closure-env-ops-runbook.md` (scope, required inputs, evidence artifacts).
+    - [x] 18.0.4.2 Define default worker recycle policy (time-based + memory-threshold triggers) and override knobs.
+    - [x] 18.0.4.3 Define memory-budget tiers and per-tier action policy (warn, drain, recycle, incident).
+    - [x] 18.0.4.4 Define monitoring + alerts for closure-env growth and recycle failures (signal list, thresholds, paging severity).
+    - [x] 18.0.4.5 Add design-principles gate to runbook sign-off (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and link verification evidence.
   - [ ] 18.0.5 P2 Language ergonomics execution (after 18.0.0 decisions are locked).
     - [ ] 18.0.5.1 For each accepted ergonomics change from 18.0.0, publish a design lock (syntax, typing, diagnostics, non-goals) before implementation.
     - [ ] 18.0.5.2 For each rejected/deferred ergonomics item from 18.0.0, add explicit parser/typer diagnostics and docs rationale (no silent fallback behavior).

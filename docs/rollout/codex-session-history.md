@@ -1,5 +1,15 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.4 runtime-ops gate closure
+- Completed runtime-ops gate documentation for closure-env no-free policy:
+  - published concrete host runbook defaults, thresholds, triggers, and alert severities in `docs/rollout/closure-env-ops-runbook.md`,
+  - added evidence index scaffold in `docs/evidence/closure-env/README.md`,
+  - linked closure operational guidance from `docs/typing.md`.
+- Roadmap updates:
+  - marked `18.0.4` and `18.0.4.1`-`18.0.4.5` complete in `docs/TODO.md`,
+  - moved current focus to `18.0.5`,
+  - updated `docs/rollout/DEVPLAN.md` to set `18.0.5` as next active execution slice.
+
 ## 2026-02-14 - Phase 17.8.3.3 shortened-name traceability
 - Implemented emitted-name to canonical-name traceability in proof/debug artifacts:
   - `crates/typer/src/check/monomorphize/mod.rs`: `monomorphize_program` now returns both the monomorphized program and the emitted->canonical mangled-name origin map.

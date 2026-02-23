@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clg_ir::{Instr as IrInstr, IrType, Module as IrModule};
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use wasm_encoder::{
     CodeSection, ConstExpr, CustomSection, DataSection, EntityType, ExportKind, ExportSection,
     FunctionSection, GlobalSection, GlobalType, ImportSection, MemorySection, MemoryType, Module,
@@ -66,12 +66,20 @@ pub struct CodegenOpts {
     pub debug_names: bool,
     pub proof_section: Option<Vec<u8>>,
     pub export_aliases: Vec<ExportAlias>,
+    pub external_imports: Vec<ExternalImport>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ExportAlias {
     pub export: String,
     pub target: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExternalImport {
+    pub function: String,
+    pub import_module: String,
+    pub import_name: String,
 }
 
 #[derive(Default)]
@@ -100,6 +108,19 @@ impl IntrinsicPresence {
 
 pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8>> {
     let mut module = Module::new();
+    let mut external_by_function: HashMap<&str, &ExternalImport> =
+        HashMap::with_capacity(opts.external_imports.len());
+    for binding in &opts.external_imports {
+        if external_by_function
+            .insert(binding.function.as_str(), binding)
+            .is_some()
+        {
+            anyhow::bail!(
+                "duplicate external import binding for `{}`",
+                binding.function
+            );
+        }
+    }
 
     // Single pass over module-level metadata:
     // - collect unique string literals and assign memory offsets
@@ -201,6 +222,15 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     } else {
         None
     };
+    let mut used_external_imports: Vec<(&ExternalImport, u32)> = Vec::new();
+    let mut seen_external_functions: HashSet<&str> = HashSet::new();
+    for (i, f) in ir.funcs.iter().enumerate() {
+        if let Some(binding) = external_by_function.get(f.name.as_str()) {
+            if seen_external_functions.insert(f.name.as_str()) {
+                used_external_imports.push((*binding, fn_type_indices[i]));
+            }
+        }
+    }
     module.section(&types);
 
     let mut import_count = 0u32;
@@ -210,6 +240,8 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut crypto_hash_index: Option<u32> = None;
     let mut crypto_hmac_index: Option<u32> = None;
     let mut crypto_verify_index: Option<u32> = None;
+    let mut external_import_indices: HashMap<String, u32> =
+        HashMap::with_capacity(used_external_imports.len());
     let mut imports = ImportSection::new();
     if let Some(fd_write_ty) = fd_write_ty {
         imports.import(
@@ -263,6 +295,15 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             EntityType::Function(crypto_verify_ty),
         );
         crypto_verify_index = Some(import_count);
+        import_count += 1;
+    }
+    for (binding, ty_idx) in &used_external_imports {
+        imports.import(
+            binding.import_module.as_str(),
+            binding.import_name.as_str(),
+            EntityType::Function(*ty_idx),
+        );
+        external_import_indices.insert(binding.function.clone(), import_count);
         import_count += 1;
     }
     if import_count > 0 {
@@ -448,6 +489,12 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::u64::to_bytes_be" => encode_intrinsic_u64_to_bytes_be(f)?,
             "std::u64::from_bytes_le" => encode_intrinsic_u64_from_bytes_le(f)?,
             "std::u64::from_bytes_be" => encode_intrinsic_u64_from_bytes_be(f)?,
+            name if external_import_indices.contains_key(name) => {
+                let idx = *external_import_indices
+                    .get(name)
+                    .expect("external import index expected");
+                encode_external_import_forwarder(f, idx)?
+            }
             _ => encode_ir_function(f, &ir.funcs, &str_pool, func_index_offset)?,
         };
         codes.function(&func);
@@ -490,6 +537,20 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     }
 
     Ok(module.finish())
+}
+
+fn encode_external_import_forwarder(
+    f: &clg_ir::Function,
+    import_index: u32,
+) -> Result<wasm_encoder::Function> {
+    let mut fenc = wasm_encoder::Function::new(Vec::new());
+    let mut insts = fenc.instructions();
+    for idx in 0..f.params.len() {
+        insts.local_get(idx as u32);
+    }
+    insts.call(import_index);
+    insts.end();
+    Ok(fenc)
 }
 
 // Backwards-compatible helper with default options

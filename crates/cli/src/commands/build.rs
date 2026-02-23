@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use clg_ast::{Effect, Program, Type};
-use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias};
+use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport};
 use clg_ir::IrType;
 use clg_typer::{
-    check_with_vcs_with_std, RefinementAttachmentDetail, TypecheckOutput, TyperError,
-    VerificationCondition,
+    check_with_vcs_with_std_and_external, ExternalBuiltinSig, RefinementAttachmentDetail,
+    TypecheckOutput, TyperError, VerificationCondition,
 };
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -40,15 +40,34 @@ pub fn run(
     }
 
     let mut timings = StageTimings::new();
-    let ast = {
+    let loaded = {
         let _stage = timings.start(logger, "parse");
         load_program(&file, json_errors)?
     };
+    let ast = &loaded.program;
+    let external_typer_sigs: Vec<ExternalBuiltinSig> = loaded
+        .external_imports
+        .iter()
+        .map(|binding| ExternalBuiltinSig {
+            name: binding.function.clone(),
+            params: binding.params.clone(),
+            ret: binding.ret.clone(),
+            effect: binding.effect,
+        })
+        .collect();
+    let external_codegen_imports: Vec<ExternalImport> = loaded
+        .external_imports
+        .iter()
+        .map(|binding| ExternalImport {
+            function: binding.function.clone(),
+            import_module: binding.import_module.clone(),
+            import_name: binding.import_name.clone(),
+        })
+        .collect();
 
-    let std_types = crate::commands::modules::std_type_info();
     let type_output = {
         let _stage = timings.start(logger, "typecheck");
-        match check_with_vcs_with_std(&ast, &std_types) {
+        match check_with_vcs_with_std_and_external(ast, &loaded.std_types, &external_typer_sigs) {
             Ok(result) => result,
             Err(e) => {
                 if json_errors {
@@ -91,7 +110,7 @@ pub fn run(
     };
 
     let export_aliases = if contract {
-        contract_exports(&ast, &file, json_errors)?
+        contract_exports(ast, &file, json_errors)?
     } else {
         match ir.funcs.iter().find(|f| f.name == "main") {
             Some(f) => {
@@ -133,6 +152,7 @@ pub fn run(
                 debug_names,
                 proof_section: zero_section.clone(),
                 export_aliases: export_aliases.clone(),
+                external_imports: external_codegen_imports.clone(),
             },
         )
         .context("codegen (IR+Wasm) failed")?;
@@ -147,6 +167,7 @@ pub fn run(
                     debug_names,
                     proof_section: Some(proof_section),
                     export_aliases: export_aliases.clone(),
+                    external_imports: external_codegen_imports.clone(),
                 },
             )
             .context("codegen (IR+Wasm) failed")?;

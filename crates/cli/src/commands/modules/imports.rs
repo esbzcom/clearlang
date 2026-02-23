@@ -4,12 +4,14 @@ use anyhow::Result;
 use clg_ast::{ImportKind, Span};
 
 use super::error::module_error;
+use super::package_metadata::{PackageMetadataIndex, PackageModuleIndex};
 use super::std_metadata::{std_metadata, StdModuleIndex};
 use super::{qualify_name, target_prefix, Exports, ImportEnv, ModuleUnit};
 
 pub(super) fn build_import_env(
     module: &ModuleUnit,
     modules: &HashMap<String, &ModuleUnit>,
+    packages: &PackageMetadataIndex,
     json_errors: bool,
 ) -> Result<ImportEnv> {
     let mut module_aliases = HashMap::with_capacity(module.program.imports.len());
@@ -54,14 +56,30 @@ pub(super) fn build_import_env(
                             json_errors,
                         ));
                     }
-                } else if !modules.contains_key(&target_path) {
-                    return Err(module_error(
-                        "C020",
-                        format!("unknown module `{}`", target_path),
-                        &module.file,
-                        import.path_span,
-                        json_errors,
-                    ));
+                } else {
+                    let has_local = modules.contains_key(&target_path);
+                    let has_package = packages.has_module(&target_path);
+                    if has_local && has_package {
+                        return Err(module_error(
+                            "C028",
+                            format!(
+                                "module `{}` is provided by both source files and package metadata",
+                                target_path
+                            ),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        ));
+                    }
+                    if !has_local && !has_package {
+                        return Err(module_error(
+                            "C020",
+                            format!("unknown module `{}`", target_path),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        ));
+                    }
                 }
 
                 module_aliases.insert(alias_name, target_path.clone());
@@ -93,29 +111,64 @@ pub(super) fn build_import_env(
                         )?;
                     }
                 } else {
-                    let Some(target) = modules.get(&target_path) else {
-                        return Err(module_error(
-                            "C020",
-                            format!("unknown module `{}`", target_path),
-                            &module.file,
-                            import.path_span,
-                            json_errors,
-                        ));
-                    };
-                    let source = ExportSource::Local(&target.exports);
-                    for item in items {
-                        import_item(
-                            module,
-                            &module_aliases,
-                            &mut imported_values,
-                            &mut imported_types,
-                            &source,
-                            &target_path,
-                            target_prefix(target),
-                            &item.name,
-                            item.span,
-                            json_errors,
-                        )?;
+                    let local_target = modules.get(&target_path);
+                    let package_target = packages.module(&target_path);
+                    match (local_target, package_target) {
+                        (Some(_), Some(_)) => {
+                            return Err(module_error(
+                                "C028",
+                                format!(
+                                    "module `{}` is provided by both source files and package metadata",
+                                    target_path
+                                ),
+                                &module.file,
+                                import.path_span,
+                                json_errors,
+                            ));
+                        }
+                        (Some(target), None) => {
+                            let source = ExportSource::Local(&target.exports);
+                            for item in items {
+                                import_item(
+                                    module,
+                                    &module_aliases,
+                                    &mut imported_values,
+                                    &mut imported_types,
+                                    &source,
+                                    &target_path,
+                                    target_prefix(target),
+                                    &item.name,
+                                    item.span,
+                                    json_errors,
+                                )?;
+                            }
+                        }
+                        (None, Some(target)) => {
+                            let source = ExportSource::Package(target);
+                            for item in items {
+                                import_item(
+                                    module,
+                                    &module_aliases,
+                                    &mut imported_values,
+                                    &mut imported_types,
+                                    &source,
+                                    &target_path,
+                                    &target_path,
+                                    &item.name,
+                                    item.span,
+                                    json_errors,
+                                )?;
+                            }
+                        }
+                        (None, None) => {
+                            return Err(module_error(
+                                "C020",
+                                format!("unknown module `{}`", target_path),
+                                &module.file,
+                                import.path_span,
+                                json_errors,
+                            ));
+                        }
                     }
                 }
             }
@@ -132,6 +185,7 @@ pub(super) fn build_import_env(
 enum ExportSource<'a> {
     Std(&'a StdModuleIndex),
     Local(&'a Exports),
+    Package(&'a PackageModuleIndex),
 }
 
 impl ExportSource<'_> {
@@ -139,6 +193,7 @@ impl ExportSource<'_> {
         match self {
             ExportSource::Std(module) => module.values.contains(name),
             ExportSource::Local(exports) => exports.values.contains(name),
+            ExportSource::Package(module) => module.values.contains(name),
         }
     }
 
@@ -146,6 +201,7 @@ impl ExportSource<'_> {
         match self {
             ExportSource::Std(module) => module.types.contains(name),
             ExportSource::Local(exports) => exports.types.contains(name),
+            ExportSource::Package(module) => module.types.contains(name),
         }
     }
 
@@ -153,6 +209,7 @@ impl ExportSource<'_> {
         match self {
             ExportSource::Std(_) => format!("{}::{}", module_path_or_prefix, name),
             ExportSource::Local(_) => qualify_name(module_path_or_prefix, name),
+            ExportSource::Package(_) => format!("{}::{}", module_path_or_prefix, name),
         }
     }
 }

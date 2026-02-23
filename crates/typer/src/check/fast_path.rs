@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
-use clg_ast::Program;
+use clg_ast::{Program, Type};
 use clg_ir::{Instr, Module};
 use std::collections::HashMap;
 
 use super::aliases::{build_alias_map, validate_alias_predicates};
 use super::function_checks::{check_func, check_impl_method, check_trait_default_method};
-use super::intrinsics::collect_used_intrinsics;
+use super::intrinsics::{collect_called_functions, collect_used_intrinsics};
 use super::monomorphize::{monomorphize_program, MonomorphizeOutput};
 use super::totality::level_from_effect;
 use super::trait_env::build_trait_env;
@@ -16,17 +16,18 @@ use super::type_validation::{
     validate_supported_types,
 };
 use super::{
-    ensure_user_function_name_allowed, validate_struct_enum_resources, FnSig, StdTypeMap,
-    TypecheckOutput,
+    ensure_user_function_name_allowed, validate_struct_enum_resources, ExternalBuiltinSig, FnSig,
+    StdTypeMap, TypecheckOutput,
 };
 use crate::builtins::builtin_sigs;
 use crate::errors::TyperError;
 use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
 use crate::vc::generate_vcs;
 
-pub(super) fn fast_path_without_totality_with_std(
+pub(super) fn fast_path_without_totality_with_std_and_external(
     ast: &Program,
     std_types: &StdTypeMap,
+    external_builtins: &[ExternalBuiltinSig],
 ) -> Result<TypecheckOutput> {
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
@@ -43,7 +44,8 @@ pub(super) fn fast_path_without_totality_with_std(
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
     let builtins = builtin_sigs();
-    let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
+    let mut fns: HashMap<&str, FnSig> =
+        HashMap::with_capacity(builtins.len() + external_builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
         fns.insert(
             name.as_str(),
@@ -55,6 +57,23 @@ pub(super) fn fast_path_without_totality_with_std(
                 bounds: Vec::new(),
             },
         );
+    }
+    for sig in external_builtins {
+        if fns
+            .insert(
+                sig.name.as_str(),
+                FnSig {
+                    params: sig.params.clone(),
+                    ret: sig.ret.clone(),
+                    effect: level_from_effect(sig.effect),
+                    type_params: Vec::new(),
+                    bounds: Vec::new(),
+                },
+            )
+            .is_some()
+        {
+            anyhow::bail!("duplicate external function `{}`", sig.name);
+        }
     }
 
     for f in &ast.funcs {
@@ -123,7 +142,7 @@ pub(super) fn fast_path_without_totality_with_std(
         mangled_name_origins,
     } = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
     let mut mono_fns: HashMap<&str, FnSig> =
-        HashMap::with_capacity(builtins.len() + mono_program.funcs.len());
+        HashMap::with_capacity(builtins.len() + external_builtins.len() + mono_program.funcs.len());
     for (name, params, ret, eff) in &builtins {
         mono_fns.insert(
             name.as_str(),
@@ -135,6 +154,23 @@ pub(super) fn fast_path_without_totality_with_std(
                 bounds: Vec::new(),
             },
         );
+    }
+    for sig in external_builtins {
+        if mono_fns
+            .insert(
+                sig.name.as_str(),
+                FnSig {
+                    params: sig.params.clone(),
+                    ret: sig.ret.clone(),
+                    effect: level_from_effect(sig.effect),
+                    type_params: Vec::new(),
+                    bounds: Vec::new(),
+                },
+            )
+            .is_some()
+        {
+            anyhow::bail!("duplicate external function `{}`", sig.name);
+        }
     }
     for f in &mono_program.funcs {
         mono_fns.insert(
@@ -150,8 +186,10 @@ pub(super) fn fast_path_without_totality_with_std(
     }
 
     let used_intrinsics = collect_used_intrinsics(&mono_program);
-    let mut fn_indices: HashMap<&str, u32> =
-        HashMap::with_capacity(mono_program.funcs.len() + used_intrinsics.len());
+    let called_functions = collect_called_functions(&mono_program);
+    let mut fn_indices: HashMap<&str, u32> = HashMap::with_capacity(
+        mono_program.funcs.len() + used_intrinsics.len() + external_builtins.len(),
+    );
     for (i, f) in mono_program.funcs.iter().enumerate() {
         fn_indices.insert(f.name.as_str(), i as u32);
     }
@@ -252,9 +290,29 @@ pub(super) fn fast_path_without_totality_with_std(
             });
         }
     }
+    let mut external_defs: Vec<clg_ir::Function> = Vec::new();
+    for sig in external_builtins {
+        if !called_functions.contains(sig.name.as_str()) {
+            continue;
+        }
+        let idx = (mono_program.funcs.len() + intrinsic_defs.len() + external_defs.len()) as u32;
+        if fn_indices.insert(sig.name.as_str(), idx).is_some() {
+            anyhow::bail!("duplicate external function `{}`", sig.name);
+        }
+        external_defs.push(clg_ir::Function {
+            name: sig.name.clone(),
+            params: sig
+                .params
+                .iter()
+                .map(|p| ir_type_for_external(&p.ty))
+                .collect(),
+            ret: Some(ir_type_for_external(&sig.ret)),
+            body: vec![],
+        });
+    }
 
     let mut lowered_funcs: Vec<clg_ir::Function> =
-        Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len());
+        Vec::with_capacity(mono_program.funcs.len() + intrinsic_defs.len() + external_defs.len());
     let mut generated_lambda_funcs: Vec<clg_ir::Function> = Vec::new();
     let mut lambda_cases = Vec::new();
     let mut dispatcher_patches = Vec::new();
@@ -276,6 +334,7 @@ pub(super) fn fast_path_without_totality_with_std(
         dispatcher_patches.extend(lowered.dispatcher_patches);
     }
     lowered_funcs.extend(intrinsic_defs);
+    lowered_funcs.extend(external_defs);
 
     let lambda_start_idx = lowered_funcs.len() as u32;
     let mut lambda_fn_indices: HashMap<String, u32> =
@@ -384,4 +443,27 @@ pub(super) fn fast_path_without_totality_with_std(
         mono_program,
         mangled_name_origins,
     })
+}
+
+fn ir_type_for_external(ty: &Type) -> clg_ir::IrType {
+    match ty {
+        Type::Int => clg_ir::IrType::Int,
+        Type::U8 => clg_ir::IrType::Int,
+        Type::U64 => clg_ir::IrType::U64,
+        Type::U128 => clg_ir::IrType::U128,
+        Type::U256 => clg_ir::IrType::U256,
+        Type::Bool => clg_ir::IrType::Bool,
+        Type::String
+        | Type::Bytes
+        | Type::Named { .. }
+        | Type::Option(_)
+        | Type::Result(_, _)
+        | Type::List(_)
+        | Type::Set(_)
+        | Type::Map(_, _)
+        | Type::Array(_, _)
+        | Type::Slice(_)
+        | Type::Tuple(_)
+        | Type::Fn { .. } => clg_ir::IrType::Int,
+    }
 }

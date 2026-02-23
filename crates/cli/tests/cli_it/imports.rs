@@ -1,4 +1,5 @@
 use super::*;
+use wasmparser::{Parser, Payload};
 
 #[test]
 fn build_and_run_with_imports() {
@@ -39,6 +40,175 @@ fn build_and_run_with_imports() {
         .assert()
         .success()
         .stdout(predicate::str::contains("42"));
+}
+
+#[test]
+fn build_with_compiled_package_import_succeeds() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let pkg_dir = root.join("pkg");
+    fs::create_dir_all(&pkg_dir).expect("create pkg dir");
+    fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
+
+    let metadata = r#"
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "mathpkg",
+      "version": "1.0.0",
+      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
+      "modules": [
+        {
+          "path": "mathpkg::arith",
+          "exports": [
+            {
+              "name": "add2",
+              "kind": "value",
+              "effect": "pure",
+              "params": [
+                { "name": "a", "type": "Int" },
+                { "name": "b", "type": "Int" }
+              ],
+              "ret": "Int",
+              "import": { "module": "mathpkg_arith", "name": "add2" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+    "#;
+    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+
+    let main_src = r#"
+        import mathpkg::arith::{add2}
+        function main() -> Int { add2(40, 2) }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let mut saw_import = false;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        if let Payload::ImportSection(reader) = payload.expect("payload") {
+            for item in reader {
+                let import = item.expect("import");
+                if import.module == "mathpkg_arith" && import.name == "add2" {
+                    saw_import = true;
+                }
+            }
+        }
+    }
+    assert!(saw_import, "expected external import mathpkg_arith.add2");
+}
+
+#[test]
+fn invalid_package_metadata_reports_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+    fs::write(
+        root.join("clg-packages.json"),
+        r#"{ "schema_version": 9, "packages": [] }"#,
+    )
+    .expect("write metadata");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn source_and_package_module_conflict_reports_c028() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let pkg_dir = root.join("pkg");
+    let src_dir = root.join("mathpkg");
+    fs::create_dir_all(&pkg_dir).expect("create pkg dir");
+    fs::create_dir_all(&src_dir).expect("create src dir");
+    fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
+
+    let metadata = r#"
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "mathpkg",
+      "version": "1.0.0",
+      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
+      "modules": [
+        { "path": "mathpkg::arith", "exports": [] }
+      ]
+    }
+  ]
+}
+    "#;
+    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+    fs::write(
+        src_dir.join("arith.clear"),
+        "export function add2(a: Int, b: Int) -> Int { a + b }",
+    )
+    .expect("write local module");
+
+    let main_src = r#"
+        import mathpkg::arith
+        function main() -> Int { arith::add2(1, 2) }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C028"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
 }
 
 #[test]

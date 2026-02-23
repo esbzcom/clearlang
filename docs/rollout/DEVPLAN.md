@@ -4,11 +4,13 @@
 - 18.0.0 open questions are now decision-locked (see `docs/design/phase-18.0-open-questions.md`).
 - Security gate is complete (`18.1` + `18.3`).
 - Reliability gate is complete (`18.2`).
-- Next active work is ecosystem execution: `18.4`.
+- Ecosystem gate is complete (`18.4`).
+- Next active work is runtime-ops execution: `18.0.4` (closure-env no-free host runbook).
 
 ### Suggested Sequence
-1) Complete 18.4 compiled module/package import support.
-2) Execute 18.0.5 and 18.0.6 implementation follow-through from the 18.0.0 decision lock.
+1) Publish `18.0.4` host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
+2) Execute `18.0.5` language ergonomics follow-through from the `18.0.0` decision lock.
+3) Execute `18.0.6` proof-model follow-through from the `18.0.0` decision lock.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.

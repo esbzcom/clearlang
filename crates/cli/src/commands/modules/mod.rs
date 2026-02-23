@@ -3,15 +3,33 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clg_ast::Program;
+use clg_ast::{Effect, Param, Type};
 use clg_typer::StdTypeInfo;
 
 mod error;
 mod graph;
 mod imports;
+mod package_metadata;
 mod resolve;
 mod std_metadata;
 
-pub fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
+#[derive(Clone)]
+pub struct ExternalImportBinding {
+    pub function: String,
+    pub import_module: String,
+    pub import_name: String,
+    pub params: Vec<Param>,
+    pub ret: Type,
+    pub effect: Effect,
+}
+
+pub struct ProgramLoad {
+    pub program: Program,
+    pub std_types: HashMap<String, StdTypeInfo>,
+    pub external_imports: Vec<ExternalImportBinding>,
+}
+
+pub fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoad> {
     graph::load_program(entry, json_errors)
 }
 

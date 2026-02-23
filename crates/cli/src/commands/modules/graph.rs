@@ -11,13 +11,24 @@ use crate::commands::helpers::{make_parse_json_error, CommandError};
 
 use super::error::module_error;
 use super::imports::build_import_env;
+use super::package_metadata::{PackageMetadataIndex, PACKAGE_METADATA_FILE};
 use super::resolve::resolve_program;
-use super::{Exports, ModuleUnit};
+use super::{std_type_info, Exports, ModuleUnit, ProgramLoad};
 
-pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
+pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoad> {
     let root = entry.parent().unwrap_or_else(|| Path::new("."));
     let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let entry_abs = entry.canonicalize().unwrap_or_else(|_| entry.to_path_buf());
+    let metadata_path = root.join(PACKAGE_METADATA_FILE);
+    let package_index = PackageMetadataIndex::load(&root).map_err(|err| {
+        module_error(
+            "C027",
+            format!("invalid package metadata: {err:#}"),
+            &metadata_path,
+            Span { start: 0, end: 0 },
+            json_errors,
+        )
+    })?;
 
     let mut modules: Vec<ModuleUnit> = Vec::new();
     let mut by_path: HashMap<String, usize> = HashMap::new();
@@ -33,6 +44,18 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
             module_path_for(&root, &file)?
         };
         let path_str = path.join("::");
+        if !is_entry && package_index.has_module(&path_str) {
+            return Err(module_error(
+                "C028",
+                format!(
+                    "module `{}` is provided by both source files and package metadata",
+                    path_str
+                ),
+                &file,
+                Span { start: 0, end: 0 },
+                json_errors,
+            ));
+        }
 
         if let Some(existing) = module_files.get(&path_str) {
             if !same_path(existing, &file) {
@@ -111,16 +134,33 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
             }
 
             let import_file = module_file_for(&root, &import.path);
-            if !import_file.exists() {
+            let has_local = import_file.exists();
+            let import_path = import.path.join("::");
+            let has_package = package_index.has_module(&import_path);
+            if has_local && has_package {
                 return Err(module_error(
-                    "C020",
-                    format!("unknown module `{}`", import.path.join("::")),
+                    "C028",
+                    format!(
+                        "module `{}` is provided by both source files and package metadata",
+                        import_path
+                    ),
                     &file,
                     import.path_span,
                     json_errors,
                 ));
             }
-            queue.push_back(import_file);
+            if !has_local && !has_package {
+                return Err(module_error(
+                    "C020",
+                    format!("unknown module `{}`", import_path),
+                    &file,
+                    import.path_span,
+                    json_errors,
+                ));
+            }
+            if has_local {
+                queue.push_back(import_file);
+            }
         }
 
         let (local_values, local_types) = collect_locals(&program);
@@ -159,7 +199,7 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
     }
 
     for module in &modules {
-        let env = build_import_env(module, &modules_by_name, json_errors)?;
+        let env = build_import_env(module, &modules_by_name, &package_index, json_errors)?;
         let mut program = resolve_program(module, &env);
         resolved
             .refined_aliases
@@ -172,7 +212,24 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<Program> {
         resolved.funcs.append(&mut program.funcs);
     }
 
-    Ok(resolved)
+    let mut std_types = std_type_info();
+    package_index
+        .merge_type_layouts(&mut std_types)
+        .map_err(|err| {
+            module_error(
+                "C027",
+                format!("invalid package metadata: {err:#}"),
+                &metadata_path,
+                Span { start: 0, end: 0 },
+                json_errors,
+            )
+        })?;
+
+    Ok(ProgramLoad {
+        program: resolved,
+        std_types,
+        external_imports: package_index.external_imports().to_vec(),
+    })
 }
 
 fn parse_file(path: &Path, json_errors: bool) -> Result<Program> {

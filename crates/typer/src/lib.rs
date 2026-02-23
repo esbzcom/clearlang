@@ -6,7 +6,8 @@ mod lower;
 mod vc;
 
 pub use check::{
-    check, check_with_vcs, check_with_vcs_with_std, StdTypeInfo, StdTypeMap, TypecheckOutput,
+    check, check_with_vcs, check_with_vcs_with_std, check_with_vcs_with_std_and_external,
+    ExternalBuiltinSig, StdTypeInfo, StdTypeMap, TypecheckOutput,
 };
 pub use errors::TyperError;
 pub use vc::{

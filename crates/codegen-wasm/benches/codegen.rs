@@ -41,6 +41,7 @@ fn bench_codegen(c: &mut Criterion) {
                     debug_names: false,
                     proof_section: None,
                     export_aliases: Vec::new(),
+                    external_imports: Vec::new(),
                 },
             )
             .unwrap()
@@ -56,6 +57,7 @@ fn bench_codegen(c: &mut Criterion) {
                     debug_names: false,
                     proof_section: None,
                     export_aliases: Vec::new(),
+                    external_imports: Vec::new(),
                 },
             )
             .unwrap()
@@ -71,6 +73,7 @@ fn bench_codegen(c: &mut Criterion) {
                     debug_names: false,
                     proof_section: None,
                     export_aliases: Vec::new(),
+                    external_imports: Vec::new(),
                 },
             )
             .unwrap()

@@ -7,8 +7,10 @@ mod logging;
 mod proofs;
 mod signing;
 use commands::{
-    build as cmd_build, emit_hello as cmd_emit_hello, helpers::CommandError, parse as cmd_parse,
-    run as cmd_run, verify as cmd_verify,
+    build::{self as cmd_build, CompilerMode},
+    emit_hello as cmd_emit_hello,
+    helpers::CommandError,
+    parse as cmd_parse, run as cmd_run, verify as cmd_verify,
 };
 use logging::Logger;
 use signing::SignScope;
@@ -60,9 +62,12 @@ enum Commands {
         /// Emit verification conditions to JSON (see docs/proofs/vc-schema.md)
         #[arg(long, value_name = "FILE")]
         emit_vcs: Option<PathBuf>,
-        /// Enforce strict proof-model assumption checks when emitting VCs (default: true)
-        #[arg(long, default_value_t = true, action = ArgAction::Set)]
-        proof_strict: bool,
+        /// Compiler strictness profile (permissive, standard, strict)
+        #[arg(long, value_enum, default_value_t = CompilerMode::Standard)]
+        compiler_mode: CompilerMode,
+        /// Override proof-model assumption checks for VC emission (true/false)
+        #[arg(long, action = ArgAction::Set)]
+        proof_strict: Option<bool>,
         /// Sign outputs using an Ed25519 key (requires --emit-vcs)
         #[arg(long, default_value_t = false, requires_all = ["key", "key_id", "sig_out"], requires = "emit_vcs")]
         sign: bool,
@@ -115,6 +120,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_vcs,
+            compiler_mode,
             proof_strict,
             sign,
             key,
@@ -128,6 +134,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_vcs,
+            compiler_mode,
             proof_strict,
             sign,
             key,

@@ -121,8 +121,16 @@ pub fn validate_attestation_payload_value(value: &serde_json::Value) -> Result<(
         .as_object()
         .ok_or_else(|| anyhow!("attestation signature payload must be a JSON object"))?;
 
-    decode_fixed_hex("signature payload module_hash", required_str(sig_payload, "module_hash")?, 32)?;
-    decode_fixed_hex("signature payload proofs_hash", required_str(sig_payload, "proofs_hash")?, 32)?;
+    decode_fixed_hex(
+        "signature payload module_hash",
+        required_str(sig_payload, "module_hash")?,
+        32,
+    )?;
+    decode_fixed_hex(
+        "signature payload proofs_hash",
+        required_str(sig_payload, "proofs_hash")?,
+        32,
+    )?;
 
     let toolchain = required_str(sig_payload, "toolchain")?;
     if toolchain.trim().is_empty() {

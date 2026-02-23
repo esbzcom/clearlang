@@ -20,6 +20,16 @@ use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{hash_module, module_bytes_with_zeroed_hash, ProofPackage};
 use crate::signing::{self, SignScope};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum CompilerMode {
+    /// Development mode: VC strictness defaults to false unless explicitly enabled.
+    Permissive,
+    /// Current default behavior: VC strictness defaults to true.
+    Standard,
+    /// Production mode: requires --emit-vcs and enforces VC strictness.
+    Strict,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     file: PathBuf,
@@ -28,7 +38,8 @@ pub fn run(
     validate: bool,
     debug_names: bool,
     emit_vcs: Option<PathBuf>,
-    proof_strict: bool,
+    compiler_mode: CompilerMode,
+    proof_strict: Option<bool>,
     sign: bool,
     key: Option<PathBuf>,
     key_id: Option<String>,
@@ -111,7 +122,22 @@ pub fn run(
         }
     };
 
-    if proof_strict && emit_vcs.is_some() {
+    if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
+        fail_build(
+            "C029",
+            "`--compiler-mode strict` requires `--emit-vcs <FILE>`",
+            None,
+        )?;
+    }
+    let proof_strict_enabled = match proof_strict_for_mode(compiler_mode, proof_strict) {
+        Ok(value) => value,
+        Err(message) => {
+            fail_build("C030", message, None)?;
+            false
+        }
+    };
+
+    if proof_strict_enabled && emit_vcs.is_some() {
         if let Some(message) = strict_proof_violation(&vcs) {
             fail_build("C014", &message, None)?;
         }
@@ -502,6 +528,19 @@ const ASSUMPTION_UNSIGNED_ID: &str = "unsigned.int_model";
 const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
 
+fn proof_strict_for_mode(mode: CompilerMode, value: Option<bool>) -> Result<bool, &'static str> {
+    match mode {
+        CompilerMode::Permissive => Ok(value.unwrap_or(false)),
+        CompilerMode::Standard => Ok(value.unwrap_or(true)),
+        CompilerMode::Strict => match value {
+            Some(false) => {
+                Err("`--compiler-mode strict` cannot be combined with `--proof-strict=false`")
+            }
+            _ => Ok(true),
+        },
+    }
+}
+
 fn strict_proof_violation(vcs: &[VerificationCondition]) -> Option<String> {
     for vc in vcs {
         let mut seen_ids = std::collections::BTreeSet::new();
@@ -640,5 +679,41 @@ mod tests {
         )];
         let msg = strict_proof_violation(&[vc]).expect("expected strict violation");
         assert!(msg.contains("mismatched category"));
+    }
+
+    #[test]
+    fn compiler_mode_permissive_defaults_proof_strict_false() {
+        assert_eq!(
+            proof_strict_for_mode(CompilerMode::Permissive, None).expect("mode"),
+            false
+        );
+    }
+
+    #[test]
+    fn compiler_mode_standard_defaults_proof_strict_true() {
+        assert_eq!(
+            proof_strict_for_mode(CompilerMode::Standard, None).expect("mode"),
+            true
+        );
+    }
+
+    #[test]
+    fn compiler_mode_strict_forces_proof_strict_true() {
+        assert_eq!(
+            proof_strict_for_mode(CompilerMode::Strict, None).expect("mode"),
+            true
+        );
+        assert_eq!(
+            proof_strict_for_mode(CompilerMode::Strict, Some(true)).expect("mode"),
+            true
+        );
+    }
+
+    #[test]
+    fn compiler_mode_strict_rejects_proof_strict_false_override() {
+        assert!(
+            proof_strict_for_mode(CompilerMode::Strict, Some(false)).is_err(),
+            "strict mode should reject false override"
+        );
     }
 }

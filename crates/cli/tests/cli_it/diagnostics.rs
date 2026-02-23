@@ -214,7 +214,10 @@ fn migration_inline_refinement_rejection_reports_p013_deterministically() {
 fn migration_deferred_ergonomics_type_restrictions_report_stable_codes() {
     let cases = [
         ("migration/02_interface_type_params.clear", "T246"),
-        ("migration/03_implementation_method_type_params.clear", "T245"),
+        (
+            "migration/03_implementation_method_type_params.clear",
+            "T245",
+        ),
         ("migration/04_generic_refinement_alias.clear", "T244"),
         ("migration/05_set_resource.clear", "T806"),
         ("migration/06_array_resource.clear", "T806"),
@@ -232,4 +235,49 @@ fn migration_deferred_ergonomics_type_restrictions_report_stable_codes() {
         let v: Value = serde_json::from_slice(&output).expect("json");
         assert_single_json_error(&v, expected_code, "type");
     }
+}
+
+#[test]
+fn strict_compiler_mode_requires_emit_vcs_with_c029() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_no_vc.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C029", "build");
+}
+
+#[test]
+fn strict_compiler_mode_rejects_proof_strict_false_override_with_c030() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_override_false.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict", "--proof-strict=false"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C030", "build");
 }

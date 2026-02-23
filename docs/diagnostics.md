@@ -155,6 +155,8 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C026 | build | Reserved std module path used in user code. |
 | C027 | build | Invalid compiled-package metadata (`clg-packages.json`). |
 | C028 | build | Module path conflict between source files and compiled-package metadata. |
+| C029 | build | Strict compiler mode requires `--emit-vcs <FILE>`. |
+| C030 | build | Strict compiler mode cannot be combined with `--proof-strict=false`. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

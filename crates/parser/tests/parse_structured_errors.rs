@@ -124,3 +124,22 @@ fn parse_errors_reports_export_import_as_p011() {
         errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn parse_errors_reports_inline_refinement_as_p013() {
+    let src = r#"
+        function f(x: Int where x >= 0) -> Int { x }
+    "#;
+    let errs = parse_errors(src).expect_err("inline refinement should be rejected");
+    assert!(
+        errs.iter().any(|e| e.code == "P013"),
+        "expected P013, got {:?}",
+        errs.iter().map(|e| e.code).collect::<Vec<_>>()
+    );
+    assert!(
+        errs.iter()
+            .any(|e| e.message.contains("inline refinements on function parameters/returns are not supported in v1")),
+        "expected explicit inline refinement message, got {:?}",
+        errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
+    );
+}

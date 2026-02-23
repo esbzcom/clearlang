@@ -1,5 +1,17 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.5.2 deferred-form diagnostics closure
+- Added explicit inline-refinement parse diagnostic for alias-only refinement policy:
+  - parser emits `P013` when inline param/return refinement syntax is used,
+  - structured parser error coverage added in `crates/parser/tests/parse_structured_errors.rs`.
+- Docs updates:
+  - added `P013` in `docs/diagnostics.md`,
+  - updated refinement diagnostics wording in `docs/typing.md`,
+  - updated `docs/design/phase-18.0.5-language-ergonomics.md` acceptance matrix.
+- Roadmap updates:
+  - marked `18.0.5.2` complete in `docs/TODO.md`,
+  - moved DEVPLAN next focus within 18.0.5 to `18.0.5.3`.
+
 ## 2026-02-23 - Phase 18.0.5.1 ergonomics design lock
 - Published `docs/design/phase-18.0.5-language-ergonomics.md` to lock:
   - accepted ergonomics execution scope from `18.0.0`,

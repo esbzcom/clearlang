@@ -34,7 +34,7 @@ This locks the execution model for ergonomics follow-through after the `18.0.0` 
 
 ### D7 - Inline refinements on params/returns
 - Locked behavior: alias-first only.
-- Required parser behavior: deterministic parse rejection (currently `P001` path until a dedicated code is introduced).
+- Required parser behavior: deterministic parse rejection with dedicated code `P013`.
 - Required docs behavior: explicitly state alias-only surface and rationale.
 
 ### D8 - Deferred resource/type-surface limits
@@ -63,7 +63,7 @@ This locks the execution model for ergonomics follow-through after the `18.0.0` 
 | Interface type parameters | accept | reject | `T246` |
 | Implementation method type parameters | accept | reject | `T245` |
 | Generic refinement alias declaration | accept | reject | `T244` |
-| Inline param/return refinement syntax | reject | n/a | deterministic parse rejection (`P001` path in current release) |
+| Inline param/return refinement syntax | reject | n/a | deterministic parse rejection (`P013`) |
 | `Set<Resource>` | accept | reject | `T806` |
 | Resource arrays/slices | accept | reject | `T806` |
 

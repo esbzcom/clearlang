@@ -39,6 +39,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | P010 | parse | Missing `else` in expression-form `if`. |
 | P011 | parse | Re-export syntax `export import` is not supported in v1. |
 | P012 | parse | Capture-list lambda syntax is not supported in v1. |
+| P013 | parse | Inline refinements on function parameters/returns are not supported in v1 (use refined aliases). |
 | T000 | type | Fallback for internal type-check failures. |
 | T001 | type | Unknown function. |
 | T002 | type | Arity mismatch. |

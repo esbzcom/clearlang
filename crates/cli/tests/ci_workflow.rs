@@ -20,6 +20,18 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should run workspace tests"
     );
     assert!(
+        contents.contains("cargo test -p clg-cli --test cli_it sdk_usability_"),
+        "ci should enforce sdk usability gate tests"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-cli --test cli_it migration_"),
+        "ci should enforce migration-friction regression tests"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-cli --test cli_it imports::"),
+        "ci should enforce import ergonomics gate tests"
+    );
+    assert!(
         contents.contains("cargo fmt --all -- --check"),
         "ci should enforce formatting"
     );

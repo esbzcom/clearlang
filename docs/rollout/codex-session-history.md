@@ -1,5 +1,26 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.5.4 SDK usability gates
+- Implemented SDK usability regression gates:
+  - added `crates/cli/tests/cli_it/sdk_usability.rs` with metrics checks covering import ergonomics, error quality, and migration friction,
+  - wired the module into `crates/cli/tests/cli_it.rs`.
+- CI gate enforcement:
+  - added explicit `SDK usability gates` step to `.github/workflows/ci.yml` running:
+    - `cargo test -p clg-cli --test cli_it sdk_usability_`
+    - `cargo test -p clg-cli --test cli_it migration_`
+    - `cargo test -p clg-cli --test cli_it imports::`
+  - extended `crates/cli/tests/ci_workflow.rs` assertions to fail if those gate commands are removed.
+- Parser structured-error determinism follow-up:
+  - when specialized parse diagnostics (`P011`, `P012`, `P013`) overlap generic parse failures, structured `P001` duplicates are filtered to reduce migration friction.
+- Validation:
+  - `cargo test -p clg-cli --test cli_it sdk_usability_`
+  - `cargo test -p clg-cli --test cli_it migration_`
+  - `cargo test -p clg-cli --test cli_it imports::`
+  - `cargo test -p clg-cli --test ci_workflow`
+- Roadmap updates:
+  - marked `18.0.5.4` and parent `18.0.5` complete in `docs/TODO.md`,
+  - moved active focus to `18.0.6` in `docs/TODO.md` and `docs/rollout/DEVPLAN.md`.
+
 ## 2026-02-23 - Phase 18.0.5.3 deterministic migration coverage
 - Added migration fixtures for deferred ergonomics restrictions:
   - `clearlang-tests/migration/01_inline_refinement_param.clear` (`P013`)

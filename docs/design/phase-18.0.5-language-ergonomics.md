@@ -73,6 +73,15 @@ This locks the execution model for ergonomics follow-through after the `18.0.0` 
 - `18.0.5.3`: implementation/tests enforce deterministic rejection rules with no silent fallback.
 - `18.0.5.4`: SDK usability checks are defined and wired into release gating.
 
+## SDK Usability Gate (18.0.5.4)
+- Gate implementation:
+  - CLI integration metrics checks in `crates/cli/tests/cli_it/sdk_usability.rs`.
+  - CI enforcement step `SDK usability gates` in `.github/workflows/ci.yml`.
+- Required gate dimensions:
+  - import ergonomics,
+  - error quality (stable code/stage/span/actionable wording),
+  - migration friction (single, deterministic primary diagnostic for migration fixtures).
+
 ## References
 - `docs/design/phase-18.0-open-questions.md`
 - `docs/TODO.md`

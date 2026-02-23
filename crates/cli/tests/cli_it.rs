@@ -41,5 +41,7 @@ mod option_result;
 mod runtime_env;
 #[path = "cli_it/runtime_errors.rs"]
 mod runtime_errors;
+#[path = "cli_it/sdk_usability.rs"]
+mod sdk_usability;
 #[path = "cli_it/vc_outputs.rs"]
 mod vc_outputs;

@@ -23,6 +23,12 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: SDK usability gates
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test cli_it sdk_usability_
+          cargo test -p clg-cli --test cli_it migration_
+          cargo test -p clg-cli --test cli_it imports::
       - name: Release build
         run: cargo build --release -p clg-cli
       - name: Validate emitted Wasm

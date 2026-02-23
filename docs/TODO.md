@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 18.0.5 - language ergonomics execution from the 18.0.0 decision lock.
+Current focus: Phase 18.0.6 - proof-model execution from the 18.0.0 decision lock.
 
 3.1 Typer Core
 
@@ -837,11 +837,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 18.0.4.3 Define memory-budget tiers and per-tier action policy (warn, drain, recycle, incident).
     - [x] 18.0.4.4 Define monitoring + alerts for closure-env growth and recycle failures (signal list, thresholds, paging severity).
     - [x] 18.0.4.5 Add design-principles gate to runbook sign-off (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and link verification evidence.
-  - [ ] 18.0.5 P2 Language ergonomics execution (after 18.0.0 decisions are locked).
+  - [x] 18.0.5 P2 Language ergonomics execution (after 18.0.0 decisions are locked).
     - [x] 18.0.5.1 For each accepted ergonomics change from 18.0.0, publish a design lock (syntax, typing, diagnostics, non-goals) before implementation. (`docs/design/phase-18.0.5-language-ergonomics.md`)
     - [x] 18.0.5.2 For each rejected/deferred ergonomics item from 18.0.0, add explicit parser/typer diagnostics and docs rationale (no silent fallback behavior). (`P013`, `T244`, `T245`, `T246`, `T806`; see `docs/design/phase-18.0.5-language-ergonomics.md`)
     - [x] 18.0.5.3 Implement accepted changes with deterministic resolution rules and migration tests/fixtures. (migration fixtures under `clearlang-tests/migration/` + CLI IT coverage in `crates/cli/tests/cli_it/diagnostics.rs`)
-    - [ ] 18.0.5.4 Add SDK usability checks (import ergonomics, error quality, migration friction) and fail gates if metrics regress.
+    - [x] 18.0.5.4 Add SDK usability checks (import ergonomics, error quality, migration friction) and fail gates if metrics regress. (CLI IT gates in `crates/cli/tests/cli_it/sdk_usability.rs` + CI step `SDK usability gates`)
   - [ ] 18.0.6 P2 Proof-model execution (after 18.0.0 decisions are locked).
     - [ ] 18.0.6.1 Implement selected unsigned/bitwise/crypto modeling paths and record exact assumption boundaries in emitted artifacts.
     - [ ] 18.0.6.2 Add proof-regression CI suites so assurance tiers cannot silently downgrade on existing fixtures.

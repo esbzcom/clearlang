@@ -838,7 +838,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 18.0.4.4 Define monitoring + alerts for closure-env growth and recycle failures (signal list, thresholds, paging severity).
     - [x] 18.0.4.5 Add design-principles gate to runbook sign-off (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`) and link verification evidence.
   - [ ] 18.0.5 P2 Language ergonomics execution (after 18.0.0 decisions are locked).
-    - [ ] 18.0.5.1 For each accepted ergonomics change from 18.0.0, publish a design lock (syntax, typing, diagnostics, non-goals) before implementation.
+    - [x] 18.0.5.1 For each accepted ergonomics change from 18.0.0, publish a design lock (syntax, typing, diagnostics, non-goals) before implementation. (`docs/design/phase-18.0.5-language-ergonomics.md`)
     - [ ] 18.0.5.2 For each rejected/deferred ergonomics item from 18.0.0, add explicit parser/typer diagnostics and docs rationale (no silent fallback behavior).
     - [ ] 18.0.5.3 Implement accepted changes with deterministic resolution rules and migration tests/fixtures.
     - [ ] 18.0.5.4 Add SDK usability checks (import ergonomics, error quality, migration friction) and fail gates if metrics regress.

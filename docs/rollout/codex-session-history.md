@@ -1,5 +1,14 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.5.1 ergonomics design lock
+- Published `docs/design/phase-18.0.5-language-ergonomics.md` to lock:
+  - accepted ergonomics execution scope from `18.0.0`,
+  - non-goals (no surface expansion in this slice),
+  - deterministic syntax/typing/diagnostics boundaries and acceptance matrix.
+- Roadmap updates:
+  - marked `18.0.5.1` complete in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` to set `18.0.5.2` as the next active sub-step.
+
 ## 2026-02-23 - Phase 18.0.4 runtime-ops gate closure
 - Completed runtime-ops gate documentation for closure-env no-free policy:
   - published concrete host runbook defaults, thresholds, triggers, and alert severities in `docs/rollout/closure-env-ops-runbook.md`,

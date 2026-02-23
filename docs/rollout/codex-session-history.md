@@ -1,5 +1,23 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 18.0.6.4 strict-mode defaults rollout
+- Rolled strict proof-mode validation forward for VC-emitting builds:
+  - `crates/cli/src/main.rs`: added build flag `--proof-strict` (default `true`).
+  - `crates/cli/src/commands/build.rs`: added strict proof validation that requires selected assumption boundaries when corresponding SMT-model surfaces are detected; emits deterministic build diagnostic `C014` on violation.
+- Added targeted unit coverage in `crates/cli/src/commands/build.rs` for:
+  - missing required boundary detection,
+  - success path with complete boundary labeling.
+- Docs/roadmap updates:
+  - `docs/diagnostics.md`: added `C014`.
+  - `docs/typing.md` and `docs/proofs/proof-coverage-matrix.md`: documented strict default behavior and permissive escape hatch (`--proof-strict=false`).
+  - `docs/TODO.md`: marked `18.0.6.4`, parent `18.0.6`, and parent `18.0` complete.
+  - `docs/rollout/DEVPLAN.md`: marked Phase 18 proof-model execution complete and moved next focus to Phase 19.
+- Validation:
+  - `cargo test -p clg-cli --test diagnostics_codes`
+  - `cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section`
+  - `cargo test -p clg-cli --test proof_coverage_matrix`
+  - `cargo test -p clg-cli --test ci_workflow`
+
 ## 2026-02-23 - Phase 18.0.6.3 proof-coverage matrix publication
 - Published proof-coverage matrix artifacts:
   - `docs/proofs/proof-coverage-matrix.md` (human-readable summary),

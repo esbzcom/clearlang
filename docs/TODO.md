@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 18.0.6 - proof-model execution from the 18.0.0 decision lock.
+Current focus: Phase 19.0 - high-assurance target/guardrails after Phase 18 closure.
 
 3.1 Typer Core
 
@@ -815,7 +815,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
         - [x] Operational guidance: long-running hosts should recycle module instances/workers to bound closure-environment memory growth.
 
 ### 18 Production hardening + attestation
-- [ ] 18.0 Real-world readiness priorities (execution order).
+- [x] 18.0 Real-world readiness priorities (execution order).
   - [x] 18.0.0 Undecided open questions (must be resolved before proceeding with 18.0.1+ execution gates).
     - [x] 18.0.0.0 Decision lock published: `docs/design/phase-18.0-open-questions.md`.
     - [x] 18.0.0.1 Interface/implementation generics policy (`T246`/`T245`): v1 restriction vs bounded support scope.
@@ -842,11 +842,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 18.0.5.2 For each rejected/deferred ergonomics item from 18.0.0, add explicit parser/typer diagnostics and docs rationale (no silent fallback behavior). (`P013`, `T244`, `T245`, `T246`, `T806`; see `docs/design/phase-18.0.5-language-ergonomics.md`)
     - [x] 18.0.5.3 Implement accepted changes with deterministic resolution rules and migration tests/fixtures. (migration fixtures under `clearlang-tests/migration/` + CLI IT coverage in `crates/cli/tests/cli_it/diagnostics.rs`)
     - [x] 18.0.5.4 Add SDK usability checks (import ergonomics, error quality, migration friction) and fail gates if metrics regress. (CLI IT gates in `crates/cli/tests/cli_it/sdk_usability.rs` + CI step `SDK usability gates`)
-  - [ ] 18.0.6 P2 Proof-model execution (after 18.0.0 decisions are locked).
+  - [x] 18.0.6 P2 Proof-model execution (after 18.0.0 decisions are locked).
     - [x] 18.0.6.1 Implement selected unsigned/bitwise/crypto modeling paths and record exact assumption boundaries in emitted artifacts.
     - [x] 18.0.6.2 Add proof-regression CI suites so assurance tiers cannot silently downgrade on existing fixtures.
     - [x] 18.0.6.3 Publish and maintain a proof-coverage matrix per language feature/intrinsic (`proved` vs `assumed`, mapped to `L0`-`L3`).
-    - [ ] 18.0.6.4 Roll strict-mode defaults forward only after the proof-coverage matrix and CI gates are green.
+    - [x] 18.0.6.4 Roll strict-mode defaults forward only after the proof-coverage matrix and CI gates are green.
 - [x] 18.1 Attestation registry hardening (authz, key rotation, revocation, schema versioning).
   - [x] 18.1.1 Contract: owner-controlled signer authorization, signer deauthorization (rotation), and schema-version allowlist.
   - [x] 18.1.2 Contract: canonical `attestation_id` validation and explicit revocation flow (signer or owner).

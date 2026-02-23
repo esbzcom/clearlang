@@ -60,6 +60,9 @@ enum Commands {
         /// Emit verification conditions to JSON (see docs/proofs/vc-schema.md)
         #[arg(long, value_name = "FILE")]
         emit_vcs: Option<PathBuf>,
+        /// Enforce strict proof-model assumption checks when emitting VCs (default: true)
+        #[arg(long, default_value_t = true, action = ArgAction::Set)]
+        proof_strict: bool,
         /// Sign outputs using an Ed25519 key (requires --emit-vcs)
         #[arg(long, default_value_t = false, requires_all = ["key", "key_id", "sig_out"], requires = "emit_vcs")]
         sign: bool,
@@ -112,6 +115,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_vcs,
+            proof_strict,
             sign,
             key,
             key_id,
@@ -124,6 +128,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_vcs,
+            proof_strict,
             sign,
             key,
             key_id,

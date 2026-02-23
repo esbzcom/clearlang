@@ -7,6 +7,9 @@ This matrix records proof coverage as `proved` vs `assumed` and maps each entry 
 Machine-readable source of truth:
 - `docs/proofs/proof-coverage-matrix.json`
 
+Strict-mode default:
+- `clg build --emit-vcs` runs strict assumption-boundary checks by default (`--proof-strict=true`).
+
 Interpretation:
 - `proved`: VC generation/encoding coverage is implemented for this surface.
 - `assumed`: the surface depends on an explicit assumption boundary.

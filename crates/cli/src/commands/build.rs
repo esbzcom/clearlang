@@ -27,6 +27,7 @@ pub fn run(
     validate: bool,
     debug_names: bool,
     emit_vcs: Option<PathBuf>,
+    proof_strict: bool,
     sign: bool,
     key: Option<PathBuf>,
     key_id: Option<String>,
@@ -108,6 +109,12 @@ pub fn run(
             Err(anyhow!(message.to_string()))
         }
     };
+
+    if proof_strict && emit_vcs.is_some() {
+        if let Some(message) = strict_proof_violation(&vcs) {
+            fail_build("C014", &message, None)?;
+        }
+    }
 
     let export_aliases = if contract {
         contract_exports(ast, &file, json_errors)?
@@ -488,4 +495,130 @@ fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)
         }
     }
     None
+}
+
+const U64_MAX_SMT: &str = "18446744073709551615";
+const ASSUMPTION_UNSIGNED_ID: &str = "unsigned.int_model";
+const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
+const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
+
+fn strict_proof_violation(vcs: &[VerificationCondition]) -> Option<String> {
+    for vc in vcs {
+        for assumption_id in required_assumptions_for_vc(vc) {
+            let Some(assumption) = vc.assumptions.iter().find(|a| a.id == assumption_id) else {
+                return Some(format!(
+                    "strict proof mode: VC `{}` in function `{}` is missing assumption boundary `{}`",
+                    vc.vc_id, vc.function, assumption_id
+                ));
+            };
+            if assumption.status != "assumed" {
+                return Some(format!(
+                    "strict proof mode: VC `{}` in function `{}` has invalid status `{}` for assumption `{}`; expected `assumed`",
+                    vc.vc_id, vc.function, assumption.status, assumption_id
+                ));
+            }
+        }
+    }
+    None
+}
+
+fn required_assumptions_for_vc(vc: &VerificationCondition) -> Vec<&'static str> {
+    let mut out = Vec::new();
+    if vc_uses_unsigned_model(vc) {
+        out.push(ASSUMPTION_UNSIGNED_ID);
+    }
+    if vc_uses_bitwise_model(vc) {
+        out.push(ASSUMPTION_BITWISE_ID);
+    }
+    if vc_uses_crypto_model(vc) {
+        out.push(ASSUMPTION_CRYPTO_ID);
+    }
+    out
+}
+
+fn vc_uses_unsigned_model(vc: &VerificationCondition) -> bool {
+    vc.pre.smt2.contains(U64_MAX_SMT)
+        || vc.post.smt2.contains(U64_MAX_SMT)
+        || vc.vc_smt2.contains(U64_MAX_SMT)
+        || vc.vc_smt2.contains("|std::u64::")
+        || vc.vc_smt2.contains("|std::u128::")
+        || vc.vc_smt2.contains("|std::u256::")
+}
+
+fn vc_uses_bitwise_model(vc: &VerificationCondition) -> bool {
+    vc.post.smt2.contains("clg.bit_")
+        || vc.post.smt2.contains("clg.shl")
+        || vc.post.smt2.contains("clg.shr")
+        || vc.vc_smt2.contains("clg.bit_")
+        || vc.vc_smt2.contains("clg.shl")
+        || vc.vc_smt2.contains("clg.shr")
+}
+
+fn vc_uses_crypto_model(vc: &VerificationCondition) -> bool {
+    vc.post.smt2.contains("|std::crypto::")
+        || vc.post.smt2.contains("|std::bytes::eq_ct|")
+        || vc.vc_smt2.contains("|std::crypto::")
+        || vc.vc_smt2.contains("|std::bytes::eq_ct|")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clg_ast::Span;
+    use clg_typer::{AssumptionCategory, ContractExpr, VerificationCondition};
+
+    fn sample_vc() -> VerificationCondition {
+        VerificationCondition {
+            function: "f".to_string(),
+            vc_id: "vc:0".to_string(),
+            pre: ContractExpr {
+                ast: "true".to_string(),
+                smt2: "true".to_string(),
+                span: Some(Span { start: 0, end: 0 }),
+            },
+            post: ContractExpr {
+                ast: "true".to_string(),
+                smt2: "true".to_string(),
+                span: Some(Span { start: 0, end: 0 }),
+            },
+            vc_smt2: "(=> true true)".to_string(),
+            status: "generated",
+            refinements: Vec::new(),
+            assumptions: Vec::new(),
+        }
+    }
+
+    fn assumption(id: &'static str, category: AssumptionCategory) -> AssumptionBoundary {
+        AssumptionBoundary {
+            id,
+            category,
+            status: "assumed",
+            message: "m",
+            symbols: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn strict_mode_reports_missing_required_bitwise_assumption() {
+        let mut vc = sample_vc();
+        vc.vc_smt2 = "(declare-fun clg.bit_and (Int Int) Int)\n(=> true true)".to_string();
+        let msg = strict_proof_violation(&[vc]).expect("expected strict violation");
+        assert!(msg.contains("bitwise.uninterpreted"));
+    }
+
+    #[test]
+    fn strict_mode_accepts_present_required_assumptions() {
+        let mut vc = sample_vc();
+        vc.pre.smt2 = format!("(and true (and (<= 0 x) (<= x {})))", super::U64_MAX_SMT);
+        vc.vc_smt2 = "(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(=> true true)".to_string();
+        vc.assumptions = vec![
+            assumption(super::ASSUMPTION_UNSIGNED_ID, AssumptionCategory::Unsigned),
+            assumption(super::ASSUMPTION_BITWISE_ID, AssumptionCategory::Bitwise),
+            assumption(super::ASSUMPTION_CRYPTO_ID, AssumptionCategory::Crypto),
+        ];
+        assert!(
+            strict_proof_violation(&[vc]).is_none(),
+            "expected strict checks to pass"
+        );
+    }
 }

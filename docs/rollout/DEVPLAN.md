@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.1` assurance levels + trust-boundary model.
+- Next active phase: `19.2` proof coverage completion for the current language surface.
 
 ### Suggested Sequence
-1) Execute `19.1.4` trust-anchor integration for compile-time verify mode.
+1) Execute `19.2.1` unsigned/bitwise SMT gap closure or explicit assumption downgrade.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -34,6 +34,7 @@
 - **Phase 19 assurance-tier artifacts (`19.1.1`)**: completed with explicit `L0`-`L3` tier metadata embedded in VC JSON/proof/signing artifacts and schema docs (`docs/design/phase-19.1.1-assurance-tiers.md`, `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`).
 - **Phase 19 assumed-dependency labeling (`19.1.2`)**: completed by labeling non-proved primitive and external dependencies as explicit `assumed` boundaries in VC/proof artifacts (`primitive.unproved`, `external.dependency`) with regression coverage.
 - **Phase 19 strict fail-closed L3 gate (`19.1.3`)**: completed by blocking strict-mode `L3` claims when assumption labels are incomplete (`C031`) while preserving deterministic assumption-shape checks (`C014`).
+- **Phase 19 compile-time trust anchors (`19.1.4`)**: completed by adding pinned checker versions (`--lean-checker-version`, `--coq-checker-version`) to signed payloads, compile-time verify policy checks (`--verify-mode compile-time --trust-policy`), and deterministic diagnostics (`C032`, `V004`) while keeping runtime verification kernel-free.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

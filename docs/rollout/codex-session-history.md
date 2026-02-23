@@ -1,5 +1,37 @@
 # Codex Session Context
 
+## 2026-02-23 - Phase 19.1.4 compile-time trust-anchor verify integration
+- Implemented trust-anchor pin integration for signed proof bundles:
+  - `clg build` now accepts `--lean-checker-version` and `--coq-checker-version`.
+  - checker-version flags are validated deterministically with build code `C032`:
+    - require `--sign`,
+    - require both flags together.
+  - signing payload optionally includes:
+    - `trust_anchors.lean_checker`,
+    - `trust_anchors.coq_checker`.
+- Implemented verify-mode split for trust checks:
+  - `clg verify --verify-mode runtime` keeps existing signature/hash verification behavior.
+  - `clg verify --verify-mode compile-time --trust-policy <FILE>` adds trust-policy checks with verify code `V004`.
+  - compile-time mode enforces policy schema/version and exact checker-version match.
+- Added regression coverage:
+  - `crates/cli/tests/signing.rs`:
+    - compile-time mode requires trust policy (`V004`),
+    - compile-time mode fails when signature payload lacks trust anchors (`V004`),
+    - compile-time mode fails on policy mismatch (`V004`),
+    - compile-time mode passes on exact policy match.
+  - `crates/cli/tests/cli_it/diagnostics.rs`:
+    - checker-version flags require sign (`C032`),
+    - checker-version flags must be provided as a pair (`C032`).
+- Docs/roadmap updates:
+  - added design lock: `docs/design/phase-19.1.4-trust-anchor-compile-time-verify.md`,
+  - updated diagnostics table with `C032` and `V004`,
+  - updated signing payload docs with optional `trust_anchors`,
+  - updated README signing/verify examples for compile-time mode and trust policy,
+  - marked `19.1.4` and parent `19.1` complete in `docs/TODO.md`,
+  - moved DEVPLAN next sequence to `19.2.1`.
+- Validation:
+  - `cargo test -p clg-cli`
+
 ## 2026-02-23 - Phase 18.0.6.4 strict-mode defaults rollout
 - Rolled strict proof-mode validation forward for VC-emitting builds:
   - `crates/cli/src/main.rs`: added build flag `--proof-strict` (default `true`).

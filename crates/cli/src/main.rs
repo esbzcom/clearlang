@@ -10,7 +10,8 @@ use commands::{
     build::{self as cmd_build, CompilerMode},
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
-    parse as cmd_parse, run as cmd_run, verify as cmd_verify,
+    parse as cmd_parse, run as cmd_run,
+    verify::{self as cmd_verify, VerifyMode},
 };
 use logging::Logger;
 use signing::SignScope;
@@ -83,6 +84,12 @@ enum Commands {
         /// Signature output path (JSON)
         #[arg(long, value_name = "FILE", requires = "sign")]
         sig_out: Option<PathBuf>,
+        /// Pinned Lean checker version to embed in signing payload
+        #[arg(long, value_name = "VERSION")]
+        lean_checker_version: Option<String>,
+        /// Pinned Coq checker version to embed in signing payload
+        #[arg(long, value_name = "VERSION")]
+        coq_checker_version: Option<String>,
     },
     /// Run a compiled Wasm module (calls an exported function)
     Run {
@@ -104,6 +111,12 @@ enum Commands {
         /// Public key file (JSON)
         #[arg(long, value_name = "FILE")]
         pubkey: PathBuf,
+        /// Verification mode (`runtime` or `compile-time`)
+        #[arg(long, value_enum, default_value_t = VerifyMode::Runtime)]
+        verify_mode: VerifyMode,
+        /// Trust-anchor policy file for compile-time verify mode
+        #[arg(long, value_name = "FILE")]
+        trust_policy: Option<PathBuf>,
     },
 }
 
@@ -127,6 +140,8 @@ fn main() -> Result<()> {
             key_id,
             scope,
             sig_out,
+            lean_checker_version,
+            coq_checker_version,
         } => cmd_build::run(
             file,
             out,
@@ -141,6 +156,8 @@ fn main() -> Result<()> {
             key_id,
             scope.unwrap_or(SignScope::Both),
             sig_out,
+            lean_checker_version,
+            coq_checker_version,
             cli.json_errors,
             logger,
         ),
@@ -149,7 +166,17 @@ fn main() -> Result<()> {
             module,
             sig,
             pubkey,
-        } => cmd_verify::run(module, sig, pubkey, cli.json_errors, logger),
+            verify_mode,
+            trust_policy,
+        } => cmd_verify::run(
+            module,
+            sig,
+            pubkey,
+            verify_mode,
+            trust_policy,
+            cli.json_errors,
+            logger,
+        ),
     };
 
     if let Err(err) = result {

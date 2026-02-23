@@ -126,13 +126,17 @@ uses the same zeroed-field procedure described above. Shape:
   "toolchain": "clg-cli/<version>",
   "timestamp": "<RFC3339 UTC>",
   "scope": "module" | "proofs" | "both",
-  "assurance": { "tier": "...", "label": "...", "levels": { "L0": "...", "L1": "...", "L2": "...", "L3": "..." } }
+  "assurance": { "tier": "...", "label": "...", "levels": { "L0": "...", "L1": "...", "L2": "...", "L3": "..." } },
+  "trust_anchors": { "lean_checker": "<version>", "coq_checker": "<version>" }
 }
 ```
 
 - `scope` selects which components are attested (`module`, `proofs`, or both).
 - Hex strings are lowercase, zero-padded to 64 chars.
 - Timestamps use UTC with seconds precision.
+- `trust_anchors` is optional and only emitted when checker versions are pinned at build/sign time.
+- `clg verify --verify-mode compile-time --trust-policy <FILE>` requires
+  `trust_anchors` in the signature payload and checks exact version equality.
 
 The signature itself is stored externally (e.g., `--sig-out <file>`). Verification rehashes
 the payload, checks the signature, then inspects the embedded `clearlang.proof` section.

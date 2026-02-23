@@ -45,6 +45,14 @@ fn write_key_material(dir: &Path) -> (PathBuf, PathBuf) {
 }
 
 fn build_signed_module(tmp: &Path) -> (PathBuf, PathBuf, PathBuf) {
+    build_signed_module_with_trust_anchors(tmp, None, None)
+}
+
+fn build_signed_module_with_trust_anchors(
+    tmp: &Path,
+    lean_checker_version: Option<&str>,
+    coq_checker_version: Option<&str>,
+) -> (PathBuf, PathBuf, PathBuf) {
     let src_path = tmp.join("contract.clear");
     fs::write(&src_path, sample_source()).unwrap();
 
@@ -70,9 +78,28 @@ fn build_signed_module(tmp: &Path) -> (PathBuf, PathBuf, PathBuf) {
         .arg("both")
         .arg("--sig-out")
         .arg(&sig_path);
+    if let (Some(lean), Some(coq)) = (lean_checker_version, coq_checker_version) {
+        cmd.arg("--lean-checker-version")
+            .arg(lean)
+            .arg("--coq-checker-version")
+            .arg(coq);
+    }
     cmd.assert().success();
 
     (wasm_path, sig_path, pub_path)
+}
+
+fn write_trust_policy(dir: &Path, lean_checker: &str, coq_checker: &str) -> PathBuf {
+    let path = dir.join("trust-policy.json");
+    let policy = json!({
+        "schema_version": 1,
+        "trust_anchors": {
+            "lean_checker": lean_checker,
+            "coq_checker": coq_checker,
+        }
+    });
+    fs::write(&path, serde_json::to_vec_pretty(&policy).unwrap()).unwrap();
+    path
 }
 
 fn tamper_proofs_hash(module: &Path) {
@@ -273,4 +300,104 @@ fn verify_fails_when_signature_is_invalid() {
         predicate::str::contains("\"code\": \"V001\"")
             .and(predicate::str::contains("signature verification failed")),
     );
+}
+
+#[test]
+fn verify_compile_time_requires_trust_policy() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .args(["--verify-mode", "compile-time"]);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V004\"")
+            .and(predicate::str::contains("requires `--trust-policy <FILE>`")),
+    );
+}
+
+#[test]
+fn verify_compile_time_fails_when_signature_missing_trust_anchors() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    let trust_policy = write_trust_policy(tmp.path(), "4.14.0", "8.19.2");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .args(["--verify-mode", "compile-time"])
+        .arg("--trust-policy")
+        .arg(&trust_policy);
+    verify
+        .assert()
+        .failure()
+        .stdout(
+            predicate::str::contains("\"code\": \"V004\"").and(predicate::str::contains(
+                "signature payload missing trust_anchors",
+            )),
+        );
+}
+
+#[test]
+fn verify_compile_time_fails_when_trust_policy_mismatches_signature() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) =
+        build_signed_module_with_trust_anchors(tmp.path(), Some("4.14.0"), Some("8.19.2"));
+    let trust_policy = write_trust_policy(tmp.path(), "4.15.0", "8.19.2");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .args(["--verify-mode", "compile-time"])
+        .arg("--trust-policy")
+        .arg(&trust_policy);
+    verify
+        .assert()
+        .failure()
+        .stdout(
+            predicate::str::contains("\"code\": \"V004\"").and(predicate::str::contains(
+                "trust-anchor checker version mismatch",
+            )),
+        );
+}
+
+#[test]
+fn verify_compile_time_succeeds_when_trust_policy_matches_signature() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) =
+        build_signed_module_with_trust_anchors(tmp.path(), Some("4.14.0"), Some("8.19.2"));
+    let trust_policy = write_trust_policy(tmp.path(), "4.14.0", "8.19.2");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .args(["--verify-mode", "compile-time"])
+        .arg("--trust-policy")
+        .arg(&trust_policy);
+    verify.assert().success();
 }

@@ -47,6 +47,8 @@ pub fn run(
     key_id: Option<String>,
     scope: SignScope,
     sig_out: Option<PathBuf>,
+    lean_checker_version: Option<String>,
+    coq_checker_version: Option<String>,
     json_errors: bool,
     logger: Logger,
 ) -> Result<()> {
@@ -123,6 +125,21 @@ pub fn run(
             Err(anyhow!(message.to_string()))
         }
     };
+
+    if (lean_checker_version.is_some() || coq_checker_version.is_some()) && !sign {
+        fail_build(
+            "C032",
+            "`--lean-checker-version`/`--coq-checker-version` require `--sign`",
+            None,
+        )?;
+    }
+    if lean_checker_version.is_some() ^ coq_checker_version.is_some() {
+        fail_build(
+            "C032",
+            "`--lean-checker-version` and `--coq-checker-version` must be provided together",
+            None,
+        )?;
+    }
 
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
         fail_build(
@@ -256,6 +273,8 @@ pub fn run(
             &key_id,
             &sig_path,
             &timestamp,
+            lean_checker_version.as_deref(),
+            coq_checker_version.as_deref(),
         )?;
         if logger.enabled(LogLevel::Debug) {
             logger.event(
@@ -605,7 +624,11 @@ fn strict_l3_claim_violation(vcs: &[VerificationCondition]) -> Option<String> {
                     vc.vc_id, vc.function, assumption.id
                 ));
             }
-            if assumption.symbols.iter().any(|symbol| symbol.trim().is_empty()) {
+            if assumption
+                .symbols
+                .iter()
+                .any(|symbol| symbol.trim().is_empty())
+            {
                 return Some(format!(
                     "strict compiler mode L3 claim blocked: VC `{}` in function `{}` has unlabeled assumption boundary `{}` (empty symbol label)",
                     vc.vc_id, vc.function, assumption.id

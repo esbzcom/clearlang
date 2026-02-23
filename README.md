@@ -505,9 +505,33 @@ clg build examples/contract.clear -o out.wasm --emit-vcs out.vc.json \
   --sign --key keys/signing.json --key-id demo --scope both --sig-out out.sig.json
 ```
 
+Build and sign with pinned compile-time trust anchors:
+```
+clg build examples/contract.clear -o out.wasm --emit-vcs out.vc.json \
+  --sign --key keys/signing.json --key-id demo --scope both --sig-out out.sig.json \
+  --lean-checker-version 4.14.0 --coq-checker-version 8.19.2
+```
+
 Verify a signed module:
 ```
 clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json
+```
+
+Compile-time verify mode with trust policy:
+```
+clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json \
+  --verify-mode compile-time --trust-policy trust-policy.json
+```
+
+Trust policy JSON shape:
+```
+{
+  "schema_version": 1,
+  "trust_anchors": {
+    "lean_checker": "4.14.0",
+    "coq_checker": "8.19.2"
+  }
+}
 ```
 
 Key files are JSON:

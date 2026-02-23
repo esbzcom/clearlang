@@ -6,17 +6,36 @@ use crate::commands::helpers::{make_single_json_error, CommandError};
 use crate::logging::{Logger, StageTimings};
 use crate::signing;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum VerifyMode {
+    Runtime,
+    CompileTime,
+}
+
 pub fn run(
     module: PathBuf,
     sig: PathBuf,
     pubkey: PathBuf,
+    verify_mode: VerifyMode,
+    trust_policy: Option<PathBuf>,
     json_errors: bool,
     logger: Logger,
 ) -> Result<()> {
     let mut timings = StageTimings::new();
     let result = {
         let _stage = timings.start(logger, "verify_signature");
-        signing::verify_signature(&module, &sig, &pubkey)
+        match verify_mode {
+            VerifyMode::Runtime => signing::verify_signature(&module, &sig, &pubkey),
+            VerifyMode::CompileTime => match trust_policy.as_ref() {
+                Some(policy) => {
+                    signing::verify_signature_with_trust_policy(&module, &sig, &pubkey, policy)
+                }
+                None => Err(signing::VerifyError::new(
+                    signing::VerifyErrorCode::TrustAnchorFailure,
+                    "`--verify-mode compile-time` requires `--trust-policy <FILE>`",
+                )),
+            },
+        }
     };
     match result {
         Ok(()) => {

@@ -158,9 +158,11 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C029 | build | Strict compiler mode requires `--emit-vcs <FILE>`. |
 | C030 | build | Strict compiler mode cannot be combined with `--proof-strict=false`. |
 | C031 | build | Strict compiler mode L3 claim is blocked because unlabeled assumptions remain. |
+| C032 | build | Trust-anchor checker version flags are invalid for this build command combination. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |
+| V004 | verify | Trust-anchor verification failed (missing policy, policy parse/schema failure, payload trust-anchor mismatch). |
 | R000 | runtime | Contract guard failed at runtime (detail indicates require/ensure). |
 | R001 | runtime | String allocator ran out of memory. |
 | R002 | runtime | Runtime rejected invalid input or malformed buffer. |

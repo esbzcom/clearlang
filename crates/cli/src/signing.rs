@@ -53,6 +53,18 @@ struct VerifyKeyFile {
     public_key: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct TrustAnchorPolicyFile {
+    schema_version: u32,
+    trust_anchors: TrustAnchorVersions,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+struct TrustAnchorVersions {
+    lean_checker: String,
+    coq_checker: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SignatureFile {
     pub key_id: String,
@@ -188,6 +200,7 @@ pub enum VerifyErrorCode {
     SignatureFailure,
     ProofMissing,
     HashMismatch,
+    TrustAnchorFailure,
 }
 
 impl VerifyErrorCode {
@@ -196,6 +209,7 @@ impl VerifyErrorCode {
             VerifyErrorCode::SignatureFailure => "V001",
             VerifyErrorCode::ProofMissing => "V002",
             VerifyErrorCode::HashMismatch => "V003",
+            VerifyErrorCode::TrustAnchorFailure => "V004",
         }
     }
 }
@@ -235,6 +249,8 @@ pub fn sign_bundle(
     key_id: &str,
     sig_out: &Path,
     timestamp: &str,
+    lean_checker_version: Option<&str>,
+    coq_checker_version: Option<&str>,
 ) -> Result<()> {
     let key_data = fs::read(key_path).with_context(|| format!("reading {}", key_path.display()))?;
     let key_file: SigningKeyFile =
@@ -248,7 +264,32 @@ pub fn sign_bundle(
             .try_into()
             .map_err(|_| anyhow!("ed25519 private key must be 32 bytes"))?,
     );
-    let payload_value = package.build_signing_payload(module_hash_hex, scope, timestamp);
+    let mut payload_value = package.build_signing_payload(module_hash_hex, scope, timestamp);
+    if lean_checker_version.is_some() || coq_checker_version.is_some() {
+        let Some(lean_checker) = lean_checker_version else {
+            return Err(anyhow!(
+                "missing --lean-checker-version for trust-anchor payload"
+            ));
+        };
+        let Some(coq_checker) = coq_checker_version else {
+            return Err(anyhow!(
+                "missing --coq-checker-version for trust-anchor payload"
+            ));
+        };
+        if lean_checker.trim().is_empty() || coq_checker.trim().is_empty() {
+            return Err(anyhow!("trust-anchor checker versions must be non-empty"));
+        }
+        let payload = payload_value
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?;
+        payload.insert(
+            "trust_anchors".to_string(),
+            serde_json::json!({
+                "lean_checker": lean_checker,
+                "coq_checker": coq_checker,
+            }),
+        );
+    }
     let canonical_payload = canonical_json_string(&payload_value);
     let signature = signing.sign(canonical_payload.as_bytes());
     let sig_hex = hex::encode(signature.to_bytes());
@@ -446,6 +487,107 @@ pub fn verify_signature(
     }
 
     Ok(())
+}
+
+pub fn verify_signature_with_trust_policy(
+    module_path: &Path,
+    sig_path: &Path,
+    pubkey_path: &Path,
+    trust_policy_path: &Path,
+) -> std::result::Result<(), VerifyError> {
+    verify_signature(module_path, sig_path, pubkey_path)?;
+    let policy = read_trust_anchor_policy(trust_policy_path)?;
+    let payload = read_signature_payload(sig_path)?;
+    let payload_versions = extract_payload_trust_anchors(&payload)?;
+    if payload_versions != policy {
+        return Err(VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!(
+                "trust-anchor checker version mismatch: expected lean={} coq={}, got lean={} coq={}",
+                policy.lean_checker,
+                policy.coq_checker,
+                payload_versions.lean_checker,
+                payload_versions.coq_checker
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn read_trust_anchor_policy(path: &Path) -> std::result::Result<TrustAnchorVersions, VerifyError> {
+    let bytes = fs::read(path).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!("reading trust policy {}: {err}", path.display()),
+        )
+    })?;
+    let policy: TrustAnchorPolicyFile = serde_json::from_slice(&bytes).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!("parsing trust policy {}: {err}", path.display()),
+        )
+    })?;
+    if policy.schema_version != 1 {
+        return Err(VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!(
+                "unsupported trust policy schema_version {} (expected 1)",
+                policy.schema_version
+            ),
+        ));
+    }
+    if policy.trust_anchors.lean_checker.trim().is_empty()
+        || policy.trust_anchors.coq_checker.trim().is_empty()
+    {
+        return Err(VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            "trust policy checker versions must be non-empty",
+        ));
+    }
+    Ok(policy.trust_anchors)
+}
+
+fn read_signature_payload(path: &Path) -> std::result::Result<serde_json::Value, VerifyError> {
+    let bytes = fs::read(path).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!("reading signature file {}: {err}", path.display()),
+        )
+    })?;
+    let sig_file: SignatureFile = serde_json::from_slice(&bytes).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!("parsing signature file {}: {err}", path.display()),
+        )
+    })?;
+    Ok(sig_file.payload)
+}
+
+fn extract_payload_trust_anchors(
+    payload: &serde_json::Value,
+) -> std::result::Result<TrustAnchorVersions, VerifyError> {
+    let trust = payload
+        .get("trust_anchors")
+        .ok_or_else(|| {
+            VerifyError::new(
+                VerifyErrorCode::TrustAnchorFailure,
+                "signature payload missing trust_anchors",
+            )
+        })?
+        .clone();
+    let trust: TrustAnchorVersions = serde_json::from_value(trust).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            format!("invalid signature payload trust_anchors: {err}"),
+        )
+    })?;
+    if trust.lean_checker.trim().is_empty() || trust.coq_checker.trim().is_empty() {
+        return Err(VerifyError::new(
+            VerifyErrorCode::TrustAnchorFailure,
+            "signature payload trust_anchors checker versions must be non-empty",
+        ));
+    }
+    Ok(trust)
 }
 
 fn find_proof_section(bytes: &[u8]) -> std::result::Result<Vec<u8>, VerifyError> {

@@ -324,6 +324,31 @@ fn verify_compile_time_requires_trust_policy() {
 }
 
 #[test]
+fn verify_runtime_rejects_trust_policy() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    let trust_policy = write_trust_policy(tmp.path(), "4.14.0", "8.19.2");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--trust-policy")
+        .arg(&trust_policy);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V004\"")
+            .and(predicate::str::contains(
+                "requires `--verify-mode compile-time`",
+            )),
+    );
+}
+
+#[test]
 fn verify_compile_time_fails_when_signature_missing_trust_anchors() {
     let tmp = tempdir().unwrap();
     let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());

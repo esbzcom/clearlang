@@ -25,7 +25,16 @@ pub fn run(
     let result = {
         let _stage = timings.start(logger, "verify_signature");
         match verify_mode {
-            VerifyMode::Runtime => signing::verify_signature(&module, &sig, &pubkey),
+            VerifyMode::Runtime => {
+                if trust_policy.is_some() {
+                    Err(signing::VerifyError::new(
+                        signing::VerifyErrorCode::TrustAnchorFailure,
+                        "`--trust-policy` requires `--verify-mode compile-time`",
+                    ))
+                } else {
+                    signing::verify_signature(&module, &sig, &pubkey)
+                }
+            }
             VerifyMode::CompileTime => match trust_policy.as_ref() {
                 Some(policy) => {
                     signing::verify_signature_with_trust_policy(&module, &sig, &pubkey, policy)

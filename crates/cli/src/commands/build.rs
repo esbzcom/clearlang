@@ -140,6 +140,18 @@ pub fn run(
             None,
         )?;
     }
+    if let (Some(lean_checker_version), Some(coq_checker_version)) = (
+        lean_checker_version.as_ref(),
+        coq_checker_version.as_ref(),
+    ) {
+        if lean_checker_version.trim().is_empty() || coq_checker_version.trim().is_empty() {
+            fail_build(
+                "C032",
+                "`--lean-checker-version` and `--coq-checker-version` must be non-empty",
+                None,
+            )?;
+        }
+    }
 
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
         fail_build(

@@ -23,6 +23,13 @@
         {
           "category": "crypto",
           "id": "crypto.uninterpreted",
+          "intrinsic_levels": [
+            {
+              "intrinsic": "std::bytes::eq_ct",
+              "label": "assumed",
+              "tier": "L0"
+            }
+          ],
           "message": "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.",
           "status": "assumed",
           "symbols": [
@@ -97,6 +104,13 @@
         {
           "category": "crypto",
           "id": "crypto.uninterpreted",
+          "intrinsic_levels": [
+            {
+              "intrinsic": "std::bytes::eq_ct",
+              "label": "assumed",
+              "tier": "L0"
+            }
+          ],
           "message": "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.",
           "status": "assumed",
           "symbols": [

@@ -93,3 +93,5 @@ pure function check(a: Bytes, b: Bytes, x: U64, y: U64) -> Bool
   std::bytes::eq_ct(a, b)
 }
 ```
+Notes:
+- Locks assumption-boundary artifact shape including per-intrinsic crypto assurance metadata (`assumptions.items[].intrinsic_levels`).

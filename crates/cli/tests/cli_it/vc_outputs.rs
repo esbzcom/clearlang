@@ -209,11 +209,20 @@ fn build_emits_variant_vcs_json() {
 }
 
 #[derive(Deserialize)]
+struct IntrinsicLevelEntry {
+    intrinsic: String,
+    tier: String,
+    label: String,
+}
+
+#[derive(Deserialize)]
 struct ProofAssumptionEntry {
     id: String,
     category: String,
     #[serde(default)]
     symbols: Vec<String>,
+    #[serde(default)]
+    intrinsic_levels: Vec<IntrinsicLevelEntry>,
 }
 
 #[derive(Deserialize)]
@@ -335,6 +344,15 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
     assert!(crypto_symbols
         .iter()
         .any(|symbol| symbol.as_str() == Some("std::bytes::eq_ct")));
+    let crypto_intrinsic_levels = crypto
+        .get("intrinsic_levels")
+        .and_then(|v| v.as_array())
+        .expect("crypto intrinsic levels");
+    assert!(crypto_intrinsic_levels.iter().any(|entry| {
+        entry.get("intrinsic").and_then(|v| v.as_str()) == Some("std::bytes::eq_ct")
+            && entry.get("tier").and_then(|v| v.as_str()) == Some("L0")
+            && entry.get("label").and_then(|v| v.as_str()) == Some("assumed")
+    }));
 
     let wasm = fs::read(&wasm_path).expect("read wasm");
     let mut proof_data = None;
@@ -392,6 +410,11 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
                 .symbols
                 .iter()
                 .any(|symbol| symbol == "std::bytes::eq_ct")
+            && item.intrinsic_levels.iter().any(|level| {
+                level.intrinsic == "std::bytes::eq_ct"
+                    && level.tier == "L0"
+                    && level.label == "assumed"
+            })
     }));
 }
 

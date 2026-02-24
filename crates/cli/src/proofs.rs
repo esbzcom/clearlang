@@ -8,6 +8,9 @@ use wasmparser::{Parser, Payload};
 
 use crate::signing::SignScope;
 
+const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
+const ASSURANCE_TIER_L0: &str = "L0";
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProofSpan {
     pub start: u32,
@@ -74,6 +77,15 @@ pub struct ProofAssumption {
     pub message: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub symbols: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub intrinsic_levels: Vec<ProofIntrinsicLevel>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofIntrinsicLevel {
+    pub intrinsic: String,
+    pub tier: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -348,7 +360,23 @@ fn proof_assumption_from_boundary(boundary: &AssumptionBoundary) -> ProofAssumpt
         status: boundary.status.to_string(),
         message: boundary.message.to_string(),
         symbols: boundary.symbols.clone(),
+        intrinsic_levels: intrinsic_levels_for_boundary(boundary),
     }
+}
+
+fn intrinsic_levels_for_boundary(boundary: &AssumptionBoundary) -> Vec<ProofIntrinsicLevel> {
+    if boundary.id != ASSUMPTION_CRYPTO_ID {
+        return Vec::new();
+    }
+    boundary
+        .symbols
+        .iter()
+        .map(|symbol| ProofIntrinsicLevel {
+            intrinsic: symbol.clone(),
+            tier: ASSURANCE_TIER_L0.to_string(),
+            label: assurance_label_for_tier(ASSURANCE_TIER_L0).to_string(),
+        })
+        .collect()
 }
 
 pub fn assurance_for_assumptions(assumptions: &[AssumptionBoundary]) -> ProofAssurance {

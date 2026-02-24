@@ -1,5 +1,25 @@
 # Codex Session Context
 
+## 2026-02-24 - Phase 19.2.2 deterministic crypto-intrinsic modeling policy
+- Implemented deterministic per-intrinsic assurance metadata for crypto boundaries:
+  - `crates/cli/src/commands/build.rs` now emits `assumptions.items[].intrinsic_levels` for `crypto.uninterpreted` with stable entries:
+    - `intrinsic`,
+    - `tier` (`L0`),
+    - `label` (`assumed`).
+  - `crates/cli/src/proofs.rs` mirrors the same `intrinsic_levels` metadata in `clearlang.proof` VC assumption entries.
+- Added regression coverage:
+  - `crates/cli/tests/cli_it/vc_outputs.rs` now asserts `intrinsic_levels` in both emitted VC JSON and decoded proof-section assumptions.
+  - refreshed snapshot fixture `docs/proofs/fixtures/proof-model-assumptions.vc.json` for the new field shape.
+- Docs/roadmap updates:
+  - added design lock `docs/design/phase-19.2.2-crypto-intrinsic-modeling-policy.md`,
+  - updated `docs/proofs/vc-schema.md`, `docs/proofs/proof-section.md`, `docs/proofs/crypto-limitations.md`, and `docs/proofs/fixtures/README.md`,
+  - marked `19.2.2` complete in `docs/TODO.md`,
+  - moved DEVPLAN next sequence to `19.2.3`.
+- Validation:
+  - `cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section`
+  - `cargo test -p clg-cli --test vc_snapshots`
+  - `cargo test -p clg-cli --test phase19_design_principles`
+
 ## 2026-02-23 - Phase 19.2.1 unsigned/bitwise downgrade closure
 - Tightened explicit assumption downgrade coverage for bitwise-sensitive unsigned intrinsics:
   - `crates/typer/src/vc/generate.rs` now tags these calls under `bitwise.uninterpreted`:

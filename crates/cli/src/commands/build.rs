@@ -368,13 +368,32 @@ fn write_vcs_json(
         let items: Vec<serde_json::Value> = assumptions
             .iter()
             .map(|assumption| {
-                json!({
-                    "id": assumption.id,
-                    "category": assumption.category.as_str(),
-                    "status": assumption.status,
-                    "message": assumption.message,
-                    "symbols": assumption.symbols,
-                })
+                let mut item = serde_json::Map::new();
+                item.insert("id".to_string(), json!(assumption.id));
+                item.insert("category".to_string(), json!(assumption.category.as_str()));
+                item.insert("status".to_string(), json!(assumption.status));
+                item.insert("message".to_string(), json!(assumption.message));
+                item.insert("symbols".to_string(), json!(assumption.symbols));
+                if assumption.id == ASSUMPTION_CRYPTO_ID {
+                    let intrinsic_levels: Vec<serde_json::Value> = assumption
+                        .symbols
+                        .iter()
+                        .map(|symbol| {
+                            json!({
+                                "intrinsic": symbol,
+                                "tier": "L0",
+                                "label": "assumed",
+                            })
+                        })
+                        .collect();
+                    if !intrinsic_levels.is_empty() {
+                        item.insert(
+                            "intrinsic_levels".to_string(),
+                            serde_json::Value::Array(intrinsic_levels),
+                        );
+                    }
+                }
+                serde_json::Value::Object(item)
             })
             .collect();
         json!({ "items": items })

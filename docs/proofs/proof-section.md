@@ -85,9 +85,11 @@ where `attachment` is tagged with `kind` and carries `detail` for `param`, `retu
 `flow` sites. See `docs/proofs/vc-schema.md` for the full refinement attachment schema.
 
 `assumptions` is a map with a single `items` array. Each item mirrors VC JSON:
-`{ id, category, status, message, symbols[] }`, where `status` is currently `assumed`
+`{ id, category, status, message, symbols[], intrinsic_levels[]? }`, where `status` is currently `assumed`
 and `symbols` lists the exact touched operators/types/intrinsics that triggered the boundary.
 Current categories include `unsigned`, `bitwise`, `crypto`, `primitive`, and `external`.
+For `crypto.uninterpreted`, `intrinsic_levels` records deterministic per-intrinsic assurance entries
+(`intrinsic`, `tier`, `label`) aligned to `symbols`.
 In strict compiler mode, `L3` claims are blocked if any assumption item has empty `message` or empty `symbols` labeling.
 
 `assurance` is a map with:

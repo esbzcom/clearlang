@@ -24,10 +24,21 @@ pub(crate) fn ensure_known_type(
                 return Ok(());
             }
             if aliases.contains_key(name) {
-                if !args.is_empty() {
-                    return Err(
-                        TyperError::type_arg_count_mismatch(name, 0, args.len(), span).into(),
-                    );
+                let expected = aliases
+                    .get(name)
+                    .map(|alias| alias.type_params.len())
+                    .unwrap_or(0);
+                if expected != args.len() {
+                    return Err(TyperError::type_arg_count_mismatch(
+                        name,
+                        expected,
+                        args.len(),
+                        span,
+                    )
+                    .into());
+                }
+                for arg in args {
+                    ensure_known_type(arg, aliases, type_defs, type_params, std_types, span)?;
                 }
                 return Ok(());
             }
@@ -155,11 +166,12 @@ pub(crate) fn validate_known_types(
         }
     }
     for alias in &program.refined_aliases {
+        let alias_type_params: HashSet<String> = alias.type_params.iter().cloned().collect();
         ensure_known_type(
             &alias.base,
             aliases,
             type_defs,
-            &HashSet::new(),
+            &alias_type_params,
             std_types,
             Some(alias.span),
         )?;

@@ -1,7 +1,7 @@
 use crate::alias::refined_alias_p;
 use crate::enum_decl::enum_p;
-use crate::func::func_p;
-use crate::impl_decl::impl_p;
+use crate::func::{func_p, ParsedFunc};
+use crate::impl_decl::{impl_p, ParsedImplDecl};
 use crate::module_import::{import_decl_p, module_decl_p};
 use crate::resource::resource_p;
 use crate::struct_decl::struct_p;
@@ -14,12 +14,12 @@ use clg_ast::{Program, Span};
 #[derive(Debug)]
 enum Item {
     Alias(clg_ast::RefinedAlias),
-    Func(clg_ast::Func),
+    Func(ParsedFunc),
     Resource(clg_ast::Resource),
     Struct(clg_ast::StructDecl),
     Enum(clg_ast::EnumDecl),
     Trait(clg_ast::TraitDecl),
-    Impl(clg_ast::ImplDecl),
+    Impl(ParsedImplDecl),
 }
 
 #[derive(Debug)]
@@ -42,7 +42,7 @@ fn apply_export<'a>(item: Item, export_span: Span) -> Result<Item, Rich<'a, char
             Ok(Item::Alias(alias))
         }
         Item::Func(mut func) => {
-            func.is_exported = true;
+            func.func.is_exported = true;
             Ok(Item::Func(func))
         }
         Item::Resource(mut resource) => {
@@ -116,12 +116,18 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
                     TopLevel::Import(i) => imports.push(i),
                     TopLevel::Item(item) => match item {
                         Item::Alias(a) => refined_aliases.push(a),
-                        Item::Func(f) => funcs.push(f),
+                        Item::Func(f) => {
+                            refined_aliases.extend(f.inline_aliases);
+                            funcs.push(f.func);
+                        }
                         Item::Resource(r) => resources.push(r),
                         Item::Struct(s) => structs.push(s),
                         Item::Enum(e) => enums.push(e),
                         Item::Trait(t) => traits.push(t),
-                        Item::Impl(i) => impls.push(i),
+                        Item::Impl(i) => {
+                            refined_aliases.extend(i.inline_aliases);
+                            impls.push(i.decl);
+                        }
                     },
                 }
             }
@@ -510,103 +516,6 @@ fn find_export_import(src: &str) -> Option<(usize, usize)> {
     None
 }
 
-fn find_inline_refinement_in_signature(src: &str) -> Option<usize> {
-    let bytes = src.as_bytes();
-    let mut i = 0usize;
-    let mut in_string = false;
-    let mut in_line_comment = false;
-    let mut block_comment_depth = 0usize;
-    while i < bytes.len() {
-        if in_line_comment {
-            if bytes[i] == b'\n' {
-                in_line_comment = false;
-            }
-            i += 1;
-            continue;
-        }
-        if block_comment_depth > 0 {
-            if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
-                block_comment_depth += 1;
-                i += 2;
-                continue;
-            }
-            if i + 1 < bytes.len() && bytes[i] == b'*' && bytes[i + 1] == b'/' {
-                block_comment_depth -= 1;
-                i += 2;
-                continue;
-            }
-            i += 1;
-            continue;
-        }
-        if in_string {
-            if bytes[i] == b'\\' {
-                i = (i + 2).min(bytes.len());
-                continue;
-            }
-            if bytes[i] == b'"' {
-                in_string = false;
-            }
-            i += 1;
-            continue;
-        }
-        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'/' {
-            in_line_comment = true;
-            i += 2;
-            continue;
-        }
-        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
-            block_comment_depth = 1;
-            i += 2;
-            continue;
-        }
-        if bytes[i] == b'"' {
-            in_string = true;
-            i += 1;
-            continue;
-        }
-
-        if i + "function".len() <= bytes.len()
-            && &bytes[i..i + "function".len()] == b"function"
-            && (i == 0 || !is_ident_byte(bytes[i - 1]))
-            && (i + "function".len() == bytes.len() || !is_ident_byte(bytes[i + "function".len()]))
-        {
-            let mut j = i + "function".len();
-            let mut paren_depth = 0usize;
-            let mut saw_top_level_arrow = false;
-            while j < bytes.len() {
-                let b = bytes[j];
-                if b == b'(' {
-                    paren_depth += 1;
-                } else if b == b')' && paren_depth > 0 {
-                    paren_depth -= 1;
-                } else if paren_depth == 0
-                    && b == b'-'
-                    && j + 1 < bytes.len()
-                    && bytes[j + 1] == b'>'
-                {
-                    saw_top_level_arrow = true;
-                    j += 1;
-                } else if b == b'w'
-                    && j + 5 <= bytes.len()
-                    && &bytes[j..j + 5] == b"where"
-                    && (j == 0 || !is_ident_byte(bytes[j - 1]))
-                    && (j + 5 == bytes.len() || !is_ident_byte(bytes[j + 5]))
-                    && (paren_depth > 0 || saw_top_level_arrow)
-                {
-                    return Some(j);
-                } else if paren_depth == 0 && (b == b'{' || b == b';') {
-                    break;
-                }
-                j += 1;
-            }
-            i = j;
-            continue;
-        }
-        i += 1;
-    }
-    None
-}
-
 pub fn parse(src: &str) -> Result<Program, String> {
     program_p().parse(src).into_result().map_err(|errs| {
         let mut messages: Vec<String> = Vec::with_capacity(errs.len() + 1);
@@ -697,13 +606,6 @@ pub fn parse(src: &str) -> Result<Program, String> {
         if let Some((start, end)) = find_export_import(src) {
             messages.push(format!(
                 "at {}..{}: error: `export import` is not supported in v1; import directly in each module",
-                start, end
-            ));
-        }
-        if let Some(start) = find_inline_refinement_in_signature(src) {
-            let end = start + "where".len();
-            messages.push(format!(
-                "at {}..{}: error: inline refinements on function parameters/returns are not supported in v1; use a refined alias (`type Name = T where ...`)",
                 start, end
             ));
         }
@@ -850,21 +752,9 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     end,
                 });
             }
-            if let Some(start) = find_inline_refinement_in_signature(src) {
-                let end = start + "where".len();
-                items.push(ParserError {
-                    code: "P013",
-                    message: format!(
-                        "at {}..{}: error: inline refinements on function parameters/returns are not supported in v1; use a refined alias (`type Name = T where ...`)",
-                        start, end
-                    ),
-                    start,
-                    end,
-                });
-            }
             let specialized_spans: Vec<(usize, usize)> = items
                 .iter()
-                .filter(|e| e.code == "P011" || e.code == "P012" || e.code == "P013")
+                .filter(|e| e.code == "P011" || e.code == "P012")
                 .map(|e| (e.start, e.end))
                 .collect();
             if !specialized_spans.is_empty() {

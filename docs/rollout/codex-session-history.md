@@ -1,5 +1,34 @@
 # Codex Session Context
 
+## 2026-02-24 - Phase 19.2.3 refinement ergonomics closure
+- Implemented inline refinement ergonomics:
+  - parser now accepts inline param/return refinements and normalizes them into deterministic synthetic refined aliases (`__clg$inline_ref$...`),
+  - `crates/parser/src/func.rs`, `crates/parser/src/program.rs`, and `crates/parser/src/impl_decl.rs` now carry normalized aliases into `Program::refined_aliases`.
+- Implemented generic refined-alias support:
+  - removed hard rejection path for generic aliases in typer alias-map construction,
+  - added type-argument-aware alias resolution/substitution in `crates/typer/src/check/type_resolve.rs`,
+  - updated known/supported/equatable validation to respect alias type parameters.
+- Extended VC refinement flow to instantiate generic alias metadata:
+  - `crates/typer/src/vc/refinements/alias.rs`, `collect.rs`, `obligations.rs`, and `smt.rs` now handle instantiated alias views for `Named<...>` uses.
+- Updated migration and CLI ergonomics gates:
+  - `migration/01_inline_refinement_param.clear` and `migration/04_generic_refinement_alias.clear` now pass as lifted ergonomics samples,
+  - updated CLI IT diagnostics/sdk-usability tests to treat those samples as success cases.
+- Docs/roadmap updates:
+  - added design lock `docs/design/phase-19.2.3-refinement-ergonomics-production-proofs.md`,
+  - updated `docs/typing.md`, `docs/diagnostics.md`, and `clearlang-tests/migration/README.md`,
+  - marked `19.2.3` (and parent `19.2`) complete in `docs/TODO.md`,
+  - moved DEVPLAN next sequence to `19.3.1`.
+- Validation:
+  - `cargo test -p clg-parser --test refinements`
+  - `cargo test -p clg-parser --test parse_structured_errors`
+  - `cargo test -p clg-parser --test generics_traits parses_where_bounds_on_functions`
+  - `cargo test -p clg-typer --test refinements`
+  - `cargo test -p clg-typer --test vc generates_vc_for_inline_refined_params_and_returns`
+  - `cargo test -p clg-typer --test vc generates_vc_for_generic_refined_alias_instantiation`
+  - `cargo test -p clg-cli --test cli_it diagnostics::migration_`
+  - `cargo test -p clg-cli --test cli_it sdk_usability_`
+  - `cargo test -p clg-cli --test vc_snapshots`
+
 ## 2026-02-24 - Phase 19.2.2 deterministic crypto-intrinsic modeling policy
 - Implemented deterministic per-intrinsic assurance metadata for crypto boundaries:
   - `crates/cli/src/commands/build.rs` now emits `assumptions.items[].intrinsic_levels` for `crypto.uninterpreted` with stable entries:

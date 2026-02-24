@@ -36,9 +36,20 @@ fn parses_refined_alias_with_type_params() {
 }
 
 #[test]
-fn rejects_inline_refinements_on_params() {
+fn parses_inline_refinements_on_params_and_returns() {
     let src = r#"
-        function f(x: Int where x >= 0) -> Int { x }
+        function f(x: Int where x >= 0) -> Int where result >= 0 { x }
     "#;
-    assert!(parse(src).is_err(), "inline refinements should be rejected");
+    let program = parse(src).expect("parse ok");
+    assert_eq!(program.funcs.len(), 1);
+    assert_eq!(program.refined_aliases.len(), 2);
+    let func = &program.funcs[0];
+    assert!(matches!(
+        &func.params[0].ty,
+        Type::Named { name, .. } if name.contains("__clg$inline_ref$")
+    ));
+    assert!(matches!(
+        &func.ret,
+        Type::Named { name, .. } if name.contains("__clg$inline_ref$")
+    ));
 }

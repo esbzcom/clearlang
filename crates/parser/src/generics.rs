@@ -70,6 +70,7 @@ pub(crate) fn where_bounds_p<'a>() -> impl Parser<'a, &'a str, Vec<TraitBound>, 
         .ignore_then(
             bound
                 .separated_by(just(',').padded())
+                .at_least(1)
                 .allow_trailing()
                 .collect::<Vec<_>>(),
         )

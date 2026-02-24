@@ -241,12 +241,13 @@ pub(crate) fn validate_equatable_collections(
         }
     }
     for alias in &program.refined_aliases {
+        let alias_type_params: HashSet<String> = alias.type_params.iter().cloned().collect();
         ensure_equatable_collection_keys(
             &alias.base,
             Some(alias.span),
             type_defs,
             aliases,
-            &HashSet::new(),
+            &alias_type_params,
         )?;
     }
     for s in &program.structs {

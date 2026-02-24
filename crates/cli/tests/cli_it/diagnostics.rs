@@ -201,16 +201,6 @@ fn if_branch_mismatch_reports_t301_in_json() {
 }
 
 #[test]
-fn migration_inline_refinement_rejection_reports_p013_deterministically() {
-    let mut cmd = Command::cargo_bin("clg").unwrap();
-    cmd.args(["--json-errors", "parse"])
-        .arg(repo_sample("migration/01_inline_refinement_param.clear"));
-    let output = cmd.assert().failure().get_output().stdout.clone();
-    let v: Value = serde_json::from_slice(&output).expect("json");
-    assert_single_json_error(&v, "P013", "parse");
-}
-
-#[test]
 fn migration_deferred_ergonomics_type_restrictions_report_stable_codes() {
     let cases = [
         ("migration/02_interface_type_params.clear", "T246"),
@@ -218,7 +208,6 @@ fn migration_deferred_ergonomics_type_restrictions_report_stable_codes() {
             "migration/03_implementation_method_type_params.clear",
             "T245",
         ),
-        ("migration/04_generic_refinement_alias.clear", "T244"),
         ("migration/05_set_resource.clear", "T806"),
         ("migration/06_array_resource.clear", "T806"),
     ];
@@ -235,6 +224,27 @@ fn migration_deferred_ergonomics_type_restrictions_report_stable_codes() {
         let v: Value = serde_json::from_slice(&output).expect("json");
         assert_single_json_error(&v, expected_code, "type");
     }
+}
+
+#[test]
+fn migration_refinement_ergonomics_samples_now_pass() {
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["parse"])
+        .arg(repo_sample("migration/01_inline_refinement_param.clear"))
+        .assert()
+        .success();
+
+    let tmp = tempdir().unwrap();
+    let out = tmp.path().join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(repo_sample("migration/04_generic_refinement_alias.clear"))
+        .args(["-o"])
+        .arg(&out)
+        .assert()
+        .success();
 }
 
 #[test]

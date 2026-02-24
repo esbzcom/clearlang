@@ -39,7 +39,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | P010 | parse | Missing `else` in expression-form `if`. |
 | P011 | parse | Re-export syntax `export import` is not supported in v1. |
 | P012 | parse | Capture-list lambda syntax is not supported in v1. |
-| P013 | parse | Inline refinements on function parameters/returns are not supported in v1 (use refined aliases). |
+| P013 | parse | Reserved legacy code from the Phase 18 deferred-inline period (no longer emitted in Phase 19.2.3+). |
 | T000 | type | Fallback for internal type-check failures. |
 | T001 | type | Unknown function. |
 | T002 | type | Arity mismatch. |
@@ -98,7 +98,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | T241 | type | Unknown type parameter in interface bound. |
 | T242 | type | Type argument count mismatch. |
 | T243 | type | Type parameter cannot take type arguments. |
-| T244 | type | Generic refinement aliases not supported yet. |
+| T244 | type | Reserved legacy code from the Phase 18 deferred-generic-refinement period (no longer emitted in Phase 19.2.3+). |
 | T245 | type | Implementation methods cannot declare their own type parameters yet. |
 | T246 | type | Interface type parameters not supported yet. |
 | T247 | type | Conflicting inferred types for a type parameter. |

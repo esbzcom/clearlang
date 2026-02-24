@@ -1,64 +1,93 @@
 use anyhow::Result;
 use clg_ast::Type;
+use std::collections::HashSet;
 
-use super::{AliasMap, TypeDefs};
+use super::{substitute_type, AliasMap, TypeDefs};
 use crate::errors::TyperError;
 
 pub(crate) fn resolve_aliases(
     ty: &Type,
     aliases: &AliasMap,
     visiting: &mut Vec<String>,
+    type_params: &HashSet<String>,
 ) -> Result<Type> {
     match ty {
         Type::Named { name, args } => {
-            if args.is_empty() {
-                if let Some(def) = aliases.get(name) {
-                    if visiting.iter().any(|n| n == name) {
-                        return Err(TyperError::cyclic_alias(name, def.span).into());
-                    }
-                    visiting.push(name.clone());
-                    let resolved = resolve_aliases(&def.base, aliases, visiting)?;
-                    visiting.pop();
-                    return Ok(resolved);
-                }
+            if args.is_empty() && type_params.contains(name.as_str()) {
+                return Ok(Type::Named {
+                    name: name.clone(),
+                    args: Vec::new(),
+                });
             }
             let resolved_args = args
                 .iter()
-                .map(|arg| resolve_aliases(arg, aliases, visiting))
+                .map(|arg| resolve_aliases(arg, aliases, visiting, type_params))
                 .collect::<Result<Vec<_>>>()?;
+            if let Some(def) = aliases.get(name) {
+                if def.type_params.len() != resolved_args.len() {
+                    return Ok(Type::Named {
+                        name: name.clone(),
+                        args: resolved_args,
+                    });
+                }
+                if visiting.iter().any(|n| n == name) {
+                    return Err(TyperError::cyclic_alias(name, def.span).into());
+                }
+                visiting.push(name.clone());
+                let mut subst = std::collections::HashMap::with_capacity(def.type_params.len());
+                for (param, arg) in def.type_params.iter().zip(resolved_args.iter()) {
+                    subst.insert(param.clone(), arg.clone());
+                }
+                let instantiated = substitute_type(&def.base, &subst);
+                let resolved = resolve_aliases(&instantiated, aliases, visiting, type_params)?;
+                visiting.pop();
+                return Ok(resolved);
+            }
             Ok(Type::Named {
                 name: name.clone(),
                 args: resolved_args,
             })
         }
         Type::Option(inner) => Ok(Type::Option(Box::new(resolve_aliases(
-            inner, aliases, visiting,
+            inner,
+            aliases,
+            visiting,
+            type_params,
         )?))),
         Type::Result(ok, err) => Ok(Type::Result(
-            Box::new(resolve_aliases(ok, aliases, visiting)?),
-            Box::new(resolve_aliases(err, aliases, visiting)?),
+            Box::new(resolve_aliases(ok, aliases, visiting, type_params)?),
+            Box::new(resolve_aliases(err, aliases, visiting, type_params)?),
         )),
         Type::List(inner) => Ok(Type::List(Box::new(resolve_aliases(
-            inner, aliases, visiting,
+            inner,
+            aliases,
+            visiting,
+            type_params,
         )?))),
         Type::Set(inner) => Ok(Type::Set(Box::new(resolve_aliases(
-            inner, aliases, visiting,
+            inner,
+            aliases,
+            visiting,
+            type_params,
         )?))),
         Type::Slice(inner) => Ok(Type::Slice(Box::new(resolve_aliases(
-            inner, aliases, visiting,
+            inner,
+            aliases,
+            visiting,
+            type_params,
         )?))),
         Type::Map(k, v) => Ok(Type::Map(
-            Box::new(resolve_aliases(k, aliases, visiting)?),
-            Box::new(resolve_aliases(v, aliases, visiting)?),
+            Box::new(resolve_aliases(k, aliases, visiting, type_params)?),
+            Box::new(resolve_aliases(v, aliases, visiting, type_params)?),
         )),
         Type::Array(inner, len) => Ok(Type::Array(
-            Box::new(resolve_aliases(inner, aliases, visiting)?),
+            Box::new(resolve_aliases(inner, aliases, visiting, type_params)?),
             *len,
         )),
         Type::Tuple(elements) => {
             let resolved_elems = elements
                 .iter()
-                .map(|elem| resolve_aliases(elem, aliases, visiting))
+                .map(|elem| resolve_aliases(elem, aliases, visiting, type_params))
                 .collect::<Result<Vec<_>>>()?;
             Ok(Type::Tuple(resolved_elems))
         }
@@ -68,8 +97,13 @@ pub(crate) fn resolve_aliases(
 
 fn alias_name<'a>(ty: &'a Type, aliases: &'a AliasMap) -> Option<&'a str> {
     match ty {
-        Type::Named { name, args } if args.is_empty() && aliases.contains_key(name.as_str()) => {
-            Some(name.as_str())
+        Type::Named { name, args } => {
+            let def = aliases.get(name.as_str())?;
+            if def.type_params.len() == args.len() {
+                Some(name.as_str())
+            } else {
+                None
+            }
         }
         _ => None,
     }
@@ -77,7 +111,7 @@ fn alias_name<'a>(ty: &'a Type, aliases: &'a AliasMap) -> Option<&'a str> {
 
 pub(crate) fn base_type(ty: &Type, aliases: &AliasMap) -> Result<Type> {
     let mut visiting = Vec::new();
-    resolve_aliases(ty, aliases, &mut visiting)
+    resolve_aliases(ty, aliases, &mut visiting, &HashSet::new())
 }
 
 pub(crate) fn base_types_match(expected: &Type, actual: &Type, aliases: &AliasMap) -> Result<bool> {

@@ -1,3 +1,4 @@
-type NonEmpty<T> = List<T> where xs > 0;
+type Stable<T> = T where v == v;
 
-function main() -> Int { 0 }
+pure function keep(x: Stable<Int>) -> Stable<Int> { x }
+function main() -> Stable<Int> { keep(0) }

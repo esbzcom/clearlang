@@ -452,6 +452,36 @@ fn generates_vc_for_refined_alias_params_and_returns() {
 }
 
 #[test]
+fn generates_vc_for_inline_refined_params_and_returns() {
+    let src = r#"
+        pure function inc(a: Int where a >= 0) -> Int where result >= 0 { a + 1 }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.pre.ast, "a >= 0");
+    assert_eq!(vc.post.ast, "result >= 0");
+    assert_eq!(vc.refinements.len(), 2);
+}
+
+#[test]
+fn generates_vc_for_generic_refined_alias_instantiation() {
+    let src = r#"
+        type Stable<T> = T where v == v;
+        pure function keep(x: Stable<Int>) -> Stable<Int> { x }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.pre.ast, "x == x");
+    assert_eq!(vc.post.ast, "result == result");
+}
+
+#[test]
 fn propagates_refinement_through_let_bindings() {
     let src = r#"
         type Nat = Int where n >= 0;

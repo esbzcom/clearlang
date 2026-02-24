@@ -17,11 +17,6 @@ pub(super) fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result
     let mut aliases: AliasMap = HashMap::with_capacity(program.refined_aliases.len());
 
     for alias in &program.refined_aliases {
-        if !alias.type_params.is_empty() {
-            return Err(
-                TyperError::generic_alias_not_supported(alias.name.as_str(), alias.span).into(),
-            );
-        }
         if aliases.contains_key(alias.name.as_str()) {
             return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
         }
@@ -35,9 +30,11 @@ pub(super) fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result
         {
             return Err(TyperError::duplicate_type(&alias.name, alias.name_span).into());
         }
+        let alias_type_params: HashSet<String> = alias.type_params.iter().cloned().collect();
         let mut visited = Vec::with_capacity(program.refined_aliases.len());
-        let resolved_base = resolve_aliases(&alias.base, &aliases, &mut visited)?;
-        if contains_named_resource(&resolved_base, &type_defs.resources, &HashSet::new()) {
+        let resolved_base =
+            resolve_aliases(&alias.base, &aliases, &mut visited, &alias_type_params)?;
+        if contains_named_resource(&resolved_base, &type_defs.resources, &alias_type_params) {
             return Err(TyperError::refined_resource_not_supported(
                 alias.name.as_str(),
                 alias.span,
@@ -48,19 +45,20 @@ pub(super) fn build_alias_map(program: &Program, type_defs: &TypeDefs) -> Result
             &resolved_base,
             Some(alias.span),
             &type_defs.resources,
-            &HashSet::new(),
+            &alias_type_params,
         )?;
         ensure_equatable_collection_keys(
             &resolved_base,
             Some(alias.span),
             type_defs,
             &aliases,
-            &HashSet::new(),
+            &alias_type_params,
         )?;
 
         aliases.insert(
             alias.name.clone(),
             AliasDef {
+                type_params: alias.type_params.clone(),
                 base: resolved_base,
                 predicate: alias.predicate.clone(),
                 binder: alias.binder.clone(),

@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 19.2.3 - refinement ergonomics needed for production proofs.
+Current focus: Phase 19.3.1 - strict language profile for verified-by-construction workflows.
 
 3.1 Typer Core
 
@@ -872,10 +872,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.1.2 Require every non-proved primitive/external dependency to be labeled as `assumed` in emitted reports. (`docs/design/phase-19.1.2-assumed-dependency-labeling.md`, `primitive.unproved`, `external.dependency`)
   - [x] 19.1.3 Fail closed in strict mode: block `L3` claims if any unlabeled assumptions remain. (`docs/design/phase-19.1.3-strict-l3-fail-closed.md`, diagnostic `C031`)
   - [x] 19.1.4 Add external trust-anchor integration for compile-time `verify` mode (pinned Lean/Coq checker versions), while keeping runtime bundles kernel-free. (`docs/design/phase-19.1.4-trust-anchor-compile-time-verify.md`, diagnostics `C032`/`V004`)
-- [ ] 19.2 Proof coverage completion for current language surface.
+- [x] 19.2 Proof coverage completion for current language surface.
   - [x] 19.2.1 Close unsigned/bitwise SMT gaps (`U128`/`U256`, shifts, masks) or downgrade affected checks to explicit assumptions. (`docs/design/phase-19.2.1-unsigned-bitwise-gap-closure.md`, updated `bitwise.uninterpreted` downgrade coverage for bitwise-sensitive `std::u64` intrinsics)
   - [x] 19.2.2 Add deterministic modeling policy for crypto intrinsics with per-intrinsic assurance level in outputs. (`docs/design/phase-19.2.2-crypto-intrinsic-modeling-policy.md`, `assumptions.items[].intrinsic_levels` in VC JSON and proof-section outputs)
-  - [ ] 19.2.3 Complete refinement ergonomics needed for production proofs (inline param/return refinements + generic refinement aliases if sound).
+  - [x] 19.2.3 Complete refinement ergonomics needed for production proofs (inline param/return refinements + generic refinement aliases if sound). (`docs/design/phase-19.2.3-refinement-ergonomics-production-proofs.md`, inline refinement normalization + generic alias instantiation support)
 - [ ] 19.3 Verified-by-construction standard profile.
   - [ ] 19.3.1 Define a `strict` language profile that forbids unsupported/deferred constructs and external unchecked calls by default.
   - [ ] 19.3.2 Publish a "verified std/core subset" with proof-backed contracts and regression obligations.

@@ -5,6 +5,52 @@ use clg_ast::Type;
 use super::alias::AliasView;
 use crate::vc::{snapshot_expr, RefinementObligation};
 
+fn instantiate_type(ty: &Type, subst: &HashMap<String, Type>) -> Type {
+    match ty {
+        Type::Named { name, args } => {
+            if args.is_empty() {
+                if let Some(mapped) = subst.get(name) {
+                    return mapped.clone();
+                }
+            }
+            Type::Named {
+                name: name.clone(),
+                args: args
+                    .iter()
+                    .map(|arg| instantiate_type(arg, subst))
+                    .collect(),
+            }
+        }
+        Type::Option(inner) => Type::Option(Box::new(instantiate_type(inner, subst))),
+        Type::Result(ok, err) => Type::Result(
+            Box::new(instantiate_type(ok, subst)),
+            Box::new(instantiate_type(err, subst)),
+        ),
+        Type::List(inner) => Type::List(Box::new(instantiate_type(inner, subst))),
+        Type::Set(inner) => Type::Set(Box::new(instantiate_type(inner, subst))),
+        Type::Map(k, v) => Type::Map(
+            Box::new(instantiate_type(k, subst)),
+            Box::new(instantiate_type(v, subst)),
+        ),
+        Type::Array(inner, len) => Type::Array(Box::new(instantiate_type(inner, subst)), *len),
+        Type::Slice(inner) => Type::Slice(Box::new(instantiate_type(inner, subst))),
+        Type::Tuple(elements) => Type::Tuple(
+            elements
+                .iter()
+                .map(|elem| instantiate_type(elem, subst))
+                .collect(),
+        ),
+        Type::Fn { params, ret } => Type::Fn {
+            params: params
+                .iter()
+                .map(|param| instantiate_type(param, subst))
+                .collect(),
+            ret: Box::new(instantiate_type(ret, subst)),
+        },
+        _ => ty.clone(),
+    }
+}
+
 pub(super) fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
     match ty {
         Type::Int => "Int",
@@ -24,9 +70,14 @@ pub(super) fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>
         | Type::Fn { .. }
         | Type::Named { .. } => {
             if let Type::Named { name, args } = ty {
-                if args.is_empty() {
-                    if let Some(alias) = aliases.get(name.as_str()) {
-                        return smt_sort_for_type(alias.base, aliases);
+                if let Some(alias) = aliases.get(name.as_str()) {
+                    if alias.type_params.len() == args.len() {
+                        let mut subst = HashMap::with_capacity(alias.type_params.len());
+                        for (param, arg) in alias.type_params.iter().zip(args.iter()) {
+                            subst.insert(param.clone(), arg.clone());
+                        }
+                        let instantiated = instantiate_type(alias.base, &subst);
+                        return smt_sort_for_type(&instantiated, aliases);
                     }
                 }
             }

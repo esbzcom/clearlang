@@ -4,7 +4,9 @@ use crate::tokens::{func_name_p, ident_p, kw};
 use crate::types::{effect_p, ty_p};
 use crate::ErrTy;
 use chumsky::prelude::*;
-use clg_ast::{Contract, Effect, Func, Param, ParamKind, Span};
+use clg_ast::{
+    Contract, Effect, Expr, Func, Param, ParamKind, RefinedAlias, Span, TraitBound, Type,
+};
 
 fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
     Span {
@@ -13,7 +15,35 @@ fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
     }
 }
 
-fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
+#[derive(Debug, Clone)]
+struct ParsedParam {
+    kind: ParamKind,
+    name: String,
+    ty: Type,
+    inline_refinement: Option<(Expr, Span)>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ParsedFunc {
+    pub func: Func,
+    pub inline_aliases: Vec<RefinedAlias>,
+}
+
+fn inline_alias_name(function_name: &str, slot: &str) -> String {
+    format!("__clg$inline_ref${}${}", function_name, slot)
+}
+
+fn alias_type_args(type_params: &[clg_ast::TypeParam]) -> Vec<Type> {
+    type_params
+        .iter()
+        .map(|tp| Type::Named {
+            name: tp.name.clone(),
+            args: Vec::new(),
+        })
+        .collect()
+}
+
+fn param_p<'a>() -> impl Parser<'a, &'a str, ParsedParam, ErrTy<'a>> {
     kw("consume")
         .or_not()
         .then(ident_p())
@@ -27,19 +57,28 @@ fn param_p<'a>() -> impl Parser<'a, &'a str, Param, ErrTy<'a>> {
                     None => Err(Rich::custom(span, "expected type")),
                 }),
         )
-        .map(|((consume_kw, name), ty)| Param {
-            kind: if consume_kw.is_some() {
-                ParamKind::Consume
-            } else {
-                ParamKind::Borrow
+        .then(
+            kw("where")
+                .ignore_then(expr_p().padded())
+                .map_with(|predicate, e| (predicate, to_span(e.span())))
+                .or_not(),
+        )
+        .map(
+            |(((consume_kw, name), ty), inline_refinement)| ParsedParam {
+                kind: if consume_kw.is_some() {
+                    ParamKind::Consume
+                } else {
+                    ParamKind::Borrow
+                },
+                name,
+                ty,
+                inline_refinement,
             },
-            name,
-            ty,
-        })
+        )
         .padded()
 }
 
-fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
+fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<ParsedParam>, ErrTy<'a>> {
     param_p()
         .separated_by(just(',').padded().labelled("comma"))
         .allow_trailing()
@@ -50,7 +89,33 @@ fn params_p<'a>() -> impl Parser<'a, &'a str, Vec<Param>, ErrTy<'a>> {
         )
 }
 
-pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
+enum SignatureWhereClause {
+    Bounds(Vec<TraitBound>),
+    ReturnRefinement(Expr, Span),
+}
+
+pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, ParsedFunc, ErrTy<'a>> {
+    let return_refinement_p = kw("where")
+        .ignore_then(ident_p())
+        .rewind()
+        .try_map(|binder, span| {
+            if binder == "result" {
+                Ok(())
+            } else {
+                Err(Rich::custom(
+                    span,
+                    "not a return refinement binder".to_string(),
+                ))
+            }
+        })
+        .ignore_then(
+            kw("where")
+                .ignore_then(expr_p().padded())
+                .map_with(|predicate, e| {
+                    SignatureWhereClause::ReturnRefinement(predicate, to_span(e.span()))
+                }),
+        );
+
     let contract_block = just('{')
         .padded()
         .labelled("'{'")
@@ -111,13 +176,22 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
             ),
         )
         .then(ty_p().padded())
-        .then(where_bounds_p().or_not())
+        .then(
+            choice((
+                return_refinement_p,
+                where_bounds_p().map(SignatureWhereClause::Bounds),
+            ))
+            .or_not(),
+        )
         .then(clause_p)
         .then(expr_p())
         .map(
             |(
                 (
-                    ((((((eff_opt, name), type_params), params), _arrow_ok), ret), where_bounds),
+                    (
+                        (((((eff_opt, name), type_params), params), _arrow_ok), ret),
+                        sig_where_clause,
+                    ),
                     clauses,
                 ),
                 body,
@@ -136,22 +210,91 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, Func, ErrTy<'a>> {
                 }
 
                 let (type_params, mut bounds) = type_params.unwrap_or_default();
-                if let Some(mut extra_bounds) = where_bounds {
-                    bounds.append(&mut extra_bounds);
+                let mut ret_refinement = None;
+                if let Some(where_clause) = sig_where_clause {
+                    match where_clause {
+                        SignatureWhereClause::Bounds(mut extra_bounds) => {
+                            bounds.append(&mut extra_bounds);
+                        }
+                        SignatureWhereClause::ReturnRefinement(predicate, span) => {
+                            ret_refinement = Some((predicate, span));
+                        }
+                    }
                 }
 
-                Func {
+                let type_param_names: Vec<String> =
+                    type_params.iter().map(|tp| tp.name.clone()).collect();
+                let type_args = alias_type_args(&type_params);
+
+                let mut params_out = Vec::with_capacity(params.len());
+                let mut inline_aliases = Vec::new();
+                for (idx, param) in params.into_iter().enumerate() {
+                    if let Some((predicate, span)) = param.inline_refinement {
+                        let alias_name =
+                            inline_alias_name(&name, &format!("$param${}${}", idx, param.name));
+                        inline_aliases.push(RefinedAlias {
+                            is_exported: false,
+                            name: alias_name.clone(),
+                            name_span: span,
+                            type_params: type_param_names.clone(),
+                            base: param.ty.clone(),
+                            binder: Some(param.name.clone()),
+                            predicate,
+                            span,
+                        });
+                        params_out.push(Param {
+                            kind: param.kind,
+                            name: param.name,
+                            ty: Type::Named {
+                                name: alias_name,
+                                args: type_args.clone(),
+                            },
+                        });
+                    } else {
+                        params_out.push(Param {
+                            kind: param.kind,
+                            name: param.name,
+                            ty: param.ty,
+                        });
+                    }
+                }
+
+                let mut ret_out = ret;
+                if let Some((predicate, span)) = ret_refinement {
+                    let alias_name = inline_alias_name(&name, "$ret");
+                    inline_aliases.push(RefinedAlias {
+                        is_exported: false,
+                        name: alias_name.clone(),
+                        name_span: span,
+                        type_params: type_param_names,
+                        base: ret_out.clone(),
+                        binder: Some("result".to_string()),
+                        predicate,
+                        span,
+                    });
+                    ret_out = Type::Named {
+                        name: alias_name,
+                        args: type_args,
+                    };
+                }
+
+                let func = Func {
                     is_exported: false,
                     effect,
                     effect_span,
                     name,
                     type_params,
-                    params,
-                    ret,
+                    params: params_out,
+                    ret: ret_out,
                     where_bounds: bounds,
                     requires,
                     ensures,
                     body,
+                };
+
+                ParsedFunc {
+                    func,
+                    inline_aliases,
                 }
             },
         )

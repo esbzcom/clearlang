@@ -11,7 +11,7 @@ use crate::vc::{
 pub(crate) fn collect_refinement_obligations<'a>(
     expr: &'a Expr,
     aliases: &HashMap<&'a str, AliasView<'a>>,
-    fn_sigs: &HashMap<String, FnSigView<'a>>,
+    fn_sigs: &HashMap<String, FnSigView>,
     env: &mut HashMap<String, Type>,
     out: &mut Vec<RefinementObligation>,
 ) -> Option<Type> {
@@ -191,8 +191,8 @@ pub(crate) fn collect_refinement_obligations<'a>(
                                 detail.arm = Some(arm_idx);
                                 let attachment = RefinementAttachment::flow(detail);
                                 if let Some(obligation) = make_refinement_obligation(
-                                    alias,
-                                    &Expr::Var(name.clone(), alias.span),
+                                    &alias,
+                                    &Expr::Var(name.clone(), alias.alias_span),
                                     attachment,
                                 ) {
                                     out.push(obligation);
@@ -243,8 +243,8 @@ pub(crate) fn collect_refinement_obligations<'a>(
                                 detail.arm = Some(arm_idx);
                                 let attachment = RefinementAttachment::flow(detail);
                                 if let Some(obligation) = make_refinement_obligation(
-                                    alias,
-                                    &Expr::Var(name.clone(), alias.span),
+                                    &alias,
+                                    &Expr::Var(name.clone(), alias.alias_span),
                                     attachment,
                                 ) {
                                     out.push(obligation);
@@ -270,8 +270,8 @@ pub(crate) fn collect_refinement_obligations<'a>(
                                 detail.arm = Some(arm_idx);
                                 let attachment = RefinementAttachment::flow(detail);
                                 if let Some(obligation) = make_refinement_obligation(
-                                    alias,
-                                    &Expr::Var(name.clone(), alias.span),
+                                    &alias,
+                                    &Expr::Var(name.clone(), alias.alias_span),
                                     attachment,
                                 ) {
                                     out.push(obligation);
@@ -329,7 +329,8 @@ pub(crate) fn collect_refinement_obligations<'a>(
                             detail.name = Some(name.clone());
                         }
                         let attachment = RefinementAttachment::flow(detail);
-                        if let Some(obligation) = make_refinement_obligation(alias, arg, attachment)
+                        if let Some(obligation) =
+                            make_refinement_obligation(&alias, arg, attachment)
                         {
                             out.push(obligation);
                         }
@@ -404,7 +405,7 @@ pub(crate) fn collect_refinement_obligations<'a>(
 pub(super) fn collect_block_refinements<'a>(
     block: &'a clg_ast::Block,
     aliases: &HashMap<&'a str, AliasView<'a>>,
-    fn_sigs: &HashMap<String, FnSigView<'a>>,
+    fn_sigs: &HashMap<String, FnSigView>,
     outer_env: &mut HashMap<String, Type>,
     out: &mut Vec<RefinementObligation>,
 ) -> Option<Type> {
@@ -425,8 +426,8 @@ pub(super) fn collect_block_refinements<'a>(
                         detail.name = Some(name.clone());
                         let attachment = RefinementAttachment::flow(detail);
                         if let Some(obligation) = make_refinement_obligation(
-                            alias,
-                            &Expr::Var(name.clone(), alias.span),
+                            &alias,
+                            &Expr::Var(name.clone(), alias.alias_span),
                             attachment,
                         ) {
                             out.push(obligation);

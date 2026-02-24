@@ -11,7 +11,7 @@
 - Next active phase: `19.2` proof coverage completion for the current language surface.
 
 ### Suggested Sequence
-1) Execute `19.2.3` refinement ergonomics needed for production proofs (inline param/return refinements + generic refinement aliases if sound).
+1) Execute `19.3.1` strict language profile that forbids unsupported/deferred constructs and external unchecked calls by default.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -37,6 +37,7 @@
 - **Phase 19 compile-time trust anchors (`19.1.4`)**: completed by adding pinned checker versions (`--lean-checker-version`, `--coq-checker-version`) to signed payloads, compile-time verify policy checks (`--verify-mode compile-time --trust-policy`), and deterministic diagnostics (`C032`, `V004`) while keeping runtime verification kernel-free.
 - **Phase 19 unsigned/bitwise downgrade closure (`19.2.1`)**: completed by explicitly downgrading bitwise-sensitive `std::u64` intrinsic semantics (`rotl`/`rotr`/`to_bytes_*`/`from_bytes_*`) under `bitwise.uninterpreted` with deterministic VC assumption symbol labeling.
 - **Phase 19 crypto modeling policy (`19.2.2`)**: completed by adding deterministic per-intrinsic crypto assurance metadata (`intrinsic_levels`) under `crypto.uninterpreted` in VC JSON and proof-section assumption outputs.
+- **Phase 19 refinement ergonomics closure (`19.2.3`)**: completed by enabling inline param/return refinements and generic refinement alias instantiation with deterministic parser normalization into refined-alias artifacts.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

@@ -68,6 +68,7 @@ pub(super) fn effect_label(level: EffectLevel) -> &'static str {
 
 #[derive(Clone)]
 pub(crate) struct AliasDef {
+    type_params: Vec<String>,
     base: Type,
     predicate: Expr,
     binder: Option<String>,

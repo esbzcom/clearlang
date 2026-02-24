@@ -232,3 +232,13 @@ fn refinement_drop_in_try_is_rejected() {
     let s = format!("{err:#}");
     assert!(s.contains("T603"), "missing code T603: {s}");
 }
+
+#[test]
+fn generic_refined_alias_is_supported_with_type_arguments() {
+    let src = r#"
+        type Stable<T> = T where v == v;
+        pure function keep(x: Stable<Int>) -> Stable<Int> { x }
+        function main() -> Stable<Int> { keep(1) }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("typecheck ok");
+}

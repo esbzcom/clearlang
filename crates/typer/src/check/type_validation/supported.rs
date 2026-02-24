@@ -78,7 +78,8 @@ pub(crate) fn validate_supported_types(
         }
     }
     for alias in &program.refined_aliases {
-        ensure_supported_type(&alias.base, Some(alias.span), &HashSet::new())?;
+        let alias_type_params: HashSet<String> = alias.type_params.iter().cloned().collect();
+        ensure_supported_type(&alias.base, Some(alias.span), &alias_type_params)?;
     }
     for func in &program.funcs {
         let type_params = validate_type_params(&func.type_params, type_defs, aliases, trait_env)?;

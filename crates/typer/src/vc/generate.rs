@@ -72,7 +72,7 @@ pub fn generate_vcs_with_dependencies(
                 if let Some(alias) = alias_opt {
                     if let Some(obligation) = make_refinement_obligation(
                         alias,
-                        &Expr::Var(param.name.clone(), alias.span),
+                        &Expr::Var(param.name.clone(), alias.alias_span),
                         RefinementAttachment::param(param.name.clone()),
                     ) {
                         pre_obligations.push(obligation);
@@ -98,15 +98,15 @@ pub fn generate_vcs_with_dependencies(
             })
             .collect();
         if let Some(sig) = fn_sigs.get(func.name.as_str()) {
-            if let Some(alias) = sig.ret_alias {
+            if let Some(alias) = sig.ret_alias.as_ref() {
                 if let Some(obligation) = make_refinement_obligation(
                     alias,
-                    &Expr::Var("result".into(), alias.span),
+                    &Expr::Var("result".into(), alias.alias_span),
                     RefinementAttachment::result("result".to_string()),
                 ) {
                     ensures.push(EnsureItem {
                         expr: obligation.predicate.clone(),
-                        span: alias.span,
+                        span: alias.alias_span,
                         return_obligation: Some(obligation),
                     });
                 }

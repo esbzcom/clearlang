@@ -12,7 +12,8 @@ fn run_json_failure(command: &str, sample: &str) -> Value {
     let tmp = tempdir().expect("tempdir");
     let out = tmp.path().join("out.wasm");
     let mut cmd = Command::cargo_bin("clg").expect("bin");
-    cmd.args(["--json-errors", command]).arg(repo_sample(sample));
+    cmd.args(["--json-errors", command])
+        .arg(repo_sample(sample));
     if command == "build" {
         cmd.args(["-o"]).arg(&out);
     }
@@ -71,12 +72,6 @@ fn sdk_usability_import_ergonomics_local_module_flow() {
 fn sdk_usability_migration_error_quality_metrics() {
     let cases = [
         UsabilityCase {
-            file: "migration/01_inline_refinement_param.clear",
-            command: "parse",
-            expected_code: "P013",
-            expected_stage: "parse",
-        },
-        UsabilityCase {
             file: "migration/02_interface_type_params.clear",
             command: "build",
             expected_code: "T246",
@@ -86,12 +81,6 @@ fn sdk_usability_migration_error_quality_metrics() {
             file: "migration/03_implementation_method_type_params.clear",
             command: "build",
             expected_code: "T245",
-            expected_stage: "type",
-        },
-        UsabilityCase {
-            file: "migration/04_generic_refinement_alias.clear",
-            command: "build",
-            expected_code: "T244",
             expected_stage: "type",
         },
         UsabilityCase {
@@ -150,7 +139,7 @@ fn sdk_usability_migration_error_quality_metrics() {
         }
     }
 
-    let total = 6usize;
+    let total = 4usize;
     assert_eq!(
         exact_code_matches, total,
         "sdk usability code-match regression: {exact_code_matches}/{total}"
@@ -171,4 +160,25 @@ fn sdk_usability_migration_error_quality_metrics() {
         actionable_message_cases, total,
         "sdk usability actionable-message regression: {actionable_message_cases}/{total}"
     );
+}
+
+#[test]
+fn sdk_usability_refinement_ergonomics_lifted_samples_build_and_parse() {
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["parse"])
+        .arg(repo_sample("migration/01_inline_refinement_param.clear"))
+        .assert()
+        .success();
+
+    let tmp = tempdir().expect("tempdir");
+    let out = tmp.path().join("out.wasm");
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["build"])
+        .arg(repo_sample("migration/04_generic_refinement_alias.clear"))
+        .args(["-o"])
+        .arg(&out)
+        .assert()
+        .success();
 }

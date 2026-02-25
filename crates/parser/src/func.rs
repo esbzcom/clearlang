@@ -29,8 +29,11 @@ pub(crate) struct ParsedFunc {
     pub inline_aliases: Vec<RefinedAlias>,
 }
 
-fn inline_alias_name(function_name: &str, slot: &str) -> String {
-    format!("__clg$inline_ref${}${}", function_name, slot)
+fn inline_alias_name(function_name: &str, slot: &str, disambiguator: usize) -> String {
+    format!(
+        "__clg$inline_ref${}${}$s{}",
+        function_name, slot, disambiguator
+    )
 }
 
 fn alias_type_args(type_params: &[clg_ast::TypeParam]) -> Vec<Type> {
@@ -96,10 +99,10 @@ enum SignatureWhereClause {
 
 pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, ParsedFunc, ErrTy<'a>> {
     let return_refinement_p = kw("where")
-        .ignore_then(ident_p())
+        .ignore_then(kw("result").then_ignore(just(':').padded().rewind().not()).or_not())
         .rewind()
-        .try_map(|binder, span| {
-            if binder == "result" {
+        .try_map(|marker, span| {
+            if marker.is_some() {
                 Ok(())
             } else {
                 Err(Rich::custom(
@@ -230,8 +233,11 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, ParsedFunc, ErrTy<'a>> {
                 let mut inline_aliases = Vec::new();
                 for (idx, param) in params.into_iter().enumerate() {
                     if let Some((predicate, span)) = param.inline_refinement {
-                        let alias_name =
-                            inline_alias_name(&name, &format!("$param${}${}", idx, param.name));
+                        let alias_name = inline_alias_name(
+                            &name,
+                            &format!("$param${}${}", idx, param.name),
+                            span.start,
+                        );
                         inline_aliases.push(RefinedAlias {
                             is_exported: false,
                             name: alias_name.clone(),
@@ -261,7 +267,7 @@ pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, ParsedFunc, ErrTy<'a>> {
 
                 let mut ret_out = ret;
                 if let Some((predicate, span)) = ret_refinement {
-                    let alias_name = inline_alias_name(&name, "$ret");
+                    let alias_name = inline_alias_name(&name, "$ret", span.start);
                     inline_aliases.push(RefinedAlias {
                         is_exported: false,
                         name: alias_name.clone(),

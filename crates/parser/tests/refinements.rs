@@ -53,3 +53,16 @@ fn parses_inline_refinements_on_params_and_returns() {
         Type::Named { name, .. } if name.contains("__clg$inline_ref$")
     ));
 }
+
+#[test]
+fn parses_where_bounds_when_type_param_is_named_result() {
+    let src = r#"
+        function id<result: Eq>(x: result) -> result where result: Eq { x }
+    "#;
+    let program = parse(src).expect("parse ok");
+    assert_eq!(program.funcs.len(), 1);
+    assert_eq!(program.refined_aliases.len(), 0);
+    let func = &program.funcs[0];
+    assert_eq!(func.where_bounds.len(), 2);
+    assert!(matches!(&func.ret, Type::Named { name, .. } if name == "result"));
+}

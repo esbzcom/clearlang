@@ -242,3 +242,26 @@ fn generic_refined_alias_is_supported_with_type_arguments() {
     "#;
     check(&parse(src).expect("parse ok")).expect("typecheck ok");
 }
+
+#[test]
+fn inline_refinement_aliases_do_not_collide_across_impl_methods() {
+    let src = r#"
+        interface Eq {
+            pure function eq(a: Self, b: Self) -> Bool;
+        }
+
+        implementation Eq for Int {
+            pure function eq(a: Int where a == a, b: Int) -> Bool { a == b }
+        }
+
+        implementation Eq for Bool {
+            pure function eq(a: Bool where a == a, b: Bool) -> Bool { a == b }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    let err = check(&parse(src).expect("parse ok")).expect_err("signature mismatch expected");
+    let s = format!("{err:#}");
+    assert!(s.contains("T235"), "expected interface mismatch T235, got: {s}");
+    assert!(!s.contains("T701"), "unexpected duplicate synthetic alias type: {s}");
+}

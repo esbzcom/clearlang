@@ -1,5 +1,24 @@
 # Codex Session Context
 
+## 2026-02-25 - Phase 19.4/19.5 closure + verify hardening follow-up
+- Completed Phase 19.4 usability-first proof workflow:
+  - `19.4.1`: VC repair hints (`diagnostics.repair_hints`),
+  - `19.4.2`: failure slicing + counterexample envelopes (`diagnostics.failure_slice`, `diagnostics.counterexample`),
+  - `19.4.3`: AI proof context bundle (`diagnostics.proof_context`).
+- Completed Phase 19.5 explainable assurance artifacts:
+  - `19.5.1`: signed assurance manifest emission on signed builds,
+  - `19.5.2`: `clg verify --explain` human summary output,
+  - `19.5.3`: release-policy gate checks with deterministic `V005`.
+- Post-review hardening landed for release-policy verification:
+  - avoid re-reading signature files after verification by threading verified payload context,
+  - classify assurance-manifest validation failures under release-policy path as `V005` (`PolicyFailure`) instead of `V001`.
+- Key commits:
+  - `c33ce03` (`19.4.1`), `6c42255` (`19.4.2`), `336ba2d` (`19.4.3`), `411ce80` (19.4 hardening),
+  - `ad6e4e8` (`19.5.1`), `8e0f085` (`19.5.2`), `7533521` (`19.5.3`), `01569b0` (verify hardening follow-up).
+- Validation:
+  - `cargo test -p clg-cli --tests`
+  - `cargo test -p clg-cli --test signing`
+
 ## 2026-02-25 - Phase 19.3.3 profile regression CI gate
 - Added verified-profile fixture set for assurance regression checks:
   - `clearlang-tests/profile/01_contract_core.clear`

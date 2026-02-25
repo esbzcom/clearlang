@@ -1,6 +1,6 @@
 # ClearLang Development Plan
 
-## Current Focus - Phase 19: High-assurance ergonomics
+## Current Focus - Post-Phase 19 Roadmap Definition
 - 18.0.0 open questions are now decision-locked (see `docs/design/phase-18.0-open-questions.md`).
 - Security gate is complete (`18.1` + `18.3`).
 - Reliability gate is complete (`18.2`).
@@ -8,10 +8,11 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: Phase 19 complete; next roadmap slice pending.
+- Next active phase: Phase 19 is complete; define Phase 20+ scope and acceptance gates before new implementation work.
 
 ### Suggested Sequence
-1) Define post-19 roadmap slice and acceptance gates before implementation.
+1) Publish a Phase 20 design lock with acceptance gates and explicit non-goals.
+2) Update `docs/TODO.md` with concrete execution slices and deterministic diagnostics policy before coding.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -61,7 +62,7 @@
 - Phase 1-5: parser/typer/IR + Wasm pipeline foundations.
 
 ## Upcoming Phases (High-Level)
-- **Phase 19 - High-assurance ergonomics**: trust tiers, strict verify profile, and explainable assurance artifacts.
+- **Phase 20+ (TBD)**: roadmap slice pending; scope should build on completed Phase 19 assurance foundations without regressing strict/profile guarantees.
 
 ### Notes
 - `docs/TODO.md` is the canonical checklist; keep this file high-level.

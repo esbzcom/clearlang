@@ -477,8 +477,9 @@ ClearLang aims to be:
 
 ## 5. Project Status
 
-- Current focus: Phase 17.8 interface follow-ups after completing Phase 17.7 closures.
-- Recently completed: Phase 17.7 (first-class functions + closures), Phase 17.6 (linear-aware collections), Phase 16 (crypto intrinsics + proofs), Phase 11 (proof-carrying Wasm verification).
+- Current status: Phases `0` through `19` are complete in `docs/TODO.md` (including `19.5` assurance-manifest and release-policy gates).
+- Next focus: define the post-19 roadmap slice (Phase 20+ planning and acceptance gates).
+- Language scope note: several surfaces remain intentionally deferred/disallowed for v1 and are enforced with deterministic diagnostics (see `docs/TODO.md` and `docs/typing.md`).
 - Full roadmap and checklist: see `docs/TODO.md` and the resource overview in `docs/resource-guide.md`.
 
 ---
@@ -487,7 +488,7 @@ ClearLang aims to be:
 
 - Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, contract clauses, resource declarations with drop blocks, and consume params.
 
-- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, span-rich diagnostics (Txxx codes), and linear/resource tracking (T801–T804) with collection rejection (T806).
+- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, span-rich diagnostics (Txxx codes), and linear/resource tracking (`T801`-`T804`) with collection rejection (`T806`).
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 

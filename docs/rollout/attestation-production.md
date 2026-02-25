@@ -16,7 +16,7 @@ Baseline security-review and fuzzing slice has also landed:
 - contract property/fuzz tests for authorization, schema gating, ID mismatch, and revocation authorization,
 - payload envelope validation checks with negative unit coverage.
 
-Remaining production work is still required (notably fuzzing/audit depth and DA operations policy).
+Core Phase 18 hardening slices are complete; remaining work is deployment-specific operations evidence, continuous audit depth, and ongoing DA drill execution.
 
 ## Phase 18.2 Status Update
 
@@ -69,7 +69,7 @@ It is **not** production-hardened. It intentionally omits operational controls, 
 
 ## Migration Path: Reference -> Production
 
-Reminder: production hardening work is expected to land in a later phase (target: Phase 18) after the Phase 16.7 reference implementation is validated.
+Reminder: baseline production hardening landed in Phase 18; this migration path remains the operational checklist for real deployments moving from the Phase 16.7 reference to production controls.
 
 1) **Version the schema now**
    - Add explicit version fields in the payload and registry storage.

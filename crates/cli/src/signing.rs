@@ -363,11 +363,11 @@ fn sign_payload(signing: &SigningKey, payload: &serde_json::Value) -> (String, S
     (signature_hex, payload_hash)
 }
 
-pub fn verify_signature(
+pub fn verify_signature_details(
     module_path: &Path,
     sig_path: &Path,
     pubkey_path: &Path,
-) -> std::result::Result<(), VerifyError> {
+) -> std::result::Result<SignatureFile, VerifyError> {
     let module_bytes = fs::read(module_path).map_err(|err| {
         VerifyError::new(
             VerifyErrorCode::SignatureFailure,
@@ -539,19 +539,18 @@ pub fn verify_signature(
         ));
     }
 
-    Ok(())
+    Ok(sig_file)
 }
 
-pub fn verify_signature_with_trust_policy(
+pub fn verify_signature_with_trust_policy_details(
     module_path: &Path,
     sig_path: &Path,
     pubkey_path: &Path,
     trust_policy_path: &Path,
-) -> std::result::Result<(), VerifyError> {
-    verify_signature(module_path, sig_path, pubkey_path)?;
+) -> std::result::Result<SignatureFile, VerifyError> {
+    let sig_file = verify_signature_details(module_path, sig_path, pubkey_path)?;
     let policy = read_trust_anchor_policy(trust_policy_path)?;
-    let payload = read_signature_payload(sig_path)?;
-    let payload_versions = extract_payload_trust_anchors(&payload)?;
+    let payload_versions = extract_payload_trust_anchors(&sig_file.payload)?;
     if payload_versions != policy {
         return Err(VerifyError::new(
             VerifyErrorCode::TrustAnchorFailure,
@@ -564,7 +563,7 @@ pub fn verify_signature_with_trust_policy(
             ),
         ));
     }
-    Ok(())
+    Ok(sig_file)
 }
 
 pub fn verify_assurance_manifest(
@@ -665,22 +664,6 @@ fn read_trust_anchor_policy(path: &Path) -> std::result::Result<TrustAnchorVersi
         ));
     }
     Ok(policy.trust_anchors)
-}
-
-fn read_signature_payload(path: &Path) -> std::result::Result<serde_json::Value, VerifyError> {
-    let bytes = fs::read(path).map_err(|err| {
-        VerifyError::new(
-            VerifyErrorCode::TrustAnchorFailure,
-            format!("reading signature file {}: {err}", path.display()),
-        )
-    })?;
-    let sig_file: SignatureFile = serde_json::from_slice(&bytes).map_err(|err| {
-        VerifyError::new(
-            VerifyErrorCode::TrustAnchorFailure,
-            format!("parsing signature file {}: {err}", path.display()),
-        )
-    })?;
-    Ok(sig_file.payload)
 }
 
 fn extract_payload_trust_anchors(

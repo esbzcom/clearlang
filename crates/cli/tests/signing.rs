@@ -250,6 +250,24 @@ fn tamper_signature(sig_path: &Path) {
     fs::write(sig_path, serde_json::to_vec_pretty(&sig_value).unwrap()).expect("write signature");
 }
 
+fn tamper_assurance_manifest_signature(manifest_path: &Path) {
+    let bytes = fs::read(manifest_path).expect("read assurance manifest");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("manifest json");
+    let sig = value
+        .get_mut("signature")
+        .and_then(|v| v.get_mut("signature"))
+        .and_then(|v| v.as_str())
+        .expect("manifest signature field");
+    let mut sig_bytes = sig.as_bytes().to_vec();
+    if let Some(first) = sig_bytes.first_mut() {
+        *first = if *first == b'0' { b'1' } else { b'0' };
+    }
+    value["signature"]["signature"] =
+        serde_json::Value::String(String::from_utf8(sig_bytes).expect("utf8"));
+    fs::write(manifest_path, serde_json::to_vec_pretty(&value).unwrap())
+        .expect("write assurance manifest");
+}
+
 fn strip_proof_section(module: &Path) {
     fn read_leb_u32(bytes: &[u8]) -> Option<(u32, usize)> {
         let mut value: u32 = 0;
@@ -746,6 +764,37 @@ fn verify_release_policy_rejects_manifest_hash_mismatch_with_v005() {
         .stdout(
             predicate::str::contains("\"code\": \"V005\"").and(predicate::str::contains(
                 "does not match verified signature payload hashes",
+            )),
+        );
+}
+
+#[test]
+fn verify_release_policy_rejects_invalid_manifest_signature_with_v005() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    let manifest = sig_path.with_file_name("out.assurance.json");
+    tamper_assurance_manifest_signature(&manifest);
+    let policy = write_release_policy(tmp.path(), "L0");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--release-policy")
+        .arg(&policy);
+    verify
+        .assert()
+        .failure()
+        .stdout(
+            predicate::str::contains("\"code\": \"V005\"").and(predicate::str::contains(
+                "release policy manifest validation failed",
             )),
         );
 }

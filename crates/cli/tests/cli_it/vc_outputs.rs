@@ -163,7 +163,15 @@ fn build_emits_vcs_json() {
     proof_context_vc_keys.sort_unstable();
     assert_eq!(
         proof_context_vc_keys,
-        vec!["clause_kind", "function", "post", "pre", "status", "vc", "vc_id"]
+        vec![
+            "clause_kind",
+            "function",
+            "post",
+            "pre",
+            "status",
+            "vc",
+            "vc_id"
+        ]
     );
     assert!(
         proof_context_vc.get("assurance").is_none(),
@@ -480,9 +488,7 @@ fn build_emits_loop_repair_hints() {
         .and_then(|s| s.as_object())
         .expect("variant_nonneg span_map");
     assert_eq!(
-        nonneg_span_map
-            .get("focus_role")
-            .and_then(|v| v.as_str()),
+        nonneg_span_map.get("focus_role").and_then(|v| v.as_str()),
         Some("post")
     );
     let nonneg_pre = nonneg_span_map

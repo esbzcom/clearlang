@@ -48,7 +48,7 @@ pub fn run(
     };
 
     let mut timings = StageTimings::new();
-    let result = {
+    let verified_signature = {
         let _stage = timings.start(logger, "verify_signature");
         match verify_mode {
             VerifyMode::Runtime => {
@@ -58,13 +58,13 @@ pub fn run(
                         "`--trust-policy` requires `--verify-mode compile-time`",
                     ))
                 } else {
-                    signing::verify_signature(&module, &sig, &pubkey)
+                    signing::verify_signature_details(&module, &sig, &pubkey)
                 }
             }
             VerifyMode::CompileTime => match trust_policy.as_ref() {
-                Some(policy) => {
-                    signing::verify_signature_with_trust_policy(&module, &sig, &pubkey, policy)
-                }
+                Some(policy) => signing::verify_signature_with_trust_policy_details(
+                    &module, &sig, &pubkey, policy,
+                ),
                 None => Err(signing::VerifyError::new(
                     signing::VerifyErrorCode::TrustAnchorFailure,
                     "`--verify-mode compile-time` requires `--trust-policy <FILE>`",
@@ -72,13 +72,18 @@ pub fn run(
             },
         }
     };
-    match result {
-        Ok(()) => {
+    match verified_signature {
+        Ok(verified_signature) => {
             let release_policy_outcome =
                 match (assurance_manifest.as_ref(), release_policy.as_ref()) {
                     (Some(manifest_path), Some(policy_path)) => {
                         let _stage = timings.start(logger, "verify_release_policy");
-                        match evaluate_release_policy(manifest_path, policy_path, &sig, &pubkey) {
+                        match evaluate_release_policy(
+                            manifest_path,
+                            policy_path,
+                            &verified_signature.payload,
+                            &pubkey,
+                        ) {
                             Ok(outcome) => Some(outcome),
                             Err(err) => return emit_verify_error(err),
                         }
@@ -96,7 +101,7 @@ pub fn run(
                 let _stage = timings.start(logger, "verify_explain");
                 if let Err(err) = emit_explain_summary(
                     &module,
-                    &sig,
+                    &verified_signature,
                     verify_mode,
                     trust_policy.as_deref(),
                     release_policy_outcome.as_ref(),
@@ -116,7 +121,7 @@ pub fn run(
 
 fn emit_explain_summary(
     module: &Path,
-    sig: &Path,
+    verified_signature: &signing::SignatureFile,
     verify_mode: VerifyMode,
     trust_policy: Option<&Path>,
     release_policy_outcome: Option<&ReleasePolicyOutcome>,
@@ -134,10 +139,7 @@ fn emit_explain_summary(
     let module_bytes = fs::read(module).with_context(|| format!("reading {}", module.display()))?;
     let section_bytes = proof_section_bytes(&module_bytes)?;
     let section = decode_proof_section(&section_bytes).context("decoding proof section")?;
-    let sig_bytes = fs::read(sig).with_context(|| format!("reading {}", sig.display()))?;
-    let sig_file: signing::SignatureFile =
-        serde_json::from_slice(&sig_bytes).context("parsing signature file")?;
-    let sig_payload = sig_file
+    let sig_payload = verified_signature
         .payload
         .as_object()
         .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?;
@@ -213,7 +215,7 @@ fn emit_explain_summary(
     println!("Verification explanation");
     println!("mode: {}", verify_mode.as_str());
     println!("result: verified");
-    println!("scope: {}", sig_file.scope.as_str());
+    println!("scope: {}", verified_signature.scope.as_str());
     println!("module_hash: {}", payload_module_hash);
     println!("proofs_hash: {}", payload_proofs_hash);
     println!("assurance: {} ({})", tier, label);
@@ -298,10 +300,16 @@ struct ReleasePolicyFile {
 fn evaluate_release_policy(
     manifest_path: &Path,
     policy_path: &Path,
-    sig_path: &Path,
+    verified_signature_payload: &serde_json::Value,
     pubkey_path: &Path,
 ) -> std::result::Result<ReleasePolicyOutcome, signing::VerifyError> {
-    let manifest = signing::verify_assurance_manifest(manifest_path, pubkey_path)?;
+    let manifest =
+        signing::verify_assurance_manifest(manifest_path, pubkey_path).map_err(|err| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!("release policy manifest validation failed: {err}"),
+            )
+        })?;
     let manifest_payload = manifest.payload.as_object().ok_or_else(|| {
         signing::VerifyError::new(
             signing::VerifyErrorCode::PolicyFailure,
@@ -341,19 +349,7 @@ fn evaluate_release_policy(
         )
     })?;
 
-    let sig_bytes = fs::read(sig_path).map_err(|err| {
-        signing::VerifyError::new(
-            signing::VerifyErrorCode::PolicyFailure,
-            format!("reading signature file {}: {err}", sig_path.display()),
-        )
-    })?;
-    let sig_file: signing::SignatureFile = serde_json::from_slice(&sig_bytes).map_err(|err| {
-        signing::VerifyError::new(
-            signing::VerifyErrorCode::PolicyFailure,
-            format!("parsing signature file {}: {err}", sig_path.display()),
-        )
-    })?;
-    let sig_payload = sig_file.payload.as_object().ok_or_else(|| {
+    let sig_payload = verified_signature_payload.as_object().ok_or_else(|| {
         signing::VerifyError::new(
             signing::VerifyErrorCode::PolicyFailure,
             "signature payload must be a JSON object",

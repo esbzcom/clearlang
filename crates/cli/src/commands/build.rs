@@ -140,10 +140,9 @@ pub fn run(
             None,
         )?;
     }
-    if let (Some(lean_checker_version), Some(coq_checker_version)) = (
-        lean_checker_version.as_ref(),
-        coq_checker_version.as_ref(),
-    ) {
+    if let (Some(lean_checker_version), Some(coq_checker_version)) =
+        (lean_checker_version.as_ref(), coq_checker_version.as_ref())
+    {
         if lean_checker_version.trim().is_empty() || coq_checker_version.trim().is_empty() {
             fail_build(
                 "C032",
@@ -176,6 +175,9 @@ pub fn run(
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_some() {
         if let Some(message) = strict_l3_claim_violation(&vcs) {
             fail_build("C031", &message, None)?;
+        }
+        if let Some(message) = strict_language_profile_violation(&vcs) {
+            fail_build("C033", &message, None)?;
         }
     }
 
@@ -670,6 +672,27 @@ fn strict_l3_claim_violation(vcs: &[VerificationCondition]) -> Option<String> {
     None
 }
 
+fn strict_language_profile_violation(vcs: &[VerificationCondition]) -> Option<String> {
+    for vc in vcs {
+        for assumption in &vc.assumptions {
+            let symbols = if assumption.symbols.is_empty() {
+                "<none>".to_string()
+            } else {
+                assumption.symbols.join(", ")
+            };
+            return Some(format!(
+                "strict language profile rejected VC `{}` in function `{}`: assumption boundary `{}` (category `{}`) is a deferred/unchecked surface [{}]",
+                vc.vc_id,
+                vc.function,
+                assumption.id,
+                assumption.category.as_str(),
+                symbols
+            ));
+        }
+    }
+    None
+}
+
 fn category_for_assumption_id(id: &str) -> Option<AssumptionCategory> {
     match id {
         ASSUMPTION_UNSIGNED_ID => Some(AssumptionCategory::Unsigned),
@@ -843,6 +866,38 @@ mod tests {
         let msg =
             strict_l3_claim_violation(&[vc]).expect("expected strict L3 claim violation message");
         assert!(msg.contains("missing message"));
+    }
+
+    #[test]
+    fn strict_language_profile_accepts_vc_without_assumptions() {
+        let vc = sample_vc();
+        assert!(strict_language_profile_violation(&[vc]).is_none());
+    }
+
+    #[test]
+    fn strict_language_profile_rejects_external_dependency_assumption() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![assumption(
+            super::ASSUMPTION_EXTERNAL_ID,
+            AssumptionCategory::External,
+            &["extpkg::math::add2"],
+        )];
+        let msg = strict_language_profile_violation(&[vc])
+            .expect("expected strict language profile violation");
+        assert!(msg.contains("external.dependency"));
+    }
+
+    #[test]
+    fn strict_language_profile_rejects_bitwise_assumption() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![assumption(
+            super::ASSUMPTION_BITWISE_ID,
+            AssumptionCategory::Bitwise,
+            &["std::u64::rotl"],
+        )];
+        let msg = strict_language_profile_violation(&[vc])
+            .expect("expected strict language profile violation");
+        assert!(msg.contains("bitwise.uninterpreted"));
     }
 
     #[test]

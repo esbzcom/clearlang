@@ -546,7 +546,7 @@ fn build_labels_external_dependencies_as_assumed_boundaries() {
 }
 
 #[test]
-fn strict_compiler_mode_accepts_labeled_assumptions_for_l3_gate() {
+fn standard_compiler_mode_accepts_labeled_assumptions_for_l3_gate() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("strict_l3_gate.clear");
     let wasm_path = tmp.path().join("strict_l3_gate.wasm");
@@ -570,14 +570,14 @@ fn strict_compiler_mode_accepts_labeled_assumptions_for_l3_gate() {
         .arg(&wasm_path)
         .args(["--emit-vcs"])
         .arg(&vcs_path)
-        .args(["--compiler-mode", "strict"])
+        .args(["--compiler-mode", "standard"])
         .assert()
         .success();
 
     assert!(wasm_path.exists(), "build should emit wasm");
     assert!(
         vcs_path.exists(),
-        "strict-mode build should emit vcs when assumptions are labeled"
+        "standard-mode build should emit vcs when assumptions are labeled"
     );
 }
 

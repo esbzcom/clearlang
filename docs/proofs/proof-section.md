@@ -90,7 +90,7 @@ and `symbols` lists the exact touched operators/types/intrinsics that triggered 
 Current categories include `unsigned`, `bitwise`, `crypto`, `primitive`, and `external`.
 For `crypto.uninterpreted`, `intrinsic_levels` records deterministic per-intrinsic assurance entries
 (`intrinsic`, `tier`, `label`) aligned to `symbols`.
-In strict compiler mode, `L3` claims are blocked if any assumption item has empty `message` or empty `symbols` labeling.
+In strict compiler mode, assumption labels are validated first (`C031`), and any remaining assumption item then fails the strict language profile gate (`C033`).
 
 `assurance` is a map with:
 - `tier`: current tier (`L0` for VCs/modules with assumption boundaries, `L1` otherwise in current implementation).

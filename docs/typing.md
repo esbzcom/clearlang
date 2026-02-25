@@ -329,7 +329,8 @@ ADT Ergonomics (Phase 6.6)
   - Linear ownership APIs (`remove_take`/`insert_take` families) remain `pure`; they rely on linear typing + `linear:*` VCs for ownership correctness while runtime keeps deterministic defensive traps (`R009`/`R010`).
 - **SMT modeling limits**: unsigned arithmetic is modeled as unbounded integer math; bitwise/shift ops and crypto/bytes intrinsics are treated as uninterpreted functions. `--emit-vcs` and `clearlang.proof` now surface these boundaries explicitly under `assumptions.items` (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted`). Proofs that rely on overflow, bit patterns, or cryptographic properties must add explicit assumptions or defer those obligations. See `docs/proofs/crypto-limitations.md` for migration options.
 - **Coverage matrix**: per-feature/per-intrinsic `proved` vs `assumed` status and `L0`-`L3` mapping is published in `docs/proofs/proof-coverage-matrix.md` (`.json` is the machine-readable source used by CI checks).
-- **Strict proof checks**: `clg build --emit-vcs` now enforces strict assumption-boundary validation by default (`--proof-strict=true`). Use `--proof-strict=false` only as a temporary migration escape hatch.
+- **Strict proof checks**: `clg build --emit-vcs` enforces strict assumption-boundary validation by default (`--proof-strict=true`). Use `--proof-strict=false` only as a temporary migration escape hatch.
+- **Strict language profile**: `clg build --compiler-mode strict --emit-vcs` now fails closed if any assumption boundary is present (`C033`), which blocks deferred/unchecked proof surfaces (including external unchecked dependencies). Use `--compiler-mode standard` to emit labeled assumptions while migration is in progress.
 - **Tooling**: CLI docs now include an `--emit-vcs` walkthrough (see `docs/introduction.md`) and the VC schema example is updated with the canonical helpers.
 
 ## Structs/Enums Runtime Notes (Phase 17.1)

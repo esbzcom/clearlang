@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 19.3.1 - strict language profile for verified-by-construction workflows.
+Current focus: Phase 19.3.2 - verified std/core subset publication with proof-backed contracts.
 
 3.1 Typer Core
 
@@ -877,7 +877,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.2.2 Add deterministic modeling policy for crypto intrinsics with per-intrinsic assurance level in outputs. (`docs/design/phase-19.2.2-crypto-intrinsic-modeling-policy.md`, `assumptions.items[].intrinsic_levels` in VC JSON and proof-section outputs)
   - [x] 19.2.3 Complete refinement ergonomics needed for production proofs (inline param/return refinements + generic refinement aliases if sound). (`docs/design/phase-19.2.3-refinement-ergonomics-production-proofs.md`, inline refinement normalization + generic alias instantiation support)
 - [ ] 19.3 Verified-by-construction standard profile.
-  - [ ] 19.3.1 Define a `strict` language profile that forbids unsupported/deferred constructs and external unchecked calls by default.
+  - [x] 19.3.1 Define a `strict` language profile that forbids unsupported/deferred constructs and external unchecked calls by default. (`docs/design/phase-19.3.1-strict-language-profile.md`, strict-mode assumed-boundary fail-closed diagnostic `C033`)
   - [ ] 19.3.2 Publish a "verified std/core subset" with proof-backed contracts and regression obligations.
   - [ ] 19.3.3 Add CI gate: no profile regression if a change lowers assurance level for existing fixtures.
 - [ ] 19.4 Usability-first proof workflow (the "easier" part).

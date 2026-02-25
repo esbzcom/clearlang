@@ -1,5 +1,26 @@
 # Codex Session Context
 
+## 2026-02-25 - Phase 19.3.1 strict language profile
+- Implemented strict profile fail-closed gate for deferred/unchecked proof surfaces:
+  - `crates/cli/src/commands/build.rs` now enforces a strict language profile check in `--compiler-mode strict` after strict assumption-shape validation,
+  - strict mode now rejects any emitted assumption boundary with deterministic build diagnostic `C033`.
+- Added regression coverage:
+  - `crates/cli/src/commands/build.rs` unit tests now cover strict profile acceptance for zero-assumption VCs and rejection for external/bitwise assumption boundaries,
+  - `crates/cli/tests/cli_it/diagnostics.rs` adds `strict_compiler_mode_rejects_assumed_surfaces_with_c033`.
+- Updated strict-mode assumption integration expectation:
+  - `crates/cli/tests/cli_it/vc_outputs.rs` now verifies labeled assumptions remain accepted under `--compiler-mode standard`.
+- Docs/roadmap updates:
+  - added design lock `docs/design/phase-19.3.1-strict-language-profile.md`,
+  - updated `docs/diagnostics.md`, `docs/typing.md`, `docs/proofs/vc-schema.md`, and `docs/proofs/proof-section.md`,
+  - marked `19.3.1` complete and moved next focus to `19.3.2` in `docs/TODO.md`,
+  - updated next sequence and completion log in `docs/rollout/DEVPLAN.md`.
+- Validation:
+  - `cargo test -p clg-cli --test cli_it diagnostics::strict_compiler_mode_rejects_assumed_surfaces_with_c033`
+  - `cargo test -p clg-cli --test cli_it diagnostics::strict_compiler_mode_allows_program_without_assumptions`
+  - `cargo test -p clg-cli --test cli_it vc_outputs::standard_compiler_mode_accepts_labeled_assumptions_for_l3_gate`
+  - `cargo test -p clg-cli --test phase19_design_principles`
+  - `cargo test -p clg-cli --test vc_snapshots`
+
 ## 2026-02-24 - Phase 19.2.3 refinement ergonomics closure
 - Implemented inline refinement ergonomics:
   - parser now accepts inline param/return refinements and normalizes them into deterministic synthetic refined aliases (`__clg$inline_ref$...`),

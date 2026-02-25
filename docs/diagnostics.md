@@ -159,6 +159,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C030 | build | Strict compiler mode cannot be combined with `--proof-strict=false`. |
 | C031 | build | Strict compiler mode L3 claim is blocked because unlabeled assumptions remain. |
 | C032 | build | Trust-anchor checker version flags are invalid for this build command combination. |
+| C033 | build | Strict language profile rejected a deferred/unchecked assumed boundary surface. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

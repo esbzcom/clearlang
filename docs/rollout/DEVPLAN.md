@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.2` proof coverage completion for the current language surface.
+- Next active phase: `19.3` verified-by-construction standard profile.
 
 ### Suggested Sequence
-1) Execute `19.3.1` strict language profile that forbids unsupported/deferred constructs and external unchecked calls by default.
+1) Execute `19.3.2` verified std/core subset publication with proof-backed contracts and regression obligations.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -38,6 +38,7 @@
 - **Phase 19 unsigned/bitwise downgrade closure (`19.2.1`)**: completed by explicitly downgrading bitwise-sensitive `std::u64` intrinsic semantics (`rotl`/`rotr`/`to_bytes_*`/`from_bytes_*`) under `bitwise.uninterpreted` with deterministic VC assumption symbol labeling.
 - **Phase 19 crypto modeling policy (`19.2.2`)**: completed by adding deterministic per-intrinsic crypto assurance metadata (`intrinsic_levels`) under `crypto.uninterpreted` in VC JSON and proof-section assumption outputs.
 - **Phase 19 refinement ergonomics closure (`19.2.3`)**: completed by enabling inline param/return refinements and generic refinement alias instantiation with deterministic parser normalization into refined-alias artifacts.
+- **Phase 19 strict language profile (`19.3.1`)**: completed by making `--compiler-mode strict` fail closed on assumed proof boundaries (`C033`), thereby blocking deferred/unchecked surfaces (including external unchecked dependencies) by default.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

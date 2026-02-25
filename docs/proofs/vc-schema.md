@@ -96,7 +96,7 @@ Notes
 - `assumptions.items` enumerates model boundaries required for that VC; omission means no selected boundary was detected for that VC.
 - `assumptions.items[].intrinsic_levels` is emitted only for crypto boundaries and is ordered exactly like `symbols` for deterministic tool consumption.
 - `assurance` is always emitted so release/policy tooling can consume tier labels deterministically.
-- Strict compiler mode (`--compiler-mode strict`) treats an assumption as unlabeled if `message` is empty, `symbols` is empty, or any symbol label is empty; this blocks `L3` claims (`C031`).
+- Strict compiler mode (`--compiler-mode strict`) validates assumption labels (`C031`) and then fails closed on any remaining assumption boundary (`C033`), enforcing the verified-by-construction strict language profile.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
 - Coverage status for language features/intrinsics is tracked separately in `docs/proofs/proof-coverage-matrix.md` and `docs/proofs/proof-coverage-matrix.json`.
 - `canonical_function` appears only when `CLG_MANGLE_MAX_LEN` shortening changed the emitted function symbol.

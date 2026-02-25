@@ -10,6 +10,49 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "files",
+            "value": null
+          },
+          {
+            "symbol": "linear_state_preserved_across_loop",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 328,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 141
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "vc",
+        "focus_span": {
+          "end": 328,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 141
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 328,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 141
+          }
+        ],
+        "vc_id": "linear:loop:0"
+      }
+    },
     "function": "loop_step",
     "positions": {
       "file": ".tmp-fixtures\\fixture.clear",
@@ -45,6 +88,43 @@
       "tier": "L1"
     },
     "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "n",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 171,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 165
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "invariant",
+        "focus_span": {
+          "end": 171,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 165
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 171,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 165
+          }
+        ],
+        "vc_id": "loop:0:invariant"
+      },
       "repair_hints": {
         "items": [
           {
@@ -91,6 +171,43 @@
       "tier": "L1"
     },
     "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "n",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 186,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 184
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "variant",
+        "focus_span": {
+          "end": 186,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 184
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 186,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 184
+          }
+        ],
+        "vc_id": "loop:0:variant_decrease"
+      },
       "repair_hints": {
         "items": [
           {
@@ -137,6 +254,43 @@
       "tier": "L1"
     },
     "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "n",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 186,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 184
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "variant",
+        "focus_span": {
+          "end": 186,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 184
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 186,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 184
+          }
+        ],
+        "vc_id": "loop:0:variant_nonneg"
+      },
       "repair_hints": {
         "items": [
           {

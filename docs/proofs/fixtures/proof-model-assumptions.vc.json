@@ -58,6 +58,55 @@
       "tier": "L0"
     },
     "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "a",
+            "value": null
+          },
+          {
+            "symbol": "b",
+            "value": null
+          },
+          {
+            "symbol": "result",
+            "value": null
+          },
+          {
+            "symbol": "std::bytes::eq_ct",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 153,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 99
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "ensure",
+        "focus_span": {
+          "end": 153,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 99
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 153,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 99
+          }
+        ],
+        "vc_id": "vc:0"
+      },
       "repair_hints": {
         "items": [
           {
@@ -151,6 +200,47 @@
       "tier": "L0"
     },
     "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "x",
+            "value": null
+          },
+          {
+            "symbol": "y",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 189,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 160
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "ensure",
+        "focus_span": {
+          "end": 189,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 160
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 189,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 160
+          }
+        ],
+        "vc_id": "vc:1"
+      },
       "repair_hints": {
         "items": [
           {

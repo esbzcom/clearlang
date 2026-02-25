@@ -11,6 +11,43 @@
       "tier": "L1"
     },
     "diagnostics": {
+      "counterexample": {
+        "bindings": [
+          {
+            "symbol": "result",
+            "value": null
+          }
+        ],
+        "focus_span": {
+          "end": 53,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 0
+        },
+        "format": "clg.counterexample.v1",
+        "on_status": "failed",
+        "reason": "external solver/model not attached",
+        "state": "solver_unavailable"
+      },
+      "failure_slice": {
+        "clause_kind": "ensure",
+        "focus_span": {
+          "end": 53,
+          "file": ".tmp-fixtures\\fixture.clear",
+          "role": "post",
+          "start": 0
+        },
+        "on_status": "failed",
+        "related_spans": [
+          {
+            "end": 53,
+            "file": ".tmp-fixtures\\fixture.clear",
+            "role": "post",
+            "start": 0
+          }
+        ],
+        "vc_id": "vc:0"
+      },
       "repair_hints": {
         "items": [
           {

@@ -99,6 +99,39 @@ fn build_emits_vcs_json() {
         first_hint.get("minimal_clause").and_then(|s| s.as_str()),
         Some("ensure { result > x }")
     );
+    let failure_slice = first
+        .get("diagnostics")
+        .and_then(|o| o.get("failure_slice"))
+        .and_then(|o| o.as_object())
+        .expect("failure_slice obj");
+    assert_eq!(
+        failure_slice.get("on_status").and_then(|s| s.as_str()),
+        Some("failed")
+    );
+    assert_eq!(
+        failure_slice.get("clause_kind").and_then(|s| s.as_str()),
+        Some("ensure")
+    );
+    let counterexample = first
+        .get("diagnostics")
+        .and_then(|o| o.get("counterexample"))
+        .and_then(|o| o.as_object())
+        .expect("counterexample obj");
+    assert_eq!(
+        counterexample.get("state").and_then(|s| s.as_str()),
+        Some("solver_unavailable")
+    );
+    let bindings = counterexample
+        .get("bindings")
+        .and_then(|v| v.as_array())
+        .expect("counterexample bindings");
+    assert!(
+        bindings.iter().any(|b| {
+            b.get("symbol").and_then(|v| v.as_str()) == Some("result")
+                && b.get("value").is_some_and(|v| v.is_null())
+        }),
+        "expected counterexample bindings to include `result`"
+    );
     assert!(first.get("refinements").is_none());
     assert!(first.get("assumptions").is_none());
 }
@@ -285,6 +318,17 @@ fn build_emits_loop_repair_hints() {
         invariant.get("minimal_clause").and_then(|v| v.as_str()),
         Some("invariant { n >= 0 }")
     );
+    let invariant_slice = arr
+        .iter()
+        .find(|entry| entry.get("vc_id").and_then(|v| v.as_str()) == Some("loop:0:invariant"))
+        .and_then(|entry| entry.get("diagnostics"))
+        .and_then(|d| d.get("failure_slice"))
+        .and_then(|s| s.as_object())
+        .expect("invariant failure_slice");
+    assert_eq!(
+        invariant_slice.get("clause_kind").and_then(|v| v.as_str()),
+        Some("invariant")
+    );
 
     let nonneg = find_hint("loop:0:variant_nonneg");
     assert_eq!(
@@ -294,6 +338,24 @@ fn build_emits_loop_repair_hints() {
     assert_eq!(
         nonneg.get("minimal_clause").and_then(|v| v.as_str()),
         Some("variant { n }")
+    );
+    let nonneg_counterexample = arr
+        .iter()
+        .find(|entry| entry.get("vc_id").and_then(|v| v.as_str()) == Some("loop:0:variant_nonneg"))
+        .and_then(|entry| entry.get("diagnostics"))
+        .and_then(|d| d.get("counterexample"))
+        .and_then(|s| s.as_object())
+        .expect("variant_nonneg counterexample");
+    assert!(
+        nonneg_counterexample
+            .get("bindings")
+            .and_then(|v| v.as_array())
+            .is_some_and(|bindings| {
+                bindings
+                    .iter()
+                    .any(|entry| entry.get("symbol").and_then(|v| v.as_str()) == Some("n"))
+            }),
+        "expected loop variant counterexample bindings to include `n`"
     );
 
     let decrease = find_hint("loop:0:variant_decrease");

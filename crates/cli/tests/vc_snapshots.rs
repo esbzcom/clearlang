@@ -14,6 +14,46 @@ fn normalize_vcs(value: &mut Value) {
     for item in arr {
         if let Some(obj) = item.as_object_mut() {
             obj.remove("positions");
+            if let Some(diagnostics) = obj.get_mut("diagnostics").and_then(|d| d.as_object_mut()) {
+                if let Some(failure_slice) = diagnostics
+                    .get_mut("failure_slice")
+                    .and_then(|s| s.as_object_mut())
+                {
+                    if let Some(focus_span) = failure_slice
+                        .get_mut("focus_span")
+                        .and_then(|s| s.as_object_mut())
+                    {
+                        focus_span.remove("file");
+                        focus_span.remove("start");
+                        focus_span.remove("end");
+                    }
+                    if let Some(related_spans) = failure_slice
+                        .get_mut("related_spans")
+                        .and_then(|s| s.as_array_mut())
+                    {
+                        for span in related_spans {
+                            if let Some(span_obj) = span.as_object_mut() {
+                                span_obj.remove("file");
+                                span_obj.remove("start");
+                                span_obj.remove("end");
+                            }
+                        }
+                    }
+                }
+                if let Some(counterexample) = diagnostics
+                    .get_mut("counterexample")
+                    .and_then(|s| s.as_object_mut())
+                {
+                    if let Some(focus_span) = counterexample
+                        .get_mut("focus_span")
+                        .and_then(|s| s.as_object_mut())
+                    {
+                        focus_span.remove("file");
+                        focus_span.remove("start");
+                        focus_span.remove("end");
+                    }
+                }
+            }
         }
     }
 }

@@ -481,6 +481,134 @@ fn write_vcs_json(
         }
     }
 
+    fn span_json(
+        file: &str,
+        role: &'static str,
+        span: Option<clg_ast::Span>,
+    ) -> Option<serde_json::Value> {
+        use serde_json::json;
+        let span = span?;
+        Some(json!({
+            "file": file,
+            "start": span.start,
+            "end": span.end,
+            "role": role,
+        }))
+    }
+
+    fn vc_clause_kind(vc_id: &str) -> &'static str {
+        if vc_id.starts_with("mut_pre:") {
+            "require"
+        } else if vc_id.starts_with("loop:") && vc_id.ends_with(":invariant") {
+            "invariant"
+        } else if vc_id.starts_with("loop:") && vc_id.contains(":variant_") {
+            "variant"
+        } else if vc_id.starts_with("vc:") {
+            "ensure"
+        } else {
+            "vc"
+        }
+    }
+
+    fn vc_failure_slice_json(vc: &VerificationCondition, file: &str) -> Option<serde_json::Value> {
+        use serde_json::json;
+
+        if vc.pre.span.is_none() && vc.post.span.is_none() {
+            return None;
+        }
+
+        let focus = span_json(file, "post", vc.post.span)
+            .or_else(|| span_json(file, "pre", vc.pre.span))
+            .expect("focus span should exist when any span exists");
+
+        let mut related_spans = Vec::new();
+        if let Some(pre) = span_json(file, "pre", vc.pre.span) {
+            related_spans.push(pre);
+        }
+        if let Some(post) = span_json(file, "post", vc.post.span) {
+            related_spans.push(post);
+        }
+
+        Some(json!({
+            "on_status": "failed",
+            "vc_id": vc.vc_id,
+            "clause_kind": vc_clause_kind(&vc.vc_id),
+            "focus_span": focus,
+            "related_spans": related_spans,
+        }))
+    }
+
+    fn extract_model_symbols(ast: &str) -> Vec<String> {
+        let mut current = String::new();
+        let mut tokens = std::collections::BTreeSet::new();
+
+        let flush = |cur: &mut String, out: &mut std::collections::BTreeSet<String>| {
+            if cur.is_empty() {
+                return;
+            }
+            while cur.ends_with(':') {
+                cur.pop();
+            }
+            while cur.starts_with(':') {
+                cur.remove(0);
+            }
+            if cur.is_empty() {
+                return;
+            }
+            if cur.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                cur.clear();
+                return;
+            }
+            if matches!(cur.as_str(), "true" | "false") {
+                cur.clear();
+                return;
+            }
+            out.insert(cur.clone());
+            cur.clear();
+        };
+
+        for ch in ast.chars() {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == ':' {
+                current.push(ch);
+            } else {
+                flush(&mut current, &mut tokens);
+            }
+        }
+        flush(&mut current, &mut tokens);
+        tokens.into_iter().collect()
+    }
+
+    fn vc_counterexample_json(vc: &VerificationCondition, file: &str) -> Option<serde_json::Value> {
+        use serde_json::json;
+
+        if vc.pre.span.is_none() && vc.post.span.is_none() {
+            return None;
+        }
+
+        let focus = span_json(file, "post", vc.post.span)
+            .or_else(|| span_json(file, "pre", vc.pre.span))
+            .expect("focus span should exist when any span exists");
+        let symbols = extract_model_symbols(&vc.post.ast);
+        let bindings: Vec<serde_json::Value> = symbols
+            .into_iter()
+            .map(|symbol| {
+                json!({
+                    "symbol": symbol,
+                    "value": serde_json::Value::Null,
+                })
+            })
+            .collect();
+
+        Some(json!({
+            "on_status": "failed",
+            "state": "solver_unavailable",
+            "format": "clg.counterexample.v1",
+            "reason": "external solver/model not attached",
+            "focus_span": focus,
+            "bindings": bindings,
+        }))
+    }
+
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
@@ -524,12 +652,20 @@ fn write_vcs_json(
         if !vc.assumptions.is_empty() {
             obj.insert("assumptions".to_string(), assumptions_json(&vc.assumptions));
         }
+        let mut diagnostics = serde_json::Map::new();
         if let Some(repair_hints) = vc_repair_hints_json(vc) {
+            diagnostics.insert("repair_hints".to_string(), repair_hints);
+        }
+        if let Some(failure_slice) = vc_failure_slice_json(vc, file_str.as_ref()) {
+            diagnostics.insert("failure_slice".to_string(), failure_slice);
+        }
+        if let Some(counterexample) = vc_counterexample_json(vc, file_str.as_ref()) {
+            diagnostics.insert("counterexample".to_string(), counterexample);
+        }
+        if !diagnostics.is_empty() {
             obj.insert(
                 "diagnostics".to_string(),
-                json!({
-                    "repair_hints": repair_hints,
-                }),
+                serde_json::Value::Object(diagnostics),
             );
         }
         if let Some(pos) = positions {

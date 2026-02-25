@@ -43,6 +43,19 @@ VC Object (v2)
   - `repair_hints`: object - optional minimal-repair suggestions for failed VC handling
     - `on_status`: string (`failed` in current implementation)
     - `items`: array of repair hint objects (may be empty)
+  - `failure_slice`: object - optional failed-VC slice mapped to source spans
+    - `on_status`: string (`failed`)
+    - `vc_id`: string (same as parent VC id)
+    - `clause_kind`: string (`ensure|require|invariant|variant|vc`)
+    - `focus_span`: span object (`file`, `start`, `end`, `role`)
+    - `related_spans`: array of span objects (may include pre/post spans)
+  - `counterexample`: object - optional counterexample report payload
+    - `on_status`: string (`failed`)
+    - `state`: string (`solver_unavailable` in current implementation)
+    - `format`: string (`clg.counterexample.v1`)
+    - `reason`: string (why no concrete model is attached)
+    - `focus_span`: span object (`file`, `start`, `end`, `role`)
+    - `bindings`: array of binding objects (`symbol`, `value`)
 - `refinements`: object - optional refinement premises (v2+)
   - `premises`: array of refinement premise objects (may be empty)
 - `extra`: object - reserved for tool metadata
@@ -51,6 +64,16 @@ Repair Hint
 - `kind`: string (`contract.ensure` | `contract.require` | `loop.invariant` | `loop.variant_nonneg` | `loop.variant_decrease`)
 - `message`: string (short actionable guidance)
 - `minimal_clause`: string (copyable clause candidate)
+
+Span Object
+- `file`: string (path)
+- `start`: number (byte offset)
+- `end`: number (byte offset)
+- `role`: string (`pre|post`)
+
+Counterexample Binding
+- `symbol`: string (identifier/function symbol from VC goal expression)
+- `value`: JSON value (`null` until solver/model integration is attached)
 
 Refinement Premise
 - `id`: string (stable within VC; `ref:0`, `ref:1`, ...)
@@ -106,6 +129,8 @@ Notes
 - `assumptions.items[].intrinsic_levels` is emitted only for crypto boundaries and is ordered exactly like `symbols` for deterministic tool consumption.
 - `assurance` is always emitted so release/policy tooling can consume tier labels deterministically.
 - `diagnostics.repair_hints` is advisory guidance for failed-VC workflows; it does not alter VC semantics or assurance tiers.
+- `diagnostics.failure_slice` maps each VC obligation to exact source spans so failure reporting can point directly to user code.
+- `diagnostics.counterexample` carries the model-report envelope; in current implementation `state` is `solver_unavailable` and `bindings[*].value` is `null` until external solver/model attachment is provided.
 - Strict compiler mode (`--compiler-mode strict`) validates assumption labels (`C031`) and then fails closed on any remaining assumption boundary (`C033`), enforcing the verified-by-construction strict language profile.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
 - Coverage status for language features/intrinsics is tracked separately in `docs/proofs/proof-coverage-matrix.md` and `docs/proofs/proof-coverage-matrix.json`.

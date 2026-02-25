@@ -137,6 +137,19 @@ fn build_emits_vcs_json() {
         .and_then(|o| o.get("proof_context"))
         .and_then(|o| o.as_object())
         .expect("proof_context obj");
+    let mut proof_context_keys: Vec<&str> = proof_context.keys().map(|k| k.as_str()).collect();
+    proof_context_keys.sort_unstable();
+    assert_eq!(
+        proof_context_keys,
+        vec![
+            "assumptions",
+            "format",
+            "model_snippet",
+            "on_status",
+            "span_map",
+            "vc"
+        ]
+    );
     assert_eq!(
         proof_context.get("format").and_then(|s| s.as_str()),
         Some("clg.proof_context.v1")
@@ -145,6 +158,21 @@ fn build_emits_vcs_json() {
         .get("vc")
         .and_then(|o| o.as_object())
         .expect("proof_context vc");
+    let mut proof_context_vc_keys: Vec<&str> =
+        proof_context_vc.keys().map(|k| k.as_str()).collect();
+    proof_context_vc_keys.sort_unstable();
+    assert_eq!(
+        proof_context_vc_keys,
+        vec!["clause_kind", "function", "post", "pre", "status", "vc", "vc_id"]
+    );
+    assert!(
+        proof_context_vc.get("assurance").is_none(),
+        "proof_context.vc should not duplicate assurance payload"
+    );
+    assert!(
+        proof_context_vc.get("diagnostics").is_none(),
+        "proof_context.vc should not recursively embed diagnostics"
+    );
     assert_eq!(
         proof_context_vc.get("vc_id").and_then(|s| s.as_str()),
         Some("vc:0")
@@ -171,6 +199,30 @@ fn build_emits_vcs_json() {
             .get("focus_role")
             .and_then(|s| s.as_str()),
         Some("post")
+    );
+    let span_map_pre = proof_context_span_map
+        .get("pre")
+        .and_then(|o| o.as_object())
+        .expect("proof_context span_map.pre");
+    let span_map_post = proof_context_span_map
+        .get("post")
+        .and_then(|o| o.as_object())
+        .expect("proof_context span_map.post");
+    assert_eq!(
+        span_map_pre.get("start").and_then(|n| n.as_u64()),
+        positions.get("pre_start").and_then(|n| n.as_u64())
+    );
+    assert_eq!(
+        span_map_pre.get("end").and_then(|n| n.as_u64()),
+        positions.get("pre_end").and_then(|n| n.as_u64())
+    );
+    assert_eq!(
+        span_map_post.get("start").and_then(|n| n.as_u64()),
+        positions.get("post_start").and_then(|n| n.as_u64())
+    );
+    assert_eq!(
+        span_map_post.get("end").and_then(|n| n.as_u64()),
+        positions.get("post_end").and_then(|n| n.as_u64())
     );
     assert!(first.get("refinements").is_none());
     assert!(first.get("assumptions").is_none());
@@ -422,6 +474,38 @@ fn build_emits_loop_repair_hints() {
                     .any(|entry| entry.get("symbol").and_then(|v| v.as_str()) == Some("n"))
             }),
         "expected proof_context.model_snippet bindings to include `n`"
+    );
+    let nonneg_span_map = nonneg_proof_context
+        .get("span_map")
+        .and_then(|s| s.as_object())
+        .expect("variant_nonneg span_map");
+    assert_eq!(
+        nonneg_span_map
+            .get("focus_role")
+            .and_then(|v| v.as_str()),
+        Some("post")
+    );
+    let nonneg_pre = nonneg_span_map
+        .get("pre")
+        .and_then(|s| s.as_object())
+        .expect("variant_nonneg span_map.pre");
+    let nonneg_post = nonneg_span_map
+        .get("post")
+        .and_then(|s| s.as_object())
+        .expect("variant_nonneg span_map.post");
+    assert!(
+        nonneg_pre
+            .get("start")
+            .and_then(|v| v.as_u64())
+            .is_some_and(|v| v > 0),
+        "variant_nonneg span_map.pre.start should be present and non-zero"
+    );
+    assert!(
+        nonneg_post
+            .get("start")
+            .and_then(|v| v.as_u64())
+            .is_some_and(|v| v > 0),
+        "variant_nonneg span_map.post.start should be present and non-zero"
     );
 
     let decrease = find_hint("loop:0:variant_decrease");

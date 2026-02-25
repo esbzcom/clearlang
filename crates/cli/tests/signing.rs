@@ -340,12 +340,14 @@ fn verify_runtime_rejects_trust_policy() {
         .arg(&pub_path)
         .arg("--trust-policy")
         .arg(&trust_policy);
-    verify.assert().failure().stdout(
-        predicate::str::contains("\"code\": \"V004\"")
-            .and(predicate::str::contains(
+    verify
+        .assert()
+        .failure()
+        .stdout(
+            predicate::str::contains("\"code\": \"V004\"").and(predicate::str::contains(
                 "requires `--verify-mode compile-time`",
             )),
-    );
+        );
 }
 
 #[test]

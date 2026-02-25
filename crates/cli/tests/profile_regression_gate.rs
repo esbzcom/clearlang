@@ -151,7 +151,9 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
                 .get("assurance")
                 .and_then(|a| a.get("tier"))
                 .and_then(|t| t.as_str())
-                .unwrap_or_else(|| panic!("fixture `{}` has VC missing assurance.tier", fixture.id));
+                .unwrap_or_else(|| {
+                    panic!("fixture `{}` has VC missing assurance.tier", fixture.id)
+                });
             let rank = tier_rank(tier).unwrap_or_else(|| {
                 panic!("fixture `{}` has unknown tier `{}`", fixture.id, tier);
             });

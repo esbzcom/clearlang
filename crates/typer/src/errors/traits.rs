@@ -17,7 +17,10 @@ impl TyperError {
     pub fn unknown_trait(name: &str, span: Span) -> Self {
         Self::new(
             "T231",
-            format!("at {}..{}: unknown interface `{}`", span.start, span.end, name),
+            format!(
+                "at {}..{}: unknown interface `{}`",
+                span.start, span.end, name
+            ),
             span.start,
             span.end,
         )

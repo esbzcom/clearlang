@@ -133,7 +133,12 @@ fn proof_coverage_matrix_is_complete_and_stable() {
             entry.status
         );
 
-        for tier in [&entry.tiers.l0, &entry.tiers.l1, &entry.tiers.l2, &entry.tiers.l3] {
+        for tier in [
+            &entry.tiers.l0,
+            &entry.tiers.l1,
+            &entry.tiers.l2,
+            &entry.tiers.l3,
+        ] {
             assert!(
                 allowed_tier_value(tier),
                 "invalid tier value `{}` for {}",

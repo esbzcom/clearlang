@@ -35,7 +35,10 @@ pub(super) fn mangle_fn_name_with_config(
     for arg in args {
         parts.push(mangle_type(arg, aliases)?);
     }
-    Ok(shorten_if_needed(format!("{}${}", name, parts.join("$")), config))
+    Ok(shorten_if_needed(
+        format!("{}${}", name, parts.join("$")),
+        config,
+    ))
 }
 
 pub(super) fn mangle_impl_method_name(

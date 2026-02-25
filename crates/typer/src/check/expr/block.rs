@@ -216,15 +216,9 @@ fn reject_recursive_closure_values(block: &Block) -> Result<()> {
                 Some((best_idx, best_span)) => {
                     let (name, _, _) = closure_bindings[idx];
                     let (best_name, _, _) = closure_bindings[best_idx];
-                    if (
-                        call_span.start,
-                        call_span.end,
-                        name,
-                    ) < (
-                        best_span.start,
-                        best_span.end,
-                        best_name,
-                    ) {
+                    if (call_span.start, call_span.end, name)
+                        < (best_span.start, best_span.end, best_name)
+                    {
                         best_self = Some((idx, *call_span));
                     }
                 }
@@ -233,13 +227,11 @@ fn reject_recursive_closure_values(block: &Block) -> Result<()> {
     }
     if let Some((idx, call_span)) = best_self {
         let (name, _, _) = closure_bindings[idx];
-        return Err(
-            TyperError::feature_not_supported(
-                &format!("self-referential closure value `{name}`"),
-                call_span,
-            )
-            .into(),
-        );
+        return Err(TyperError::feature_not_supported(
+            &format!("self-referential closure value `{name}`"),
+            call_span,
+        )
+        .into());
     }
 
     let mut best_mutual: Option<(usize, usize, Span)> = None;
@@ -265,17 +257,14 @@ fn reject_recursive_closure_values(block: &Block) -> Result<()> {
                     let (right_name, _, _) = closure_bindings[right_idx];
                     let (best_left_name, _, _) = closure_bindings[best_left];
                     let (best_right_name, _, _) = closure_bindings[best_right];
-                    if (
-                        call_span.start,
-                        call_span.end,
-                        left_name,
-                        right_name,
-                    ) < (
-                        best_span.start,
-                        best_span.end,
-                        best_left_name,
-                        best_right_name,
-                    ) {
+                    if (call_span.start, call_span.end, left_name, right_name)
+                        < (
+                            best_span.start,
+                            best_span.end,
+                            best_left_name,
+                            best_right_name,
+                        )
+                    {
                         best_mutual = Some((left_idx, right_idx, *call_span));
                     }
                 }
@@ -286,13 +275,11 @@ fn reject_recursive_closure_values(block: &Block) -> Result<()> {
     if let Some((left_idx, right_idx, call_span)) = best_mutual {
         let (left_name, _, _) = closure_bindings[left_idx];
         let (right_name, _, _) = closure_bindings[right_idx];
-        return Err(
-            TyperError::feature_not_supported(
-                &format!("mutually recursive closure values `{left_name}` and `{right_name}`"),
-                call_span,
-            )
-            .into(),
-        );
+        return Err(TyperError::feature_not_supported(
+            &format!("mutually recursive closure values `{left_name}` and `{right_name}`"),
+            call_span,
+        )
+        .into());
     }
 
     Ok(())

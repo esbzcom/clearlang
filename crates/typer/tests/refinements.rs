@@ -262,6 +262,12 @@ fn inline_refinement_aliases_do_not_collide_across_impl_methods() {
     "#;
     let err = check(&parse(src).expect("parse ok")).expect_err("signature mismatch expected");
     let s = format!("{err:#}");
-    assert!(s.contains("T235"), "expected interface mismatch T235, got: {s}");
-    assert!(!s.contains("T701"), "unexpected duplicate synthetic alias type: {s}");
+    assert!(
+        s.contains("T235"),
+        "expected interface mismatch T235, got: {s}"
+    );
+    assert!(
+        !s.contains("T701"),
+        "unexpected duplicate synthetic alias type: {s}"
+    );
 }

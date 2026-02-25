@@ -99,7 +99,11 @@ enum SignatureWhereClause {
 
 pub(crate) fn func_p<'a>() -> impl Parser<'a, &'a str, ParsedFunc, ErrTy<'a>> {
     let return_refinement_p = kw("where")
-        .ignore_then(kw("result").then_ignore(just(':').padded().rewind().not()).or_not())
+        .ignore_then(
+            kw("result")
+                .then_ignore(just(':').padded().rewind().not())
+                .or_not(),
+        )
         .rewind()
         .try_map(|marker, span| {
             if marker.is_some() {

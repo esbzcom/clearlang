@@ -85,20 +85,22 @@ fn trait_method_p<'a>() -> impl Parser<'a, &'a str, TraitMethod, ErrTy<'a>> {
         )
         .then(ty_p().padded())
         .then(method_tail)
-        .map_with(|(((((eff_opt, name), params), _arrow_ok), ret), default_body), e| {
-            let (effect, effect_span) = eff_opt
-                .map(|(eff, span)| (eff, Some(span)))
-                .unwrap_or((Effect::None, None));
-            TraitMethod {
-                effect,
-                effect_span,
-                name,
-                params,
-                ret,
-                default_body,
-                span: to_span(e.span()),
-            }
-        })
+        .map_with(
+            |(((((eff_opt, name), params), _arrow_ok), ret), default_body), e| {
+                let (effect, effect_span) = eff_opt
+                    .map(|(eff, span)| (eff, Some(span)))
+                    .unwrap_or((Effect::None, None));
+                TraitMethod {
+                    effect,
+                    effect_span,
+                    name,
+                    params,
+                    ret,
+                    default_body,
+                    span: to_span(e.span()),
+                }
+            },
+        )
 }
 
 pub(crate) fn trait_p<'a>() -> impl Parser<'a, &'a str, TraitDecl, ErrTy<'a>> {

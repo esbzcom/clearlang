@@ -609,6 +609,78 @@ fn write_vcs_json(
         }))
     }
 
+    fn vc_model_snippet_json(vc: &VerificationCondition) -> serde_json::Value {
+        use serde_json::json;
+        let bindings: Vec<serde_json::Value> = extract_model_symbols(&vc.post.ast)
+            .into_iter()
+            .map(|symbol| {
+                json!({
+                    "symbol": symbol,
+                    "value": serde_json::Value::Null,
+                })
+            })
+            .collect();
+        json!({
+            "state": "solver_unavailable",
+            "reason": "external solver/model not attached",
+            "bindings": bindings,
+        })
+    }
+
+    fn span_offsets_json(span: Option<clg_ast::Span>) -> Option<serde_json::Value> {
+        use serde_json::json;
+        let span = span?;
+        Some(json!({
+            "start": span.start,
+            "end": span.end,
+        }))
+    }
+
+    fn vc_proof_context_json(vc: &VerificationCondition) -> serde_json::Value {
+        use serde_json::json;
+
+        let mut span_map = serde_json::Map::new();
+        let focus_role = if vc.post.span.is_some() {
+            "post"
+        } else if vc.pre.span.is_some() {
+            "pre"
+        } else {
+            "none"
+        };
+        span_map.insert("focus_role".to_string(), json!(focus_role));
+        if let Some(pre) = span_offsets_json(vc.pre.span) {
+            span_map.insert("pre".to_string(), pre);
+        }
+        if let Some(post) = span_offsets_json(vc.post.span) {
+            span_map.insert("post".to_string(), post);
+        }
+
+        json!({
+            "on_status": "failed",
+            "format": "clg.proof_context.v1",
+            "vc": {
+                "function": vc.function,
+                "vc_id": vc.vc_id,
+                "status": vc.status,
+                "pre": {
+                    "ast": vc.pre.ast,
+                    "smt2": vc.pre.smt2,
+                },
+                "post": {
+                    "ast": vc.post.ast,
+                    "smt2": vc.post.smt2,
+                },
+                "clause_kind": vc_clause_kind(&vc.vc_id),
+                "vc": {
+                    "smt2": vc.vc_smt2,
+                },
+            },
+            "assumptions": assumptions_json(&vc.assumptions),
+            "model_snippet": vc_model_snippet_json(vc),
+            "span_map": serde_json::Value::Object(span_map),
+        })
+    }
+
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
@@ -662,6 +734,7 @@ fn write_vcs_json(
         if let Some(counterexample) = vc_counterexample_json(vc, file_str.as_ref()) {
             diagnostics.insert("counterexample".to_string(), counterexample);
         }
+        diagnostics.insert("proof_context".to_string(), vc_proof_context_json(vc));
         if !diagnostics.is_empty() {
             obj.insert(
                 "diagnostics".to_string(),

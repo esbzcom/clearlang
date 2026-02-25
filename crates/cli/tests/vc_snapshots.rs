@@ -53,6 +53,18 @@ fn normalize_vcs(value: &mut Value) {
                         focus_span.remove("end");
                     }
                 }
+                if let Some(proof_context) = diagnostics
+                    .get_mut("proof_context")
+                    .and_then(|s| s.as_object_mut())
+                {
+                    if let Some(span_map) = proof_context
+                        .get_mut("span_map")
+                        .and_then(|s| s.as_object_mut())
+                    {
+                        span_map.remove("pre");
+                        span_map.remove("post");
+                    }
+                }
             }
         }
     }

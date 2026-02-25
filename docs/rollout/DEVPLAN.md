@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.4` usability-first proof workflow (`19.4.3` next).
+- Next active phase: `19.5` explainable assurance artifacts (`19.5.1` next).
 
 ### Suggested Sequence
-1) Execute `19.4.3` AI-oriented machine-readable proof context bundle (`VC`, assumptions, model snippet, span map).
+1) Execute `19.5.1` signed assurance manifest per build (levels, assumptions, trust labels, toolchain fingerprint).
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -43,6 +43,7 @@
 - **Phase 19 profile regression CI gate (`19.3.3`)**: completed by adding verified-profile fixtures (`clearlang-tests/profile/`), fixture manifest (`docs/proofs/verified-profile-fixtures.json`), regression gate test (`crates/cli/tests/profile_regression_gate.rs`), and explicit CI proof-gate command.
 - **Phase 19 VC diagnostic hints (`19.4.1`)**: completed by emitting deterministic VC repair hints (`diagnostics.repair_hints`) for minimal `ensure`/`require`/`invariant`/`variant` suggestions with CLI IT coverage and schema/design docs updates.
 - **Phase 19 proof-failure slicing + counterexample envelopes (`19.4.2`)**: completed by emitting `diagnostics.failure_slice` and `diagnostics.counterexample` with direct source-span mapping and deterministic model-binding placeholders in VC JSON outputs.
+- **Phase 19 AI proof-context bundle (`19.4.3`)**: completed by emitting `diagnostics.proof_context` bundles (`vc`, assumptions, model snippet, span map) for each VC with deterministic schema and regression coverage.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

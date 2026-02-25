@@ -51,6 +51,51 @@
           }
         ],
         "vc_id": "linear:loop:0"
+      },
+      "proof_context": {
+        "assumptions": {
+          "items": []
+        },
+        "format": "clg.proof_context.v1",
+        "model_snippet": {
+          "bindings": [
+            {
+              "symbol": "files",
+              "value": null
+            },
+            {
+              "symbol": "linear_state_preserved_across_loop",
+              "value": null
+            }
+          ],
+          "reason": "external solver/model not attached",
+          "state": "solver_unavailable"
+        },
+        "on_status": "failed",
+        "span_map": {
+          "focus_role": "post",
+          "post": {
+            "end": 328,
+            "start": 141
+          }
+        },
+        "vc": {
+          "clause_kind": "vc",
+          "function": "loop_step",
+          "post": {
+            "ast": "linear_state_preserved_across_loop(files)",
+            "smt2": "(and (= cl.linear.loop.0.0.before cl.linear.loop.0.0.after) (>= cl.linear.loop.0.0.before 0) (>= cl.linear.loop.0.0.after 0))"
+          },
+          "pre": {
+            "ast": "true",
+            "smt2": "true"
+          },
+          "status": "generated",
+          "vc": {
+            "smt2": "(declare-const cl.linear.loop.0.0.before Int)\n(declare-const cl.linear.loop.0.0.after Int)\n(=> true (and (= cl.linear.loop.0.0.before cl.linear.loop.0.0.after) (>= cl.linear.loop.0.0.before 0) (>= cl.linear.loop.0.0.after 0)))"
+          },
+          "vc_id": "linear:loop:0"
+        }
       }
     },
     "function": "loop_step",
@@ -124,6 +169,47 @@
           }
         ],
         "vc_id": "loop:0:invariant"
+      },
+      "proof_context": {
+        "assumptions": {
+          "items": []
+        },
+        "format": "clg.proof_context.v1",
+        "model_snippet": {
+          "bindings": [
+            {
+              "symbol": "n",
+              "value": null
+            }
+          ],
+          "reason": "external solver/model not attached",
+          "state": "solver_unavailable"
+        },
+        "on_status": "failed",
+        "span_map": {
+          "focus_role": "post",
+          "post": {
+            "end": 171,
+            "start": 165
+          }
+        },
+        "vc": {
+          "clause_kind": "invariant",
+          "function": "loop_step",
+          "post": {
+            "ast": "n >= 0",
+            "smt2": "(>= n 0)"
+          },
+          "pre": {
+            "ast": "true",
+            "smt2": "true"
+          },
+          "status": "generated",
+          "vc": {
+            "smt2": "(=> true (>= n 0))"
+          },
+          "vc_id": "loop:0:invariant"
+        }
       },
       "repair_hints": {
         "items": [
@@ -208,6 +294,47 @@
         ],
         "vc_id": "loop:0:variant_decrease"
       },
+      "proof_context": {
+        "assumptions": {
+          "items": []
+        },
+        "format": "clg.proof_context.v1",
+        "model_snippet": {
+          "bindings": [
+            {
+              "symbol": "n",
+              "value": null
+            }
+          ],
+          "reason": "external solver/model not attached",
+          "state": "solver_unavailable"
+        },
+        "on_status": "failed",
+        "span_map": {
+          "focus_role": "post",
+          "post": {
+            "end": 186,
+            "start": 184
+          }
+        },
+        "vc": {
+          "clause_kind": "variant",
+          "function": "loop_step",
+          "post": {
+            "ast": "n' < n",
+            "smt2": "(< cl.loop.variant.next.0 n)"
+          },
+          "pre": {
+            "ast": "true",
+            "smt2": "true"
+          },
+          "status": "generated",
+          "vc": {
+            "smt2": "(declare-const cl.loop.variant.next.0 Int)\n(=> true (< cl.loop.variant.next.0 n))"
+          },
+          "vc_id": "loop:0:variant_decrease"
+        }
+      },
       "repair_hints": {
         "items": [
           {
@@ -290,6 +417,47 @@
           }
         ],
         "vc_id": "loop:0:variant_nonneg"
+      },
+      "proof_context": {
+        "assumptions": {
+          "items": []
+        },
+        "format": "clg.proof_context.v1",
+        "model_snippet": {
+          "bindings": [
+            {
+              "symbol": "n",
+              "value": null
+            }
+          ],
+          "reason": "external solver/model not attached",
+          "state": "solver_unavailable"
+        },
+        "on_status": "failed",
+        "span_map": {
+          "focus_role": "post",
+          "post": {
+            "end": 186,
+            "start": 184
+          }
+        },
+        "vc": {
+          "clause_kind": "variant",
+          "function": "loop_step",
+          "post": {
+            "ast": "n >= 0",
+            "smt2": "(>= n 0)"
+          },
+          "pre": {
+            "ast": "true",
+            "smt2": "true"
+          },
+          "status": "generated",
+          "vc": {
+            "smt2": "(=> true (>= n 0))"
+          },
+          "vc_id": "loop:0:variant_nonneg"
+        }
       },
       "repair_hints": {
         "items": [

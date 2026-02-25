@@ -48,6 +48,47 @@
         ],
         "vc_id": "vc:0"
       },
+      "proof_context": {
+        "assumptions": {
+          "items": []
+        },
+        "format": "clg.proof_context.v1",
+        "model_snippet": {
+          "bindings": [
+            {
+              "symbol": "result",
+              "value": null
+            }
+          ],
+          "reason": "external solver/model not attached",
+          "state": "solver_unavailable"
+        },
+        "on_status": "failed",
+        "span_map": {
+          "focus_role": "post",
+          "post": {
+            "end": 53,
+            "start": 0
+          }
+        },
+        "vc": {
+          "clause_kind": "ensure",
+          "function": "inc",
+          "post": {
+            "ast": "result >= 0",
+            "smt2": "(>= result 0)"
+          },
+          "pre": {
+            "ast": "a >= 0",
+            "smt2": "(>= a 0)"
+          },
+          "status": "generated",
+          "vc": {
+            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int a)\n(define-fun cl.ref.premise.0.pred () Bool (>= a 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (>= a 0) (>= (+ a 1) 0))"
+          },
+          "vc_id": "vc:0"
+        }
+      },
       "repair_hints": {
         "items": [
           {

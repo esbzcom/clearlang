@@ -56,6 +56,13 @@ VC Object (v2)
     - `reason`: string (why no concrete model is attached)
     - `focus_span`: span object (`file`, `start`, `end`, `role`)
     - `bindings`: array of binding objects (`symbol`, `value`)
+  - `proof_context`: object - optional AI-oriented proof context bundle
+    - `on_status`: string (`failed`)
+    - `format`: string (`clg.proof_context.v1`)
+    - `vc`: object - embedded VC context (`function`, `vc_id`, `status`, `pre`, `post`, `clause_kind`, `vc`)
+    - `assumptions`: object - embedded assumption payload (`items`)
+    - `model_snippet`: object - model envelope (`state`, `reason`, `bindings`)
+    - `span_map`: object - source span map (`focus_role`, optional `pre`/`post` offsets)
 - `refinements`: object - optional refinement premises (v2+)
   - `premises`: array of refinement premise objects (may be empty)
 - `extra`: object - reserved for tool metadata
@@ -74,6 +81,10 @@ Span Object
 Counterexample Binding
 - `symbol`: string (identifier/function symbol from VC goal expression)
 - `value`: JSON value (`null` until solver/model integration is attached)
+
+Proof Context Span
+- `start`: number (byte offset)
+- `end`: number (byte offset)
 
 Refinement Premise
 - `id`: string (stable within VC; `ref:0`, `ref:1`, ...)
@@ -131,6 +142,7 @@ Notes
 - `diagnostics.repair_hints` is advisory guidance for failed-VC workflows; it does not alter VC semantics or assurance tiers.
 - `diagnostics.failure_slice` maps each VC obligation to exact source spans so failure reporting can point directly to user code.
 - `diagnostics.counterexample` carries the model-report envelope; in current implementation `state` is `solver_unavailable` and `bindings[*].value` is `null` until external solver/model attachment is provided.
+- `diagnostics.proof_context` bundles VC payload + assumptions + model snippet + span map for AI/tooling consumption; it is deterministic metadata and does not affect proof outcomes.
 - Strict compiler mode (`--compiler-mode strict`) validates assumption labels (`C031`) and then fails closed on any remaining assumption boundary (`C033`), enforcing the verified-by-construction strict language profile.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
 - Coverage status for language features/intrinsics is tracked separately in `docs/proofs/proof-coverage-matrix.md` and `docs/proofs/proof-coverage-matrix.json`.

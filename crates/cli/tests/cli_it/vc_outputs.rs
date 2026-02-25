@@ -132,6 +132,46 @@ fn build_emits_vcs_json() {
         }),
         "expected counterexample bindings to include `result`"
     );
+    let proof_context = first
+        .get("diagnostics")
+        .and_then(|o| o.get("proof_context"))
+        .and_then(|o| o.as_object())
+        .expect("proof_context obj");
+    assert_eq!(
+        proof_context.get("format").and_then(|s| s.as_str()),
+        Some("clg.proof_context.v1")
+    );
+    let proof_context_vc = proof_context
+        .get("vc")
+        .and_then(|o| o.as_object())
+        .expect("proof_context vc");
+    assert_eq!(
+        proof_context_vc.get("vc_id").and_then(|s| s.as_str()),
+        Some("vc:0")
+    );
+    assert_eq!(
+        proof_context_vc.get("clause_kind").and_then(|s| s.as_str()),
+        Some("ensure")
+    );
+    let proof_context_assumptions = proof_context
+        .get("assumptions")
+        .and_then(|o| o.get("items"))
+        .and_then(|o| o.as_array())
+        .expect("proof_context assumptions");
+    assert!(
+        proof_context_assumptions.is_empty(),
+        "expected empty assumptions for checked-core vc"
+    );
+    let proof_context_span_map = proof_context
+        .get("span_map")
+        .and_then(|o| o.as_object())
+        .expect("proof_context span_map");
+    assert_eq!(
+        proof_context_span_map
+            .get("focus_role")
+            .and_then(|s| s.as_str()),
+        Some("post")
+    );
     assert!(first.get("refinements").is_none());
     assert!(first.get("assumptions").is_none());
 }
@@ -356,6 +396,32 @@ fn build_emits_loop_repair_hints() {
                     .any(|entry| entry.get("symbol").and_then(|v| v.as_str()) == Some("n"))
             }),
         "expected loop variant counterexample bindings to include `n`"
+    );
+    let nonneg_proof_context = arr
+        .iter()
+        .find(|entry| entry.get("vc_id").and_then(|v| v.as_str()) == Some("loop:0:variant_nonneg"))
+        .and_then(|entry| entry.get("diagnostics"))
+        .and_then(|d| d.get("proof_context"))
+        .and_then(|p| p.as_object())
+        .expect("variant_nonneg proof_context");
+    let nonneg_model = nonneg_proof_context
+        .get("model_snippet")
+        .and_then(|m| m.as_object())
+        .expect("variant_nonneg model_snippet");
+    assert_eq!(
+        nonneg_model.get("state").and_then(|v| v.as_str()),
+        Some("solver_unavailable")
+    );
+    assert!(
+        nonneg_model
+            .get("bindings")
+            .and_then(|v| v.as_array())
+            .is_some_and(|bindings| {
+                bindings
+                    .iter()
+                    .any(|entry| entry.get("symbol").and_then(|v| v.as_str()) == Some("n"))
+            }),
+        "expected proof_context.model_snippet bindings to include `n`"
     );
 
     let decrease = find_hint("loop:0:variant_decrease");

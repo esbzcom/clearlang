@@ -51,6 +51,51 @@
           }
         ],
         "vc_id": "linear:branch:0"
+      },
+      "proof_context": {
+        "assumptions": {
+          "items": []
+        },
+        "format": "clg.proof_context.v1",
+        "model_snippet": {
+          "bindings": [
+            {
+              "symbol": "files",
+              "value": null
+            },
+            {
+              "symbol": "linear_state_consistent_across_branches",
+              "value": null
+            }
+          ],
+          "reason": "external solver/model not attached",
+          "state": "solver_unavailable"
+        },
+        "on_status": "failed",
+        "span_map": {
+          "focus_role": "post",
+          "post": {
+            "end": 319,
+            "start": 142
+          }
+        },
+        "vc": {
+          "clause_kind": "vc",
+          "function": "choose",
+          "post": {
+            "ast": "linear_state_consistent_across_branches(files)",
+            "smt2": "(and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0))"
+          },
+          "pre": {
+            "ast": "true",
+            "smt2": "true"
+          },
+          "status": "generated",
+          "vc": {
+            "smt2": "(declare-const cl.linear.branch.0.0.then Int)\n(declare-const cl.linear.branch.0.0.else Int)\n(=> true (and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0)))"
+          },
+          "vc_id": "linear:branch:0"
+        }
       }
     },
     "function": "choose",

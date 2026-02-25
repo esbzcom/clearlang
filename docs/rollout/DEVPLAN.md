@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.5` explainable assurance artifacts (`19.5.1` next).
+- Next active phase: `19.5` explainable assurance artifacts (`19.5.2` next).
 
 ### Suggested Sequence
-1) Execute `19.5.1` signed assurance manifest per build (levels, assumptions, trust labels, toolchain fingerprint).
+1) Execute `19.5.2` `clg verify --explain` human summary output (proved/assumed/why).
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -44,6 +44,7 @@
 - **Phase 19 VC diagnostic hints (`19.4.1`)**: completed by emitting deterministic VC repair hints (`diagnostics.repair_hints`) for minimal `ensure`/`require`/`invariant`/`variant` suggestions with CLI IT coverage and schema/design docs updates.
 - **Phase 19 proof-failure slicing + counterexample envelopes (`19.4.2`)**: completed by emitting `diagnostics.failure_slice` and `diagnostics.counterexample` with direct source-span mapping and deterministic model-binding placeholders in VC JSON outputs.
 - **Phase 19 AI proof-context bundle (`19.4.3`)**: completed by emitting `diagnostics.proof_context` bundles (`vc`, assumptions, model snippet, span map) for each VC with deterministic schema and regression coverage.
+- **Phase 19 signed assurance manifest (`19.5.1`)**: completed by emitting signed assurance manifests on signed builds (default `*.assurance.json`, override `--assurance-manifest-out`), including assurance levels, assumption inventory, dependency trust labels, toolchain fingerprint, and deterministic diagnostic `C034` for invalid flag combinations.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

@@ -504,6 +504,8 @@ Build and sign:
 clg build examples/contract.clear -o out.wasm --emit-vcs out.vc.json \
   --sign --key keys/signing.json --key-id demo --scope both --sig-out out.sig.json
 ```
+This also emits a signed assurance manifest by default at `out.assurance.json`
+(derived from `--sig-out`). Override with `--assurance-manifest-out <FILE>`.
 
 Build and sign with pinned compile-time trust anchors:
 ```

@@ -74,6 +74,21 @@ pub struct SignatureFile {
     pub payload: serde_json::Value,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AssuranceManifestSignature {
+    pub key_id: String,
+    pub signature_format: String,
+    pub payload_hash: String,
+    pub signature: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AssuranceManifestFile {
+    pub schema_version: u32,
+    pub payload: serde_json::Value,
+    pub signature: AssuranceManifestSignature,
+}
+
 #[allow(dead_code)]
 pub fn validate_attestation_payload_file(path: &Path) -> Result<()> {
     let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
@@ -252,18 +267,7 @@ pub fn sign_bundle(
     lean_checker_version: Option<&str>,
     coq_checker_version: Option<&str>,
 ) -> Result<()> {
-    let key_data = fs::read(key_path).with_context(|| format!("reading {}", key_path.display()))?;
-    let key_file: SigningKeyFile =
-        serde_json::from_slice(&key_data).context("parsing signing key")?;
-    if key_file.scheme.to_lowercase() != "ed25519" {
-        return Err(anyhow!("unsupported signing scheme: {}", key_file.scheme));
-    }
-    let key_bytes = hex::decode(&key_file.private_key).context("decoding private key hex")?;
-    let signing = SigningKey::from_bytes(
-        &key_bytes
-            .try_into()
-            .map_err(|_| anyhow!("ed25519 private key must be 32 bytes"))?,
-    );
+    let signing = load_signing_key(key_path)?;
     let mut payload_value = package.build_signing_payload(module_hash_hex, scope, timestamp);
     if lean_checker_version.is_some() || coq_checker_version.is_some() {
         let Some(lean_checker) = lean_checker_version else {
@@ -290,9 +294,7 @@ pub fn sign_bundle(
             }),
         );
     }
-    let canonical_payload = canonical_json_string(&payload_value);
-    let signature = signing.sign(canonical_payload.as_bytes());
-    let sig_hex = hex::encode(signature.to_bytes());
+    let (sig_hex, _) = sign_payload(&signing, &payload_value);
     let sig_file = SignatureFile {
         key_id: key_id.to_string(),
         scope,
@@ -308,6 +310,55 @@ pub fn sign_bundle(
     }
     fs::write(sig_out, output).with_context(|| format!("writing {}", sig_out.display()))?;
     Ok(())
+}
+
+pub fn sign_assurance_manifest(
+    payload: serde_json::Value,
+    key_path: &Path,
+    key_id: &str,
+    out: &Path,
+) -> Result<()> {
+    let signing = load_signing_key(key_path)?;
+    let (signature, payload_hash) = sign_payload(&signing, &payload);
+    let manifest = AssuranceManifestFile {
+        schema_version: 1,
+        payload,
+        signature: AssuranceManifestSignature {
+            key_id: key_id.to_string(),
+            signature_format: "ed25519".to_string(),
+            payload_hash,
+            signature,
+        },
+    };
+    if let Some(dir) = out.parent() {
+        if !dir.as_os_str().is_empty() {
+            fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
+        }
+    }
+    let output = serde_json::to_vec_pretty(&manifest)?;
+    fs::write(out, output).with_context(|| format!("writing {}", out.display()))?;
+    Ok(())
+}
+
+fn load_signing_key(key_path: &Path) -> Result<SigningKey> {
+    let key_data = fs::read(key_path).with_context(|| format!("reading {}", key_path.display()))?;
+    let key_file: SigningKeyFile =
+        serde_json::from_slice(&key_data).context("parsing signing key")?;
+    if key_file.scheme.to_lowercase() != "ed25519" {
+        return Err(anyhow!("unsupported signing scheme: {}", key_file.scheme));
+    }
+    let key_bytes = hex::decode(&key_file.private_key).context("decoding private key hex")?;
+    Ok(SigningKey::from_bytes(&key_bytes.try_into().map_err(
+        |_| anyhow!("ed25519 private key must be 32 bytes"),
+    )?))
+}
+
+fn sign_payload(signing: &SigningKey, payload: &serde_json::Value) -> (String, String) {
+    let canonical_payload = canonical_json_string(payload);
+    let signature = signing.sign(canonical_payload.as_bytes());
+    let signature_hex = hex::encode(signature.to_bytes());
+    let payload_hash = sha256_hex(canonical_payload.as_bytes());
+    (signature_hex, payload_hash)
 }
 
 pub fn verify_signature(

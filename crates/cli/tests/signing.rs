@@ -3,6 +3,7 @@ use ed25519_dalek::SigningKey;
 use predicates::prelude::predicate;
 use predicates::prelude::PredicateBooleanExt;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -45,11 +46,25 @@ fn write_key_material(dir: &Path) -> (PathBuf, PathBuf) {
 }
 
 fn build_signed_module(tmp: &Path) -> (PathBuf, PathBuf, PathBuf) {
-    build_signed_module_with_trust_anchors(tmp, None, None)
+    build_signed_module_with_manifest_and_trust_anchors(tmp, None, None, None)
 }
 
 fn build_signed_module_with_trust_anchors(
     tmp: &Path,
+    lean_checker_version: Option<&str>,
+    coq_checker_version: Option<&str>,
+) -> (PathBuf, PathBuf, PathBuf) {
+    build_signed_module_with_manifest_and_trust_anchors(
+        tmp,
+        None,
+        lean_checker_version,
+        coq_checker_version,
+    )
+}
+
+fn build_signed_module_with_manifest_and_trust_anchors(
+    tmp: &Path,
+    manifest_path: Option<&Path>,
     lean_checker_version: Option<&str>,
     coq_checker_version: Option<&str>,
 ) -> (PathBuf, PathBuf, PathBuf) {
@@ -78,6 +93,9 @@ fn build_signed_module_with_trust_anchors(
         .arg("both")
         .arg("--sig-out")
         .arg(&sig_path);
+    if let Some(manifest_path) = manifest_path {
+        cmd.arg("--assurance-manifest-out").arg(manifest_path);
+    }
     if let (Some(lean), Some(coq)) = (lean_checker_version, coq_checker_version) {
         cmd.arg("--lean-checker-version")
             .arg(lean)
@@ -87,6 +105,34 @@ fn build_signed_module_with_trust_anchors(
     cmd.assert().success();
 
     (wasm_path, sig_path, pub_path)
+}
+
+fn canonicalize_value(value: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().collect();
+            keys.sort();
+            let mut out = serde_json::Map::new();
+            for key in keys {
+                out.insert(key.clone(), canonicalize_value(&map[key]));
+            }
+            serde_json::Value::Object(out)
+        }
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(canonicalize_value).collect())
+        }
+        _ => value.clone(),
+    }
+}
+
+fn canonical_json_string(value: &serde_json::Value) -> String {
+    serde_json::to_string(&canonicalize_value(value)).expect("serialize canonical json")
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
 }
 
 fn write_trust_policy(dir: &Path, lean_checker: &str, coq_checker: &str) -> PathBuf {
@@ -237,6 +283,100 @@ fn sign_and_verify_roundtrip() {
         .arg("--pubkey")
         .arg(&pub_path);
     verify.assert().success();
+}
+
+#[test]
+fn build_emits_signed_assurance_manifest() {
+    let tmp = tempdir().unwrap();
+    let manifest = tmp.path().join("out.assurance.json");
+    let (_wasm_path, _sig_path, pub_path) = build_signed_module_with_manifest_and_trust_anchors(
+        tmp.path(),
+        Some(&manifest),
+        None,
+        None,
+    );
+
+    let manifest_value: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest).expect("read manifest")).expect("json");
+    assert_eq!(
+        manifest_value
+            .get("schema_version")
+            .and_then(|v| v.as_u64()),
+        Some(1)
+    );
+
+    let payload = manifest_value.get("payload").expect("payload");
+    assert_eq!(
+        payload
+            .get("format")
+            .and_then(|v| v.as_str())
+            .expect("format"),
+        "clg.assurance_manifest.v1"
+    );
+    assert_eq!(
+        payload
+            .get("assurance")
+            .and_then(|v| v.get("tier"))
+            .and_then(|v| v.as_str()),
+        Some("L1")
+    );
+    assert!(payload
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .is_some());
+    assert!(payload
+        .get("dependency_trust_labels")
+        .and_then(|v| v.as_array())
+        .is_some());
+    assert!(payload
+        .get("toolchain")
+        .and_then(|v| v.get("fingerprint_sha256"))
+        .and_then(|v| v.as_str())
+        .is_some());
+
+    let payload_hash = manifest_value
+        .get("signature")
+        .and_then(|v| v.get("payload_hash"))
+        .and_then(|v| v.as_str())
+        .expect("payload_hash");
+    let canonical_payload = canonical_json_string(payload);
+    assert_eq!(payload_hash, sha256_hex(canonical_payload.as_bytes()));
+
+    let signature_hex = manifest_value
+        .get("signature")
+        .and_then(|v| v.get("signature"))
+        .and_then(|v| v.as_str())
+        .expect("signature hex");
+    let signature_bytes = hex::decode(signature_hex).expect("decode signature");
+    let signature = ed25519_dalek::Signature::from_slice(&signature_bytes).expect("signature");
+
+    let pub_json: serde_json::Value =
+        serde_json::from_slice(&fs::read(pub_path).expect("read pubkey")).expect("pubkey json");
+    let pub_hex = pub_json
+        .get("public_key")
+        .and_then(|v| v.as_str())
+        .expect("public key");
+    let pub_key_bytes: [u8; 32] = hex::decode(pub_hex)
+        .expect("decode public key")
+        .try_into()
+        .expect("public key length");
+    let verifying = ed25519_dalek::VerifyingKey::from_bytes(&pub_key_bytes).expect("verify key");
+    verifying
+        .verify_strict(canonical_payload.as_bytes(), &signature)
+        .expect("manifest signature should verify");
+}
+
+#[test]
+fn build_sign_defaults_assurance_manifest_path_from_sig_out() {
+    let tmp = tempdir().unwrap();
+    let (_wasm_path, sig_path, _pub_path) = build_signed_module(tmp.path());
+    let manifest_path = sig_path.with_file_name("out.assurance.json");
+    assert!(
+        manifest_path.exists(),
+        "expected default assurance manifest at {}",
+        manifest_path.display()
+    );
 }
 
 #[test]

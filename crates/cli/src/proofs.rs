@@ -9,6 +9,8 @@ use wasmparser::{Parser, Payload};
 use crate::signing::SignScope;
 
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
+const ASSUMPTION_PRIMITIVE_ID: &str = "primitive.unproved";
+const ASSUMPTION_EXTERNAL_ID: &str = "external.dependency";
 const ASSURANCE_TIER_L0: &str = "L0";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -391,6 +393,145 @@ pub fn assurance_for_vcs(vcs: &[VerificationCondition]) -> ProofAssurance {
     proof_assurance_for_tier("L1")
 }
 
+pub fn build_assurance_manifest_payload(
+    vcs: &[VerificationCondition],
+    toolchain: &str,
+    compiler_mode: &str,
+    proof_strict: bool,
+    module_hash_hex: &str,
+    proofs_hash_hex: &str,
+    generated_at: &str,
+) -> serde_json::Value {
+    use serde_json::json;
+
+    #[derive(Default)]
+    struct AssumptionAggregate {
+        symbols: BTreeSet<String>,
+        vc_refs: BTreeSet<(String, String)>,
+        intrinsic_levels: BTreeSet<String>,
+    }
+
+    let mut ordered_vcs: Vec<&VerificationCondition> = vcs.iter().collect();
+    ordered_vcs.sort_by(|left, right| {
+        left.function
+            .cmp(&right.function)
+            .then_with(|| left.vc_id.cmp(&right.vc_id))
+    });
+
+    let mut assumptions: BTreeMap<(String, String, String, String), AssumptionAggregate> =
+        BTreeMap::new();
+    let mut dependency_trust: BTreeMap<(String, String), String> = BTreeMap::new();
+    let mut assumption_count = 0usize;
+
+    for vc in ordered_vcs {
+        for boundary in &vc.assumptions {
+            assumption_count += 1;
+            let key = (
+                boundary.id.to_string(),
+                boundary.category.as_str().to_string(),
+                boundary.status.to_string(),
+                boundary.message.to_string(),
+            );
+            let aggregate = assumptions.entry(key).or_default();
+            aggregate
+                .vc_refs
+                .insert((vc.function.clone(), vc.vc_id.clone()));
+            for symbol in &boundary.symbols {
+                if !symbol.trim().is_empty() {
+                    aggregate.symbols.insert(symbol.clone());
+                }
+            }
+            for level in intrinsic_levels_for_boundary(boundary) {
+                aggregate.intrinsic_levels.insert(level.intrinsic);
+            }
+
+            let dependency_kind = match boundary.id {
+                ASSUMPTION_PRIMITIVE_ID => Some("primitive"),
+                ASSUMPTION_EXTERNAL_ID => Some("external"),
+                _ => None,
+            };
+            if let Some(kind) = dependency_kind {
+                for symbol in &boundary.symbols {
+                    if symbol.trim().is_empty() {
+                        continue;
+                    }
+                    dependency_trust
+                        .entry((symbol.clone(), kind.to_string()))
+                        .or_insert_with(|| boundary.status.to_string());
+                }
+            }
+        }
+    }
+
+    let assumption_items: Vec<serde_json::Value> = assumptions
+        .into_iter()
+        .map(|((id, category, status, message), aggregate)| {
+            let symbols: Vec<String> = aggregate.symbols.into_iter().collect();
+            let vc_refs: Vec<serde_json::Value> = aggregate
+                .vc_refs
+                .into_iter()
+                .map(|(function, vc_id)| json!({ "function": function, "vc_id": vc_id }))
+                .collect();
+            let intrinsic_levels: Vec<serde_json::Value> = aggregate
+                .intrinsic_levels
+                .into_iter()
+                .map(|intrinsic| {
+                    json!({
+                        "intrinsic": intrinsic,
+                        "tier": ASSURANCE_TIER_L0,
+                        "label": assurance_label_for_tier(ASSURANCE_TIER_L0),
+                    })
+                })
+                .collect();
+            let mut item = serde_json::Map::new();
+            item.insert("id".to_string(), json!(id));
+            item.insert("category".to_string(), json!(category));
+            item.insert("status".to_string(), json!(status));
+            item.insert("message".to_string(), json!(message));
+            item.insert("symbols".to_string(), json!(symbols));
+            item.insert("vc_refs".to_string(), json!(vc_refs));
+            if !intrinsic_levels.is_empty() {
+                item.insert("intrinsic_levels".to_string(), json!(intrinsic_levels));
+            }
+            serde_json::Value::Object(item)
+        })
+        .collect();
+
+    let dependency_trust_labels: Vec<serde_json::Value> = dependency_trust
+        .into_iter()
+        .map(|((dependency, kind), label)| {
+            json!({
+                "dependency": dependency,
+                "kind": kind,
+                "label": label,
+            })
+        })
+        .collect();
+
+    json!({
+        "format": "clg.assurance_manifest.v1",
+        "generated_at": generated_at,
+        "toolchain": {
+            "name": toolchain,
+            "fingerprint_sha256": sha256_hex(toolchain.as_bytes()),
+        },
+        "build": {
+            "compiler_mode": compiler_mode,
+            "proof_strict": proof_strict,
+        },
+        "artifacts": {
+            "module_hash": module_hash_hex,
+            "proofs_hash": proofs_hash_hex,
+        },
+        "assurance": assurance_for_vcs(vcs),
+        "assumptions": {
+            "total": assumption_count,
+            "items": assumption_items,
+        },
+        "dependency_trust_labels": dependency_trust_labels,
+    })
+}
+
 fn proof_assurance_for_tier(tier: &str) -> ProofAssurance {
     ProofAssurance {
         tier: tier.to_string(),
@@ -412,6 +553,20 @@ fn assurance_label_for_tier(tier: &str) -> &'static str {
         "L3" => "verified package profile",
         _ => "unknown",
     }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    use std::fmt::Write;
+
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let mut output = String::with_capacity(digest.len() * 2);
+    for b in digest {
+        write!(&mut output, "{:02x}", b).expect("write hex");
+    }
+    output
 }
 
 fn canonical_name_for(

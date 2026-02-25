@@ -143,6 +143,54 @@ uses the same zeroed-field procedure described above. Shape:
 The signature itself is stored externally (e.g., `--sig-out <file>`). Verification rehashes
 the payload, checks the signature, then inspects the embedded `clearlang.proof` section.
 
+## Signed Assurance Manifest (Phase 19.5.1)
+
+When `clg build` is run with `--sign`, the CLI now also emits a signed assurance manifest JSON
+for audit/release workflows.
+
+- Default output path is derived from `--sig-out`:
+  - `out.sig.json` -> `out.assurance.json`
+- Override with:
+  - `--assurance-manifest-out <FILE>`
+
+Manifest envelope shape:
+
+```
+{
+  "schema_version": 1,
+  "payload": {
+    "format": "clg.assurance_manifest.v1",
+    "generated_at": "<RFC3339 UTC>",
+    "toolchain": {
+      "name": "clg-cli/<version>",
+      "fingerprint_sha256": "<sha256(toolchain-name)>"
+    },
+    "build": {
+      "compiler_mode": "permissive|standard|strict",
+      "proof_strict": true|false
+    },
+    "artifacts": {
+      "module_hash": "<hex>",
+      "proofs_hash": "<hex>"
+    },
+    "assurance": { "tier": "...", "label": "...", "levels": { ... } },
+    "assumptions": { "total": <n>, "items": [...] },
+    "dependency_trust_labels": [
+      { "dependency": "<symbol>", "kind": "primitive|external", "label": "assumed" }
+    ]
+  },
+  "signature": {
+    "key_id": "<key-id>",
+    "signature_format": "ed25519",
+    "payload_hash": "<sha256(canonical payload json)>",
+    "signature": "<ed25519-hex>"
+  }
+}
+```
+
+The manifest signature is computed over canonical JSON for `payload` only (same canonicalization
+strategy as signature payload signing), keeping verification deterministic.
+
 ## Backwards Compatibility
 
 - v1 sections remain parseable; v2 adds optional `refinements`/`assumptions`/`assurance` on VC entries, optional top-level `assurance`, and optional `canonical_name` on function entries.

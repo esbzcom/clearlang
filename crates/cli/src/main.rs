@@ -84,6 +84,9 @@ enum Commands {
         /// Signature output path (JSON)
         #[arg(long, value_name = "FILE", requires = "sign")]
         sig_out: Option<PathBuf>,
+        /// Assurance manifest output path (JSON). Requires --sign.
+        #[arg(long, value_name = "FILE")]
+        assurance_manifest_out: Option<PathBuf>,
         /// Pinned Lean checker version to embed in signing payload
         #[arg(long, value_name = "VERSION")]
         lean_checker_version: Option<String>,
@@ -140,6 +143,7 @@ fn main() -> Result<()> {
             key_id,
             scope,
             sig_out,
+            assurance_manifest_out,
             lean_checker_version,
             coq_checker_version,
         } => cmd_build::run(
@@ -156,6 +160,7 @@ fn main() -> Result<()> {
             key_id,
             scope.unwrap_or(SignScope::Both),
             sig_out,
+            assurance_manifest_out,
             lean_checker_version,
             coq_checker_version,
             cli.json_errors,

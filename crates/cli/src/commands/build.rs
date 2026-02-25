@@ -18,7 +18,8 @@ use crate::commands::helpers::{extract_function_name, make_single_json_error, Co
 use crate::commands::modules::load_program;
 use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{
-    assurance_for_assumptions, hash_module, module_bytes_with_zeroed_hash, ProofPackage,
+    assurance_for_assumptions, build_assurance_manifest_payload, hash_module,
+    module_bytes_with_zeroed_hash, ProofPackage,
 };
 use crate::signing::{self, SignScope};
 
@@ -30,6 +31,16 @@ pub enum CompilerMode {
     Standard,
     /// Production mode: requires --emit-vcs and enforces VC strictness.
     Strict,
+}
+
+impl CompilerMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            CompilerMode::Permissive => "permissive",
+            CompilerMode::Standard => "standard",
+            CompilerMode::Strict => "strict",
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -47,6 +58,7 @@ pub fn run(
     key_id: Option<String>,
     scope: SignScope,
     sig_out: Option<PathBuf>,
+    assurance_manifest_out: Option<PathBuf>,
     lean_checker_version: Option<String>,
     coq_checker_version: Option<String>,
     json_errors: bool,
@@ -132,6 +144,9 @@ pub fn run(
             "`--lean-checker-version`/`--coq-checker-version` require `--sign`",
             None,
         )?;
+    }
+    if assurance_manifest_out.is_some() && !sign {
+        fail_build("C034", "`--assurance-manifest-out` requires `--sign`", None)?;
     }
     if lean_checker_version.is_some() ^ coq_checker_version.is_some() {
         fail_build(
@@ -275,7 +290,10 @@ pub fn run(
         let key_path = key.expect("clap ensures key when sign");
         let key_id = key_id.expect("clap ensures key_id when sign");
         let sig_path = sig_out.expect("clap ensures sig_out when sign");
+        let manifest_path =
+            assurance_manifest_out.unwrap_or_else(|| default_assurance_manifest_path(&sig_path));
         let module_hash_hex = hex::encode(hash_bytes);
+        let proofs_hash_hex = pkg.proofs_hash_hex();
         let timestamp = OffsetDateTime::now_utc()
             .format(&Rfc3339)
             .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string());
@@ -290,6 +308,16 @@ pub fn run(
             lean_checker_version.as_deref(),
             coq_checker_version.as_deref(),
         )?;
+        let manifest_payload = build_assurance_manifest_payload(
+            &vcs,
+            &toolchain,
+            compiler_mode.as_str(),
+            proof_strict_enabled,
+            &module_hash_hex,
+            &proofs_hash_hex,
+            &timestamp,
+        );
+        signing::sign_assurance_manifest(manifest_payload, &key_path, &key_id, &manifest_path)?;
         if logger.enabled(LogLevel::Debug) {
             logger.event(
                 LogLevel::Debug,
@@ -297,8 +325,9 @@ pub fn run(
                 "sign",
                 &[
                     ("module_hash", module_hash_hex.clone()),
-                    ("proofs_hash", pkg.proofs_hash_hex()),
+                    ("proofs_hash", proofs_hash_hex),
                     ("sig_path", sig_path.display().to_string()),
+                    ("assurance_manifest", manifest_path.display().to_string()),
                 ],
             );
         }
@@ -884,6 +913,24 @@ fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)
     None
 }
 
+fn default_assurance_manifest_path(sig_path: &Path) -> PathBuf {
+    let file_name = sig_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("assurance-manifest.json");
+    let replacement = if let Some(stripped) = file_name.strip_suffix(".sig.json") {
+        format!("{stripped}.assurance.json")
+    } else if let Some(stem) = sig_path.file_stem().and_then(|stem| stem.to_str()) {
+        format!("{stem}.assurance.json")
+    } else {
+        "assurance-manifest.json".to_string()
+    };
+    match sig_path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.join(replacement),
+        _ => PathBuf::from(replacement),
+    }
+}
+
 const ASSUMPTION_UNSIGNED_ID: &str = "unsigned.int_model";
 const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
@@ -1230,6 +1277,24 @@ mod tests {
         assert!(
             proof_strict_for_mode(CompilerMode::Strict, Some(false)).is_err(),
             "strict mode should reject false override"
+        );
+    }
+
+    #[test]
+    fn default_assurance_manifest_path_rewrites_sig_suffix() {
+        let path = Path::new("artifacts/out.sig.json");
+        assert_eq!(
+            default_assurance_manifest_path(path),
+            PathBuf::from("artifacts/out.assurance.json")
+        );
+    }
+
+    #[test]
+    fn default_assurance_manifest_path_appends_when_sig_suffix_missing() {
+        let path = Path::new("artifacts/signature.json");
+        assert_eq!(
+            default_assurance_manifest_path(path),
+            PathBuf::from("artifacts/signature.assurance.json")
         );
     }
 }

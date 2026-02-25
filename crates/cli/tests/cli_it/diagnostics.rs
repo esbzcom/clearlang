@@ -374,6 +374,29 @@ fn trust_anchor_checker_versions_require_sign_with_c032() {
 }
 
 #[test]
+fn assurance_manifest_out_requires_sign_with_c034() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("manifest_requires_sign.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let manifest = tmp.path().join("assurance.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--assurance-manifest-out"])
+        .arg(&manifest);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C034", "build");
+}
+
+#[test]
 fn trust_anchor_checker_versions_must_be_paired_with_c032() {
     let src = r#"
         function main() -> Int { 0 }

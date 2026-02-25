@@ -20,6 +20,30 @@ struct ProfileFixture {
     min_tier: String,
 }
 
+struct ExpectedFixture {
+    id: &'static str,
+    path: &'static str,
+    min_tier: &'static str,
+}
+
+const VERIFIED_STD_CORE_V1_BASELINE: [ExpectedFixture; 3] = [
+    ExpectedFixture {
+        id: "fixture.contract_core",
+        path: "clearlang-tests/profile/01_contract_core.clear",
+        min_tier: "L1",
+    },
+    ExpectedFixture {
+        id: "fixture.linear_collection_flow",
+        path: "clearlang-tests/profile/03_linear_collection_flow.clear",
+        min_tier: "L1",
+    },
+    ExpectedFixture {
+        id: "fixture.refinement_loops",
+        path: "clearlang-tests/profile/02_refinement_loops.clear",
+        min_tier: "L1",
+    },
+];
+
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -52,8 +76,8 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
         "fixture manifest profile should match verified subset"
     );
     assert!(
-        !manifest.fixtures.is_empty(),
-        "fixture manifest must include at least one fixture"
+        manifest.fixtures.len() == VERIFIED_STD_CORE_V1_BASELINE.len(),
+        "fixture manifest must match the verified.std_core.v1 baseline fixture count"
     );
 
     let mut fixture_ids: Vec<&str> = manifest.fixtures.iter().map(|f| f.id.as_str()).collect();
@@ -64,17 +88,36 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
         "fixtures must be sorted by id for deterministic diffs"
     );
 
-    for fixture in &manifest.fixtures {
+    for (fixture, expected) in manifest
+        .fixtures
+        .iter()
+        .zip(VERIFIED_STD_CORE_V1_BASELINE.iter())
+    {
+        assert_eq!(
+            fixture.id, expected.id,
+            "fixture id baseline drift for profile verified.std_core.v1"
+        );
+        assert_eq!(
+            fixture.path, expected.path,
+            "fixture path baseline drift for fixture `{}`",
+            fixture.id
+        );
+        assert_eq!(
+            fixture.min_tier, expected.min_tier,
+            "fixture min_tier baseline drift for fixture `{}`",
+            fixture.id
+        );
+
         let src_path = root.join(&fixture.path);
         assert!(
             src_path.exists(),
             "fixture source does not exist: {}",
             fixture.path
         );
-        let min_rank = tier_rank(&fixture.min_tier).unwrap_or_else(|| {
+        let min_rank = tier_rank(expected.min_tier).unwrap_or_else(|| {
             panic!(
                 "fixture `{}` has unknown min_tier `{}`",
-                fixture.id, fixture.min_tier
+                fixture.id, expected.min_tier
             )
         });
 
@@ -116,7 +159,7 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
                 rank >= min_rank,
                 "fixture `{}` regressed tier: expected >= {}, found {}",
                 fixture.id,
-                fixture.min_tier,
+                expected.min_tier,
                 tier
             );
             if rank >= 1 {

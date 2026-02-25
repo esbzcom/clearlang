@@ -6,6 +6,7 @@ This matrix records proof coverage as `proved` vs `assumed` and maps each entry 
 
 Machine-readable source of truth:
 - `docs/proofs/proof-coverage-matrix.json`
+- Verified std/core subset profile: `docs/proofs/verified-std-core-subset.json` (`docs/proofs/verified-std-core-subset.md`)
 
 Strict-mode default:
 - `clg build --emit-vcs` runs strict assumption-boundary checks by default (`--proof-strict=true`).

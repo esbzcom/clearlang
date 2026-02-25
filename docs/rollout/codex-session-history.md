@@ -1,5 +1,24 @@
 # Codex Session Context
 
+## 2026-02-25 - Phase 19.3.2 verified std/core subset publication
+- Published verified std/core subset profile artifacts:
+  - `docs/proofs/verified-std-core-subset.json` as machine-readable source of truth (`verified.std_core.v1`),
+  - `docs/proofs/verified-std-core-subset.md` as human-readable policy and inclusion/exclusion summary.
+- Added design lock:
+  - `docs/design/phase-19.3.2-verified-std-core-subset.md` with scope, locked behavior, and non-goals.
+- Added regression obligations enforcement:
+  - new test `crates/cli/tests/verified_std_core_subset.rs` validates subset IDs map only to `proved` feature coverage rows with no assumption boundaries,
+  - validates obligation references point to real test files/functions,
+  - validates a strict-profile fixture build emits VC artifacts with zero `assumptions`.
+- Docs/roadmap updates:
+  - marked `19.3.2` complete and moved current focus to `19.3.3` in `docs/TODO.md`,
+  - updated `docs/rollout/DEVPLAN.md` next sequence to `19.3.3`,
+  - linked subset profile from `docs/proofs/proof-coverage-matrix.md`.
+- Validation:
+  - `cargo test -p clg-cli --test verified_std_core_subset`
+  - `cargo test -p clg-cli --test phase19_design_principles`
+  - `cargo test -p clg-cli --test vc_snapshots`
+
 ## 2026-02-25 - Phase 19.3.1 strict language profile
 - Implemented strict profile fail-closed gate for deferred/unchecked proof surfaces:
   - `crates/cli/src/commands/build.rs` now enforces a strict language profile check in `--compiler-mode strict` after strict assumption-shape validation,

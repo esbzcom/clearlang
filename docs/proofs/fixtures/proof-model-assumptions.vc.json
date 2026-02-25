@@ -57,11 +57,23 @@
       },
       "tier": "L0"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "contract.ensure",
+            "message": "Add or strengthen a postcondition that matches the failed VC goal.",
+            "minimal_clause": "ensure { result == std::bytes::eq_ct(a, b) }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "check",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
-      "post_end": 154,
-      "post_start": 100,
+      "file": ".tmp-fixtures\\fixture.clear",
+      "post_end": 153,
+      "post_start": 99,
       "pre_end": 0,
       "pre_start": 0
     },
@@ -138,11 +150,23 @@
       },
       "tier": "L0"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "contract.ensure",
+            "message": "Add or strengthen a postcondition that matches the failed VC goal.",
+            "minimal_clause": "ensure { x & y == x }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "check",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
-      "post_end": 190,
-      "post_start": 161,
+      "file": ".tmp-fixtures\\fixture.clear",
+      "post_end": 189,
+      "post_start": 160,
       "pre_end": 0,
       "pre_start": 0
     },

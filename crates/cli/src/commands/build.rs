@@ -401,6 +401,86 @@ fn write_vcs_json(
         json!({ "items": items })
     }
 
+    fn vc_repair_hints_json(vc: &VerificationCondition) -> Option<serde_json::Value> {
+        use serde_json::json;
+
+        fn hint(
+            kind: &'static str,
+            message: &'static str,
+            minimal_clause: String,
+        ) -> serde_json::Value {
+            json!({
+                "kind": kind,
+                "message": message,
+                "minimal_clause": minimal_clause,
+            })
+        }
+
+        fn variant_from_nonneg_post(post_ast: &str) -> String {
+            post_ast
+                .trim()
+                .strip_suffix(">= 0")
+                .map(str::trim)
+                .filter(|expr| !expr.is_empty())
+                .unwrap_or_else(|| post_ast.trim())
+                .to_string()
+        }
+
+        fn variant_from_decrease_post(post_ast: &str) -> String {
+            post_ast
+                .split('<')
+                .nth(1)
+                .map(str::trim)
+                .filter(|expr| !expr.is_empty())
+                .unwrap_or_else(|| post_ast.trim())
+                .to_string()
+        }
+
+        let mut items = Vec::new();
+        if vc.vc_id.starts_with("mut_pre:") {
+            items.push(hint(
+                "contract.require",
+                "Add or strengthen a precondition guard for the mut collection call.",
+                format!("require {{ {} }}", vc.post.ast),
+            ));
+        } else if vc.vc_id.starts_with("loop:") && vc.vc_id.ends_with(":invariant") {
+            items.push(hint(
+                "loop.invariant",
+                "Add or strengthen the loop invariant needed by this VC.",
+                format!("invariant {{ {} }}", vc.post.ast),
+            ));
+        } else if vc.vc_id.starts_with("loop:") && vc.vc_id.ends_with(":variant_nonneg") {
+            let variant_expr = variant_from_nonneg_post(&vc.post.ast);
+            items.push(hint(
+                "loop.variant_nonneg",
+                "Use a loop variant that is always non-negative.",
+                format!("variant {{ {} }}", variant_expr),
+            ));
+        } else if vc.vc_id.starts_with("loop:") && vc.vc_id.ends_with(":variant_decrease") {
+            let variant_expr = variant_from_decrease_post(&vc.post.ast);
+            items.push(hint(
+                "loop.variant_decrease",
+                "Use a loop variant that strictly decreases each iteration.",
+                format!("variant {{ {} }}", variant_expr),
+            ));
+        } else if vc.vc_id.starts_with("vc:") {
+            items.push(hint(
+                "contract.ensure",
+                "Add or strengthen a postcondition that matches the failed VC goal.",
+                format!("ensure {{ {} }}", vc.post.ast),
+            ));
+        }
+
+        if items.is_empty() {
+            None
+        } else {
+            Some(json!({
+                "on_status": "failed",
+                "items": items,
+            }))
+        }
+    }
+
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
@@ -443,6 +523,14 @@ fn write_vcs_json(
         );
         if !vc.assumptions.is_empty() {
             obj.insert("assumptions".to_string(), assumptions_json(&vc.assumptions));
+        }
+        if let Some(repair_hints) = vc_repair_hints_json(vc) {
+            obj.insert(
+                "diagnostics".to_string(),
+                json!({
+                    "repair_hints": repair_hints,
+                }),
+            );
         }
         if let Some(pos) = positions {
             obj.insert("positions".to_string(), pos);

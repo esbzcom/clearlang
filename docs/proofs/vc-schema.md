@@ -39,9 +39,18 @@ VC Object (v2)
   - `pre_end`: number (byte offset)
   - `post_start`: number
   - `post_end`: number
+- `diagnostics`: object - optional machine-readable diagnostics payload
+  - `repair_hints`: object - optional minimal-repair suggestions for failed VC handling
+    - `on_status`: string (`failed` in current implementation)
+    - `items`: array of repair hint objects (may be empty)
 - `refinements`: object - optional refinement premises (v2+)
   - `premises`: array of refinement premise objects (may be empty)
 - `extra`: object - reserved for tool metadata
+
+Repair Hint
+- `kind`: string (`contract.ensure` | `contract.require` | `loop.invariant` | `loop.variant_nonneg` | `loop.variant_decrease`)
+- `message`: string (short actionable guidance)
+- `minimal_clause`: string (copyable clause candidate)
 
 Refinement Premise
 - `id`: string (stable within VC; `ref:0`, `ref:1`, ...)
@@ -96,6 +105,7 @@ Notes
 - `assumptions.items` enumerates model boundaries required for that VC; omission means no selected boundary was detected for that VC.
 - `assumptions.items[].intrinsic_levels` is emitted only for crypto boundaries and is ordered exactly like `symbols` for deterministic tool consumption.
 - `assurance` is always emitted so release/policy tooling can consume tier labels deterministically.
+- `diagnostics.repair_hints` is advisory guidance for failed-VC workflows; it does not alter VC semantics or assurance tiers.
 - Strict compiler mode (`--compiler-mode strict`) validates assumption labels (`C031`) and then fails closed on any remaining assumption boundary (`C033`), enforcing the verified-by-construction strict language profile.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
 - Coverage status for language features/intrinsics is tracked separately in `docs/proofs/proof-coverage-matrix.md` and `docs/proofs/proof-coverage-matrix.json`.

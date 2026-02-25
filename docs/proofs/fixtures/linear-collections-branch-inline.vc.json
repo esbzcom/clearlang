@@ -12,7 +12,7 @@
     },
     "function": "choose",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 407,
       "post_start": 222,
       "pre_end": 0,

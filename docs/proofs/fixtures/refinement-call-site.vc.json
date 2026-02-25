@@ -10,9 +10,21 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "contract.ensure",
+            "message": "Add or strengthen a postcondition that matches the failed VC goal.",
+            "minimal_clause": "ensure { result >= 0 }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "caller",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 228,
       "post_start": 200,
       "pre_end": 193,
@@ -69,9 +81,21 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "contract.ensure",
+            "message": "Add or strengthen a postcondition that matches the failed VC goal.",
+            "minimal_clause": "ensure { result >= 0 }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "caller",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 53,
       "post_start": 0,
       "pre_end": 193,
@@ -147,9 +171,21 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "contract.ensure",
+            "message": "Add or strengthen a postcondition that matches the failed VC goal.",
+            "minimal_clause": "ensure { result >= 0 }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "takes",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 53,
       "post_start": 0,
       "pre_end": 0,

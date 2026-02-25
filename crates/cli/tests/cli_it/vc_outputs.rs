@@ -76,6 +76,29 @@ fn build_emits_vcs_json() {
         positions.get("file").and_then(|s| s.as_str()),
         Some(src_path.to_string_lossy().as_ref())
     );
+    let repair_hints = first
+        .get("diagnostics")
+        .and_then(|o| o.get("repair_hints"))
+        .and_then(|o| o.as_object())
+        .expect("repair_hints obj");
+    assert_eq!(
+        repair_hints.get("on_status").and_then(|s| s.as_str()),
+        Some("failed")
+    );
+    let hint_items = repair_hints
+        .get("items")
+        .and_then(|v| v.as_array())
+        .expect("repair_hints.items");
+    assert!(!hint_items.is_empty(), "expected at least one repair hint");
+    let first_hint = hint_items[0].as_object().expect("first hint obj");
+    assert_eq!(
+        first_hint.get("kind").and_then(|s| s.as_str()),
+        Some("contract.ensure")
+    );
+    assert_eq!(
+        first_hint.get("minimal_clause").and_then(|s| s.as_str()),
+        Some("ensure { result > x }")
+    );
     assert!(first.get("refinements").is_none());
     assert!(first.get("assumptions").is_none());
 }
@@ -206,6 +229,82 @@ fn build_emits_variant_vcs_json() {
         .expect("vc smt2");
     assert!(vc.contains("cl.variant.tag"));
     assert!(!vc.contains("unsupported"));
+}
+
+#[test]
+fn build_emits_loop_repair_hints() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("loop_hints.clear");
+    let wasm_path = tmp.path().join("loop_hints.wasm");
+    let vcs_path = tmp.path().join("loop_hints.vc.json");
+    let src = r#"
+        pure function countdown(n: Int) -> Int
+            require { n > 1 }
+            ensure { result >= 0 }
+        {
+            while n > 0 invariant { n >= 0 } variant { n } { n; }
+            n + 0
+        }
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+
+    let find_hint = |vc_id: &str| -> &serde_json::Map<String, Value> {
+        arr.iter()
+            .find(|entry| entry.get("vc_id").and_then(|v| v.as_str()) == Some(vc_id))
+            .and_then(|entry| entry.get("diagnostics"))
+            .and_then(|d| d.get("repair_hints"))
+            .and_then(|h| h.get("items"))
+            .and_then(|items| items.as_array())
+            .and_then(|items| items.first())
+            .and_then(|hint| hint.as_object())
+            .expect("hint object")
+    };
+
+    let invariant = find_hint("loop:0:invariant");
+    assert_eq!(
+        invariant.get("kind").and_then(|v| v.as_str()),
+        Some("loop.invariant")
+    );
+    assert_eq!(
+        invariant.get("minimal_clause").and_then(|v| v.as_str()),
+        Some("invariant { n >= 0 }")
+    );
+
+    let nonneg = find_hint("loop:0:variant_nonneg");
+    assert_eq!(
+        nonneg.get("kind").and_then(|v| v.as_str()),
+        Some("loop.variant_nonneg")
+    );
+    assert_eq!(
+        nonneg.get("minimal_clause").and_then(|v| v.as_str()),
+        Some("variant { n }")
+    );
+
+    let decrease = find_hint("loop:0:variant_decrease");
+    assert_eq!(
+        decrease.get("kind").and_then(|v| v.as_str()),
+        Some("loop.variant_decrease")
+    );
+    assert_eq!(
+        decrease.get("minimal_clause").and_then(|v| v.as_str()),
+        Some("variant { n }")
+    );
 }
 
 #[derive(Deserialize)]

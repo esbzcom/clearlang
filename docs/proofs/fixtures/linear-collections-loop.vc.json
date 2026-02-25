@@ -12,7 +12,7 @@
     },
     "function": "loop_step",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 328,
       "post_start": 141,
       "pre_end": 0,
@@ -44,9 +44,21 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "loop.invariant",
+            "message": "Add or strengthen the loop invariant needed by this VC.",
+            "minimal_clause": "invariant { n >= 0 }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "loop_step",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 171,
       "post_start": 165,
       "pre_end": 0,
@@ -78,9 +90,21 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "loop.variant_decrease",
+            "message": "Use a loop variant that strictly decreases each iteration.",
+            "minimal_clause": "variant { n }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "loop_step",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 186,
       "post_start": 184,
       "pre_end": 0,
@@ -112,9 +136,21 @@
       },
       "tier": "L1"
     },
+    "diagnostics": {
+      "repair_hints": {
+        "items": [
+          {
+            "kind": "loop.variant_nonneg",
+            "message": "Use a loop variant that is always non-negative.",
+            "minimal_clause": "variant { n }"
+          }
+        ],
+        "on_status": "failed"
+      }
+    },
     "function": "loop_step",
     "positions": {
-      "file": "c:\\clearlang\\clearlang\\.tmp-fixtures\\fixture.clear",
+      "file": ".tmp-fixtures\\fixture.clear",
       "post_end": 186,
       "post_start": 184,
       "pre_end": 0,

@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 19.4.1 - VC diagnostic hints for minimal contract/invariant repair.
+Current focus: Phase 19.4.2 - proof-failure slicing/counterexample reporting to source spans.
 
 3.1 Typer Core
 
@@ -881,7 +881,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.3.2 Publish a "verified std/core subset" with proof-backed contracts and regression obligations. (`docs/design/phase-19.3.2-verified-std-core-subset.md`, `docs/proofs/verified-std-core-subset.{md,json}`, regression test `crates/cli/tests/verified_std_core_subset.rs`)
   - [x] 19.3.3 Add CI gate: no profile regression if a change lowers assurance level for existing fixtures. (`docs/design/phase-19.3.3-profile-regression-ci-gate.md`, fixture manifest `docs/proofs/verified-profile-fixtures.json`, CI gate `cargo test -p clg-cli --test profile_regression_gate`)
 - [ ] 19.4 Usability-first proof workflow (the "easier" part).
-  - [ ] 19.4.1 Add diagnostic hints that suggest the minimal contract/invariant needed to discharge each failed VC.
+  - [x] 19.4.1 Add diagnostic hints that suggest the minimal contract/invariant needed to discharge each failed VC. (`docs/design/phase-19.4.1-vc-diagnostic-hints.md`, VC JSON `diagnostics.repair_hints`, CLI IT coverage in `crates/cli/tests/cli_it/vc_outputs.rs`)
   - [ ] 19.4.2 Add proof-failure slicing/counterexample reporting that maps directly to user source spans.
   - [ ] 19.4.3 Provide AI-oriented machine-readable proof context bundle (`VC`, assumptions, model snippet, span map).
 - [ ] 19.5 Explainable assurance artifacts for audits.

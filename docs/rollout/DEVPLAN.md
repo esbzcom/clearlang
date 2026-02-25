@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.4` usability-first proof workflow.
+- Next active phase: `19.4` usability-first proof workflow (`19.4.2` next).
 
 ### Suggested Sequence
-1) Execute `19.4.1` diagnostic hints that suggest minimal contract/invariant fixes per failed VC.
+1) Execute `19.4.2` proof-failure slicing/counterexample reporting mapped to source spans.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -41,6 +41,7 @@
 - **Phase 19 strict language profile (`19.3.1`)**: completed by making `--compiler-mode strict` fail closed on assumed proof boundaries (`C033`), thereby blocking deferred/unchecked surfaces (including external unchecked dependencies) by default.
 - **Phase 19 verified std/core subset publication (`19.3.2`)**: completed by publishing `verified.std_core.v1` (`docs/proofs/verified-std-core-subset.{md,json}`) and adding regression obligations validation (`crates/cli/tests/verified_std_core_subset.rs`) tied to proved coverage rows.
 - **Phase 19 profile regression CI gate (`19.3.3`)**: completed by adding verified-profile fixtures (`clearlang-tests/profile/`), fixture manifest (`docs/proofs/verified-profile-fixtures.json`), regression gate test (`crates/cli/tests/profile_regression_gate.rs`), and explicit CI proof-gate command.
+- **Phase 19 VC diagnostic hints (`19.4.1`)**: completed by emitting deterministic VC repair hints (`diagnostics.repair_hints`) for minimal `ensure`/`require`/`invariant`/`variant` suggestions with CLI IT coverage and schema/design docs updates.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

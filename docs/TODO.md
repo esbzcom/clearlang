@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 19.3.3 - CI profile-regression gate for verified subset assurance levels.
+Current focus: Phase 19.4.1 - VC diagnostic hints for minimal contract/invariant repair.
 
 3.1 Typer Core
 
@@ -876,10 +876,10 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.2.1 Close unsigned/bitwise SMT gaps (`U128`/`U256`, shifts, masks) or downgrade affected checks to explicit assumptions. (`docs/design/phase-19.2.1-unsigned-bitwise-gap-closure.md`, updated `bitwise.uninterpreted` downgrade coverage for bitwise-sensitive `std::u64` intrinsics)
   - [x] 19.2.2 Add deterministic modeling policy for crypto intrinsics with per-intrinsic assurance level in outputs. (`docs/design/phase-19.2.2-crypto-intrinsic-modeling-policy.md`, `assumptions.items[].intrinsic_levels` in VC JSON and proof-section outputs)
   - [x] 19.2.3 Complete refinement ergonomics needed for production proofs (inline param/return refinements + generic refinement aliases if sound). (`docs/design/phase-19.2.3-refinement-ergonomics-production-proofs.md`, inline refinement normalization + generic alias instantiation support)
-- [ ] 19.3 Verified-by-construction standard profile.
+- [x] 19.3 Verified-by-construction standard profile.
   - [x] 19.3.1 Define a `strict` language profile that forbids unsupported/deferred constructs and external unchecked calls by default. (`docs/design/phase-19.3.1-strict-language-profile.md`, strict-mode assumed-boundary fail-closed diagnostic `C033`)
   - [x] 19.3.2 Publish a "verified std/core subset" with proof-backed contracts and regression obligations. (`docs/design/phase-19.3.2-verified-std-core-subset.md`, `docs/proofs/verified-std-core-subset.{md,json}`, regression test `crates/cli/tests/verified_std_core_subset.rs`)
-  - [ ] 19.3.3 Add CI gate: no profile regression if a change lowers assurance level for existing fixtures.
+  - [x] 19.3.3 Add CI gate: no profile regression if a change lowers assurance level for existing fixtures. (`docs/design/phase-19.3.3-profile-regression-ci-gate.md`, fixture manifest `docs/proofs/verified-profile-fixtures.json`, CI gate `cargo test -p clg-cli --test profile_regression_gate`)
 - [ ] 19.4 Usability-first proof workflow (the "easier" part).
   - [ ] 19.4.1 Add diagnostic hints that suggest the minimal contract/invariant needed to discharge each failed VC.
   - [ ] 19.4.2 Add proof-failure slicing/counterexample reporting that maps directly to user source spans.

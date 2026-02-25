@@ -1,0 +1,19 @@
+type Nat = Int where v >= 0;
+
+pure function id_nat(n: Nat) -> Nat {
+    n
+}
+
+pure function countdown(n: Int) -> Int
+    require { n >= 0 }
+    ensure { result >= 0 }
+{
+    while n > 0 invariant { n >= 0 } variant { n } {
+        n;
+    }
+    n
+}
+
+function main() -> Int {
+    countdown(5)
+}

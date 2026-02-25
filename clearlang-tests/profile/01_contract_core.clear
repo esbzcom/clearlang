@@ -1,0 +1,12 @@
+pure function bounded_add(x: Int, y: Int) -> Int
+    require { x >= 0 }
+    require { y >= 0 }
+    ensure { result >= x }
+    ensure { result >= y }
+{
+    x + y
+}
+
+function main() -> Int {
+    bounded_add(1, 2)
+}

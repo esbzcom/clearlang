@@ -36,3 +36,7 @@ Each subset entry is tied to at least one concrete regression test reference in
 Subset regression checks verify:
 - subset IDs remain mapped to `proved` coverage rows with no assumption boundaries,
 - referenced test files exist and still contain the declared test function names.
+
+CI profile-regression gate fixtures:
+- `docs/proofs/verified-profile-fixtures.json`
+- enforced by `crates/cli/tests/profile_regression_gate.rs`

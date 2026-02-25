@@ -1,0 +1,15 @@
+resource File {
+    drop {}
+}
+
+pure function choose(flag: Bool, consume files: List<File>) -> List<File> {
+    if flag {
+        std::list::remove_take(files, 0)[0]
+    } else {
+        std::list::remove_take(files, 0)[0]
+    }
+}
+
+function main() -> Int {
+    0
+}

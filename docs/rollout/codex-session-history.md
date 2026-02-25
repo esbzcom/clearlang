@@ -1,5 +1,32 @@
 # Codex Session Context
 
+## 2026-02-25 - Phase 19.3.3 profile regression CI gate
+- Added verified-profile fixture set for assurance regression checks:
+  - `clearlang-tests/profile/01_contract_core.clear`
+  - `clearlang-tests/profile/02_refinement_loops.clear`
+  - `clearlang-tests/profile/03_linear_collection_flow.clear`
+  - fixture note: `clearlang-tests/profile/README.md`
+- Published fixture manifest:
+  - `docs/proofs/verified-profile-fixtures.json` with deterministic fixture IDs and minimum tier requirements.
+- Implemented regression gate test:
+  - `crates/cli/tests/profile_regression_gate.rs` now enforces:
+    - `standard` mode VC assurance tier is not below fixture `min_tier`,
+    - no unexpected `assumptions` at/above `L1`,
+    - `strict` profile build succeeds for each fixture.
+- Wired CI gate:
+  - `.github/workflows/ci.yml` proof regression step now runs `cargo test -p clg-cli --test profile_regression_gate`,
+  - `crates/cli/tests/ci_workflow.rs` enforces presence of that CI command.
+- Docs/roadmap updates:
+  - added design lock `docs/design/phase-19.3.3-profile-regression-ci-gate.md`,
+  - marked `19.3.3` (and parent `19.3`) complete in `docs/TODO.md`,
+  - advanced next focus to `19.4.1`,
+  - updated `docs/rollout/DEVPLAN.md` next sequence to `19.4.1`.
+- Validation:
+  - `cargo test -p clg-cli --test profile_regression_gate`
+  - `cargo test -p clg-cli --test ci_workflow`
+  - `cargo test -p clg-cli --test phase19_design_principles`
+  - `cargo test -p clg-cli --test vc_snapshots`
+
 ## 2026-02-25 - Phase 19.3.2 verified std/core subset publication
 - Published verified std/core subset profile artifacts:
   - `docs/proofs/verified-std-core-subset.json` as machine-readable source of truth (`verified.std_core.v1`),

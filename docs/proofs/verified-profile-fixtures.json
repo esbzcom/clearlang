@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "profile": "verified.std_core.v1",
+  "fixtures": [
+    {
+      "id": "fixture.contract_core",
+      "path": "clearlang-tests/profile/01_contract_core.clear",
+      "min_tier": "L1"
+    },
+    {
+      "id": "fixture.linear_collection_flow",
+      "path": "clearlang-tests/profile/03_linear_collection_flow.clear",
+      "min_tier": "L1"
+    },
+    {
+      "id": "fixture.refinement_loops",
+      "path": "clearlang-tests/profile/02_refinement_loops.clear",
+      "min_tier": "L1"
+    }
+  ]
+}

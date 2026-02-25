@@ -31,6 +31,8 @@ pub fn run(
     pubkey: PathBuf,
     verify_mode: VerifyMode,
     trust_policy: Option<PathBuf>,
+    assurance_manifest: Option<PathBuf>,
+    release_policy: Option<PathBuf>,
     explain: bool,
     json_errors: bool,
     logger: Logger,
@@ -72,11 +74,33 @@ pub fn run(
     };
     match result {
         Ok(()) => {
+            let release_policy_outcome =
+                match (assurance_manifest.as_ref(), release_policy.as_ref()) {
+                    (Some(manifest_path), Some(policy_path)) => {
+                        let _stage = timings.start(logger, "verify_release_policy");
+                        match evaluate_release_policy(manifest_path, policy_path, &sig, &pubkey) {
+                            Ok(outcome) => Some(outcome),
+                            Err(err) => return emit_verify_error(err),
+                        }
+                    }
+                    (None, None) => None,
+                    _ => {
+                        return emit_verify_error(signing::VerifyError::new(
+                        signing::VerifyErrorCode::PolicyFailure,
+                        "`--assurance-manifest` and `--release-policy` must be provided together",
+                    ));
+                    }
+                };
+
             if explain {
                 let _stage = timings.start(logger, "verify_explain");
-                if let Err(err) =
-                    emit_explain_summary(&module, &sig, verify_mode, trust_policy.as_deref())
-                {
+                if let Err(err) = emit_explain_summary(
+                    &module,
+                    &sig,
+                    verify_mode,
+                    trust_policy.as_deref(),
+                    release_policy_outcome.as_ref(),
+                ) {
                     return emit_verify_error(signing::VerifyError::new(
                         signing::VerifyErrorCode::SignatureFailure,
                         format!("failed to emit verification explanation: {err:#}"),
@@ -95,6 +119,7 @@ fn emit_explain_summary(
     sig: &Path,
     verify_mode: VerifyMode,
     trust_policy: Option<&Path>,
+    release_policy_outcome: Option<&ReleasePolicyOutcome>,
 ) -> Result<()> {
     #[derive(Default)]
     struct AssumptionAggregate {
@@ -244,8 +269,207 @@ fn emit_explain_summary(
     if let Some(path) = trust_policy {
         println!("trust_policy: {}", path.display());
     }
+    if let Some(outcome) = release_policy_outcome {
+        println!(
+            "release_policy: pass (required >= {}, manifest = {})",
+            outcome.required_tier, outcome.manifest_tier
+        );
+        println!("release_policy_file: {}", outcome.policy_path.display());
+        println!("assurance_manifest: {}", outcome.manifest_path.display());
+    }
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct ReleasePolicyOutcome {
+    required_tier: String,
+    manifest_tier: String,
+    policy_path: PathBuf,
+    manifest_path: PathBuf,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ReleasePolicyFile {
+    schema_version: u32,
+    minimum_assurance_tier: String,
+}
+
+fn evaluate_release_policy(
+    manifest_path: &Path,
+    policy_path: &Path,
+    sig_path: &Path,
+    pubkey_path: &Path,
+) -> std::result::Result<ReleasePolicyOutcome, signing::VerifyError> {
+    let manifest = signing::verify_assurance_manifest(manifest_path, pubkey_path)?;
+    let manifest_payload = manifest.payload.as_object().ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "assurance manifest payload must be a JSON object",
+        )
+    })?;
+    let format = payload_str(manifest_payload, "format").unwrap_or_default();
+    if format != "clg.assurance_manifest.v1" {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "unsupported assurance manifest format `{}` (expected `clg.assurance_manifest.v1`)",
+                format
+            ),
+        ));
+    }
+
+    let artifacts = manifest_payload
+        .get("artifacts")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "assurance manifest missing `artifacts` object",
+            )
+        })?;
+    let manifest_module_hash = payload_str(artifacts, "module_hash").ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "assurance manifest missing artifacts.module_hash",
+        )
+    })?;
+    let manifest_proofs_hash = payload_str(artifacts, "proofs_hash").ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "assurance manifest missing artifacts.proofs_hash",
+        )
+    })?;
+
+    let sig_bytes = fs::read(sig_path).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!("reading signature file {}: {err}", sig_path.display()),
+        )
+    })?;
+    let sig_file: signing::SignatureFile = serde_json::from_slice(&sig_bytes).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!("parsing signature file {}: {err}", sig_path.display()),
+        )
+    })?;
+    let sig_payload = sig_file.payload.as_object().ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "signature payload must be a JSON object",
+        )
+    })?;
+    let payload_module_hash = payload_str(sig_payload, "module_hash").ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "signature payload missing module_hash",
+        )
+    })?;
+    let payload_proofs_hash = payload_str(sig_payload, "proofs_hash").ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "signature payload missing proofs_hash",
+        )
+    })?;
+
+    if manifest_module_hash != payload_module_hash || manifest_proofs_hash != payload_proofs_hash {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "assurance manifest does not match verified signature payload hashes",
+        ));
+    }
+
+    let policy_bytes = fs::read(policy_path).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!("reading release policy {}: {err}", policy_path.display()),
+        )
+    })?;
+    let policy: ReleasePolicyFile = serde_json::from_slice(&policy_bytes).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!("parsing release policy {}: {err}", policy_path.display()),
+        )
+    })?;
+    if policy.schema_version != 1 {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "unsupported release policy schema_version {} (expected 1)",
+                policy.schema_version
+            ),
+        ));
+    }
+    let required_tier =
+        normalize_assurance_tier(&policy.minimum_assurance_tier).ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "invalid release policy minimum_assurance_tier `{}` (expected L0|L1|L2|L3)",
+                    policy.minimum_assurance_tier
+                ),
+            )
+        })?;
+
+    let manifest_assurance = manifest_payload
+        .get("assurance")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "assurance manifest missing `assurance` object",
+            )
+        })?;
+    let manifest_tier_raw = payload_str(manifest_assurance, "tier").ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "assurance manifest missing assurance.tier",
+        )
+    })?;
+    let manifest_tier = normalize_assurance_tier(manifest_tier_raw).ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "assurance manifest has invalid assurance.tier `{}` (expected L0|L1|L2|L3)",
+                manifest_tier_raw
+            ),
+        )
+    })?;
+
+    if assurance_tier_rank(&manifest_tier) < assurance_tier_rank(&required_tier) {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "release policy rejected manifest tier {} below required {}",
+                manifest_tier, required_tier
+            ),
+        ));
+    }
+
+    Ok(ReleasePolicyOutcome {
+        required_tier,
+        manifest_tier,
+        policy_path: policy_path.to_path_buf(),
+        manifest_path: manifest_path.to_path_buf(),
+    })
+}
+
+fn normalize_assurance_tier(value: &str) -> Option<String> {
+    let trimmed = value.trim().to_ascii_uppercase();
+    match trimmed.as_str() {
+        "L0" | "L1" | "L2" | "L3" => Some(trimmed),
+        _ => None,
+    }
+}
+
+fn assurance_tier_rank(tier: &str) -> u8 {
+    match tier {
+        "L0" => 0,
+        "L1" => 1,
+        "L2" => 2,
+        "L3" => 3,
+        _ => 0,
+    }
 }
 
 fn payload_assurance(payload: &serde_json::Map<String, serde_json::Value>) -> (String, String) {

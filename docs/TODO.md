@@ -54,7 +54,7 @@ A focused, actionable checklist to move from Phase 17.8 and beyond.
 
 ## Phase 3 -" Typer & IR (Done)
 
-Current focus: Phase 19.5.3 - release policy checks for assurance manifests.
+Current focus: Phase 19 complete - next roadmap slice pending.
 
 3.1 Typer Core
 
@@ -884,8 +884,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.4.1 Add diagnostic hints that suggest the minimal contract/invariant needed to discharge each failed VC. (`docs/design/phase-19.4.1-vc-diagnostic-hints.md`, VC JSON `diagnostics.repair_hints`, CLI IT coverage in `crates/cli/tests/cli_it/vc_outputs.rs`)
   - [x] 19.4.2 Add proof-failure slicing/counterexample reporting that maps directly to user source spans. (`docs/design/phase-19.4.2-proof-failure-slicing-counterexample-reporting.md`, VC JSON `diagnostics.failure_slice` + `diagnostics.counterexample`, CLI IT/snapshot coverage)
   - [x] 19.4.3 Provide AI-oriented machine-readable proof context bundle (`VC`, assumptions, model snippet, span map). (`docs/design/phase-19.4.3-ai-proof-context-bundle.md`, VC JSON `diagnostics.proof_context`, CLI IT/snapshot coverage)
-- [ ] 19.5 Explainable assurance artifacts for audits.
+- [x] 19.5 Explainable assurance artifacts for audits.
   - [x] 19.5.1 Emit a signed assurance manifest per build (levels, assumptions, dependency trust labels, toolchain fingerprint). (`docs/design/phase-19.5.1-signed-assurance-manifest.md`, `--assurance-manifest-out`, diagnostic `C034`)
   - [x] 19.5.2 Add `clg verify --explain` summary output for humans (what is proved, what is assumed, why). (`docs/design/phase-19.5.2-verify-explain-summary.md`, `--explain` on `clg verify`, signing IT coverage)
-  - [ ] 19.5.3 Add policy checks for release pipelines (reject manifests below required assurance tier).
+  - [x] 19.5.3 Add policy checks for release pipelines (reject manifests below required assurance tier). (`docs/design/phase-19.5.3-release-policy-gates.md`, `clg verify --assurance-manifest --release-policy`, diagnostic `V005`)
 

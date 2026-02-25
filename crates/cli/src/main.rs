@@ -120,6 +120,12 @@ enum Commands {
         /// Trust-anchor policy file for compile-time verify mode
         #[arg(long, value_name = "FILE")]
         trust_policy: Option<PathBuf>,
+        /// Assurance manifest file emitted by signed builds
+        #[arg(long, value_name = "FILE", requires = "release_policy")]
+        assurance_manifest: Option<PathBuf>,
+        /// Release policy file for assurance-tier gate checks
+        #[arg(long, value_name = "FILE", requires = "assurance_manifest")]
+        release_policy: Option<PathBuf>,
         /// Print human-readable assurance explanation after successful verification
         #[arg(long, default_value_t = false)]
         explain: bool,
@@ -176,6 +182,8 @@ fn main() -> Result<()> {
             pubkey,
             verify_mode,
             trust_policy,
+            assurance_manifest,
+            release_policy,
             explain,
         } => cmd_verify::run(
             module,
@@ -183,6 +191,8 @@ fn main() -> Result<()> {
             pubkey,
             verify_mode,
             trust_policy,
+            assurance_manifest,
+            release_policy,
             explain,
             cli.json_errors,
             logger,

@@ -8,10 +8,10 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: `19.5` explainable assurance artifacts (`19.5.3` next).
+- Next active phase: Phase 19 complete; next roadmap slice pending.
 
 ### Suggested Sequence
-1) Execute `19.5.3` release policy checks (reject manifests below required assurance tier).
+1) Define post-19 roadmap slice and acceptance gates before implementation.
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -46,6 +46,7 @@
 - **Phase 19 AI proof-context bundle (`19.4.3`)**: completed by emitting `diagnostics.proof_context` bundles (`vc`, assumptions, model snippet, span map) for each VC with deterministic schema and regression coverage.
 - **Phase 19 signed assurance manifest (`19.5.1`)**: completed by emitting signed assurance manifests on signed builds (default `*.assurance.json`, override `--assurance-manifest-out`), including assurance levels, assumption inventory, dependency trust labels, toolchain fingerprint, and deterministic diagnostic `C034` for invalid flag combinations.
 - **Phase 19 verify explain summaries (`19.5.2`)**: completed by adding `clg verify --explain` deterministic human summaries for checked/assumed obligations, boundary reasons, dependency trust labels, and trust-anchor context with integration coverage.
+- **Phase 19 release policy gates (`19.5.3`)**: completed by adding `clg verify --assurance-manifest --release-policy` checks with deterministic policy schema/tier enforcement and verify diagnostic `V005` for below-minimum or invalid/mismatched manifest-policy combinations.
 
 ## Historical Highlights
 - **Phase 11 - Proof-carrying Wasm verification**: `clg verify` CLI, proof-section hashing/signing, diagnostics, fixtures, and regression tests.

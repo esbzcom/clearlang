@@ -524,6 +524,12 @@ Explain verification assurance summary (what is checked vs assumed, and why):
 clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json --explain
 ```
 
+Release policy gate using signed assurance manifest:
+```
+clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json \
+  --assurance-manifest out.assurance.json --release-policy release-policy.json
+```
+
 Compile-time verify mode with trust policy:
 ```
 clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json \
@@ -538,6 +544,14 @@ Trust policy JSON shape:
     "lean_checker": "4.14.0",
     "coq_checker": "8.19.2"
   }
+}
+```
+
+Release policy JSON shape:
+```
+{
+  "schema_version": 1,
+  "minimum_assurance_tier": "L1"
 }
 ```
 

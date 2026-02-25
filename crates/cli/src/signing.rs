@@ -74,7 +74,7 @@ pub struct SignatureFile {
     pub payload: serde_json::Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssuranceManifestSignature {
     pub key_id: String,
     pub signature_format: String,
@@ -82,7 +82,7 @@ pub struct AssuranceManifestSignature {
     pub signature: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssuranceManifestFile {
     pub schema_version: u32,
     pub payload: serde_json::Value,
@@ -216,6 +216,7 @@ pub enum VerifyErrorCode {
     ProofMissing,
     HashMismatch,
     TrustAnchorFailure,
+    PolicyFailure,
 }
 
 impl VerifyErrorCode {
@@ -225,6 +226,7 @@ impl VerifyErrorCode {
             VerifyErrorCode::ProofMissing => "V002",
             VerifyErrorCode::HashMismatch => "V003",
             VerifyErrorCode::TrustAnchorFailure => "V004",
+            VerifyErrorCode::PolicyFailure => "V005",
         }
     }
 }
@@ -565,6 +567,73 @@ pub fn verify_signature_with_trust_policy(
     Ok(())
 }
 
+pub fn verify_assurance_manifest(
+    manifest_path: &Path,
+    pubkey_path: &Path,
+) -> std::result::Result<AssuranceManifestFile, VerifyError> {
+    let bytes = fs::read(manifest_path).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!(
+                "reading assurance manifest {}: {err}",
+                manifest_path.display()
+            ),
+        )
+    })?;
+    let manifest: AssuranceManifestFile = serde_json::from_slice(&bytes).map_err(|err| {
+        VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!(
+                "parsing assurance manifest {}: {err}",
+                manifest_path.display()
+            ),
+        )
+    })?;
+    if manifest.schema_version != 1 {
+        return Err(VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!(
+                "unsupported assurance manifest schema_version {} (expected 1)",
+                manifest.schema_version
+            ),
+        ));
+    }
+    if manifest.signature.signature_format.to_lowercase() != "ed25519" {
+        return Err(VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            format!(
+                "unsupported assurance manifest signature format: {}",
+                manifest.signature.signature_format
+            ),
+        ));
+    }
+    let payload_canonical = canonical_json_string(&manifest.payload);
+    let computed_payload_hash = sha256_hex(payload_canonical.as_bytes());
+    if computed_payload_hash != manifest.signature.payload_hash {
+        return Err(VerifyError::new(
+            VerifyErrorCode::SignatureFailure,
+            "assurance manifest payload_hash mismatch",
+        ));
+    }
+
+    let verifying = read_verifying_key(pubkey_path, VerifyErrorCode::SignatureFailure)?;
+    let signature = parse_signature_hex(
+        &manifest.signature.signature,
+        VerifyErrorCode::SignatureFailure,
+        "assurance manifest signature",
+    )?;
+    verifying
+        .verify_strict(payload_canonical.as_bytes(), &signature)
+        .map_err(|_| {
+            VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                "assurance manifest signature verification failed",
+            )
+        })?;
+
+    Ok(manifest)
+}
+
 fn read_trust_anchor_policy(path: &Path) -> std::result::Result<TrustAnchorVersions, VerifyError> {
     let bytes = fs::read(path).map_err(|err| {
         VerifyError::new(
@@ -659,6 +728,42 @@ fn find_proof_section(bytes: &[u8]) -> std::result::Result<Vec<u8>, VerifyError>
         VerifyErrorCode::ProofMissing,
         "clearlang.proof section not found",
     ))
+}
+
+fn read_verifying_key(
+    pubkey_path: &Path,
+    code: VerifyErrorCode,
+) -> std::result::Result<VerifyingKey, VerifyError> {
+    let pub_bytes = fs::read(pubkey_path).map_err(|err| {
+        VerifyError::new(code, format!("reading {}: {err}", pubkey_path.display()))
+    })?;
+    let verify_file: VerifyKeyFile = serde_json::from_slice(&pub_bytes)
+        .map_err(|err| VerifyError::new(code, format!("parsing public key file: {err}")))?;
+    if verify_file.scheme.to_lowercase() != "ed25519" {
+        return Err(VerifyError::new(
+            code,
+            format!("unsupported public key scheme: {}", verify_file.scheme),
+        ));
+    }
+    let pub_key_bytes = hex::decode(&verify_file.public_key)
+        .map_err(|err| VerifyError::new(code, format!("decoding public key hex: {err}")))?;
+    VerifyingKey::from_bytes(
+        &pub_key_bytes
+            .try_into()
+            .map_err(|_| VerifyError::new(code, "ed25519 public key must be 32 bytes"))?,
+    )
+    .map_err(|err| VerifyError::new(code, format!("verifying key invalid: {err}")))
+}
+
+fn parse_signature_hex(
+    signature_hex: &str,
+    code: VerifyErrorCode,
+    label: &str,
+) -> std::result::Result<Signature, VerifyError> {
+    let sig_raw = hex::decode(signature_hex)
+        .map_err(|err| VerifyError::new(code, format!("decoding {label} hex: {err}")))?;
+    Signature::try_from(sig_raw.as_slice())
+        .map_err(|_| VerifyError::new(code, format!("{label} must be 64 bytes")))
 }
 
 #[cfg(test)]

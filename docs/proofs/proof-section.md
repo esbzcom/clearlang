@@ -197,6 +197,12 @@ strategy as signature payload signing), keeping verification deterministic.
 - per-boundary `why` reasons,
 - dependency trust labels for primitive/external assumed surfaces.
 
+`clg verify --assurance-manifest <FILE> --release-policy <FILE>` enforces
+release-tier policy gates and fails with `V005` when:
+- manifest/policy schema is invalid,
+- manifest hashes do not match the verified signature payload,
+- manifest `assurance.tier` is below policy `minimum_assurance_tier`.
+
 ## Backwards Compatibility
 
 - v1 sections remain parseable; v2 adds optional `refinements`/`assumptions`/`assurance` on VC entries, optional top-level `assurance`, and optional `canonical_name` on function entries.

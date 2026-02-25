@@ -180,6 +180,16 @@ fn write_trust_policy(dir: &Path, lean_checker: &str, coq_checker: &str) -> Path
     path
 }
 
+fn write_release_policy(dir: &Path, minimum_assurance_tier: &str) -> PathBuf {
+    let path = dir.join("release-policy.json");
+    let policy = json!({
+        "schema_version": 1,
+        "minimum_assurance_tier": minimum_assurance_tier,
+    });
+    fs::write(&path, serde_json::to_vec_pretty(&policy).unwrap()).unwrap();
+    path
+}
+
 fn tamper_proofs_hash(module: &Path) {
     #[derive(serde::Serialize, serde::Deserialize)]
     struct TamperSection {
@@ -649,4 +659,93 @@ fn verify_compile_time_succeeds_when_trust_policy_matches_signature() {
         .arg("--trust-policy")
         .arg(&trust_policy);
     verify.assert().success();
+}
+
+#[test]
+fn verify_release_policy_succeeds_when_manifest_meets_required_tier() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    let manifest = sig_path.with_file_name("out.assurance.json");
+    let policy = write_release_policy(tmp.path(), "L1");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--release-policy")
+        .arg(&policy);
+    verify.assert().success();
+}
+
+#[test]
+fn verify_release_policy_rejects_manifest_below_required_tier_with_v005() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    let manifest = sig_path.with_file_name("out.assurance.json");
+    let policy = write_release_policy(tmp.path(), "L2");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--release-policy")
+        .arg(&policy);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"")
+            .and(predicate::str::contains("below required")),
+    );
+}
+
+#[test]
+fn verify_release_policy_rejects_manifest_hash_mismatch_with_v005() {
+    let tmp_a = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp_a.path());
+    let policy = write_release_policy(tmp_a.path(), "L0");
+
+    let tmp_b = tempdir().unwrap();
+    let (_other_wasm, other_sig, _other_pub) =
+        build_signed_module_from_source_with_manifest_and_trust_anchors(
+            tmp_b.path(),
+            sample_source_with_assumptions(),
+            None,
+            None,
+            None,
+        );
+    let mismatched_manifest = other_sig.with_file_name("out.assurance.json");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&mismatched_manifest)
+        .arg("--release-policy")
+        .arg(&policy);
+    verify
+        .assert()
+        .failure()
+        .stdout(
+            predicate::str::contains("\"code\": \"V005\"").and(predicate::str::contains(
+                "does not match verified signature payload hashes",
+            )),
+        );
 }

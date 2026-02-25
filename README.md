@@ -519,6 +519,11 @@ Verify a signed module:
 clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json
 ```
 
+Explain verification assurance summary (what is checked vs assumed, and why):
+```
+clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json --explain
+```
+
 Compile-time verify mode with trust policy:
 ```
 clg verify --module out.wasm --sig out.sig.json --pubkey keys/public.json \

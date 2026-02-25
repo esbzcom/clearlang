@@ -120,6 +120,9 @@ enum Commands {
         /// Trust-anchor policy file for compile-time verify mode
         #[arg(long, value_name = "FILE")]
         trust_policy: Option<PathBuf>,
+        /// Print human-readable assurance explanation after successful verification
+        #[arg(long, default_value_t = false)]
+        explain: bool,
     },
 }
 
@@ -173,12 +176,14 @@ fn main() -> Result<()> {
             pubkey,
             verify_mode,
             trust_policy,
+            explain,
         } => cmd_verify::run(
             module,
             sig,
             pubkey,
             verify_mode,
             trust_policy,
+            explain,
             cli.json_errors,
             logger,
         ),

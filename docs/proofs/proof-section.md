@@ -191,6 +191,12 @@ Manifest envelope shape:
 The manifest signature is computed over canonical JSON for `payload` only (same canonicalization
 strategy as signature payload signing), keeping verification deterministic.
 
+`clg verify --explain` can summarize these signed/embedded artifacts for humans, including:
+- assurance tier label,
+- checked-core vs assumed-boundary VC counts,
+- per-boundary `why` reasons,
+- dependency trust labels for primitive/external assumed surfaces.
+
 ## Backwards Compatibility
 
 - v1 sections remain parseable; v2 adds optional `refinements`/`assumptions`/`assurance` on VC entries, optional top-level `assurance`, and optional `canonical_name` on function entries.

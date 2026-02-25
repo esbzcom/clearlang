@@ -20,6 +20,15 @@ fn sample_source() -> &'static str {
     "#
 }
 
+fn sample_source_with_assumptions() -> &'static str {
+    r#"
+        pure function check(a: Bytes, b: Bytes) -> Bool
+            ensure { result == std::bytes::eq_ct(a, b) }
+        { std::bytes::eq_ct(a, b) }
+        function main() -> Int { if check(std::bytes::from_string("a"), std::bytes::from_string("b")) { 1 } else { 0 } }
+    "#
+}
+
 fn write_key_material(dir: &Path) -> (PathBuf, PathBuf) {
     let signing = SigningKey::from_bytes(&[7u8; 32]);
     let verifying = signing.verifying_key();
@@ -46,7 +55,13 @@ fn write_key_material(dir: &Path) -> (PathBuf, PathBuf) {
 }
 
 fn build_signed_module(tmp: &Path) -> (PathBuf, PathBuf, PathBuf) {
-    build_signed_module_with_manifest_and_trust_anchors(tmp, None, None, None)
+    build_signed_module_from_source_with_manifest_and_trust_anchors(
+        tmp,
+        sample_source(),
+        None,
+        None,
+        None,
+    )
 }
 
 fn build_signed_module_with_trust_anchors(
@@ -54,8 +69,9 @@ fn build_signed_module_with_trust_anchors(
     lean_checker_version: Option<&str>,
     coq_checker_version: Option<&str>,
 ) -> (PathBuf, PathBuf, PathBuf) {
-    build_signed_module_with_manifest_and_trust_anchors(
+    build_signed_module_from_source_with_manifest_and_trust_anchors(
         tmp,
+        sample_source(),
         None,
         lean_checker_version,
         coq_checker_version,
@@ -68,8 +84,24 @@ fn build_signed_module_with_manifest_and_trust_anchors(
     lean_checker_version: Option<&str>,
     coq_checker_version: Option<&str>,
 ) -> (PathBuf, PathBuf, PathBuf) {
+    build_signed_module_from_source_with_manifest_and_trust_anchors(
+        tmp,
+        sample_source(),
+        manifest_path,
+        lean_checker_version,
+        coq_checker_version,
+    )
+}
+
+fn build_signed_module_from_source_with_manifest_and_trust_anchors(
+    tmp: &Path,
+    source: &str,
+    manifest_path: Option<&Path>,
+    lean_checker_version: Option<&str>,
+    coq_checker_version: Option<&str>,
+) -> (PathBuf, PathBuf, PathBuf) {
     let src_path = tmp.join("contract.clear");
-    fs::write(&src_path, sample_source()).unwrap();
+    fs::write(&src_path, source).unwrap();
 
     let wasm_path = tmp.join("out.wasm");
     let vcs_path = tmp.join("out.vc.json");
@@ -283,6 +315,56 @@ fn sign_and_verify_roundtrip() {
         .arg("--pubkey")
         .arg(&pub_path);
     verify.assert().success();
+}
+
+#[test]
+fn verify_explain_emits_checked_core_summary() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify", "--explain"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path);
+    let stdout = verify.assert().success().get_output().stdout.clone();
+    let text = String::from_utf8(stdout).expect("utf8 stdout");
+    assert!(text.contains("Verification explanation"));
+    assert!(text.contains("assurance: L1 (checked core)"));
+    assert!(text.contains("assumed_boundaries: none"));
+}
+
+#[test]
+fn verify_explain_includes_assumed_boundary_reasoning() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) =
+        build_signed_module_from_source_with_manifest_and_trust_anchors(
+            tmp.path(),
+            sample_source_with_assumptions(),
+            None,
+            None,
+            None,
+        );
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify", "--explain"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path);
+    let stdout = verify.assert().success().get_output().stdout.clone();
+    let text = String::from_utf8(stdout).expect("utf8 stdout");
+    assert!(text.contains("vcs_with_assumptions:"));
+    assert!(text.contains("assumed_boundaries:"));
+    assert!(text.contains("crypto.uninterpreted"));
+    assert!(text.contains("why="));
 }
 
 #[test]

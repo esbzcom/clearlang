@@ -39,7 +39,7 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `emit-hello`: emits a trivial Wasm with `main() -> i32` returning 42.
   - `parse <FILE>`: parses and pretty-prints the AST for a ClearLang source file.
   - `build <FILE> [--out <PATH>] [--validate] [--debug-names]`: compiles to Wasm via IR.
-  - `run <FILE> [--invoke <name>]`: runs a Wasm file (default export: `main`).
+  - `run <FILE> [--invoke <name>]`: runs a ClearLang source file (`.clear`) or Wasm file (`.wasm`) (default export: `main`).
 - Build pipeline: Parse -> Type-check -> Lower to IR -> Codegen (IR->Wasm) -> write output.
 - Flags:
   - `-o, --out <PATH>`: output Wasm path; creates parent directories if needed.

@@ -74,6 +74,38 @@ fn build_and_run_samples() {
 }
 
 #[test]
+fn run_can_execute_clear_source_directly() {
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(sample("02_arith.clear"))
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("15\n"));
+}
+
+#[test]
+fn run_surfaces_build_type_errors_for_clear_source_json() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(sample("14_arity_mismatch.clear"))
+        .output()
+        .expect("run command");
+    assert!(!output.status.success(), "run should fail");
+    let v: Value = serde_json::from_slice(&output.stdout).expect("json parse");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errors.is_empty());
+    let first = &errors[0];
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("T002"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
 fn parse_command_prints_ast() {
     let sample = sample("01_hello.clear");
     Command::cargo_bin("clg")

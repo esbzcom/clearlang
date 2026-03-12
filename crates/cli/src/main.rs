@@ -94,9 +94,9 @@ enum Commands {
         #[arg(long, value_name = "VERSION")]
         coq_checker_version: Option<String>,
     },
-    /// Run a compiled Wasm module (calls an exported function)
+    /// Run a ClearLang source file or compiled Wasm module (calls an exported function)
     Run {
-        /// Input Wasm file
+        /// Input .clear source file or .wasm module
         #[arg(value_name = "FILE")]
         file: PathBuf,
         /// Export to invoke (default: main)

@@ -52,6 +52,8 @@ contracts, and an effect system to eliminate entire classes of bugs at compile t
   - `clg build clearlang-tests/02_arith.clear -o out/arith.wasm --validate`
   - `clg build clearlang-tests/17_hello_str.clear -o out/hello_str.wasm --emit-vcs out/contracts.json`
   - `clg run out/arith.wasm`
+  - `clg run examples/projects/generic/main.clear`
+  - `clg run examples/projects/crypto/main.clear`
 
 
 ### ADT sugar quickstart

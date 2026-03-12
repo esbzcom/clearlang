@@ -1,6 +1,6 @@
 # ClearLang Development Plan
 
-## Current Focus - Post-Phase 19 Roadmap Definition
+## Current Focus - Phases 20-24 Milestone_2 Execution
 - 18.0.0 open questions are now decision-locked (see `docs/design/phase-18.0-open-questions.md`).
 - Security gate is complete (`18.1` + `18.3`).
 - Reliability gate is complete (`18.2`).
@@ -8,11 +8,17 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phase: Phase 19 is complete; define Phase 20+ scope and acceptance gates before new implementation work.
+- Next active phases: execute Phase 20-24 slices toward `milestone_2` final production without regressing Phase 19 strict/profile guarantees; Phase 20 now starts with parser/DX baseline items (comments + numeric separators) before the runnable namespaced gate.
 
 ### Suggested Sequence
-1) Publish a Phase 20 design lock with acceptance gates and explicit non-goals.
-2) Update `docs/TODO.md` with concrete execution slices and deterministic diagnostics policy before coding.
+1) Execute **20.0** language baseline: comment syntax (`//`, `/*...*/`) + numeric `_` separator support and deterministic diagnostics/tests.
+2) Execute **20.1** architecture acceptance gates (strict-mode package trust/runtime linker behavior).
+3) Execute **20.2** runnable namespace baseline by making `clearlang-tests/16_namespaced_call.clear` runnable with CI/doc coverage.
+4) Execute **21** (`std::core` precompiled packaging pipeline).
+5) Execute **22** (trust metadata + transitive resolver + semver solver + lockfile flow).
+6) Execute **23** (runtime package loader/linker with fail-closed trust checks and rollout/rollback criteria).
+7) Execute **24.0-24.2** (host profile alignment, milestone_2 release gate, go-live checklist).
+8) Run **24.3 governance controls** throughout execution (DRIs, dates/critical path, risk register, release-train gate evidence).
 
 ## Recently Completed
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
@@ -62,7 +68,7 @@
 - Phase 1-5: parser/typer/IR + Wasm pipeline foundations.
 
 ## Upcoming Phases (High-Level)
-- **Phase 20+ (TBD)**: roadmap slice pending; scope should build on completed Phase 19 assurance foundations without regressing strict/profile guarantees.
+- **Phases 20-24 / milestone_2**: language DX baseline (`comments`, numeric separators), runnable namespaced baseline, precompiled `std::core`, trust + dependency resolution, runtime package loader/linker, host-profile conformance, and final release/go-live gates (`docs/design/phase-20.0-std-packaging-runtime-linking.md`, `docs/TODO.md`).
 
 ### Notes
 - `docs/TODO.md` is the canonical checklist; keep this file high-level.

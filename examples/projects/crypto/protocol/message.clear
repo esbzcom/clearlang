@@ -1,0 +1,14 @@
+export pure function transfer_message(
+    sender: String,
+    recipient: String,
+    amount: String,
+    nonce: String,
+) -> String {
+    let p0 = std::str::concat("transfer|from=", sender);
+    let p1 = std::str::concat(p0, "|to=");
+    let p2 = std::str::concat(p1, recipient);
+    let p3 = std::str::concat(p2, "|amount=");
+    let p4 = std::str::concat(p3, amount);
+    let p5 = std::str::concat(p4, "|nonce=");
+    std::str::concat(p5, nonce)
+}

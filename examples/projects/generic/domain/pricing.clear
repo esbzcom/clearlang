@@ -1,0 +1,10 @@
+export pure function loyalty_discount(subtotal: Int, years_active: Int) -> Int
+    require { subtotal >= 0 }
+    ensure { result >= 0 }
+{
+    if years_active >= 5 {
+        subtotal / 5
+    } else {
+        if years_active >= 2 { subtotal / 10 } else { 0 }
+    }
+}

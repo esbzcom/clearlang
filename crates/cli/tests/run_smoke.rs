@@ -9,6 +9,12 @@ fn sample(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn example_project(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/projects")
+        .join(name)
+}
+
 #[test]
 fn emit_hello_and_run() {
     let out = tempfile::Builder::new()
@@ -187,4 +193,28 @@ fn build_json_errors_surface_type_failures() {
     let first = &errors[0];
     assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("T002"));
     assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
+fn run_generic_project_fixture() {
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(example_project("generic/main.clear"))
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("generic: checkout pipeline"))
+        .stdout(predicates::str::contains("900"));
+}
+
+#[test]
+fn run_crypto_project_fixture() {
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(example_project("crypto/main.clear"))
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("crypto: auth pipeline"))
+        .stdout(predicates::str::contains("1"));
 }

@@ -1,0 +1,15 @@
+export pure function hash_alg() -> String { "sha256" }
+
+export pure function mac_alg() -> String { "sha256" }
+
+export pure function min_key_len() -> Int { 16 }
+
+export pure function expected_tag_len() -> Int { 32 }
+
+export pure function key_is_valid(key: Bytes) -> Bool {
+    std::bytes::len(key) >= min_key_len()
+}
+
+export pure function tag_is_valid(tag: Bytes) -> Bool {
+    std::bytes::len(tag) == expected_tag_len()
+}

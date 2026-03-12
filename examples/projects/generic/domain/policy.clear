@@ -1,0 +1,5 @@
+export pure function within_limit(total: Int) -> Bool
+    require { total >= 0 }
+{
+    total <= 2000
+}

@@ -1,0 +1,9 @@
+import security::policy
+
+export io function digest(payload: Bytes) -> Bytes {
+    std::crypto::hash(policy::hash_alg(), payload)
+}
+
+export io function mac(key: Bytes, payload: Bytes) -> Bytes {
+    std::crypto::hmac(policy::mac_alg(), key, payload)
+}

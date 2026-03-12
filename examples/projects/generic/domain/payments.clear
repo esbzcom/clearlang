@@ -1,0 +1,7 @@
+export pure function final_amount(quote: Result<Int, Int>) -> Option<Int> {
+    if let Ok(v) = quote {
+        if v > 0 { Some(v) } else { None }
+    } else {
+        None
+    }
+}

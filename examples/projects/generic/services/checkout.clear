@@ -1,0 +1,36 @@
+import domain::payments
+import domain::policy
+import domain::pricing
+import domain::risk
+import domain::shipping
+
+export pure function quote_total(
+    subtotal: Int,
+    item_count: Int,
+    years_active: Int,
+) -> Result<Int, Int>
+    require { subtotal >= 0 }
+    require { item_count > 0 }
+{
+    let discount = pricing::loyalty_discount(subtotal, years_active);
+    let discounted_subtotal = subtotal - discount;
+    let ship = shipping::shipping_fee(item_count, discounted_subtotal);
+    let score = risk::fraud_score(subtotal, item_count, years_active);
+    if risk::should_reject(score) {
+        Err(score)
+    } else {
+        Ok(discounted_subtotal + ship)
+    }
+}
+
+export pure function simulate_checkout(
+    subtotal: Int,
+    item_count: Int,
+    years_active: Int,
+) -> Option<Int> {
+    if let Some(total) = payments::final_amount(quote_total(subtotal, item_count, years_active)) {
+        if policy::within_limit(total) { Some(total) } else { None }
+    } else {
+        None
+    }
+}

@@ -1,0 +1,11 @@
+export pure function shipping_fee(item_count: Int, discounted_subtotal: Int) -> Int
+    require { item_count > 0 }
+    require { discounted_subtotal >= 0 }
+    ensure { result >= 0 }
+{
+    if discounted_subtotal >= 800 {
+        0
+    } else {
+        if item_count >= 10 { 0 } else { 20 }
+    }
+}

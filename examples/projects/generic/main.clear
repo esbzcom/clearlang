@@ -1,0 +1,10 @@
+import services::checkout
+
+io function main() -> Int {
+    std::wasi::print(std::bytes::from_string("generic: checkout pipeline"));
+    if let Some(total) = checkout::simulate_checkout(1000, 6, 4) {
+        total
+    } else {
+        0
+    }
+}

@@ -1,0 +1,25 @@
+import crypto::auth
+import protocol::message
+
+io function main() -> Int {
+    std::wasi::print(std::bytes::from_string("crypto: auth pipeline"));
+    let key = std::bytes::from_string("tenant-a-secret-key");
+    let msg_ok = message::transfer_message("alice", "bob", "5", "42");
+    if let Some(tag) = auth::sign_request(key, msg_ok) {
+        let ok = auth::verify_request(key, msg_ok, tag);
+        let msg_bad = message::transfer_message("alice", "bob", "5000", "42");
+        let bad = auth::verify_request(key, msg_bad, tag);
+        let digest_ok = auth::digest_len(msg_ok) == 32;
+        if ok {
+            if bad {
+                0
+            } else {
+                if digest_ok { 1 } else { 0 }
+            }
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}

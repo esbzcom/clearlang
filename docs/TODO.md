@@ -889,3 +889,69 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.5.2 Add `clg verify --explain` summary output for humans (what is proved, what is assumed, why). (`docs/design/phase-19.5.2-verify-explain-summary.md`, `--explain` on `clg verify`, signing IT coverage)
   - [x] 19.5.3 Add policy checks for release pipelines (reject manifests below required assurance tier). (`docs/design/phase-19.5.3-release-policy-gates.md`, `clg verify --assurance-manifest --release-policy`, diagnostic `V005`)
 
+### 20 Runnable Namespace Baseline + Lock Gates (milestone_2)
+- [ ] 20.0 Add language comment syntax support (AI-friendly, deterministic).
+  - [ ] 20.0.1 Parser/lexer: add line comments `// ...` and block comments `/* ... */` with deterministic tokenization and spans.
+  - [ ] 20.0.2 Define and document one canonical style for generated code/docs (`//` preferred; `/* ... */` only for multi-line notes).
+  - [ ] 20.0.3 Add parser + CLI tests proving comments are accepted in runnable fixtures and do not affect diagnostics stability.
+  - [ ] 20.0.4 Numeric literal readability: support `_` as digit separator (`1_000`), keep `,` invalid (`1,000`), and add a targeted diagnostic suggesting `_`.
+- [ ] 20.1 Publish post-19 std/package architecture lock (precompiled `std::core` + host-backed `std::host` + chain packages).
+  - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
+  - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
+- [ ] 20.2 Namespaced runnable baseline first: make `clearlang-tests/16_namespaced_call.clear` runnable (not parse-only).
+  - [ ] 20.2.1 Replace the unresolved `std::math::add` usage with a valid namespaced callable path in a runnable fixture layout.
+  - [ ] 20.2.2 Add CLI integration coverage asserting `clg run ...16_namespaced_call.clear` succeeds.
+  - [ ] 20.2.3 Update sample docs to distinguish parse-only vs runnable namespace examples.
+
+### 21 Precompiled Std Core Packaging
+- [ ] 21.0 Precompiled `std::core` package pipeline.
+  - [ ] 21.0.1 Produce versioned std-core artifact(s) and metadata from CI with reproducible hash output.
+  - [ ] 21.0.2 Ensure only used package functions are emitted as imports in app Wasm.
+
+### 22 Package Trust + Dependency Resolution
+- [ ] 22.0 Package metadata trust hardening.
+  - [ ] 22.0.1 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation.
+  - [ ] 22.0.2 Add lockfile flow (exact package versions + digests) for deterministic builds.
+  - [ ] 22.0.3 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.
+  - [ ] 22.0.4 Define signer lifecycle policy for package trust roots (rotation, revocation, expiry, emergency compromise handling).
+- [ ] 22.1 Dependency resolution completion gates for milestone_2.
+  - [ ] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics).
+  - [ ] 22.1.2 Add deterministic semver solver with lockfile generation/update flow.
+  - [ ] 22.1.3 Add package vulnerability response flow (advisory ingestion, denylist/yank policy, forced-upgrade semantics, deterministic diagnostics).
+
+### 23 Runtime Package Loader + Linker
+- [ ] 23.0 Runtime linker for compiled packages.
+  - [ ] 23.0.1 Implement host-side package loader from trusted store/registry index.
+  - [ ] 23.0.2 Enforce fail-closed digest/signature checks before linking.
+  - [ ] 23.0.3 Add deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts.
+  - [ ] 23.0.4 Add artifact availability/resilience plan (mirrors/cache policy/offline mode/failure behavior) with operational runbook coverage.
+- [ ] 23.1 Runtime loading completion gate for milestone_2.
+  - [ ] 23.1.1 Add automatic runtime package loader/linker so host resolves package artifacts without manual import wiring.
+  - [ ] 23.1.2 Keep fail-closed trust checks (digest/signature/policy) as mandatory gates for runtime package loading.
+  - [ ] 23.1.3 Add staged rollout/canary + rollback criteria for runtime loader enablement in production hosts.
+
+### 24 Host Profiles + Milestone_2 Exit
+- [ ] 24.0 Host capability profile alignment.
+  - [ ] 24.0.1 Keep `std::crypto`/`std::env`/`std::wasi` host-backed with explicit determinism policies.
+  - [ ] 24.0.2 Add profile docs for static/contract mode vs shared/app mode.
+  - [ ] 24.0.3 Add host conformance certification suite for deterministic std-host capability behavior across supported runtimes.
+- [ ] 24.1 Milestone_2 release gate.
+  - [ ] 24.1.1 Verify Phases 20-24 completion without regressions to Phase 19 strict/profile guarantees.
+  - [ ] 24.1.2 Publish `release_notes/milestone_2.md` once gates are green.
+- [ ] 24.2 Go-live checklist (must be green before milestone_2 tag).
+  - [ ] 24.2.1 Runnable baseline: `clg run clearlang-tests/16_namespaced_call.clear` passes in CI and docs clearly mark runnable vs parse-only fixtures.
+  - [ ] 24.2.2 Precompiled std-core: CI emits versioned artifact + metadata with reproducible hash and import-pruning coverage.
+  - [ ] 24.2.3 Package trust: digest/signature/trust-anchor metadata validation is enforced; malformed/untrusted metadata fails deterministically.
+  - [ ] 24.2.4 Dependency resolution: transitive resolver + deterministic semver solver + lockfile enforcement are active in CI.
+  - [ ] 24.2.5 Runtime loader/linker: automatic package loading works and fails closed on missing/mismatch/untrusted artifacts with stable diagnostics.
+  - [ ] 24.2.6 Host profiles: static/contract and shared/app profile behavior is documented and covered by integration tests.
+  - [ ] 24.2.7 Assurance/regression gates: Phase 19 strict/profile tests remain green with no assurance-tier regression on protected fixtures.
+  - [ ] 24.2.8 Release readiness: security review, runbooks, signed artifacts, and `release_notes/milestone_2.md` are complete.
+  - [ ] 24.2.9 Production SLO/performance gates: package resolution/link latency, startup overhead, and memory/CPU budgets are measured and within defined thresholds.
+  - [ ] 24.2.10 Supply-chain compliance gates: SBOM/license checks for shipped package artifacts and runtime dependencies are green.
+- [ ] 24.3 Milestone_2 delivery governance (execution risk controls).
+  - [ ] 24.3.1 Assign an explicit owner/DRI for each Phase 20-24 parent task and record it in TODO/DEVPLAN.
+  - [ ] 24.3.2 Add target dates (planned start/end) for each Phase 20-24 parent task and mark critical-path dependencies.
+  - [ ] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly.
+  - [ ] 24.3.4 Add a release-train gate: do not tag milestone_2 unless 24.2.x is fully green and evidence links are attached.
+

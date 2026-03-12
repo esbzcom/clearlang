@@ -1,0 +1,29 @@
+import crypto::primitives
+import security::policy
+
+export io function sign_request(key: Bytes, msg: String) -> Option<Bytes> {
+    if policy::key_is_valid(key) {
+        Some(primitives::mac(key, std::bytes::from_string(msg)))
+    } else {
+        None
+    }
+}
+
+export io function verify_request(key: Bytes, msg: String, provided_tag: Bytes) -> Bool {
+    if policy::key_is_valid(key) {
+        if policy::tag_is_valid(provided_tag) {
+            std::bytes::eq_ct(
+                primitives::mac(key, std::bytes::from_string(msg)),
+                provided_tag
+            )
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+export io function digest_len(msg: String) -> Int {
+    std::bytes::len(primitives::digest(std::bytes::from_string(msg)))
+}

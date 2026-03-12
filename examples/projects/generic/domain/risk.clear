@@ -1,0 +1,12 @@
+export pure function fraud_score(subtotal: Int, item_count: Int, years_active: Int) -> Int
+    require { subtotal >= 0 }
+    require { item_count > 0 }
+    ensure { result >= 0 }
+{
+    let avg_item_value = subtotal / item_count;
+    let base = if subtotal > 1500 { 80 } else { 25 };
+    let tenure_penalty = if years_active >= 3 { 10 } else { 40 };
+    (avg_item_value / 4) + base + tenure_penalty
+}
+
+export pure function should_reject(score: Int) -> Bool { score >= 140 }

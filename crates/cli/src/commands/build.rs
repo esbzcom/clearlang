@@ -20,12 +20,14 @@ use crate::proofs::{
 use crate::signing::{self, SignScope};
 
 mod strict;
+mod strict_lockfile;
 mod vcs_json;
 
 use strict::{
     proof_strict_for_mode, strict_l3_claim_violation, strict_language_profile_violation,
     strict_proof_violation,
 };
+use strict_lockfile::load_strict_lockfile_v0_if_present;
 use vcs_json::write_vcs_json;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -178,6 +180,12 @@ pub fn run(
             "`--compiler-mode strict` requires `--emit-vcs <FILE>`",
             None,
         )?;
+    }
+    if compiler_mode == CompilerMode::Strict {
+        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
+        if let Err(err) = load_strict_lockfile_v0_if_present(module_root) {
+            fail_build(err.code(), err.message(), None)?;
+        }
     }
     let proof_strict_enabled = match proof_strict_for_mode(compiler_mode, proof_strict) {
         Ok(value) => value,

@@ -269,6 +269,69 @@ fn strict_compiler_mode_requires_emit_vcs_with_c029() {
 }
 
 #[test]
+fn strict_compiler_mode_rejects_invalid_lockfile_schema_with_c104() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_lock_schema.clear");
+    fs::write(&file, src).expect("write");
+    fs::write(
+        tmp.path().join("clg.lock.json"),
+        r#"{"schema_version":1,"dependencies":[]}"#,
+    )
+    .expect("write lockfile");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
+fn strict_compiler_mode_rejects_invalid_lockfile_digest_with_c102() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_lock_digest.clear");
+    fs::write(&file, src).expect("write");
+    fs::write(
+        tmp.path().join("clg.lock.json"),
+        r#"{
+  "schema_version": 0,
+  "dependencies": [
+    { "name": "std::core", "version": "1.0.0", "digest": "sha256:ABCDEF" }
+  ]
+}"#,
+    )
+    .expect("write lockfile");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C102", "build");
+}
+
+#[test]
 fn strict_compiler_mode_rejects_proof_strict_false_override_with_c030() {
     let src = r#"
         function main() -> Int { 0 }

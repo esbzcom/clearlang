@@ -158,6 +158,7 @@ Milestone 2 (final production target) must explicitly close the current package/
 - `docs/rollout/DEVPLAN.md`
 - `docs/design/phase-20.1.0-strict-lockfile-v0.md`
 - `docs/design/phase-20.1.0-trust-policy-v0.md`
+- `docs/design/phase-20.1.0-host-profile-v0.md`
 - `docs/design/phase-18.4-compiled-package-imports.md`
 - `docs/runtime/host-imports.md`
 - `docs/runtime/chain-packages.md`

@@ -58,6 +58,85 @@ Define the long-term, production-grade std architecture for crypto environments:
   - untrusted signer/policy violation,
   - unresolved runtime import.
 
+## Strict-Mode Acceptance Gates (20.1.2)
+1. Source-of-truth gate
+   - Strict mode resolves packages only from lockfile + trusted local store.
+   - No implicit network fetch during build/run.
+
+2. Artifact identity gate
+   - Required exact `(name, version, digest)` match against lockfile entries.
+   - Any digest mismatch fails closed.
+
+3. Trust gate
+   - Package signatures must verify against configured trust anchors.
+   - Untrusted, revoked, or expired signers fail closed.
+
+4. Metadata/schema gate
+   - Package metadata schema version must be accepted by policy/toolchain.
+   - Unsupported schema versions fail with deterministic diagnostics.
+
+5. ABI/link gate
+   - Linked imports must match expected symbol signature/effect/capability profile exactly.
+   - ABI mismatch fails deterministically (no best-effort fallback).
+
+6. Runtime capability gate
+   - Host profile must explicitly provide required capabilities for linked imports.
+   - Missing capability fails closed.
+
+7. Determinism gate
+   - Identical inputs (source, lockfile, package store, trust policy) must produce identical resolved direct-dependency import map and diagnostics ordering in 20.1 scope.
+
+8. CI acceptance gate
+   - CI must include positive and tamper negative suites that assert stable diagnostic codes for all gates above.
+
+## 20.1 Implementation Blueprint
+1. Scope boundary
+   - Implement strict-gate preflight only (policy + diagnostics + deterministic ordering).
+   - Keep transitive resolver/semver/runtime auto-loading in later phases (22/23).
+
+2. Preflight input contract
+   - Minimal strict lockfile v0 entries (name/version/digest) for direct dependencies,
+   - package metadata/schema v0 and ABI contract v0 (direct dependencies),
+   - package signature envelope,
+   - trust-policy v0/trust anchors (bootstrap scope for 20.1),
+   - host-profile v0 capabilities (bootstrap scope for 20.1).
+
+3. Evaluator behavior
+   - A pure deterministic evaluator computes gate violations from the preflight input.
+   - Violations are emitted in stable order: gate id -> package id -> symbol id.
+   - Strict mode fails closed when any gate is violated, while emitting the complete ordered violation list for that run.
+   - Evaluator emits a canonical direct-dependency import-map artifact with deterministic serialization/hash.
+
+4. Build integration
+   - Invoke preflight evaluator inside strict-mode build flow before final link/output emission.
+   - Do not fallback to permissive behavior if preflight fails.
+
+## Proposed Diagnostic Matrix (20.1.4.1)
+Codes use the existing 4-character diagnostics convention (`[P|T|C|V|R][0-9]{3}`), so package/linker strict gates reserve the `C101`-`C107` range.
+These codes are design-locked for 20.1 and must be promoted to the canonical diagnostics registry (`docs/diagnostics.md`) during implementation.
+
+| Gate | Proposed code | Failure trigger |
+|---|---|---|
+| 20.1.2.1 Source-of-truth | `C101` | Strict mode attempted non-lockfile/non-trusted-store source (including implicit network fetch). |
+| 20.1.2.2 Artifact identity | `C102` | `(name, version, digest)` mismatch vs lockfile pin. |
+| 20.1.2.3 Trust/signature | `C103` | Signature invalid or signer not trusted/revoked/expired. |
+| 20.1.2.4 Metadata/schema | `C104` | Unsupported package metadata schema version/policy mismatch. |
+| 20.1.2.5 ABI/link | `C105` | Import signature/effect/capability mismatch at link surface. |
+| 20.1.2.6 Runtime capability | `C106` | Required host capability missing in selected host-profile v0. |
+| 20.1.2.7 Determinism | `C107` | Repeated evaluation with identical inputs produced different direct-dependency import map/diagnostics ordering. |
+
+## Canonical Fixture Matrix (20.1.4.2)
+| Fixture class | Expected result |
+|---|---|
+| `strict_ok` | Passes all gates in strict mode. |
+| `strict_untrusted_source` | Fails with `C101`. |
+| `strict_digest_mismatch` | Fails with `C102`. |
+| `strict_bad_signature_or_signer` | Fails with `C103`. |
+| `strict_schema_mismatch` | Fails with `C104`. |
+| `strict_abi_mismatch` | Fails with `C105`. |
+| `strict_missing_capability` | Fails with `C106`. |
+| `strict_determinism_replay` | Two identical runs produce identical direct-dependency import map and sorted diagnostics; mismatch fails with `C107`. |
+
 ## Non-Goals (20.0)
 - No semver solver introduction in this lock.
 - No implicit internet package registry behavior.

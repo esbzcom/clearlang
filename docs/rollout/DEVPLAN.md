@@ -11,7 +11,7 @@
 - Next active phases: execute Phase 20-24 slices toward `milestone_2` final production without regressing Phase 19 strict/profile guarantees; Phase 20.0 parser/DX baseline (comments + numeric separators) is complete and execution now moves to 20.1/20.2.
 
 ### Suggested Sequence
-1) Execute **20.1** architecture acceptance gates (strict-mode package trust/runtime linker behavior).
+1) Execute **20.1** architecture acceptance gates (strict-mode package trust/runtime linker behavior), including minimal direct-dependency lockfile + metadata/ABI v0 + trust-policy v0 + host-profile v0 bootstraps and import-map determinism checks needed by strict preflight.
 2) Execute **20.2** runnable namespace baseline by making `clearlang-tests/16_namespaced_call.clear` runnable with CI/doc coverage.
 3) Execute **21** (`std::core` precompiled packaging pipeline).
 4) Execute **22** (trust metadata + transitive resolver + semver solver + lockfile flow).

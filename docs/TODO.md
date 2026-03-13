@@ -896,8 +896,38 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 20.0.3 Add parser + CLI tests proving comments are accepted in runnable fixtures and do not affect diagnostics stability.
   - [x] 20.0.4 Numeric literal readability: support `_` as digit separator (`1_000`), keep `,` invalid (`1,000`), and add a targeted diagnostic suggesting `_`.
 - [ ] 20.1 Publish post-19 std/package architecture lock (precompiled `std::core` + host-backed `std::host` + chain packages).
+  - [ ] 20.1.0 Bootstrap minimal strict lockfile support for gate preflight (direct dependencies only).
+    - [ ] 20.1.0.1 Define minimal lockfile v0 schema for strict mode (`name`, `version`, `digest`) covering direct dependencies only.
+    - [ ] 20.1.0.2 Implement deterministic strict-mode lockfile loader/validator for v0 schema (no transitive solver in 20.1).
+    - [ ] 20.1.0.3 Emit stable diagnostics for missing/malformed strict lockfile input and document remediation.
+    - [ ] 20.1.0.4 Define minimal trust-policy v0 for strict gates (trusted signer set + revocation/expiry checks) as a bootstrap before 22.0.4 lifecycle expansion.
+    - [ ] 20.1.0.5 Define minimal host-profile v0 schema/capability set consumed by strict preflight before 24.0.2 profile expansion.
+    - [ ] 20.1.0.6 Implement deterministic loaders/validators for trust-policy v0 and host-profile v0 with stable diagnostics.
+    - [ ] 20.1.0.7 Define minimal package metadata schema v0 + ABI contract v0 (direct dependencies only) required by strict preflight before 22.0.3 policy expansion.
+    - [ ] 20.1.0.8 Implement deterministic metadata/ABI v0 validators and stable diagnostics for schema/ABI mismatches.
   - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
   - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
+    - [ ] 20.1.2.1 Strict-mode source-of-truth gate: resolve packages only from lockfile + trusted local store (no implicit network fetch).
+    - [ ] 20.1.2.2 Artifact identity gate: require exact `(name, version, digest)` match against lockfile entries; digest mismatch fails closed.
+    - [ ] 20.1.2.3 Trust gate: require valid package signature against configured trust anchors from trust-policy v0; untrusted/revoked/expired signer fails closed.
+    - [ ] 20.1.2.4 Metadata/schema gate: package metadata schema version must be accepted; unknown/unsupported schema fails with stable diagnostics.
+    - [ ] 20.1.2.5 ABI/link gate: imported symbols must match expected signature/effect/capability profile exactly; ABI mismatch fails deterministically.
+    - [ ] 20.1.2.6 Runtime capability gate: required host capabilities for linked imports must be present in selected host-profile v0, otherwise fail closed.
+    - [ ] 20.1.2.7 Determinism gate: identical inputs (source, lockfile, package store, policy) produce identical resolved direct-dependency import map and diagnostics ordering.
+    - [ ] 20.1.2.8 CI functional acceptance suite: add positive + tamper negative tests for 20.1.2.1-20.1.2.6 with fixed diagnostic-code assertions.
+  - [ ] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).
+    - [ ] 20.1.3.1 Define a single preflight input model (lockfile v0 entries, package metadata, trust-policy v0, host-profile v0).
+    - [ ] 20.1.3.2 Implement a pure evaluator (`evaluate_strict_gates`) that returns deterministic, stably ordered violations.
+    - [ ] 20.1.3.3 Wire evaluator into `clg build --compiler-mode strict` before final link/build outputs.
+    - [ ] 20.1.3.4 Add deterministic ordering rule (gate id -> package id -> symbol id) and snapshot tests.
+    - [ ] 20.1.3.5 Ensure strict mode fails closed whenever any gate violation exists, emitting a complete deterministic violation list (no permissive fallback path).
+    - [ ] 20.1.3.6 Emit canonical direct-dependency import-map artifact in strict preflight and assert deterministic serialization/hash across identical inputs.
+  - [ ] 20.1.4 Publish diagnostic + fixture matrix for 20.1 gates.
+    - [x] 20.1.4.1 Publish proposed package/linker strict-gate diagnostics (`C101`-`C107`) in the phase design lock (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
+    - [x] 20.1.4.2 Publish canonical fixture matrix in the phase design lock (positive/trust-fail/digest-fail/schema-fail/abi-fail/capability-fail/determinism for direct dependencies).
+    - [ ] 20.1.4.3 Promote `C101`-`C107` to canonical diagnostics registry in `docs/diagnostics.md` and keep diagnostics code-table tests green (`crates/cli/tests/diagnostics_codes.rs`).
+    - [ ] 20.1.4.4 Add CI determinism replay job that runs strict preflight twice with identical inputs and asserts identical diagnostics ordering.
+    - [ ] 20.1.4.5 In the same replay job, assert strict preflight import-map artifact bytes/hash are identical.
 - [ ] 20.2 Namespaced runnable baseline first: make `clearlang-tests/16_namespaced_call.clear` runnable (not parse-only).
   - [ ] 20.2.1 Replace the unresolved `std::math::add` usage with a valid namespaced callable path in a runnable fixture layout.
   - [ ] 20.2.2 Add CLI integration coverage asserting `clg run ...16_namespaced_call.clear` succeeds.
@@ -911,9 +941,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 ### 22 Package Trust + Dependency Resolution
 - [ ] 22.0 Package metadata trust hardening.
   - [ ] 22.0.1 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation.
-  - [ ] 22.0.2 Add lockfile flow (exact package versions + digests) for deterministic builds.
+  - [ ] 22.0.2 Expand lockfile flow from 20.1 v0 bootstrap to full deterministic workflow (generation/update + exact package versions + digests).
   - [ ] 22.0.3 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.
-  - [ ] 22.0.4 Define signer lifecycle policy for package trust roots (rotation, revocation, expiry, emergency compromise handling).
+  - [ ] 22.0.4 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling).
 - [ ] 22.1 Dependency resolution completion gates for milestone_2.
   - [ ] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics).
   - [ ] 22.1.2 Add deterministic semver solver with lockfile generation/update flow.
@@ -933,7 +963,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 ### 24 Host Profiles + Milestone_2 Exit
 - [ ] 24.0 Host capability profile alignment.
   - [ ] 24.0.1 Keep `std::crypto`/`std::env`/`std::wasi` host-backed with explicit determinism policies.
-  - [ ] 24.0.2 Add profile docs for static/contract mode vs shared/app mode.
+  - [ ] 24.0.2 Expand host-profile docs from 20.1 host-profile v0 bootstrap to full static/contract vs shared/app production policy.
   - [ ] 24.0.3 Add host conformance certification suite for deterministic std-host capability behavior across supported runtimes.
 - [ ] 24.1 Milestone_2 release gate.
   - [ ] 24.1.1 Verify Phases 20-24 completion without regressions to Phase 19 strict/profile guarantees.

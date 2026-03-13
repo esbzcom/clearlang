@@ -899,7 +899,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 20.1.0 Bootstrap minimal strict lockfile support for gate preflight (direct dependencies only).
     - [x] 20.1.0.1 Define minimal lockfile v0 schema for strict mode (`name`, `version`, `digest`) covering direct dependencies only. (`docs/design/phase-20.1.0-strict-lockfile-v0.md`)
     - [x] 20.1.0.2 Implement deterministic strict-mode lockfile loader/validator for v0 schema (no transitive solver in 20.1).
-    - [ ] 20.1.0.3 Emit stable diagnostics for missing/malformed strict lockfile input and document remediation.
+    - [x] 20.1.0.3 Emit stable diagnostics for missing/malformed strict lockfile input and document remediation.
     - [ ] 20.1.0.4 Define minimal trust-policy v0 for strict gates (trusted signer set + revocation/expiry checks) as a bootstrap before 22.0.4 lifecycle expansion.
     - [ ] 20.1.0.5 Define minimal host-profile v0 schema/capability set consumed by strict preflight before 24.0.2 profile expansion.
     - [ ] 20.1.0.6 Implement deterministic loaders/validators for trust-policy v0 and host-profile v0 with stable diagnostics.

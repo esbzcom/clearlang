@@ -125,6 +125,13 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
         let wasm_path = tmp.path().join("fixture.wasm");
         let vcs_standard = tmp.path().join("fixture.standard.vc.json");
         let vcs_strict = tmp.path().join("fixture.strict.vc.json");
+        let strict_src_path = tmp.path().join("fixture.clear");
+        fs::copy(&src_path, &strict_src_path).expect("copy strict fixture source");
+        fs::write(
+            tmp.path().join("clg.lock.json"),
+            r#"{"schema_version":0,"dependencies":[]}"#,
+        )
+        .expect("write strict lockfile");
 
         Command::cargo_bin("clg")
             .unwrap()
@@ -177,7 +184,7 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
         Command::cargo_bin("clg")
             .unwrap()
             .args(["build"])
-            .arg(&src_path)
+            .arg(&strict_src_path)
             .args(["-o"])
             .arg(&wasm_path)
             .args(["--emit-vcs"])

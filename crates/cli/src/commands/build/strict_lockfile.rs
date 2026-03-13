@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::Deserialize;
 
@@ -56,12 +56,28 @@ struct RawStrictDependency {
     digest: String,
 }
 
-pub(super) fn load_strict_lockfile_v0_if_present(
+pub(super) fn load_required_strict_lockfile_v0(
     root: &Path,
-) -> Result<Option<StrictLockfileV0>, StrictLockfileError> {
+) -> Result<StrictLockfileV0, StrictLockfileError> {
     let path = root.join(STRICT_LOCKFILE_FILE);
     if !path.exists() {
-        return Ok(None);
+        return Err(StrictLockfileError::new(
+            "C101",
+            format!(
+                "strict mode requires `{}` at `{}`",
+                STRICT_LOCKFILE_FILE,
+                path.display()
+            ),
+        ));
+    }
+    if !path.is_file() {
+        return Err(StrictLockfileError::new(
+            "C101",
+            format!(
+                "strict lockfile path `{}` exists but is not a file",
+                path.display()
+            ),
+        ));
     }
 
     let content = fs::read_to_string(&path).map_err(|err| {
@@ -71,18 +87,27 @@ pub(super) fn load_strict_lockfile_v0_if_present(
         )
     })?;
 
-    parse_strict_lockfile_v0(&content, &path).map(Some)
+    parse_strict_lockfile_v0(&content, &path)
 }
 
 fn parse_strict_lockfile_v0(
     content: &str,
-    path: &PathBuf,
+    path: &Path,
 ) -> Result<StrictLockfileV0, StrictLockfileError> {
-    let raw: RawStrictLockfile = serde_json::from_str(content).map_err(|err| {
+    let value: serde_json::Value = serde_json::from_str(content).map_err(|_| {
         StrictLockfileError::new(
             "C104",
             format!(
-                "strict lockfile `{}` is not valid schema v0 JSON: {err}",
+                "strict lockfile `{}` is not valid JSON (expected schema v0 object)",
+                path.display()
+            ),
+        )
+    })?;
+    let raw: RawStrictLockfile = serde_json::from_value(value).map_err(|_| {
+        StrictLockfileError::new(
+            "C104",
+            format!(
+                "strict lockfile `{}` does not match schema v0 (`schema_version`, `dependencies[]` with `name`, `version`, `digest`)",
                 path.display()
             ),
         )
@@ -252,8 +277,8 @@ mod tests {
   ]
 }
         "#;
-        let parsed = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
-            .expect("valid lockfile");
+        let parsed =
+            parse_strict_lockfile_v0(json, Path::new("clg.lock.json")).expect("valid lockfile");
         let names: Vec<&str> = parsed
             .dependencies
             .iter()
@@ -271,11 +296,11 @@ mod tests {
   "extra": true
 }
         "#;
-        let err = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
+        let err = parse_strict_lockfile_v0(json, Path::new("clg.lock.json"))
             .expect_err("expected schema error");
         assert_eq!(err.code(), "C104");
         assert!(
-            err.message().contains("unknown field `extra`"),
+            err.message().contains("does not match schema v0"),
             "message: {}",
             err.message()
         );
@@ -296,11 +321,11 @@ mod tests {
   ]
 }
         "#;
-        let err = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
+        let err = parse_strict_lockfile_v0(json, Path::new("clg.lock.json"))
             .expect_err("expected schema error");
         assert_eq!(err.code(), "C104");
         assert!(
-            err.message().contains("unknown field `note`"),
+            err.message().contains("does not match schema v0"),
             "message: {}",
             err.message()
         );
@@ -314,7 +339,7 @@ mod tests {
   "dependencies": []
 }
         "#;
-        let err = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
+        let err = parse_strict_lockfile_v0(json, Path::new("clg.lock.json"))
             .expect_err("expected schema version error");
         assert_eq!(err.code(), "C104");
         assert!(err.message().contains("expected 0"));
@@ -333,7 +358,7 @@ mod tests {
   ]
 }
         "#;
-        let err = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
+        let err = parse_strict_lockfile_v0(json, Path::new("clg.lock.json"))
             .expect_err("expected duplicate-name error");
         assert_eq!(err.code(), "C104");
         assert!(
@@ -353,7 +378,7 @@ mod tests {
   ]
 }
         "#;
-        let err = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
+        let err = parse_strict_lockfile_v0(json, Path::new("clg.lock.json"))
             .expect_err("expected version error");
         assert_eq!(err.code(), "C104");
         assert!(
@@ -373,17 +398,17 @@ mod tests {
   ]
 }
         "#;
-        let err = parse_strict_lockfile_v0(json, &PathBuf::from("clg.lock.json"))
+        let err = parse_strict_lockfile_v0(json, Path::new("clg.lock.json"))
             .expect_err("expected digest error");
         assert_eq!(err.code(), "C102");
         assert!(err.message().contains("lowercase hex"));
     }
 
     #[test]
-    fn load_if_present_returns_none_when_lockfile_is_missing() {
+    fn load_required_rejects_missing_lockfile() {
         let tmp = tempdir().expect("tempdir");
-        let loaded =
-            load_strict_lockfile_v0_if_present(tmp.path()).expect("missing lockfile is allowed");
-        assert!(loaded.is_none());
+        let err = load_required_strict_lockfile_v0(tmp.path()).expect_err("missing lockfile");
+        assert_eq!(err.code(), "C101");
+        assert!(err.message().contains("strict mode requires"));
     }
 }

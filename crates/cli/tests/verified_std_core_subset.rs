@@ -215,6 +215,11 @@ fn strict_profile_core_fixture_emits_vcs_without_assumptions() {
         function main() -> Int { countdown(step(3)) }
     "#;
     fs::write(&src_path, src).expect("write source");
+    fs::write(
+        tmp.path().join("clg.lock.json"),
+        r#"{"schema_version":0,"dependencies":[]}"#,
+    )
+    .expect("write strict lockfile");
 
     Command::cargo_bin("clg")
         .unwrap()

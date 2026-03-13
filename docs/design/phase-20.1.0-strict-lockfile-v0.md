@@ -66,6 +66,31 @@ Scope for this slice is intentionally small:
 
 Final canonical code registration remains tracked under TODO `20.1.4.3`.
 
+## Remediation (20.1.0.3)
+
+When strict preflight fails on lockfile input, fix in this order:
+
+1. `C101` (missing/unreadable):
+   - create `<module-root>/clg.lock.json`,
+   - ensure it is a readable file (not a directory/symlink target mismatch),
+   - re-run `clg build --compiler-mode strict`.
+2. `C104` (malformed schema):
+   - use schema v0 exactly:
+     - top-level keys: `schema_version`, `dependencies`,
+     - dependency keys: `name`, `version`, `digest`,
+     - `schema_version` must be `0`.
+3. `C102` (invalid digest):
+   - set digest to `sha256:<64 lowercase hex>`.
+
+Canonical minimal valid file:
+
+```json
+{
+  "schema_version": 0,
+  "dependencies": []
+}
+```
+
 ## Non-Goals
 - Transitive dependency pins.
 - Semver solver behavior.

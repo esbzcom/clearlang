@@ -163,7 +163,9 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C034 | build | Assurance manifest output flag is invalid for this build command combination. |
 | C101 | build | Strict lockfile input could not be read (missing/unreadable `clg.lock.json` in strict preflight context). Remediation: create/readable `clg.lock.json` at module root. |
 | C102 | build | Strict lockfile dependency digest is invalid (`sha256:<64 lowercase hex>` required). |
+| C103 | build | Strict trust-policy input/signer validation failed (missing/unreadable/malformed policy, unknown-revoked-expired signer, or signature trust-policy mismatch). Remediation: provide valid `clg.trust-policy.json` schema v0 and signer entries. |
 | C104 | build | Strict lockfile schema is malformed or unsupported for v0 preflight validation. Remediation: use schema v0 with only `schema_version` and `dependencies[]:{name,version,digest}`. |
+| C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

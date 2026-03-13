@@ -132,6 +132,32 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
             r#"{"schema_version":0,"dependencies":[]}"#,
         )
         .expect("write strict lockfile");
+        fs::write(
+            tmp.path().join("clg.trust-policy.json"),
+            r#"{
+  "schema_version": 0,
+  "trusted_signers": [
+    {
+      "key_id": "std-core-release-ed25519-2026q1",
+      "scheme": "ed25519",
+      "public_key": "hex:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }
+  ],
+  "revoked_key_ids": []
+}"#,
+        )
+        .expect("write strict trust policy");
+        fs::write(
+            tmp.path().join("clg.host-profile.json"),
+            r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": []
+}"#,
+        )
+        .expect("write strict host profile");
 
         Command::cargo_bin("clg")
             .unwrap()

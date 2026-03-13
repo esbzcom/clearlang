@@ -20,14 +20,18 @@ use crate::proofs::{
 use crate::signing::{self, SignScope};
 
 mod strict;
+mod strict_host_profile;
 mod strict_lockfile;
+mod strict_trust_policy;
 mod vcs_json;
 
 use strict::{
     proof_strict_for_mode, strict_l3_claim_violation, strict_language_profile_violation,
     strict_proof_violation,
 };
+use strict_host_profile::load_required_host_profile_v0;
 use strict_lockfile::load_required_strict_lockfile_v0;
+use strict_trust_policy::load_required_trust_policy_v0;
 use vcs_json::write_vcs_json;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -184,6 +188,12 @@ pub fn run(
     if compiler_mode == CompilerMode::Strict {
         let module_root = file.parent().unwrap_or_else(|| Path::new("."));
         if let Err(err) = load_required_strict_lockfile_v0(module_root) {
+            fail_build(err.code(), err.message(), None)?;
+        }
+        if let Err(err) = load_required_trust_policy_v0(module_root) {
+            fail_build(err.code(), err.message(), None)?;
+        }
+        if let Err(err) = load_required_host_profile_v0(module_root) {
             fail_build(err.code(), err.message(), None)?;
         }
     }

@@ -17,6 +17,7 @@ Types
   - Policy: checked overflow by default for U64 arithmetic; U128/U256 arithmetic is not supported yet (T110).
   - Helper intrinsics: `std::u128::from_limbs`, `std::u128::{lo,hi}`, `std::u256::from_limbs`, `std::u256::limb0`/`limb1`/`limb2`/`limb3`.
   - Literal typing: bare literals can coerce to `U8`/`U64`/`U128`/`U256` when the expected type is unsigned; otherwise they remain `Int`. Use `U8(...)`, `U64(...)`, `U128(...)`, or `U256(...)` for explicit unsigned literals; only non-negative literals are accepted and range-checked (T112).
+  - Integer readability: `_` is allowed inside integer literals (`1_000`, `10_000_000`); `,` is not allowed in numeric literals (`1,000` is rejected with a diagnostic that suggests `_`).
   - Rotation intrinsics: `std::u64::rotl`/`std::u64::rotr` rotate a U64 by a U64 shift amount.
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.
@@ -48,6 +49,12 @@ Namespacing (::)
 - Bare paths without `()` (e.g., `std::str::len`) are not expressions and are rejected.
 
 - Rationale: `::` avoids conflicts with `:` (types) and `.` (future member/method and floats), and is familiar for compile-time paths.
+
+Comments
+
+- Line comments: `// ...` until end of line.
+- Block comments: `/* ... */` (nesting is supported).
+- Canonical style for generated code/docs: prefer `//`; use `/* ... */` for multi-line notes only.
 
 Modules and Imports (Phase 17.5)
 

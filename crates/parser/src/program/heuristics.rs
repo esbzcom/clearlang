@@ -18,6 +18,89 @@ pub(super) fn has_unclosed_paren(src: &str) -> bool {
     depth > 0
 }
 
+pub(super) fn strip_comments_preserve_layout(src: &str) -> String {
+    let bytes = src.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut in_line_comment = false;
+    let mut block_comment_depth = 0usize;
+
+    while i < bytes.len() {
+        let b = bytes[i];
+        if in_line_comment {
+            if b == b'\n' {
+                in_line_comment = false;
+                out.push(b'\n');
+            } else if b == b'\r' {
+                out.push(b'\r');
+            } else {
+                out.push(b' ');
+            }
+            i += 1;
+            continue;
+        }
+        if block_comment_depth > 0 {
+            if i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'*' {
+                block_comment_depth += 1;
+                out.push(b' ');
+                out.push(b' ');
+                i += 2;
+                continue;
+            }
+            if i + 1 < bytes.len() && b == b'*' && bytes[i + 1] == b'/' {
+                block_comment_depth = block_comment_depth.saturating_sub(1);
+                out.push(b' ');
+                out.push(b' ');
+                i += 2;
+                continue;
+            }
+            if b == b'\n' || b == b'\r' {
+                out.push(b);
+            } else {
+                out.push(b' ');
+            }
+            i += 1;
+            continue;
+        }
+        if in_string {
+            out.push(b);
+            if escaped {
+                escaped = false;
+            } else if b == b'\\' {
+                escaped = true;
+            } else if b == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+
+        if i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'/' {
+            in_line_comment = true;
+            out.push(b' ');
+            out.push(b' ');
+            i += 2;
+            continue;
+        }
+        if i + 1 < bytes.len() && b == b'/' && bytes[i + 1] == b'*' {
+            block_comment_depth = 1;
+            out.push(b' ');
+            out.push(b' ');
+            i += 2;
+            continue;
+        }
+        if b == b'"' {
+            in_string = true;
+        }
+        out.push(b);
+        i += 1;
+    }
+
+    String::from_utf8(out).unwrap_or_else(|_| src.to_string())
+}
+
 pub(super) fn looks_like_missing_comma(src: &str) -> bool {
     let bytes = src.as_bytes();
     let mut i = 0usize;
@@ -364,6 +447,108 @@ pub(super) fn find_export_import(src: &str) -> Option<(usize, usize)> {
             }
         }
         offset += line.len();
+    }
+    None
+}
+
+pub(super) fn find_comma_grouped_number(src: &str) -> Option<(usize, usize)> {
+    let bytes = src.as_bytes();
+    let mut i = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut in_line_comment = false;
+    let mut block_comment_depth = 0usize;
+
+    while i < bytes.len() {
+        if in_line_comment {
+            if bytes[i] == b'\n' {
+                in_line_comment = false;
+            }
+            i += 1;
+            continue;
+        }
+        if block_comment_depth > 0 {
+            if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+                block_comment_depth += 1;
+                i += 2;
+                continue;
+            }
+            if i + 1 < bytes.len() && bytes[i] == b'*' && bytes[i + 1] == b'/' {
+                block_comment_depth = block_comment_depth.saturating_sub(1);
+                i += 2;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if bytes[i] == b'\\' {
+                escaped = true;
+            } else if bytes[i] == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'/' {
+            in_line_comment = true;
+            i += 2;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+            block_comment_depth = 1;
+            i += 2;
+            continue;
+        }
+        if bytes[i] == b'"' {
+            in_string = true;
+            i += 1;
+            continue;
+        }
+
+        if bytes[i].is_ascii_digit() {
+            let start = i;
+            let prev_ok = start == 0 || !bytes[start - 1].is_ascii_digit();
+            if !prev_ok {
+                i += 1;
+                continue;
+            }
+
+            let mut j = i;
+            while j < bytes.len() && bytes[j].is_ascii_digit() {
+                j += 1;
+            }
+            let first_group_len = j - i;
+            if !(1..=3).contains(&first_group_len) || j >= bytes.len() || bytes[j] != b',' {
+                i = j;
+                continue;
+            }
+
+            let mut group_count = 0usize;
+            let mut k = j;
+            while k < bytes.len() && bytes[k] == b',' {
+                if k + 3 >= bytes.len()
+                    || !bytes[k + 1].is_ascii_digit()
+                    || !bytes[k + 2].is_ascii_digit()
+                    || !bytes[k + 3].is_ascii_digit()
+                {
+                    break;
+                }
+                group_count += 1;
+                k += 4;
+            }
+            if group_count > 0 {
+                let after_ok = k >= bytes.len() || !bytes[k].is_ascii_digit();
+                if after_ok {
+                    return Some((start, k));
+                }
+            }
+            i = j;
+            continue;
+        }
+        i += 1;
     }
     None
 }

@@ -29,6 +29,8 @@ Quick Start
 Notes
 
 - The parser currently supports: functions, Int/Bool types, integer and boolean literals, variables, function calls, and binary ops `+ - * /` with standard precedence. Trailing commas are allowed in parameter lists, but not in call argument lists.
+- Comments are supported via `// ...` and `/* ... */`.
+- Integer literals support `_` separators (for example `1_000`).
 
 - File `06_trailing_call_comma.clear` is an intentional parse error example.
 
@@ -57,6 +59,10 @@ Test Files
 - `16_namespaced_call.clear`: demonstrates namespaced callee syntax (parse-only).
 
 - `17_hello_str.clear`: hello world returning a `String` from `main` (parse/type only; codegen in Phase 5).
+
+- `19_comments_numeric_separator.clear`: runnable sample using comments and `_` numeric separators.
+
+- `20_comma_numeric_separator_invalid.clear`: intentional parse error showing `1,000` is rejected and suggests `_`.
 
 
 

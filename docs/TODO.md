@@ -890,11 +890,11 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 19.5.3 Add policy checks for release pipelines (reject manifests below required assurance tier). (`docs/design/phase-19.5.3-release-policy-gates.md`, `clg verify --assurance-manifest --release-policy`, diagnostic `V005`)
 
 ### 20 Runnable Namespace Baseline + Lock Gates (milestone_2)
-- [ ] 20.0 Add language comment syntax support (AI-friendly, deterministic).
-  - [ ] 20.0.1 Parser/lexer: add line comments `// ...` and block comments `/* ... */` with deterministic tokenization and spans.
-  - [ ] 20.0.2 Define and document one canonical style for generated code/docs (`//` preferred; `/* ... */` only for multi-line notes).
-  - [ ] 20.0.3 Add parser + CLI tests proving comments are accepted in runnable fixtures and do not affect diagnostics stability.
-  - [ ] 20.0.4 Numeric literal readability: support `_` as digit separator (`1_000`), keep `,` invalid (`1,000`), and add a targeted diagnostic suggesting `_`.
+- [x] 20.0 Add language comment syntax support (AI-friendly, deterministic).
+  - [x] 20.0.1 Parser/lexer: add line comments `// ...` and block comments `/* ... */` with deterministic tokenization and spans.
+  - [x] 20.0.2 Define and document one canonical style for generated code/docs (`//` preferred; `/* ... */` only for multi-line notes).
+  - [x] 20.0.3 Add parser + CLI tests proving comments are accepted in runnable fixtures and do not affect diagnostics stability.
+  - [x] 20.0.4 Numeric literal readability: support `_` as digit separator (`1_000`), keep `,` invalid (`1,000`), and add a targeted diagnostic suggesting `_`.
 - [ ] 20.1 Publish post-19 std/package architecture lock (precompiled `std::core` + host-backed `std::host` + chain packages).
   - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
   - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.

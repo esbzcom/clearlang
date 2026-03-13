@@ -1,0 +1,6 @@
+// Line comments are ignored by parser/runner.
+function main() -> Int {
+    /* Multi-line block comments are also ignored.
+       Numeric separators use underscores. */
+    1_000
+}

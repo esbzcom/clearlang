@@ -1,12 +1,10 @@
+use crate::tokens::int_literal_value_p;
 use crate::ErrTy;
 use chumsky::prelude::*;
-use chumsky::text;
 use clg_ast::{Expr, Span};
 
 pub(crate) fn int_lit<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
-    text::int(10)
-        .from_str::<i64>()
-        .unwrapped()
+    int_literal_value_p()
         .map_with(|n, e| {
             let sp: chumsky::span::SimpleSpan<usize> = e.span();
             Expr::Int(

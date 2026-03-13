@@ -14,8 +14,9 @@ use clg_ast::{Program, Span};
 mod heuristics;
 
 use self::heuristics::{
-    find_capture_list_lambda, find_export_import, find_untyped_lambda, has_unclosed_paren,
-    keyword_missing_brace, looks_like_missing_comma,
+    find_capture_list_lambda, find_comma_grouped_number, find_export_import, find_untyped_lambda,
+    has_unclosed_paren, keyword_missing_brace, looks_like_missing_comma,
+    strip_comments_preserve_layout,
 };
 
 #[derive(Debug)]
@@ -154,7 +155,10 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 }
 
 pub fn parse(src: &str) -> Result<Program, String> {
-    program_p().parse(src).into_result().map_err(|errs| {
+    let normalized = strip_comments_preserve_layout(src);
+    let parser = program_p();
+    let parsed = parser.parse(normalized.as_str()).into_result();
+    parsed.map_err(|errs| {
         let mut messages: Vec<String> = Vec::with_capacity(errs.len() + 1);
         for e in errs {
             let span = e.span();
@@ -180,7 +184,7 @@ pub fn parse(src: &str) -> Result<Program, String> {
         }
 
         let mut offset = 0usize;
-        for line in src.split_inclusive('\n') {
+        for line in normalized.split_inclusive('\n') {
             let line_no_nl = line.strip_suffix('\n').unwrap_or(line);
             let line_text = line_no_nl.strip_suffix('\r').unwrap_or(line_no_nl);
             let trimmed = line_text.trim_start();
@@ -219,28 +223,38 @@ pub fn parse(src: &str) -> Result<Program, String> {
             .iter()
             .any(|msg| msg.contains("expected: something else"));
         if should_hint {
-            if !messages.iter().any(|msg| msg.contains("comma")) && looks_like_missing_comma(src) {
+            if !messages.iter().any(|msg| msg.contains("comma"))
+                && looks_like_missing_comma(normalized.as_str())
+            {
                 messages.push("hint: expected comma between arguments".to_string());
             }
-            if !messages.iter().any(|msg| msg.contains("')'")) && has_unclosed_paren(src) {
+            if !messages.iter().any(|msg| msg.contains("')'"))
+                && has_unclosed_paren(normalized.as_str())
+            {
                 messages.push("hint: expected ')'".to_string());
             }
         }
-        if let Some(start) = find_untyped_lambda(src) {
+        if let Some((start, end)) = find_comma_grouped_number(normalized.as_str()) {
+            messages.push(format!(
+                "at {}..{}: error: comma separators are not allowed in numeric literals; use `_` (for example `1_000`)",
+                start, end
+            ));
+        }
+        if let Some(start) = find_untyped_lambda(normalized.as_str()) {
             let end = start.saturating_add(1);
             messages.push(format!(
                 "at {}..{}: error: lambda parameters require type annotations (`name: Type`)",
                 start, end
             ));
         }
-        if let Some(start) = find_capture_list_lambda(src) {
+        if let Some(start) = find_capture_list_lambda(normalized.as_str()) {
             let end = start.saturating_add(1);
             messages.push(format!(
                 "at {}..{}: error: capture-list syntax is not supported in v1",
                 start, end
             ));
         }
-        if let Some((start, end)) = find_export_import(src) {
+        if let Some((start, end)) = find_export_import(normalized.as_str()) {
             messages.push(format!(
                 "at {}..{}: error: `export import` is not supported in v1; import directly in each module",
                 start, end
@@ -261,7 +275,10 @@ pub struct ParserError {
 
 // Parse returning structured errors (preferred for --json-errors)
 pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
-    match program_p().parse(src).into_result() {
+    let normalized = strip_comments_preserve_layout(src);
+    let parser = program_p();
+    let parsed = parser.parse(normalized.as_str()).into_result();
+    match parsed {
         Ok(ast) => Ok(ast),
         Err(errs) => {
             let mut items: Vec<ParserError> = Vec::with_capacity(errs.len() + 1);
@@ -305,7 +322,7 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                 });
             }
             let mut offset = 0usize;
-            for line in src.split_inclusive('\n') {
+            for line in normalized.split_inclusive('\n') {
                 let line_no_nl = line.strip_suffix('\n').unwrap_or(line);
                 let line_text = line_no_nl.strip_suffix('\r').unwrap_or(line_no_nl);
                 let trimmed = line_text.trim_start();
@@ -354,7 +371,18 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                 }
                 offset += line.len();
             }
-            if let Some(start) = find_untyped_lambda(src) {
+            if let Some((start, end)) = find_comma_grouped_number(normalized.as_str()) {
+                items.push(ParserError {
+                    code: "P001",
+                    message: format!(
+                        "at {}..{}: error: comma separators are not allowed in numeric literals; use `_` (for example `1_000`)",
+                        start, end
+                    ),
+                    start,
+                    end,
+                });
+            }
+            if let Some(start) = find_untyped_lambda(normalized.as_str()) {
                 let end = start.saturating_add(1);
                 items.push(ParserError {
                     code: "P001",
@@ -366,7 +394,7 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     end,
                 });
             }
-            if let Some(start) = find_capture_list_lambda(src) {
+            if let Some(start) = find_capture_list_lambda(normalized.as_str()) {
                 let end = start.saturating_add(1);
                 items.push(ParserError {
                     code: "P012",
@@ -378,7 +406,7 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     end,
                 });
             }
-            if let Some((start, end)) = find_export_import(src) {
+            if let Some((start, end)) = find_export_import(normalized.as_str()) {
                 items.push(ParserError {
                     code: "P011",
                     message: format!(

@@ -91,6 +91,17 @@ fn run_can_execute_clear_source_directly() {
 }
 
 #[test]
+fn run_supports_comments_and_numeric_separators() {
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(sample("19_comments_numeric_separator.clear"))
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("1000\n"));
+}
+
+#[test]
 fn run_surfaces_build_type_errors_for_clear_source_json() {
     let output = Command::cargo_bin("clg")
         .unwrap()
@@ -193,6 +204,32 @@ fn build_json_errors_surface_type_failures() {
     let first = &errors[0];
     assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("T002"));
     assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("type"));
+}
+
+#[test]
+fn parse_json_errors_suggest_underscore_for_comma_grouped_number() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "parse"])
+        .arg(sample("20_comma_numeric_separator_invalid.clear"))
+        .output()
+        .expect("run parse command");
+    assert!(!output.status.success(), "parse should fail");
+    let v: Value = serde_json::from_slice(&output.stdout).expect("json parse");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(
+        errors.iter().any(|e| {
+            e.get("message")
+                .and_then(|m| m.as_str())
+                .map(|m| m.contains("use `_`"))
+                .unwrap_or(false)
+        }),
+        "expected underscore separator suggestion in parse diagnostics"
+    );
 }
 
 #[test]

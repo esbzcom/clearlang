@@ -10,6 +10,36 @@ pub(crate) fn ident_continue<'a>() -> impl Parser<'a, &'a str, char, ErrTy<'a>> 
     any().filter(|c: &char| c.is_alphanumeric() || *c == '_')
 }
 
+fn parse_decimal_i64(raw: &str) -> Result<i64, String> {
+    if raw.ends_with('_') || raw.contains("__") {
+        return Err("invalid integer literal: misplaced `_` separator".to_string());
+    }
+    let normalized = raw.replace('_', "");
+    normalized
+        .parse::<i64>()
+        .map_err(|_| "integer literal out of range for `Int`".to_string())
+}
+
+pub(crate) fn int_literal_value_p<'a>() -> impl Parser<'a, &'a str, i64, ErrTy<'a>> {
+    one_of("0123456789")
+        .then(
+            any()
+                .filter(|c: &char| c.is_ascii_digit() || *c == '_')
+                .repeated()
+                .collect::<String>(),
+        )
+        .map(|(head, tail)| {
+            let mut s = String::with_capacity(1 + tail.len());
+            s.push(head);
+            s.push_str(&tail);
+            s
+        })
+        .try_map(|raw, span| match parse_decimal_i64(&raw) {
+            Ok(value) => Ok(value),
+            Err(msg) => Err(Rich::custom(span, msg)),
+        })
+}
+
 pub(crate) fn kw<'a>(s: &'static str) -> impl Parser<'a, &'a str, &'static str, ErrTy<'a>> {
     just(s)
         .then(ident_continue().or_not())

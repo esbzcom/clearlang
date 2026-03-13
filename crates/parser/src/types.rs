@@ -1,8 +1,8 @@
 use crate::path::path_name_p;
+use crate::tokens::int_literal_value_p;
 use crate::tokens::kw;
 use crate::ErrTy;
 use chumsky::prelude::*;
-use chumsky::text;
 use clg_ast::{Effect, Type};
 
 pub(crate) fn effect_p<'a>() -> impl Parser<'a, &'a str, Effect, ErrTy<'a>> {
@@ -99,24 +99,21 @@ pub(crate) fn ty_p<'a>() -> impl Parser<'a, &'a str, Type, ErrTy<'a>> {
                 params,
                 ret: Box::new(ret),
             });
-        let array_size = text::int(10)
-            .from_str::<i64>()
-            .unwrapped()
-            .try_map(|n, span| {
-                if n < 0 {
-                    Err(Rich::custom(
-                        span,
-                        "array size must not be negative".to_string(),
-                    ))
-                } else if n > u32::MAX as i64 {
-                    Err(Rich::custom(
-                        span,
-                        "array size exceeds maximum u32 value".to_string(),
-                    ))
-                } else {
-                    Ok(n as u32)
-                }
-            });
+        let array_size = int_literal_value_p().try_map(|n, span| {
+            if n < 0 {
+                Err(Rich::custom(
+                    span,
+                    "array size must not be negative".to_string(),
+                ))
+            } else if n > u32::MAX as i64 {
+                Err(Rich::custom(
+                    span,
+                    "array size exceeds maximum u32 value".to_string(),
+                ))
+            } else {
+                Ok(n as u32)
+            }
+        });
         let array_t = just('[')
             .padded()
             .ignore_then(ty.clone())

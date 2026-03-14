@@ -31,8 +31,8 @@ use strict::{
     strict_proof_violation,
 };
 use strict_host_profile::load_required_host_profile_v0;
-use strict_lockfile::load_required_strict_lockfile_v0;
-use strict_package_contract::load_required_package_metadata_abi_v0;
+use strict_lockfile::{load_required_strict_lockfile_v0, StrictLockfileV0};
+use strict_package_contract::{load_required_package_metadata_abi_v0, StrictPackageContractV0};
 use strict_trust_policy::load_required_trust_policy_v0;
 use vcs_json::write_vcs_json;
 
@@ -110,17 +110,24 @@ pub fn run(
                 ),
             )?;
         }
-        if let Err(err) = load_required_strict_lockfile_v0(module_root) {
-            fail_preflight(err.code(), err.message())?;
-        }
+        let strict_lockfile = match load_required_strict_lockfile_v0(module_root) {
+            Ok(value) => value,
+            Err(err) => return fail_preflight(err.code(), err.message()),
+        };
         if let Err(err) = load_required_trust_policy_v0(module_root) {
             fail_preflight(err.code(), err.message())?;
         }
         if let Err(err) = load_required_host_profile_v0(module_root) {
             fail_preflight(err.code(), err.message())?;
         }
-        if let Err(err) = load_required_package_metadata_abi_v0(module_root) {
-            fail_preflight(err.code(), err.message())?;
+        let strict_package_contract = match load_required_package_metadata_abi_v0(module_root) {
+            Ok(value) => value,
+            Err(err) => return fail_preflight(err.code(), err.message()),
+        };
+        if let Some(message) =
+            strict_artifact_identity_violation(&strict_lockfile, &strict_package_contract)
+        {
+            fail_preflight("C102", &message)?;
         }
     }
 
@@ -488,6 +495,61 @@ fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)
         if let Some(typer) = cause.downcast_ref::<TyperError>() {
             return Some((typer, function));
         }
+    }
+    None
+}
+
+fn strict_artifact_identity_violation(
+    lockfile: &StrictLockfileV0,
+    package_contract: &StrictPackageContractV0,
+) -> Option<String> {
+    let mut lock_idx = 0usize;
+    let mut package_idx = 0usize;
+    while lock_idx < lockfile.dependencies.len() && package_idx < package_contract.packages.len() {
+        let lock = &lockfile.dependencies[lock_idx];
+        let package = &package_contract.packages[package_idx];
+        match lock.name.cmp(&package.name) {
+            std::cmp::Ordering::Less => {
+                return Some(format!(
+                    "strict artifact identity mismatch: lockfile dependency `{}` is missing from package metadata",
+                    lock.name
+                ));
+            }
+            std::cmp::Ordering::Greater => {
+                return Some(format!(
+                    "strict artifact identity mismatch: package metadata entry `{}` is not pinned in lockfile",
+                    package.name
+                ));
+            }
+            std::cmp::Ordering::Equal => {
+                if lock.version != package.version {
+                    return Some(format!(
+                        "strict artifact identity mismatch for `{}`: lockfile version `{}` does not match package metadata version `{}`",
+                        lock.name, lock.version, package.version
+                    ));
+                }
+                if lock.digest != package.digest {
+                    return Some(format!(
+                        "strict artifact identity mismatch for `{}`: lockfile digest `{}` does not match package metadata digest `{}`",
+                        lock.name, lock.digest, package.digest
+                    ));
+                }
+                lock_idx += 1;
+                package_idx += 1;
+            }
+        }
+    }
+    if let Some(lock) = lockfile.dependencies.get(lock_idx) {
+        return Some(format!(
+            "strict artifact identity mismatch: lockfile dependency `{}` is missing from package metadata",
+            lock.name
+        ));
+    }
+    if let Some(package) = package_contract.packages.get(package_idx) {
+        return Some(format!(
+            "strict artifact identity mismatch: package metadata entry `{}` is not pinned in lockfile",
+            package.name
+        ));
     }
     None
 }

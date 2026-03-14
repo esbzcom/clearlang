@@ -615,6 +615,79 @@ fn strict_compiler_mode_rejects_invalid_lockfile_digest_with_c102() {
 }
 
 #[test]
+fn strict_compiler_mode_rejects_lockfile_package_digest_mismatch_with_c102() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_mode_lockfile_package_digest_mismatch.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    fs::write(
+        tmp.path().join("clg.lock.json"),
+        r#"{
+  "schema_version": 0,
+  "dependencies": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}"#,
+    )
+    .expect("write lockfile");
+    fs::write(
+        tmp.path().join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 0,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
+      "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write strict package metadata");
+    fs::write(
+        tmp.path().join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:std::core:1.0.0",
+      "package": "std::core",
+      "version": "1.0.0",
+      "imports": []
+    }
+  ]
+}"#,
+    )
+    .expect("write strict package abi");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C102", "build");
+}
+
+#[test]
 fn strict_compiler_mode_requires_package_metadata_with_c104() {
     let src = r#"
         function main() -> Int { 0 }

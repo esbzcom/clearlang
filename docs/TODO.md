@@ -908,7 +908,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
   - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
     - [x] 20.1.2.1 Strict-mode source-of-truth gate: resolve packages only from lockfile + trusted local store (no implicit network fetch).
-    - [ ] 20.1.2.2 Artifact identity gate: require exact `(name, version, digest)` match against lockfile entries; digest mismatch fails closed.
+    - [x] 20.1.2.2 Artifact identity gate: require exact `(name, version, digest)` match against lockfile entries; digest mismatch fails closed.
     - [ ] 20.1.2.3 Trust gate: require valid package signature against configured trust anchors from trust-policy v0; untrusted/revoked/expired signer fails closed.
     - [ ] 20.1.2.4 Metadata/schema gate: package metadata schema version must be accepted; unknown/unsupported schema fails with stable diagnostics.
     - [ ] 20.1.2.5 ABI/link gate: imported symbols must match expected signature/effect/capability profile exactly; ABI mismatch fails deterministically.

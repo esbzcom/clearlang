@@ -577,6 +577,72 @@ fn strict_compiler_mode_rejects_invalid_lockfile_schema_with_c104() {
 }
 
 #[test]
+fn strict_compiler_mode_rejects_invalid_package_metadata_schema_with_c104() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_pkg_metadata_schema.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_lockfile(tmp.path());
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
+    fs::write(
+        tmp.path().join("clg.package-metadata.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("write strict package metadata");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
+fn strict_compiler_mode_rejects_invalid_package_abi_schema_with_c104() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_pkg_abi_schema.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_lockfile(tmp.path());
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    fs::write(
+        tmp.path().join("clg.package-abi.json"),
+        r#"{"schema_version":1,"contracts":[]}"#,
+    )
+    .expect("write strict package ABI");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
 fn strict_compiler_mode_rejects_invalid_lockfile_digest_with_c102() {
     let src = r#"
         function main() -> Int { 0 }

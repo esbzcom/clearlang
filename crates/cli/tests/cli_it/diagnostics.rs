@@ -1,4 +1,5 @@
 use super::*;
+use ed25519_dalek::{Signer, SigningKey};
 
 fn assert_single_json_error(v: &Value, code: &str, stage: &str) {
     assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
@@ -80,6 +81,118 @@ fn write_minimal_strict_preflight_files(root: &Path) {
     write_minimal_strict_host_profile(root);
     write_minimal_strict_package_metadata(root);
     write_minimal_strict_package_abi(root);
+}
+
+fn write_signed_strict_dependency_fixture(root: &Path, imports_json: &str) {
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let public_key_hex = hex::encode(signing.verifying_key().to_bytes());
+
+    fs::write(
+        root.join("clg.lock.json"),
+        r#"{
+  "schema_version": 0,
+  "dependencies": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}"#,
+    )
+    .expect("write strict lockfile");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 0,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
+      "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write strict package metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        format!(
+            r#"{{
+  "schema_version": 0,
+  "contracts": [
+    {{
+      "abi_id": "abi:std::core:1.0.0",
+      "package": "std::core",
+      "version": "1.0.0",
+      "imports": {imports_json}
+    }}
+  ]
+}}"#
+        ),
+    )
+    .expect("write strict package abi");
+    fs::write(
+        root.join("clg.trust-policy.json"),
+        format!(
+            r#"{{
+  "schema_version": 0,
+  "trusted_signers": [
+    {{
+      "key_id": "k1",
+      "scheme": "ed25519",
+      "public_key": "hex:{public_key_hex}",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }}
+  ],
+  "revoked_key_ids": []
+}}"#
+        ),
+    )
+    .expect("write strict trust policy");
+    fs::write(
+        root.join("clg.host-profile.json"),
+        r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": []
+}"#,
+    )
+    .expect("write strict host profile");
+
+    let signed_at = "2026-06-01T00:00:00Z";
+    let payload = format!(
+        "clg-package-signature-v0\n{}\n{}\n{}\n{}\n",
+        "std::core",
+        "1.0.0",
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        signed_at
+    );
+    let signature = signing.sign(payload.as_bytes());
+    fs::write(
+        root.join("clg.package-signatures.json"),
+        format!(
+            r#"{{
+  "schema_version": 0,
+  "signatures": [
+    {{
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "key_id": "k1",
+      "signed_at": "{signed_at}",
+      "signature_format": "ed25519",
+      "signature": "{}"
+    }}
+  ]
+}}"#,
+            hex::encode(signature.to_bytes())
+        ),
+    )
+    .expect("write strict package signatures");
 }
 
 #[test]
@@ -852,6 +965,65 @@ fn strict_compiler_mode_requires_package_metadata_with_c104() {
     let output = cmd.assert().failure().get_output().stdout.clone();
     let v: Value = serde_json::from_slice(&output).expect("json");
     assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
+fn strict_compiler_mode_allows_signed_dependency_with_empty_abi_imports() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_signed_dep_ok.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    cmd.assert().success();
+}
+
+#[test]
+fn strict_compiler_mode_rejects_unlinked_abi_symbol_with_c105() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_unlinked_abi_symbol.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C105", "build");
 }
 
 #[test]

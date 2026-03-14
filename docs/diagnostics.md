@@ -165,7 +165,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C102 | build | Strict artifact identity gate failed (invalid lockfile digest format or `(name, version, digest)` mismatch between `clg.lock.json` and strict package metadata). |
 | C103 | build | Strict trust gate failed (missing/unreadable/malformed trust-policy or package-signature envelope, untrusted/revoked signer, invalid signer window at signature timestamp, or signature verification failure). Remediation: provide valid trust policy/signature preflight inputs and trusted signer keys. |
 | C104 | build | Strict preflight schema input is malformed or unsupported (lockfile/package-metadata/package-abi v0). Remediation: provide valid v0 schema files with required keys only. |
-| C105 | build | Strict package metadata/ABI contract mismatch (e.g., missing abi_id mapping or package/version mismatch across metadata and ABI). Remediation: align `clg.package-metadata.json` and `clg.package-abi.json` exactly. |
+| C105 | build | Strict ABI/link gate failed (package metadata/ABI contract mismatch, unresolved ABI import symbol, or resolved symbol signature/effect mismatch against strict ABI expectations). Remediation: align strict ABI contracts with resolved external import surface exactly. |
 | C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |

@@ -93,6 +93,7 @@ pub fn run(
             Err(anyhow!(message.to_string()))
         }
     };
+    let mut strict_package_contract_for_link: Option<StrictPackageContractV0> = None;
 
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
         fail_preflight(
@@ -134,6 +135,7 @@ pub fn run(
         {
             fail_preflight(err.code(), err.message())?;
         }
+        strict_package_contract_for_link = Some(strict_package_contract);
         if let Err(err) = load_required_host_profile_v0(module_root) {
             fail_preflight(err.code(), err.message())?;
         }
@@ -208,6 +210,15 @@ pub fn run(
             Err(anyhow!(message.to_string()))
         }
     };
+    if compiler_mode == CompilerMode::Strict {
+        if let Some(package_contract) = strict_package_contract_for_link.as_ref() {
+            if let Some(message) =
+                strict_abi_link_violation(package_contract, external_typer_sigs.as_slice())
+            {
+                fail_build("C105", &message, None)?;
+            }
+        }
+    }
 
     if (lean_checker_version.is_some() || coq_checker_version.is_some()) && !sign {
         fail_build(
@@ -507,6 +518,181 @@ fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)
     None
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct AbiLinkProfile {
+    effect: String,
+    params: Vec<String>,
+    ret: String,
+    capability: Option<String>,
+}
+
+fn strict_abi_link_violation(
+    package_contract: &StrictPackageContractV0,
+    external_imports: &[ExternalBuiltinSig],
+) -> Option<String> {
+    use std::collections::BTreeMap;
+
+    let mut expected: BTreeMap<&str, (&str, AbiLinkProfile)> = BTreeMap::new();
+    for contract in &package_contract.contracts {
+        for import in &contract.imports {
+            let profile = AbiLinkProfile {
+                effect: import.effect.clone(),
+                params: import
+                    .params
+                    .iter()
+                    .map(|ty| normalize_type_contract(ty))
+                    .collect(),
+                ret: normalize_type_contract(&import.ret),
+                capability: import.capability.clone(),
+            };
+            if let Some((existing_abi_id, existing)) = expected.get(import.symbol.as_str()) {
+                if existing != &profile {
+                    return Some(format!(
+                        "strict ABI/link mismatch for symbol `{}`: conflicting ABI profiles between `{}` and `{}`",
+                        import.symbol, existing_abi_id, contract.abi_id
+                    ));
+                }
+                continue;
+            }
+            expected.insert(import.symbol.as_str(), (contract.abi_id.as_str(), profile));
+        }
+    }
+
+    let mut actual: BTreeMap<&str, AbiLinkProfile> = BTreeMap::new();
+    for import in external_imports {
+        let profile = AbiLinkProfile {
+            effect: effect_to_canonical(import.effect).to_string(),
+            params: import
+                .params
+                .iter()
+                .map(|param| type_to_canonical(&param.ty))
+                .collect(),
+            ret: type_to_canonical(&import.ret),
+            capability: None,
+        };
+        if let Some(existing) = actual.get(import.name.as_str()) {
+            if existing != &profile {
+                return Some(format!(
+                    "strict ABI/link mismatch for symbol `{}`: conflicting resolved external import signatures",
+                    import.name
+                ));
+            }
+            continue;
+        }
+        actual.insert(import.name.as_str(), profile);
+    }
+
+    for (symbol, (_, expected_profile)) in &expected {
+        let Some(actual_profile) = actual.get(symbol) else {
+            return Some(format!(
+                "strict ABI/link mismatch: symbol `{}` declared in strict package ABI is not present in resolved external imports",
+                symbol
+            ));
+        };
+        if expected_profile.effect != actual_profile.effect
+            || expected_profile.params != actual_profile.params
+            || expected_profile.ret != actual_profile.ret
+        {
+            return Some(format!(
+                "strict ABI/link mismatch for symbol `{}`: expected effect/signature `{}({}) -> {}` but resolved `{}({}) -> {}`",
+                symbol,
+                expected_profile.effect,
+                expected_profile.params.join(", "),
+                expected_profile.ret,
+                actual_profile.effect,
+                actual_profile.params.join(", "),
+                actual_profile.ret
+            ));
+        }
+    }
+
+    for symbol in actual.keys() {
+        if !expected.contains_key(symbol) {
+            return Some(format!(
+                "strict ABI/link mismatch: resolved external import `{}` is not declared in strict package ABI",
+                symbol
+            ));
+        }
+    }
+
+    None
+}
+
+fn effect_to_canonical(effect: Effect) -> &'static str {
+    match effect {
+        Effect::Pure => "pure",
+        Effect::Mut => "mut",
+        Effect::Io => "io",
+        Effect::None => "none",
+    }
+}
+
+fn type_to_canonical(ty: &Type) -> String {
+    match ty {
+        Type::Int => "Int".to_string(),
+        Type::U8 => "U8".to_string(),
+        Type::U64 => "U64".to_string(),
+        Type::U128 => "U128".to_string(),
+        Type::U256 => "U256".to_string(),
+        Type::Bool => "Bool".to_string(),
+        Type::String => "String".to_string(),
+        Type::Bytes => "Bytes".to_string(),
+        Type::Named { name, args } => {
+            if args.is_empty() {
+                name.clone()
+            } else {
+                let args = args
+                    .iter()
+                    .map(type_to_canonical)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("{name}<{args}>")
+            }
+        }
+        Type::Option(inner) => format!("Option<{}>", type_to_canonical(inner)),
+        Type::Result(ok, err) => format!(
+            "Result<{},{}>",
+            type_to_canonical(ok),
+            type_to_canonical(err)
+        ),
+        Type::List(inner) => format!("List<{}>", type_to_canonical(inner)),
+        Type::Set(inner) => format!("Set<{}>", type_to_canonical(inner)),
+        Type::Map(key, value) => format!(
+            "Map<{},{}>",
+            type_to_canonical(key),
+            type_to_canonical(value)
+        ),
+        Type::Array(inner, len) => match len {
+            Some(len) => format!("[{}; {}]", type_to_canonical(inner), len),
+            None => format!("[{}]", type_to_canonical(inner)),
+        },
+        Type::Slice(inner) => format!("Slice<{}>", type_to_canonical(inner)),
+        Type::Tuple(items) => format!(
+            "({})",
+            items
+                .iter()
+                .map(type_to_canonical)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        Type::Fn { params, ret } => format!(
+            "Fn({})->{}",
+            params
+                .iter()
+                .map(type_to_canonical)
+                .collect::<Vec<_>>()
+                .join(","),
+            type_to_canonical(ret)
+        ),
+    }
+}
+
+fn normalize_type_contract(raw: &str) -> String {
+    raw.chars()
+        .filter(|ch| !ch.is_ascii_whitespace())
+        .collect::<String>()
+}
+
 fn strict_artifact_identity_violation(
     lockfile: &StrictLockfileV0,
     package_contract: &StrictPackageContractV0,
@@ -583,6 +769,7 @@ fn default_assurance_manifest_path(sig_path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clg_ast::{Param, ParamKind};
 
     #[test]
     fn default_assurance_manifest_path_rewrites_sig_suffix() {
@@ -600,5 +787,161 @@ mod tests {
             default_assurance_manifest_path(path),
             PathBuf::from("artifacts/signature.assurance.json")
         );
+    }
+
+    fn abi_contract_with_imports(
+        imports: Vec<strict_package_contract::StrictAbiImportEntry>,
+    ) -> StrictPackageContractV0 {
+        StrictPackageContractV0 {
+            packages: vec![strict_package_contract::StrictPackageMetadataEntry {
+                name: "std::core".to_string(),
+                version: "1.0.0".to_string(),
+                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+                artifact_format: "wasm".to_string(),
+                artifact_path: "store/std-core-1.0.0.wasm".to_string(),
+                abi_id: "abi:std::core:1.0.0".to_string(),
+            }],
+            contracts: vec![strict_package_contract::StrictAbiContractEntry {
+                abi_id: "abi:std::core:1.0.0".to_string(),
+                package: "std::core".to_string(),
+                version: "1.0.0".to_string(),
+                imports,
+            }],
+        }
+    }
+
+    fn external_sig(
+        name: &str,
+        params: Vec<Type>,
+        ret: Type,
+        effect: Effect,
+    ) -> ExternalBuiltinSig {
+        ExternalBuiltinSig {
+            name: name.to_string(),
+            params: params
+                .into_iter()
+                .enumerate()
+                .map(|(idx, ty)| Param {
+                    kind: ParamKind::Borrow,
+                    name: format!("p{idx}"),
+                    ty,
+                })
+                .collect(),
+            ret,
+            effect,
+        }
+    }
+
+    #[test]
+    fn strict_abi_link_accepts_exact_symbol_signature_match() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::core::math::add".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: None,
+            }]);
+        let actual = vec![external_sig(
+            "std::core::math::add",
+            vec![Type::Int, Type::Int],
+            Type::Int,
+            Effect::Pure,
+        )];
+        assert!(strict_abi_link_violation(&package_contract, &actual).is_none());
+    }
+
+    #[test]
+    fn strict_abi_link_rejects_missing_expected_symbol() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::core::math::add".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: None,
+            }]);
+        let err =
+            strict_abi_link_violation(&package_contract, &[]).expect("missing symbol should fail");
+        assert!(err.contains("not present in resolved external imports"));
+    }
+
+    #[test]
+    fn strict_abi_link_rejects_effect_or_signature_mismatch() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::core::math::add".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: None,
+            }]);
+        let actual = vec![external_sig(
+            "std::core::math::add",
+            vec![Type::Int, Type::Int],
+            Type::Int,
+            Effect::Mut,
+        )];
+        let err =
+            strict_abi_link_violation(&package_contract, &actual).expect("signature mismatch");
+        assert!(err.contains("expected effect/signature"));
+    }
+
+    #[test]
+    fn strict_abi_link_rejects_conflicting_profiles_for_same_symbol() {
+        let package_contract = StrictPackageContractV0 {
+            packages: vec![
+                strict_package_contract::StrictPackageMetadataEntry {
+                    name: "std::core".to_string(),
+                    version: "1.0.0".to_string(),
+                    digest:
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                            .to_string(),
+                    artifact_format: "wasm".to_string(),
+                    artifact_path: "store/std-core-1.0.0.wasm".to_string(),
+                    abi_id: "abi:std::core:1.0.0".to_string(),
+                },
+                strict_package_contract::StrictPackageMetadataEntry {
+                    name: "std::math".to_string(),
+                    version: "1.0.0".to_string(),
+                    digest:
+                        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                            .to_string(),
+                    artifact_format: "wasm".to_string(),
+                    artifact_path: "store/std-math-1.0.0.wasm".to_string(),
+                    abi_id: "abi:std::math:1.0.0".to_string(),
+                },
+            ],
+            contracts: vec![
+                strict_package_contract::StrictAbiContractEntry {
+                    abi_id: "abi:std::core:1.0.0".to_string(),
+                    package: "std::core".to_string(),
+                    version: "1.0.0".to_string(),
+                    imports: vec![strict_package_contract::StrictAbiImportEntry {
+                        symbol: "std::crypto::hash".to_string(),
+                        effect: "pure".to_string(),
+                        params: vec!["Bytes".to_string()],
+                        ret: "Bytes".to_string(),
+                        capability: Some("std::crypto::hash".to_string()),
+                    }],
+                },
+                strict_package_contract::StrictAbiContractEntry {
+                    abi_id: "abi:std::math:1.0.0".to_string(),
+                    package: "std::math".to_string(),
+                    version: "1.0.0".to_string(),
+                    imports: vec![strict_package_contract::StrictAbiImportEntry {
+                        symbol: "std::crypto::hash".to_string(),
+                        effect: "pure".to_string(),
+                        params: vec!["Bytes".to_string()],
+                        ret: "Bytes".to_string(),
+                        capability: None,
+                    }],
+                },
+            ],
+        };
+        let err = strict_abi_link_violation(&package_contract, &[])
+            .expect("conflicting ABI profiles should fail");
+        assert!(err.contains("conflicting ABI profiles"));
     }
 }

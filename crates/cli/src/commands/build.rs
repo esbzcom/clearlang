@@ -31,7 +31,7 @@ use strict::{
     proof_strict_for_mode, strict_l3_claim_violation, strict_language_profile_violation,
     strict_proof_violation,
 };
-use strict_host_profile::load_required_host_profile_v0;
+use strict_host_profile::{load_required_host_profile_v0, StrictHostProfileV0};
 use strict_lockfile::{load_required_strict_lockfile_v0, StrictLockfileV0};
 use strict_package_contract::{load_required_package_metadata_abi_v0, StrictPackageContractV0};
 use strict_package_signatures::enforce_trust_gate_v0;
@@ -94,6 +94,7 @@ pub fn run(
         }
     };
     let mut strict_package_contract_for_link: Option<StrictPackageContractV0> = None;
+    let mut strict_host_profile_for_caps: Option<StrictHostProfileV0> = None;
 
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
         fail_preflight(
@@ -136,9 +137,11 @@ pub fn run(
             fail_preflight(err.code(), err.message())?;
         }
         strict_package_contract_for_link = Some(strict_package_contract);
-        if let Err(err) = load_required_host_profile_v0(module_root) {
-            fail_preflight(err.code(), err.message())?;
-        }
+        let strict_host_profile = match load_required_host_profile_v0(module_root) {
+            Ok(value) => value,
+            Err(err) => return fail_preflight(err.code(), err.message()),
+        };
+        strict_host_profile_for_caps = Some(strict_host_profile);
     }
 
     let mut timings = StageTimings::new();
@@ -216,6 +219,13 @@ pub fn run(
                 strict_abi_link_violation(package_contract, external_typer_sigs.as_slice())
             {
                 fail_build("C105", &message, None)?;
+            }
+            if let Some(host_profile) = strict_host_profile_for_caps.as_ref() {
+                if let Some(message) =
+                    strict_runtime_capability_violation(package_contract, host_profile)
+                {
+                    fail_build("C106", &message, None)?;
+                }
             }
         }
     }
@@ -693,6 +703,40 @@ fn normalize_type_contract(raw: &str) -> String {
         .collect::<String>()
 }
 
+fn strict_runtime_capability_violation(
+    package_contract: &StrictPackageContractV0,
+    host_profile: &StrictHostProfileV0,
+) -> Option<String> {
+    use std::collections::{BTreeMap, HashSet};
+
+    let host_caps: HashSet<&str> = host_profile
+        .capabilities
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let mut required_caps: BTreeMap<&str, &str> = BTreeMap::new();
+    for contract in &package_contract.contracts {
+        for import in &contract.imports {
+            if let Some(capability) = import.capability.as_deref() {
+                required_caps
+                    .entry(capability)
+                    .or_insert(import.symbol.as_str());
+            }
+        }
+    }
+
+    for (capability, symbol) in required_caps {
+        if !host_caps.contains(capability) {
+            return Some(format!(
+                "strict runtime capability mismatch: symbol `{}` requires capability `{}` not present in host profile `{}`",
+                symbol, capability, host_profile.profile
+            ));
+        }
+    }
+
+    None
+}
+
 fn strict_artifact_identity_violation(
     lockfile: &StrictLockfileV0,
     package_contract: &StrictPackageContractV0,
@@ -943,5 +987,41 @@ mod tests {
         let err = strict_abi_link_violation(&package_contract, &[])
             .expect("conflicting ABI profiles should fail");
         assert!(err.contains("conflicting ABI profiles"));
+    }
+
+    #[test]
+    fn strict_runtime_capability_accepts_required_capability_present() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::crypto::hash".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Bytes".to_string()],
+                ret: "Bytes".to_string(),
+                capability: Some("std::crypto::hash".to_string()),
+            }]);
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: vec!["std::crypto::hash".to_string()],
+        };
+        assert!(strict_runtime_capability_violation(&package_contract, &host_profile).is_none());
+    }
+
+    #[test]
+    fn strict_runtime_capability_rejects_missing_required_capability() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::crypto::hash".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Bytes".to_string()],
+                ret: "Bytes".to_string(),
+                capability: Some("std::crypto::hash".to_string()),
+            }]);
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: vec!["std::wasi::print".to_string()],
+        };
+        let err = strict_runtime_capability_violation(&package_contract, &host_profile)
+            .expect("missing capability should fail");
+        assert!(err.contains("not present in host profile"));
     }
 }

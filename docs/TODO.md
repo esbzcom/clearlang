@@ -912,7 +912,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.2.3 Trust gate: require valid package signature against configured trust anchors from trust-policy v0; untrusted/revoked/expired signer fails closed.
     - [x] 20.1.2.4 Metadata/schema gate: package metadata schema version must be accepted; unknown/unsupported schema fails with stable diagnostics.
     - [x] 20.1.2.5 ABI/link gate: imported symbols must match expected signature/effect/capability profile exactly; ABI mismatch fails deterministically.
-    - [ ] 20.1.2.6 Runtime capability gate: required host capabilities for linked imports must be present in selected host-profile v0, otherwise fail closed.
+    - [x] 20.1.2.6 Runtime capability gate: required host capabilities for linked imports must be present in selected host-profile v0, otherwise fail closed.
     - [ ] 20.1.2.7 Determinism gate: identical inputs (source, lockfile, package store, policy) produce identical resolved direct-dependency import map and diagnostics ordering.
     - [ ] 20.1.2.8 CI functional acceptance suite: add positive + tamper negative tests for 20.1.2.1-20.1.2.6 with fixed diagnostic-code assertions.
   - [ ] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).

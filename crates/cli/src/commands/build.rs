@@ -23,6 +23,7 @@ mod strict;
 mod strict_host_profile;
 mod strict_lockfile;
 mod strict_package_contract;
+mod strict_package_signatures;
 mod strict_trust_policy;
 mod vcs_json;
 
@@ -33,6 +34,7 @@ use strict::{
 use strict_host_profile::load_required_host_profile_v0;
 use strict_lockfile::{load_required_strict_lockfile_v0, StrictLockfileV0};
 use strict_package_contract::{load_required_package_metadata_abi_v0, StrictPackageContractV0};
+use strict_package_signatures::enforce_trust_gate_v0;
 use strict_trust_policy::load_required_trust_policy_v0;
 use vcs_json::write_vcs_json;
 
@@ -114,12 +116,10 @@ pub fn run(
             Ok(value) => value,
             Err(err) => return fail_preflight(err.code(), err.message()),
         };
-        if let Err(err) = load_required_trust_policy_v0(module_root) {
-            fail_preflight(err.code(), err.message())?;
-        }
-        if let Err(err) = load_required_host_profile_v0(module_root) {
-            fail_preflight(err.code(), err.message())?;
-        }
+        let strict_trust_policy = match load_required_trust_policy_v0(module_root) {
+            Ok(value) => value,
+            Err(err) => return fail_preflight(err.code(), err.message()),
+        };
         let strict_package_contract = match load_required_package_metadata_abi_v0(module_root) {
             Ok(value) => value,
             Err(err) => return fail_preflight(err.code(), err.message()),
@@ -128,6 +128,14 @@ pub fn run(
             strict_artifact_identity_violation(&strict_lockfile, &strict_package_contract)
         {
             fail_preflight("C102", &message)?;
+        }
+        if let Err(err) =
+            enforce_trust_gate_v0(module_root, &strict_package_contract, &strict_trust_policy)
+        {
+            fail_preflight(err.code(), err.message())?;
+        }
+        if let Err(err) = load_required_host_profile_v0(module_root) {
+            fail_preflight(err.code(), err.message())?;
         }
     }
 

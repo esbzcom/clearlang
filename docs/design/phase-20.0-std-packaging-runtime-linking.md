@@ -119,13 +119,13 @@ These codes are design-locked for 20.1 and must be promoted to the canonical dia
 |---|---|---|
 | 20.1.2.1 Source-of-truth | `C101` | Strict mode attempted non-lockfile/non-trusted-store source (including implicit network fetch). |
 | 20.1.2.2 Artifact identity | `C102` | `(name, version, digest)` mismatch vs lockfile pin. |
-| 20.1.2.3 Trust/signature | `C103` | 20.1.0 bootstrap: strict trust-policy schema/signer validation failure. Full signature trust decisions (trusted/revoked/expired signer evaluation) land in 20.1.2.3 gate implementation. |
+| 20.1.2.3 Trust/signature | `C103` | Strict trust gate failure (missing/invalid package signature envelope, untrusted/revoked signer, signer validity-window mismatch at signature timestamp, or signature verification failure). |
 | 20.1.2.4 Metadata/schema | `C104` | Unsupported package metadata schema version/policy mismatch. |
 | 20.1.2.5 ABI/link | `C105` | 20.1.0 bootstrap: metadata <-> ABI identity mismatch (`abi_id` / package / version). Full import signature/effect/capability link-surface checks land in 20.1.2.5 gate implementation. |
 | 20.1.2.6 Runtime capability | `C106` | Required host capability missing in selected host-profile v0. |
 | 20.1.2.7 Determinism | `C107` | Repeated evaluation with identical inputs produced different direct-dependency import map/diagnostics ordering. |
 
-Bootstrap note (implemented in 20.1.0): `C103` and `C105` currently cover strict preflight schema/identity validation only. Full signature trust decisions (`20.1.2.3`) and link-surface symbol/effect/capability matching (`20.1.2.5`) remain in follow-on gate work.
+Bootstrap note: `C105` currently covers metadata <-> ABI identity mismatches only; full link-surface symbol/effect/capability matching remains in follow-on gate work (`20.1.2.5`).
 
 ## Canonical Fixture Matrix (20.1.4.2)
 | Fixture class | Expected result |

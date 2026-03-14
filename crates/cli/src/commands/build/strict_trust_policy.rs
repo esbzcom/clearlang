@@ -355,6 +355,12 @@ fn parse_utc_timestamp_components(value: &str) -> Result<(u16, u8, u8, u8, u8, u
     if !(1..=31).contains(&day) {
         return Err(format!("day `{day}` is out of range 1..=31"));
     }
+    let max_day = days_in_month(year, month);
+    if day > max_day {
+        return Err(format!(
+            "day `{day}` is out of range 1..={max_day} for month `{month}`"
+        ));
+    }
     if hour > 23 {
         return Err(format!("hour `{hour}` is out of range 0..=23"));
     }
@@ -366,6 +372,20 @@ fn parse_utc_timestamp_components(value: &str) -> Result<(u16, u8, u8, u8, u8, u
     }
 
     Ok((year, month, day, hour, minute, second))
+}
+
+fn days_in_month(year: u16, month: u8) -> u8 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+fn is_leap_year(year: u16) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 #[cfg(test)]
@@ -520,5 +540,28 @@ mod tests {
             .expect_err("expected timestamp-order error");
         assert_eq!(err.code(), "C103");
         assert!(err.message().contains("not_before < not_after"));
+    }
+
+    #[test]
+    fn invalid_calendar_date_reports_c103() {
+        let json = r#"
+{
+  "schema_version": 0,
+  "trusted_signers": [
+    {
+      "key_id": "a",
+      "scheme": "ed25519",
+      "public_key": "hex:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "not_before": "2026-02-31T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }
+  ],
+  "revoked_key_ids": []
+}
+        "#;
+        let err = parse_trust_policy_v0(json, Path::new("clg.trust-policy.json"))
+            .expect_err("expected invalid calendar date");
+        assert_eq!(err.code(), "C103");
+        assert!(err.message().contains("out of range"));
     }
 }

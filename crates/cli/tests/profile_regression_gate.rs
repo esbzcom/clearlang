@@ -158,6 +158,22 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
 }"#,
         )
         .expect("write strict host profile");
+        fs::write(
+            tmp.path().join("clg.package-metadata.json"),
+            r#"{
+  "schema_version": 0,
+  "packages": []
+}"#,
+        )
+        .expect("write strict package metadata");
+        fs::write(
+            tmp.path().join("clg.package-abi.json"),
+            r#"{
+  "schema_version": 0,
+  "contracts": []
+}"#,
+        )
+        .expect("write strict package ABI");
 
         Command::cargo_bin("clg")
             .unwrap()

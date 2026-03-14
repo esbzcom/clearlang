@@ -903,8 +903,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.0.4 Define minimal trust-policy v0 for strict gates (trusted signer set + revocation/expiry checks) as a bootstrap before 22.0.4 lifecycle expansion. (`docs/design/phase-20.1.0-trust-policy-v0.md`)
     - [x] 20.1.0.5 Define minimal host-profile v0 schema/capability set consumed by strict preflight before 24.0.2 profile expansion. (`docs/design/phase-20.1.0-host-profile-v0.md`)
     - [x] 20.1.0.6 Implement deterministic loaders/validators for trust-policy v0 and host-profile v0 with stable diagnostics.
-    - [ ] 20.1.0.7 Define minimal package metadata schema v0 + ABI contract v0 (direct dependencies only) required by strict preflight before 22.0.3 policy expansion.
-    - [ ] 20.1.0.8 Implement deterministic metadata/ABI v0 validators and stable diagnostics for schema/ABI mismatches.
+    - [x] 20.1.0.7 Define minimal package metadata schema v0 + ABI contract v0 (direct dependencies only) required by strict preflight before 22.0.3 policy expansion. (`docs/design/phase-20.1.0-package-metadata-abi-v0.md`)
+    - [x] 20.1.0.8 Implement deterministic metadata/ABI v0 validators and stable diagnostics for schema/ABI mismatches.
   - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
   - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
     - [ ] 20.1.2.1 Strict-mode source-of-truth gate: resolve packages only from lockfile + trusted local store (no implicit network fetch).

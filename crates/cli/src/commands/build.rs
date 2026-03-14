@@ -22,6 +22,7 @@ use crate::signing::{self, SignScope};
 mod strict;
 mod strict_host_profile;
 mod strict_lockfile;
+mod strict_package_contract;
 mod strict_trust_policy;
 mod vcs_json;
 
@@ -31,6 +32,7 @@ use strict::{
 };
 use strict_host_profile::load_required_host_profile_v0;
 use strict_lockfile::load_required_strict_lockfile_v0;
+use strict_package_contract::load_required_package_metadata_abi_v0;
 use strict_trust_policy::load_required_trust_policy_v0;
 use vcs_json::write_vcs_json;
 
@@ -194,6 +196,9 @@ pub fn run(
             fail_build(err.code(), err.message(), None)?;
         }
         if let Err(err) = load_required_host_profile_v0(module_root) {
+            fail_build(err.code(), err.message(), None)?;
+        }
+        if let Err(err) = load_required_package_metadata_abi_v0(module_root) {
             fail_build(err.code(), err.message(), None)?;
         }
     }

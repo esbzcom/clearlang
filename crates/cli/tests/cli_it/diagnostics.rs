@@ -52,10 +52,34 @@ fn write_minimal_strict_host_profile(root: &Path) {
     .expect("write strict host profile");
 }
 
+fn write_minimal_strict_package_metadata(root: &Path) {
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 0,
+  "packages": []
+}"#,
+    )
+    .expect("write strict package metadata");
+}
+
+fn write_minimal_strict_package_abi(root: &Path) {
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": []
+}"#,
+    )
+    .expect("write strict package ABI");
+}
+
 fn write_minimal_strict_preflight_files(root: &Path) {
     write_minimal_strict_lockfile(root);
     write_minimal_strict_trust_policy(root);
     write_minimal_strict_host_profile(root);
+    write_minimal_strict_package_metadata(root);
+    write_minimal_strict_package_abi(root);
 }
 
 #[test]
@@ -348,6 +372,8 @@ fn strict_compiler_mode_requires_trust_policy_with_c103() {
     fs::write(&file, src).expect("write");
     write_minimal_strict_lockfile(tmp.path());
     write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
     let out = tmp.path().join("out.wasm");
     let vcs = tmp.path().join("out.vc.json");
 
@@ -374,6 +400,8 @@ fn strict_compiler_mode_requires_host_profile_with_c106() {
     fs::write(&file, src).expect("write");
     write_minimal_strict_lockfile(tmp.path());
     write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
     let out = tmp.path().join("out.wasm");
     let vcs = tmp.path().join("out.vc.json");
 
@@ -405,6 +433,8 @@ fn strict_compiler_mode_rejects_invalid_trust_policy_schema_with_c103() {
     )
     .expect("write invalid strict trust policy");
     write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
     let out = tmp.path().join("out.wasm");
     let vcs = tmp.path().join("out.vc.json");
 
@@ -431,6 +461,8 @@ fn strict_compiler_mode_rejects_invalid_host_profile_schema_with_c106() {
     fs::write(&file, src).expect("write");
     write_minimal_strict_lockfile(tmp.path());
     write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
     fs::write(
         tmp.path().join("clg.host-profile.json"),
         r#"{"schema_version":1,"profile":"contract_static","capabilities":[]}"#,
@@ -460,6 +492,10 @@ fn strict_compiler_mode_rejects_invalid_lockfile_schema_with_c104() {
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_mode_lock_schema.clear");
     fs::write(&file, src).expect("write");
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
     fs::write(
         tmp.path().join("clg.lock.json"),
         r#"{"schema_version":1,"dependencies":[]}"#,
@@ -489,6 +525,10 @@ fn strict_compiler_mode_rejects_invalid_lockfile_digest_with_c102() {
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_mode_lock_digest.clear");
     fs::write(&file, src).expect("write");
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_metadata(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
     fs::write(
         tmp.path().join("clg.lock.json"),
         r#"{
@@ -513,6 +553,85 @@ fn strict_compiler_mode_rejects_invalid_lockfile_digest_with_c102() {
     let output = cmd.assert().failure().get_output().stdout.clone();
     let v: Value = serde_json::from_slice(&output).expect("json");
     assert_single_json_error(&v, "C102", "build");
+}
+
+#[test]
+fn strict_compiler_mode_requires_package_metadata_with_c104() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_no_pkg_metadata.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_lockfile(tmp.path());
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    write_minimal_strict_package_abi(tmp.path());
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
+fn strict_compiler_mode_rejects_package_abi_mismatch_with_c105() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_bad_pkg_abi_match.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_lockfile(tmp.path());
+    write_minimal_strict_trust_policy(tmp.path());
+    write_minimal_strict_host_profile(tmp.path());
+    fs::write(
+        tmp.path().join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 0,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
+      "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write strict package metadata");
+    fs::write(
+        tmp.path().join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": []
+}"#,
+    )
+    .expect("write strict package abi");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C105", "build");
 }
 
 #[test]

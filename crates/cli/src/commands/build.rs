@@ -227,6 +227,11 @@ pub fn run(
                     fail_build("C106", &message, None)?;
                 }
             }
+            if let Some(message) =
+                strict_determinism_violation(package_contract, external_typer_sigs.as_slice())
+            {
+                fail_build("C107", &message, None)?;
+            }
         }
     }
 
@@ -737,6 +742,102 @@ fn strict_runtime_capability_violation(
     None
 }
 
+fn strict_determinism_violation(
+    package_contract: &StrictPackageContractV0,
+    external_imports: &[ExternalBuiltinSig],
+) -> Option<String> {
+    let baseline = strict_canonical_import_map(package_contract, external_imports);
+    let mut replay_inputs = external_imports.to_vec();
+    replay_inputs.reverse();
+    let replay = strict_canonical_import_map(package_contract, replay_inputs.as_slice());
+    if baseline != replay {
+        return Some(
+            "strict determinism replay failed: identical inputs produced different canonical direct-dependency import map"
+                .to_string(),
+        );
+    }
+    None
+}
+
+fn strict_canonical_import_map(
+    package_contract: &StrictPackageContractV0,
+    external_imports: &[ExternalBuiltinSig],
+) -> String {
+    use std::collections::BTreeMap;
+
+    let mut expected: BTreeMap<String, AbiLinkProfile> = BTreeMap::new();
+    for contract in &package_contract.contracts {
+        for import in &contract.imports {
+            expected
+                .entry(import.symbol.clone())
+                .or_insert_with(|| AbiLinkProfile {
+                    effect: import.effect.clone(),
+                    params: import
+                        .params
+                        .iter()
+                        .map(|ty| normalize_type_contract(ty))
+                        .collect(),
+                    ret: normalize_type_contract(&import.ret),
+                    capability: import.capability.clone(),
+                });
+        }
+    }
+
+    let mut resolved: BTreeMap<String, AbiLinkProfile> = BTreeMap::new();
+    for import in external_imports {
+        resolved.insert(
+            import.name.clone(),
+            AbiLinkProfile {
+                effect: effect_to_canonical(import.effect).to_string(),
+                params: import
+                    .params
+                    .iter()
+                    .map(|param| type_to_canonical(&param.ty))
+                    .collect(),
+                ret: type_to_canonical(&import.ret),
+                capability: None,
+            },
+        );
+    }
+
+    let mut lines = Vec::new();
+    for (symbol, expected_profile) in &expected {
+        let resolved_profile = resolved.get(symbol);
+        let resolved_sig = resolved_profile.map_or_else(
+            || "<missing>".to_string(),
+            |profile| {
+                format!(
+                    "{}({})->{}",
+                    profile.effect,
+                    profile.params.join(","),
+                    profile.ret
+                )
+            },
+        );
+        lines.push(format!(
+            "expected|{}|{}({})->{}|{}|{}",
+            symbol,
+            expected_profile.effect,
+            expected_profile.params.join(","),
+            expected_profile.ret,
+            expected_profile.capability.as_deref().unwrap_or("-"),
+            resolved_sig
+        ));
+    }
+    for (symbol, resolved_profile) in &resolved {
+        if !expected.contains_key(symbol) {
+            lines.push(format!(
+                "extra|{}|{}({})->{}",
+                symbol,
+                resolved_profile.effect,
+                resolved_profile.params.join(","),
+                resolved_profile.ret
+            ));
+        }
+    }
+    lines.join("\n")
+}
+
 fn strict_artifact_identity_violation(
     lockfile: &StrictLockfileV0,
     package_contract: &StrictPackageContractV0,
@@ -1023,5 +1124,46 @@ mod tests {
         let err = strict_runtime_capability_violation(&package_contract, &host_profile)
             .expect("missing capability should fail");
         assert!(err.contains("not present in host profile"));
+    }
+
+    #[test]
+    fn strict_determinism_gate_accepts_stable_import_map() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::core::math::add".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: None,
+            }]);
+        let actual = vec![external_sig(
+            "std::core::math::add",
+            vec![Type::Int, Type::Int],
+            Type::Int,
+            Effect::Pure,
+        )];
+        assert!(strict_determinism_violation(&package_contract, &actual).is_none());
+    }
+
+    #[test]
+    fn strict_determinism_gate_detects_order_dependent_external_conflict() {
+        let package_contract = abi_contract_with_imports(vec![]);
+        let actual = vec![
+            external_sig(
+                "std::core::math::add",
+                vec![Type::Int],
+                Type::Int,
+                Effect::Pure,
+            ),
+            external_sig(
+                "std::core::math::add",
+                vec![Type::Int],
+                Type::Int,
+                Effect::Mut,
+            ),
+        ];
+        let err = strict_determinism_violation(&package_contract, &actual)
+            .expect("order-dependent conflict should fail determinism replay");
+        assert!(err.contains("determinism replay failed"));
     }
 }

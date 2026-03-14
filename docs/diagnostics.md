@@ -161,7 +161,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C032 | build | Trust-anchor checker version flags are invalid for this build command combination. |
 | C033 | build | Strict language profile rejected a deferred/unchecked assumed boundary surface. |
 | C034 | build | Assurance manifest output flag is invalid for this build command combination. |
-| C101 | build | Strict lockfile input could not be read (missing/unreadable `clg.lock.json` in strict preflight context). Remediation: create/readable `clg.lock.json` at module root. |
+| C101 | build | Strict source-of-truth gate failed (e.g., missing/unreadable `clg.lock.json` or disallowed package source such as legacy `clg-packages.json` in strict preflight context). Remediation: provide strict preflight inputs only and resolve packages via lockfile + trusted local store. |
 | C102 | build | Strict lockfile dependency digest is invalid (`sha256:<64 lowercase hex>` required). |
 | C103 | build | Strict trust-policy input/signer schema validation failed (missing/unreadable/malformed policy, duplicate/unknown signer ids, invalid key/timestamp format, or invalid signer time window). Remediation: provide valid `clg.trust-policy.json` schema v0 and signer entries. |
 | C104 | build | Strict preflight schema input is malformed or unsupported (lockfile/package-metadata/package-abi v0). Remediation: provide valid v0 schema files with required keys only. |

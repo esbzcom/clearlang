@@ -363,6 +363,39 @@ fn strict_compiler_mode_requires_lockfile_with_c101() {
 }
 
 #[test]
+fn strict_compiler_mode_rejects_legacy_package_metadata_source_with_c101() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_mode_legacy_package_source.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+    fs::write(
+        tmp.path().join("clg-packages.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": []
+}"#,
+    )
+    .expect("write legacy package metadata source");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C101", "build");
+}
+
+#[test]
 fn strict_compiler_mode_preflight_errors_are_reported_before_typecheck() {
     let src = r#"
         function main() -> Int { unknown_fn(1) }

@@ -896,7 +896,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 20.0.3 Add parser + CLI tests proving comments are accepted in runnable fixtures and do not affect diagnostics stability.
   - [x] 20.0.4 Numeric literal readability: support `_` as digit separator (`1_000`), keep `,` invalid (`1,000`), and add a targeted diagnostic suggesting `_`.
 - [ ] 20.1 Publish post-19 std/package architecture lock (precompiled `std::core` + host-backed `std::host` + chain packages).
-  - [ ] 20.1.0 Bootstrap minimal strict lockfile support for gate preflight (direct dependencies only).
+  - [x] 20.1.0 Bootstrap minimal strict lockfile support for gate preflight (direct dependencies only).
     - [x] 20.1.0.1 Define minimal lockfile v0 schema for strict mode (`name`, `version`, `digest`) covering direct dependencies only. (`docs/design/phase-20.1.0-strict-lockfile-v0.md`)
     - [x] 20.1.0.2 Implement deterministic strict-mode lockfile loader/validator for v0 schema (no transitive solver in 20.1).
     - [x] 20.1.0.3 Emit stable diagnostics for missing/malformed strict lockfile input and document remediation.
@@ -907,7 +907,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.0.8 Implement deterministic metadata/ABI v0 validators and stable diagnostics for schema/ABI mismatches.
   - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
   - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
-    - [ ] 20.1.2.1 Strict-mode source-of-truth gate: resolve packages only from lockfile + trusted local store (no implicit network fetch).
+    - [x] 20.1.2.1 Strict-mode source-of-truth gate: resolve packages only from lockfile + trusted local store (no implicit network fetch).
     - [ ] 20.1.2.2 Artifact identity gate: require exact `(name, version, digest)` match against lockfile entries; digest mismatch fails closed.
     - [ ] 20.1.2.3 Trust gate: require valid package signature against configured trust anchors from trust-policy v0; untrusted/revoked/expired signer fails closed.
     - [ ] 20.1.2.4 Metadata/schema gate: package metadata schema version must be accepted; unknown/unsupported schema fails with stable diagnostics.

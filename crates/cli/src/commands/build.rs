@@ -36,6 +36,8 @@ use strict_package_contract::load_required_package_metadata_abi_v0;
 use strict_trust_policy::load_required_trust_policy_v0;
 use vcs_json::write_vcs_json;
 
+const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
 pub enum CompilerMode {
     /// Development mode: VC strictness defaults to false unless explicitly enabled.
@@ -98,6 +100,16 @@ pub fn run(
     }
     if compiler_mode == CompilerMode::Strict {
         let module_root = file.parent().unwrap_or_else(|| Path::new("."));
+        let legacy_source = module_root.join(LEGACY_PACKAGE_METADATA_FILE);
+        if legacy_source.exists() {
+            fail_preflight(
+                "C101",
+                &format!(
+                    "strict mode source-of-truth violation: `{}` is not allowed; use strict preflight inputs (`clg.lock.json`, `clg.package-metadata.json`, `clg.package-abi.json`) and trusted local store artifacts only",
+                    legacy_source.display()
+                ),
+            )?;
+        }
         if let Err(err) = load_required_strict_lockfile_v0(module_root) {
             fail_preflight(err.code(), err.message())?;
         }

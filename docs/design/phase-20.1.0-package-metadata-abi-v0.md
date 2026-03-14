@@ -125,7 +125,8 @@ This v0 strict-preflight schema is separate from the existing Phase 18.4
 - Metadata/schema gate (`20.1.2.4`):
   - missing/malformed/unsupported metadata or ABI schema fails with `C104`.
 - ABI/link gate (`20.1.2.5`):
-  - symbol/effect/signature/capability mismatch fails with `C105`.
+  - 20.1.0 bootstrap implementation enforces metadata <-> ABI contract identity consistency (`abi_id` presence + package/version alignment) and reports mismatches as `C105`.
+  - full source import vs ABI symbol/effect/params/ret/capability matching remains in `20.1.2.5`.
 
 ## Diagnostics Mapping (Design-Locked Proposal)
 - Metadata/ABI file missing or unreadable: `C104`.
@@ -141,7 +142,7 @@ When strict preflight fails for metadata/ABI input:
    - `clg.package-abi.json`
 2. use schema v0 exactly (no unknown fields),
 3. ensure metadata package entries and ABI contracts align by `abi_id` + `(package, version)`,
-4. ensure every linked symbol matches ABI effect/params/ret/capability exactly.
+4. in bootstrap scope, fix metadata/ABI identity mismatches first; full per-symbol linker checks land in `20.1.2.5`.
 
 ## Non-Goals
 - Transitive package metadata.

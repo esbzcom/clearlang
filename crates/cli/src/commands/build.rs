@@ -81,6 +81,37 @@ pub fn run(
         anyhow::bail!("--sign requires --emit-vcs");
     }
 
+    let fail_preflight = |code: &'static str, message: &str| -> Result<()> {
+        if json_errors {
+            let json = make_single_json_error(code, "build", message, &file, 0, 0, None);
+            Err(CommandError::json(json).into())
+        } else {
+            Err(anyhow!(message.to_string()))
+        }
+    };
+
+    if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
+        fail_preflight(
+            "C029",
+            "`--compiler-mode strict` requires `--emit-vcs <FILE>`",
+        )?;
+    }
+    if compiler_mode == CompilerMode::Strict {
+        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
+        if let Err(err) = load_required_strict_lockfile_v0(module_root) {
+            fail_preflight(err.code(), err.message())?;
+        }
+        if let Err(err) = load_required_trust_policy_v0(module_root) {
+            fail_preflight(err.code(), err.message())?;
+        }
+        if let Err(err) = load_required_host_profile_v0(module_root) {
+            fail_preflight(err.code(), err.message())?;
+        }
+        if let Err(err) = load_required_package_metadata_abi_v0(module_root) {
+            fail_preflight(err.code(), err.message())?;
+        }
+    }
+
     let mut timings = StageTimings::new();
     let loaded = {
         let _stage = timings.start(logger, "parse");
@@ -180,28 +211,6 @@ pub fn run(
         }
     }
 
-    if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
-        fail_build(
-            "C029",
-            "`--compiler-mode strict` requires `--emit-vcs <FILE>`",
-            None,
-        )?;
-    }
-    if compiler_mode == CompilerMode::Strict {
-        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
-        if let Err(err) = load_required_strict_lockfile_v0(module_root) {
-            fail_build(err.code(), err.message(), None)?;
-        }
-        if let Err(err) = load_required_trust_policy_v0(module_root) {
-            fail_build(err.code(), err.message(), None)?;
-        }
-        if let Err(err) = load_required_host_profile_v0(module_root) {
-            fail_build(err.code(), err.message(), None)?;
-        }
-        if let Err(err) = load_required_package_metadata_abi_v0(module_root) {
-            fail_build(err.code(), err.message(), None)?;
-        }
-    }
     let proof_strict_enabled = match proof_strict_for_mode(compiler_mode, proof_strict) {
         Ok(value) => value,
         Err(message) => {

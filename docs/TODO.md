@@ -916,7 +916,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.2.7 Determinism gate: identical inputs (source, lockfile, package store, policy) produce identical resolved direct-dependency import map and diagnostics ordering.
     - [x] 20.1.2.8 CI functional acceptance suite: add positive + tamper negative tests for 20.1.2.1-20.1.2.6 with fixed diagnostic-code assertions.
   - [ ] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).
-    - [ ] 20.1.3.1 Define a single preflight input model (lockfile v0 entries, package metadata, trust-policy v0, host-profile v0).
+    - [x] 20.1.3.1 Define a single preflight input model (lockfile v0 entries, package metadata, trust-policy v0, host-profile v0).
     - [ ] 20.1.3.2 Implement a pure evaluator (`evaluate_strict_gates`) that returns deterministic, stably ordered violations.
     - [ ] 20.1.3.3 Wire evaluator into `clg build --compiler-mode strict` before final link/build outputs.
     - [ ] 20.1.3.4 Add deterministic ordering rule (gate id -> package id -> symbol id) and snapshot tests.

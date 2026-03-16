@@ -24,6 +24,7 @@ mod strict_host_profile;
 mod strict_lockfile;
 mod strict_package_contract;
 mod strict_package_signatures;
+mod strict_preflight_input;
 mod strict_trust_policy;
 mod vcs_json;
 
@@ -31,11 +32,11 @@ use strict::{
     proof_strict_for_mode, strict_l3_claim_violation, strict_language_profile_violation,
     strict_proof_violation,
 };
-use strict_host_profile::{load_required_host_profile_v0, StrictHostProfileV0};
-use strict_lockfile::{load_required_strict_lockfile_v0, StrictLockfileV0};
-use strict_package_contract::{load_required_package_metadata_abi_v0, StrictPackageContractV0};
+use strict_host_profile::StrictHostProfileV0;
+use strict_lockfile::StrictLockfileV0;
+use strict_package_contract::StrictPackageContractV0;
 use strict_package_signatures::enforce_trust_gate_v0;
-use strict_trust_policy::load_required_trust_policy_v0;
+use strict_preflight_input::load_required_strict_preflight_input_v0;
 use vcs_json::write_vcs_json;
 
 const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
@@ -114,18 +115,14 @@ pub fn run(
                 ),
             )?;
         }
-        let strict_lockfile = match load_required_strict_lockfile_v0(module_root) {
+        let strict_preflight = match load_required_strict_preflight_input_v0(module_root) {
             Ok(value) => value,
             Err(err) => return fail_preflight(err.code(), err.message()),
         };
-        let strict_trust_policy = match load_required_trust_policy_v0(module_root) {
-            Ok(value) => value,
-            Err(err) => return fail_preflight(err.code(), err.message()),
-        };
-        let strict_package_contract = match load_required_package_metadata_abi_v0(module_root) {
-            Ok(value) => value,
-            Err(err) => return fail_preflight(err.code(), err.message()),
-        };
+        let strict_lockfile = strict_preflight.lockfile;
+        let strict_trust_policy = strict_preflight.trust_policy;
+        let strict_package_contract = strict_preflight.package_contract;
+        let strict_host_profile = strict_preflight.host_profile;
         if let Some(message) =
             strict_artifact_identity_violation(&strict_lockfile, &strict_package_contract)
         {
@@ -137,10 +134,6 @@ pub fn run(
             fail_preflight(err.code(), err.message())?;
         }
         strict_package_contract_for_link = Some(strict_package_contract);
-        let strict_host_profile = match load_required_host_profile_v0(module_root) {
-            Ok(value) => value,
-            Err(err) => return fail_preflight(err.code(), err.message()),
-        };
         strict_host_profile_for_caps = Some(strict_host_profile);
     }
 

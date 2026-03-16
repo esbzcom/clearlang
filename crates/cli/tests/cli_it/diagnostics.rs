@@ -483,12 +483,23 @@ fn strict_compiler_mode_requires_emit_vcs_with_c029() {
 #[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
-        function main() -> Int { 0 }
+        function main() -> Int { std::core::math::add(1, 2) }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_acceptance_ok.clear");
     fs::write(&file, src).expect("write");
-    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
     run_strict_build_success(tmp.path(), &file);
 }
 
@@ -592,7 +603,7 @@ fn strict_acceptance_schema_tamper_fails_with_c104() {
 #[test]
 fn strict_acceptance_abi_link_tamper_fails_with_c105() {
     let src = r#"
-        function main() -> Int { 0 }
+        function main() -> Int { std::core::math::add(1, 2) }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_acceptance_abi_tamper.clear");
@@ -609,6 +620,14 @@ fn strict_acceptance_abi_link_tamper_fails_with_c105() {
         }
       ]"#,
     );
+    fs::write(
+        tmp.path().join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": []
+}"#,
+    )
+    .expect("tamper strict ABI to metadata mismatch");
     let v = run_strict_build_json_failure(tmp.path(), &file);
     assert_single_json_error(&v, "C105", "build");
 }
@@ -616,17 +635,23 @@ fn strict_acceptance_abi_link_tamper_fails_with_c105() {
 #[test]
 fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
     let src = r#"
-        function main() -> Int { 0 }
+        function main() -> Int { std::core::math::add(1, 2) }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_acceptance_host_tamper.clear");
     fs::write(&file, src).expect("write");
-    write_signed_strict_dependency_fixture(tmp.path(), "[]");
-    fs::write(
-        tmp.path().join("clg.host-profile.json"),
-        r#"{"schema_version":1,"profile":"contract_static","capabilities":[]}"#,
-    )
-    .expect("tamper host profile");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        }
+      ]"#,
+    );
     let v = run_strict_build_json_failure(tmp.path(), &file);
     assert_single_json_error(&v, "C106", "build");
 }
@@ -1171,12 +1196,12 @@ fn strict_compiler_mode_allows_signed_dependency_with_empty_abi_imports() {
 }
 
 #[test]
-fn strict_compiler_mode_rejects_unlinked_abi_symbol_with_c105() {
+fn strict_compiler_mode_allows_linked_abi_symbol_from_strict_contract() {
     let src = r#"
-        function main() -> Int { 0 }
+        function main() -> Int { std::core::math::add(1, 2) }
     "#;
     let tmp = tempdir().unwrap();
-    let file = tmp.path().join("strict_mode_unlinked_abi_symbol.clear");
+    let file = tmp.path().join("strict_mode_linked_abi_symbol.clear");
     fs::write(&file, src).expect("write");
     write_signed_strict_dependency_fixture(
         tmp.path(),
@@ -1194,16 +1219,14 @@ fn strict_compiler_mode_rejects_unlinked_abi_symbol_with_c105() {
     let vcs = tmp.path().join("out.vc.json");
 
     let mut cmd = Command::cargo_bin("clg").unwrap();
-    cmd.args(["--json-errors", "build"])
+    cmd.args(["build"])
         .arg(&file)
         .args(["-o"])
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
         .args(["--compiler-mode", "strict"]);
-    let output = cmd.assert().failure().get_output().stdout.clone();
-    let v: Value = serde_json::from_slice(&output).expect("json");
-    assert_single_json_error(&v, "C105", "build");
+    cmd.assert().success();
 }
 
 #[test]

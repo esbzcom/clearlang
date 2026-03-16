@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
-use clg_ast::{Effect, Program, Type};
+use clg_ast::{Effect, Param, ParamKind, Program, Type};
 use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport};
 use clg_ir::IrType;
 use clg_typer::{
@@ -94,8 +94,8 @@ pub fn run(
             Err(anyhow!(message.to_string()))
         }
     };
-    let mut strict_package_contract_for_link: Option<StrictPackageContractV0> = None;
     let mut strict_host_profile_for_caps: Option<StrictHostProfileV0> = None;
+    let mut strict_external_bindings_for_link: Option<StrictExternalBindings> = None;
 
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
         fail_preflight(
@@ -133,8 +133,13 @@ pub fn run(
         {
             fail_preflight(err.code(), err.message())?;
         }
-        strict_package_contract_for_link = Some(strict_package_contract);
+        let strict_external_bindings =
+            match strict_external_bindings_from_contract(&strict_package_contract) {
+                Ok(value) => value,
+                Err(message) => return fail_preflight("C105", &message),
+            };
         strict_host_profile_for_caps = Some(strict_host_profile);
+        strict_external_bindings_for_link = Some(strict_external_bindings);
     }
 
     let mut timings = StageTimings::new();
@@ -143,25 +148,37 @@ pub fn run(
         load_program(&file, json_errors)?
     };
     let ast = &loaded.program;
-    let external_typer_sigs: Vec<ExternalBuiltinSig> = loaded
-        .external_imports
-        .iter()
-        .map(|binding| ExternalBuiltinSig {
-            name: binding.function.clone(),
-            params: binding.params.clone(),
-            ret: binding.ret.clone(),
-            effect: binding.effect,
-        })
-        .collect();
-    let external_codegen_imports: Vec<ExternalImport> = loaded
-        .external_imports
-        .iter()
-        .map(|binding| ExternalImport {
-            function: binding.function.clone(),
-            import_module: binding.import_module.clone(),
-            import_name: binding.import_name.clone(),
-        })
-        .collect();
+    let (external_typer_sigs, external_codegen_imports) = if compiler_mode == CompilerMode::Strict {
+        if let Some(bindings) = strict_external_bindings_for_link.as_ref() {
+            (
+                bindings.external_typer_sigs.clone(),
+                bindings.external_codegen_imports.clone(),
+            )
+        } else {
+            (Vec::new(), Vec::new())
+        }
+    } else {
+        let typer_sigs = loaded
+            .external_imports
+            .iter()
+            .map(|binding| ExternalBuiltinSig {
+                name: binding.function.clone(),
+                params: binding.params.clone(),
+                ret: binding.ret.clone(),
+                effect: binding.effect,
+            })
+            .collect();
+        let codegen_imports = loaded
+            .external_imports
+            .iter()
+            .map(|binding| ExternalImport {
+                function: binding.function.clone(),
+                import_module: binding.import_module.clone(),
+                import_name: binding.import_name.clone(),
+            })
+            .collect();
+        (typer_sigs, codegen_imports)
+    };
 
     let type_output = {
         let _stage = timings.start(logger, "typecheck");
@@ -207,23 +224,35 @@ pub fn run(
         }
     };
     if compiler_mode == CompilerMode::Strict {
-        if let Some(package_contract) = strict_package_contract_for_link.as_ref() {
-            if let Some(message) =
-                strict_abi_link_violation(package_contract, external_typer_sigs.as_slice())
-            {
-                fail_build("C105", &message, None)?;
-            }
-            if let Some(host_profile) = strict_host_profile_for_caps.as_ref() {
-                if let Some(message) =
-                    strict_runtime_capability_violation(package_contract, host_profile)
-                {
-                    fail_build("C106", &message, None)?;
+        if let (Some(host_profile), Some(bindings)) = (
+            strict_host_profile_for_caps.as_ref(),
+            strict_external_bindings_for_link.as_ref(),
+        ) {
+            let linked_imports = match linked_external_import_profiles_from_ir(
+                &ir,
+                external_typer_sigs.as_slice(),
+            ) {
+                Ok(value) => value,
+                Err(message) => {
+                    fail_build("C105", &message, None)?;
+                    Vec::new()
                 }
-            }
-            if let Some(message) =
-                strict_determinism_violation(package_contract, external_typer_sigs.as_slice())
-            {
+            };
+            let evaluation = strict_link_runtime_gate_diagnostics(
+                &bindings.expected_profiles,
+                linked_imports.as_slice(),
+                host_profile,
+            );
+            if let Some(message) = strict_determinism_violation(
+                &bindings.expected_profiles,
+                host_profile,
+                linked_imports.as_slice(),
+                evaluation.as_slice(),
+            ) {
                 fail_build("C107", &message, None)?;
+            }
+            if let Some(first) = evaluation.first() {
+                fail_build(first.code, first.message.as_str(), None)?;
             }
         }
     }
@@ -534,13 +563,33 @@ struct AbiLinkProfile {
     capability: Option<String>,
 }
 
-fn strict_abi_link_violation(
+#[derive(Clone, Debug)]
+struct StrictExternalBindings {
+    expected_profiles: std::collections::BTreeMap<String, AbiLinkProfile>,
+    external_typer_sigs: Vec<ExternalBuiltinSig>,
+    external_codegen_imports: Vec<ExternalImport>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+struct StrictGateDiagnostic {
+    code: &'static str,
+    symbol: String,
+    message: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StrictResolvedImportBinding {
+    profile: AbiLinkProfile,
+    params_typed: Vec<Type>,
+    ret_typed: Type,
+}
+
+fn strict_external_bindings_from_contract(
     package_contract: &StrictPackageContractV0,
-    external_imports: &[ExternalBuiltinSig],
-) -> Option<String> {
+) -> Result<StrictExternalBindings, String> {
     use std::collections::BTreeMap;
 
-    let mut expected: BTreeMap<&str, (&str, AbiLinkProfile)> = BTreeMap::new();
+    let mut resolved: BTreeMap<String, (String, StrictResolvedImportBinding)> = BTreeMap::new();
     for contract in &package_contract.contracts {
         for import in &contract.imports {
             let profile = AbiLinkProfile {
@@ -553,20 +602,202 @@ fn strict_abi_link_violation(
                 ret: normalize_type_contract(&import.ret),
                 capability: import.capability.clone(),
             };
-            if let Some((existing_abi_id, existing)) = expected.get(import.symbol.as_str()) {
-                if existing != &profile {
-                    return Some(format!(
+            let params_typed: Vec<Type> = profile
+                .params
+                .iter()
+                .map(|ty| parse_contract_type(ty))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|msg| {
+                    format!(
+                        "strict ABI/link mismatch for symbol `{}`: invalid parameter type in strict package ABI: {}",
+                        import.symbol, msg
+                    )
+                })?;
+            let ret_typed = parse_contract_type(profile.ret.as_str()).map_err(|msg| {
+                format!(
+                    "strict ABI/link mismatch for symbol `{}`: invalid return type in strict package ABI: {}",
+                    import.symbol, msg
+                )
+            })?;
+            let binding = StrictResolvedImportBinding {
+                profile,
+                params_typed,
+                ret_typed,
+            };
+            if let Some((existing_abi_id, existing_binding)) = resolved.get(&import.symbol) {
+                if existing_binding.profile != binding.profile {
+                    return Err(format!(
                         "strict ABI/link mismatch for symbol `{}`: conflicting ABI profiles between `{}` and `{}`",
                         import.symbol, existing_abi_id, contract.abi_id
                     ));
                 }
                 continue;
             }
-            expected.insert(import.symbol.as_str(), (contract.abi_id.as_str(), profile));
+            resolved.insert(import.symbol.clone(), (contract.abi_id.clone(), binding));
         }
     }
 
-    let mut actual: BTreeMap<&str, AbiLinkProfile> = BTreeMap::new();
+    let mut expected_profiles = BTreeMap::new();
+    let mut external_typer_sigs = Vec::with_capacity(resolved.len());
+    let mut external_codegen_imports = Vec::with_capacity(resolved.len());
+    for (symbol, (_, binding)) in resolved {
+        let effect = parse_contract_effect(binding.profile.effect.as_str())
+            .map_err(|msg| format!("strict ABI/link mismatch for symbol `{}`: {}", symbol, msg))?;
+        let params: Vec<Param> = binding
+            .params_typed
+            .iter()
+            .enumerate()
+            .map(|(idx, ty)| Param {
+                kind: ParamKind::Borrow,
+                name: format!("p{idx}"),
+                ty: ty.clone(),
+            })
+            .collect();
+        let (import_module, import_name) = split_symbol_import_target(symbol.as_str())?;
+
+        expected_profiles.insert(symbol.clone(), binding.profile);
+        external_typer_sigs.push(ExternalBuiltinSig {
+            name: symbol.clone(),
+            params,
+            ret: binding.ret_typed,
+            effect,
+        });
+        external_codegen_imports.push(ExternalImport {
+            function: symbol,
+            import_module,
+            import_name,
+        });
+    }
+
+    Ok(StrictExternalBindings {
+        expected_profiles,
+        external_typer_sigs,
+        external_codegen_imports,
+    })
+}
+
+fn split_symbol_import_target(symbol: &str) -> Result<(String, String), String> {
+    if let Some((module, name)) = symbol.rsplit_once("::") {
+        if module.trim().is_empty() || name.trim().is_empty() {
+            return Err(format!(
+                "strict ABI/link mismatch for symbol `{}`: symbol must use non-empty `module::name` segments",
+                symbol
+            ));
+        }
+        Ok((module.to_string(), name.to_string()))
+    } else {
+        Err(format!(
+            "strict ABI/link mismatch for symbol `{}`: symbol must contain `::` and end with function name",
+            symbol
+        ))
+    }
+}
+
+fn parse_contract_effect(raw: &str) -> Result<Effect, String> {
+    match raw {
+        "pure" => Ok(Effect::Pure),
+        "mut" => Ok(Effect::Mut),
+        "io" => Ok(Effect::Io),
+        "none" => Ok(Effect::None),
+        other => Err(format!(
+            "unsupported effect `{other}` in strict package ABI"
+        )),
+    }
+}
+
+fn parse_contract_type(raw: &str) -> Result<Type, String> {
+    let value = raw.trim();
+    if value.is_empty() {
+        return Err("type is empty".to_string());
+    }
+    if value.contains('<')
+        || value.contains('>')
+        || value.contains('[')
+        || value.contains(']')
+        || value.contains('(')
+        || value.contains(')')
+        || value.contains(',')
+        || value.contains(';')
+    {
+        return Err(format!(
+            "type `{}` uses unsupported generic/compound syntax in strict package ABI v0",
+            value
+        ));
+    }
+    let ty = match value {
+        "Int" => Type::Int,
+        "Bool" => Type::Bool,
+        "String" => Type::String,
+        "Bytes" => Type::Bytes,
+        "U8" => Type::U8,
+        "U64" => Type::U64,
+        "U128" => Type::U128,
+        "U256" => Type::U256,
+        other => {
+            validate_named_type_path(other)?;
+            Type::Named {
+                name: other.to_string(),
+                args: Vec::new(),
+            }
+        }
+    };
+    Ok(ty)
+}
+
+fn validate_named_type_path(value: &str) -> Result<(), String> {
+    for segment in value.split("::") {
+        if segment.is_empty() {
+            return Err("contains empty `::` segment".to_string());
+        }
+        let mut chars = segment.chars();
+        let first = chars.next().expect("segment non-empty");
+        if !(first == '_' || first.is_ascii_alphabetic()) {
+            return Err(format!(
+                "segment `{segment}` must start with ASCII letter or `_`"
+            ));
+        }
+        for ch in chars {
+            if !(ch == '_' || ch.is_ascii_alphanumeric()) {
+                return Err(format!(
+                    "segment `{segment}` contains invalid character `{ch}`"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn linked_external_import_profiles_from_ir(
+    ir: &clg_ir::Module,
+    external_imports: &[ExternalBuiltinSig],
+) -> Result<Vec<(String, AbiLinkProfile)>, String> {
+    use std::collections::BTreeSet;
+
+    let resolved_profiles = resolved_external_import_profiles(external_imports)?;
+
+    let mut linked_symbol_names = BTreeSet::new();
+    for func in &ir.funcs {
+        if resolved_profiles.contains_key(func.name.as_str()) {
+            linked_symbol_names.insert(func.name.as_str());
+        }
+    }
+
+    let mut linked = Vec::with_capacity(linked_symbol_names.len());
+    for symbol in linked_symbol_names {
+        let profile = resolved_profiles
+            .get(symbol)
+            .expect("linked symbol must exist in resolved map");
+        linked.push((symbol.to_string(), profile.clone()));
+    }
+    Ok(linked)
+}
+
+fn resolved_external_import_profiles(
+    external_imports: &[ExternalBuiltinSig],
+) -> Result<std::collections::BTreeMap<String, AbiLinkProfile>, String> {
+    use std::collections::BTreeMap;
+
+    let mut resolved_profiles: BTreeMap<String, AbiLinkProfile> = BTreeMap::new();
     for import in external_imports {
         let profile = AbiLinkProfile {
             effect: effect_to_canonical(import.effect).to_string(),
@@ -578,52 +809,143 @@ fn strict_abi_link_violation(
             ret: type_to_canonical(&import.ret),
             capability: None,
         };
-        if let Some(existing) = actual.get(import.name.as_str()) {
-            if existing != &profile {
-                return Some(format!(
+        if let Some(existing) = resolved_profiles.get(import.name.as_str()) {
+            if !abi_signatures_match(existing, &profile) {
+                return Err(format!(
                     "strict ABI/link mismatch for symbol `{}`: conflicting resolved external import signatures",
                     import.name
                 ));
             }
             continue;
         }
-        actual.insert(import.name.as_str(), profile);
+        resolved_profiles.insert(import.name.clone(), profile);
     }
+    Ok(resolved_profiles)
+}
 
-    for (symbol, (_, expected_profile)) in &expected {
-        let Some(actual_profile) = actual.get(symbol) else {
-            return Some(format!(
-                "strict ABI/link mismatch: symbol `{}` declared in strict package ABI is not present in resolved external imports",
-                symbol
-            ));
+fn strict_link_runtime_gate_diagnostics(
+    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
+    linked_imports: &[(String, AbiLinkProfile)],
+    host_profile: &StrictHostProfileV0,
+) -> Vec<StrictGateDiagnostic> {
+    use std::collections::HashSet;
+
+    let host_caps: HashSet<&str> = host_profile
+        .capabilities
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let mut diagnostics = Vec::new();
+    for (symbol, linked_profile) in linked_imports {
+        let Some(expected) = expected_profiles.get(symbol) else {
+            diagnostics.push(StrictGateDiagnostic {
+                code: "C105",
+                symbol: symbol.clone(),
+                message: format!(
+                    "strict ABI/link mismatch: linked import `{}` is not declared in strict package ABI",
+                    symbol
+                ),
+            });
+            continue;
         };
-        if expected_profile.effect != actual_profile.effect
-            || expected_profile.params != actual_profile.params
-            || expected_profile.ret != actual_profile.ret
-        {
-            return Some(format!(
-                "strict ABI/link mismatch for symbol `{}`: expected effect/signature `{}({}) -> {}` but resolved `{}({}) -> {}`",
-                symbol,
-                expected_profile.effect,
-                expected_profile.params.join(", "),
-                expected_profile.ret,
-                actual_profile.effect,
-                actual_profile.params.join(", "),
-                actual_profile.ret
-            ));
+
+        if !abi_signatures_match(expected, linked_profile) {
+            diagnostics.push(StrictGateDiagnostic {
+                code: "C105",
+                symbol: symbol.clone(),
+                message: format!(
+                    "strict ABI/link mismatch for symbol `{}`: expected effect/signature `{}({}) -> {}` but resolved `{}({}) -> {}`",
+                    symbol,
+                    expected.effect,
+                    expected.params.join(", "),
+                    expected.ret,
+                    linked_profile.effect,
+                    linked_profile.params.join(", "),
+                    linked_profile.ret
+                ),
+            });
+            continue;
+        }
+
+        if let Some(capability) = expected.capability.as_deref() {
+            if !host_caps.contains(capability) {
+                diagnostics.push(StrictGateDiagnostic {
+                    code: "C106",
+                    symbol: symbol.clone(),
+                    message: format!(
+                        "strict runtime capability mismatch: symbol `{}` requires capability `{}` not present in host profile `{}`",
+                        symbol, capability, host_profile.profile
+                    ),
+                });
+            }
         }
     }
 
-    for symbol in actual.keys() {
-        if !expected.contains_key(symbol) {
-            return Some(format!(
-                "strict ABI/link mismatch: resolved external import `{}` is not declared in strict package ABI",
-                symbol
-            ));
-        }
-    }
+    diagnostics.sort_by(|lhs, rhs| {
+        lhs.code
+            .cmp(rhs.code)
+            .then(lhs.symbol.cmp(&rhs.symbol))
+            .then(lhs.message.cmp(&rhs.message))
+    });
+    diagnostics
+}
 
-    None
+#[cfg(test)]
+fn strict_abi_link_violation(
+    package_contract: &StrictPackageContractV0,
+    linked_imports: &[ExternalBuiltinSig],
+) -> Option<String> {
+    let bindings = match strict_external_bindings_from_contract(package_contract) {
+        Ok(value) => value,
+        Err(message) => return Some(message),
+    };
+    let linked = match resolved_external_import_profiles(linked_imports) {
+        Ok(value) => value.into_iter().collect::<Vec<_>>(),
+        Err(message) => return Some(message),
+    };
+    let diagnostics = strict_link_runtime_gate_diagnostics(
+        &bindings.expected_profiles,
+        linked.as_slice(),
+        &StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: Vec::new(),
+        },
+    );
+    diagnostics
+        .into_iter()
+        .find(|diag| diag.code == "C105")
+        .map(|diag| diag.message)
+}
+
+#[cfg(test)]
+fn strict_runtime_capability_violation(
+    package_contract: &StrictPackageContractV0,
+    host_profile: &StrictHostProfileV0,
+    linked_imports: &[ExternalBuiltinSig],
+) -> Option<String> {
+    let bindings = match strict_external_bindings_from_contract(package_contract) {
+        Ok(value) => value,
+        Err(_) => return None,
+    };
+    let linked = match resolved_external_import_profiles(linked_imports) {
+        Ok(value) => value.into_iter().collect::<Vec<_>>(),
+        Err(_) => return None,
+    };
+    let diagnostics = strict_link_runtime_gate_diagnostics(
+        &bindings.expected_profiles,
+        linked.as_slice(),
+        host_profile,
+    );
+    diagnostics
+        .into_iter()
+        .find(|diag| diag.code == "C106")
+        .map(|diag| diag.message)
+}
+
+fn abi_signatures_match(expected: &AbiLinkProfile, actual: &AbiLinkProfile) -> bool {
+    expected.effect == actual.effect
+        && expected.params == actual.params
+        && expected.ret == actual.ret
 }
 
 fn effect_to_canonical(effect: Effect) -> &'static str {
@@ -701,51 +1023,29 @@ fn normalize_type_contract(raw: &str) -> String {
         .collect::<String>()
 }
 
-fn strict_runtime_capability_violation(
-    package_contract: &StrictPackageContractV0,
-    host_profile: &StrictHostProfileV0,
-) -> Option<String> {
-    use std::collections::{BTreeMap, HashSet};
-
-    let host_caps: HashSet<&str> = host_profile
-        .capabilities
-        .iter()
-        .map(String::as_str)
-        .collect();
-    let mut required_caps: BTreeMap<&str, &str> = BTreeMap::new();
-    for contract in &package_contract.contracts {
-        for import in &contract.imports {
-            if let Some(capability) = import.capability.as_deref() {
-                required_caps
-                    .entry(capability)
-                    .or_insert(import.symbol.as_str());
-            }
-        }
-    }
-
-    for (capability, symbol) in required_caps {
-        if !host_caps.contains(capability) {
-            return Some(format!(
-                "strict runtime capability mismatch: symbol `{}` requires capability `{}` not present in host profile `{}`",
-                symbol, capability, host_profile.profile
-            ));
-        }
-    }
-
-    None
-}
-
 fn strict_determinism_violation(
-    package_contract: &StrictPackageContractV0,
-    external_imports: &[ExternalBuiltinSig],
+    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
+    host_profile: &StrictHostProfileV0,
+    linked_imports: &[(String, AbiLinkProfile)],
+    baseline_diagnostics: &[StrictGateDiagnostic],
 ) -> Option<String> {
-    let baseline = strict_canonical_import_map(package_contract, external_imports);
-    let mut replay_inputs = external_imports.to_vec();
+    let baseline =
+        strict_canonical_import_map(expected_profiles, linked_imports, baseline_diagnostics);
+    let mut replay_inputs = linked_imports.to_vec();
     replay_inputs.reverse();
-    let replay = strict_canonical_import_map(package_contract, replay_inputs.as_slice());
-    if baseline != replay {
+    let replay_diagnostics = strict_link_runtime_gate_diagnostics(
+        expected_profiles,
+        replay_inputs.as_slice(),
+        host_profile,
+    );
+    let replay = strict_canonical_import_map(
+        expected_profiles,
+        replay_inputs.as_slice(),
+        replay_diagnostics.as_slice(),
+    );
+    if baseline != replay || baseline_diagnostics != replay_diagnostics.as_slice() {
         return Some(
-            "strict determinism replay failed: identical inputs produced different canonical direct-dependency import map"
+            "strict determinism replay failed: identical inputs produced different canonical direct-dependency import map or diagnostics ordering"
                 .to_string(),
         );
     }
@@ -753,80 +1053,30 @@ fn strict_determinism_violation(
 }
 
 fn strict_canonical_import_map(
-    package_contract: &StrictPackageContractV0,
-    external_imports: &[ExternalBuiltinSig],
+    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
+    linked_imports: &[(String, AbiLinkProfile)],
+    diagnostics: &[StrictGateDiagnostic],
 ) -> String {
-    use std::collections::BTreeMap;
-
-    let mut expected: BTreeMap<String, AbiLinkProfile> = BTreeMap::new();
-    for contract in &package_contract.contracts {
-        for import in &contract.imports {
-            expected
-                .entry(import.symbol.clone())
-                .or_insert_with(|| AbiLinkProfile {
-                    effect: import.effect.clone(),
-                    params: import
-                        .params
-                        .iter()
-                        .map(|ty| normalize_type_contract(ty))
-                        .collect(),
-                    ret: normalize_type_contract(&import.ret),
-                    capability: import.capability.clone(),
-                });
-        }
-    }
-
-    let mut resolved: BTreeMap<String, AbiLinkProfile> = BTreeMap::new();
-    for import in external_imports {
-        resolved.insert(
-            import.name.clone(),
-            AbiLinkProfile {
-                effect: effect_to_canonical(import.effect).to_string(),
-                params: import
-                    .params
-                    .iter()
-                    .map(|param| type_to_canonical(&param.ty))
-                    .collect(),
-                ret: type_to_canonical(&import.ret),
-                capability: None,
-            },
-        );
-    }
-
     let mut lines = Vec::new();
-    for (symbol, expected_profile) in &expected {
-        let resolved_profile = resolved.get(symbol);
-        let resolved_sig = resolved_profile.map_or_else(
-            || "<missing>".to_string(),
-            |profile| {
-                format!(
-                    "{}({})->{}",
-                    profile.effect,
-                    profile.params.join(","),
-                    profile.ret
-                )
-            },
-        );
+    for (symbol, linked_profile) in linked_imports {
+        let capability = expected_profiles
+            .get(symbol)
+            .and_then(|profile| profile.capability.as_deref())
+            .unwrap_or("-");
         lines.push(format!(
-            "expected|{}|{}({})->{}|{}|{}",
+            "linked|{}|{}({})->{}|{}",
             symbol,
-            expected_profile.effect,
-            expected_profile.params.join(","),
-            expected_profile.ret,
-            expected_profile.capability.as_deref().unwrap_or("-"),
-            resolved_sig
+            linked_profile.effect,
+            linked_profile.params.join(","),
+            linked_profile.ret,
+            capability
         ));
     }
-    for (symbol, resolved_profile) in &resolved {
-        if !expected.contains_key(symbol) {
-            lines.push(format!(
-                "extra|{}|{}({})->{}",
-                symbol,
-                resolved_profile.effect,
-                resolved_profile.params.join(","),
-                resolved_profile.ret
-            ));
-        }
+    for diagnostic in diagnostics {
+        lines.push(format!(
+            "diag|{}|{}|{}",
+            diagnostic.code, diagnostic.symbol, diagnostic.message
+        ));
     }
     lines.join("\n")
 }
@@ -1000,9 +1250,10 @@ mod tests {
                 ret: "Int".to_string(),
                 capability: None,
             }]);
-        let err =
-            strict_abi_link_violation(&package_contract, &[]).expect("missing symbol should fail");
-        assert!(err.contains("not present in resolved external imports"));
+        assert!(
+            strict_abi_link_violation(&package_contract, &[]).is_none(),
+            "unlinked symbols should not fail strict ABI/link gate"
+        );
     }
 
     #[test]
@@ -1097,7 +1348,16 @@ mod tests {
             profile: "contract_static".to_string(),
             capabilities: vec!["std::crypto::hash".to_string()],
         };
-        assert!(strict_runtime_capability_violation(&package_contract, &host_profile).is_none());
+        let linked = vec![external_sig(
+            "std::crypto::hash",
+            vec![Type::Bytes],
+            Type::Bytes,
+            Effect::Pure,
+        )];
+        assert!(
+            strict_runtime_capability_violation(&package_contract, &host_profile, &linked)
+                .is_none()
+        );
     }
 
     #[test]
@@ -1114,7 +1374,13 @@ mod tests {
             profile: "contract_static".to_string(),
             capabilities: vec!["std::wasi::print".to_string()],
         };
-        let err = strict_runtime_capability_violation(&package_contract, &host_profile)
+        let linked = vec![external_sig(
+            "std::crypto::hash",
+            vec![Type::Bytes],
+            Type::Bytes,
+            Effect::Pure,
+        )];
+        let err = strict_runtime_capability_violation(&package_contract, &host_profile, &linked)
             .expect("missing capability should fail");
         assert!(err.contains("not present in host profile"));
     }
@@ -1135,28 +1401,85 @@ mod tests {
             Type::Int,
             Effect::Pure,
         )];
-        assert!(strict_determinism_violation(&package_contract, &actual).is_none());
+        let bindings =
+            strict_external_bindings_from_contract(&package_contract).expect("strict bindings");
+        let linked = resolved_external_import_profiles(&actual)
+            .expect("resolve profiles")
+            .into_iter()
+            .collect::<Vec<_>>();
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: Vec::new(),
+        };
+        let diagnostics = strict_link_runtime_gate_diagnostics(
+            &bindings.expected_profiles,
+            linked.as_slice(),
+            &host_profile,
+        );
+        assert!(strict_determinism_violation(
+            &bindings.expected_profiles,
+            &host_profile,
+            linked.as_slice(),
+            diagnostics.as_slice(),
+        )
+        .is_none());
     }
 
     #[test]
     fn strict_determinism_gate_detects_order_dependent_external_conflict() {
-        let package_contract = abi_contract_with_imports(vec![]);
+        let package_contract = abi_contract_with_imports(vec![
+            strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::core::math::add".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: Some("std::crypto::hash".to_string()),
+            },
+            strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::core::math::sub".to_string(),
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: Some("std::crypto::hash".to_string()),
+            },
+        ]);
         let actual = vec![
             external_sig(
                 "std::core::math::add",
-                vec![Type::Int],
+                vec![Type::Int, Type::Int],
                 Type::Int,
                 Effect::Pure,
             ),
             external_sig(
-                "std::core::math::add",
-                vec![Type::Int],
+                "std::core::math::sub",
+                vec![Type::Int, Type::Int],
                 Type::Int,
-                Effect::Mut,
+                Effect::Pure,
             ),
         ];
-        let err = strict_determinism_violation(&package_contract, &actual)
-            .expect("order-dependent conflict should fail determinism replay");
+        let bindings =
+            strict_external_bindings_from_contract(&package_contract).expect("strict bindings");
+        let linked = resolved_external_import_profiles(&actual)
+            .expect("resolve profiles")
+            .into_iter()
+            .collect::<Vec<_>>();
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: Vec::new(),
+        };
+        let mut diagnostics = strict_link_runtime_gate_diagnostics(
+            &bindings.expected_profiles,
+            linked.as_slice(),
+            &host_profile,
+        );
+        diagnostics.reverse();
+        let err = strict_determinism_violation(
+            &bindings.expected_profiles,
+            &host_profile,
+            linked.as_slice(),
+            diagnostics.as_slice(),
+        )
+        .expect("diagnostics-order drift should fail determinism replay");
         assert!(err.contains("determinism replay failed"));
     }
 }

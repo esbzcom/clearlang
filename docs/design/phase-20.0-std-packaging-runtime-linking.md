@@ -112,7 +112,7 @@ Define the long-term, production-grade std architecture for crypto environments:
    - Do not fallback to permissive behavior if preflight fails.
 
 ## Proposed Diagnostic Matrix (20.1.4.1)
-Codes use the existing 4-character diagnostics convention (`[P|T|C|V|R][0-9]{3}`), so package/linker strict gates reserve the `C101`-`C107` range.
+Codes use the existing 4-character diagnostics convention (`[P|T|C|V|R][0-9]{3}`), so package/linker strict gates reserve the `C101`-`C108` range.
 These codes are design-locked for 20.1 and must be promoted to the canonical diagnostics registry (`docs/diagnostics.md`) during implementation.
 
 | Gate | Proposed code | Failure trigger |
@@ -124,6 +124,7 @@ These codes are design-locked for 20.1 and must be promoted to the canonical dia
 | 20.1.2.5 ABI/link | `C105` | Metadata <-> ABI identity mismatch (`abi_id` / package / version), unresolved ABI import symbol, or resolved symbol signature/effect mismatch versus strict ABI contract. |
 | 20.1.2.6 Runtime capability | `C106` | Required host capability missing in selected host-profile v0. |
 | 20.1.2.7 Determinism | `C107` | Repeated evaluation with identical inputs produced different direct-dependency import map/diagnostics ordering. |
+| 20.1.3.6 Import-map artifact emission | `C108` | Canonical strict preflight import-map artifact could not be written at the configured output path. |
 
 ## Canonical Fixture Matrix (20.1.4.2)
 | Fixture class | Expected result |

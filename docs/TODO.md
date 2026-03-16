@@ -920,12 +920,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.3.2 Implement a pure evaluator (`evaluate_strict_gates`) that returns deterministic, stably ordered violations.
     - [x] 20.1.3.3 Wire evaluator into `clg build --compiler-mode strict` before final link/build outputs.
     - [x] 20.1.3.4 Add deterministic ordering rule (gate id -> package id -> symbol id) and snapshot tests.
-    - [ ] 20.1.3.5 Ensure strict mode fails closed whenever any gate violation exists, emitting a complete deterministic violation list (no permissive fallback path).
-    - [ ] 20.1.3.6 Emit canonical direct-dependency import-map artifact in strict preflight and assert deterministic serialization/hash across identical inputs.
+    - [x] 20.1.3.5 Ensure strict mode fails closed whenever any gate violation exists, emitting a complete deterministic violation list (no permissive fallback path).
+    - [x] 20.1.3.6 Emit canonical direct-dependency import-map artifact in strict preflight and assert deterministic serialization/hash across identical inputs.
   - [ ] 20.1.4 Publish diagnostic + fixture matrix for 20.1 gates.
-    - [x] 20.1.4.1 Publish proposed package/linker strict-gate diagnostics (`C101`-`C107`) in the phase design lock (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
+    - [x] 20.1.4.1 Publish proposed package/linker strict-gate diagnostics (`C101`-`C108`) in the phase design lock (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
     - [x] 20.1.4.2 Publish canonical fixture matrix in the phase design lock (positive/trust-fail/digest-fail/schema-fail/abi-fail/capability-fail/determinism for direct dependencies).
-    - [ ] 20.1.4.3 Promote `C101`-`C107` to canonical diagnostics registry in `docs/diagnostics.md` and keep diagnostics code-table tests green (`crates/cli/tests/diagnostics_codes.rs`).
+    - [ ] 20.1.4.3 Promote `C101`-`C108` to canonical diagnostics registry in `docs/diagnostics.md` and keep diagnostics code-table tests green (`crates/cli/tests/diagnostics_codes.rs`).
     - [ ] 20.1.4.4 Add CI determinism replay job that runs strict preflight twice with identical inputs and asserts identical diagnostics ordering.
     - [ ] 20.1.4.5 In the same replay job, assert strict preflight import-map artifact bytes/hash are identical.
 - [ ] 20.2 Namespaced runnable baseline first: make `clearlang-tests/16_namespaced_call.clear` runnable (not parse-only).

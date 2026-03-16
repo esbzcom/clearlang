@@ -168,6 +168,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C105 | build | Strict ABI/link gate failed (package metadata/ABI contract mismatch, unresolved ABI import symbol, or resolved symbol signature/effect mismatch against strict ABI expectations). Remediation: align strict ABI contracts with resolved external import surface exactly. |
 | C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
 | C107 | build | Strict determinism replay failed (identical strict inputs did not produce identical canonical direct-dependency import map and diagnostics ordering). Remediation: normalize gate evaluation ordering and import-map serialization to be deterministic. |
+| C108 | build | Strict import-map artifact emission failed (canonical strict preflight artifact could not be written). Remediation: fix output path/permissions and retry the strict build. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

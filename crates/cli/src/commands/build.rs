@@ -11,7 +11,10 @@ use clg_typer::{
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-use crate::commands::helpers::{extract_function_name, make_single_json_error, CommandError};
+use crate::commands::helpers::{
+    canonical_json_bytes, extract_function_name, make_single_json_error, sha256_hex, CommandError,
+    JsonError, JsonErrorItem,
+};
 use crate::commands::modules::load_program;
 use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{
@@ -223,37 +226,96 @@ pub fn run(
             Err(anyhow!(message.to_string()))
         }
     };
+    let fail_build_violations = |violations: &[StrictGateViolation]| -> Result<()> {
+        if violations.is_empty() {
+            return Ok(());
+        }
+        if json_errors {
+            let errors = violations
+                .iter()
+                .map(|violation| JsonErrorItem {
+                    code: violation.code,
+                    stage: "build",
+                    message: violation.message.clone(),
+                    file: file.display().to_string(),
+                    start: 0,
+                    end: 0,
+                    function: None,
+                })
+                .collect();
+            let json = JsonError { ok: false, errors };
+            Err(CommandError::json(json).into())
+        } else {
+            let mut message = String::from("strict mode gate violations:");
+            for violation in violations {
+                message.push_str("\n - [");
+                message.push_str(violation.code);
+                message.push_str("] ");
+                message.push_str(violation.message.as_str());
+            }
+            Err(anyhow!(message))
+        }
+    };
     if compiler_mode == CompilerMode::Strict {
         if let (Some(host_profile), Some(bindings)) = (
             strict_host_profile_for_caps.as_ref(),
             strict_external_bindings_for_link.as_ref(),
         ) {
-            let linked_imports = match linked_external_import_profiles_from_ir(
-                &ir,
-                external_typer_sigs.as_slice(),
+            let baseline_outcome = strict_gate_outcome_from_linked_import_resolution(
+                &bindings.expected_profiles,
+                host_profile,
+                linked_external_import_profiles_from_ir(&ir, external_typer_sigs.as_slice()),
+            );
+            let mut replay_external_typer_sigs = external_typer_sigs.clone();
+            replay_external_typer_sigs.reverse();
+            let replay_outcome = strict_gate_outcome_from_linked_import_resolution(
+                &bindings.expected_profiles,
+                host_profile,
+                linked_external_import_profiles_from_ir(&ir, replay_external_typer_sigs.as_slice()),
+            );
+            let mut violations = baseline_outcome.violations.clone();
+            let strict_import_map_artifact = match strict_import_map_artifact_with_determinism_check(
+                &bindings.expected_profiles,
+                host_profile,
+                &baseline_outcome,
+                &replay_outcome,
             ) {
-                Ok(value) => value,
+                Ok(artifact) => Some(artifact),
                 Err(message) => {
-                    fail_build("C105", &message, None)?;
-                    Vec::new()
+                    violations.push(StrictGateViolation {
+                        code: "C107",
+                        package: "_".to_string(),
+                        symbol: "_".to_string(),
+                        message,
+                    });
+                    None
                 }
             };
-            let evaluation = evaluate_strict_gates(
-                &bindings.expected_profiles,
-                linked_imports.as_slice(),
-                host_profile,
-            );
-            if let Some(message) = strict_determinism_violation(
-                &bindings.expected_profiles,
-                host_profile,
-                linked_imports.as_slice(),
-                evaluation.as_slice(),
-            ) {
-                fail_build("C107", &message, None)?;
+            if let Some(artifact) = strict_import_map_artifact.as_ref() {
+                match write_strict_import_map_artifact(&out, artifact) {
+                    Ok(path) => {
+                        if logger.enabled(LogLevel::Debug) {
+                            logger.event(
+                                LogLevel::Debug,
+                                "strict_import_map",
+                                "strict_preflight",
+                                &[
+                                    ("path", path.display().to_string()),
+                                    ("sha256", artifact.canonical_hash.clone()),
+                                ],
+                            );
+                        }
+                    }
+                    Err(err) => violations.push(StrictGateViolation {
+                        code: "C108",
+                        package: "_".to_string(),
+                        symbol: "_".to_string(),
+                        message: format!("strict import-map artifact emission failed: {err:#}"),
+                    }),
+                }
             }
-            if let Some(first) = evaluation.first() {
-                fail_build(first.code, first.message.as_str(), None)?;
-            }
+            sort_strict_gate_violations(violations.as_mut_slice());
+            fail_build_violations(violations.as_slice())?;
         }
     }
 
@@ -579,6 +641,18 @@ struct StrictGateViolation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+struct StrictImportMapArtifact {
+    canonical_bytes: Vec<u8>,
+    canonical_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StrictGateOutcome {
+    linked_imports: Vec<(String, AbiLinkProfile)>,
+    violations: Vec<StrictGateViolation>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct StrictResolvedImportBinding {
     profile: AbiLinkProfile,
     params_typed: Vec<Type>,
@@ -896,14 +970,47 @@ fn evaluate_strict_gates(
         }
     }
 
-    diagnostics.sort_by(|lhs, rhs| {
+    sort_strict_gate_violations(diagnostics.as_mut_slice());
+    diagnostics
+}
+
+fn sort_strict_gate_violations(violations: &mut [StrictGateViolation]) {
+    violations.sort_by(|lhs, rhs| {
         lhs.code
             .cmp(rhs.code)
             .then(lhs.package.cmp(&rhs.package))
             .then(lhs.symbol.cmp(&rhs.symbol))
             .then(lhs.message.cmp(&rhs.message))
     });
-    diagnostics
+}
+
+fn strict_gate_outcome_from_linked_import_resolution(
+    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
+    host_profile: &StrictHostProfileV0,
+    linked_import_resolution: std::result::Result<Vec<(String, AbiLinkProfile)>, String>,
+) -> StrictGateOutcome {
+    let (linked_imports, mut violations) = match linked_import_resolution {
+        Ok(linked_imports) => (linked_imports, Vec::new()),
+        Err(message) => (
+            Vec::new(),
+            vec![StrictGateViolation {
+                code: "C105",
+                package: "_".to_string(),
+                symbol: "_".to_string(),
+                message,
+            }],
+        ),
+    };
+    violations.extend(evaluate_strict_gates(
+        expected_profiles,
+        linked_imports.as_slice(),
+        host_profile,
+    ));
+    sort_strict_gate_violations(violations.as_mut_slice());
+    StrictGateOutcome {
+        linked_imports,
+        violations,
+    }
 }
 
 fn package_id_from_symbol(symbol: &str) -> String {
@@ -1049,59 +1156,162 @@ fn normalize_type_contract(raw: &str) -> String {
         .collect::<String>()
 }
 
+fn strict_import_map_artifact_path(out: &Path) -> PathBuf {
+    let file_name = out
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("out.wasm");
+    let artifact_name = if let Some(stem) = file_name.strip_suffix(".wasm") {
+        format!("{stem}.strict-import-map.json")
+    } else {
+        format!("{file_name}.strict-import-map.json")
+    };
+    match out.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.join(artifact_name),
+        _ => PathBuf::from(artifact_name),
+    }
+}
+
+fn write_strict_import_map_artifact(
+    out: &Path,
+    artifact: &StrictImportMapArtifact,
+) -> Result<PathBuf> {
+    let path = strict_import_map_artifact_path(out);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+        }
+    }
+    fs::write(&path, artifact.canonical_bytes.as_slice())
+        .with_context(|| format!("writing {}", path.display()))?;
+    Ok(path)
+}
+
+fn strict_import_map_artifact_with_determinism_check(
+    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
+    host_profile: &StrictHostProfileV0,
+    baseline_outcome: &StrictGateOutcome,
+    replay_outcome: &StrictGateOutcome,
+) -> std::result::Result<StrictImportMapArtifact, String> {
+    let baseline_json = strict_import_map_artifact_json(
+        expected_profiles,
+        host_profile,
+        baseline_outcome.linked_imports.as_slice(),
+        baseline_outcome.violations.as_slice(),
+    );
+    let baseline_bytes = canonical_json_bytes(&baseline_json);
+    let baseline_hash = sha256_hex(baseline_bytes.as_slice());
+
+    let replay_json = strict_import_map_artifact_json(
+        expected_profiles,
+        host_profile,
+        replay_outcome.linked_imports.as_slice(),
+        replay_outcome.violations.as_slice(),
+    );
+    let replay_bytes = canonical_json_bytes(&replay_json);
+    let replay_hash = sha256_hex(replay_bytes.as_slice());
+
+    if baseline_outcome.violations.as_slice() != replay_outcome.violations.as_slice()
+        || baseline_bytes != replay_bytes
+        || baseline_hash != replay_hash
+    {
+        return Err(
+            "strict determinism replay failed: identical inputs produced different canonical direct-dependency import map or diagnostics ordering"
+                .to_string(),
+        );
+    }
+
+    Ok(StrictImportMapArtifact {
+        canonical_bytes: baseline_bytes,
+        canonical_hash: baseline_hash,
+    })
+}
+
+fn strict_import_map_artifact_json(
+    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
+    host_profile: &StrictHostProfileV0,
+    linked_imports: &[(String, AbiLinkProfile)],
+    diagnostics: &[StrictGateViolation],
+) -> serde_json::Value {
+    use serde_json::json;
+
+    let mut imports = linked_imports
+        .iter()
+        .map(|(symbol, linked_profile)| {
+            let required_capability = expected_profiles
+                .get(symbol)
+                .and_then(|profile| profile.capability.as_deref());
+            json!({
+                "symbol": symbol,
+                "package": package_id_from_symbol(symbol),
+                "effect": linked_profile.effect,
+                "params": linked_profile.params,
+                "ret": linked_profile.ret,
+                "required_capability": required_capability,
+            })
+        })
+        .collect::<Vec<_>>();
+    imports.sort_by(|lhs, rhs| {
+        let lhs_symbol = lhs
+            .get("symbol")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        let rhs_symbol = rhs
+            .get("symbol")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        lhs_symbol.cmp(rhs_symbol)
+    });
+
+    let diagnostics_json = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            json!({
+                "code": diagnostic.code,
+                "package": diagnostic.package,
+                "symbol": diagnostic.symbol,
+                "message": diagnostic.message,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "schema_version": 0,
+        "kind": "clg.strict_direct_dependency_import_map.v0",
+        "host_profile": host_profile.profile,
+        "imports": imports,
+        "diagnostics": diagnostics_json,
+    })
+}
+
+#[cfg(test)]
 fn strict_determinism_violation(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
     linked_imports: &[(String, AbiLinkProfile)],
     baseline_diagnostics: &[StrictGateViolation],
 ) -> Option<String> {
-    let baseline =
-        strict_canonical_import_map(expected_profiles, linked_imports, baseline_diagnostics);
+    let baseline_outcome = StrictGateOutcome {
+        linked_imports: linked_imports.to_vec(),
+        violations: baseline_diagnostics.to_vec(),
+    };
     let mut replay_inputs = linked_imports.to_vec();
     replay_inputs.reverse();
-    let replay_diagnostics =
-        evaluate_strict_gates(expected_profiles, replay_inputs.as_slice(), host_profile);
-    let replay = strict_canonical_import_map(
+    let replay_outcome = StrictGateOutcome {
+        linked_imports: replay_inputs.clone(),
+        violations: evaluate_strict_gates(
+            expected_profiles,
+            replay_inputs.as_slice(),
+            host_profile,
+        ),
+    };
+    strict_import_map_artifact_with_determinism_check(
         expected_profiles,
-        replay_inputs.as_slice(),
-        replay_diagnostics.as_slice(),
-    );
-    if baseline != replay || baseline_diagnostics != replay_diagnostics.as_slice() {
-        return Some(
-            "strict determinism replay failed: identical inputs produced different canonical direct-dependency import map or diagnostics ordering"
-                .to_string(),
-        );
-    }
-    None
-}
-
-fn strict_canonical_import_map(
-    expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
-    linked_imports: &[(String, AbiLinkProfile)],
-    diagnostics: &[StrictGateViolation],
-) -> String {
-    let mut lines = Vec::new();
-    for (symbol, linked_profile) in linked_imports {
-        let capability = expected_profiles
-            .get(symbol)
-            .and_then(|profile| profile.capability.as_deref())
-            .unwrap_or("-");
-        lines.push(format!(
-            "linked|{}|{}({})->{}|{}",
-            symbol,
-            linked_profile.effect,
-            linked_profile.params.join(","),
-            linked_profile.ret,
-            capability
-        ));
-    }
-    for diagnostic in diagnostics {
-        lines.push(format!(
-            "diag|{}|{}|{}|{}",
-            diagnostic.code, diagnostic.package, diagnostic.symbol, diagnostic.message
-        ));
-    }
-    lines.join("\n")
+        host_profile,
+        &baseline_outcome,
+        &replay_outcome,
+    )
+    .err()
 }
 
 fn strict_artifact_identity_violation(
@@ -1504,6 +1714,48 @@ mod tests {
         )
         .expect("diagnostics-order drift should fail determinism replay");
         assert!(err.contains("determinism replay failed"));
+    }
+
+    #[test]
+    fn strict_import_map_artifact_includes_pre_evaluation_violations() {
+        let expected_profiles = std::collections::BTreeMap::new();
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: Vec::new(),
+        };
+        let linked_imports: Vec<(String, AbiLinkProfile)> = Vec::new();
+        let pre_eval_violations = vec![StrictGateViolation {
+            code: "C105",
+            package: "_".to_string(),
+            symbol: "_".to_string(),
+            message: "strict ABI/link mismatch: synthetic pre-eval failure".to_string(),
+        }];
+        let baseline_outcome = StrictGateOutcome {
+            linked_imports: linked_imports.clone(),
+            violations: pre_eval_violations.clone(),
+        };
+        let replay_outcome = baseline_outcome.clone();
+        let artifact = strict_import_map_artifact_with_determinism_check(
+            &expected_profiles,
+            &host_profile,
+            &baseline_outcome,
+            &replay_outcome,
+        )
+        .expect("artifact generation should include pre-evaluation violations");
+        let value: serde_json::Value =
+            serde_json::from_slice(artifact.canonical_bytes.as_slice()).expect("artifact json");
+        let diagnostics = value
+            .get("diagnostics")
+            .and_then(|items| items.as_array())
+            .expect("diagnostics array");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0]
+                .get("code")
+                .and_then(|code| code.as_str())
+                .unwrap_or_default(),
+            "C105"
+        );
     }
 
     #[test]

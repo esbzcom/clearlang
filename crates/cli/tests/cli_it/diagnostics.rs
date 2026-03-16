@@ -1,5 +1,6 @@
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
+use sha2::{Digest, Sha256};
 
 fn assert_single_json_error(v: &Value, code: &str, stage: &str) {
     assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
@@ -11,6 +12,23 @@ fn assert_single_json_error(v: &Value, code: &str, stage: &str) {
     let e0 = &errs[0];
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some(code));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some(stage));
+}
+
+fn assert_json_error_codes(v: &Value, stage: &str, expected_codes: &[&str]) -> Vec<Value> {
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let actual_codes = errs
+        .iter()
+        .map(|err| err.get("code").and_then(|s| s.as_str()).unwrap_or_default())
+        .collect::<Vec<_>>();
+    assert_eq!(actual_codes, expected_codes);
+    for err in errs {
+        assert_eq!(err.get("stage").and_then(|s| s.as_str()), Some(stage));
+    }
+    errs.to_vec()
 }
 
 fn write_minimal_strict_lockfile(root: &Path) {
@@ -222,6 +240,22 @@ fn run_strict_build_success(root: &Path, file: &Path) {
         .arg(&vcs)
         .args(["--compiler-mode", "strict"]);
     cmd.assert().success();
+}
+
+fn strict_import_map_artifact_path(out: &Path) -> PathBuf {
+    let file_name = out
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("out.wasm");
+    let artifact_name = if let Some(stem) = file_name.strip_suffix(".wasm") {
+        format!("{stem}.strict-import-map.json")
+    } else {
+        format!("{file_name}.strict-import-map.json")
+    };
+    match out.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.join(artifact_name),
+        _ => PathBuf::from(artifact_name),
+    }
 }
 
 #[test]
@@ -657,6 +691,223 @@ fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
     assert!(
         !tmp.path().join("out.wasm").exists(),
         "strict gate failure should stop before final wasm output emission"
+    );
+}
+
+#[test]
+fn strict_acceptance_gate_reports_complete_violation_list() {
+    let src = r#"
+        function main() -> Int {
+            std::core::math::add(
+                std::core::math::sub(4, 1),
+                2
+            )
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_complete_violations.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        },
+        {
+          "symbol": "std::core::math::sub",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        }
+      ]"#,
+    );
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    let errs = assert_json_error_codes(&v, "build", &["C106", "C106"]);
+    assert!(errs[0]
+        .get("message")
+        .and_then(|s| s.as_str())
+        .unwrap_or_default()
+        .contains("std::core::math::add"));
+    assert!(errs[1]
+        .get("message")
+        .and_then(|s| s.as_str())
+        .unwrap_or_default()
+        .contains("std::core::math::sub"));
+    assert!(
+        !tmp.path().join("out.wasm").exists(),
+        "strict gate failure should stop before final wasm output emission"
+    );
+}
+
+#[test]
+fn strict_acceptance_import_map_artifact_matches_failure_diagnostics() {
+    let src = r#"
+        function main() -> Int {
+            std::core::math::add(
+                std::core::math::sub(4, 1),
+                2
+            )
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_import_map_failure_diagnostics.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        },
+        {
+          "symbol": "std::core::math::sub",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        }
+      ]"#,
+    );
+
+    let output = run_strict_build_json_failure(tmp.path(), &file);
+    let expected_errors = output
+        .get("errors")
+        .and_then(|errors| errors.as_array())
+        .expect("errors array");
+
+    let artifact_path = strict_import_map_artifact_path(&tmp.path().join("out.wasm"));
+    let artifact_bytes = fs::read(&artifact_path).expect("read strict import-map artifact");
+    let artifact_json: Value = serde_json::from_slice(&artifact_bytes).expect("artifact json");
+    let artifact_diagnostics = artifact_json
+        .get("diagnostics")
+        .and_then(|diagnostics| diagnostics.as_array())
+        .expect("artifact diagnostics");
+
+    assert_eq!(artifact_diagnostics.len(), expected_errors.len());
+    for (artifact_diag, expected_error) in artifact_diagnostics.iter().zip(expected_errors.iter()) {
+        assert_eq!(artifact_diag.get("code"), expected_error.get("code"));
+        assert_eq!(artifact_diag.get("message"), expected_error.get("message"));
+    }
+}
+
+#[test]
+fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs() {
+    let src = r#"
+        function main() -> Int {
+            std::core::math::add(
+                std::core::math::sub(4, 1),
+                2
+            )
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_import_map_determinism.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        },
+        {
+          "symbol": "std::core::math::sub",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+
+    let out1 = tmp.path().join("run1.wasm");
+    let vcs1 = tmp.path().join("run1.vc.json");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out1)
+        .args(["--emit-vcs"])
+        .arg(&vcs1)
+        .args(["--compiler-mode", "strict"])
+        .assert()
+        .success();
+
+    let artifact1 = strict_import_map_artifact_path(&out1);
+    let bytes1 = fs::read(&artifact1).expect("read run1 strict import-map artifact");
+    let hash1 = hex::encode(Sha256::digest(bytes1.as_slice()));
+
+    let out2 = tmp.path().join("run2.wasm");
+    let vcs2 = tmp.path().join("run2.vc.json");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out2)
+        .args(["--emit-vcs"])
+        .arg(&vcs2)
+        .args(["--compiler-mode", "strict"])
+        .assert()
+        .success();
+
+    let artifact2 = strict_import_map_artifact_path(&out2);
+    let bytes2 = fs::read(&artifact2).expect("read run2 strict import-map artifact");
+    let hash2 = hex::encode(Sha256::digest(bytes2.as_slice()));
+
+    assert_eq!(
+        bytes1, bytes2,
+        "canonical import-map artifact bytes must match"
+    );
+    assert_eq!(
+        hash1, hash2,
+        "canonical import-map artifact hash must match"
+    );
+
+    let artifact_json: Value = serde_json::from_slice(&bytes1).expect("artifact json");
+    assert_eq!(
+        artifact_json
+            .get("kind")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default(),
+        "clg.strict_direct_dependency_import_map.v0"
+    );
+    let imports = artifact_json
+        .get("imports")
+        .and_then(|value| value.as_array())
+        .expect("artifact imports");
+    assert_eq!(imports.len(), 2);
+    assert_eq!(
+        imports[0]
+            .get("symbol")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default(),
+        "std::core::math::add"
+    );
+    assert_eq!(
+        imports[1]
+            .get("symbol")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default(),
+        "std::core::math::sub"
     );
 }
 

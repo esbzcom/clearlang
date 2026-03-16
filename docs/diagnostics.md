@@ -167,7 +167,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C104 | build | Strict preflight schema input is malformed or unsupported (lockfile/package-metadata/package-abi v0). Remediation: provide valid v0 schema files with required keys only. |
 | C105 | build | Strict ABI/link gate failed (package metadata/ABI contract mismatch, unresolved ABI import symbol, or resolved symbol signature/effect mismatch against strict ABI expectations). Remediation: align strict ABI contracts with resolved external import surface exactly. |
 | C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
-| C107 | build | Strict determinism replay failed (identical strict inputs did not produce identical canonical direct-dependency import map). Remediation: normalize gate evaluation ordering and import-map serialization to be deterministic. |
+| C107 | build | Strict determinism replay failed (identical strict inputs did not produce identical canonical direct-dependency import map and diagnostics ordering). Remediation: normalize gate evaluation ordering and import-map serialization to be deterministic. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

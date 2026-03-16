@@ -238,7 +238,7 @@ pub fn run(
                     Vec::new()
                 }
             };
-            let evaluation = strict_link_runtime_gate_diagnostics(
+            let evaluation = evaluate_strict_gates(
                 &bindings.expected_profiles,
                 linked_imports.as_slice(),
                 host_profile,
@@ -571,7 +571,7 @@ struct StrictExternalBindings {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-struct StrictGateDiagnostic {
+struct StrictGateViolation {
     code: &'static str,
     symbol: String,
     message: String,
@@ -823,11 +823,11 @@ fn resolved_external_import_profiles(
     Ok(resolved_profiles)
 }
 
-fn strict_link_runtime_gate_diagnostics(
+fn evaluate_strict_gates(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     linked_imports: &[(String, AbiLinkProfile)],
     host_profile: &StrictHostProfileV0,
-) -> Vec<StrictGateDiagnostic> {
+) -> Vec<StrictGateViolation> {
     use std::collections::HashSet;
 
     let host_caps: HashSet<&str> = host_profile
@@ -838,7 +838,7 @@ fn strict_link_runtime_gate_diagnostics(
     let mut diagnostics = Vec::new();
     for (symbol, linked_profile) in linked_imports {
         let Some(expected) = expected_profiles.get(symbol) else {
-            diagnostics.push(StrictGateDiagnostic {
+            diagnostics.push(StrictGateViolation {
                 code: "C105",
                 symbol: symbol.clone(),
                 message: format!(
@@ -850,7 +850,7 @@ fn strict_link_runtime_gate_diagnostics(
         };
 
         if !abi_signatures_match(expected, linked_profile) {
-            diagnostics.push(StrictGateDiagnostic {
+            diagnostics.push(StrictGateViolation {
                 code: "C105",
                 symbol: symbol.clone(),
                 message: format!(
@@ -869,7 +869,7 @@ fn strict_link_runtime_gate_diagnostics(
 
         if let Some(capability) = expected.capability.as_deref() {
             if !host_caps.contains(capability) {
-                diagnostics.push(StrictGateDiagnostic {
+                diagnostics.push(StrictGateViolation {
                     code: "C106",
                     symbol: symbol.clone(),
                     message: format!(
@@ -903,7 +903,7 @@ fn strict_abi_link_violation(
         Ok(value) => value.into_iter().collect::<Vec<_>>(),
         Err(message) => return Some(message),
     };
-    let diagnostics = strict_link_runtime_gate_diagnostics(
+    let diagnostics = evaluate_strict_gates(
         &bindings.expected_profiles,
         linked.as_slice(),
         &StrictHostProfileV0 {
@@ -931,11 +931,8 @@ fn strict_runtime_capability_violation(
         Ok(value) => value.into_iter().collect::<Vec<_>>(),
         Err(_) => return None,
     };
-    let diagnostics = strict_link_runtime_gate_diagnostics(
-        &bindings.expected_profiles,
-        linked.as_slice(),
-        host_profile,
-    );
+    let diagnostics =
+        evaluate_strict_gates(&bindings.expected_profiles, linked.as_slice(), host_profile);
     diagnostics
         .into_iter()
         .find(|diag| diag.code == "C106")
@@ -1027,17 +1024,14 @@ fn strict_determinism_violation(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
     linked_imports: &[(String, AbiLinkProfile)],
-    baseline_diagnostics: &[StrictGateDiagnostic],
+    baseline_diagnostics: &[StrictGateViolation],
 ) -> Option<String> {
     let baseline =
         strict_canonical_import_map(expected_profiles, linked_imports, baseline_diagnostics);
     let mut replay_inputs = linked_imports.to_vec();
     replay_inputs.reverse();
-    let replay_diagnostics = strict_link_runtime_gate_diagnostics(
-        expected_profiles,
-        replay_inputs.as_slice(),
-        host_profile,
-    );
+    let replay_diagnostics =
+        evaluate_strict_gates(expected_profiles, replay_inputs.as_slice(), host_profile);
     let replay = strict_canonical_import_map(
         expected_profiles,
         replay_inputs.as_slice(),
@@ -1055,7 +1049,7 @@ fn strict_determinism_violation(
 fn strict_canonical_import_map(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     linked_imports: &[(String, AbiLinkProfile)],
-    diagnostics: &[StrictGateDiagnostic],
+    diagnostics: &[StrictGateViolation],
 ) -> String {
     let mut lines = Vec::new();
     for (symbol, linked_profile) in linked_imports {
@@ -1411,7 +1405,7 @@ mod tests {
             profile: "contract_static".to_string(),
             capabilities: Vec::new(),
         };
-        let diagnostics = strict_link_runtime_gate_diagnostics(
+        let diagnostics = evaluate_strict_gates(
             &bindings.expected_profiles,
             linked.as_slice(),
             &host_profile,
@@ -1467,7 +1461,7 @@ mod tests {
             profile: "contract_static".to_string(),
             capabilities: Vec::new(),
         };
-        let mut diagnostics = strict_link_runtime_gate_diagnostics(
+        let mut diagnostics = evaluate_strict_gates(
             &bindings.expected_profiles,
             linked.as_slice(),
             &host_profile,

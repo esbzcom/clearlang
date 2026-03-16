@@ -654,6 +654,10 @@ fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
     );
     let v = run_strict_build_json_failure(tmp.path(), &file);
     assert_single_json_error(&v, "C106", "build");
+    assert!(
+        !tmp.path().join("out.wasm").exists(),
+        "strict gate failure should stop before final wasm output emission"
+    );
 }
 
 #[test]

@@ -918,7 +918,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).
     - [x] 20.1.3.1 Define a single preflight input model (lockfile v0 entries, package metadata, trust-policy v0, host-profile v0).
     - [x] 20.1.3.2 Implement a pure evaluator (`evaluate_strict_gates`) that returns deterministic, stably ordered violations.
-    - [ ] 20.1.3.3 Wire evaluator into `clg build --compiler-mode strict` before final link/build outputs.
+    - [x] 20.1.3.3 Wire evaluator into `clg build --compiler-mode strict` before final link/build outputs.
     - [ ] 20.1.3.4 Add deterministic ordering rule (gate id -> package id -> symbol id) and snapshot tests.
     - [ ] 20.1.3.5 Ensure strict mode fails closed whenever any gate violation exists, emitting a complete deterministic violation list (no permissive fallback path).
     - [ ] 20.1.3.6 Emit canonical direct-dependency import-map artifact in strict preflight and assert deterministic serialization/hash across identical inputs.

@@ -695,6 +695,78 @@ fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
 }
 
 #[test]
+fn strict_acceptance_forced_determinism_replay_mismatch_fails_with_c107() {
+    let src = r#"
+        function main() -> Int { std::core::math::add(1, 2) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_forced_replay_mismatch.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_TEST_FORCE_STRICT_DETERMINISM_MISMATCH", "1");
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C107", "build");
+
+    let artifact = strict_import_map_artifact_path(&out);
+    assert!(
+        !artifact.exists(),
+        "C107 determinism replay failure should not emit strict import-map artifact"
+    );
+}
+
+#[test]
+fn strict_acceptance_import_map_artifact_write_failure_fails_with_c108() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_import_map_write_fail.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+
+    let blocked_parent = tmp.path().join("blocked_parent");
+    fs::write(&blocked_parent, "not a directory").expect("write blocking file");
+    let out = blocked_parent.join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C108", "build");
+}
+
+#[test]
 fn strict_acceptance_gate_reports_complete_violation_list() {
     let src = r#"
         function main() -> Int {
@@ -908,6 +980,71 @@ fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs(
             .and_then(|value| value.as_str())
             .unwrap_or_default(),
         "std::core::math::sub"
+    );
+}
+
+#[test]
+fn strict_acceptance_diagnostics_order_is_deterministic_across_identical_runs() {
+    let src = r#"
+        function main() -> Int {
+            std::core::math::add(
+                std::core::math::sub(4, 1),
+                2
+            )
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_diagnostics_order_determinism.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        },
+        {
+          "symbol": "std::core::math::sub",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::crypto::hash"
+        }
+      ]"#,
+    );
+
+    let run1 = run_strict_build_json_failure(tmp.path(), &file);
+    let errs1 = assert_json_error_codes(&run1, "build", &["C106", "C106"]);
+    let messages1 = errs1
+        .iter()
+        .map(|err| {
+            err.get("message")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_owned()
+        })
+        .collect::<Vec<_>>();
+
+    let run2 = run_strict_build_json_failure(tmp.path(), &file);
+    let errs2 = assert_json_error_codes(&run2, "build", &["C106", "C106"]);
+    let messages2 = errs2
+        .iter()
+        .map(|err| {
+            err.get("message")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_owned()
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        messages1, messages2,
+        "strict preflight diagnostics ordering must be deterministic across identical replays"
     );
 }
 

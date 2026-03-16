@@ -895,7 +895,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 20.0.2 Define and document one canonical style for generated code/docs (`//` preferred; `/* ... */` only for multi-line notes).
   - [x] 20.0.3 Add parser + CLI tests proving comments are accepted in runnable fixtures and do not affect diagnostics stability.
   - [x] 20.0.4 Numeric literal readability: support `_` as digit separator (`1_000`), keep `,` invalid (`1,000`), and add a targeted diagnostic suggesting `_`.
-- [ ] 20.1 Publish post-19 std/package architecture lock (precompiled `std::core` + host-backed `std::host` + chain packages).
+- [x] 20.1 Publish post-19 std/package architecture lock (precompiled `std::core` + host-backed `std::host` + chain packages).
   - [x] 20.1.0 Bootstrap minimal strict lockfile support for gate preflight (direct dependencies only).
     - [x] 20.1.0.1 Define minimal lockfile v0 schema for strict mode (`name`, `version`, `digest`) covering direct dependencies only. (`docs/design/phase-20.1.0-strict-lockfile-v0.md`)
     - [x] 20.1.0.2 Implement deterministic strict-mode lockfile loader/validator for v0 schema (no transitive solver in 20.1).
@@ -915,23 +915,23 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.2.6 Runtime capability gate: required host capabilities for linked imports must be present in selected host-profile v0, otherwise fail closed.
     - [x] 20.1.2.7 Determinism gate: identical inputs (source, lockfile, package store, policy) produce identical resolved direct-dependency import map and diagnostics ordering.
     - [x] 20.1.2.8 CI functional acceptance suite: add positive + tamper negative tests for 20.1.2.1-20.1.2.6 with fixed diagnostic-code assertions.
-  - [ ] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).
+  - [x] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).
     - [x] 20.1.3.1 Define a single preflight input model (lockfile v0 entries, package metadata, trust-policy v0, host-profile v0).
     - [x] 20.1.3.2 Implement a pure evaluator (`evaluate_strict_gates`) that returns deterministic, stably ordered violations.
     - [x] 20.1.3.3 Wire evaluator into `clg build --compiler-mode strict` before final link/build outputs.
     - [x] 20.1.3.4 Add deterministic ordering rule (gate id -> package id -> symbol id) and snapshot tests.
     - [x] 20.1.3.5 Ensure strict mode fails closed whenever any gate violation exists, emitting a complete deterministic violation list (no permissive fallback path).
     - [x] 20.1.3.6 Emit canonical direct-dependency import-map artifact in strict preflight and assert deterministic serialization/hash across identical inputs.
-  - [ ] 20.1.4 Publish diagnostic + fixture matrix for 20.1 gates.
+  - [x] 20.1.4 Publish diagnostic + fixture matrix for 20.1 gates.
     - [x] 20.1.4.1 Publish proposed package/linker strict-gate diagnostics (`C101`-`C108`) in the phase design lock (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
     - [x] 20.1.4.2 Publish canonical fixture matrix in the phase design lock (positive/trust-fail/digest-fail/schema-fail/abi-fail/capability-fail/determinism for direct dependencies).
-    - [ ] 20.1.4.3 Promote `C101`-`C108` to canonical diagnostics registry in `docs/diagnostics.md` and keep diagnostics code-table tests green (`crates/cli/tests/diagnostics_codes.rs`).
-    - [ ] 20.1.4.4 Add CI determinism replay job that runs strict preflight twice with identical inputs and asserts identical diagnostics ordering.
-    - [ ] 20.1.4.5 In the same replay job, assert strict preflight import-map artifact bytes/hash are identical.
-- [ ] 20.2 Namespaced runnable baseline first: make `clearlang-tests/16_namespaced_call.clear` runnable (not parse-only).
-  - [ ] 20.2.1 Replace the unresolved `std::math::add` usage with a valid namespaced callable path in a runnable fixture layout.
-  - [ ] 20.2.2 Add CLI integration coverage asserting `clg run ...16_namespaced_call.clear` succeeds.
-  - [ ] 20.2.3 Update sample docs to distinguish parse-only vs runnable namespace examples.
+    - [x] 20.1.4.3 Promote `C101`-`C108` to canonical diagnostics registry in `docs/diagnostics.md` and keep diagnostics code-table tests green (`crates/cli/tests/diagnostics_codes.rs`).
+    - [x] 20.1.4.4 Add CI determinism replay job that runs strict preflight twice with identical inputs and asserts identical diagnostics ordering.
+    - [x] 20.1.4.5 In the same replay job, assert strict preflight import-map artifact bytes/hash are identical.
+- [x] 20.2 Namespaced runnable baseline first: make `clearlang-tests/16_namespaced_call.clear` runnable (not parse-only).
+  - [x] 20.2.1 Replace the unresolved `std::math::add` usage with a valid namespaced callable path in a runnable fixture layout.
+  - [x] 20.2.2 Add CLI integration coverage asserting `clg run ...16_namespaced_call.clear` succeeds.
+  - [x] 20.2.3 Update sample docs to distinguish parse-only vs runnable namespace examples.
 
 ### 21 Precompiled Std Core Packaging
 - [ ] 21.0 Precompiled `std::core` package pipeline.

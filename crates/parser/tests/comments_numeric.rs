@@ -13,6 +13,19 @@ fn parses_line_and_block_comments() {
 }
 
 #[test]
+fn parses_nested_block_comments() {
+    let src = r#"
+        function main() -> Int {
+            /* outer comment
+                /* nested comment */
+               back to outer */
+            42
+        }
+    "#;
+    let _ = parse(src).expect("nested block comments should be accepted");
+}
+
+#[test]
 fn comments_inside_strings_are_not_stripped() {
     let src = r#"
         function main() -> String { "literal // not comment /* still string */" }

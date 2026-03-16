@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -63,3 +65,18 @@ jobs:
           done
           cargo run -p clg-cli -- emit-hello -o tmp/ci/emit_hello.wasm
           wasm-tools validate tmp/ci/emit_hello.wasm
+
+  strict-determinism-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Strict preflight replay determinism gates
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test cli_it strict_acceptance_diagnostics_order_is_deterministic_across_identical_runs
+          cargo test -p clg-cli --test cli_it strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs

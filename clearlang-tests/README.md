@@ -56,13 +56,20 @@ Test Files
 
 - `15_str_literal.clear`: defines a function returning `String` (parse/type only).
 
-- `16_namespaced_call.clear`: demonstrates namespaced callee syntax (parse-only).
+- `16_namespaced_call.clear`: runnable namespaced call sample (`std::str::len("abc")`), expected `clg run ...` output is `3`.
 
-- `17_hello_str.clear`: hello world returning a `String` from `main` (parse/type only; codegen in Phase 5).
+- `17_hello_str.clear`: hello world returning a `String` from `main` (parse/type example; current runnable path requires `main() -> Int`).
 
 - `19_comments_numeric_separator.clear`: runnable sample using comments and `_` numeric separators.
 
 - `20_comma_numeric_separator_invalid.clear`: intentional parse error showing `1,000` is rejected and suggests `_`.
+
+Namespace sample status
+
+- Runnable namespace sample:
+  - `16_namespaced_call.clear` (validated by CLI IT via `clg run clearlang-tests/16_namespaced_call.clear`).
+- Parse/type-only namespace examples:
+  - `std::list::*`, `std::map::*`, and `std::set::*` calls are currently type-surface examples and are not part of runnable fixture coverage in `clearlang-tests/`.
 
 
 

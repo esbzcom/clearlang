@@ -268,11 +268,21 @@ pub fn run(
             );
             let mut replay_external_typer_sigs = external_typer_sigs.clone();
             replay_external_typer_sigs.reverse();
-            let replay_outcome = strict_gate_outcome_from_linked_import_resolution(
+            let mut replay_outcome = strict_gate_outcome_from_linked_import_resolution(
                 &bindings.expected_profiles,
                 host_profile,
                 linked_external_import_profiles_from_ir(&ir, replay_external_typer_sigs.as_slice()),
             );
+            // Test-only hook to force deterministic replay mismatch coverage in CLI IT.
+            if std::env::var_os("CLG_TEST_FORCE_STRICT_DETERMINISM_MISMATCH").is_some() {
+                replay_outcome.violations.push(StrictGateViolation {
+                    code: "C105",
+                    package: "_".to_string(),
+                    symbol: "_".to_string(),
+                    message: "strict determinism test hook: forced replay mismatch".to_string(),
+                });
+                sort_strict_gate_violations(replay_outcome.violations.as_mut_slice());
+            }
             let mut violations = baseline_outcome.violations.clone();
             let strict_import_map_artifact = match strict_import_map_artifact_with_determinism_check(
                 &bindings.expected_profiles,

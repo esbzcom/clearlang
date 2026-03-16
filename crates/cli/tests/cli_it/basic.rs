@@ -83,6 +83,15 @@ fn build_and_run_samples() {
 }
 
 #[test]
+fn run_namespaced_fixture_clear_source_succeeds() {
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["run"]).arg(repo_sample("16_namespaced_call.clear"));
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::is_match(r"(?m)^\s*3\s*$").unwrap());
+}
+
+#[test]
 fn parse_failure_exits_nonzero() {
     let mut cmd = Command::cargo_bin("clg").unwrap();
     cmd.args(["--json-errors", "parse"])

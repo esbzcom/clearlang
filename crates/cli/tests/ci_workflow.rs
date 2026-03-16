@@ -32,6 +32,10 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should enforce import ergonomics gate tests"
     );
     assert!(
+        contents.contains("cargo test -p clg-cli --test cli_it strict_acceptance_"),
+        "ci should enforce strict gate acceptance suite tests"
+    );
+    assert!(
         contents.contains("cargo test -p clg-cli --test vc_snapshots"),
         "ci should enforce proof fixture snapshot regression tests"
     );

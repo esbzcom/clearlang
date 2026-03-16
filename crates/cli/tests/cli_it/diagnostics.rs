@@ -195,6 +195,35 @@ fn write_signed_strict_dependency_fixture(root: &Path, imports_json: &str) {
     .expect("write strict package signatures");
 }
 
+fn run_strict_build_json_failure(root: &Path, file: &Path) -> Value {
+    let out = root.join("out.wasm");
+    let vcs = root.join("out.vc.json");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    serde_json::from_slice(&output).expect("json")
+}
+
+fn run_strict_build_success(root: &Path, file: &Path) {
+    let out = root.join("out.wasm");
+    let vcs = root.join("out.vc.json");
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["build"])
+        .arg(file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    cmd.assert().success();
+}
+
 #[test]
 fn type_error_reports_json_with_span_and_code() {
     // Create a small source with a type mismatch: add(1, true)
@@ -449,6 +478,157 @@ fn strict_compiler_mode_requires_emit_vcs_with_c029() {
     let output = cmd.assert().failure().get_output().stdout.clone();
     let v: Value = serde_json::from_slice(&output).expect("json");
     assert_single_json_error(&v, "C029", "build");
+}
+
+#[test]
+fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_ok.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    run_strict_build_success(tmp.path(), &file);
+}
+
+#[test]
+fn strict_acceptance_source_of_truth_tamper_fails_with_c101() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_source_tamper.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    fs::write(
+        tmp.path().join("clg-packages.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": []
+}"#,
+    )
+    .expect("write disallowed legacy package metadata");
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C101", "build");
+}
+
+#[test]
+fn strict_acceptance_artifact_identity_tamper_fails_with_c102() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_digest_tamper.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    fs::write(
+        tmp.path().join("clg.lock.json"),
+        r#"{
+  "schema_version": 0,
+  "dependencies": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}"#,
+    )
+    .expect("tamper lockfile digest");
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C102", "build");
+}
+
+#[test]
+fn strict_acceptance_trust_tamper_fails_with_c103() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_trust_tamper.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    fs::write(
+        tmp.path().join("clg.package-signatures.json"),
+        r#"{
+  "schema_version": 0,
+  "signatures": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "key_id": "k1",
+      "signed_at": "2026-06-01T00:00:00Z",
+      "signature_format": "ed25519",
+      "signature": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ]
+}"#,
+    )
+    .expect("tamper package signature");
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C103", "build");
+}
+
+#[test]
+fn strict_acceptance_schema_tamper_fails_with_c104() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_schema_tamper.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    fs::write(
+        tmp.path().join("clg.package-metadata.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("tamper package metadata schema");
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
+fn strict_acceptance_abi_link_tamper_fails_with_c105() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_abi_tamper.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C105", "build");
+}
+
+#[test]
+fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_acceptance_host_tamper.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(tmp.path(), "[]");
+    fs::write(
+        tmp.path().join("clg.host-profile.json"),
+        r#"{"schema_version":1,"profile":"contract_static","capabilities":[]}"#,
+    )
+    .expect("tamper host profile");
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C106", "build");
 }
 
 #[test]

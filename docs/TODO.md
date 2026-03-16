@@ -906,7 +906,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.0.7 Define minimal package metadata schema v0 + ABI contract v0 (direct dependencies only) required by strict preflight before 22.0.3 policy expansion. (`docs/design/phase-20.1.0-package-metadata-abi-v0.md`)
     - [x] 20.1.0.8 Implement deterministic metadata/ABI v0 validators and stable diagnostics for schema/ABI mismatches.
   - [x] 20.1.1 Design lock document for long-term final solution (`docs/design/phase-20.0-std-packaging-runtime-linking.md`).
-  - [ ] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
+  - [x] 20.1.2 Define deterministic acceptance gates for package trust and runtime linker behavior in strict mode.
     - [x] 20.1.2.1 Strict-mode source-of-truth gate: resolve packages only from lockfile + trusted local store (no implicit network fetch).
     - [x] 20.1.2.2 Artifact identity gate: require exact `(name, version, digest)` match against lockfile entries; digest mismatch fails closed.
     - [x] 20.1.2.3 Trust gate: require valid package signature against configured trust anchors from trust-policy v0; untrusted/revoked/expired signer fails closed.
@@ -914,7 +914,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 20.1.2.5 ABI/link gate: imported symbols must match expected signature/effect/capability profile exactly; ABI mismatch fails deterministically.
     - [x] 20.1.2.6 Runtime capability gate: required host capabilities for linked imports must be present in selected host-profile v0, otherwise fail closed.
     - [x] 20.1.2.7 Determinism gate: identical inputs (source, lockfile, package store, policy) produce identical resolved direct-dependency import map and diagnostics ordering.
-    - [ ] 20.1.2.8 CI functional acceptance suite: add positive + tamper negative tests for 20.1.2.1-20.1.2.6 with fixed diagnostic-code assertions.
+    - [x] 20.1.2.8 CI functional acceptance suite: add positive + tamper negative tests for 20.1.2.1-20.1.2.6 with fixed diagnostic-code assertions.
   - [ ] 20.1.3 Implement strict-mode gate evaluator (code path, no resolver expansion yet).
     - [ ] 20.1.3.1 Define a single preflight input model (lockfile v0 entries, package metadata, trust-policy v0, host-profile v0).
     - [ ] 20.1.3.2 Implement a pure evaluator (`evaluate_strict_gates`) that returns deterministic, stably ordered violations.

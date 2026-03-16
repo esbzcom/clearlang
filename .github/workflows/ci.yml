@@ -29,6 +29,10 @@ jobs:
           cargo test -p clg-cli --test cli_it sdk_usability_
           cargo test -p clg-cli --test cli_it migration_
           cargo test -p clg-cli --test cli_it imports::
+      - name: Strict gate acceptance suite
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test cli_it strict_acceptance_
       - name: Proof regression gates
         run: |
           set -euo pipefail

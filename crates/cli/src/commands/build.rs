@@ -573,6 +573,7 @@ struct StrictExternalBindings {
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 struct StrictGateViolation {
     code: &'static str,
+    package: String,
     symbol: String,
     message: String,
 }
@@ -828,7 +829,12 @@ fn evaluate_strict_gates(
     linked_imports: &[(String, AbiLinkProfile)],
     host_profile: &StrictHostProfileV0,
 ) -> Vec<StrictGateViolation> {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
+
+    let symbol_package_index: HashMap<&str, String> = expected_profiles
+        .keys()
+        .map(|symbol| (symbol.as_str(), package_id_from_symbol(symbol)))
+        .collect();
 
     let host_caps: HashSet<&str> = host_profile
         .capabilities
@@ -840,6 +846,7 @@ fn evaluate_strict_gates(
         let Some(expected) = expected_profiles.get(symbol) else {
             diagnostics.push(StrictGateViolation {
                 code: "C105",
+                package: package_id_from_symbol(symbol),
                 symbol: symbol.clone(),
                 message: format!(
                     "strict ABI/link mismatch: linked import `{}` is not declared in strict package ABI",
@@ -852,6 +859,10 @@ fn evaluate_strict_gates(
         if !abi_signatures_match(expected, linked_profile) {
             diagnostics.push(StrictGateViolation {
                 code: "C105",
+                package: symbol_package_index
+                    .get(symbol.as_str())
+                    .cloned()
+                    .unwrap_or_else(|| package_id_from_symbol(symbol)),
                 symbol: symbol.clone(),
                 message: format!(
                     "strict ABI/link mismatch for symbol `{}`: expected effect/signature `{}({}) -> {}` but resolved `{}({}) -> {}`",
@@ -871,6 +882,10 @@ fn evaluate_strict_gates(
             if !host_caps.contains(capability) {
                 diagnostics.push(StrictGateViolation {
                     code: "C106",
+                    package: symbol_package_index
+                        .get(symbol.as_str())
+                        .cloned()
+                        .unwrap_or_else(|| package_id_from_symbol(symbol)),
                     symbol: symbol.clone(),
                     message: format!(
                         "strict runtime capability mismatch: symbol `{}` requires capability `{}` not present in host profile `{}`",
@@ -884,10 +899,24 @@ fn evaluate_strict_gates(
     diagnostics.sort_by(|lhs, rhs| {
         lhs.code
             .cmp(rhs.code)
+            .then(lhs.package.cmp(&rhs.package))
             .then(lhs.symbol.cmp(&rhs.symbol))
             .then(lhs.message.cmp(&rhs.message))
     });
     diagnostics
+}
+
+fn package_id_from_symbol(symbol: &str) -> String {
+    let mut segments = symbol.split("::");
+    let first = segments.next().unwrap_or_default();
+    let second = segments.next().unwrap_or_default();
+    if first.is_empty() {
+        "_".to_string()
+    } else if second.is_empty() {
+        first.to_string()
+    } else {
+        format!("{first}::{second}")
+    }
 }
 
 #[cfg(test)]
@@ -1068,8 +1097,8 @@ fn strict_canonical_import_map(
     }
     for diagnostic in diagnostics {
         lines.push(format!(
-            "diag|{}|{}|{}",
-            diagnostic.code, diagnostic.symbol, diagnostic.message
+            "diag|{}|{}|{}|{}",
+            diagnostic.code, diagnostic.package, diagnostic.symbol, diagnostic.message
         ));
     }
     lines.join("\n")
@@ -1475,5 +1504,122 @@ mod tests {
         )
         .expect("diagnostics-order drift should fail determinism replay");
         assert!(err.contains("determinism replay failed"));
+    }
+
+    #[test]
+    fn evaluate_strict_gates_orders_by_code_then_package_then_symbol() {
+        let expected_profiles = std::collections::BTreeMap::from([
+            (
+                "zzz::alpha::f".to_string(),
+                AbiLinkProfile {
+                    effect: "pure".to_string(),
+                    params: vec!["Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: Some("std::crypto::hash".to_string()),
+                },
+            ),
+            (
+                "aaa::beta::g".to_string(),
+                AbiLinkProfile {
+                    effect: "pure".to_string(),
+                    params: vec!["Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: Some("std::crypto::hash".to_string()),
+                },
+            ),
+        ]);
+        let linked = vec![
+            (
+                "zzz::alpha::f".to_string(),
+                AbiLinkProfile {
+                    effect: "mut".to_string(),
+                    params: vec!["Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: None,
+                },
+            ),
+            (
+                "aaa::beta::g".to_string(),
+                AbiLinkProfile {
+                    effect: "pure".to_string(),
+                    params: vec!["Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: None,
+                },
+            ),
+            (
+                "mmm::orphan::h".to_string(),
+                AbiLinkProfile {
+                    effect: "pure".to_string(),
+                    params: vec!["Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: None,
+                },
+            ),
+        ];
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: Vec::new(),
+        };
+        let violations = evaluate_strict_gates(&expected_profiles, &linked, &host_profile);
+        let order: Vec<(&str, &str, &str)> = violations
+            .iter()
+            .map(|v| (v.code, v.package.as_str(), v.symbol.as_str()))
+            .collect();
+        assert_eq!(
+            order,
+            vec![
+                ("C105", "mmm::orphan", "mmm::orphan::h"),
+                ("C105", "zzz::alpha", "zzz::alpha::f"),
+                ("C106", "aaa::beta", "aaa::beta::g"),
+            ]
+        );
+    }
+
+    #[test]
+    fn evaluate_strict_gates_snapshot_stable_output() {
+        let expected_profiles = std::collections::BTreeMap::from([(
+            "std::core::math::add".to_string(),
+            AbiLinkProfile {
+                effect: "pure".to_string(),
+                params: vec!["Int".to_string(), "Int".to_string()],
+                ret: "Int".to_string(),
+                capability: Some("std::crypto::hash".to_string()),
+            },
+        )]);
+        let linked = vec![
+            (
+                "std::core::math::add".to_string(),
+                AbiLinkProfile {
+                    effect: "mut".to_string(),
+                    params: vec!["Int".to_string(), "Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: None,
+                },
+            ),
+            (
+                "std::orphan::noop".to_string(),
+                AbiLinkProfile {
+                    effect: "pure".to_string(),
+                    params: vec!["Int".to_string()],
+                    ret: "Int".to_string(),
+                    capability: None,
+                },
+            ),
+        ];
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: Vec::new(),
+        };
+        let violations = evaluate_strict_gates(&expected_profiles, &linked, &host_profile);
+        let snapshot = violations
+            .iter()
+            .map(|v| format!("{}|{}|{}", v.code, v.package, v.symbol))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(
+            snapshot,
+            "C105|std::core|std::core::math::add\nC105|std::orphan|std::orphan::noop"
+        );
     }
 }

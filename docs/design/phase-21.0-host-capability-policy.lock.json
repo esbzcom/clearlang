@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "profile": "contract_static",
+      "capabilities": [
+        {
+          "capability": "std::crypto::hash",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::crypto::hmac",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::crypto::verify",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::env::chain_id",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::env::random",
+          "strict_mode": "deny",
+          "reason": "phase21_strict_determinism"
+        },
+        {
+          "capability": "std::env::time",
+          "strict_mode": "deny",
+          "reason": "phase21_strict_determinism"
+        },
+        {
+          "capability": "std::wasi::print",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        }
+      ]
+    },
+    {
+      "profile": "shared_app",
+      "capabilities": [
+        {
+          "capability": "std::crypto::hash",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::crypto::hmac",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::crypto::verify",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::env::chain_id",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        },
+        {
+          "capability": "std::env::random",
+          "strict_mode": "deny",
+          "reason": "phase21_strict_determinism"
+        },
+        {
+          "capability": "std::env::time",
+          "strict_mode": "deny",
+          "reason": "phase21_strict_determinism"
+        },
+        {
+          "capability": "std::wasi::print",
+          "strict_mode": "allow",
+          "reason": "allowed_v0_surface"
+        }
+      ]
+    }
+  ]
+}

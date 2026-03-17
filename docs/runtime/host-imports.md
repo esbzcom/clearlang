@@ -59,6 +59,14 @@ Environment (io-only, optional, module: `clearlang_env`)
   - `chain_id`, storage, and events are host capabilities but are surfaced through chain wrappers (`std::<chain>::...`) for chain-specific policy and encoding.
 - This lock is an ownership boundary definition, not a promise that every wrapper/API is already implemented in Phase 21.
 
+## Strict Policy Lock for `std::env::{time,random}` (Phase 21.0.4.2)
+- In `--compiler-mode strict`, both `std::env::time` and `std::env::random` are denied for Phase 21.
+- Denials are deterministic and fail closed with `C106`.
+- Profile matrix in Phase 21:
+  - `contract_static`: deny `time`, deny `random`.
+  - `shared_app`: deny `time`, deny `random`.
+- `clg run` stubs (`time=0`, zero-filled random bytes) remain dev/test behavior and do not relax strict build policy.
+
 ## Effect Gating
 - `pure` code must not call any host import.
 - `mut` remains local-only; host interaction is always `io`.

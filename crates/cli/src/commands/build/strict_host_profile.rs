@@ -178,6 +178,8 @@ fn is_allowed_capability(capability: &str) -> bool {
         "std::crypto::hash"
             | "std::crypto::hmac"
             | "std::crypto::verify"
+            | "std::env::time"
+            | "std::env::random"
             | "std::env::chain_id"
             | "std::wasi::print"
     )
@@ -276,12 +278,42 @@ mod tests {
 {
   "schema_version": 0,
   "profile": "contract_static",
-  "capabilities": ["std::env::random"]
+  "capabilities": ["std::env::unknown"]
 }
         "#;
         let err = parse_host_profile_v0(json, Path::new("clg.host-profile.json"))
             .expect_err("expected unknown capability");
         assert_eq!(err.code(), "C106");
         assert!(err.message().contains("unsupported capability"));
+    }
+
+    #[test]
+    fn env_time_capability_is_allowed_in_contract_static_schema() {
+        let json = r#"
+{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::env::time"]
+}
+        "#;
+        let parsed = parse_host_profile_v0(json, Path::new("clg.host-profile.json"))
+            .expect("env_time should be accepted by host-profile schema");
+        assert_eq!(parsed.profile, "contract_static");
+        assert_eq!(parsed.capabilities, vec!["std::env::time".to_string()]);
+    }
+
+    #[test]
+    fn env_random_capability_is_allowed_in_shared_app_schema() {
+        let json = r#"
+{
+  "schema_version": 0,
+  "profile": "shared_app",
+  "capabilities": ["std::env::random"]
+}
+        "#;
+        let parsed = parse_host_profile_v0(json, Path::new("clg.host-profile.json"))
+            .expect("env_random should be accepted by host-profile schema");
+        assert_eq!(parsed.profile, "shared_app");
+        assert_eq!(parsed.capabilities, vec!["std::env::random".to_string()]);
     }
 }

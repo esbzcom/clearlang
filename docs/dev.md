@@ -17,6 +17,7 @@ cargo xtask validate
 cargo xtask emit-vcs
 cargo xtask std-core-artifact
 cargo xtask std-surface-drift-check
+cargo xtask host-capability-policy-artifact
 cargo xtask ci
 ```
 

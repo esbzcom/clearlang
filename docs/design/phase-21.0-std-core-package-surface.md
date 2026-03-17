@@ -59,6 +59,23 @@ Explicit non-goals for v1:
 - No promotion of storage/event helpers to deterministic `pure` core helpers.
 - No runtime-capability expansion beyond the existing host-import design targets in Phase 21.
 
+#### Strict Determinism Policy for `std::env::{time,random}` (`21.0.4.2`)
+
+Policy lock (Phase 21):
+- Strict mode denies host-nondeterministic env capabilities `std::env::time` and `std::env::random`.
+- Denial is deterministic and fail-closed with diagnostic `C106`.
+
+Profile matrix (Phase 21 lock):
+
+| Profile | `std::env::time` | `std::env::random` | Failure diagnostic |
+|---|---|---|---|
+| `contract_static` | deny | deny | `C106` |
+| `shared_app` | deny | deny | `C106` |
+
+Implementation lock for Phase 21:
+- Host-profile v0 capability allowlist includes `std::env::{time,random}` for surface alignment with canonical `std::host`.
+- Strict-gate profile policy still denies both capabilities in Phase 21, producing deterministic `C106`.
+
 ### Chain Packages (`std::<chain>`)
 - `std::eth::{from_bytes, from_array}`
 - `std::solana::{from_bytes, from_array}`
@@ -104,6 +121,11 @@ Current execution notes:
   - codegen std binding routing map (`intrinsic` vs `package_import`).
 - Canonical binding-route lock file: `docs/design/phase-21.0-std-binding-map.lock.json`.
 - CI emits deterministic binding-map artifacts (`std-binding-map-v1.json` + `.sha256`) and replays generation twice to assert byte identity.
+- `xtask host-capability-policy-artifact` emits deterministic host capability policy artifacts per profile (`contract_static`, `shared_app`) and validates against lock file `docs/design/phase-21.0-host-capability-policy.lock.json`.
+- CI replays host capability policy artifact emission twice and asserts byte-identical outputs (`host-capability-policy-v1.json` + `.sha256`).
+- CI/profile-conformance fixtures cover strict behavior for `std::env::time`, `std::env::random`, and `std::env::chain_id`:
+  - `time`/`random` rejected with deterministic `C106` under strict mode,
+  - `chain_id` accepted when required capability is present in host profile.
 - `crates/cli/assets/std-metadata.json` is aligned with the locked collection take APIs:
   - `std::list::remove_take`
   - `std::map::insert_take`
@@ -124,6 +146,7 @@ Current execution notes:
 ## References
 - `docs/TODO.md`
 - `docs/design/phase-21.0-std-binding-map.lock.json`
+- `docs/design/phase-21.0-host-capability-policy.lock.json`
 - `docs/design/phase-20.0-std-packaging-runtime-linking.md`
 - `docs/design/phase-18.4-compiled-package-imports.md`
 - `docs/runtime/host-imports.md`

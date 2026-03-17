@@ -42,6 +42,8 @@ Scope for this bootstrap slice is intentionally narrow:
 - `std::crypto::hash`
 - `std::crypto::hmac`
 - `std::crypto::verify`
+- `std::env::time`
+- `std::env::random`
 - `std::env::chain_id`
 - `std::wasi::print`
 
@@ -59,6 +61,8 @@ Strict preflight maps linked host imports to capability ids using this fixed map
 | `clearlang_crypto::crypto_hash` | `std::crypto::hash` |
 | `clearlang_crypto::crypto_hmac` | `std::crypto::hmac` |
 | `clearlang_crypto::crypto_verify` | `std::crypto::verify` |
+| `clearlang_env::env_time` | `std::env::time` |
+| `clearlang_env::env_random` | `std::env::random` |
 | `clearlang_env::env_chain_id` | `std::env::chain_id` |
 | `std::wasi::print` | `std::wasi::print` |
 
@@ -103,5 +107,5 @@ Canonical minimal valid file:
 ## Non-Goals
 - Runtime QoS, SLO, or resource budgets.
 - Dynamic host negotiation.
-- `env_time`/`env_random` production policy (covered in later phases).
+- `env_time`/`env_random` capability enablement (Phase 21 lock keeps strict-mode deny policy with `C106` even when capability ids are schema-allowed; enablement is deferred to later phases).
 - Chain-specific capability taxonomies.

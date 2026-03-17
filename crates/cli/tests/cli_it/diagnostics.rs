@@ -71,6 +71,19 @@ fn write_minimal_strict_host_profile(root: &Path) {
     .expect("write strict host profile");
 }
 
+fn write_strict_host_profile(root: &Path, profile: &str, capabilities: &[&str]) {
+    let value = serde_json::json!({
+        "schema_version": 0,
+        "profile": profile,
+        "capabilities": capabilities,
+    });
+    fs::write(
+        root.join("clg.host-profile.json"),
+        serde_json::to_vec_pretty(&value).expect("serialize strict host profile"),
+    )
+    .expect("write strict host profile");
+}
+
 fn write_minimal_strict_package_metadata(root: &Path) {
     fs::write(
         root.join("clg.package-metadata.json"),
@@ -692,6 +705,86 @@ fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
         !tmp.path().join("out.wasm").exists(),
         "strict gate failure should stop before final wasm output emission"
     );
+}
+
+#[test]
+fn strict_acceptance_env_time_disallowed_in_contract_static_profile() {
+    let src = r#"
+        function main() -> Int { std::core::math::add(1, 2) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_env_time_contract_static.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[{
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::env::time"
+        }]"#,
+    );
+    write_strict_host_profile(tmp.path(), "contract_static", &["std::env::time"]);
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C106", "build");
+}
+
+#[test]
+fn strict_acceptance_env_random_disallowed_in_shared_app_profile() {
+    let src = r#"
+        function main() -> Int { std::core::math::add(1, 2) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_env_random_shared_app.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[{
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": "std::env::random"
+        }]"#,
+    );
+    write_strict_host_profile(tmp.path(), "shared_app", &["std::env::random"]);
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C106", "build");
+}
+
+#[test]
+fn strict_acceptance_env_chain_id_allowed_when_capability_present() {
+    let src = r#"
+        io function main() -> Int { std::str::len(std::env::chain_id()) }
+    "#;
+
+    let run_case = |profile: &str| {
+        let tmp = tempdir().unwrap();
+        let file = tmp
+            .path()
+            .join(format!("strict_acceptance_env_chain_id_{profile}.clear"));
+        fs::write(&file, src).expect("write");
+        write_signed_strict_dependency_fixture(
+            tmp.path(),
+            r#"[{
+              "symbol": "std::env::chain_id",
+              "effect": "io",
+              "params": [],
+              "ret": "String",
+              "capability": "std::env::chain_id"
+            }]"#,
+        );
+        write_strict_host_profile(tmp.path(), profile, &["std::env::chain_id"]);
+        run_strict_build_success(tmp.path(), &file);
+    };
+
+    run_case("contract_static");
+    run_case("shared_app");
 }
 
 #[test]

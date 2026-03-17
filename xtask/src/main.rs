@@ -32,6 +32,9 @@ fn main() -> Result<(), String> {
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,
         "std-surface-drift-check" => check_std_surface_drift(&root, args.collect())?,
+        "host-capability-policy-artifact" => {
+            emit_host_capability_policy_artifact(&root, args.collect())?
+        }
         "ci" => {
             cargo_cmd(&root, &["fmt", "--all", "--", "--check"])?;
             cargo_cmd(
@@ -411,6 +414,161 @@ fn check_std_surface_drift(root: &Path, raw_args: Vec<String>) -> Result<(), Str
     }
 }
 
+fn emit_host_capability_policy_artifact(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_host_capability_policy_args(raw_args)?;
+    let lock_path = root
+        .join("docs")
+        .join("design")
+        .join("phase-21.0-host-capability-policy.lock.json");
+    let policy = canonical_host_capability_policy_v1();
+
+    if opts.refresh_lock {
+        let bytes = pretty_json_bytes(&policy)?;
+        fs::write(&lock_path, bytes)
+            .map_err(|e| format!("write `{}`: {e}", lock_path.display()))?;
+    }
+
+    let lock_raw = fs::read_to_string(&lock_path)
+        .map_err(|e| format!("read `{}`: {e}", lock_path.display()))?;
+    let lock: HostCapabilityPolicyFile = serde_json::from_str(&lock_raw)
+        .map_err(|e| format!("parse `{}`: {e}", lock_path.display()))?;
+    let normalized_lock = normalize_host_capability_policy(lock)?;
+    let normalized_policy = normalize_host_capability_policy(policy)?;
+    if normalized_lock != normalized_policy {
+        return Err(format!(
+            "host capability policy drift detected: `{}` does not match canonical Phase 21 policy",
+            lock_path.display()
+        ));
+    }
+
+    if let Some(out_dir) = opts.emit_artifact.as_ref() {
+        fs::create_dir_all(out_dir).map_err(|e| format!("create `{}`: {e}", out_dir.display()))?;
+        let json_path = out_dir.join("host-capability-policy-v1.json");
+        let sha_path = out_dir.join("host-capability-policy-v1.sha256");
+        let bytes = pretty_json_bytes(&normalized_policy)?;
+        fs::write(&json_path, &bytes)
+            .map_err(|e| format!("write `{}`: {e}", json_path.display()))?;
+        let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
+        fs::write(&sha_path, format!("{digest}\n"))
+            .map_err(|e| format!("write `{}`: {e}", sha_path.display()))?;
+    }
+
+    Ok(())
+}
+
+fn parse_host_capability_policy_args(raw_args: Vec<String>) -> Result<HostPolicyOpts, String> {
+    let mut emit_artifact: Option<PathBuf> = None;
+    let mut refresh_lock = false;
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--emit-artifact" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--emit-artifact`".to_string())?;
+                emit_artifact = Some(PathBuf::from(value));
+            }
+            "--refresh-lock" => {
+                refresh_lock = true;
+            }
+            other => {
+                return Err(format!(
+                    "unknown host-capability-policy-artifact arg `{other}` (supported: --emit-artifact, --refresh-lock)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    Ok(HostPolicyOpts {
+        emit_artifact,
+        refresh_lock,
+    })
+}
+
+fn canonical_host_capability_policy_v1() -> HostCapabilityPolicyFile {
+    let base_caps = [
+        "std::crypto::hash",
+        "std::crypto::hmac",
+        "std::crypto::verify",
+        "std::env::chain_id",
+        "std::env::random",
+        "std::env::time",
+        "std::wasi::print",
+    ];
+    let mut profiles = Vec::new();
+    for profile in ["contract_static", "shared_app"] {
+        let mut capabilities = base_caps
+            .iter()
+            .map(|capability| HostCapabilityRule {
+                capability: (*capability).to_string(),
+                strict_mode: if *capability == "std::env::time" || *capability == "std::env::random"
+                {
+                    "deny".to_string()
+                } else {
+                    "allow".to_string()
+                },
+                reason: if *capability == "std::env::time" || *capability == "std::env::random" {
+                    "phase21_strict_determinism".to_string()
+                } else {
+                    "allowed_v0_surface".to_string()
+                },
+            })
+            .collect::<Vec<_>>();
+        capabilities.sort_by(|lhs, rhs| lhs.capability.cmp(&rhs.capability));
+        profiles.push(HostCapabilityProfile {
+            profile: profile.to_string(),
+            capabilities,
+        });
+    }
+    HostCapabilityPolicyFile {
+        schema_version: 1,
+        profiles,
+    }
+}
+
+fn normalize_host_capability_policy(
+    mut policy: HostCapabilityPolicyFile,
+) -> Result<HostCapabilityPolicyFile, String> {
+    if policy.schema_version != 1 {
+        return Err(format!(
+            "unsupported host capability policy schema_version {} (expected 1)",
+            policy.schema_version
+        ));
+    }
+    policy
+        .profiles
+        .sort_by(|lhs, rhs| lhs.profile.cmp(&rhs.profile));
+    let mut seen_profiles = BTreeSet::new();
+    for profile in &mut policy.profiles {
+        if !seen_profiles.insert(profile.profile.clone()) {
+            return Err(format!(
+                "duplicate host capability policy profile `{}`",
+                profile.profile
+            ));
+        }
+        profile
+            .capabilities
+            .sort_by(|lhs, rhs| lhs.capability.cmp(&rhs.capability));
+        let mut seen_caps = BTreeSet::new();
+        for cap in &profile.capabilities {
+            if cap.strict_mode != "allow" && cap.strict_mode != "deny" {
+                return Err(format!(
+                    "invalid strict_mode `{}` for capability `{}` in profile `{}`",
+                    cap.strict_mode, cap.capability, profile.profile
+                ));
+            }
+            if !seen_caps.insert(cap.capability.clone()) {
+                return Err(format!(
+                    "duplicate capability `{}` in profile `{}`",
+                    cap.capability, profile.profile
+                ));
+            }
+        }
+    }
+    Ok(policy)
+}
+
 fn parse_std_surface_args(raw_args: Vec<String>) -> Result<StdSurfaceDriftOpts, String> {
     let mut emit_artifact: Option<PathBuf> = None;
     let mut refresh_lock = false;
@@ -767,6 +925,9 @@ fn print_help() {
     println!(
         "  std-surface-drift-check [--emit-artifact DIR] [--refresh-lock] (phase 21 drift gate)"
     );
+    println!(
+        "  host-capability-policy-artifact [--emit-artifact DIR] [--refresh-lock] (phase 21 host policy gate)"
+    );
     println!("  ci         - fmt + clippy + test + validate");
 }
 
@@ -778,6 +939,12 @@ struct StdCoreArtifactOpts {
 
 #[derive(Clone, Debug)]
 struct StdSurfaceDriftOpts {
+    emit_artifact: Option<PathBuf>,
+    refresh_lock: bool,
+}
+
+#[derive(Clone, Debug)]
+struct HostPolicyOpts {
     emit_artifact: Option<PathBuf>,
     refresh_lock: bool,
 }
@@ -887,4 +1054,23 @@ struct StdBindingMapLockFile {
 struct StdBindingRouteEntry {
     symbol: String,
     route: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct HostCapabilityPolicyFile {
+    schema_version: u32,
+    profiles: Vec<HostCapabilityProfile>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct HostCapabilityProfile {
+    profile: String,
+    capabilities: Vec<HostCapabilityRule>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct HostCapabilityRule {
+    capability: String,
+    strict_mode: String,
+    reason: String,
 }

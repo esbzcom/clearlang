@@ -963,6 +963,21 @@ fn evaluate_strict_gates(
         }
 
         if let Some(capability) = expected.capability.as_deref() {
+            if !strict_capability_allowed_for_profile(host_profile.profile.as_str(), capability) {
+                diagnostics.push(StrictGateViolation {
+                    code: "C106",
+                    package: symbol_package_index
+                        .get(symbol.as_str())
+                        .cloned()
+                        .unwrap_or_else(|| package_id_from_symbol(symbol)),
+                    symbol: symbol.clone(),
+                    message: format!(
+                        "strict runtime capability mismatch: symbol `{}` requires capability `{}` denied by strict deterministic policy for profile `{}`",
+                        symbol, capability, host_profile.profile
+                    ),
+                });
+                continue;
+            }
             if !host_caps.contains(capability) {
                 diagnostics.push(StrictGateViolation {
                     code: "C106",
@@ -982,6 +997,17 @@ fn evaluate_strict_gates(
 
     sort_strict_gate_violations(diagnostics.as_mut_slice());
     diagnostics
+}
+
+fn strict_capability_allowed_for_profile(profile: &str, capability: &str) -> bool {
+    match (profile, capability) {
+        // Phase 21 lock: strict mode denies nondeterministic env capabilities.
+        ("contract_static", "std::env::time")
+        | ("contract_static", "std::env::random")
+        | ("shared_app", "std::env::time")
+        | ("shared_app", "std::env::random") => false,
+        _ => true,
+    }
 }
 
 fn sort_strict_gate_violations(violations: &mut [StrictGateViolation]) {
@@ -1626,6 +1652,56 @@ mod tests {
         let err = strict_runtime_capability_violation(&package_contract, &host_profile, &linked)
             .expect("missing capability should fail");
         assert!(err.contains("not present in host profile"));
+    }
+
+    #[test]
+    fn strict_runtime_capability_rejects_env_time_in_contract_static_even_if_present() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::env::time".to_string(),
+                effect: "io".to_string(),
+                params: vec![],
+                ret: "Int".to_string(),
+                capability: Some("std::env::time".to_string()),
+            }]);
+        let host_profile = StrictHostProfileV0 {
+            profile: "contract_static".to_string(),
+            capabilities: vec!["std::env::time".to_string()],
+        };
+        let linked = vec![external_sig(
+            "std::env::time",
+            vec![],
+            Type::Int,
+            Effect::Io,
+        )];
+        let err = strict_runtime_capability_violation(&package_contract, &host_profile, &linked)
+            .expect("env time should be denied in strict contract_static");
+        assert!(err.contains("denied by strict deterministic policy"));
+    }
+
+    #[test]
+    fn strict_runtime_capability_rejects_env_random_in_shared_app_even_if_present() {
+        let package_contract =
+            abi_contract_with_imports(vec![strict_package_contract::StrictAbiImportEntry {
+                symbol: "std::env::random".to_string(),
+                effect: "io".to_string(),
+                params: vec!["Int".to_string()],
+                ret: "Bytes".to_string(),
+                capability: Some("std::env::random".to_string()),
+            }]);
+        let host_profile = StrictHostProfileV0 {
+            profile: "shared_app".to_string(),
+            capabilities: vec!["std::env::random".to_string()],
+        };
+        let linked = vec![external_sig(
+            "std::env::random",
+            vec![Type::Int],
+            Type::Bytes,
+            Effect::Io,
+        )];
+        let err = strict_runtime_capability_violation(&package_contract, &host_profile, &linked)
+            .expect("env random should be denied in strict shared_app");
+        assert!(err.contains("denied by strict deterministic policy"));
     }
 
     #[test]

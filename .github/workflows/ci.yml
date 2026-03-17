@@ -65,6 +65,14 @@ jobs:
           cargo run -p xtask -- std-surface-drift-check --emit-artifact tmp/std-surface/run2
           cmp --silent tmp/std-surface/run1/std-binding-map-v1.json tmp/std-surface/run2/std-binding-map-v1.json
           cmp --silent tmp/std-surface/run1/std-binding-map-v1.sha256 tmp/std-surface/run2/std-binding-map-v1.sha256
+      - name: Host capability policy determinism
+        run: |
+          set -euo pipefail
+          rm -rf tmp/host-policy
+          cargo run -p xtask -- host-capability-policy-artifact --emit-artifact tmp/host-policy/run1
+          cargo run -p xtask -- host-capability-policy-artifact --emit-artifact tmp/host-policy/run2
+          cmp --silent tmp/host-policy/run1/host-capability-policy-v1.json tmp/host-policy/run2/host-capability-policy-v1.json
+          cmp --silent tmp/host-policy/run1/host-capability-policy-v1.sha256 tmp/host-policy/run2/host-capability-policy-v1.sha256
       - name: Upload std-core artifact bundle
         uses: actions/upload-artifact@v4
         with:
@@ -75,6 +83,11 @@ jobs:
         with:
           name: std-binding-map-v1
           path: tmp/std-surface/run1/*
+      - name: Upload host capability policy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-capability-policy-v1
+          path: tmp/host-policy/run1/*
       - name: Validate emitted Wasm
         run: |
           set -euo pipefail

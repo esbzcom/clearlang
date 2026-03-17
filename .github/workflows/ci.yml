@@ -45,6 +45,36 @@ jobs:
           cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers
       - name: Release build
         run: cargo build --release -p clg-cli
+      - name: Std-core artifact reproducibility
+        run: |
+          set -euo pipefail
+          rm -rf tmp/std-core
+          cargo run -p xtask -- std-core-artifact --version 1.0.0 --out-dir tmp/std-core/run1
+          cargo run -p xtask -- std-core-artifact --version 1.0.0 --out-dir tmp/std-core/run2
+          cmp --silent tmp/std-core/run1/std-core-1.0.0.wasm tmp/std-core/run2/std-core-1.0.0.wasm
+          cmp --silent tmp/std-core/run1/std-core-1.0.0.surface.json tmp/std-core/run2/std-core-1.0.0.surface.json
+          cmp --silent tmp/std-core/run1/std-core-1.0.0.package-metadata.json tmp/std-core/run2/std-core-1.0.0.package-metadata.json
+          cmp --silent tmp/std-core/run1/std-core-1.0.0.package-abi.json tmp/std-core/run2/std-core-1.0.0.package-abi.json
+          cmp --silent tmp/std-core/run1/std-core-1.0.0.manifest.json tmp/std-core/run2/std-core-1.0.0.manifest.json
+          cmp --silent tmp/std-core/run1/std-core-1.0.0.sha256 tmp/std-core/run2/std-core-1.0.0.sha256
+      - name: Std surface drift + binding-map determinism
+        run: |
+          set -euo pipefail
+          rm -rf tmp/std-surface
+          cargo run -p xtask -- std-surface-drift-check --emit-artifact tmp/std-surface/run1
+          cargo run -p xtask -- std-surface-drift-check --emit-artifact tmp/std-surface/run2
+          cmp --silent tmp/std-surface/run1/std-binding-map-v1.json tmp/std-surface/run2/std-binding-map-v1.json
+          cmp --silent tmp/std-surface/run1/std-binding-map-v1.sha256 tmp/std-surface/run2/std-binding-map-v1.sha256
+      - name: Upload std-core artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: std-core-1.0.0
+          path: tmp/std-core/run1/*
+      - name: Upload std binding-map artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: std-binding-map-v1
+          path: tmp/std-surface/run1/*
       - name: Validate emitted Wasm
         run: |
           set -euo pipefail

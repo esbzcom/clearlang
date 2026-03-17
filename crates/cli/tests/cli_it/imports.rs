@@ -1,6 +1,19 @@
 use super::*;
 use wasmparser::{Parser, Payload};
 
+fn wasm_import_pairs(wasm: &[u8]) -> Vec<(String, String)> {
+    let mut imports = Vec::new();
+    for payload in Parser::new(0).parse_all(wasm) {
+        if let Payload::ImportSection(reader) = payload.expect("payload") {
+            for item in reader {
+                let import = item.expect("import");
+                imports.push((import.module.to_string(), import.name.to_string()));
+            }
+        }
+    }
+    imports
+}
+
 #[test]
 fn build_and_run_with_imports() {
     let tmp = tempdir().unwrap();
@@ -100,18 +113,94 @@ fn build_with_compiled_package_import_succeeds() {
         .success();
 
     let wasm = fs::read(&wasm_path).expect("read wasm");
-    let mut saw_import = false;
-    for payload in Parser::new(0).parse_all(&wasm) {
-        if let Payload::ImportSection(reader) = payload.expect("payload") {
-            for item in reader {
-                let import = item.expect("import");
-                if import.module == "mathpkg_arith" && import.name == "add2" {
-                    saw_import = true;
-                }
-            }
-        }
-    }
+    let imports = wasm_import_pairs(&wasm);
+    let saw_import = imports
+        .iter()
+        .any(|(module, name)| module == "mathpkg_arith" && name == "add2");
     assert!(saw_import, "expected external import mathpkg_arith.add2");
+}
+
+#[test]
+fn build_with_compiled_package_import_prunes_unused_exports() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let pkg_dir = root.join("pkg");
+    fs::create_dir_all(&pkg_dir).expect("create pkg dir");
+    fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
+
+    let metadata = r#"
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "mathpkg",
+      "version": "1.0.0",
+      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
+      "modules": [
+        {
+          "path": "mathpkg::arith",
+          "exports": [
+            {
+              "name": "add2",
+              "kind": "value",
+              "effect": "pure",
+              "params": [
+                { "name": "a", "type": "Int" },
+                { "name": "b", "type": "Int" }
+              ],
+              "ret": "Int",
+              "import": { "module": "mathpkg_arith", "name": "add2" }
+            },
+            {
+              "name": "sub2",
+              "kind": "value",
+              "effect": "pure",
+              "params": [
+                { "name": "a", "type": "Int" },
+                { "name": "b", "type": "Int" }
+              ],
+              "ret": "Int",
+              "import": { "module": "mathpkg_arith", "name": "sub2" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+    "#;
+    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+
+    let main_src = r#"
+        import mathpkg::arith::{add2}
+        function main() -> Int { add2(40, 2) }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let imports = wasm_import_pairs(&wasm);
+    let has_add2 = imports
+        .iter()
+        .any(|(module, name)| module == "mathpkg_arith" && name == "add2");
+    let has_sub2 = imports
+        .iter()
+        .any(|(module, name)| module == "mathpkg_arith" && name == "sub2");
+    assert!(has_add2, "expected used import mathpkg_arith.add2");
+    assert!(
+        !has_sub2,
+        "unused export mathpkg_arith.sub2 should not be emitted as wasm import"
+    );
 }
 
 #[test]
@@ -493,6 +582,62 @@ fn import_std_module_and_items_work() {
         .assert()
         .success()
         .stdout(predicate::str::contains("3"));
+}
+
+#[test]
+fn import_std_list_remove_take_item_works() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let src = r#"
+        import std::list::{remove_take}
+
+        function list_next(l: List<Int>) -> List<Int> {
+            remove_take(l, 0)[0]
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+}
+
+#[test]
+fn import_std_map_take_items_work() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let src = r#"
+        import std::map::{insert_take, remove_take}
+
+        function map_next(m: Map<Int, Int>) -> Map<Int, Int> {
+            remove_take(insert_take(m, 1, 99)[0], 1)[0]
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
 }
 
 #[test]

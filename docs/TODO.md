@@ -935,24 +935,24 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 21 Precompiled Std Core Packaging
 - [ ] 21.0 Precompiled `std::core` package pipeline.
-  - [ ] 21.0.1 Implement the versioned std-core artifact pipeline and metadata model with reproducible hash semantics. (`docs/design/phase-21.0-std-core-package-surface.md`)
-  - [ ] 21.0.2 Implement import pruning so only used package functions are emitted as imports in app Wasm. (`docs/design/phase-21.0-std-core-package-surface.md`)
-  - [ ] 21.0.3 Reconcile std-core function surface lock with shipped std metadata.
-    - [ ] 21.0.3.1 Align `docs/design/phase-21.0-std-core-package-surface.md` and `crates/cli/assets/std-metadata.json` (including `std::list::remove_take` and `std::map::{insert_take,remove_take}`) with one canonical source of truth.
-    - [ ] 21.0.3.2 Add CI drift gate that fails when locked std surface, emitted std metadata, typer std call-check surface (builtins + specialized std call check modules), and codegen std binding map (intrinsic vs package-import routing) diverge.
-    - [ ] 21.0.3.3 Emit deterministic std binding-map artifact in CI so drift checks do not depend on internal codegen implementation details.
+  - [x] 21.0.1 Implement the versioned std-core artifact pipeline and metadata model with reproducible hash semantics. (`docs/design/phase-21.0-std-core-package-surface.md`)
+  - [x] 21.0.2 Implement import pruning so only used package functions are emitted as imports in app Wasm. (`docs/design/phase-21.0-std-core-package-surface.md`)
+  - [x] 21.0.3 Reconcile std-core function surface lock with shipped std metadata.
+    - [x] 21.0.3.1 Align `docs/design/phase-21.0-std-core-package-surface.md` and `crates/cli/assets/std-metadata.json` (including `std::list::remove_take` and `std::map::{insert_take,remove_take}`) with one canonical source of truth.
+    - [x] 21.0.3.2 Add CI drift gate that fails when locked std surface, emitted std metadata, typer std call-check surface (builtins + specialized std call check modules), and codegen std binding map (intrinsic vs package-import routing) diverge.
+    - [x] 21.0.3.3 Emit deterministic std binding-map artifact in CI so drift checks do not depend on internal codegen implementation details.
   - [ ] 21.0.4 Lock and align `std::host` capability surface for production profile readiness.
     - [ ] 21.0.4.1 Define canonical v1 ownership for host-facing capabilities (`time`, `random`, `chain_id`, storage, events) across `std::host` vs chain wrappers, with explicit non-goals.
     - [ ] 21.0.4.2 Lock strict-mode deterministic policy for `std::env::{time,random}` (allow/deny profile matrix and diagnostics) and align with runtime host-import docs.
     - [ ] 21.0.4.3 Align strict host-profile capability allowlist and strict-gate checks with the canonical v1 `std::host` surface.
     - [ ] 21.0.4.4 Publish machine-readable host capability policy artifact per profile (`contract_static`, `shared_app`) and assert deterministic serialization/hash in CI.
     - [ ] 21.0.4.5 Add CI profile-conformance fixtures for `std::env::{time,random,chain_id}` and expected strict diagnostics on disallowed capabilities.
-  - [ ] 21.0.5 Add reproducible std-core artifact CI evidence gates (validation of 21.0.1 behavior).
-    - [ ] 21.0.5.1 Emit versioned `std::core` artifact + metadata + digest as CI artifacts with deterministic naming.
-    - [ ] 21.0.5.2 Add replay determinism assertion: identical inputs produce byte-identical std-core artifact and identical digest.
-  - [ ] 21.0.6 Harden import-pruning as an explicit CI acceptance gate (validation of 21.0.2 behavior).
-    - [ ] 21.0.6.1 Add Wasm import-section assertions proving only used external/package symbols are emitted.
-    - [ ] 21.0.6.2 Add negative coverage proving unused symbols declared in metadata/ABI never appear in emitted app Wasm imports.
+  - [x] 21.0.5 Add reproducible std-core artifact CI evidence gates (validation of 21.0.1 behavior).
+    - [x] 21.0.5.1 Emit versioned `std::core` artifact + metadata + digest as CI artifacts with deterministic naming.
+    - [x] 21.0.5.2 Add replay determinism assertion: identical inputs produce byte-identical std-core artifact and identical digest.
+  - [x] 21.0.6 Harden import-pruning as an explicit CI acceptance gate (validation of 21.0.2 behavior).
+    - [x] 21.0.6.1 Add Wasm import-section assertions proving only used external/package symbols are emitted.
+    - [x] 21.0.6.2 Add negative coverage proving unused symbols declared in metadata/ABI never appear in emitted app Wasm imports.
   - [ ] 21.0.7 Add non-vacuous precompiled-link proof gate for std-core.
     - [ ] 21.0.7.0 Define and lock precompiled std-core activation contract (explicit build/profile switch and fallback policy) before enforcing non-vacuous link behavior.
     - [ ] 21.0.7.1 Add CI fixture proving at least one locked `std::core` symbol is linked via package ABI/import (not satisfied by local intrinsic lowering only).

@@ -15,6 +15,8 @@ cargo xtask clippy
 cargo xtask test
 cargo xtask validate
 cargo xtask emit-vcs
+cargo xtask std-core-artifact
+cargo xtask std-surface-drift-check
 cargo xtask ci
 ```
 

@@ -85,6 +85,7 @@
         { "name": "push", "kind": "value" },
         { "name": "insert", "kind": "value" },
         { "name": "remove", "kind": "value" },
+        { "name": "remove_take", "kind": "value" },
         { "name": "pop", "kind": "value" },
         { "name": "can_mut", "kind": "value" },
         { "name": "push_mut", "kind": "value" },
@@ -114,7 +115,9 @@
         { "name": "contains", "kind": "value" },
         { "name": "get", "kind": "value" },
         { "name": "insert", "kind": "value" },
+        { "name": "insert_take", "kind": "value" },
         { "name": "remove", "kind": "value" },
+        { "name": "remove_take", "kind": "value" },
         { "name": "can_mut", "kind": "value" },
         { "name": "insert_mut", "kind": "value" },
         { "name": "remove_mut", "kind": "value" }

@@ -81,6 +81,28 @@ Boundary clarification:
 - `21.0.5` and `21.0.6` are CI evidence gates that validate those implementations.
 - `21.0.7.0` defines activation semantics so `21.0.7.1/21.0.7.2` are objectively testable.
 
+Current execution notes:
+- `xtask std-core-artifact` emits a versioned std-core artifact bundle (`.wasm`, surface metadata, strict package metadata/ABI, manifest, digest).
+- CI replays the generator twice and asserts byte-identical outputs before uploading the canonical artifact bundle.
+- `xtask std-surface-drift-check` enforces a four-way drift gate:
+  - locked function surface in this design doc,
+  - emitted std metadata (`crates/cli/assets/std-metadata.json`),
+  - typer std callable surface (`builtins.rs` + `check/expr/calls/collections.rs`),
+  - codegen std binding routing map (`intrinsic` vs `package_import`).
+- Canonical binding-route lock file: `docs/design/phase-21.0-std-binding-map.lock.json`.
+- CI emits deterministic binding-map artifacts (`std-binding-map-v1.json` + `.sha256`) and replays generation twice to assert byte identity.
+- `crates/cli/assets/std-metadata.json` is aligned with the locked collection take APIs:
+  - `std::list::remove_take`
+  - `std::map::insert_take`
+  - `std::map::remove_take`
+- CLI import integration coverage pins this metadata surface via:
+  - `import_std_list_remove_take_item_works`
+  - `import_std_map_take_items_work`
+- Import pruning is covered in `crates/cli/tests/cli_it/imports.rs` with Wasm import-section assertions:
+  - `build_with_compiled_package_import_succeeds` verifies used package import emission.
+  - `build_with_compiled_package_import_prunes_unused_exports` verifies unused metadata exports are not emitted.
+- CI runs `cargo test -p clg-cli --test cli_it imports::` as an explicit import-pruning acceptance gate.
+
 ## Non-Goals (Phase 21)
 - No transitive resolver or semver solver changes (Phase 22).
 - No runtime auto-loader behavior changes (Phase 23).
@@ -88,6 +110,7 @@ Boundary clarification:
 
 ## References
 - `docs/TODO.md`
+- `docs/design/phase-21.0-std-binding-map.lock.json`
 - `docs/design/phase-20.0-std-packaging-runtime-linking.md`
 - `docs/design/phase-18.4-compiled-package-imports.md`
 - `docs/runtime/host-imports.md`

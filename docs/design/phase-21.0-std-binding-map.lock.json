@@ -1,0 +1,313 @@
+{
+  "schema_version": 1,
+  "symbols": [
+    {
+      "symbol": "std::array::len",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::bytes::concat",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::eq",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::eq_ct",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::from_string",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::len",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::to_string",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::cosmos::from_array",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::cosmos::from_bytes",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::hash",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::crypto::hmac",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::crypto::verify",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::env::random",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::env::time",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::eth::from_array",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::eth::from_bytes",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::can_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::get",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::insert",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::insert_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::len",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::new",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::pop",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::pop_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::push",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::push_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove_take",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::can_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::contains",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::get",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::insert",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::insert_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::insert_take",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::len",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::new",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::remove",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::remove_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::remove_take",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::can_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::contains",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::insert",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::insert_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::len",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::new",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::remove",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::remove_mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::slice::from_array",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::slice::len",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::slice::sub",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::solana::from_array",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::solana::from_bytes",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::str::concat",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::eq",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::len",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u128::from_limbs",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u128::hi",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u128::lo",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::from_limbs",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb0",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb1",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb2",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb3",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::add_sat",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::add_wrap",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::from_bytes_be",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::from_bytes_le",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::mul_sat",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::mul_wrap",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::rotl",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::rotr",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::sub_sat",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::sub_wrap",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::to_bytes_be",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::to_bytes_le",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::wasi::print",
+      "route": "intrinsic"
+    }
+  ]
+}

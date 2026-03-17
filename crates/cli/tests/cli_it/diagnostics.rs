@@ -745,7 +745,9 @@ fn strict_acceptance_import_map_artifact_write_failure_fails_with_c108() {
         function main() -> Int { 0 }
     "#;
     let tmp = tempdir().unwrap();
-    let file = tmp.path().join("strict_acceptance_import_map_write_fail.clear");
+    let file = tmp
+        .path()
+        .join("strict_acceptance_import_map_write_fail.clear");
     fs::write(&file, src).expect("write");
     write_signed_strict_dependency_fixture(tmp.path(), "[]");
 

@@ -31,4 +31,5 @@ cargo run -p xtask -- <command>
 
 - For CLI stage logs, pass `-v`/`-vv` or set `CLG_LOG=debug`/`trace`.
 - `validate` and `ci` expect `wasm-tools` to be installed.
+- Precompiled std-core activation contract switch: `clg build --std-core-link-mode {intrinsic|precompiled}` (`precompiled` currently requires `--compiler-mode strict`).
 - Microbenchmarks: `cargo bench -p clg-parser`, `cargo bench -p clg-typer`, `cargo bench -p clg-codegen-wasm`.

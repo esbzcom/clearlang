@@ -528,6 +528,27 @@ fn strict_compiler_mode_requires_emit_vcs_with_c029() {
 }
 
 #[test]
+fn precompiled_std_core_mode_requires_strict_compiler_mode_with_c035() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("precompiled_mode_non_strict.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--std-core-link-mode", "precompiled"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C035", "build");
+}
+
+#[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
         function main() -> Int { std::core::math::add(1, 2) }

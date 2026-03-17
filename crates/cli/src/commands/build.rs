@@ -64,6 +64,14 @@ impl CompilerMode {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum StdCoreLinkMode {
+    /// Keep using intrinsic lowering for std-core-capable symbols.
+    Intrinsic,
+    /// Activate strict precompiled std-core link contract path.
+    Precompiled,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     file: PathBuf,
@@ -73,6 +81,7 @@ pub fn run(
     debug_names: bool,
     emit_vcs: Option<PathBuf>,
     compiler_mode: CompilerMode,
+    std_core_link_mode: StdCoreLinkMode,
     proof_strict: Option<bool>,
     sign: bool,
     key: Option<PathBuf>,
@@ -100,6 +109,12 @@ pub fn run(
     let mut strict_host_profile_for_caps: Option<StrictHostProfileV0> = None;
     let mut strict_external_bindings_for_link: Option<StrictExternalBindings> = None;
 
+    if std_core_link_mode == StdCoreLinkMode::Precompiled && compiler_mode != CompilerMode::Strict {
+        fail_preflight(
+            "C035",
+            "`--std-core-link-mode precompiled` requires `--compiler-mode strict`",
+        )?;
+    }
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_none() {
         fail_preflight(
             "C029",

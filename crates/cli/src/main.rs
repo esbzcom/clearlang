@@ -7,7 +7,7 @@ mod logging;
 mod proofs;
 mod signing;
 use commands::{
-    build::{self as cmd_build, CompilerMode},
+    build::{self as cmd_build, CompilerMode, StdCoreLinkMode},
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
     parse as cmd_parse, run as cmd_run,
@@ -66,6 +66,9 @@ enum Commands {
         /// Compiler strictness profile (permissive, standard, strict)
         #[arg(long, value_enum, default_value_t = CompilerMode::Standard)]
         compiler_mode: CompilerMode,
+        /// Std-core linkage mode (intrinsic or precompiled package contract path)
+        #[arg(long, value_enum, default_value_t = StdCoreLinkMode::Intrinsic)]
+        std_core_link_mode: StdCoreLinkMode,
         /// Override proof-model assumption checks for VC emission (true/false)
         #[arg(long, action = ArgAction::Set)]
         proof_strict: Option<bool>,
@@ -146,6 +149,7 @@ fn main() -> Result<()> {
             debug_names,
             emit_vcs,
             compiler_mode,
+            std_core_link_mode,
             proof_strict,
             sign,
             key,
@@ -163,6 +167,7 @@ fn main() -> Result<()> {
             debug_names,
             emit_vcs,
             compiler_mode,
+            std_core_link_mode,
             proof_strict,
             sign,
             key,

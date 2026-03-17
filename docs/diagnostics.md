@@ -161,6 +161,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C032 | build | Trust-anchor checker version flags are invalid for this build command combination. |
 | C033 | build | Strict language profile rejected a deferred/unchecked assumed boundary surface. |
 | C034 | build | Assurance manifest output flag is invalid for this build command combination. |
+| C035 | build | Invalid std-core activation contract for the selected build mode/profile (for Phase 21, `--std-core-link-mode precompiled` requires `--compiler-mode strict`). |
 | C101 | build | Strict source-of-truth gate failed (e.g., missing/unreadable `clg.lock.json` or disallowed package source such as legacy `clg-packages.json` in strict preflight context). Remediation: provide strict preflight inputs only and resolve packages via lockfile + trusted local store. |
 | C102 | build | Strict artifact identity gate failed (invalid lockfile digest format or `(name, version, digest)` mismatch between `clg.lock.json` and strict package metadata). |
 | C103 | build | Strict trust gate failed (missing/unreadable/malformed trust-policy or package-signature envelope, untrusted/revoked signer, invalid signer window at signature timestamp, or signature verification failure). Remediation: provide valid trust policy/signature preflight inputs and trusted signer keys. |

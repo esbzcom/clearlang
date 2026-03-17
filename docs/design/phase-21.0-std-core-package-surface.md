@@ -76,6 +76,27 @@ Implementation lock for Phase 21:
 - Host-profile v0 capability allowlist includes `std::env::{time,random}` for surface alignment with canonical `std::host`.
 - Strict-gate profile policy still denies both capabilities in Phase 21, producing deterministic `C106`.
 
+#### Precompiled Std-Core Activation Contract v1 (`21.0.7.0`)
+
+This lock defines when precompiled std-core mode is active and what fallback behavior is permitted.
+
+Build switch:
+- `clg build --std-core-link-mode intrinsic`
+- `clg build --std-core-link-mode precompiled`
+
+Profile switch:
+- strict host profile file (`clg.host-profile.json`) with `profile` set to `contract_static` or `shared_app`.
+
+Activation rules (Phase 21 lock):
+- `--std-core-link-mode precompiled` requires `--compiler-mode strict`.
+- Non-strict build + `--std-core-link-mode precompiled` fails deterministically with `C035`.
+- In strict mode, activation is evaluated against the selected host profile and strict preflight package inputs (`clg.lock.json`, `clg.package-metadata.json`, `clg.package-abi.json`).
+
+Fallback policy lock:
+- `intrinsic` mode: intrinsic lowering remains allowed for std-core-capable symbols.
+- `precompiled` mode: fallback-to-intrinsic for the locked precompiled std-core symbol set is forbidden by policy and will be enforced as a fail-closed diagnostic gate in `21.0.7.2`.
+- `21.0.7.1` must prove at least one canonical locked std-core symbol is linked via package ABI/import path under precompiled mode.
+
 ### Chain Packages (`std::<chain>`)
 - `std::eth::{from_bytes, from_array}`
 - `std::solana::{from_bytes, from_array}`
@@ -99,7 +120,7 @@ Implementation lock for Phase 21:
 6. Import-pruning evidence (`21.0.6`)
    - CI evidence gates prove used-only imports and unused-symbol exclusion behavior.
 7. Non-vacuous precompiled-link proof (`21.0.7`)
-   - Precompiled std-core activation contract (explicit switch/profile + fallback policy) is design-locked before enforcement.
+   - Precompiled std-core activation contract (explicit `--std-core-link-mode` + host profile + fallback policy) is design-locked before enforcement.
    - CI proves at least one locked `std::core` symbol is linked through package ABI/import in precompiled mode (not only local intrinsic lowering).
    - Fallback-to-intrinsic under precompiled mode fails with deterministic diagnostics.
 8. Strict fixture realism (`21.0.8`)

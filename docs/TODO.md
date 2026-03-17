@@ -942,7 +942,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 21.0.3.2 Add CI drift gate that fails when locked std surface, emitted std metadata, typer std call-check surface (builtins + specialized std call check modules), and codegen std binding map (intrinsic vs package-import routing) diverge.
     - [x] 21.0.3.3 Emit deterministic std binding-map artifact in CI so drift checks do not depend on internal codegen implementation details.
   - [ ] 21.0.4 Lock and align `std::host` capability surface for production profile readiness.
-    - [ ] 21.0.4.1 Define canonical v1 ownership for host-facing capabilities (`time`, `random`, `chain_id`, storage, events) across `std::host` vs chain wrappers, with explicit non-goals.
+    - [x] 21.0.4.1 Define canonical v1 ownership for host-facing capabilities (`time`, `random`, `chain_id`, storage, events) across `std::host` vs chain wrappers, with explicit non-goals.
     - [ ] 21.0.4.2 Lock strict-mode deterministic policy for `std::env::{time,random}` (allow/deny profile matrix and diagnostics) and align with runtime host-import docs.
     - [ ] 21.0.4.3 Align strict host-profile capability allowlist and strict-gate checks with the canonical v1 `std::host` surface.
     - [ ] 21.0.4.4 Publish machine-readable host capability policy artifact per profile (`contract_static`, `shared_app`) and assert deterministic serialization/hash in CI.

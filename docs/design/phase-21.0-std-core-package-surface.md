@@ -46,6 +46,19 @@ Notes for Phase 21 execution:
 - `std::env::{time,random}` strict-mode policy must be locked explicitly (allow/deny matrix and diagnostics) before Phase 21 sign-off.
 - `chain_id`, storage, and event capabilities require canonical ownership mapping (`std::host` vs chain wrappers) aligned with runtime host-import docs.
 
+#### Host Capability Ownership v1 (`21.0.4.1`)
+
+Canonical ownership target (v1):
+- `time`, `random`: owned by `std::host` and surfaced as `std::env::{time,random}`.
+- `chain_id`: host capability owned by `std::host` runtime boundary, surfaced to users via chain wrappers (`std::<chain>::...`) rather than a chain-agnostic core value helper.
+- Storage (`storage_get/set/delete`): host capability owned by `std::host` runtime boundary, surfaced through chain wrappers for chain-specific policy/encoding.
+- Events (`emit_event`): host capability owned by `std::host` runtime boundary, surfaced through chain wrappers.
+
+Explicit non-goals for v1:
+- No cross-chain unified storage/event API in `std::core`.
+- No promotion of storage/event helpers to deterministic `pure` core helpers.
+- No runtime-capability expansion beyond the existing host-import design targets in Phase 21.
+
 ### Chain Packages (`std::<chain>`)
 - `std::eth::{from_bytes, from_array}`
 - `std::solana::{from_bytes, from_array}`

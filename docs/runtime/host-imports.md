@@ -52,6 +52,13 @@ Environment (io-only, optional, module: `clearlang_env`)
 - `env_random(len: Int) -> Bytes`
 - `env_chain_id() -> String`
 
+## Ownership Lock (Phase 21.0.4.1)
+- Runtime capability ownership remains in the host boundary (`std::host` package model).
+- Canonical user-facing ownership in v1:
+  - `std::env::{time,random}` are direct host-backed calls.
+  - `chain_id`, storage, and events are host capabilities but are surfaced through chain wrappers (`std::<chain>::...`) for chain-specific policy and encoding.
+- This lock is an ownership boundary definition, not a promise that every wrapper/API is already implemented in Phase 21.
+
 ## Effect Gating
 - `pure` code must not call any host import.
 - `mut` remains local-only; host interaction is always `io`.

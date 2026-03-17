@@ -26,6 +26,11 @@ Chain packages provide chain-scoped types and helpers on top of the runtime ABI.
 - `std::solana::Pubkey`
 - `std::eth::io::*` for chain I/O helpers built on runtime capabilities.
 
+## Capability Ownership (Phase 21.0.4.1)
+- Chain packages are the canonical user-facing wrappers for host-owned `chain_id`, storage, and event capabilities.
+- The host boundary remains the source of capability truth; chain packages provide chain-specific API shape, encoding, and policy.
+- `std::env::{time,random}` stay directly host-backed and are not chain-scoped wrappers.
+
 ## Business Logic Placement
 - Business-logic utilities (e.g., token helpers, chain-specific encoding) belong in chain packages.
 - Core language features remain chain-agnostic and minimal.

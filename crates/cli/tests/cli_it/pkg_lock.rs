@@ -36,12 +36,43 @@ fn pkg_lock_generate_writes_sorted_pins_from_metadata() {
         .success();
 
     let lock_bytes = fs::read(root.join("clg.lock.json")).expect("read lockfile");
+    let lock_text = String::from_utf8(lock_bytes.clone()).expect("utf8");
+    assert!(lock_text.starts_with("{\"dependencies\":"));
+    assert!(lock_text.ends_with("}\n"));
     let v: Value = serde_json::from_slice(&lock_bytes).expect("lockfile json");
     assert_eq!(v["schema_version"], Value::from(0));
     let deps = v["dependencies"].as_array().expect("dependencies array");
     assert_eq!(deps.len(), 2);
     assert_eq!(deps[0]["name"], Value::String("std::core".to_string()));
     assert_eq!(deps[1]["name"], Value::String("std::host".to_string()));
+}
+
+#[test]
+fn pkg_lock_generate_prints_canonical_hash() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[sha256:"));
 }
 
 #[test]

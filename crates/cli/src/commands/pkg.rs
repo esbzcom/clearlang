@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::commands::helpers::{make_single_json_error, CommandError};
+use crate::commands::helpers::{
+    canonical_json_bytes, make_single_json_error, sha256_hex, CommandError,
+};
 use crate::logging::{Logger, StageTimings};
 
 const CANONICAL_PACKAGE_METADATA_FILE: &str = "clg.package-metadata.json";
@@ -92,15 +94,16 @@ pub fn run_lock(
         }
     };
 
-    {
+    let canonical_hash = {
         let _stage = timings.start(logger, "pkg_write_lockfile");
-        write_lockfile(lockfile_path.as_path(), &lockfile)?;
-    }
+        write_lockfile(lockfile_path.as_path(), &lockfile)?
+    };
 
     println!(
-        "wrote {} with {} pinned package(s)",
+        "wrote {} with {} pinned package(s) [sha256:{}]",
         lockfile_path.display(),
-        lockfile.dependencies.len()
+        lockfile.dependencies.len(),
+        canonical_hash
     );
     logger.summary(&timings);
     Ok(())
@@ -168,16 +171,22 @@ fn load_lockfile_from_metadata(path: &Path) -> Result<StrictLockfileV0> {
     })
 }
 
-fn write_lockfile(path: &Path, lockfile: &StrictLockfileV0) -> Result<()> {
+fn write_lockfile(path: &Path, lockfile: &StrictLockfileV0) -> Result<String> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
     }
-    let mut bytes = serde_json::to_vec_pretty(lockfile).context("serializing strict lockfile")?;
+    let mut bytes = canonical_lockfile_bytes(lockfile)?;
+    let canonical_hash = sha256_hex(bytes.as_slice());
     bytes.push(b'\n');
     fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))?;
-    Ok(())
+    Ok(canonical_hash)
+}
+
+fn canonical_lockfile_bytes(lockfile: &StrictLockfileV0) -> Result<Vec<u8>> {
+    let value = serde_json::to_value(lockfile).context("serializing strict lockfile value")?;
+    Ok(canonical_json_bytes(&value))
 }
 
 fn validate_package_id(name: &str) -> Result<(), String> {
@@ -315,5 +324,50 @@ mod tests {
         let err = load_lockfile_from_metadata(metadata_path.as_path())
             .expect_err("expected duplicate error");
         assert!(err.to_string().contains("duplicate package name `dup`"));
+    }
+
+    #[test]
+    fn canonical_lockfile_bytes_are_stable_and_hashed() {
+        let lockfile = StrictLockfileV0 {
+            schema_version: 0,
+            dependencies: vec![StrictLockDependency {
+                name: "std::core".to_string(),
+                version: "1.0.0".to_string(),
+                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+            }],
+        };
+        let bytes_a = canonical_lockfile_bytes(&lockfile).expect("canonical bytes");
+        let bytes_b = canonical_lockfile_bytes(&lockfile).expect("canonical bytes");
+        assert_eq!(bytes_a, bytes_b);
+        assert_eq!(
+            String::from_utf8(bytes_a.clone()).expect("utf8"),
+            "{\"dependencies\":[{\"digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"name\":\"std::core\",\"version\":\"1.0.0\"}],\"schema_version\":0}"
+        );
+        let hash = sha256_hex(bytes_a.as_slice());
+        assert_eq!(hash.len(), 64);
+        assert!(hash
+            .chars()
+            .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn write_lockfile_appends_newline_and_returns_canonical_hash() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let path = tmp.path().join(STRICT_LOCKFILE_FILE);
+        let lockfile = StrictLockfileV0 {
+            schema_version: 0,
+            dependencies: vec![StrictLockDependency {
+                name: "std::host".to_string(),
+                version: "1.0.0".to_string(),
+                digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    .to_string(),
+            }],
+        };
+        let hash = write_lockfile(path.as_path(), &lockfile).expect("write lockfile");
+        let written = fs::read(path).expect("read lockfile");
+        assert_eq!(written.last().copied(), Some(b'\n'));
+        let canonical = &written[..written.len() - 1];
+        assert_eq!(sha256_hex(canonical), hash);
     }
 }

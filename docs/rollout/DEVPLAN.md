@@ -8,18 +8,18 @@
 - Runtime-ops gate is complete (`18.0.4`) via closure-env host runbook + evidence index.
 - Language ergonomics execution is complete (`18.0.5`).
 - Proof-model execution is complete (`18.0.6`) including strict-mode default rollout (`18.0.6.4`).
-- Next active phases: execute Phase 20-24 slices toward `milestone_2` final production without regressing Phase 19 strict/profile guarantees; Phase 20.0 parser/DX baseline (comments + numeric separators) is complete and execution now moves to 20.1/20.2.
+- Next active phases: execute Phase 22-24 slices toward `milestone_2` final production without regressing Phase 19 strict/profile guarantees; Phases 20.0, 20.1, 20.2, and 21.0 are complete.
 
 ### Suggested Sequence
-1) Execute **20.1** architecture acceptance gates (strict-mode package trust/runtime linker behavior), including minimal direct-dependency lockfile + metadata/ABI v0 + trust-policy v0 + host-profile v0 bootstraps and import-map determinism checks needed by strict preflight.
-2) Execute **20.2** runnable namespace baseline by making `clearlang-tests/16_namespaced_call.clear` runnable with CI/doc coverage.
-3) Execute **21** (`std::core` precompiled packaging pipeline).
-4) Execute **22** (trust metadata + transitive resolver + semver solver + lockfile flow).
-5) Execute **23** (runtime package loader/linker with fail-closed trust checks and rollout/rollback criteria).
-6) Execute **24.0-24.2** (host profile alignment, milestone_2 release gate, go-live checklist).
-7) Run **24.3 governance controls** throughout execution (DRIs, dates/critical path, risk register, release-train gate evidence).
+1) Execute **22.0** trust hardening foundations (metadata-model unification, lockfile v1 workflow, signer lifecycle expansion, diagnostics lock, validator consolidation).
+2) Execute **22.1** dependency-resolution completion (transitive resolver + deterministic semver solver + vulnerability response + determinism replay gates).
+3) Execute **23** (runtime package loader/linker with fail-closed trust checks and rollout/rollback criteria).
+4) Execute **24.0-24.2** (host profile alignment, milestone_2 release gate, go-live checklist).
+5) Run **24.3 governance controls** throughout execution (DRIs, dates/critical path, risk register, release-train gate evidence).
 
 ## Recently Completed
+- **Phase 20 - Runnable namespace baseline + strict package/link gates**: completed (`20.0`-`20.2`), including diagnostics `C101`-`C108` and deterministic strict import-map evidence gates.
+- **Phase 21 - Precompiled std-core packaging**: completed (`21.0.1`-`21.0.8`) with surface drift gates, precompiled-link proof gates, and canonical strict fixture migration.
 - **Phase 17 - Language gaps + collections**: completed through 17.9 closure/module/resource follow-ups.
 - **Phase 18 kickoff decision gate (`18.0.0`)**: resolved and documented in `docs/design/phase-18.0-open-questions.md`.
 - **Phase 18 security gate (`18.0.1`)**: completed via `18.1` hardening and `18.3` review/fuzzing.

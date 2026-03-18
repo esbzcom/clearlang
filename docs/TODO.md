@@ -963,14 +963,24 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 22 Package Trust + Dependency Resolution
 - [ ] 22.0 Package metadata trust hardening.
-  - [ ] 22.0.1 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation.
-  - [ ] 22.0.2 Expand lockfile flow from 20.1 v0 bootstrap to full deterministic workflow (generation/update + exact package versions + digests).
-  - [ ] 22.0.3 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.
-  - [ ] 22.0.4 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling).
+  - [ ] 22.0.0 Publish and lock Phase 22 design documents (metadata v1, lockfile v1, resolver/solver determinism, advisory policy, diagnostics).
+  - [ ] 22.0.1 Unify package metadata to one canonical production model and define migration/deprecation from legacy `clg-packages.json`.
+  - [ ] 22.0.2 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation.
+  - [ ] 22.0.3 Expand lockfile flow from 20.1 v0 bootstrap to full deterministic workflow.
+    - [ ] 22.0.3.1 Add CLI lockfile generation/update commands for exact package versions + digests.
+    - [ ] 22.0.3.2 Define canonical lockfile serialization/hash rules (stable ordering + deterministic writes).
+    - [ ] 22.0.3.3 Add replay tests proving byte-identical lockfiles from identical inputs.
+  - [ ] 22.0.4 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.
+  - [ ] 22.0.5 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling).
+  - [ ] 22.0.6 Reserve and register Phase 22 diagnostics for resolver/solver/advisory flows before implementation (stable JSON code contracts).
+  - [ ] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift.
 - [ ] 22.1 Dependency resolution completion gates for milestone_2.
+  - [ ] 22.1.0 Lock deterministic resolver + semver solver policy (tie-break rules, conflict precedence, diagnostics ordering).
   - [ ] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics).
   - [ ] 22.1.2 Add deterministic semver solver with lockfile generation/update flow.
   - [ ] 22.1.3 Add package vulnerability response flow (advisory ingestion, denylist/yank policy, forced-upgrade semantics, deterministic diagnostics).
+  - [ ] 22.1.4 Add CI determinism replay gates for resolver/solver outputs (resolved graph artifact, lockfile bytes/hash, diagnostics ordering).
+  - [ ] 22.1.5 Add build/run resolution parity policy so package trust/resolution behavior is explicit for both `clg build` and `clg run`.
 
 ### 23 Runtime Package Loader + Linker
 - [ ] 23.0 Runtime linker for compiled packages.

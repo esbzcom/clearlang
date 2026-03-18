@@ -153,6 +153,8 @@ Current execution notes:
 - `21.0.7.2` fallback rejection coverage is covered by `strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105`:
   - strict precompiled mode fails closed with deterministic `C105` when locked symbol `std::str::len` is used but not linked via strict package ABI/import,
   - intrinsic fallback for that locked symbol set is rejected by policy.
+- `21.0.8.1` strict acceptance fixtures have been migrated from synthetic placeholders to canonical locked symbols:
+  - strict fixtures now use `std::str::len` and `std::bytes::len` symbol contracts in place of `std::core::math::*` placeholders.
 - `crates/cli/assets/std-metadata.json` is aligned with the locked collection take APIs:
   - `std::list::remove_take`
   - `std::map::insert_take`

@@ -586,7 +586,7 @@ fn precompiled_std_core_mode_requires_strict_compiler_mode_with_c035() {
 #[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_acceptance_ok.clear");
@@ -595,9 +595,9 @@ fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": null
         }
@@ -667,9 +667,9 @@ fn strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105()
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::bytes::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["Bytes"],
           "ret": "Int",
           "capability": null
         }
@@ -805,7 +805,7 @@ fn strict_acceptance_schema_tamper_fails_with_c104() {
 #[test]
 fn strict_acceptance_abi_link_tamper_fails_with_c105() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_acceptance_abi_tamper.clear");
@@ -814,9 +814,9 @@ fn strict_acceptance_abi_link_tamper_fails_with_c105() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": null
         }
@@ -837,7 +837,7 @@ fn strict_acceptance_abi_link_tamper_fails_with_c105() {
 #[test]
 fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_acceptance_host_tamper.clear");
@@ -846,9 +846,9 @@ fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         }
@@ -865,7 +865,7 @@ fn strict_acceptance_runtime_capability_tamper_fails_with_c106() {
 #[test]
 fn strict_acceptance_env_time_disallowed_in_contract_static_profile() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp
@@ -875,9 +875,9 @@ fn strict_acceptance_env_time_disallowed_in_contract_static_profile() {
     write_signed_strict_dependency_fixture(
         tmp.path(),
         r#"[{
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": "std::env::time"
         }]"#,
@@ -890,7 +890,7 @@ fn strict_acceptance_env_time_disallowed_in_contract_static_profile() {
 #[test]
 fn strict_acceptance_env_random_disallowed_in_shared_app_profile() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp
@@ -900,9 +900,9 @@ fn strict_acceptance_env_random_disallowed_in_shared_app_profile() {
     write_signed_strict_dependency_fixture(
         tmp.path(),
         r#"[{
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": "std::env::random"
         }]"#,
@@ -945,7 +945,7 @@ fn strict_acceptance_env_chain_id_allowed_when_capability_present() {
 #[test]
 fn strict_acceptance_forced_determinism_replay_mismatch_fails_with_c107() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp
@@ -956,9 +956,9 @@ fn strict_acceptance_forced_determinism_replay_mismatch_fails_with_c107() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": null
         }
@@ -1020,10 +1020,7 @@ fn strict_acceptance_import_map_artifact_write_failure_fails_with_c108() {
 fn strict_acceptance_gate_reports_complete_violation_list() {
     let src = r#"
         function main() -> Int {
-            std::core::math::add(
-                std::core::math::sub(4, 1),
-                2
-            )
+            std::str::len("abc") + std::bytes::len(std::bytes::from_string("xy"))
         }
     "#;
     let tmp = tempdir().unwrap();
@@ -1035,16 +1032,16 @@ fn strict_acceptance_gate_reports_complete_violation_list() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         },
         {
-          "symbol": "std::core::math::sub",
+          "symbol": "std::bytes::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["Bytes"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         }
@@ -1056,12 +1053,12 @@ fn strict_acceptance_gate_reports_complete_violation_list() {
         .get("message")
         .and_then(|s| s.as_str())
         .unwrap_or_default()
-        .contains("std::core::math::add"));
+        .contains("std::bytes::len"));
     assert!(errs[1]
         .get("message")
         .and_then(|s| s.as_str())
         .unwrap_or_default()
-        .contains("std::core::math::sub"));
+        .contains("std::str::len"));
     assert!(
         !tmp.path().join("out.wasm").exists(),
         "strict gate failure should stop before final wasm output emission"
@@ -1072,10 +1069,7 @@ fn strict_acceptance_gate_reports_complete_violation_list() {
 fn strict_acceptance_import_map_artifact_matches_failure_diagnostics() {
     let src = r#"
         function main() -> Int {
-            std::core::math::add(
-                std::core::math::sub(4, 1),
-                2
-            )
+            std::str::len("abc") + std::bytes::len(std::bytes::from_string("xy"))
         }
     "#;
     let tmp = tempdir().unwrap();
@@ -1087,16 +1081,16 @@ fn strict_acceptance_import_map_artifact_matches_failure_diagnostics() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         },
         {
-          "symbol": "std::core::math::sub",
+          "symbol": "std::bytes::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["Bytes"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         }
@@ -1128,10 +1122,7 @@ fn strict_acceptance_import_map_artifact_matches_failure_diagnostics() {
 fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs() {
     let src = r#"
         function main() -> Int {
-            std::core::math::add(
-                std::core::math::sub(4, 1),
-                2
-            )
+            std::str::len("abc") + std::bytes::len(std::bytes::from_string("xy"))
         }
     "#;
     let tmp = tempdir().unwrap();
@@ -1143,16 +1134,16 @@ fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs(
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": null
         },
         {
-          "symbol": "std::core::math::sub",
+          "symbol": "std::bytes::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["Bytes"],
           "ret": "Int",
           "capability": null
         }
@@ -1222,14 +1213,14 @@ fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs(
             .get("symbol")
             .and_then(|value| value.as_str())
             .unwrap_or_default(),
-        "std::core::math::add"
+        "std::bytes::len"
     );
     assert_eq!(
         imports[1]
             .get("symbol")
             .and_then(|value| value.as_str())
             .unwrap_or_default(),
-        "std::core::math::sub"
+        "std::str::len"
     );
 }
 
@@ -1237,10 +1228,7 @@ fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs(
 fn strict_acceptance_diagnostics_order_is_deterministic_across_identical_runs() {
     let src = r#"
         function main() -> Int {
-            std::core::math::add(
-                std::core::math::sub(4, 1),
-                2
-            )
+            std::str::len("abc") + std::bytes::len(std::bytes::from_string("xy"))
         }
     "#;
     let tmp = tempdir().unwrap();
@@ -1252,16 +1240,16 @@ fn strict_acceptance_diagnostics_order_is_deterministic_across_identical_runs() 
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         },
         {
-          "symbol": "std::core::math::sub",
+          "symbol": "std::bytes::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["Bytes"],
           "ret": "Int",
           "capability": "std::crypto::hash"
         }
@@ -1840,7 +1828,7 @@ fn strict_compiler_mode_allows_signed_dependency_with_empty_abi_imports() {
 #[test]
 fn strict_compiler_mode_allows_linked_abi_symbol_from_strict_contract() {
     let src = r#"
-        function main() -> Int { std::core::math::add(1, 2) }
+        function main() -> Int { std::str::len("abc") }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp.path().join("strict_mode_linked_abi_symbol.clear");
@@ -1849,9 +1837,9 @@ fn strict_compiler_mode_allows_linked_abi_symbol_from_strict_contract() {
         tmp.path(),
         r#"[
         {
-          "symbol": "std::core::math::add",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Int", "Int"],
+          "params": ["String"],
           "ret": "Int",
           "capability": null
         }

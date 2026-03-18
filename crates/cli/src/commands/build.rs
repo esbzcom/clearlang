@@ -184,11 +184,9 @@ pub fn run(
         external_codegen_imports,
     ) = if compiler_mode == CompilerMode::Strict {
         if let Some(bindings) = strict_external_bindings_for_link.as_ref() {
-            let typecheck_sigs = if std_core_link_mode == StdCoreLinkMode::Precompiled {
-                filter_precompiled_std_core_typer_overrides(bindings.external_typer_sigs.as_slice())
-            } else {
-                bindings.external_typer_sigs.clone()
-            };
+            let typecheck_sigs = filter_precompiled_std_core_typer_overrides(
+                bindings.external_typer_sigs.as_slice(),
+            );
             (
                 typecheck_sigs,
                 bindings.external_typer_sigs.clone(),
@@ -850,7 +848,7 @@ fn filter_precompiled_std_core_typer_overrides(
 ) -> Vec<ExternalBuiltinSig> {
     external_typer_sigs
         .iter()
-        .filter(|sig| !is_phase21_precompiled_std_core_locked_symbol(sig.name.as_str()))
+        .filter(|sig| !matches!(sig.name.as_str(), "std::str::len" | "std::bytes::len"))
         .cloned()
         .collect()
 }

@@ -4,6 +4,10 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use super::strict_validation::{
+    validate_exact_semver, validate_package_id, validate_sha256_digest,
+};
+
 pub(super) const STRICT_LOCKFILE_FILE: &str = "clg.lock.json";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -189,76 +193,6 @@ fn parse_strict_lockfile_v0(
     }
 
     Ok(StrictLockfileV0 { dependencies })
-}
-
-fn validate_package_id(name: &str) -> Result<(), String> {
-    if name.trim().is_empty() {
-        return Err("name is empty".to_string());
-    }
-    for segment in name.split("::") {
-        validate_identifier_segment(segment)?;
-    }
-    Ok(())
-}
-
-fn validate_identifier_segment(segment: &str) -> Result<(), String> {
-    if segment.is_empty() {
-        return Err("contains empty `::` segment".to_string());
-    }
-    let mut chars = segment.chars();
-    let first = chars.next().expect("segment non-empty");
-    if !(first == '_' || first.is_ascii_alphabetic()) {
-        return Err(format!(
-            "segment `{segment}` must start with ASCII letter or `_`"
-        ));
-    }
-    for ch in chars {
-        if !(ch == '_' || ch.is_ascii_alphanumeric()) {
-            return Err(format!(
-                "segment `{segment}` contains invalid character `{ch}`"
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn validate_exact_semver(version: &str) -> Result<(), String> {
-    if version.contains('-') || version.contains('+') {
-        return Err(
-            "must use exact MAJOR.MINOR.PATCH without pre-release/build metadata".to_string(),
-        );
-    }
-    if !version.chars().all(|ch| ch.is_ascii_digit() || ch == '.') {
-        return Err("must use exact MAJOR.MINOR.PATCH".to_string());
-    }
-    let parts: Vec<&str> = version.split('.').collect();
-    if parts.len() != 3 {
-        return Err("must use exact MAJOR.MINOR.PATCH".to_string());
-    }
-    for part in parts {
-        if part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()) {
-            return Err(format!("version segment `{part}` is not numeric"));
-        }
-    }
-    Ok(())
-}
-
-fn validate_sha256_digest(digest: &str) -> Result<(), String> {
-    const PREFIX: &str = "sha256:";
-    if !digest.starts_with(PREFIX) {
-        return Err("digest must start with `sha256:`".to_string());
-    }
-    let hex = &digest[PREFIX.len()..];
-    if hex.len() != 64 {
-        return Err("digest must have exactly 64 lowercase hex characters".to_string());
-    }
-    if !hex
-        .chars()
-        .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
-    {
-        return Err("digest must be lowercase hex (`0-9`, `a-f`)".to_string());
-    }
-    Ok(())
 }
 
 #[cfg(test)]

@@ -4,6 +4,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use super::strict_validation::parse_utc_timestamp_components;
+
 pub(super) const STRICT_TRUST_POLICY_FILE: &str = "clg.trust-policy.json";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -424,82 +426,6 @@ fn parse_utc_rfc3339(field: &str, value: &str) -> Result<(u16, u8, u8, u8, u8, u
     let ts = parse_utc_timestamp_components(value)
         .map_err(|msg| format!("{field} must be a valid UTC RFC3339 timestamp: {msg}"))?;
     Ok(ts)
-}
-
-fn parse_utc_timestamp_components(value: &str) -> Result<(u16, u8, u8, u8, u8, u8), String> {
-    if value.len() != 20 {
-        return Err("expected `YYYY-MM-DDTHH:MM:SSZ`".to_string());
-    }
-    let bytes = value.as_bytes();
-    if bytes[4] != b'-'
-        || bytes[7] != b'-'
-        || bytes[10] != b'T'
-        || bytes[13] != b':'
-        || bytes[16] != b':'
-        || bytes[19] != b'Z'
-    {
-        return Err("expected separators in `YYYY-MM-DDTHH:MM:SSZ`".to_string());
-    }
-
-    fn parse_u16(s: &str) -> Result<u16, String> {
-        if !s.chars().all(|ch| ch.is_ascii_digit()) {
-            return Err(format!("`{s}` contains non-digit characters"));
-        }
-        s.parse::<u16>()
-            .map_err(|_| format!("failed to parse `{s}`"))
-    }
-    fn parse_u8(s: &str) -> Result<u8, String> {
-        if !s.chars().all(|ch| ch.is_ascii_digit()) {
-            return Err(format!("`{s}` contains non-digit characters"));
-        }
-        s.parse::<u8>()
-            .map_err(|_| format!("failed to parse `{s}`"))
-    }
-
-    let year = parse_u16(&value[0..4])?;
-    let month = parse_u8(&value[5..7])?;
-    let day = parse_u8(&value[8..10])?;
-    let hour = parse_u8(&value[11..13])?;
-    let minute = parse_u8(&value[14..16])?;
-    let second = parse_u8(&value[17..19])?;
-
-    if !(1..=12).contains(&month) {
-        return Err(format!("month `{month}` is out of range 1..=12"));
-    }
-    if !(1..=31).contains(&day) {
-        return Err(format!("day `{day}` is out of range 1..=31"));
-    }
-    let max_day = days_in_month(year, month);
-    if day > max_day {
-        return Err(format!(
-            "day `{day}` is out of range 1..={max_day} for month `{month}`"
-        ));
-    }
-    if hour > 23 {
-        return Err(format!("hour `{hour}` is out of range 0..=23"));
-    }
-    if minute > 59 {
-        return Err(format!("minute `{minute}` is out of range 0..=59"));
-    }
-    if second > 59 {
-        return Err(format!("second `{second}` is out of range 0..=59"));
-    }
-
-    Ok((year, month, day, hour, minute, second))
-}
-
-fn days_in_month(year: u16, month: u8) -> u8 {
-    match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if is_leap_year(year) => 29,
-        2 => 28,
-        _ => 0,
-    }
-}
-
-fn is_leap_year(year: u16) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 #[cfg(test)]

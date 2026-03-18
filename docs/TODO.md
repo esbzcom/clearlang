@@ -973,7 +973,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.0.4 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests. (`docs/design/phase-22.0.4-package-metadata-abi-compatibility-policy.md`, `crates/cli/tests/schema_compatibility_policy.rs`)
   - [x] 22.0.5 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling). (`docs/design/phase-22.0.5-signer-lifecycle-policy.md`, `crates/cli/src/commands/build/strict_trust_policy.rs` tests, `crates/cli/src/commands/build/strict_package_signatures.rs` tests)
   - [x] 22.0.6 Reserve and register Phase 22 diagnostics for resolver/solver/advisory flows before implementation (stable JSON code contracts). (`docs/diagnostics.md` `C109`-`C119`, `crates/cli/tests/phase22_diagnostics_reservation.rs`)
-  - [ ] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift.
+  - [x] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift. (`docs/design/phase-22.0.7-strict-validator-consolidation.md`, `crates/cli/src/commands/build/strict_validation.rs`)
 - [ ] 22.1 Dependency resolution completion gates for milestone_2.
   - [ ] 22.1.0 Lock deterministic resolver + semver solver policy (tie-break rules, conflict precedence, diagnostics ordering).
   - [ ] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics).

@@ -18,6 +18,7 @@ Prevent drift across strict preflight validators by using one shared validation 
    - `strict_package_contract.rs`
    - `strict_package_signatures.rs`
    - `strict_trust_policy.rs` (timestamp parsing)
+   - `pkg.rs` (lockfile generation input validation)
 
 ## Determinism Contract
 1. Validation rules and error wording remain stable for equivalent invalid inputs.

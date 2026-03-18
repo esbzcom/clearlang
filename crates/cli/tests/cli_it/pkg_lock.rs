@@ -37,14 +37,29 @@ fn pkg_lock_generate_writes_sorted_pins_from_metadata() {
 
     let lock_bytes = fs::read(root.join("clg.lock.json")).expect("read lockfile");
     let lock_text = String::from_utf8(lock_bytes.clone()).expect("utf8");
-    assert!(lock_text.starts_with("{\"dependencies\":"));
+    assert!(lock_text.starts_with("{\"packages\":"));
     assert!(lock_text.ends_with("}\n"));
     let v: Value = serde_json::from_slice(&lock_bytes).expect("lockfile json");
-    assert_eq!(v["schema_version"], Value::from(0));
-    let deps = v["dependencies"].as_array().expect("dependencies array");
-    assert_eq!(deps.len(), 2);
-    assert_eq!(deps[0]["name"], Value::String("std::core".to_string()));
-    assert_eq!(deps[1]["name"], Value::String("std::host".to_string()));
+    assert_eq!(v["schema_version"], Value::from(1));
+    assert_eq!(v["resolver_version"], Value::from(1));
+    let roots = v["roots"].as_array().expect("roots array");
+    assert_eq!(roots.len(), 1);
+    let root_deps = roots[0]["dependencies"]
+        .as_array()
+        .expect("root dependencies");
+    assert_eq!(root_deps.len(), 2);
+    assert_eq!(root_deps[0]["name"], Value::String("std::core".to_string()));
+    assert_eq!(root_deps[1]["name"], Value::String("std::host".to_string()));
+    let packages = v["packages"].as_array().expect("packages array");
+    assert_eq!(packages.len(), 2);
+    assert_eq!(
+        packages[0]["id"],
+        Value::String("std::core@1.0.0".to_string())
+    );
+    assert_eq!(
+        packages[1]["id"],
+        Value::String("std::host@1.0.0".to_string())
+    );
 }
 
 #[test]
@@ -59,7 +74,8 @@ fn pkg_lock_generate_prints_canonical_hash() {
     {
       "name": "std::core",
       "version": "1.0.0",
-      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:std::core:1.0.0"
     }
   ]
 }"#,
@@ -154,12 +170,14 @@ fn pkg_lock_replay_with_identical_inputs_is_byte_identical() {
     {
       "name": "std::core",
       "version": "1.0.0",
-      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:std::core:1.0.0"
     },
     {
       "name": "std::host",
       "version": "1.0.0",
-      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "abi_id": "abi:std::host:1.0.0"
     }
   ]
 }"#,
@@ -183,4 +201,51 @@ fn pkg_lock_replay_with_identical_inputs_is_byte_identical() {
     let second = fs::read(root.join("clg.lock.json")).expect("read second lockfile bytes");
 
     assert_eq!(first, second, "lockfile replay bytes must be identical");
+}
+
+#[test]
+fn pkg_lock_generate_derives_roots_from_unreferenced_packages() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:app::entry:1.0.0",
+      "dependencies": [
+        { "name": "lib::core", "requirement": "^1.0.0" }
+      ]
+    },
+    {
+      "name": "lib::core",
+      "version": "1.0.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "abi_id": "abi:lib::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .success();
+
+    let lock_bytes = fs::read(root.join("clg.lock.json")).expect("read lockfile");
+    let v: Value = serde_json::from_slice(&lock_bytes).expect("lockfile json");
+    let roots = v["roots"].as_array().expect("roots array");
+    assert_eq!(roots.len(), 1);
+    let deps = roots[0]["dependencies"]
+        .as_array()
+        .expect("root dependencies");
+    assert_eq!(deps.len(), 1);
+    assert_eq!(deps[0]["name"], Value::String("app::entry".to_string()));
 }

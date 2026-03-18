@@ -1,12 +1,13 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path};
 
 use serde::Deserialize;
 
 use super::strict_validation::{
     validate_exact_semver, validate_package_id, validate_sha256_digest, validate_utc_rfc3339,
 };
+use crate::commands::validation::validate_semver_requirement;
 
 pub(super) const STRICT_PACKAGE_METADATA_FILE: &str = "clg.package-metadata.json";
 pub(super) const STRICT_PACKAGE_ABI_FILE: &str = "clg.package-abi.json";
@@ -25,8 +26,15 @@ pub(super) struct StrictPackageMetadataEntry {
     pub(super) artifact_format: String,
     pub(super) artifact_path: String,
     pub(super) abi_id: String,
+    pub(super) dependencies: Vec<StrictPackageDependencyRequirement>,
     pub(super) signature: Option<StrictPackageMetadataSignature>,
     pub(super) trusted_anchor_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct StrictPackageDependencyRequirement {
+    pub(super) name: String,
+    pub(super) requirement: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -109,8 +117,17 @@ struct RawPackageMetadataEntryV1 {
     digest: String,
     artifact: RawPackageArtifact,
     abi_id: String,
+    #[serde(default)]
+    dependencies: Vec<RawPackageDependencyRequirementV1>,
     signature: RawPackageSignatureV1,
     trust: RawPackageTrustV1,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageDependencyRequirementV1 {
+    name: String,
+    requirement: String,
 }
 
 #[derive(Deserialize)]
@@ -309,6 +326,7 @@ fn parse_package_metadata_abi_v0(
                     artifact_format: pkg.artifact.format,
                     artifact_path: pkg.artifact.path,
                     abi_id: pkg.abi_id,
+                    dependencies: Vec::new(),
                     signature: None,
                     trusted_anchor_ids: Vec::new(),
                 })
@@ -320,7 +338,7 @@ fn parse_package_metadata_abi_v0(
                     StrictPackageContractError::new(
                         "C104",
                         format!(
-                            "strict package metadata `{}` does not match schema v1 (`schema_version`, `packages[]` with `signature` + `trust`)",
+                            "strict package metadata `{}` does not match schema v1 (`schema_version`, `packages[]` with `signature`, `trust`, optional `dependencies`)",
                             metadata_path.display()
                         ),
                     )
@@ -330,6 +348,14 @@ fn parse_package_metadata_abi_v0(
                 .packages
                 .into_iter()
                 .map(|pkg| StrictPackageMetadataEntry {
+                    dependencies: pkg
+                        .dependencies
+                        .into_iter()
+                        .map(|dep| StrictPackageDependencyRequirement {
+                            name: dep.name,
+                            requirement: dep.requirement,
+                        })
+                        .collect(),
                     name: pkg.name,
                     version: pkg.version,
                     digest: pkg.digest,
@@ -361,7 +387,7 @@ fn parse_package_metadata_abi_v0(
 
     let mut package_names = HashSet::with_capacity(packages.len());
     let mut package_dupes = BTreeSet::new();
-    for pkg in &packages {
+    for pkg in &mut packages {
         if !package_names.insert(pkg.name.clone()) {
             package_dupes.insert(pkg.name.clone());
         }
@@ -377,7 +403,7 @@ fn parse_package_metadata_abi_v0(
         ));
     }
 
-    for pkg in &packages {
+    for pkg in &mut packages {
         validate_package_id(&pkg.name).map_err(|msg| {
             StrictPackageContractError::new(
                 "C104",
@@ -431,17 +457,17 @@ fn parse_package_metadata_abi_v0(
                 ),
             ));
         }
-        let artifact_path = Path::new(&pkg.artifact_path);
-        if artifact_path.is_absolute() {
-            return Err(StrictPackageContractError::new(
+        validate_relative_artifact_path(pkg.artifact_path.as_str()).map_err(|msg| {
+            StrictPackageContractError::new(
                 "C104",
                 format!(
-                    "strict package metadata `{}` package `{}` artifact path must be relative",
+                    "strict package metadata `{}` package `{}` has invalid artifact path `{}`: {msg}",
                     metadata_path.display(),
-                    pkg.name
+                    pkg.name,
+                    pkg.artifact_path
                 ),
-            ));
-        }
+            )
+        })?;
         if pkg.abi_id.trim().is_empty() {
             return Err(StrictPackageContractError::new(
                 "C104",
@@ -536,6 +562,49 @@ fn parse_package_metadata_abi_v0(
                     ),
                 ));
             }
+        }
+
+        pkg.dependencies.sort_by(|a, b| a.name.cmp(&b.name));
+        let mut seen_deps = HashSet::with_capacity(pkg.dependencies.len());
+        let mut dep_dupes = BTreeSet::new();
+        for dep in &pkg.dependencies {
+            validate_package_id(dep.name.as_str()).map_err(|msg| {
+                StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has invalid dependency name `{}`: {msg}",
+                        metadata_path.display(),
+                        pkg.name,
+                        dep.name
+                    ),
+                )
+            })?;
+            validate_semver_requirement(dep.requirement.as_str()).map_err(|msg| {
+                StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has invalid dependency requirement `{}` for `{}`: {msg}",
+                        metadata_path.display(),
+                        pkg.name,
+                        dep.requirement,
+                        dep.name
+                    ),
+                )
+            })?;
+            if !seen_deps.insert(dep.name.clone()) {
+                dep_dupes.insert(dep.name.clone());
+            }
+        }
+        if let Some(dupe) = dep_dupes.iter().next() {
+            return Err(StrictPackageContractError::new(
+                "C104",
+                format!(
+                    "strict package metadata `{}` package `{}` has duplicate dependency name `{}`",
+                    metadata_path.display(),
+                    pkg.name,
+                    dupe
+                ),
+            ));
         }
     }
     let mut package_abi_ids = HashSet::with_capacity(packages.len());
@@ -802,6 +871,27 @@ fn validate_signature_hex(signature: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_relative_artifact_path(path: &str) -> Result<(), String> {
+    let artifact_path = Path::new(path);
+    if artifact_path.is_absolute() {
+        return Err("artifact path must be relative".to_string());
+    }
+    for component in artifact_path.components() {
+        match component {
+            Component::ParentDir => {
+                return Err(
+                    "artifact path must not contain parent-directory traversal (`..`)".to_string(),
+                )
+            }
+            Component::Prefix(_) | Component::RootDir => {
+                return Err("artifact path must be relative".to_string())
+            }
+            Component::CurDir | Component::Normal(_) => {}
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -841,7 +931,10 @@ mod tests {
       },
       "trust": {
         "trusted_anchor_ids": ["k1"]
-      }
+      },
+      "dependencies": [
+        { "name": "std::host", "requirement": "^1.0.0" }
+      ]
     }
   ]
 }"#
@@ -900,6 +993,9 @@ mod tests {
         let sig = pkg.signature.as_ref().expect("signature metadata");
         assert_eq!(sig.key_id, "k1");
         assert_eq!(pkg.trusted_anchor_ids, vec!["k1"]);
+        assert_eq!(pkg.dependencies.len(), 1);
+        assert_eq!(pkg.dependencies[0].name, "std::host");
+        assert_eq!(pkg.dependencies[0].requirement, "^1.0.0");
     }
 
     #[test]
@@ -1084,5 +1180,66 @@ mod tests {
         .expect_err("expected duplicate metadata abi_id");
         assert_eq!(err.code(), "C104");
         assert!(err.message().contains("duplicate abi_id"));
+    }
+
+    #[test]
+    fn metadata_v1_rejects_duplicate_dependency_names() {
+        let metadata = r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
+      "abi_id": "abi:std::core:1.0.0",
+      "signature": {
+        "format": "ed25519",
+        "key_id": "k1",
+        "signed_at": "2026-01-15T00:00:00Z",
+        "signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "trust": { "trusted_anchor_ids": ["k1"] },
+      "dependencies": [
+        { "name": "std::host", "requirement": "^1.0.0" },
+        { "name": "std::host", "requirement": "^1.0.0" }
+      ]
+    }
+  ]
+}"#;
+        let err = parse_package_metadata_abi_v0(
+            metadata,
+            &valid_abi_json(),
+            Path::new("clg.package-metadata.json"),
+            Path::new("clg.package-abi.json"),
+        )
+        .expect_err("expected duplicate dependency validation failure");
+        assert_eq!(err.code(), "C104");
+        assert!(err.message().contains("duplicate dependency name"));
+    }
+
+    #[test]
+    fn metadata_rejects_artifact_path_parent_traversal() {
+        let metadata = r#"{
+  "schema_version": 0,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "../store/std-core.wasm" },
+      "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#;
+        let err = parse_package_metadata_abi_v0(
+            metadata,
+            &valid_abi_json(),
+            Path::new("clg.package-metadata.json"),
+            Path::new("clg.package-abi.json"),
+        )
+        .expect_err("expected traversal artifact path validation failure");
+        assert_eq!(err.code(), "C104");
+        assert!(err.message().contains("parent-directory traversal"));
     }
 }

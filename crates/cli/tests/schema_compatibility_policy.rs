@@ -22,6 +22,44 @@ fn write_lockfile_v0(root: &Path) {
     .expect("write lockfile");
 }
 
+fn write_lockfile_v1(root: &Path) {
+    fs::write(
+        root.join("clg.lock.json"),
+        r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "app",
+      "dependencies": []
+    }
+  ],
+  "packages": []
+}"#,
+    )
+    .expect("write lockfile");
+}
+
+fn write_lockfile_v1_with_invalid_requirement(root: &Path) {
+    fs::write(
+        root.join("clg.lock.json"),
+        r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "app",
+      "dependencies": [
+        { "name": "std::core", "requirement": "latest" }
+      ]
+    }
+  ],
+  "packages": []
+}"#,
+    )
+    .expect("write lockfile");
+}
+
 fn write_trust_policy_v0(root: &Path) {
     fs::write(
         root.join("clg.trust-policy.json"),
@@ -175,6 +213,45 @@ fn strict_schema_compat_rejects_package_abi_v1_with_c104() {
     write_host_profile_v0(tmp.path());
     write_package_metadata(tmp.path(), 0);
     write_package_abi(tmp.path(), 1);
+
+    let v = run_strict_build_json_failure(tmp.path(), &file);
+    assert_single_json_error(&v, "C104", "build");
+}
+
+#[test]
+fn strict_schema_compat_accepts_lockfile_v1() {
+    let tmp = tempdir().unwrap();
+    let file = write_source(tmp.path());
+    write_lockfile_v1(tmp.path());
+    write_trust_policy_v0(tmp.path());
+    write_host_profile_v0(tmp.path());
+    write_package_metadata(tmp.path(), 0);
+    write_package_abi(tmp.path(), 0);
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn strict_schema_compat_rejects_lockfile_v1_invalid_requirement_with_c104() {
+    let tmp = tempdir().unwrap();
+    let file = write_source(tmp.path());
+    write_lockfile_v1_with_invalid_requirement(tmp.path());
+    write_trust_policy_v0(tmp.path());
+    write_host_profile_v0(tmp.path());
+    write_package_metadata(tmp.path(), 0);
+    write_package_abi(tmp.path(), 0);
 
     let v = run_strict_build_json_failure(tmp.path(), &file);
     assert_single_json_error(&v, "C104", "build");

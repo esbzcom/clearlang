@@ -536,6 +536,7 @@ mod tests {
                     artifact_format: "wasm".to_string(),
                     artifact_path: "store/std-core-1.0.0.wasm".to_string(),
                     abi_id: "abi:std::core:1.0.0".to_string(),
+                    dependencies: Vec::new(),
                     signature: None,
                     trusted_anchor_ids: Vec::new(),
                 },
@@ -561,6 +562,7 @@ mod tests {
                     artifact_format: "wasm".to_string(),
                     artifact_path: "store/std-core-1.0.0.wasm".to_string(),
                     abi_id: "abi:std::core:1.0.0".to_string(),
+                    dependencies: Vec::new(),
                     signature: Some(
                         super::super::strict_package_contract::StrictPackageMetadataSignature {
                             format: "ed25519".to_string(),

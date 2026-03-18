@@ -29,7 +29,7 @@ Define one canonical production package metadata schema for build/run resolution
         "format": "ed25519",
         "key_id": "std-core-release",
         "signed_at": "2026-01-15T00:00:00Z",
-        "signature": "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        "signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "trust": {
         "trusted_anchor_ids": ["core-root-2026"]
@@ -52,7 +52,7 @@ Define one canonical production package metadata schema for build/run resolution
 4. `artifact.format` must be `wasm` in Phase 22.
 5. `artifact.path` must be relative (no absolute path, no traversal outside configured root).
 6. `abi_id` must be non-empty and unique across packages.
-7. `signature.format` must be `ed25519`; `signed_at` must be RFC3339 UTC.
+7. `signature.format` must be `ed25519`; `signed_at` must be RFC3339 UTC; `signature` must be 64-byte lowercase hex (128 chars).
 8. `trusted_anchor_ids` must be non-empty and each id must exist in trust policy.
 9. `dependencies` entries are package requirements (not resolved pins); they feed resolver input.
 
@@ -72,4 +72,3 @@ Define one canonical production package metadata schema for build/run resolution
 - `docs/TODO.md` (`22.0.1`, `22.0.2`)
 - `docs/design/phase-20.1.0-package-metadata-abi-v0.md`
 - `docs/design/phase-22.0.3-lockfile-v1.md`
-

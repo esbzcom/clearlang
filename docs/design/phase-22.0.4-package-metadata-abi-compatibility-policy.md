@@ -9,7 +9,7 @@ Define deterministic compatibility rules for package metadata, package ABI, and 
 ## Current Compatibility Matrix (Locked)
 | Artifact | Accepted schema versions | Rejected schema versions | Rejection diagnostic |
 |---|---|---|---|
-| `clg.lock.json` | `0` | anything else | `C104` |
+| `clg.lock.json` | `0`, `1` | anything else | `C104` |
 | `clg.package-metadata.json` | `0`, `1` | anything else | `C104` |
 | `clg.package-abi.json` | `0` | anything else | `C104` |
 
@@ -28,6 +28,7 @@ Define deterministic compatibility rules for package metadata, package ABI, and 
 
 ## Regression Gate (22.0.4)
 - `crates/cli/tests/schema_compatibility_policy.rs` locks strict-mode schema compatibility behavior:
+  - accepts lockfile schema `1`,
   - accepts package metadata schema `0`,
   - accepts package metadata schema `1`,
   - rejects package metadata schema `2` with `C104`,

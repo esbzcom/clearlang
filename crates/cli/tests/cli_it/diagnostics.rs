@@ -1520,7 +1520,7 @@ fn strict_compiler_mode_rejects_invalid_lockfile_schema_with_c104() {
     write_minimal_strict_package_abi(tmp.path());
     fs::write(
         tmp.path().join("clg.lock.json"),
-        r#"{"schema_version":1,"dependencies":[]}"#,
+        r#"{"schema_version":2,"dependencies":[]}"#,
     )
     .expect("write lockfile");
     let out = tmp.path().join("out.wasm");

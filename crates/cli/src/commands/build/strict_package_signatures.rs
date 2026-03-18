@@ -732,6 +732,8 @@ mod tests {
                 not_after: "2027-01-01T00:00:00Z".to_string(),
             }],
             revoked_key_ids: Vec::new(),
+            compromised_key_ids: Vec::new(),
+            lifecycle: None,
         }
     }
 
@@ -862,5 +864,29 @@ mod tests {
         assert!(err
             .message()
             .contains("not permitted by package trusted anchors"));
+    }
+
+    #[test]
+    fn trust_gate_rejects_compromised_signer() {
+        let tmp = tempdir().expect("tempdir");
+        let signing = SigningKey::from_bytes(&[7u8; 32]);
+        let signed_at = "2026-06-01T00:00:00Z";
+        let payload = canonical_payload(
+            "std::core",
+            "1.0.0",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            signed_at,
+        );
+        let signature_hex = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+        write_signature_file(tmp.path(), &signature_hex, "k1", signed_at);
+
+        let package_contract = package_contract();
+        let mut trust_policy = trust_policy_for_signing_key(&signing);
+        trust_policy.compromised_key_ids = vec!["k1".to_string()];
+        trust_policy.revoked_key_ids = vec!["k1".to_string()];
+        let err = enforce_trust_gate_v0(tmp.path(), &package_contract, &trust_policy)
+            .expect_err("expected compromised signer to fail trust gate");
+        assert_eq!(err.code(), "C103");
+        assert!(err.message().contains("signer `k1` is revoked"));
     }
 }

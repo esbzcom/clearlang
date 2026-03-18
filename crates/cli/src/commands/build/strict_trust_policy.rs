@@ -10,6 +10,8 @@ pub(super) const STRICT_TRUST_POLICY_FILE: &str = "clg.trust-policy.json";
 pub(super) struct StrictTrustPolicyV0 {
     pub(super) trusted_signers: Vec<TrustedSignerV0>,
     pub(super) revoked_key_ids: Vec<String>,
+    pub(super) compromised_key_ids: Vec<String>,
+    pub(super) lifecycle: Option<StrictTrustLifecycleV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -19,6 +21,13 @@ pub(super) struct TrustedSignerV0 {
     pub(super) public_key: String,
     pub(super) not_before: String,
     pub(super) not_after: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct StrictTrustLifecycleV1 {
+    pub(super) rotation_overlap_days: u32,
+    pub(super) max_signer_age_days: u32,
+    pub(super) compromise_response_hours: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -54,12 +63,30 @@ struct RawTrustPolicyV0 {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawTrustPolicyV1 {
+    schema_version: u32,
+    trusted_signers: Vec<RawTrustedSignerV0>,
+    revoked_key_ids: Vec<String>,
+    compromised_key_ids: Vec<String>,
+    lifecycle: RawTrustLifecycleV1,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawTrustedSignerV0 {
     key_id: String,
     scheme: String,
     public_key: String,
     not_before: String,
     not_after: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTrustLifecycleV1 {
+    rotation_overlap_days: u32,
+    max_signer_age_days: u32,
+    compromise_response_hours: u32,
 }
 
 pub(super) fn load_required_trust_policy_v0(
@@ -107,33 +134,100 @@ fn parse_trust_policy_v0(
         StrictTrustPolicyError::new(
             "C103",
             format!(
-                "strict trust policy `{}` is not valid JSON (expected schema v0 object)",
+                "strict trust policy `{}` is not valid JSON (expected schema v0/v1 object)",
                 path.display()
             ),
         )
     })?;
-    let raw: RawTrustPolicyV0 = serde_json::from_value(value).map_err(|_| {
-        StrictTrustPolicyError::new(
-            "C103",
-            format!(
-                "strict trust policy `{}` does not match schema v0 (`schema_version`, `trusted_signers`, `revoked_key_ids`)",
-                path.display()
-            ),
-        )
-    })?;
-    if raw.schema_version != 0 {
-        return Err(StrictTrustPolicyError::new(
-            "C103",
-            format!(
-                "strict trust policy `{}` has unsupported schema_version {}; expected 0",
-                path.display(),
-                raw.schema_version
-            ),
-        ));
-    }
+    let schema_version = value
+        .get("schema_version")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            StrictTrustPolicyError::new(
+                "C103",
+                format!(
+                    "strict trust policy `{}` does not match schema v0/v1 (`schema_version`, `trusted_signers`, `revoked_key_ids`)",
+                    path.display()
+                ),
+            )
+        })?;
 
-    let mut signers: Vec<TrustedSignerV0> = raw
-        .trusted_signers
+    let (raw_signers, raw_revoked, raw_compromised, lifecycle) = match schema_version {
+        0 => {
+            let raw: RawTrustPolicyV0 = serde_json::from_value(value).map_err(|_| {
+                StrictTrustPolicyError::new(
+                    "C103",
+                    format!(
+                        "strict trust policy `{}` does not match schema v0 (`schema_version`, `trusted_signers`, `revoked_key_ids`)",
+                        path.display()
+                    ),
+                )
+            })?;
+            debug_assert_eq!(raw.schema_version, 0);
+            (raw.trusted_signers, raw.revoked_key_ids, Vec::new(), None)
+        }
+        1 => {
+            let raw: RawTrustPolicyV1 = serde_json::from_value(value).map_err(|_| {
+                StrictTrustPolicyError::new(
+                    "C103",
+                    format!(
+                        "strict trust policy `{}` does not match schema v1 (`schema_version`, `trusted_signers`, `revoked_key_ids`, `compromised_key_ids`, `lifecycle`)",
+                        path.display()
+                    ),
+                )
+            })?;
+            debug_assert_eq!(raw.schema_version, 1);
+            if raw.lifecycle.rotation_overlap_days == 0 {
+                return Err(StrictTrustPolicyError::new(
+                    "C103",
+                    format!(
+                        "strict trust policy `{}` schema v1 lifecycle.rotation_overlap_days must be > 0",
+                        path.display()
+                    ),
+                ));
+            }
+            if raw.lifecycle.max_signer_age_days == 0 {
+                return Err(StrictTrustPolicyError::new(
+                    "C103",
+                    format!(
+                        "strict trust policy `{}` schema v1 lifecycle.max_signer_age_days must be > 0",
+                        path.display()
+                    ),
+                ));
+            }
+            if raw.lifecycle.compromise_response_hours == 0 {
+                return Err(StrictTrustPolicyError::new(
+                    "C103",
+                    format!(
+                        "strict trust policy `{}` schema v1 lifecycle.compromise_response_hours must be > 0",
+                        path.display()
+                    ),
+                ));
+            }
+            (
+                raw.trusted_signers,
+                raw.revoked_key_ids,
+                raw.compromised_key_ids,
+                Some(StrictTrustLifecycleV1 {
+                    rotation_overlap_days: raw.lifecycle.rotation_overlap_days,
+                    max_signer_age_days: raw.lifecycle.max_signer_age_days,
+                    compromise_response_hours: raw.lifecycle.compromise_response_hours,
+                }),
+            )
+        }
+        other => {
+            return Err(StrictTrustPolicyError::new(
+                "C103",
+                format!(
+                    "strict trust policy `{}` has unsupported schema_version {}; expected 0 or 1",
+                    path.display(),
+                    other
+                ),
+            ));
+        }
+    };
+
+    let mut signers: Vec<TrustedSignerV0> = raw_signers
         .into_iter()
         .map(|raw_signer| TrustedSignerV0 {
             key_id: raw_signer.key_id,
@@ -227,58 +321,78 @@ fn parse_trust_policy_v0(
         }
     }
 
-    let mut revoked = raw.revoked_key_ids;
-    revoked.sort();
-    let mut revoked_set = HashSet::with_capacity(revoked.len());
-    let mut revoked_dupes = BTreeSet::new();
-    for key_id in &revoked {
-        if !revoked_set.insert(key_id.clone()) {
-            revoked_dupes.insert(key_id.clone());
+    let signer_ids: HashSet<&str> = signers.iter().map(|s| s.key_id.as_str()).collect();
+    let revoked = validate_signer_key_id_set(path, "revoked", raw_revoked, &signer_ids)?;
+    let compromised =
+        validate_signer_key_id_set(path, "compromised", raw_compromised, &signer_ids)?;
+
+    let mut effective_revoked = BTreeSet::new();
+    for key_id in revoked.iter().chain(compromised.iter()) {
+        effective_revoked.insert(key_id.clone());
+    }
+    let effective_revoked = effective_revoked.into_iter().collect();
+
+    Ok(StrictTrustPolicyV0 {
+        trusted_signers: signers,
+        revoked_key_ids: effective_revoked,
+        compromised_key_ids: compromised,
+        lifecycle,
+    })
+}
+
+fn validate_signer_key_id_set(
+    path: &Path,
+    field: &'static str,
+    mut values: Vec<String>,
+    signer_ids: &HashSet<&str>,
+) -> Result<Vec<String>, StrictTrustPolicyError> {
+    values.sort();
+    let mut seen = HashSet::with_capacity(values.len());
+    let mut duplicates = BTreeSet::new();
+    for key_id in &values {
+        if !seen.insert(key_id.clone()) {
+            duplicates.insert(key_id.clone());
         }
     }
-    if let Some(dupe) = revoked_dupes.iter().next() {
+    if let Some(dupe) = duplicates.iter().next() {
         return Err(StrictTrustPolicyError::new(
             "C103",
             format!(
-                "strict trust policy `{}` has duplicate revoked key id `{}`",
+                "strict trust policy `{}` has duplicate {field} key id `{}`",
                 path.display(),
                 dupe
             ),
         ));
     }
 
-    let signer_ids: HashSet<&str> = signers.iter().map(|s| s.key_id.as_str()).collect();
-    let mut unknown_revoked = BTreeSet::new();
-    for key_id in &revoked {
-        validate_non_empty("revoked_key_id", key_id).map_err(|msg| {
+    let mut unknown = BTreeSet::new();
+    for key_id in &values {
+        validate_non_empty(&format!("{field}_key_id"), key_id).map_err(|msg| {
             StrictTrustPolicyError::new(
                 "C103",
                 format!(
-                    "strict trust policy `{}` has invalid revoked key id `{}`: {msg}",
+                    "strict trust policy `{}` has invalid {field} key id `{}`: {msg}",
                     path.display(),
                     key_id
                 ),
             )
         })?;
         if !signer_ids.contains(key_id.as_str()) {
-            unknown_revoked.insert(key_id.clone());
+            unknown.insert(key_id.clone());
         }
     }
-    if let Some(key_id) = unknown_revoked.iter().next() {
+    if let Some(key_id) = unknown.iter().next() {
         return Err(StrictTrustPolicyError::new(
             "C103",
             format!(
-                "strict trust policy `{}` revoked key id `{}` is not present in trusted_signers",
+                "strict trust policy `{}` {field} key id `{}` is not present in trusted_signers",
                 path.display(),
                 key_id
             ),
         ));
     }
 
-    Ok(StrictTrustPolicyV0 {
-        trusted_signers: signers,
-        revoked_key_ids: revoked,
-    })
+    Ok(values)
 }
 
 fn validate_non_empty(name: &str, value: &str) -> Result<(), String> {
@@ -563,5 +677,100 @@ mod tests {
             .expect_err("expected invalid calendar date");
         assert_eq!(err.code(), "C103");
         assert!(err.message().contains("out of range"));
+    }
+
+    #[test]
+    fn schema_v1_compromised_keys_merge_into_effective_revoked_set() {
+        let json = r#"
+{
+  "schema_version": 1,
+  "trusted_signers": [
+    {
+      "key_id": "a",
+      "scheme": "ed25519",
+      "public_key": "hex:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    },
+    {
+      "key_id": "z",
+      "scheme": "ed25519",
+      "public_key": "hex:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }
+  ],
+  "revoked_key_ids": ["a"],
+  "compromised_key_ids": ["z"],
+  "lifecycle": {
+    "rotation_overlap_days": 30,
+    "max_signer_age_days": 365,
+    "compromise_response_hours": 24
+  }
+}
+        "#;
+        let parsed = parse_trust_policy_v0(json, Path::new("clg.trust-policy.json"))
+            .expect("valid schema v1 trust policy");
+        assert_eq!(parsed.revoked_key_ids, vec!["a", "z"]);
+        assert_eq!(parsed.compromised_key_ids, vec!["z"]);
+        assert_eq!(parsed.lifecycle.as_ref().unwrap().rotation_overlap_days, 30);
+    }
+
+    #[test]
+    fn schema_v1_rejects_unknown_compromised_key_id() {
+        let json = r#"
+{
+  "schema_version": 1,
+  "trusted_signers": [
+    {
+      "key_id": "a",
+      "scheme": "ed25519",
+      "public_key": "hex:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }
+  ],
+  "revoked_key_ids": [],
+  "compromised_key_ids": ["x"],
+  "lifecycle": {
+    "rotation_overlap_days": 30,
+    "max_signer_age_days": 365,
+    "compromise_response_hours": 24
+  }
+}
+        "#;
+        let err = parse_trust_policy_v0(json, Path::new("clg.trust-policy.json"))
+            .expect_err("expected unknown compromised key");
+        assert_eq!(err.code(), "C103");
+        assert!(err.message().contains("compromised key id `x`"));
+    }
+
+    #[test]
+    fn schema_v1_lifecycle_fields_must_be_positive() {
+        let json = r#"
+{
+  "schema_version": 1,
+  "trusted_signers": [
+    {
+      "key_id": "a",
+      "scheme": "ed25519",
+      "public_key": "hex:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }
+  ],
+  "revoked_key_ids": [],
+  "compromised_key_ids": [],
+  "lifecycle": {
+    "rotation_overlap_days": 0,
+    "max_signer_age_days": 365,
+    "compromise_response_hours": 24
+  }
+}
+        "#;
+        let err = parse_trust_policy_v0(json, Path::new("clg.trust-policy.json"))
+            .expect_err("expected lifecycle validation error");
+        assert_eq!(err.code(), "C103");
+        assert!(err.message().contains("rotation_overlap_days must be > 0"));
     }
 }

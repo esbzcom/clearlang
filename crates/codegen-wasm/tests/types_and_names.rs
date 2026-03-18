@@ -60,6 +60,7 @@ fn type_section_is_deduplicated_by_signature() {
             proof_section: None,
             export_aliases: Vec::new(),
             external_imports: Vec::new(),
+            std_core_link_mode: Default::default(),
         },
     )
     .expect("codegen");
@@ -93,6 +94,7 @@ fn debug_names_emit_name_section() {
             proof_section: None,
             export_aliases: Vec::new(),
             external_imports: Vec::new(),
+            std_core_link_mode: Default::default(),
         },
     )
     .expect("codegen");
@@ -122,6 +124,7 @@ fn proof_section_is_embedded() {
             proof_section: Some(vec![0xAA, 0xBB, 0xCC]),
             export_aliases: Vec::new(),
             external_imports: Vec::new(),
+            std_core_link_mode: Default::default(),
         },
     )
     .expect("codegen");

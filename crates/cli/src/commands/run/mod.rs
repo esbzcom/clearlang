@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Context, Result};
-use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExternalImport};
+use clg_codegen_wasm::{
+    emit_from_ir_with_opts, CodegenOpts, ExternalImport, StdCoreLinkMode as WasmStdCoreLinkMode,
+};
 use clg_ir::IrType;
 use clg_typer::{check_with_vcs_with_std_and_external, ExternalBuiltinSig, TyperError};
 use std::path::{Path, PathBuf};
@@ -159,6 +161,7 @@ fn load_module_for_run(
                 proof_section: None,
                 export_aliases: Vec::new(),
                 external_imports: external_codegen_imports,
+                std_core_link_mode: WasmStdCoreLinkMode::Intrinsic,
             },
         )
         .context("codegen (IR+Wasm) failed")?

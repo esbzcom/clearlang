@@ -955,7 +955,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 21.0.6.2 Add negative coverage proving unused symbols declared in metadata/ABI never appear in emitted app Wasm imports.
   - [ ] 21.0.7 Add non-vacuous precompiled-link proof gate for std-core.
     - [x] 21.0.7.0 Define and lock precompiled std-core activation contract (explicit build/profile switch and fallback policy) before enforcing non-vacuous link behavior.
-    - [ ] 21.0.7.1 Add CI fixture proving at least one locked `std::core` symbol is linked via package ABI/import (not satisfied by local intrinsic lowering only).
+    - [x] 21.0.7.1 Add CI fixture proving at least one locked `std::core` symbol is linked via package ABI/import (not satisfied by local intrinsic lowering only).
     - [ ] 21.0.7.2 Add failure coverage that rejects fallback-to-intrinsic behavior when precompiled std-core mode is enabled for that symbol set and emits deterministic diagnostics.
   - [ ] 21.0.8 Replace transitional synthetic strict fixtures with locked std-core symbols.
     - [ ] 21.0.8.1 Migrate strict acceptance fixtures from synthetic `std::core::math::*` symbols to canonical locked std-core symbols.

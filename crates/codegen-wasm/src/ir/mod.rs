@@ -67,6 +67,14 @@ pub struct CodegenOpts {
     pub proof_section: Option<Vec<u8>>,
     pub export_aliases: Vec<ExportAlias>,
     pub external_imports: Vec<ExternalImport>,
+    pub std_core_link_mode: StdCoreLinkMode,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum StdCoreLinkMode {
+    #[default]
+    Intrinsic,
+    Precompiled,
 }
 
 #[derive(Clone, Debug)]
@@ -448,6 +456,15 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     // Code section: encode each function body
     let mut codes = CodeSection::new();
     for f in &ir.funcs {
+        if opts.std_core_link_mode == StdCoreLinkMode::Precompiled
+            && is_precompiled_std_core_locked_symbol(f.name.as_str())
+        {
+            if let Some(idx) = external_import_indices.get(f.name.as_str()) {
+                let func = encode_external_import_forwarder(f, *idx)?;
+                codes.function(&func);
+                continue;
+            }
+        }
         // Encode intrinsics with custom bodies; other functions from IR
         let func = match f.name.as_str() {
             "std::bytes::len" => encode_intrinsic_str_len(f)?,
@@ -551,6 +568,10 @@ fn encode_external_import_forwarder(
     insts.call(import_index);
     insts.end();
     Ok(fenc)
+}
+
+fn is_precompiled_std_core_locked_symbol(name: &str) -> bool {
+    matches!(name, "std::str::len")
 }
 
 // Backwards-compatible helper with default options

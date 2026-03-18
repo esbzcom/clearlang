@@ -3,7 +3,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use clg_ast::{Effect, Param, ParamKind, Program, Type};
-use clg_codegen_wasm::{emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport};
+use clg_codegen_wasm::{
+    emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport,
+    StdCoreLinkMode as WasmStdCoreLinkMode,
+};
 use clg_ir::IrType;
 use clg_typer::{
     check_with_vcs_with_std_and_external, ExternalBuiltinSig, TypecheckOutput, TyperError,
@@ -70,6 +73,15 @@ pub enum StdCoreLinkMode {
     Intrinsic,
     /// Activate strict precompiled std-core link contract path.
     Precompiled,
+}
+
+impl From<StdCoreLinkMode> for WasmStdCoreLinkMode {
+    fn from(value: StdCoreLinkMode) -> Self {
+        match value {
+            StdCoreLinkMode::Intrinsic => WasmStdCoreLinkMode::Intrinsic,
+            StdCoreLinkMode::Precompiled => WasmStdCoreLinkMode::Precompiled,
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -166,17 +178,27 @@ pub fn run(
         load_program(&file, json_errors)?
     };
     let ast = &loaded.program;
-    let (external_typer_sigs, external_codegen_imports) = if compiler_mode == CompilerMode::Strict {
+    let (
+        external_typer_sigs_for_typecheck,
+        external_typer_sigs_for_link_resolution,
+        external_codegen_imports,
+    ) = if compiler_mode == CompilerMode::Strict {
         if let Some(bindings) = strict_external_bindings_for_link.as_ref() {
+            let typecheck_sigs = if std_core_link_mode == StdCoreLinkMode::Precompiled {
+                filter_precompiled_std_core_typer_overrides(bindings.external_typer_sigs.as_slice())
+            } else {
+                bindings.external_typer_sigs.clone()
+            };
             (
+                typecheck_sigs,
                 bindings.external_typer_sigs.clone(),
                 bindings.external_codegen_imports.clone(),
             )
         } else {
-            (Vec::new(), Vec::new())
+            (Vec::new(), Vec::new(), Vec::new())
         }
     } else {
-        let typer_sigs = loaded
+        let typer_sigs: Vec<ExternalBuiltinSig> = loaded
             .external_imports
             .iter()
             .map(|binding| ExternalBuiltinSig {
@@ -195,12 +217,16 @@ pub fn run(
                 import_name: binding.import_name.clone(),
             })
             .collect();
-        (typer_sigs, codegen_imports)
+        (typer_sigs.clone(), typer_sigs, codegen_imports)
     };
 
     let type_output = {
         let _stage = timings.start(logger, "typecheck");
-        match check_with_vcs_with_std_and_external(ast, &loaded.std_types, &external_typer_sigs) {
+        match check_with_vcs_with_std_and_external(
+            ast,
+            &loaded.std_types,
+            &external_typer_sigs_for_typecheck,
+        ) {
             Ok(result) => result,
             Err(e) => {
                 if json_errors {
@@ -279,9 +305,12 @@ pub fn run(
             let baseline_outcome = strict_gate_outcome_from_linked_import_resolution(
                 &bindings.expected_profiles,
                 host_profile,
-                linked_external_import_profiles_from_ir(&ir, external_typer_sigs.as_slice()),
+                linked_external_import_profiles_from_ir(
+                    &ir,
+                    external_typer_sigs_for_link_resolution.as_slice(),
+                ),
             );
-            let mut replay_external_typer_sigs = external_typer_sigs.clone();
+            let mut replay_external_typer_sigs = external_typer_sigs_for_link_resolution.clone();
             replay_external_typer_sigs.reverse();
             let mut replay_outcome = strict_gate_outcome_from_linked_import_resolution(
                 &bindings.expected_profiles,
@@ -432,6 +461,7 @@ pub fn run(
 
     let (wasm_bytes, module_hash_bytes) = {
         let _stage = timings.start(logger, "codegen");
+        let wasm_std_core_link_mode = WasmStdCoreLinkMode::from(std_core_link_mode);
         let mut wasm_bytes = emit_from_ir_with_opts(
             &ir,
             CodegenOpts {
@@ -439,6 +469,7 @@ pub fn run(
                 proof_section: zero_section.clone(),
                 export_aliases: export_aliases.clone(),
                 external_imports: external_codegen_imports.clone(),
+                std_core_link_mode: wasm_std_core_link_mode,
             },
         )
         .context("codegen (IR+Wasm) failed")?;
@@ -454,6 +485,7 @@ pub fn run(
                     proof_section: Some(proof_section),
                     export_aliases: export_aliases.clone(),
                     external_imports: external_codegen_imports.clone(),
+                    std_core_link_mode: wasm_std_core_link_mode,
                 },
             )
             .context("codegen (IR+Wasm) failed")?;
@@ -791,6 +823,20 @@ fn split_symbol_import_target(symbol: &str) -> Result<(String, String), String> 
             symbol
         ))
     }
+}
+
+fn filter_precompiled_std_core_typer_overrides(
+    external_typer_sigs: &[ExternalBuiltinSig],
+) -> Vec<ExternalBuiltinSig> {
+    external_typer_sigs
+        .iter()
+        .filter(|sig| !is_phase21_precompiled_std_core_locked_symbol(sig.name.as_str()))
+        .cloned()
+        .collect()
+}
+
+fn is_phase21_precompiled_std_core_locked_symbol(symbol: &str) -> bool {
+    matches!(symbol, "std::str::len")
 }
 
 fn parse_contract_effect(raw: &str) -> Result<Effect, String> {
@@ -1717,6 +1763,22 @@ mod tests {
         let err = strict_runtime_capability_violation(&package_contract, &host_profile, &linked)
             .expect("env random should be denied in strict shared_app");
         assert!(err.contains("denied by strict deterministic policy"));
+    }
+
+    #[test]
+    fn precompiled_typer_filter_removes_locked_std_core_overrides() {
+        let sigs = vec![
+            external_sig("std::str::len", vec![Type::String], Type::Int, Effect::Pure),
+            external_sig(
+                "std::core::math::add",
+                vec![Type::Int, Type::Int],
+                Type::Int,
+                Effect::Pure,
+            ),
+        ];
+        let filtered = filter_precompiled_std_core_typer_overrides(sigs.as_slice());
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].name, "std::core::math::add");
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
+use wasmparser::{Operator, Parser, Payload, TypeRef};
 
 fn assert_single_json_error(v: &Value, code: &str, stage: &str) {
     assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
@@ -29,6 +30,40 @@ fn assert_json_error_codes(v: &Value, stage: &str, expected_codes: &[&str]) -> V
         assert_eq!(err.get("stage").and_then(|s| s.as_str()), Some(stage));
     }
     errs.to_vec()
+}
+
+fn wasm_import_func_index(wasm: &[u8], module: &str, name: &str) -> Option<u32> {
+    let mut func_index = 0u32;
+    for payload in Parser::new(0).parse_all(wasm) {
+        if let Payload::ImportSection(reader) = payload.expect("payload") {
+            for item in reader {
+                let import = item.expect("import");
+                if let TypeRef::Func(_) = import.ty {
+                    if import.module == module && import.name == name {
+                        return Some(func_index);
+                    }
+                    func_index += 1;
+                }
+            }
+        }
+    }
+    None
+}
+
+fn wasm_calls_function_index(wasm: &[u8], target_index: u32) -> bool {
+    for payload in Parser::new(0).parse_all(wasm) {
+        if let Payload::CodeSectionEntry(body) = payload.expect("payload") {
+            let mut ops = body.get_operators_reader().expect("operators");
+            while !ops.eof() {
+                if let Operator::Call { function_index } = ops.read().expect("operator") {
+                    if function_index == target_index {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 fn write_minimal_strict_lockfile(root: &Path) {
@@ -569,6 +604,53 @@ fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
       ]"#,
     );
     run_strict_build_success(tmp.path(), &file);
+}
+
+#[test]
+fn strict_acceptance_precompiled_std_core_symbol_links_via_package_import() {
+    let src = r#"
+        function main() -> Int { std::str::len("abc") }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_precompiled_std_core_link.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::str::len",
+          "effect": "pure",
+          "params": ["String"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"])
+        .assert()
+        .success();
+
+    let wasm = fs::read(&out).expect("read wasm");
+    let import_index = wasm_import_func_index(&wasm, "std::str", "len")
+        .expect("expected std::str::len package import in precompiled mode");
+    assert!(
+        wasm_calls_function_index(&wasm, import_index),
+        "expected Wasm code to call imported std::str::len (not intrinsic-only lowering)"
+    );
 }
 
 #[test]

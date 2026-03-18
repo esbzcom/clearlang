@@ -147,6 +147,9 @@ Current execution notes:
 - CI/profile-conformance fixtures cover strict behavior for `std::env::time`, `std::env::random`, and `std::env::chain_id`:
   - `time`/`random` rejected with deterministic `C106` under strict mode,
   - `chain_id` accepted when required capability is present in host profile.
+- `21.0.7.1` non-vacuous proof fixture is covered by `strict_acceptance_precompiled_std_core_symbol_links_via_package_import` in `crates/cli/tests/cli_it/diagnostics.rs`:
+  - strict precompiled mode links canonical locked symbol `std::str::len` via package ABI/import,
+  - emitted Wasm code is asserted to call the imported function index (not intrinsic-only lowering).
 - `crates/cli/assets/std-metadata.json` is aligned with the locked collection take APIs:
   - `std::list::remove_take`
   - `std::map::insert_take`

@@ -970,7 +970,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 22.0.3.1 Add CLI lockfile generation/update commands for exact package versions + digests.
     - [x] 22.0.3.2 Define canonical lockfile serialization/hash rules (stable ordering + deterministic writes).
     - [x] 22.0.3.3 Add replay tests proving byte-identical lockfiles from identical inputs.
-  - [ ] 22.0.4 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.
+  - [x] 22.0.4 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests. (`docs/design/phase-22.0.4-package-metadata-abi-compatibility-policy.md`, `crates/cli/tests/schema_compatibility_policy.rs`)
   - [ ] 22.0.5 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling).
   - [ ] 22.0.6 Reserve and register Phase 22 diagnostics for resolver/solver/advisory flows before implementation (stable JSON code contracts).
   - [ ] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift.

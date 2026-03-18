@@ -7,7 +7,7 @@ use clg_codegen_wasm::{
     emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport,
     StdCoreLinkMode as WasmStdCoreLinkMode,
 };
-use clg_ir::IrType;
+use clg_ir::{IrType, Module as IrModule};
 use clg_typer::{
     check_with_vcs_with_std_and_external, ExternalBuiltinSig, TypecheckOutput, TyperError,
 };
@@ -302,21 +302,41 @@ pub fn run(
             strict_host_profile_for_caps.as_ref(),
             strict_external_bindings_for_link.as_ref(),
         ) {
+            let baseline_linked_import_resolution = linked_external_import_profiles_from_ir(
+                &ir,
+                external_typer_sigs_for_link_resolution.as_slice(),
+            );
             let baseline_outcome = strict_gate_outcome_from_linked_import_resolution(
                 &bindings.expected_profiles,
                 host_profile,
-                linked_external_import_profiles_from_ir(
-                    &ir,
-                    external_typer_sigs_for_link_resolution.as_slice(),
-                ),
+                baseline_linked_import_resolution.clone(),
             );
+            let mut baseline_outcome = baseline_outcome;
+            baseline_outcome
+                .violations
+                .extend(precompiled_std_core_intrinsic_fallback_violations(
+                    std_core_link_mode,
+                    &ir,
+                    &baseline_linked_import_resolution,
+                ));
+            sort_strict_gate_violations(baseline_outcome.violations.as_mut_slice());
             let mut replay_external_typer_sigs = external_typer_sigs_for_link_resolution.clone();
             replay_external_typer_sigs.reverse();
+            let replay_linked_import_resolution =
+                linked_external_import_profiles_from_ir(&ir, replay_external_typer_sigs.as_slice());
             let mut replay_outcome = strict_gate_outcome_from_linked_import_resolution(
                 &bindings.expected_profiles,
                 host_profile,
-                linked_external_import_profiles_from_ir(&ir, replay_external_typer_sigs.as_slice()),
+                replay_linked_import_resolution.clone(),
             );
+            replay_outcome
+                .violations
+                .extend(precompiled_std_core_intrinsic_fallback_violations(
+                    std_core_link_mode,
+                    &ir,
+                    &replay_linked_import_resolution,
+                ));
+            sort_strict_gate_violations(replay_outcome.violations.as_mut_slice());
             // Test-only hook to force deterministic replay mismatch coverage in CLI IT.
             if std::env::var_os("CLG_TEST_FORCE_STRICT_DETERMINISM_MISMATCH").is_some() {
                 replay_outcome.violations.push(StrictGateViolation {
@@ -837,6 +857,50 @@ fn filter_precompiled_std_core_typer_overrides(
 
 fn is_phase21_precompiled_std_core_locked_symbol(symbol: &str) -> bool {
     matches!(symbol, "std::str::len")
+}
+
+fn precompiled_std_core_intrinsic_fallback_violations(
+    std_core_link_mode: StdCoreLinkMode,
+    ir: &IrModule,
+    linked_import_resolution: &std::result::Result<Vec<(String, AbiLinkProfile)>, String>,
+) -> Vec<StrictGateViolation> {
+    if std_core_link_mode != StdCoreLinkMode::Precompiled {
+        return Vec::new();
+    }
+
+    let locked_symbols: std::collections::BTreeSet<String> = ir
+        .funcs
+        .iter()
+        .filter_map(|func| {
+            let symbol = func.name.as_str();
+            if is_phase21_precompiled_std_core_locked_symbol(symbol) {
+                Some(symbol.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    if locked_symbols.is_empty() {
+        return Vec::new();
+    }
+
+    let linked_symbols: std::collections::BTreeSet<String> = linked_import_resolution
+        .as_ref()
+        .map(|linked| linked.iter().map(|(symbol, _)| symbol.clone()).collect())
+        .unwrap_or_default();
+
+    locked_symbols
+        .into_iter()
+        .filter(|symbol| !linked_symbols.contains(symbol))
+        .map(|symbol| StrictGateViolation {
+            code: "C105",
+            package: "std::core".to_string(),
+            symbol: symbol.clone(),
+            message: format!(
+                "strict ABI/link mismatch for symbol `{symbol}`: precompiled std-core mode forbids intrinsic fallback; link this symbol via strict package ABI/import"
+            ),
+        })
+        .collect()
 }
 
 fn parse_contract_effect(raw: &str) -> Result<Effect, String> {
@@ -1779,6 +1843,28 @@ mod tests {
         let filtered = filter_precompiled_std_core_typer_overrides(sigs.as_slice());
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "std::core::math::add");
+    }
+
+    #[test]
+    fn precompiled_fallback_gate_rejects_unlinked_locked_std_core_symbol() {
+        let ir = IrModule {
+            funcs: vec![clg_ir::Function {
+                name: "std::str::len".to_string(),
+                params: vec![IrType::Int],
+                ret: Some(IrType::Int),
+                body: Vec::new(),
+            }],
+        };
+        let violations = precompiled_std_core_intrinsic_fallback_violations(
+            StdCoreLinkMode::Precompiled,
+            &ir,
+            &Ok(Vec::new()),
+        );
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].code, "C105");
+        assert_eq!(violations[0].package, "std::core");
+        assert_eq!(violations[0].symbol, "std::str::len");
+        assert!(violations[0].message.contains("forbids intrinsic fallback"));
     }
 
     #[test]

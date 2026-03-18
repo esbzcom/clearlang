@@ -654,6 +654,58 @@ fn strict_acceptance_precompiled_std_core_symbol_links_via_package_import() {
 }
 
 #[test]
+fn strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105() {
+    let src = r#"
+        function main() -> Int { std::str::len("abc") }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp
+        .path()
+        .join("strict_acceptance_precompiled_std_core_fallback_reject.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::core::math::add",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"])
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C105", "build");
+    let err = v
+        .get("errors")
+        .and_then(|errs| errs.as_array())
+        .and_then(|errs| errs.first())
+        .and_then(|entry| entry.get("message"))
+        .and_then(|msg| msg.as_str())
+        .unwrap_or_default();
+    assert!(err.contains("forbids intrinsic fallback"));
+}
+
+#[test]
 fn strict_acceptance_source_of_truth_tamper_fails_with_c101() {
     let src = r#"
         function main() -> Int { 0 }

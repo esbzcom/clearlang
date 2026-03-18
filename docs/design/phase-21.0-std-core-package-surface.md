@@ -150,6 +150,9 @@ Current execution notes:
 - `21.0.7.1` non-vacuous proof fixture is covered by `strict_acceptance_precompiled_std_core_symbol_links_via_package_import` in `crates/cli/tests/cli_it/diagnostics.rs`:
   - strict precompiled mode links canonical locked symbol `std::str::len` via package ABI/import,
   - emitted Wasm code is asserted to call the imported function index (not intrinsic-only lowering).
+- `21.0.7.2` fallback rejection coverage is covered by `strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105`:
+  - strict precompiled mode fails closed with deterministic `C105` when locked symbol `std::str::len` is used but not linked via strict package ABI/import,
+  - intrinsic fallback for that locked symbol set is rejected by policy.
 - `crates/cli/assets/std-metadata.json` is aligned with the locked collection take APIs:
   - `std::list::remove_take`
   - `std::map::insert_take`

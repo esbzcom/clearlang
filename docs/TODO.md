@@ -934,7 +934,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 20.2.3 Update sample docs to distinguish parse-only vs runnable namespace examples.
 
 ### 21 Precompiled Std Core Packaging
-- [ ] 21.0 Precompiled `std::core` package pipeline.
+- [x] 21.0 Precompiled `std::core` package pipeline.
   - [x] 21.0.1 Implement the versioned std-core artifact pipeline and metadata model with reproducible hash semantics. (`docs/design/phase-21.0-std-core-package-surface.md`)
   - [x] 21.0.2 Implement import pruning so only used package functions are emitted as imports in app Wasm. (`docs/design/phase-21.0-std-core-package-surface.md`)
   - [x] 21.0.3 Reconcile std-core function surface lock with shipped std metadata.

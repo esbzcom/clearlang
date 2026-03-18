@@ -967,7 +967,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.0.1 Unify package metadata to one canonical production model and define migration/deprecation from legacy `clg-packages.json`. (`docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, deterministic coexistence conflict gate in `crates/cli/src/commands/modules/package_metadata.rs`, IT coverage `legacy_and_canonical_package_metadata_conflict_reports_c027`)
   - [x] 22.0.2 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation. (strict preflight metadata schema v1 support + validation in `crates/cli/src/commands/build/strict_package_contract.rs`, trust-gate linkage checks in `crates/cli/src/commands/build/strict_package_signatures.rs`, regression coverage in strict unit/CLI IT suites)
   - [ ] 22.0.3 Expand lockfile flow from 20.1 v0 bootstrap to full deterministic workflow.
-    - [ ] 22.0.3.1 Add CLI lockfile generation/update commands for exact package versions + digests.
+    - [x] 22.0.3.1 Add CLI lockfile generation/update commands for exact package versions + digests.
     - [ ] 22.0.3.2 Define canonical lockfile serialization/hash rules (stable ordering + deterministic writes).
     - [ ] 22.0.3.3 Add replay tests proving byte-identical lockfiles from identical inputs.
   - [ ] 22.0.4 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.

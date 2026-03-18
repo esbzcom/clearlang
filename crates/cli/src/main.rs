@@ -10,7 +10,7 @@ use commands::{
     build::{self as cmd_build, CompilerMode, StdCoreLinkMode},
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
-    parse as cmd_parse, run as cmd_run,
+    parse as cmd_parse, pkg as cmd_pkg, run as cmd_run,
     verify::{self as cmd_verify, VerifyMode},
 };
 use logging::Logger;
@@ -133,6 +133,27 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         explain: bool,
     },
+    /// Package tooling commands
+    Pkg {
+        #[command(subcommand)]
+        command: PkgCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum PkgCommands {
+    /// Strict lockfile workflow helpers
+    Lock {
+        /// Generate a new lockfile from canonical package metadata
+        #[arg(long, default_value_t = false, conflicts_with = "update")]
+        generate: bool,
+        /// Update an existing lockfile from canonical package metadata
+        #[arg(long, default_value_t = false, conflicts_with = "generate")]
+        update: bool,
+        /// Module root containing package metadata and lockfile
+        #[arg(long, value_name = "DIR", default_value = ".")]
+        root: PathBuf,
+    },
 }
 
 fn main() -> Result<()> {
@@ -202,6 +223,13 @@ fn main() -> Result<()> {
             cli.json_errors,
             logger,
         ),
+        Commands::Pkg { command } => match command {
+            PkgCommands::Lock {
+                generate,
+                update,
+                root,
+            } => cmd_pkg::run_lock(generate, update, root, cli.json_errors, logger),
+        },
     };
 
     if let Err(err) = result {

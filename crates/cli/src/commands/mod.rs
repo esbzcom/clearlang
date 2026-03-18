@@ -3,5 +3,6 @@ pub mod emit_hello;
 pub mod helpers;
 pub mod modules;
 pub mod parse;
+pub mod pkg;
 pub mod run;
 pub mod verify;

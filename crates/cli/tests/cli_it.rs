@@ -37,6 +37,8 @@ mod imports;
 mod limits;
 #[path = "cli_it/option_result.rs"]
 mod option_result;
+#[path = "cli_it/pkg_lock.rs"]
+mod pkg_lock;
 #[path = "cli_it/runtime_env.rs"]
 mod runtime_env;
 #[path = "cli_it/runtime_errors.rs"]

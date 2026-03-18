@@ -170,6 +170,17 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
 | C107 | build | Strict determinism replay failed (identical strict inputs did not produce identical canonical direct-dependency import map and diagnostics ordering). Remediation: normalize gate evaluation ordering and import-map serialization to be deterministic. |
 | C108 | build | Strict import-map artifact emission failed (canonical strict preflight artifact could not be written). Remediation: fix output path/permissions and retry the strict build. |
+| C109 | build | Package metadata model compatibility failure (conflicting or unsupported metadata model, including migration/coexistence violations). |
+| C110 | build | Metadata trust-anchor/signature linkage failure against trust policy. |
+| C111 | build | Lockfile generate/update input contract failure (invalid roots or policy preconditions). |
+| C112 | build | Deterministic transitive dependency cycle detected in package resolution graph. |
+| C113 | build | Deterministic semver solver found no satisfiable version set for constraints. |
+| C114 | build | Deterministic semver tie-break policy could not select a unique candidate. |
+| C115 | build | Advisory deny policy rejected selected package version(s). |
+| C116 | build | Advisory forced-upgrade policy could not find a compliant resolvable version. |
+| C117 | build | Advisory input is missing/invalid/untrusted in strict mode. |
+| C118 | build | Build/run resolution policy mismatch for equivalent package inputs. |
+| C119 | build | Resolver/solver replay determinism mismatch on identical inputs (graph/lockfile/diagnostics drift). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

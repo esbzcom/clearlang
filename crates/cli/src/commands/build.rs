@@ -184,9 +184,11 @@ pub fn run(
         external_codegen_imports,
     ) = if compiler_mode == CompilerMode::Strict {
         if let Some(bindings) = strict_external_bindings_for_link.as_ref() {
-            let typecheck_sigs = filter_precompiled_std_core_typer_overrides(
-                bindings.external_typer_sigs.as_slice(),
-            );
+            let typecheck_sigs = if std_core_link_mode == StdCoreLinkMode::Precompiled {
+                filter_precompiled_std_core_typer_overrides(bindings.external_typer_sigs.as_slice())
+            } else {
+                bindings.external_typer_sigs.clone()
+            };
             (
                 typecheck_sigs,
                 bindings.external_typer_sigs.clone(),
@@ -848,13 +850,13 @@ fn filter_precompiled_std_core_typer_overrides(
 ) -> Vec<ExternalBuiltinSig> {
     external_typer_sigs
         .iter()
-        .filter(|sig| !matches!(sig.name.as_str(), "std::str::len" | "std::bytes::len"))
+        .filter(|sig| !is_phase21_precompiled_std_core_locked_symbol(sig.name.as_str()))
         .cloned()
         .collect()
 }
 
 fn is_phase21_precompiled_std_core_locked_symbol(symbol: &str) -> bool {
-    matches!(symbol, "std::str::len")
+    matches!(symbol, "std::str::len" | "std::bytes::len")
 }
 
 fn precompiled_std_core_intrinsic_fallback_violations(
@@ -1863,6 +1865,26 @@ mod tests {
         assert_eq!(violations[0].package, "std::core");
         assert_eq!(violations[0].symbol, "std::str::len");
         assert!(violations[0].message.contains("forbids intrinsic fallback"));
+    }
+
+    #[test]
+    fn precompiled_fallback_gate_rejects_unlinked_locked_std_core_bytes_len_symbol() {
+        let ir = IrModule {
+            funcs: vec![clg_ir::Function {
+                name: "std::bytes::len".to_string(),
+                params: vec![IrType::Int],
+                ret: Some(IrType::Int),
+                body: Vec::new(),
+            }],
+        };
+        let violations = precompiled_std_core_intrinsic_fallback_violations(
+            StdCoreLinkMode::Precompiled,
+            &ir,
+            &Ok(Vec::new()),
+        );
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].code, "C105");
+        assert_eq!(violations[0].symbol, "std::bytes::len");
     }
 
     #[test]

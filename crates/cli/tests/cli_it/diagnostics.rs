@@ -271,7 +271,8 @@ fn run_strict_build_json_failure(root: &Path, file: &Path) -> Value {
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
-        .args(["--compiler-mode", "strict"]);
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"]);
     let output = cmd.assert().failure().get_output().stdout.clone();
     serde_json::from_slice(&output).expect("json")
 }
@@ -286,7 +287,8 @@ fn run_strict_build_success(root: &Path, file: &Path) {
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
-        .args(["--compiler-mode", "strict"]);
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"]);
     cmd.assert().success();
 }
 
@@ -656,7 +658,7 @@ fn strict_acceptance_precompiled_std_core_symbol_links_via_package_import() {
 #[test]
 fn strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105() {
     let src = r#"
-        function main() -> Int { std::str::len("abc") }
+        function main() -> Int { std::bytes::len(std::bytes::from_string("abc")) }
     "#;
     let tmp = tempdir().unwrap();
     let file = tmp
@@ -667,9 +669,9 @@ fn strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105()
         tmp.path(),
         r#"[
         {
-          "symbol": "std::bytes::len",
+          "symbol": "std::str::len",
           "effect": "pure",
-          "params": ["Bytes"],
+          "params": ["String"],
           "ret": "Int",
           "capability": null
         }
@@ -703,6 +705,7 @@ fn strict_acceptance_precompiled_std_core_rejects_intrinsic_fallback_with_c105()
         .and_then(|msg| msg.as_str())
         .unwrap_or_default();
     assert!(err.contains("forbids intrinsic fallback"));
+    assert!(err.contains("std::bytes::len"));
 }
 
 #[test]
@@ -926,13 +929,22 @@ fn strict_acceptance_env_chain_id_allowed_when_capability_present() {
         fs::write(&file, src).expect("write");
         write_signed_strict_dependency_fixture(
             tmp.path(),
-            r#"[{
+            r#"[
+            {
               "symbol": "std::env::chain_id",
               "effect": "io",
               "params": [],
               "ret": "String",
               "capability": "std::env::chain_id"
-            }]"#,
+            },
+            {
+              "symbol": "std::str::len",
+              "effect": "pure",
+              "params": ["String"],
+              "ret": "Int",
+              "capability": null
+            }
+          ]"#,
         );
         write_strict_host_profile(tmp.path(), profile, &["std::env::chain_id"]);
         run_strict_build_success(tmp.path(), &file);
@@ -975,7 +987,8 @@ fn strict_acceptance_forced_determinism_replay_mismatch_fails_with_c107() {
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
-        .args(["--compiler-mode", "strict"]);
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"]);
     let output = cmd.assert().failure().get_output().stdout.clone();
     let v: Value = serde_json::from_slice(&output).expect("json");
     assert_single_json_error(&v, "C107", "build");
@@ -1161,6 +1174,7 @@ fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs(
         .args(["--emit-vcs"])
         .arg(&vcs1)
         .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"])
         .assert()
         .success();
 
@@ -1179,6 +1193,7 @@ fn strict_acceptance_import_map_artifact_is_deterministic_across_identical_runs(
         .args(["--emit-vcs"])
         .arg(&vcs2)
         .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"])
         .assert()
         .success();
 
@@ -1821,7 +1836,8 @@ fn strict_compiler_mode_allows_signed_dependency_with_empty_abi_imports() {
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
-        .args(["--compiler-mode", "strict"]);
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"]);
     cmd.assert().success();
 }
 
@@ -1855,7 +1871,8 @@ fn strict_compiler_mode_allows_linked_abi_symbol_from_strict_contract() {
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
-        .args(["--compiler-mode", "strict"]);
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"]);
     cmd.assert().success();
 }
 

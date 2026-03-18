@@ -571,7 +571,7 @@ fn encode_external_import_forwarder(
 }
 
 fn is_precompiled_std_core_locked_symbol(name: &str) -> bool {
-    matches!(name, "std::str::len")
+    matches!(name, "std::str::len" | "std::bytes::len")
 }
 
 // Backwards-compatible helper with default options

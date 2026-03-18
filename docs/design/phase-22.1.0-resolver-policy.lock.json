@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "policy_version": "22.1.0",
+  "resolver": {
+    "package_name_order": "lexical_asc",
+    "candidate_sort": [
+      "semver_desc",
+      "digest_lex_asc",
+      "artifact_path_lex_asc"
+    ],
+    "backtracking_order": {
+      "unresolved_package": "earliest_name_asc",
+      "candidate_choice": "first_sorted_candidate"
+    },
+    "cycle_reporting": "canonical_path_name_at_version"
+  },
+  "semver": {
+    "accepted_requirements": [
+      "exact",
+      "compatible",
+      "patch"
+    ],
+    "exact_format": "=MAJOR.MINOR.PATCH",
+    "compatible_format": "^MAJOR.MINOR.PATCH",
+    "patch_format": "~MAJOR.MINOR.PATCH",
+    "prerelease_default": "excluded_unless_explicitly_requested"
+  },
+  "conflict_precedence": [
+    "advisory_deny",
+    "advisory_forced_upgrade",
+    "semver_unsat",
+    "determinism_tie_break_failure"
+  ],
+  "diagnostics_order": [
+    "code",
+    "package_name",
+    "package_version",
+    "symbol_or_import"
+  ]
+}

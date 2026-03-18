@@ -975,7 +975,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.0.6 Reserve and register Phase 22 diagnostics for resolver/solver/advisory flows before implementation (stable JSON code contracts). (`docs/diagnostics.md` `C109`-`C119`, `crates/cli/tests/phase22_diagnostics_reservation.rs`)
   - [x] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift. (`docs/design/phase-22.0.7-strict-validator-consolidation.md`, `crates/cli/src/commands/build/strict_validation.rs`)
 - [ ] 22.1 Dependency resolution completion gates for milestone_2.
-  - [ ] 22.1.0 Lock deterministic resolver + semver solver policy (tie-break rules, conflict precedence, diagnostics ordering).
+  - [x] 22.1.0 Lock deterministic resolver + semver solver policy (tie-break rules, conflict precedence, diagnostics ordering). (`docs/design/phase-22.1.0-resolver-policy.lock.json`, `crates/cli/tests/resolver_policy_lock.rs`)
   - [ ] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics).
   - [ ] 22.1.2 Add deterministic semver solver with lockfile generation/update flow.
   - [ ] 22.1.3 Add package vulnerability response flow (advisory ingestion, denylist/yank policy, forced-upgrade semantics, deterministic diagnostics).

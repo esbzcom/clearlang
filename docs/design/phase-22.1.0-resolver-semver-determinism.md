@@ -39,6 +39,8 @@ Lock deterministic rules for transitive dependency resolution and semver solving
 1. Resolved graph artifact and lockfile are canonicalized and hashable.
 2. Diagnostics are emitted in stable order:
    - code -> package name -> package version -> symbol/import.
+3. Machine-readable policy lock is pinned in:
+   - `docs/design/phase-22.1.0-resolver-policy.lock.json`
 
 ## Non-Goals
 - Runtime loading behavior (Phase 23).
@@ -48,4 +50,3 @@ Lock deterministic rules for transitive dependency resolution and semver solving
 - `docs/TODO.md` (`22.1.0`, `22.1.1`, `22.1.2`, `22.1.4`)
 - `docs/design/phase-22.0.3-lockfile-v1.md`
 - `docs/design/phase-22.1.3-vulnerability-response-policy.md`
-

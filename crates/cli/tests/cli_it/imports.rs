@@ -241,6 +241,48 @@ fn invalid_package_metadata_reports_c027() {
 }
 
 #[test]
+fn legacy_and_canonical_package_metadata_conflict_reports_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+    fs::write(
+        root.join("clg-packages.json"),
+        r#"{ "schema_version": 1, "packages": [] }"#,
+    )
+    .expect("write legacy metadata");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{ "schema_version": 0, "packages": [] }"#,
+    )
+    .expect("write canonical metadata");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
 fn source_and_package_module_conflict_reports_c028() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

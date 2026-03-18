@@ -963,9 +963,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 22 Package Trust + Dependency Resolution
 - [ ] 22.0 Package metadata trust hardening.
-  - [ ] 22.0.0 Publish and lock Phase 22 design documents (metadata v1, lockfile v1, resolver/solver determinism, advisory policy, diagnostics).
-  - [ ] 22.0.1 Unify package metadata to one canonical production model and define migration/deprecation from legacy `clg-packages.json`.
-  - [ ] 22.0.2 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation.
+  - [x] 22.0.0 Publish and lock Phase 22 design documents (metadata migration, metadata v1, lockfile v1, resolver/solver determinism, advisory policy, diagnostics). (`docs/design/phase-22.0.0-package-trust-resolution-design-lock.md`, `docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, `docs/design/phase-22.0.2-package-metadata-v1.md`, `docs/design/phase-22.0.3-lockfile-v1.md`, `docs/design/phase-22.1.0-resolver-semver-determinism.md`, `docs/design/phase-22.1.3-vulnerability-response-policy.md`, `docs/design/phase-22.0.6-phase22-diagnostics-reservation.md`)
+  - [x] 22.0.1 Unify package metadata to one canonical production model and define migration/deprecation from legacy `clg-packages.json`. (`docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, deterministic coexistence conflict gate in `crates/cli/src/commands/modules/package_metadata.rs`, IT coverage `legacy_and_canonical_package_metadata_conflict_reports_c027`)
+  - [x] 22.0.2 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation. (strict preflight metadata schema v1 support + validation in `crates/cli/src/commands/build/strict_package_contract.rs`, trust-gate linkage checks in `crates/cli/src/commands/build/strict_package_signatures.rs`, regression coverage in strict unit/CLI IT suites)
   - [ ] 22.0.3 Expand lockfile flow from 20.1 v0 bootstrap to full deterministic workflow.
     - [ ] 22.0.3.1 Add CLI lockfile generation/update commands for exact package versions + digests.
     - [ ] 22.0.3.2 Define canonical lockfile serialization/hash rules (stable ordering + deterministic writes).

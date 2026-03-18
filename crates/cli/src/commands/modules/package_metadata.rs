@@ -9,7 +9,9 @@ use serde::Deserialize;
 
 use super::ExternalImportBinding;
 
-pub(super) const PACKAGE_METADATA_FILE: &str = "clg-packages.json";
+pub(super) const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
+pub(super) const CANONICAL_PACKAGE_METADATA_FILE: &str = "clg.package-metadata.json";
+pub(super) const PACKAGE_METADATA_FILE: &str = LEGACY_PACKAGE_METADATA_FILE;
 
 #[derive(Deserialize)]
 struct RawPackageMetadata {
@@ -99,6 +101,15 @@ pub(super) struct PackageMetadataIndex {
 impl PackageMetadataIndex {
     pub(super) fn load(root: &Path) -> Result<Self> {
         let metadata_path = root.join(PACKAGE_METADATA_FILE);
+        let canonical_metadata_path = root.join(CANONICAL_PACKAGE_METADATA_FILE);
+        if metadata_path.exists() && canonical_metadata_path.exists() {
+            return Err(anyhow!(
+                "package metadata migration conflict: both legacy `{}` and canonical `{}` exist; remove legacy `{}` and keep canonical strict metadata/ABI inputs only",
+                LEGACY_PACKAGE_METADATA_FILE,
+                CANONICAL_PACKAGE_METADATA_FILE,
+                LEGACY_PACKAGE_METADATA_FILE
+            ));
+        }
         if !metadata_path.exists() {
             return Ok(Self::default());
         }

@@ -1583,6 +1583,8 @@ mod tests {
                 artifact_format: "wasm".to_string(),
                 artifact_path: "store/std-core-1.0.0.wasm".to_string(),
                 abi_id: "abi:std::core:1.0.0".to_string(),
+                signature: None,
+                trusted_anchor_ids: Vec::new(),
             }],
             contracts: vec![strict_package_contract::StrictAbiContractEntry {
                 abi_id: "abi:std::core:1.0.0".to_string(),
@@ -1684,6 +1686,8 @@ mod tests {
                     artifact_format: "wasm".to_string(),
                     artifact_path: "store/std-core-1.0.0.wasm".to_string(),
                     abi_id: "abi:std::core:1.0.0".to_string(),
+                    signature: None,
+                    trusted_anchor_ids: Vec::new(),
                 },
                 strict_package_contract::StrictPackageMetadataEntry {
                     name: "std::math".to_string(),
@@ -1694,6 +1698,8 @@ mod tests {
                     artifact_format: "wasm".to_string(),
                     artifact_path: "store/std-math-1.0.0.wasm".to_string(),
                     abi_id: "abi:std::math:1.0.0".to_string(),
+                    signature: None,
+                    trusted_anchor_ids: Vec::new(),
                 },
             ],
             contracts: vec![

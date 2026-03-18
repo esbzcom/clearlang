@@ -121,6 +121,44 @@ pub(super) fn enforce_trust_gate_v0(
                 ),
             ));
         }
+        if let Some(meta_signature) = package.signature.as_ref() {
+            if meta_signature.format != "ed25519" {
+                return Err(StrictPackageSignaturesError::new(
+                    "C103",
+                    format!(
+                        "strict trust gate failed for `{}`: metadata signature format `{}` is unsupported; expected `ed25519`",
+                        package.name, meta_signature.format
+                    ),
+                ));
+            }
+            if meta_signature.key_id != signature.key_id {
+                return Err(StrictPackageSignaturesError::new(
+                    "C103",
+                    format!(
+                        "strict trust gate failed for `{}`: metadata signature key_id `{}` does not match package signatures key_id `{}`",
+                        package.name, meta_signature.key_id, signature.key_id
+                    ),
+                ));
+            }
+            if meta_signature.signed_at != signature.signed_at {
+                return Err(StrictPackageSignaturesError::new(
+                    "C103",
+                    format!(
+                        "strict trust gate failed for `{}`: metadata signed_at `{}` does not match package signatures signed_at `{}`",
+                        package.name, meta_signature.signed_at, signature.signed_at
+                    ),
+                ));
+            }
+            if meta_signature.signature != signature.signature {
+                return Err(StrictPackageSignaturesError::new(
+                    "C103",
+                    format!(
+                        "strict trust gate failed for `{}`: metadata signature does not match package signatures entry",
+                        package.name
+                    ),
+                ));
+            }
+        }
 
         let signer = trust_signers
             .get(signature.key_id.as_str())
@@ -142,6 +180,41 @@ pub(super) fn enforce_trust_gate_v0(
                     package.name, signature.key_id
                 ),
             ));
+        }
+        if !package.trusted_anchor_ids.is_empty() {
+            if !package
+                .trusted_anchor_ids
+                .iter()
+                .any(|anchor| anchor == &signature.key_id)
+            {
+                return Err(StrictPackageSignaturesError::new(
+                    "C103",
+                    format!(
+                        "strict trust gate failed for `{}`: signer `{}` is not permitted by package trusted anchors",
+                        package.name, signature.key_id
+                    ),
+                ));
+            }
+            for anchor in &package.trusted_anchor_ids {
+                if !trust_signers.contains_key(anchor.as_str()) {
+                    return Err(StrictPackageSignaturesError::new(
+                        "C103",
+                        format!(
+                            "strict trust gate failed for `{}`: trusted anchor `{}` is not present in trust policy",
+                            package.name, anchor
+                        ),
+                    ));
+                }
+                if revoked.contains(anchor.as_str()) {
+                    return Err(StrictPackageSignaturesError::new(
+                        "C103",
+                        format!(
+                            "strict trust gate failed for `{}`: trusted anchor `{}` is revoked",
+                            package.name, anchor
+                        ),
+                    ));
+                }
+            }
         }
 
         let signed_at = parse_rfc3339_utc(&signature.signed_at, "signed_at")?;
@@ -605,6 +678,43 @@ mod tests {
                     artifact_format: "wasm".to_string(),
                     artifact_path: "store/std-core-1.0.0.wasm".to_string(),
                     abi_id: "abi:std::core:1.0.0".to_string(),
+                    signature: None,
+                    trusted_anchor_ids: Vec::new(),
+                },
+            ],
+            contracts: Vec::new(),
+        }
+    }
+
+    fn package_contract_with_metadata_signature(
+        key_id: &str,
+        signed_at: &str,
+        signature_hex: &str,
+        trusted_anchor_ids: &[&str],
+    ) -> StrictPackageContractV0 {
+        StrictPackageContractV0 {
+            packages: vec![
+                super::super::strict_package_contract::StrictPackageMetadataEntry {
+                    name: "std::core".to_string(),
+                    version: "1.0.0".to_string(),
+                    digest:
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                            .to_string(),
+                    artifact_format: "wasm".to_string(),
+                    artifact_path: "store/std-core-1.0.0.wasm".to_string(),
+                    abi_id: "abi:std::core:1.0.0".to_string(),
+                    signature: Some(
+                        super::super::strict_package_contract::StrictPackageMetadataSignature {
+                            format: "ed25519".to_string(),
+                            key_id: key_id.to_string(),
+                            signed_at: signed_at.to_string(),
+                            signature: signature_hex.to_string(),
+                        },
+                    ),
+                    trusted_anchor_ids: trusted_anchor_ids
+                        .iter()
+                        .map(|value| value.to_string())
+                        .collect(),
                 },
             ],
             contracts: Vec::new(),
@@ -704,5 +814,53 @@ mod tests {
             .expect_err("expected signer window failure");
         assert_eq!(err.code(), "C103");
         assert!(err.message().contains("not valid at signed_at"));
+    }
+
+    #[test]
+    fn trust_gate_rejects_metadata_signature_mismatch() {
+        let tmp = tempdir().expect("tempdir");
+        let signing = SigningKey::from_bytes(&[7u8; 32]);
+        let signed_at = "2026-06-01T00:00:00Z";
+        let payload = canonical_payload(
+            "std::core",
+            "1.0.0",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            signed_at,
+        );
+        let signature_hex = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+        write_signature_file(tmp.path(), &signature_hex, "k1", signed_at);
+
+        let package_contract =
+            package_contract_with_metadata_signature("k1", signed_at, &"aa".repeat(64), &["k1"]);
+        let trust_policy = trust_policy_for_signing_key(&signing);
+        let err = enforce_trust_gate_v0(tmp.path(), &package_contract, &trust_policy)
+            .expect_err("expected metadata/signature mismatch");
+        assert_eq!(err.code(), "C103");
+        assert!(err.message().contains("metadata signature does not match"));
+    }
+
+    #[test]
+    fn trust_gate_rejects_missing_metadata_anchor_in_policy() {
+        let tmp = tempdir().expect("tempdir");
+        let signing = SigningKey::from_bytes(&[7u8; 32]);
+        let signed_at = "2026-06-01T00:00:00Z";
+        let payload = canonical_payload(
+            "std::core",
+            "1.0.0",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            signed_at,
+        );
+        let signature_hex = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+        write_signature_file(tmp.path(), &signature_hex, "k1", signed_at);
+
+        let package_contract =
+            package_contract_with_metadata_signature("k1", signed_at, &signature_hex, &["k2"]);
+        let trust_policy = trust_policy_for_signing_key(&signing);
+        let err = enforce_trust_gate_v0(tmp.path(), &package_contract, &trust_policy)
+            .expect_err("expected missing anchor in trust policy");
+        assert_eq!(err.code(), "C103");
+        assert!(err
+            .message()
+            .contains("not permitted by package trusted anchors"));
     }
 }

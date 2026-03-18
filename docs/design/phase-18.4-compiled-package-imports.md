@@ -4,8 +4,9 @@
 Allow `import pkg::module` and `import pkg::module::{item}` to resolve from compiled package metadata when no local source module exists.
 
 ## Metadata File
-- Root file: `clg-packages.json`
+- Root file (legacy compatibility path): `clg-packages.json`
 - Supported schema: `schema_version = 1`
+- Migration note: canonical production metadata is tracked under Phase 22 (`clg.package-metadata.json` + `clg.package-abi.json`), with deterministic coexistence rejection during transition.
 - Package constraints:
   - package `name` must be an identifier
   - `version` must follow `MAJOR.MINOR.PATCH`
@@ -35,7 +36,7 @@ Allow `import pkg::module` and `import pkg::module::{item}` to resolve from comp
 - Codegen emits wrapper functions that forward arguments to imported host functions.
 
 ## Diagnostics
-- `C027`: invalid `clg-packages.json` content (schema/validation/collision issues)
+- `C027`: invalid compiled-package metadata (legacy schema/validation/collision issues, including migration coexistence conflicts)
 - `C028`: module path conflict between local source and compiled package metadata
 
 ## Non-goals (Phase 18.4)

@@ -21,6 +21,16 @@ pub(super) struct StrictPackageMetadataEntry {
     pub(super) artifact_format: String,
     pub(super) artifact_path: String,
     pub(super) abi_id: String,
+    pub(super) signature: Option<StrictPackageMetadataSignature>,
+    pub(super) trusted_anchor_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct StrictPackageMetadataSignature {
+    pub(super) format: String,
+    pub(super) key_id: String,
+    pub(super) signed_at: String,
+    pub(super) signature: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -65,19 +75,53 @@ impl StrictPackageContractError {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RawPackageMetadataRoot {
+struct RawPackageMetadataRootV0 {
     schema_version: u32,
-    packages: Vec<RawPackageMetadataEntry>,
+    packages: Vec<RawPackageMetadataEntryV0>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RawPackageMetadataEntry {
+struct RawPackageMetadataEntryV0 {
     name: String,
     version: String,
     digest: String,
     artifact: RawPackageArtifact,
     abi_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageMetadataRootV1 {
+    schema_version: u32,
+    packages: Vec<RawPackageMetadataEntryV1>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageMetadataEntryV1 {
+    name: String,
+    version: String,
+    digest: String,
+    artifact: RawPackageArtifact,
+    abi_id: String,
+    signature: RawPackageSignatureV1,
+    trust: RawPackageTrustV1,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageSignatureV1 {
+    format: String,
+    key_id: String,
+    signed_at: String,
+    signature: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageTrustV1 {
+    trusted_anchor_ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -191,31 +235,23 @@ fn parse_package_metadata_abi_v0(
             StrictPackageContractError::new(
                 "C104",
                 format!(
-                    "strict package metadata `{}` is not valid JSON (expected schema v0 object)",
+                    "strict package metadata `{}` is not valid JSON (expected schema v0/v1 object)",
                     metadata_path.display()
                 ),
             )
         })?;
-    let raw_metadata: RawPackageMetadataRoot =
-        serde_json::from_value(metadata_value).map_err(|_| {
+    let schema_version = metadata_value
+        .get("schema_version")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
             StrictPackageContractError::new(
                 "C104",
                 format!(
-                    "strict package metadata `{}` does not match schema v0 (`schema_version`, `packages[]`)",
+                    "strict package metadata `{}` does not match schema v0/v1 (`schema_version`, `packages[]`)",
                     metadata_path.display()
                 ),
             )
         })?;
-    if raw_metadata.schema_version != 0 {
-        return Err(StrictPackageContractError::new(
-            "C104",
-            format!(
-                "strict package metadata `{}` has unsupported schema_version {}; expected 0",
-                metadata_path.display(),
-                raw_metadata.schema_version
-            ),
-        ));
-    }
 
     let abi_value: serde_json::Value = serde_json::from_str(abi_content).map_err(|_| {
         StrictPackageContractError::new(
@@ -246,18 +282,77 @@ fn parse_package_metadata_abi_v0(
         ));
     }
 
-    let mut packages: Vec<StrictPackageMetadataEntry> = raw_metadata
-        .packages
-        .into_iter()
-        .map(|pkg| StrictPackageMetadataEntry {
-            name: pkg.name,
-            version: pkg.version,
-            digest: pkg.digest,
-            artifact_format: pkg.artifact.format,
-            artifact_path: pkg.artifact.path,
-            abi_id: pkg.abi_id,
-        })
-        .collect();
+    let mut packages: Vec<StrictPackageMetadataEntry> = match schema_version {
+        0 => {
+            let raw_metadata: RawPackageMetadataRootV0 = serde_json::from_value(metadata_value)
+                .map_err(|_| {
+                    StrictPackageContractError::new(
+                        "C104",
+                        format!(
+                            "strict package metadata `{}` does not match schema v0 (`schema_version`, `packages[]`)",
+                            metadata_path.display()
+                        ),
+                    )
+                })?;
+            debug_assert_eq!(raw_metadata.schema_version, 0);
+            raw_metadata
+                .packages
+                .into_iter()
+                .map(|pkg| StrictPackageMetadataEntry {
+                    name: pkg.name,
+                    version: pkg.version,
+                    digest: pkg.digest,
+                    artifact_format: pkg.artifact.format,
+                    artifact_path: pkg.artifact.path,
+                    abi_id: pkg.abi_id,
+                    signature: None,
+                    trusted_anchor_ids: Vec::new(),
+                })
+                .collect()
+        }
+        1 => {
+            let raw_metadata: RawPackageMetadataRootV1 = serde_json::from_value(metadata_value)
+                .map_err(|_| {
+                    StrictPackageContractError::new(
+                        "C104",
+                        format!(
+                            "strict package metadata `{}` does not match schema v1 (`schema_version`, `packages[]` with `signature` + `trust`)",
+                            metadata_path.display()
+                        ),
+                    )
+                })?;
+            debug_assert_eq!(raw_metadata.schema_version, 1);
+            raw_metadata
+                .packages
+                .into_iter()
+                .map(|pkg| StrictPackageMetadataEntry {
+                    name: pkg.name,
+                    version: pkg.version,
+                    digest: pkg.digest,
+                    artifact_format: pkg.artifact.format,
+                    artifact_path: pkg.artifact.path,
+                    abi_id: pkg.abi_id,
+                    signature: Some(StrictPackageMetadataSignature {
+                        format: pkg.signature.format,
+                        key_id: pkg.signature.key_id,
+                        signed_at: pkg.signature.signed_at,
+                        signature: pkg.signature.signature,
+                    }),
+                    trusted_anchor_ids: pkg.trust.trusted_anchor_ids,
+                })
+                .collect()
+        }
+        other => {
+            return Err(StrictPackageContractError::new(
+                "C104",
+                format!(
+                    "strict package metadata `{}` has unsupported schema_version {}; expected 0 or 1",
+                    metadata_path.display(),
+                    other
+                ),
+            ));
+        }
+    };
     packages.sort_by(|a, b| a.name.cmp(&b.name));
 
     let mut package_names = HashSet::with_capacity(packages.len());
@@ -352,6 +447,91 @@ fn parse_package_metadata_abi_v0(
                     pkg.name
                 ),
             ));
+        }
+        if let Some(signature) = pkg.signature.as_ref() {
+            if pkg.trusted_anchor_ids.is_empty() {
+                return Err(StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` must declare at least one trusted anchor id when signature metadata is present",
+                        metadata_path.display(),
+                        pkg.name
+                    ),
+                ));
+            }
+            if signature.format != "ed25519" {
+                return Err(StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has unsupported signature format `{}`; expected `ed25519`",
+                        metadata_path.display(),
+                        pkg.name,
+                        signature.format
+                    ),
+                ));
+            }
+            if signature.key_id.trim().is_empty() {
+                return Err(StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has empty signature key_id",
+                        metadata_path.display(),
+                        pkg.name
+                    ),
+                ));
+            }
+            validate_utc_rfc3339("signed_at", &signature.signed_at).map_err(|msg| {
+                StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has invalid signature signed_at `{}`: {msg}",
+                        metadata_path.display(),
+                        pkg.name,
+                        signature.signed_at
+                    ),
+                )
+            })?;
+            validate_signature_hex(&signature.signature).map_err(|msg| {
+                StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has invalid signature `{}`: {msg}",
+                        metadata_path.display(),
+                        pkg.name,
+                        signature.signature
+                    ),
+                )
+            })?;
+        }
+        if !pkg.trusted_anchor_ids.is_empty() {
+            let mut seen_anchors = HashSet::new();
+            let mut anchor_dupes = BTreeSet::new();
+            for anchor_id in &pkg.trusted_anchor_ids {
+                if anchor_id.trim().is_empty() {
+                    return Err(StrictPackageContractError::new(
+                        "C104",
+                        format!(
+                            "strict package metadata `{}` package `{}` has empty trusted anchor id",
+                            metadata_path.display(),
+                            pkg.name
+                        ),
+                    ));
+                }
+                if !seen_anchors.insert(anchor_id.clone()) {
+                    anchor_dupes.insert(anchor_id.clone());
+                }
+            }
+            if let Some(dupe) = anchor_dupes.iter().next() {
+                return Err(StrictPackageContractError::new(
+                    "C104",
+                    format!(
+                        "strict package metadata `{}` package `{}` has duplicate trusted anchor id `{}`",
+                        metadata_path.display(),
+                        pkg.name,
+                        dupe
+                    ),
+                ));
+            }
         }
     }
     let mut package_abi_ids = HashSet::with_capacity(packages.len());
@@ -675,6 +855,94 @@ fn validate_sha256_digest(digest: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_signature_hex(signature: &str) -> Result<(), String> {
+    if signature.len() != 128 {
+        return Err("signature must have exactly 128 lowercase hex characters".to_string());
+    }
+    if !signature
+        .chars()
+        .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
+    {
+        return Err("signature must be lowercase hex (`0-9`, `a-f`)".to_string());
+    }
+    Ok(())
+}
+
+fn validate_utc_rfc3339(field: &str, value: &str) -> Result<(), String> {
+    if value.len() != 20 {
+        return Err(format!("{field} must use `YYYY-MM-DDTHH:MM:SSZ`"));
+    }
+    let bytes = value.as_bytes();
+    if bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || bytes[19] != b'Z'
+    {
+        return Err(format!("{field} must use UTC RFC3339 separators"));
+    }
+
+    fn parse_u16(s: &str) -> Result<u16, String> {
+        if !s.chars().all(|ch| ch.is_ascii_digit()) {
+            return Err(format!("`{s}` contains non-digit characters"));
+        }
+        s.parse::<u16>()
+            .map_err(|_| format!("failed to parse `{s}`"))
+    }
+    fn parse_u8(s: &str) -> Result<u8, String> {
+        if !s.chars().all(|ch| ch.is_ascii_digit()) {
+            return Err(format!("`{s}` contains non-digit characters"));
+        }
+        s.parse::<u8>()
+            .map_err(|_| format!("failed to parse `{s}`"))
+    }
+
+    let year = parse_u16(&value[0..4])?;
+    let month = parse_u8(&value[5..7])?;
+    let day = parse_u8(&value[8..10])?;
+    let hour = parse_u8(&value[11..13])?;
+    let minute = parse_u8(&value[14..16])?;
+    let second = parse_u8(&value[17..19])?;
+
+    if !(1..=12).contains(&month) {
+        return Err(format!("month `{month}` is out of range 1..=12"));
+    }
+    if !(1..=31).contains(&day) {
+        return Err(format!("day `{day}` is out of range 1..=31"));
+    }
+    let max_day = days_in_month(year, month);
+    if day > max_day {
+        return Err(format!(
+            "day `{day}` is out of range 1..={max_day} for month `{month}`"
+        ));
+    }
+    if hour > 23 {
+        return Err(format!("hour `{hour}` is out of range 0..=23"));
+    }
+    if minute > 59 {
+        return Err(format!("minute `{minute}` is out of range 0..=59"));
+    }
+    if second > 59 {
+        return Err(format!("second `{second}` is out of range 0..=59"));
+    }
+    Ok(())
+}
+
+fn days_in_month(year: u16, month: u8) -> u8 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+fn is_leap_year(year: u16) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -690,6 +958,31 @@ mod tests {
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
       "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#
+        .to_string()
+    }
+
+    fn valid_metadata_json_v1() -> String {
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
+      "abi_id": "abi:std::core:1.0.0",
+      "signature": {
+        "format": "ed25519",
+        "key_id": "k1",
+        "signed_at": "2026-01-15T00:00:00Z",
+        "signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "trust": {
+        "trusted_anchor_ids": ["k1"]
+      }
     }
   ]
 }"#
@@ -735,6 +1028,22 @@ mod tests {
     }
 
     #[test]
+    fn schema_v1_metadata_with_signature_and_trust_parses_and_validates() {
+        let parsed = parse_package_metadata_abi_v0(
+            &valid_metadata_json_v1(),
+            &valid_abi_json(),
+            Path::new("clg.package-metadata.json"),
+            Path::new("clg.package-abi.json"),
+        )
+        .expect("valid strict package metadata/abi v1");
+        assert_eq!(parsed.packages.len(), 1);
+        let pkg = &parsed.packages[0];
+        let sig = pkg.signature.as_ref().expect("signature metadata");
+        assert_eq!(sig.key_id, "k1");
+        assert_eq!(pkg.trusted_anchor_ids, vec!["k1"]);
+    }
+
+    #[test]
     fn missing_metadata_file_reports_c104() {
         let tmp = tempdir().expect("tempdir");
         fs::write(tmp.path().join(STRICT_PACKAGE_ABI_FILE), valid_abi_json())
@@ -761,6 +1070,38 @@ mod tests {
         .expect_err("expected malformed metadata schema error");
         assert_eq!(err.code(), "C104");
         assert!(err.message().contains("does not match schema v0"));
+    }
+
+    #[test]
+    fn metadata_v1_requires_trusted_anchors_when_signature_present() {
+        let metadata = r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core-1.0.0.wasm" },
+      "abi_id": "abi:std::core:1.0.0",
+      "signature": {
+        "format": "ed25519",
+        "key_id": "k1",
+        "signed_at": "2026-01-15T00:00:00Z",
+        "signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "trust": { "trusted_anchor_ids": [] }
+    }
+  ]
+}"#;
+        let err = parse_package_metadata_abi_v0(
+            metadata,
+            &valid_abi_json(),
+            Path::new("clg.package-metadata.json"),
+            Path::new("clg.package-abi.json"),
+        )
+        .expect_err("expected trusted-anchor validation error");
+        assert_eq!(err.code(), "C104");
+        assert!(err.message().contains("at least one trusted anchor id"));
     }
 
     #[test]

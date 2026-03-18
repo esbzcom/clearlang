@@ -798,7 +798,7 @@ fn strict_acceptance_schema_tamper_fails_with_c104() {
     write_signed_strict_dependency_fixture(tmp.path(), "[]");
     fs::write(
         tmp.path().join("clg.package-metadata.json"),
-        r#"{"schema_version":1,"packages":[]}"#,
+        r#"{"schema_version":2,"packages":[]}"#,
     )
     .expect("tamper package metadata schema");
     let v = run_strict_build_json_failure(tmp.path(), &file);
@@ -1553,7 +1553,7 @@ fn strict_compiler_mode_rejects_invalid_package_metadata_schema_with_c104() {
     write_minimal_strict_package_abi(tmp.path());
     fs::write(
         tmp.path().join("clg.package-metadata.json"),
-        r#"{"schema_version":1,"packages":[]}"#,
+        r#"{"schema_version":2,"packages":[]}"#,
     )
     .expect("write strict package metadata");
     let out = tmp.path().join("out.wasm");

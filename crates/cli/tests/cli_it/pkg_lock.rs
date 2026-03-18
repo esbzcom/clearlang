@@ -141,3 +141,46 @@ fn pkg_lock_update_fails_if_lock_missing() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
 }
+
+#[test]
+fn pkg_lock_replay_with_identical_inputs_is_byte_identical() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name": "std::host",
+      "version": "1.0.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .success();
+    let first = fs::read(root.join("clg.lock.json")).expect("read first lockfile bytes");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--update", "--root"])
+        .arg(root)
+        .assert()
+        .success();
+    let second = fs::read(root.join("clg.lock.json")).expect("read second lockfile bytes");
+
+    assert_eq!(first, second, "lockfile replay bytes must be identical");
+}

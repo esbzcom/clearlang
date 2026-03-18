@@ -969,7 +969,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 22.0.3 Expand lockfile flow from 20.1 v0 bootstrap to full deterministic workflow.
     - [x] 22.0.3.1 Add CLI lockfile generation/update commands for exact package versions + digests.
     - [x] 22.0.3.2 Define canonical lockfile serialization/hash rules (stable ordering + deterministic writes).
-    - [ ] 22.0.3.3 Add replay tests proving byte-identical lockfiles from identical inputs.
+    - [x] 22.0.3.3 Add replay tests proving byte-identical lockfiles from identical inputs.
   - [ ] 22.0.4 Define package metadata/ABI compatibility policy (schema evolution, deprecation windows, migration guarantees) with regression tests.
   - [ ] 22.0.5 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling).
   - [ ] 22.0.6 Reserve and register Phase 22 diagnostics for resolver/solver/advisory flows before implementation (stable JSON code contracts).

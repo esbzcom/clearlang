@@ -957,9 +957,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 21.0.7.0 Define and lock precompiled std-core activation contract (explicit build/profile switch and fallback policy) before enforcing non-vacuous link behavior.
     - [x] 21.0.7.1 Add CI fixture proving at least one locked `std::core` symbol is linked via package ABI/import (not satisfied by local intrinsic lowering only).
     - [x] 21.0.7.2 Add failure coverage that rejects fallback-to-intrinsic behavior when precompiled std-core mode is enabled for that symbol set and emits deterministic diagnostics.
-  - [ ] 21.0.8 Replace transitional synthetic strict fixtures with locked std-core symbols.
+  - [x] 21.0.8 Replace transitional synthetic strict fixtures with locked std-core symbols.
     - [x] 21.0.8.1 Migrate strict acceptance fixtures from synthetic `std::core::math::*` symbols to canonical locked std-core symbols.
-    - [ ] 21.0.8.2 Keep deterministic diagnostics ordering/hash assertions green after fixture migration, with no semantic regression in the existing `C101`-`C108` strict acceptance suite.
+    - [x] 21.0.8.2 Keep deterministic diagnostics ordering/hash assertions green after fixture migration, with no semantic regression in the existing `C101`-`C108` strict acceptance suite.
 
 ### 22 Package Trust + Dependency Resolution
 - [ ] 22.0 Package metadata trust hardening.

@@ -155,6 +155,9 @@ Current execution notes:
   - intrinsic fallback for that locked symbol set is rejected by policy.
 - `21.0.8.1` strict acceptance fixtures have been migrated from synthetic placeholders to canonical locked symbols:
   - strict fixtures now use `std::str::len` and `std::bytes::len` symbol contracts in place of `std::core::math::*` placeholders.
+- `21.0.8.2` post-migration regression gate is green:
+  - strict acceptance replay/ordering and import-map determinism tests remain green with canonical symbols,
+  - `C101` through `C108` strict acceptance semantics are unchanged.
 - `crates/cli/assets/std-metadata.json` is aligned with the locked collection take APIs:
   - `std::list::remove_take`
   - `std::map::insert_take`

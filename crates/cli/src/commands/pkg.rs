@@ -17,6 +17,8 @@ use crate::logging::{Logger, StageTimings};
 const CANONICAL_PACKAGE_METADATA_FILE: &str = "clg.package-metadata.json";
 const STRICT_LOCKFILE_FILE: &str = "clg.lock.json";
 const ADVISORY_FILE: &str = "clg.advisories.json";
+const RESOLVED_GRAPH_FILE: &str = "clg.resolved-graph.json";
+const RESOLVED_GRAPH_HASH_FILE: &str = "clg.resolved-graph.sha256";
 
 #[derive(Deserialize)]
 struct PackageMetadataRoot {
@@ -210,25 +212,39 @@ struct StrictLockfileV1 {
     packages: Vec<StrictLockedPackageV1>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct StrictLockRootV1 {
     name: String,
     dependencies: Vec<StrictLockRootDependencyV1>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct StrictLockRootDependencyV1 {
     name: String,
     requirement: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct StrictLockedPackageV1 {
     id: String,
     name: String,
     version: String,
     digest: String,
     abi_id: String,
+    dependencies: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ResolvedGraphArtifactV1 {
+    schema_version: u32,
+    resolver_version: u32,
+    roots: Vec<StrictLockRootV1>,
+    packages: Vec<ResolvedGraphPackageV1>,
+}
+
+#[derive(Debug, Serialize)]
+struct ResolvedGraphPackageV1 {
+    id: String,
     dependencies: Vec<String>,
 }
 
@@ -349,12 +365,21 @@ pub fn run_lock(
         let _stage = timings.start(logger, "pkg_write_lockfile");
         write_lockfile(lockfile_path.as_path(), &lockfile)?
     };
+    let resolved_graph_hash = {
+        let _stage = timings.start(logger, "pkg_write_resolved_graph");
+        write_resolved_graph_artifact(root.as_path(), &lockfile)?
+    };
 
     println!(
         "wrote {} with {} pinned package(s) [sha256:{}]",
         lockfile_path.display(),
         lockfile.packages.len(),
         canonical_hash
+    );
+    println!(
+        "wrote {} [sha256:{}]",
+        root.join(RESOLVED_GRAPH_FILE).display(),
+        resolved_graph_hash
     );
     logger.summary(&timings);
     Ok(())
@@ -1302,6 +1327,39 @@ fn canonical_cycle_path(mut cycle_ids: Vec<String>) -> String {
     ordered.join(" -> ")
 }
 
+fn write_resolved_graph_artifact(root: &Path, lockfile: &StrictLockfileV1) -> Result<String> {
+    let path = root.join(RESOLVED_GRAPH_FILE);
+    let hash_path = root.join(RESOLVED_GRAPH_HASH_FILE);
+    let mut bytes = canonical_resolved_graph_bytes(lockfile)?;
+    let hash = sha256_hex(bytes.as_slice());
+    bytes.push(b'\n');
+    fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
+    fs::write(&hash_path, format!("{hash}\n"))
+        .with_context(|| format!("writing {}", hash_path.display()))?;
+    Ok(hash)
+}
+
+fn canonical_resolved_graph_bytes(lockfile: &StrictLockfileV1) -> Result<Vec<u8>> {
+    let mut packages = Vec::with_capacity(lockfile.packages.len());
+    for pkg in &lockfile.packages {
+        let mut deps = pkg.dependencies.clone();
+        deps.sort();
+        packages.push(ResolvedGraphPackageV1 {
+            id: pkg.id.clone(),
+            dependencies: deps,
+        });
+    }
+    packages.sort_by(|a, b| a.id.cmp(&b.id));
+    let artifact = ResolvedGraphArtifactV1 {
+        schema_version: lockfile.schema_version,
+        resolver_version: lockfile.resolver_version,
+        roots: lockfile.roots.clone(),
+        packages,
+    };
+    let value = serde_json::to_value(artifact).context("serializing resolved graph value")?;
+    Ok(canonical_json_bytes(&value))
+}
+
 fn write_lockfile(path: &Path, lockfile: &StrictLockfileV1) -> Result<String> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1794,6 +1852,81 @@ mod tests {
         assert_eq!(written.last().copied(), Some(b'\n'));
         let canonical = &written[..written.len() - 1];
         assert_eq!(sha256_hex(canonical), hash);
+    }
+
+    #[test]
+    fn canonical_resolved_graph_bytes_are_stable_and_hashed() {
+        let lockfile = StrictLockfileV1 {
+            schema_version: 1,
+            resolver_version: 1,
+            roots: vec![StrictLockRootV1 {
+                name: "app".to_string(),
+                dependencies: vec![StrictLockRootDependencyV1 {
+                    name: "std::core".to_string(),
+                    requirement: "^1.0.0".to_string(),
+                }],
+            }],
+            packages: vec![
+                StrictLockedPackageV1 {
+                    id: "std::host@1.0.0".to_string(),
+                    name: "std::host".to_string(),
+                    version: "1.0.0".to_string(),
+                    digest:
+                        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                            .to_string(),
+                    abi_id: "abi:std::host:1.0.0".to_string(),
+                    dependencies: Vec::new(),
+                },
+                StrictLockedPackageV1 {
+                    id: "std::core@1.0.0".to_string(),
+                    name: "std::core".to_string(),
+                    version: "1.0.0".to_string(),
+                    digest:
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                            .to_string(),
+                    abi_id: "abi:std::core:1.0.0".to_string(),
+                    dependencies: vec!["std::host@1.0.0".to_string()],
+                },
+            ],
+        };
+        let bytes_a = canonical_resolved_graph_bytes(&lockfile).expect("resolved graph bytes");
+        let bytes_b = canonical_resolved_graph_bytes(&lockfile).expect("resolved graph bytes");
+        assert_eq!(bytes_a, bytes_b);
+        let hash = sha256_hex(bytes_a.as_slice());
+        assert_eq!(hash.len(), 64);
+    }
+
+    #[test]
+    fn write_resolved_graph_artifact_writes_bytes_and_hash_sidecar() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let lockfile = StrictLockfileV1 {
+            schema_version: 1,
+            resolver_version: 1,
+            roots: vec![StrictLockRootV1 {
+                name: "app".to_string(),
+                dependencies: vec![StrictLockRootDependencyV1 {
+                    name: "pkg::a".to_string(),
+                    requirement: "=1.0.0".to_string(),
+                }],
+            }],
+            packages: vec![StrictLockedPackageV1 {
+                id: "pkg::a@1.0.0".to_string(),
+                name: "pkg::a".to_string(),
+                version: "1.0.0".to_string(),
+                digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+                abi_id: "abi:pkg::a:1.0.0".to_string(),
+                dependencies: Vec::new(),
+            }],
+        };
+        let hash = write_resolved_graph_artifact(tmp.path(), &lockfile)
+            .expect("write resolved graph artifact");
+        let graph_bytes = fs::read(tmp.path().join(RESOLVED_GRAPH_FILE)).expect("read graph bytes");
+        let graph_canonical = &graph_bytes[..graph_bytes.len() - 1];
+        assert_eq!(sha256_hex(graph_canonical), hash);
+        let hash_text = fs::read_to_string(tmp.path().join(RESOLVED_GRAPH_HASH_FILE))
+            .expect("read graph hash sidecar");
+        assert_eq!(hash_text.trim(), hash);
     }
 
     #[test]

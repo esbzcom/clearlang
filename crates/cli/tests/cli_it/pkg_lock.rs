@@ -1,4 +1,20 @@
 use super::*;
+use sha2::{Digest, Sha256};
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
+fn extract_first_sha256_from_stdout(stdout: &[u8]) -> String {
+    let text = String::from_utf8(stdout.to_vec()).expect("stdout utf8");
+    let marker = "[sha256:";
+    let start = text.find(marker).expect("stdout contains sha256 marker") + marker.len();
+    let rest = &text[start..];
+    let end = rest.find(']').expect("sha256 marker closed");
+    rest[..end].to_string()
+}
 
 #[test]
 fn pkg_lock_generate_writes_sorted_pins_from_metadata() {
@@ -184,23 +200,59 @@ fn pkg_lock_replay_with_identical_inputs_is_byte_identical() {
     )
     .expect("write metadata");
 
-    Command::cargo_bin("clg")
+    let first_output = Command::cargo_bin("clg")
         .unwrap()
         .args(["pkg", "lock", "--generate", "--root"])
         .arg(root)
         .assert()
-        .success();
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let first_hash = extract_first_sha256_from_stdout(&first_output);
     let first = fs::read(root.join("clg.lock.json")).expect("read first lockfile bytes");
+    let first_canonical = &first[..first.len() - 1];
+    assert_eq!(sha256_hex(first_canonical), first_hash);
+    let first_graph =
+        fs::read(root.join("clg.resolved-graph.json")).expect("read first resolved graph bytes");
+    let first_graph_hash =
+        fs::read_to_string(root.join("clg.resolved-graph.sha256")).expect("read first graph hash");
+    let first_graph_canonical = &first_graph[..first_graph.len() - 1];
+    assert_eq!(sha256_hex(first_graph_canonical), first_graph_hash.trim());
 
-    Command::cargo_bin("clg")
+    let second_output = Command::cargo_bin("clg")
         .unwrap()
         .args(["pkg", "lock", "--update", "--root"])
         .arg(root)
         .assert()
-        .success();
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let second_hash = extract_first_sha256_from_stdout(&second_output);
     let second = fs::read(root.join("clg.lock.json")).expect("read second lockfile bytes");
+    let second_canonical = &second[..second.len() - 1];
+    assert_eq!(sha256_hex(second_canonical), second_hash);
+    let second_graph =
+        fs::read(root.join("clg.resolved-graph.json")).expect("read second resolved graph bytes");
+    let second_graph_hash =
+        fs::read_to_string(root.join("clg.resolved-graph.sha256")).expect("read second graph hash");
+    let second_graph_canonical = &second_graph[..second_graph.len() - 1];
+    assert_eq!(sha256_hex(second_graph_canonical), second_graph_hash.trim());
 
     assert_eq!(first, second, "lockfile replay bytes must be identical");
+    assert_eq!(
+        first_hash, second_hash,
+        "lockfile hash must be deterministic"
+    );
+    assert_eq!(
+        first_graph, second_graph,
+        "resolved graph artifact bytes must be deterministic"
+    );
+    assert_eq!(
+        first_graph_hash, second_graph_hash,
+        "resolved graph artifact hash must be deterministic"
+    );
 }
 
 #[test]
@@ -525,4 +577,53 @@ fn pkg_lock_generate_reports_c117_for_malformed_advisory_input() {
     assert_eq!(errs.len(), 1);
     let e0 = &errs[0];
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C117"));
+}
+
+#[test]
+fn pkg_lock_diagnostics_output_is_deterministic_across_identical_runs() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:app::entry:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.advisories.json"),
+        r#"{"schema_version":1,"advisories":[{"id":"ADV-BAD"}]}"#,
+    )
+    .expect("write advisories");
+
+    let first = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let second = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(
+        first, second,
+        "resolver/solver diagnostics output must be deterministic across identical runs"
+    );
 }

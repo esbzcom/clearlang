@@ -36,6 +36,18 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should enforce strict gate acceptance suite tests"
     );
     assert!(
+        contents.contains(
+            "cargo test -p clg-cli --test cli_it pkg_lock_replay_with_identical_inputs_is_byte_identical"
+        ),
+        "ci should enforce resolver/solver lockfile+graph replay determinism gates"
+    );
+    assert!(
+        contents.contains(
+            "cargo test -p clg-cli --test cli_it pkg_lock_diagnostics_output_is_deterministic_across_identical_runs"
+        ),
+        "ci should enforce resolver/solver diagnostics ordering replay determinism gates"
+    );
+    assert!(
         contents.contains("cargo test -p clg-cli --test vc_snapshots"),
         "ci should enforce proof fixture snapshot regression tests"
     );

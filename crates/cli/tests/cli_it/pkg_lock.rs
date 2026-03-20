@@ -249,3 +249,280 @@ fn pkg_lock_generate_derives_roots_from_unreferenced_packages() {
     assert_eq!(deps.len(), 1);
     assert_eq!(deps[0]["name"], Value::String("app::entry".to_string()));
 }
+
+#[test]
+fn pkg_lock_generate_reports_c112_for_transitive_cycle() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "z::pkg",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:z::pkg:1.0.0",
+      "dependencies": [{ "name": "y::pkg", "requirement": "^1.0.0" }]
+    },
+    {
+      "name": "y::pkg",
+      "version": "1.0.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "abi_id": "abi:y::pkg:1.0.0",
+      "dependencies": [{ "name": "x::pkg", "requirement": "^1.0.0" }]
+    },
+    {
+      "name": "x::pkg",
+      "version": "1.0.0",
+      "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "abi_id": "abi:x::pkg:1.0.0",
+      "dependencies": [{ "name": "z::pkg", "requirement": "^1.0.0" }]
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C112"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn pkg_lock_generate_reports_c113_for_unsatisfiable_semver_constraints() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:app::entry:1.0.0",
+      "dependencies": [{ "name": "lib::core", "requirement": "^2.0.0" }]
+    },
+    {
+      "name": "lib::core",
+      "version": "1.0.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "abi_id": "abi:lib::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C113"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn pkg_lock_generate_reports_c115_for_deny_advisory() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:app::entry:1.0.0",
+      "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
+    },
+    {
+      "name": "lib::core",
+      "version": "1.1.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "abi_id": "abi:lib::core:1.1.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.advisories.json"),
+        r#"{
+  "schema_version": 1,
+  "advisories": [
+    {
+      "id": "ADV-100",
+      "package": "lib::core",
+      "affected": "^1.0.0",
+      "severity": "high",
+      "action": "deny",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z"
+    }
+  ]
+}"#,
+    )
+    .expect("write advisories");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C115"));
+}
+
+#[test]
+fn pkg_lock_generate_reports_c116_for_force_upgrade_without_safe_version() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:app::entry:1.0.0",
+      "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
+    },
+    {
+      "name": "lib::core",
+      "version": "1.1.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "abi_id": "abi:lib::core:1.1.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.advisories.json"),
+        r#"{
+  "schema_version": 1,
+  "advisories": [
+    {
+      "id": "ADV-200",
+      "package": "lib::core",
+      "affected": "^1.0.0",
+      "severity": "critical",
+      "action": "force_upgrade",
+      "minimum_safe_version": "2.0.0",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z"
+    }
+  ]
+}"#,
+    )
+    .expect("write advisories");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C116"));
+}
+
+#[test]
+fn pkg_lock_generate_reports_c117_for_malformed_advisory_input() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:app::entry:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.advisories.json"),
+        r#"{"schema_version":1,"advisories":[{"id":"ADV-BAD"}]}"#,
+    )
+    .expect("write advisories");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C117"));
+}

@@ -976,9 +976,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift. (`docs/design/phase-22.0.7-strict-validator-consolidation.md`, `crates/cli/src/commands/build/strict_validation.rs`)
 - [ ] 22.1 Dependency resolution completion gates for milestone_2.
   - [x] 22.1.0 Lock deterministic resolver + semver solver policy (tie-break rules, conflict precedence, diagnostics ordering). (`docs/design/phase-22.1.0-resolver-policy.lock.json`, `crates/cli/tests/resolver_policy_lock.rs`)
-  - [ ] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics).
-  - [ ] 22.1.2 Add deterministic semver solver with lockfile generation/update flow.
-  - [ ] 22.1.3 Add package vulnerability response flow (advisory ingestion, denylist/yank policy, forced-upgrade semantics, deterministic diagnostics).
+  - [x] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics). (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)
+  - [x] 22.1.2 Add deterministic semver solver with lockfile generation/update flow. (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)
+  - [x] 22.1.3 Add package vulnerability response flow (advisory ingestion, denylist/yank policy, forced-upgrade semantics, deterministic diagnostics). (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)
   - [ ] 22.1.4 Add CI determinism replay gates for resolver/solver outputs (resolved graph artifact, lockfile bytes/hash, diagnostics ordering).
   - [ ] 22.1.5 Add build/run resolution parity policy so package trust/resolution behavior is explicit for both `clg build` and `clg run`.
     - [ ] 22.1.5.1 Migrate standard/permissive compiled-package import indexing from legacy `clg-packages.json` to canonical metadata/ABI inputs and retire legacy loader behavior.

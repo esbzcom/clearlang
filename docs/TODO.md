@@ -989,14 +989,19 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 ### 23 Runtime Package Loader + Linker
 - [ ] 23.0 Runtime linker for compiled packages.
-  - [ ] 23.0.1 Implement host-side package loader from trusted store/registry index.
-  - [ ] 23.0.2 Enforce fail-closed digest/signature checks before linking.
-  - [ ] 23.0.3 Add deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts.
-  - [ ] 23.0.4 Add artifact availability/resilience plan (mirrors/cache policy/offline mode/failure behavior) with operational runbook coverage.
+  - [x] 23.0.0 Publish and lock Phase 23 runtime loader/linker design before implementation. (`docs/design/phase-23.0-runtime-loader-linker-design-lock.md`)
+    - [x] 23.0.0.1 Lock runtime source-of-truth inputs (lockfile/import-map/trust-policy/host-profile), canonical artifact locator model, deterministic resolution ordering, and canonical runtime link artifact contract (`clg.runtime-link.json` + hash).
+    - [x] 23.0.0.2 Reserve and register Phase 23 runtime-loader diagnostics (`R012`-`R017`) before wiring implementation, and pin with reservation tests. (`docs/diagnostics.md`, `crates/cli/tests/phase23_diagnostics_reservation.rs`)
+    - [x] 23.0.0.3 Lock deterministic replay contract and runtime signer-time semantics (signed_at-anchored, no ambient wall-clock dependence) for runtime loader outputs/diagnostics.
+  - [ ] 23.0.1 Implement host-side package loader core from trusted local store/index with explicit no-implicit-network default.
+  - [ ] 23.0.2 Enforce fail-closed runtime trust gates (digest/signature/policy + lock/import-map consistency) before linking any package artifact.
+  - [ ] 23.0.3 Implement deterministic runtime linker/import binding path and deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts.
+  - [ ] 23.0.4 Add artifact availability/resilience policy (mirrors/cache/offline mode/retry/failure behavior) and operational runbook coverage.
 - [ ] 23.1 Runtime loading completion gate for milestone_2.
-  - [ ] 23.1.1 Add automatic runtime package loader/linker so host resolves package artifacts without manual import wiring.
-  - [ ] 23.1.2 Keep fail-closed trust checks (digest/signature/policy) as mandatory gates for runtime package loading.
-  - [ ] 23.1.3 Add staged rollout/canary + rollback criteria for runtime loader enablement in production hosts.
+  - [ ] 23.1.1 Enable automatic runtime package loader/linker path in runtime hosts (`clg run` and production host integrations) without manual import wiring.
+  - [ ] 23.1.2 Add CI tamper + determinism replay matrix for runtime loading/linking (missing/mismatch/untrusted artifacts, diagnostics ordering, replay stability).
+  - [ ] 23.1.3 Keep fail-closed runtime trust checks mandatory in all production profiles (no permissive fallback for runtime package loading).
+  - [ ] 23.1.4 Add staged rollout/canary + rollback criteria and release gate evidence for runtime loader enablement in production hosts.
 
 ### 24 Host Profiles + Milestone_2 Exit
 - [ ] 24.0 Host capability profile alignment.

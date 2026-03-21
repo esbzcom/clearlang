@@ -106,6 +106,7 @@ jobs:
             cargo run -p clg-cli -- build "clearlang-tests/${sample}" -o "${out}"
             wasm-tools validate "${out}"
           done
+          cargo run -p clg-cli -- run clearlang-tests/16_namespaced_call.clear
           cargo run -p clg-cli -- emit-hello -o tmp/ci/emit_hello.wasm
           wasm-tools validate tmp/ci/emit_hello.wasm
 

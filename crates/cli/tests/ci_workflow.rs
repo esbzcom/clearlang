@@ -16,6 +16,10 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should validate emitted wasm with wasm-tools"
     );
     assert!(
+        contents.contains("cargo run -p clg-cli -- run clearlang-tests/16_namespaced_call.clear"),
+        "ci should run the namespaced runnable baseline fixture directly"
+    );
+    assert!(
         contents.contains("cargo test --workspace"),
         "ci should run workspace tests"
     );

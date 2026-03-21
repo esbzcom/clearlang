@@ -988,7 +988,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 22.1.5.3 Emit an explicit non-strict assurance-claim marker in CLI/artifact outputs to prevent interpreting non-strict proofs as release-grade trust evidence.
 
 ### 23 Runtime Package Loader + Linker
-- [ ] 23.0 Runtime linker for compiled packages.
+- [x] 23.0 Runtime linker for compiled packages.
   - [x] 23.0.0 Publish and lock Phase 23 runtime loader/linker design before implementation. (`docs/design/phase-23.0-runtime-loader-linker-design-lock.md`)
     - [x] 23.0.0.1 Lock runtime source-of-truth inputs (lockfile/import-map/trust-policy/host-profile), canonical artifact locator model, deterministic resolution ordering, and canonical runtime link artifact contract (`clg.runtime-link.json` + hash).
     - [x] 23.0.0.2 Reserve and register Phase 23 runtime-loader diagnostics (`R012`-`R017`) before wiring implementation, and pin with reservation tests. (`docs/diagnostics.md`, `crates/cli/tests/phase23_diagnostics_reservation.rs`)
@@ -997,14 +997,14 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 23.0.2 Enforce fail-closed runtime trust gates (digest/signature/policy + lock/import-map consistency) before linking any package artifact. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
   - [x] 23.0.3 Implement deterministic runtime linker/import binding path and deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts. (`crates/cli/src/commands/run/mod.rs`, `crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
   - [x] 23.0.4 Add artifact availability/resilience policy (mirrors/cache/offline mode/retry/failure behavior) and operational runbook coverage. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`, `docs/runtime/runtime-loader-resilience-runbook.md`)
-- [ ] 23.1 Runtime loading completion gate for milestone_2.
+- [x] 23.1 Runtime loading completion gate for milestone_2.
   - [x] 23.1.1 Enable automatic runtime package loader/linker path in runtime hosts (`clg run` and production host integrations) without manual import wiring. (`crates/cli/src/lib.rs`, `crates/cli/src/main.rs`, `crates/cli/src/commands/run/mod.rs`, `docs/runtime/host-integration-api.md`)
   - [x] 23.1.2 Add CI tamper + determinism replay matrix for runtime loading/linking (missing/mismatch/untrusted artifacts, diagnostics ordering, replay stability). (`crates/cli/tests/run_smoke.rs`, `.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`)
   - [x] 23.1.3 Keep fail-closed runtime trust checks mandatory in all production profiles (no permissive fallback for runtime package loading). (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
   - [x] 23.1.4 Add staged rollout/canary + rollback criteria and release gate evidence for runtime loader enablement in production hosts. (`docs/runtime/runtime-loader-rollout-gate.md`, `crates/cli/tests/runtime_loader_rollout_gate.rs`)
 
 ### 24 Host Profiles + Milestone_2 Exit
-- [ ] 24.0 Host capability profile alignment.
+- [x] 24.0 Host capability profile alignment.
   - [x] 24.0.1 Keep `std::crypto`/`std::env`/`std::wasi` host-backed with explicit determinism policies. (`docs/runtime/host-backed-determinism-policy.md`, `docs/runtime/host-imports.md`, `crates/cli/tests/cli_it/imports.rs`, `crates/cli/tests/cli_it/runtime_env.rs`, `crates/cli/tests/cli_it/crypto.rs`)
   - [x] 24.0.2 Expand host-profile docs from 20.1 host-profile v0 bootstrap to full static/contract vs shared/app production policy. (`docs/runtime/host-profiles-production-policy.md`, `docs/runtime/host-imports.md`, `docs/design/phase-20.1.0-host-profile-v0.md`, `crates/cli/tests/host_profile_policy_docs.rs`)
   - [x] 24.0.3 Add host conformance certification suite for deterministic std-host capability behavior across supported runtimes. (`crates/cli/tests/host_conformance_certification.rs`, `docs/runtime/host-profiles-production-policy.md`)
@@ -1022,7 +1022,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 24.2.8 Release readiness: security review, runbooks, signed artifacts, and `release_notes/milestone_2.md` are complete.
   - [ ] 24.2.9 Production SLO/performance gates: package resolution/link latency, startup overhead, and memory/CPU budgets are measured and within defined thresholds.
   - [ ] 24.2.10 Supply-chain compliance gates: SBOM/license checks for shipped package artifacts and runtime dependencies are green.
-- [ ] 24.3 Milestone_2 delivery governance (execution risk controls).
+- [x] 24.3 Milestone_2 delivery governance (execution risk controls).
   - [x] 24.3.1 Assign an explicit owner/DRI for each Phase 20-24 parent task and record it in TODO/DEVPLAN. (`docs/rollout/milestone_2-governance.md`, `docs/rollout/DEVPLAN.md`)
   - [x] 24.3.2 Add target dates (planned start/end) for each Phase 20-24 parent task and mark critical-path dependencies. (`docs/rollout/milestone_2-governance.md`)
   - [x] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly. (`docs/rollout/milestone_2-governance.md`)

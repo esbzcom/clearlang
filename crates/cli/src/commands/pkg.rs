@@ -3,14 +3,17 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
+use crate::commands::build::strict_trust_policy::{load_required_trust_policy_v0, TrustedSignerV0};
+use crate::commands::build::CompilerMode;
 use crate::commands::helpers::{
     canonical_json_bytes, make_single_json_error, sha256_hex, CommandError,
 };
 use crate::commands::validation::{
-    validate_exact_semver, validate_package_id, validate_semver_requirement,
-    validate_sha256_digest, validate_utc_rfc3339,
+    parse_utc_timestamp_components, validate_exact_semver, validate_package_id,
+    validate_semver_requirement, validate_sha256_digest, validate_utc_rfc3339,
 };
 use crate::logging::{Logger, StageTimings};
 
@@ -72,9 +75,11 @@ struct AdvisoryRoot {
     schema_version: u32,
     #[serde(default)]
     advisories: Vec<RawAdvisoryEntry>,
+    #[serde(default)]
+    signature: Option<RawAdvisorySignature>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawAdvisoryEntry {
     id: String,
@@ -87,6 +92,15 @@ struct RawAdvisoryEntry {
     expires_at: String,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAdvisorySignature {
+    key_id: String,
+    signed_at: String,
+    signature_format: String,
+    signature: String,
+}
+
 #[derive(Clone)]
 struct AdvisoryEntry {
     id: String,
@@ -95,6 +109,8 @@ struct AdvisoryEntry {
     severity: String,
     action: AdvisoryAction,
     minimum_safe_version: Option<SemVer>,
+    issued_at: UtcTimestamp,
+    expires_at: UtcTimestamp,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -103,6 +119,8 @@ enum AdvisoryAction {
     Warn,
     ForceUpgrade,
 }
+
+type UtcTimestamp = (u16, u8, u8, u8, u8, u8);
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -319,9 +337,44 @@ impl std::fmt::Display for PkgLockError {
 
 impl std::error::Error for PkgLockError {}
 
+#[derive(Clone, Debug)]
+struct AdvisoryPolicy {
+    compiler_mode: CompilerMode,
+    advisory_as_of: Option<UtcTimestamp>,
+}
+
+impl AdvisoryPolicy {
+    fn strict(advisory_as_of: UtcTimestamp) -> Self {
+        Self {
+            compiler_mode: CompilerMode::Strict,
+            advisory_as_of: Some(advisory_as_of),
+        }
+    }
+
+    fn standard() -> Self {
+        Self {
+            compiler_mode: CompilerMode::Standard,
+            advisory_as_of: None,
+        }
+    }
+
+    fn permissive() -> Self {
+        Self {
+            compiler_mode: CompilerMode::Permissive,
+            advisory_as_of: None,
+        }
+    }
+
+    fn is_strict(&self) -> bool {
+        self.compiler_mode == CompilerMode::Strict
+    }
+}
+
 pub fn run_lock(
     generate: bool,
     update: bool,
+    compiler_mode: CompilerMode,
+    advisory_as_of: Option<String>,
     root: PathBuf,
     json_errors: bool,
     logger: Logger,
@@ -341,6 +394,68 @@ pub fn run_lock(
             "pkg lock requires exactly one of `--generate` or `--update`".to_string(),
         );
     }
+
+    let advisory_policy = match (compiler_mode, advisory_as_of.as_deref()) {
+        (CompilerMode::Strict, Some(raw)) => {
+            let parsed = parse_utc_timestamp_components(raw).map_err(|msg| {
+                PkgLockError::new(
+                    "C117",
+                    format!(
+                        "`--advisory-as-of` must be valid UTC RFC3339 (`YYYY-MM-DDTHH:MM:SSZ`): {}",
+                        msg
+                    ),
+                )
+            });
+            match parsed {
+                Ok(ts) => AdvisoryPolicy::strict(ts),
+                Err(err) => return fail_pkg(err.code(), err.to_string()),
+            }
+        }
+        (CompilerMode::Strict, None) => {
+            return fail_pkg(
+                "C117",
+                "`--compiler-mode strict` requires `--advisory-as-of <RFC3339_UTC>` for deterministic advisory evaluation".to_string(),
+            )
+        }
+        (CompilerMode::Standard, Some(raw)) => {
+            let parsed = parse_utc_timestamp_components(raw).map_err(|msg| {
+                PkgLockError::new(
+                    "C117",
+                    format!(
+                        "`--advisory-as-of` must be valid UTC RFC3339 (`YYYY-MM-DDTHH:MM:SSZ`): {}",
+                        msg
+                    ),
+                )
+            });
+            match parsed {
+                Ok(ts) => AdvisoryPolicy {
+                    compiler_mode,
+                    advisory_as_of: Some(ts),
+                },
+                Err(err) => return fail_pkg(err.code(), err.to_string()),
+            }
+        }
+        (CompilerMode::Permissive, Some(raw)) => {
+            let parsed = parse_utc_timestamp_components(raw).map_err(|msg| {
+                PkgLockError::new(
+                    "C117",
+                    format!(
+                        "`--advisory-as-of` must be valid UTC RFC3339 (`YYYY-MM-DDTHH:MM:SSZ`): {}",
+                        msg
+                    ),
+                )
+            });
+            match parsed {
+                Ok(ts) => AdvisoryPolicy {
+                    compiler_mode,
+                    advisory_as_of: Some(ts),
+                },
+                Err(err) => return fail_pkg(err.code(), err.to_string()),
+            }
+        }
+        (CompilerMode::Standard, None) => AdvisoryPolicy::standard(),
+        (CompilerMode::Permissive, None) => AdvisoryPolicy::permissive(),
+    };
 
     let mut timings = StageTimings::new();
     let metadata_path = root.join(CANONICAL_PACKAGE_METADATA_FILE);
@@ -375,7 +490,11 @@ pub fn run_lock(
         } else {
             None
         };
-        match load_lockfile_from_metadata(metadata_path.as_path(), root_inputs) {
+        match load_lockfile_from_metadata_with_policy(
+            metadata_path.as_path(),
+            root_inputs,
+            &advisory_policy,
+        ) {
             Ok(value) => value,
             Err(err) => return fail_pkg(err.code(), err.to_string()),
         }
@@ -521,7 +640,10 @@ fn load_root_inputs_for_update(path: &Path) -> Result<Vec<StrictLockRootV1>, Pkg
     Ok(roots)
 }
 
-fn load_advisories(root: &Path) -> Result<Vec<AdvisoryEntry>, PkgLockError> {
+fn load_advisories(
+    root: &Path,
+    policy: &AdvisoryPolicy,
+) -> Result<Vec<AdvisoryEntry>, PkgLockError> {
     let advisory_path = root.join(ADVISORY_FILE);
     if !advisory_path.exists() {
         return Ok(Vec::new());
@@ -557,6 +679,9 @@ fn load_advisories(root: &Path) -> Result<Vec<AdvisoryEntry>, PkgLockError> {
                 advisory_path.display()
             ),
         ));
+    }
+    if policy.is_strict() {
+        verify_advisory_signature_strict(root, &raw, advisory_path.as_path())?;
     }
 
     let mut seen_ids = HashSet::with_capacity(raw.advisories.len());
@@ -640,6 +765,42 @@ fn load_advisories(root: &Path) -> Result<Vec<AdvisoryEntry>, PkgLockError> {
                 ),
             )
         })?;
+        let issued_at = parse_utc_timestamp_components(item.issued_at.as_str()).map_err(|msg| {
+            PkgLockError::new(
+                "C117",
+                format!(
+                    "advisory `{}` in `{}` has invalid issued_at `{}`: {}",
+                    item.id,
+                    advisory_path.display(),
+                    item.issued_at,
+                    msg
+                ),
+            )
+        })?;
+        let expires_at =
+            parse_utc_timestamp_components(item.expires_at.as_str()).map_err(|msg| {
+                PkgLockError::new(
+                    "C117",
+                    format!(
+                        "advisory `{}` in `{}` has invalid expires_at `{}`: {}",
+                        item.id,
+                        advisory_path.display(),
+                        item.expires_at,
+                        msg
+                    ),
+                )
+            })?;
+        if expires_at <= issued_at {
+            return Err(PkgLockError::new(
+                "C117",
+                format!(
+                    "advisory `{}` in `{}` must satisfy issued_at < expires_at",
+                    item.id,
+                    advisory_path.display()
+                ),
+            ));
+        }
+
         let action = match item.action.as_str() {
             "deny" => AdvisoryAction::Deny,
             "warn" => AdvisoryAction::Warn,
@@ -715,6 +876,8 @@ fn load_advisories(root: &Path) -> Result<Vec<AdvisoryEntry>, PkgLockError> {
             severity: item.severity,
             action,
             minimum_safe_version,
+            issued_at,
+            expires_at,
         });
     }
 
@@ -732,9 +895,243 @@ fn load_advisories(root: &Path) -> Result<Vec<AdvisoryEntry>, PkgLockError> {
     Ok(advisories)
 }
 
+fn verify_advisory_signature_strict(
+    root: &Path,
+    raw: &AdvisoryRoot,
+    advisory_path: &Path,
+) -> Result<(), PkgLockError> {
+    let signature = raw.signature.as_ref().ok_or_else(|| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate requires signed advisory envelope in `{}`",
+                advisory_path.display()
+            ),
+        )
+    })?;
+
+    if signature.key_id.trim().is_empty() {
+        return Err(PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: signature key_id is empty",
+                advisory_path.display()
+            ),
+        ));
+    }
+    if signature.signature_format != "ed25519" {
+        return Err(PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: unsupported signature_format `{}`; expected `ed25519`",
+                advisory_path.display(),
+                signature.signature_format
+            ),
+        ));
+    }
+    validate_utc_rfc3339("signed_at", signature.signed_at.as_str()).map_err(|msg| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: invalid signed_at `{}`: {msg}",
+                advisory_path.display(),
+                signature.signed_at
+            ),
+        )
+    })?;
+    let signed_at =
+        parse_utc_timestamp_components(signature.signed_at.as_str()).map_err(|msg| {
+            PkgLockError::new(
+                "C117",
+                format!(
+                    "strict advisory trust gate failed for `{}`: invalid signed_at `{}`: {}",
+                    advisory_path.display(),
+                    signature.signed_at,
+                    msg
+                ),
+            )
+        })?;
+
+    let trust_policy = load_required_trust_policy_v0(root).map_err(|err| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: {}",
+                advisory_path.display(),
+                err.message()
+            ),
+        )
+    })?;
+
+    let signer = trust_policy
+        .trusted_signers
+        .iter()
+        .find(|s| s.key_id == signature.key_id)
+        .ok_or_else(|| {
+            PkgLockError::new(
+                "C117",
+                format!(
+                    "strict advisory trust gate failed for `{}`: signer `{}` is not trusted",
+                    advisory_path.display(),
+                    signature.key_id
+                ),
+            )
+        })?;
+
+    if trust_policy
+        .revoked_key_ids
+        .iter()
+        .any(|key_id| key_id == &signature.key_id)
+    {
+        return Err(PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: signer `{}` is revoked",
+                advisory_path.display(),
+                signature.key_id
+            ),
+        ));
+    }
+
+    let not_before = parse_utc_timestamp_components(signer.not_before.as_str()).map_err(|msg| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: signer `{}` has invalid not_before `{}`: {}",
+                advisory_path.display(),
+                signer.key_id,
+                signer.not_before,
+                msg
+            ),
+        )
+    })?;
+    let not_after = parse_utc_timestamp_components(signer.not_after.as_str()).map_err(|msg| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: signer `{}` has invalid not_after `{}`: {}",
+                advisory_path.display(),
+                signer.key_id,
+                signer.not_after,
+                msg
+            ),
+        )
+    })?;
+    if signed_at < not_before || signed_at >= not_after {
+        return Err(PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: signer `{}` is not valid at signed_at `{}`",
+                advisory_path.display(),
+                signer.key_id,
+                signature.signed_at
+            ),
+        ));
+    }
+
+    let verifying = advisory_verifying_key_from_signer(signer).map_err(|msg| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: signer `{}` public_key is invalid: {}",
+                advisory_path.display(),
+                signer.key_id,
+                msg
+            ),
+        )
+    })?;
+    let signature_bytes =
+        decode_advisory_signature(signature.signature.as_str()).map_err(|msg| {
+            PkgLockError::new(
+                "C117",
+                format!(
+                    "strict advisory trust gate failed for `{}`: signature is invalid: {}",
+                    advisory_path.display(),
+                    msg
+                ),
+            )
+        })?;
+
+    let payload = canonical_advisory_signature_payload(
+        raw.schema_version,
+        raw.advisories.as_slice(),
+        signature.signed_at.as_str(),
+    )
+    .map_err(|msg| {
+        PkgLockError::new(
+            "C117",
+            format!(
+                "strict advisory trust gate failed for `{}`: {}",
+                advisory_path.display(),
+                msg
+            ),
+        )
+    })?;
+    verifying
+        .verify_strict(payload.as_slice(), &signature_bytes)
+        .map_err(|_| {
+            PkgLockError::new(
+                "C117",
+                format!(
+                    "strict advisory trust gate failed for `{}`: signature verification failed for signer `{}`",
+                    advisory_path.display(),
+                    signature.key_id
+                ),
+            )
+        })?;
+    Ok(())
+}
+
+fn advisory_verifying_key_from_signer(
+    signer: &TrustedSignerV0,
+) -> Result<VerifyingKey, &'static str> {
+    const PREFIX: &str = "hex:";
+    if !signer.public_key.starts_with(PREFIX) {
+        return Err("public_key must start with `hex:`");
+    }
+    let key_hex = &signer.public_key[PREFIX.len()..];
+    let key_raw = hex::decode(key_hex).map_err(|_| "public_key is not valid hex")?;
+    let key_bytes: [u8; 32] = key_raw
+        .try_into()
+        .map_err(|_| "public_key must be exactly 32 bytes")?;
+    VerifyingKey::from_bytes(&key_bytes).map_err(|_| "public_key bytes are invalid")
+}
+
+fn decode_advisory_signature(value: &str) -> Result<Signature, &'static str> {
+    let raw = hex::decode(value).map_err(|_| "signature is not valid hex")?;
+    Signature::try_from(raw.as_slice()).map_err(|_| "signature must be exactly 64 bytes")
+}
+
+fn canonical_advisory_signature_payload(
+    schema_version: u32,
+    advisories: &[RawAdvisoryEntry],
+    signed_at: &str,
+) -> Result<Vec<u8>, String> {
+    let mut normalized = advisories.to_vec();
+    normalized.sort_by(|a, b| a.package.cmp(&b.package).then_with(|| a.id.cmp(&b.id)));
+    let payload = serde_json::json!({
+        "schema_version": schema_version,
+        "advisories": normalized,
+        "signed_at": signed_at,
+    });
+    serde_json::to_value(payload)
+        .map(|value| canonical_json_bytes(&value))
+        .map_err(|err| format!("failed to canonicalize advisory payload: {err}"))
+}
+
+#[cfg(test)]
 fn load_lockfile_from_metadata(
     path: &Path,
     root_inputs: Option<Vec<StrictLockRootV1>>,
+) -> Result<StrictLockfileV1, PkgLockError> {
+    let policy = AdvisoryPolicy::standard();
+    load_lockfile_from_metadata_with_policy(path, root_inputs, &policy)
+}
+
+fn load_lockfile_from_metadata_with_policy(
+    path: &Path,
+    root_inputs: Option<Vec<StrictLockRootV1>>,
+    advisory_policy: &AdvisoryPolicy,
 ) -> Result<StrictLockfileV1, PkgLockError> {
     if !path.exists() {
         return Err(PkgLockError::new(
@@ -752,7 +1149,7 @@ fn load_lockfile_from_metadata(
         ));
     }
     let advisory_root = path.parent().unwrap_or(Path::new("."));
-    let advisories = load_advisories(advisory_root)?;
+    let advisories = load_advisories(advisory_root, advisory_policy)?;
 
     let content = fs::read_to_string(path)
         .map_err(|err| PkgLockError::new("C027", format!("reading {}: {err}", path.display())))?;
@@ -943,7 +1340,12 @@ fn load_lockfile_from_metadata(
     }
 
     let roots = root_inputs.unwrap_or_else(|| derive_root_inputs_for_generate(&catalog));
-    let selected = solve_deterministic_versions(&catalog, roots.as_slice(), advisories.as_slice())?;
+    let selected = solve_deterministic_versions(
+        &catalog,
+        roots.as_slice(),
+        advisories.as_slice(),
+        advisory_policy.advisory_as_of,
+    )?;
     if let Some(cycle) = detect_resolved_cycle(&selected) {
         return Err(PkgLockError::new(
             "C112",
@@ -1033,9 +1435,15 @@ fn solve_deterministic_versions(
     catalog: &HashMap<String, Vec<ValidatedPackage>>,
     roots: &[StrictLockRootV1],
     advisories: &[AdvisoryEntry],
+    advisory_as_of: Option<UtcTimestamp>,
 ) -> Result<HashMap<String, ValidatedPackage>, PkgLockError> {
     let mut advisories_by_package: HashMap<String, Vec<AdvisoryEntry>> = HashMap::new();
     for advisory in advisories {
+        if let Some(as_of) = advisory_as_of {
+            if !(advisory.issued_at <= as_of && as_of < advisory.expires_at) {
+                continue;
+            }
+        }
         advisories_by_package
             .entry(advisory.package.clone())
             .or_default()
@@ -2045,4 +2453,3 @@ mod tests {
         );
     }
 }
-

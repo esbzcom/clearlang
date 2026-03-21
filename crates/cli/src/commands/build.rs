@@ -31,7 +31,7 @@ mod strict_lockfile;
 mod strict_package_contract;
 mod strict_package_signatures;
 mod strict_preflight_input;
-mod strict_trust_policy;
+pub(crate) mod strict_trust_policy;
 mod strict_validation;
 mod vcs_json;
 

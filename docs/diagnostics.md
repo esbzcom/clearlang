@@ -178,7 +178,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C114 | build | Deterministic semver tie-break policy could not select a unique candidate. |
 | C115 | build | Advisory deny policy rejected selected package version(s). |
 | C116 | build | Advisory forced-upgrade policy could not find a compliant resolvable version. |
-| C117 | build | Advisory input is missing/invalid/untrusted in strict mode. |
+| C117 | build | Advisory policy input is missing/invalid (including strict-mode `--advisory-as-of` precondition, malformed advisory schema/timestamps, or strict trust/signature verification failure). |
 | C118 | build | Build/run resolution policy mismatch for equivalent package inputs. |
 | C119 | build | Resolver/solver replay determinism mismatch on identical inputs (graph/lockfile/diagnostics drift). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |

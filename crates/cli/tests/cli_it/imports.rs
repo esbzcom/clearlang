@@ -252,6 +252,138 @@ fn invalid_package_metadata_reports_c027() {
 }
 
 #[test]
+fn package_metadata_prerelease_version_reports_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let pkg_dir = root.join("pkg");
+    fs::create_dir_all(&pkg_dir).expect("create pkg dir");
+    fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
+
+    let main_src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "mathpkg",
+      "version": "1.0.0-alpha",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
+      "abi_id": "abi:mathpkg:1.0.0-alpha"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:mathpkg:1.0.0-alpha",
+      "package": "mathpkg",
+      "version": "1.0.0-alpha",
+      "imports": []
+    }
+  ]
+}"#,
+    )
+    .expect("write abi");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn package_metadata_artifact_parent_traversal_reports_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let pkg_dir = root.join("pkg");
+    fs::create_dir_all(&pkg_dir).expect("create pkg dir");
+    fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
+
+    let main_src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "mathpkg",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "../pkg/mathpkg.wasm" },
+      "abi_id": "abi:mathpkg:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:mathpkg:1.0.0",
+      "package": "mathpkg",
+      "version": "1.0.0",
+      "imports": []
+    }
+  ]
+}"#,
+    )
+    .expect("write abi");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
 fn legacy_package_metadata_is_rejected_reports_c027() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

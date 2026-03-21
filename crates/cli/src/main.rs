@@ -150,6 +150,12 @@ enum PkgCommands {
         /// Update an existing lockfile from canonical package metadata
         #[arg(long, default_value_t = false, conflicts_with = "generate")]
         update: bool,
+        /// Compiler strictness profile (permissive, standard, strict)
+        #[arg(long, value_enum, default_value_t = CompilerMode::Standard)]
+        compiler_mode: CompilerMode,
+        /// Deterministic advisory policy evaluation time (UTC RFC3339)
+        #[arg(long, value_name = "RFC3339_UTC")]
+        advisory_as_of: Option<String>,
         /// Module root containing package metadata and lockfile
         #[arg(long, value_name = "DIR", default_value = ".")]
         root: PathBuf,
@@ -227,8 +233,18 @@ fn main() -> Result<()> {
             PkgCommands::Lock {
                 generate,
                 update,
+                compiler_mode,
+                advisory_as_of,
                 root,
-            } => cmd_pkg::run_lock(generate, update, root, cli.json_errors, logger),
+            } => cmd_pkg::run_lock(
+                generate,
+                update,
+                compiler_mode,
+                advisory_as_of,
+                root,
+                cli.json_errors,
+                logger,
+            ),
         },
     };
 

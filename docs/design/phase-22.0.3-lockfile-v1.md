@@ -41,10 +41,13 @@ Evolve lockfile v0 (direct-only pins) into a full deterministic lockfile for tra
 
 ## Workflow Lock
 1. `clg pkg lock --generate`
-   - creates a full v1 lockfile from canonical metadata and trust policy inputs.
+   - creates a full v1 lockfile from canonical metadata and advisory policy inputs.
 2. `clg pkg lock --update`
    - updates lockfile from current roots + policy + advisory constraints.
-3. `clg build --compiler-mode strict`
+3. Strict advisory determinism:
+   - `clg pkg lock --compiler-mode strict` requires `--advisory-as-of <RFC3339_UTC>`.
+   - strict mode requires signed advisory envelope + trust-policy verification when advisory input is present.
+4. `clg build --compiler-mode strict`
    - consumes lockfile as source of truth and rejects drift.
 
 ## Determinism Rules
@@ -64,4 +67,3 @@ Evolve lockfile v0 (direct-only pins) into a full deterministic lockfile for tra
 - `docs/TODO.md` (`22.0.3`, `22.1.4`)
 - `docs/design/phase-20.1.0-strict-lockfile-v0.md`
 - `docs/design/phase-22.1.0-resolver-semver-determinism.md`
-

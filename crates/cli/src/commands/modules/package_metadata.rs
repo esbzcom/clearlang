@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path};
 
 use anyhow::{anyhow, Context, Result};
 use clg_ast::{Effect, Param, ParamKind, Type};
@@ -537,8 +537,12 @@ fn validate_identifier(name: &str) -> Result<()> {
 }
 
 fn validate_semver(version: &str) -> Result<()> {
-    let core = version.split('-').next().unwrap_or(version);
-    let parts: Vec<&str> = core.split('.').collect();
+    if version.contains('-') || version.contains('+') {
+        return Err(anyhow!(
+            "version must use exact MAJOR.MINOR.PATCH without pre-release/build metadata"
+        ));
+    }
+    let parts: Vec<&str> = version.split('.').collect();
     if parts.len() != 3 {
         return Err(anyhow!("version must use MAJOR.MINOR.PATCH"));
     }
@@ -564,6 +568,25 @@ fn validate_artifact(name: &str, artifact: &RawPackageArtifact, _root: &Path) ->
             name,
             artifact.path
         ));
+    }
+    for component in artifact_path.components() {
+        match component {
+            Component::ParentDir => {
+                return Err(anyhow!(
+                    "package `{}` artifact path `{}` must not contain parent-directory traversal (`..`)",
+                    name,
+                    artifact.path
+                ));
+            }
+            Component::Prefix(_) | Component::RootDir => {
+                return Err(anyhow!(
+                    "package `{}` artifact path `{}` must be relative",
+                    name,
+                    artifact.path
+                ));
+            }
+            Component::CurDir | Component::Normal(_) => {}
+        }
     }
     Ok(())
 }

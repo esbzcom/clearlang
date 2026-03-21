@@ -9,31 +9,31 @@ use super::strict_validation::parse_utc_timestamp_components;
 pub(super) const STRICT_TRUST_POLICY_FILE: &str = "clg.trust-policy.json";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct StrictTrustPolicyV0 {
-    pub(super) trusted_signers: Vec<TrustedSignerV0>,
-    pub(super) revoked_key_ids: Vec<String>,
-    pub(super) compromised_key_ids: Vec<String>,
-    pub(super) lifecycle: Option<StrictTrustLifecycleV1>,
+pub(crate) struct StrictTrustPolicyV0 {
+    pub(crate) trusted_signers: Vec<TrustedSignerV0>,
+    pub(crate) revoked_key_ids: Vec<String>,
+    pub(crate) compromised_key_ids: Vec<String>,
+    pub(crate) lifecycle: Option<StrictTrustLifecycleV1>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct TrustedSignerV0 {
-    pub(super) key_id: String,
-    pub(super) scheme: String,
-    pub(super) public_key: String,
-    pub(super) not_before: String,
-    pub(super) not_after: String,
+pub(crate) struct TrustedSignerV0 {
+    pub(crate) key_id: String,
+    pub(crate) scheme: String,
+    pub(crate) public_key: String,
+    pub(crate) not_before: String,
+    pub(crate) not_after: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct StrictTrustLifecycleV1 {
+pub(crate) struct StrictTrustLifecycleV1 {
     pub(super) rotation_overlap_days: u32,
     pub(super) max_signer_age_days: u32,
     pub(super) compromise_response_hours: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct StrictTrustPolicyError {
+pub(crate) struct StrictTrustPolicyError {
     code: &'static str,
     message: String,
 }
@@ -46,11 +46,11 @@ impl StrictTrustPolicyError {
         }
     }
 
-    pub(super) fn code(&self) -> &'static str {
+    pub(crate) fn code(&self) -> &'static str {
         self.code
     }
 
-    pub(super) fn message(&self) -> &str {
+    pub(crate) fn message(&self) -> &str {
         &self.message
     }
 }
@@ -91,7 +91,7 @@ struct RawTrustLifecycleV1 {
     compromise_response_hours: u32,
 }
 
-pub(super) fn load_required_trust_policy_v0(
+pub(crate) fn load_required_trust_policy_v0(
     root: &Path,
 ) -> Result<StrictTrustPolicyV0, StrictTrustPolicyError> {
     let path = root.join(STRICT_TRUST_POLICY_FILE);

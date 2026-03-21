@@ -1010,7 +1010,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 24.0.3 Add host conformance certification suite for deterministic std-host capability behavior across supported runtimes. (`crates/cli/tests/host_conformance_certification.rs`, `docs/runtime/host-profiles-production-policy.md`)
 - [ ] 24.1 Milestone_2 release gate.
   - [x] 24.1.1 Verify Phases 20-24 completion without regressions to Phase 19 strict/profile guarantees. (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `crates/cli/tests/host_conformance_certification.rs`)
-  - [ ] 24.1.2 Publish `release_notes/milestone_2.md` once gates are green.
+  - [ ] 24.1.2 Publish `release_notes/milestone_2.md` once gates are green. (draft prepared: `release_notes/milestone_2.md`; blocked by `24.2.8`-`24.2.10`)
 - [ ] 24.2 Go-live checklist (must be green before milestone_2 tag).
   - [x] 24.2.1 Runnable baseline: `clg run clearlang-tests/16_namespaced_call.clear` passes in CI and docs clearly mark runnable vs parse-only fixtures. (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `clearlang-tests/README.md`)
   - [x] 24.2.2 Precompiled std-core: CI emits versioned artifact + metadata with reproducible hash and import-pruning coverage. (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `crates/cli/tests/cli_it/imports.rs`)

@@ -1001,7 +1001,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 23.1.1 Enable automatic runtime package loader/linker path in runtime hosts (`clg run` and production host integrations) without manual import wiring. (`crates/cli/src/lib.rs`, `crates/cli/src/main.rs`, `crates/cli/src/commands/run/mod.rs`, `docs/runtime/host-integration-api.md`)
   - [x] 23.1.2 Add CI tamper + determinism replay matrix for runtime loading/linking (missing/mismatch/untrusted artifacts, diagnostics ordering, replay stability). (`crates/cli/tests/run_smoke.rs`, `.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`)
   - [x] 23.1.3 Keep fail-closed runtime trust checks mandatory in all production profiles (no permissive fallback for runtime package loading). (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
-  - [ ] 23.1.4 Add staged rollout/canary + rollback criteria and release gate evidence for runtime loader enablement in production hosts.
+  - [x] 23.1.4 Add staged rollout/canary + rollback criteria and release gate evidence for runtime loader enablement in production hosts. (`docs/runtime/runtime-loader-rollout-gate.md`, `crates/cli/tests/runtime_loader_rollout_gate.rs`)
 
 ### 24 Host Profiles + Milestone_2 Exit
 - [ ] 24.0 Host capability profile alignment.

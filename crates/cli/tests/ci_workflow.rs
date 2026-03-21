@@ -113,4 +113,12 @@ fn ci_workflow_enforces_validation_and_tests() {
         contents.contains("cargo clippy --workspace --all-targets -- -D warnings"),
         "ci should enforce clippy warnings"
     );
+    assert!(
+        contents.contains("bash scripts/ci/milestone2_perf_gate.sh"),
+        "ci should enforce milestone_2 performance budget gate"
+    );
+    assert!(
+        contents.contains("name: milestone2-performance"),
+        "ci should upload milestone_2 performance measurement artifact"
+    );
 }

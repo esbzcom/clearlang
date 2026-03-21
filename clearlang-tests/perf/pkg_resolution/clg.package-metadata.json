@@ -1,0 +1,12 @@
+{
+  "schema_version": 0,
+  "packages": [
+    {
+      "name": "mathpkg",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
+      "abi_id": "abi:mathpkg:1.0.0"
+    }
+  ]
+}

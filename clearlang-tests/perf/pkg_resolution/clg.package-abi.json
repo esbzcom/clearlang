@@ -1,0 +1,19 @@
+{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:mathpkg:1.0.0",
+      "package": "mathpkg",
+      "version": "1.0.0",
+      "imports": [
+        {
+          "symbol": "mathpkg::arith::add2",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]
+    }
+  ]
+}

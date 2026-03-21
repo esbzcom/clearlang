@@ -1,0 +1,5 @@
+import mathpkg::arith::{add2}
+
+function main() -> Int {
+    add2(40, 2)
+}

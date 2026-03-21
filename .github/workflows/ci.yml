@@ -45,6 +45,10 @@ jobs:
           cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers
       - name: Release build
         run: cargo build --release -p clg-cli
+      - name: Milestone 2 performance budgets
+        run: |
+          set -euo pipefail
+          bash scripts/ci/milestone2_perf_gate.sh
       - name: Std-core artifact reproducibility
         run: |
           set -euo pipefail
@@ -88,6 +92,11 @@ jobs:
         with:
           name: host-capability-policy-v1
           path: tmp/host-policy/run1/*
+      - name: Upload milestone_2 performance artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone2-performance
+          path: tmp/perf/*
       - name: Validate emitted Wasm
         run: |
           set -euo pipefail

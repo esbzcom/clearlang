@@ -26,11 +26,11 @@ Milestone 2 delivers the production package/runtime path across Phases 20-24:
   - host conformance certification.
 
 ## Remaining Publish Blockers
-- `24.2.9` Production SLO/performance budget measurements and pass/fail evidence.
 - `24.2.10` Supply-chain compliance evidence (SBOM/license checks) and pass/fail sign-off.
 
 Completed readiness evidence:
 - `24.2.8` is covered by `docs/evidence/milestone_2-readiness.md`.
+- `24.2.9` is covered by `docs/evidence/milestone_2-performance.md`.
 
 ## Publish Criteria
 Before changing this draft to final:

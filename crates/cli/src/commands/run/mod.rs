@@ -20,24 +20,26 @@ mod package_loader;
 mod runtime_error;
 mod wasm_state;
 
-use package_loader::{load_runtime_packages_from_local_store_if_present, RuntimeLoaderConfig};
+use package_loader::{
+    load_runtime_packages_from_local_store_if_present, LoadedRuntimePackageSet, RuntimeLoaderConfig,
+};
 use runtime_error::{extract_runtime_error, extract_wasmtime_limit_error, RuntimeErrorDiag};
 
 pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> Result<()> {
     let mut timings = StageTimings::new();
     let engine = wt::Engine::new(&wt::Config::new())?;
     let module = load_module_for_run(&engine, &file, json_errors, logger, &mut timings)?;
-    {
+    let runtime_packages = {
         let _stage = timings.start(logger, "runtime_load_packages");
         let runtime_root = file.parent().unwrap_or(Path::new("."));
-        if let Some(runtime_packages) = load_runtime_packages_from_local_store_if_present(
+        let loaded = load_runtime_packages_from_local_store_if_present(
             runtime_root,
             RuntimeLoaderConfig::default(),
         )
-        .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?
-        {
-            let _ = runtime_packages.resolver_version;
-            for pkg in &runtime_packages.packages {
+        .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?;
+        if let Some(loaded_packages) = loaded.as_ref() {
+            let _ = loaded_packages.resolver_version;
+            for pkg in &loaded_packages.packages {
                 let _ = (
                     pkg.id.as_str(),
                     pkg.digest.as_str(),
@@ -45,8 +47,17 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
                     pkg.resolved_path.as_path(),
                 );
             }
+            for binding in &loaded_packages.bindings {
+                let _ = (
+                    binding.import_module.as_str(),
+                    binding.import_name.as_str(),
+                    binding.provider_package_id.as_str(),
+                    binding.provider_symbol.as_str(),
+                );
+            }
         }
-    }
+        loaded
+    };
     let wasi = WasiCtxBuilder::new()
         .inherit_stdout()
         .inherit_stderr()
@@ -58,6 +69,10 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
         wasmtime_wasi::add_to_linker(&mut linker, |cx| cx).context("linking WASI")?;
         env::add_env_stubs(&mut linker).context("linking env stubs")?;
         crypto::add_crypto_stubs(&mut linker).context("linking crypto stubs")?;
+        if let Some(runtime_packages) = runtime_packages.as_ref() {
+            link_runtime_packages(&engine, &module, &mut store, &mut linker, runtime_packages)
+                .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?;
+        }
         linker
             .instantiate(&mut store, &module)
             .context("instantiating module")?
@@ -85,6 +100,105 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
             Err(trap)
         }
     }
+}
+
+fn link_runtime_packages(
+    engine: &wt::Engine,
+    module: &wt::Module,
+    store: &mut wt::Store<wasmtime_wasi::WasiCtx>,
+    linker: &mut wt::Linker<wasmtime_wasi::WasiCtx>,
+    runtime_packages: &LoadedRuntimePackageSet,
+) -> Result<(), package_loader::RuntimePackageLoaderError> {
+    let mut provider_module_names: std::collections::HashMap<&str, String> =
+        std::collections::HashMap::with_capacity(runtime_packages.packages.len());
+
+    for pkg in &runtime_packages.packages {
+        let provider_module = wt::Module::from_file(engine, &pkg.resolved_path).map_err(|err| {
+            package_loader::RuntimePackageLoaderError::new(
+                "R015",
+                format!(
+                    "runtime linker failed to load provider package `{}` module `{}`: {err}",
+                    pkg.id,
+                    pkg.resolved_path.display()
+                ),
+            )
+        })?;
+        let instance = linker
+            .instantiate(&mut *store, &provider_module)
+            .map_err(|err| {
+                package_loader::RuntimePackageLoaderError::new(
+                    "R015",
+                    format!(
+                        "runtime linker failed to instantiate provider package `{}`: {err}",
+                        pkg.id
+                    ),
+                )
+            })?;
+        let provider_module_name = format!("__clg_runtime_pkg__{}", pkg.id);
+        linker
+            .instance(&mut *store, provider_module_name.as_str(), instance)
+            .map_err(|err| {
+                package_loader::RuntimePackageLoaderError::new(
+                    "R015",
+                    format!(
+                        "runtime linker failed to register provider package `{}` exports: {err}",
+                        pkg.id
+                    ),
+                )
+            })?;
+        provider_module_names.insert(pkg.id.as_str(), provider_module_name);
+    }
+
+    for binding in &runtime_packages.bindings {
+        let Some(provider_module_name) =
+            provider_module_names.get(binding.provider_package_id.as_str())
+        else {
+            return Err(package_loader::RuntimePackageLoaderError::new(
+                "R015",
+                format!(
+                    "runtime linker binding `{}`::`{}` references unknown provider package `{}`",
+                    binding.import_module, binding.import_name, binding.provider_package_id
+                ),
+            ));
+        };
+        linker
+            .alias(
+                provider_module_name.as_str(),
+                binding.provider_symbol.as_str(),
+                binding.import_module.as_str(),
+                binding.import_name.as_str(),
+            )
+            .map_err(|err| {
+                package_loader::RuntimePackageLoaderError::new(
+                    "R015",
+                    format!(
+                        "runtime linker failed to bind `{}`::`{}` to `{}`::`{}`: {err}",
+                        binding.import_module,
+                        binding.import_name,
+                        binding.provider_package_id,
+                        binding.provider_symbol
+                    ),
+                )
+            })?;
+    }
+
+    for import in module.imports() {
+        if linker
+            .get(&mut *store, import.module(), import.name())
+            .is_none()
+        {
+            return Err(package_loader::RuntimePackageLoaderError::new(
+                "R015",
+                format!(
+                    "runtime linker has no provider for import `{}`::`{}`",
+                    import.module(),
+                    import.name()
+                ),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 fn load_module_for_run(

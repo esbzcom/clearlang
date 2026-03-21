@@ -995,7 +995,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 23.0.0.3 Lock deterministic replay contract and runtime signer-time semantics (signed_at-anchored, no ambient wall-clock dependence) for runtime loader outputs/diagnostics.
   - [x] 23.0.1 Implement host-side package loader core from trusted local store/index with explicit no-implicit-network default. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/src/commands/run/mod.rs`, `crates/cli/tests/run_smoke.rs`)
   - [x] 23.0.2 Enforce fail-closed runtime trust gates (digest/signature/policy + lock/import-map consistency) before linking any package artifact. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
-  - [ ] 23.0.3 Implement deterministic runtime linker/import binding path and deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts.
+  - [x] 23.0.3 Implement deterministic runtime linker/import binding path and deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts. (`crates/cli/src/commands/run/mod.rs`, `crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
   - [ ] 23.0.4 Add artifact availability/resilience policy (mirrors/cache/offline mode/retry/failure behavior) and operational runbook coverage.
 - [ ] 23.1 Runtime loading completion gate for milestone_2.
   - [ ] 23.1.1 Enable automatic runtime package loader/linker path in runtime hosts (`clg run` and production host integrations) without manual import wiring.

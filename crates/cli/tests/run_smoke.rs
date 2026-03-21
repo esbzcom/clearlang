@@ -472,3 +472,77 @@ fn run_wasm_with_runtime_link_but_missing_store_index_fails_closed_with_r012() {
     assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("R012"));
     assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
 }
+
+#[test]
+fn run_wasm_with_runtime_link_missing_provider_symbol_fails_with_r015() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let store_dir = root.join("store");
+    fs::create_dir_all(&store_dir).expect("create store");
+    let artifact_path = store_dir.join("hello.wasm");
+    fs::copy(&wasm_path, &artifact_path).expect("copy artifact");
+    let artifact_bytes = fs::read(&artifact_path).expect("read artifact");
+    let digest = format!("sha256:{}", sha256_hex(artifact_bytes.as_slice()));
+    write_runtime_loader_gate_artifacts(root, digest.as_str(), true);
+
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": "app::hello@1.0.0",
+                "digest": digest,
+                "artifact_path": "store/hello.wasm",
+                "abi_id": "abi:app::hello:1.0.0"
+            }
+        ],
+        "bindings": [
+            {
+                "import_module": "app::hello",
+                "import_name": "main",
+                "provider_package_id": "app::hello@1.0.0",
+                "provider_symbol": "missing_symbol"
+            }
+        ]
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .output()
+        .expect("run command");
+    assert!(!output.status.success(), "run should fail");
+    let v: Value = serde_json::from_slice(&output.stdout).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errors.is_empty());
+    let first = &errors[0];
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("R015"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+}

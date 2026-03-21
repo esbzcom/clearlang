@@ -35,6 +35,15 @@ pub(super) struct LoadedRuntimePackage {
 pub(super) struct LoadedRuntimePackageSet {
     pub(super) resolver_version: u32,
     pub(super) packages: Vec<LoadedRuntimePackage>,
+    pub(super) bindings: Vec<LoadedRuntimeBinding>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct LoadedRuntimeBinding {
+    pub(super) import_module: String,
+    pub(super) import_name: String,
+    pub(super) provider_package_id: String,
+    pub(super) provider_symbol: String,
 }
 
 #[derive(Clone, Debug)]
@@ -44,7 +53,7 @@ pub(super) struct RuntimePackageLoaderError {
 }
 
 impl RuntimePackageLoaderError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub(super) fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
@@ -633,6 +642,16 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
     Ok(Some(LoadedRuntimePackageSet {
         resolver_version: runtime_link.resolver_version,
         packages: loaded_packages,
+        bindings: runtime_link
+            .bindings
+            .iter()
+            .map(|binding| LoadedRuntimeBinding {
+                import_module: binding.import_module.clone(),
+                import_name: binding.import_name.clone(),
+                provider_package_id: binding.provider_package_id.clone(),
+                provider_symbol: binding.provider_symbol.clone(),
+            })
+            .collect(),
     }))
 }
 

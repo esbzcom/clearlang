@@ -949,3 +949,57 @@ fn import_std_chain_type_item_allows_build() {
         .assert()
         .success();
 }
+
+#[test]
+fn host_backed_std_surfaces_emit_expected_runtime_import_modules() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        io function main() -> Int {
+            std::wasi::print(std::bytes::from_string("x"));
+            std::bytes::len(std::env::random(1))
+                + std::env::time()
+                + std::bytes::len(std::crypto::hash("sha256", std::bytes::from_string("x")))
+        }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let imports = wasm_import_pairs(&wasm);
+    assert!(
+        imports
+            .iter()
+            .any(|(module, name)| module == "wasi_snapshot_preview1" && name == "fd_write"),
+        "expected std::wasi::print to stay host-backed via wasi fd_write"
+    );
+    assert!(
+        imports
+            .iter()
+            .any(|(module, name)| module == "clearlang_env" && name == "env_time"),
+        "expected std::env::time to stay host-backed via clearlang_env"
+    );
+    assert!(
+        imports
+            .iter()
+            .any(|(module, name)| module == "clearlang_env" && name == "env_random"),
+        "expected std::env::random to stay host-backed via clearlang_env"
+    );
+    assert!(
+        imports
+            .iter()
+            .any(|(module, name)| module == "clearlang_crypto" && name == "crypto_hash"),
+        "expected std::crypto::hash to stay host-backed via clearlang_crypto"
+    );
+}

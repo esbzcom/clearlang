@@ -102,3 +102,55 @@ fn run_env_random_negative_length_reports_r002() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("R002"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("runtime"));
 }
+
+#[test]
+fn run_env_stubs_are_replay_deterministic() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("env_replay.clear");
+    let wasm_path = tmp.path().join("env_replay.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::bytes::len(std::env::random(8)) + std::env::time()
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let first = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let second = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(
+        first, second,
+        "expected identical stdout on replay for deterministic env stubs"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&first).trim(),
+        "8",
+        "expected deterministic env output to remain time=0 + len(random(8))=8"
+    );
+}

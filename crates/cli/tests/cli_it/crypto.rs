@@ -233,3 +233,62 @@ fn run_bytes_eq_ct_returns_true() {
         .success()
         .stdout(predicate::str::contains("1"));
 }
+
+#[test]
+fn run_crypto_hash_replay_is_deterministic() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("crypto_hash_replay.clear");
+    let wasm_path = tmp.path().join("crypto_hash_replay.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            if std::bytes::eq(
+                std::crypto::hash("sha256", std::bytes::from_string("hi")),
+                std::crypto::hash("sha256", std::bytes::from_string("hi"))
+            ) {
+                1
+            } else {
+                0
+            }
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let first = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let second = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(
+        first, second,
+        "expected identical stdout on replay for deterministic crypto host stubs"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&first).trim(),
+        "1",
+        "expected equal hashes to produce deterministic true result"
+    );
+}

@@ -1,4 +1,6 @@
 use super::*;
+use ed25519_dalek::{Signer, SigningKey};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -14,6 +16,29 @@ fn extract_first_sha256_from_stdout(stdout: &[u8]) -> String {
     let rest = &text[start..];
     let end = rest.find(']').expect("sha256 marker closed");
     rest[..end].to_string()
+}
+
+fn canonicalize_json_value(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().cloned().collect();
+            keys.sort();
+            let mut out = serde_json::Map::new();
+            for key in keys {
+                out.insert(
+                    key.clone(),
+                    canonicalize_json_value(map.get(key.as_str()).expect("key exists")),
+                );
+            }
+            Value::Object(out)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json_value).collect()),
+        _ => value.clone(),
+    }
+}
+
+fn canonical_json_bytes(value: &Value) -> Vec<u8> {
+    serde_json::to_vec(&canonicalize_json_value(value)).expect("serialize canonical json")
 }
 
 #[test]
@@ -228,6 +253,46 @@ fn pkg_lock_update_fails_if_lock_missing() {
     let e0 = &errs[0];
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+}
+
+#[test]
+fn pkg_lock_generate_rejects_artifact_parent_traversal_with_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "../store/std-core.wasm" },
+      "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
 }
 
 #[test]
@@ -771,6 +836,106 @@ fn pkg_lock_strict_mode_rejects_unsigned_advisory_envelope() {
     assert_eq!(errs.len(), 1);
     let e0 = &errs[0];
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C117"));
+}
+
+#[test]
+fn pkg_lock_strict_mode_accepts_valid_signed_advisory_envelope() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let signing = SigningKey::from_bytes(&[9u8; 32]);
+    let key_hex = hex::encode(signing.verifying_key().to_bytes());
+    let signed_at = "2026-01-10T00:00:00Z";
+
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
+      "abi_id": "abi:app::entry:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.trust-policy.json"),
+        format!(
+            r#"{{
+  "schema_version": 0,
+  "trusted_signers": [
+    {{
+      "key_id": "k1",
+      "scheme": "ed25519",
+      "public_key": "hex:{key_hex}",
+      "not_before": "2026-01-01T00:00:00Z",
+      "not_after": "2027-01-01T00:00:00Z"
+    }}
+  ],
+  "revoked_key_ids": []
+}}"#
+        ),
+    )
+    .expect("write trust policy");
+
+    let advisories = json!([
+        {
+            "id": "ADV-STRICT-OK-001",
+            "package": "app::entry",
+            "affected": "^1.0.0",
+            "severity": "high",
+            "action": "deny",
+            "minimum_safe_version": "1.0.0",
+            "issued_at": "2028-01-01T00:00:00Z",
+            "expires_at": "2029-01-01T00:00:00Z"
+        }
+    ]);
+    let payload = json!({
+        "schema_version": 1,
+        "advisories": advisories,
+        "signed_at": signed_at,
+    });
+    let sig_hex = hex::encode(
+        signing
+            .sign(canonical_json_bytes(&payload).as_slice())
+            .to_bytes(),
+    );
+
+    fs::write(
+        root.join("clg.advisories.json"),
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 1,
+            "advisories": payload.get("advisories").expect("advisories").clone(),
+            "signature": {
+                "key_id": "k1",
+                "signed_at": signed_at,
+                "signature_format": "ed25519",
+                "signature": sig_hex
+            }
+        }))
+        .expect("serialize advisories"),
+    )
+    .expect("write advisories");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args([
+            "pkg",
+            "lock",
+            "--generate",
+            "--root",
+            root.to_str().expect("root utf8"),
+            "--compiler-mode",
+            "strict",
+            "--advisory-as-of",
+            "2026-06-01T00:00:00Z",
+        ])
+        .assert()
+        .success();
 }
 
 #[test]

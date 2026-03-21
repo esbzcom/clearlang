@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -1214,7 +1214,8 @@ fn load_lockfile_from_metadata_with_policy(
                 format!("invalid artifact path for `{}`: path is empty", name),
             ));
         }
-        if Path::new(artifact.path.as_str()).is_absolute() {
+        let artifact_path_ref = Path::new(artifact.path.as_str());
+        if artifact_path_ref.is_absolute() {
             return Err(PkgLockError::new(
                 "C027",
                 format!(
@@ -1222,6 +1223,29 @@ fn load_lockfile_from_metadata_with_policy(
                     artifact.path, name
                 ),
             ));
+        }
+        for component in artifact_path_ref.components() {
+            match component {
+                Component::ParentDir => {
+                    return Err(PkgLockError::new(
+                        "C027",
+                        format!(
+                            "invalid artifact path `{}` for `{}`: path must not contain parent-directory traversal (`..`)",
+                            artifact.path, name
+                        ),
+                    ));
+                }
+                Component::Prefix(_) | Component::RootDir => {
+                    return Err(PkgLockError::new(
+                        "C027",
+                        format!(
+                            "invalid artifact path `{}` for `{}`: path must be relative",
+                            artifact.path, name
+                        ),
+                    ));
+                }
+                Component::CurDir | Component::Normal(_) => {}
+            }
         }
         let artifact_path = artifact.path;
         if abi_id.trim().is_empty() {

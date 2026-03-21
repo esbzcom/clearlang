@@ -50,8 +50,10 @@ struct RawPackageV1 {
     abi_id: String,
     #[serde(default)]
     dependencies: Vec<RawPackageDependencyV1>,
-    signature: RawPackageSignatureV1,
-    trust: RawPackageTrustV1,
+    #[serde(default)]
+    signature: Option<RawPackageSignatureV1>,
+    #[serde(default)]
+    trust: Option<RawPackageTrustV1>,
 }
 
 #[derive(Deserialize)]
@@ -220,13 +222,17 @@ impl PackageMetadataIndex {
                         for dep in &entry.dependencies {
                             let _ = (&dep.name, &dep.requirement);
                         }
-                        let _ = (
-                            &entry.signature.format,
-                            &entry.signature.key_id,
-                            &entry.signature.signed_at,
-                            &entry.signature.signature,
-                            &entry.trust.trusted_anchor_ids,
-                        );
+                        if let Some(signature) = entry.signature.as_ref() {
+                            let _ = (
+                                &signature.format,
+                                &signature.key_id,
+                                &signature.signed_at,
+                                &signature.signature,
+                            );
+                        }
+                        if let Some(trust) = entry.trust.as_ref() {
+                            let _ = &trust.trusted_anchor_ids;
+                        }
                         CanonicalPackageEntry {
                             name: entry.name,
                             version: entry.version,

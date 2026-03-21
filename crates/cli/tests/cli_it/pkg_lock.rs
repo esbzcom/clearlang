@@ -17,6 +17,61 @@ fn extract_first_sha256_from_stdout(stdout: &[u8]) -> String {
 }
 
 #[test]
+fn pkg_lock_and_build_accept_same_schema_v1_metadata_contract() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "extpkg",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/extpkg.wasm" },
+      "abi_id": "abi:extpkg:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:extpkg:1.0.0",
+      "package": "extpkg",
+      "version": "1.0.0",
+      "imports": []
+    }
+  ]
+}"#,
+    )
+    .expect("write abi");
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, "function main() -> Int { 0 }").expect("write main");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(root.join("out.wasm"))
+        .assert()
+        .success();
+}
+
+#[test]
 fn pkg_lock_generate_writes_sorted_pins_from_metadata() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

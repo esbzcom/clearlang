@@ -1,8 +1,10 @@
 use assert_cmd::Command;
+use ed25519_dalek::{Signer, SigningKey};
 use predicates::prelude::PredicateBooleanExt;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 fn sample(name: &str) -> PathBuf {
@@ -44,6 +46,123 @@ fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     format!("{:x}", hasher.finalize())
+}
+
+fn write_runtime_loader_gate_artifacts(root: &Path, digest: &str, include_store_index: bool) {
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": "app::hello@1.0.0",
+                "digest": digest,
+                "artifact_path": "store/hello.wasm",
+                "abi_id": "abi:app::hello:1.0.0"
+            }
+        ],
+        "bindings": [
+            {
+                "import_module": "app::hello",
+                "import_name": "main",
+                "provider_package_id": "app::hello@1.0.0",
+                "provider_symbol": "main"
+            }
+        ]
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+
+    if include_store_index {
+        fs::write(
+            root.join("clg.package-store-index.json"),
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "schema_version": 0,
+                "artifacts": [
+                    {
+                        "id": "app::hello@1.0.0",
+                        "digest": digest,
+                        "path": "store/hello.wasm"
+                    }
+                ]
+            }))
+            .expect("serialize store index"),
+        )
+        .expect("write store index");
+    }
+
+    fs::write(
+        root.join("clg.lock.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 1,
+            "resolver_version": 1,
+            "roots": [],
+            "packages": [
+                {
+                    "id": "app::hello@1.0.0",
+                    "name": "app::hello",
+                    "version": "1.0.0",
+                    "digest": digest,
+                    "abi_id": "abi:app::hello:1.0.0",
+                    "dependencies": []
+                }
+            ]
+        }))
+        .expect("serialize lockfile"),
+    )
+    .expect("write lockfile");
+
+    let signing = SigningKey::from_bytes(&[11u8; 32]);
+    let signed_at = "2026-06-01T00:00:00Z";
+    let payload = format!("clg-package-signature-v0\napp::hello\n1.0.0\n{digest}\n{signed_at}\n");
+    let signature = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+    fs::write(
+        root.join("clg.trust-policy.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "trusted_signers": [
+                {
+                    "key_id": "k1",
+                    "scheme": "ed25519",
+                    "public_key": format!("hex:{}", hex::encode(signing.verifying_key().to_bytes())),
+                    "not_before": "2026-01-01T00:00:00Z",
+                    "not_after": "2027-01-01T00:00:00Z"
+                }
+            ],
+            "revoked_key_ids": []
+        }))
+        .expect("serialize trust policy"),
+    )
+    .expect("write trust policy");
+    fs::write(
+        root.join("clg.package-signatures.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "signatures": [
+                {
+                    "name": "app::hello",
+                    "version": "1.0.0",
+                    "digest": digest,
+                    "key_id": "k1",
+                    "signed_at": signed_at,
+                    "signature_format": "ed25519",
+                    "signature": signature
+                }
+            ]
+        }))
+        .expect("serialize signature file"),
+    )
+    .expect("write signature file");
 }
 
 #[test]
@@ -302,48 +421,12 @@ fn run_wasm_with_runtime_link_artifacts_uses_local_store_loader_core() {
 
     let store_dir = root.join("store");
     fs::create_dir_all(&store_dir).expect("create store");
-    fs::copy(&wasm_path, store_dir.join("hello.wasm")).expect("copy artifact");
+    let artifact_path = store_dir.join("hello.wasm");
+    fs::copy(&wasm_path, &artifact_path).expect("copy artifact");
+    let artifact_bytes = fs::read(&artifact_path).expect("read artifact");
+    let digest = format!("sha256:{}", sha256_hex(artifact_bytes.as_slice()));
 
-    let runtime_link = serde_json::json!({
-        "schema_version": 0,
-        "resolver_version": 1,
-        "packages": [
-            {
-                "id": "app::hello@1.0.0",
-                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "artifact_path": "store/hello.wasm",
-                "abi_id": "abi:app::hello:1.0.0"
-            }
-        ],
-        "bindings": []
-    });
-    fs::write(
-        root.join("clg.runtime-link.json"),
-        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
-    )
-    .expect("write runtime link");
-    fs::write(
-        root.join("clg.runtime-link.sha256"),
-        format!(
-            "{}\n",
-            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
-        ),
-    )
-    .expect("write runtime link hash");
-    fs::write(
-        root.join("clg.package-store-index.json"),
-        r#"{
-  "schema_version": 0,
-  "artifacts": [
-    {
-      "id": "app::hello@1.0.0",
-      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "path": "store/hello.wasm"
-    }
-  ]
-}"#,
-    )
-    .expect("write store index");
+    write_runtime_loader_gate_artifacts(root, digest.as_str(), true);
 
     Command::cargo_bin("clg")
         .expect("bin")
@@ -367,32 +450,9 @@ fn run_wasm_with_runtime_link_but_missing_store_index_fails_closed_with_r012() {
         .assert()
         .success();
 
-    let runtime_link = serde_json::json!({
-        "schema_version": 0,
-        "resolver_version": 1,
-        "packages": [
-            {
-                "id": "app::hello@1.0.0",
-                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "artifact_path": "store/hello.wasm",
-                "abi_id": "abi:app::hello:1.0.0"
-            }
-        ],
-        "bindings": []
-    });
-    fs::write(
-        root.join("clg.runtime-link.json"),
-        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
-    )
-    .expect("write runtime link");
-    fs::write(
-        root.join("clg.runtime-link.sha256"),
-        format!(
-            "{}\n",
-            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
-        ),
-    )
-    .expect("write runtime link hash");
+    let artifact_bytes = fs::read(&wasm_path).expect("read wasm");
+    let digest = format!("sha256:{}", sha256_hex(artifact_bytes.as_slice()));
+    write_runtime_loader_gate_artifacts(root, digest.as_str(), false);
 
     let output = Command::cargo_bin("clg")
         .expect("bin")

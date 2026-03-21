@@ -10,6 +10,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -20,7 +25,7 @@
         ],
         "focus_span": {
           "end": 225,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 219
         },
@@ -33,7 +38,7 @@
         "clause_kind": "invariant",
         "focus_span": {
           "end": 225,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 219
         },
@@ -41,13 +46,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 225,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 219
           }
@@ -112,7 +117,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 225,
       "post_start": 219,
       "pre_end": 142,
@@ -167,6 +172,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -177,7 +187,7 @@
         ],
         "focus_span": {
           "end": 240,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 238
         },
@@ -190,7 +200,7 @@
         "clause_kind": "variant",
         "focus_span": {
           "end": 240,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 238
         },
@@ -198,13 +208,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 240,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 238
           }
@@ -269,7 +279,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 240,
       "post_start": 238,
       "pre_end": 142,
@@ -324,6 +334,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -334,7 +349,7 @@
         ],
         "focus_span": {
           "end": 240,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 238
         },
@@ -347,7 +362,7 @@
         "clause_kind": "variant",
         "focus_span": {
           "end": 240,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 238
         },
@@ -355,13 +370,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 240,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 238
           }
@@ -426,7 +441,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 240,
       "post_start": 238,
       "pre_end": 142,
@@ -481,6 +496,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -491,7 +511,7 @@
         ],
         "focus_span": {
           "end": 177,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 149
         },
@@ -504,7 +524,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 177,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 149
         },
@@ -512,13 +532,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 177,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 149
           }
@@ -583,7 +603,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 177,
       "post_start": 149,
       "pre_end": 142,

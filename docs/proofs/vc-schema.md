@@ -31,6 +31,10 @@ VC Object (v2)
     - `L1`: `checked core`
     - `L2`: `verified module`
     - `L3`: `verified package profile`
+- `assurance_claim`: object - explicit trust-claim boundary marker for this artifact
+  - `compiler_mode`: string (`permissive|standard|strict|unknown`)
+  - `non_strict_evidence_only`: boolean (`true` in permissive/standard; `false` in strict)
+  - `release_grade_trust`: boolean (`true` only in strict mode)
 - `assumptions`: object - optional assumption boundaries (v2+)
   - `items`: array of assumption objects (may be empty)
 - `positions`: object - optional source mapping
@@ -139,6 +143,7 @@ Notes
 - `assumptions.items` enumerates model boundaries required for that VC; omission means no selected boundary was detected for that VC.
 - `assumptions.items[].intrinsic_levels` is emitted only for crypto boundaries and is ordered exactly like `symbols` for deterministic tool consumption.
 - `assurance` is always emitted so release/policy tooling can consume tier labels deterministically.
+- `assurance_claim.non_strict_evidence_only=true` explicitly marks non-strict outputs as developer evidence and not release-grade trust claims.
 - `diagnostics.repair_hints` is advisory guidance for failed-VC workflows; it does not alter VC semantics or assurance tiers.
 - `diagnostics.failure_slice` maps each VC obligation to exact source spans so failure reporting can point directly to user code.
 - `diagnostics.counterexample` carries the model-report envelope; in current implementation `state` is `solver_unavailable` and `bindings[*].value` is `null` until external solver/model attachment is provided.

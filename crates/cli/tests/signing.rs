@@ -201,6 +201,7 @@ fn tamper_proofs_hash(module: &Path) {
         proofs_hash: Vec<u8>,
         functions: serde_cbor::Value,
         assurance: Option<serde_cbor::Value>,
+        assurance_claim: Option<serde_cbor::Value>,
     }
 
     fn to_cbor_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
@@ -332,6 +333,29 @@ fn sign_and_verify_roundtrip() {
             .and_then(|v| v.as_str()),
         Some("verified module")
     );
+    let assurance_claim = sig_value
+        .get("payload")
+        .and_then(|v| v.get("assurance_claim"))
+        .and_then(|v| v.as_object())
+        .expect("payload assurance_claim");
+    assert_eq!(
+        assurance_claim
+            .get("compiler_mode")
+            .and_then(|v| v.as_str()),
+        Some("standard")
+    );
+    assert_eq!(
+        assurance_claim
+            .get("non_strict_evidence_only")
+            .and_then(|v| v.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        assurance_claim
+            .get("release_grade_trust")
+            .and_then(|v| v.as_bool()),
+        Some(false)
+    );
 
     let mut verify = Command::cargo_bin("clg").expect("bin");
     verify
@@ -363,6 +387,7 @@ fn verify_explain_emits_checked_core_summary() {
     let text = String::from_utf8(stdout).expect("utf8 stdout");
     assert!(text.contains("Verification explanation"));
     assert!(text.contains("assurance: L1 (checked core)"));
+    assert!(text.contains("assurance_claim: non-strict evidence only"));
     assert!(text.contains("assumed_boundaries: none"));
 }
 
@@ -444,6 +469,27 @@ fn build_emits_signed_assurance_manifest() {
         .and_then(|v| v.get("fingerprint_sha256"))
         .and_then(|v| v.as_str())
         .is_some());
+    assert_eq!(
+        payload
+            .get("assurance_claim")
+            .and_then(|v| v.get("compiler_mode"))
+            .and_then(|v| v.as_str()),
+        Some("standard")
+    );
+    assert_eq!(
+        payload
+            .get("assurance_claim")
+            .and_then(|v| v.get("non_strict_evidence_only"))
+            .and_then(|v| v.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        payload
+            .get("assurance_claim")
+            .and_then(|v| v.get("release_grade_trust"))
+            .and_then(|v| v.as_bool()),
+        Some(false)
+    );
 
     let payload_hash = manifest_value
         .get("signature")

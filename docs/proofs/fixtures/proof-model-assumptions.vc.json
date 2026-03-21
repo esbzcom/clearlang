@@ -57,6 +57,11 @@
       },
       "tier": "L0"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -79,7 +84,7 @@
         ],
         "focus_span": {
           "end": 153,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 99
         },
@@ -92,7 +97,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 153,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 99
         },
@@ -100,7 +105,7 @@
         "related_spans": [
           {
             "end": 153,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 99
           }
@@ -217,7 +222,7 @@
     },
     "function": "check",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 153,
       "post_start": 99,
       "pre_end": 0,
@@ -296,6 +301,11 @@
       },
       "tier": "L0"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -310,7 +320,7 @@
         ],
         "focus_span": {
           "end": 189,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 160
         },
@@ -323,7 +333,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 189,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 160
         },
@@ -331,7 +341,7 @@
         "related_spans": [
           {
             "end": 189,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 160
           }
@@ -440,7 +450,7 @@
     },
     "function": "check",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 189,
       "post_start": 160,
       "pre_end": 0,

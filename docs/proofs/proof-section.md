@@ -43,6 +43,7 @@ The payload is a CBOR map with the following fields:
 | `proofs_hash`   | byte string (32 bytes)   | SHA-256 of concatenated VC payloads (defined below).  |
 | `functions`     | array of function maps   | One entry per function carrying contracts/VCs.        |
 | `assurance`     | optional assurance map   | Module-level assurance tier + stable `L0`-`L3` labels. |
+| `assurance_claim` | optional claim map     | Explicit strict vs non-strict trust-claim boundary marker. |
 
 ### Function Entry
 
@@ -74,6 +75,7 @@ Verification condition maps carry the data required to re-run or validate proofs
 | `refinements` | optional refinements map | Refinement premises for this VC (v2+).               |
 | `assumptions` | optional assumptions map | Explicit `assumed` proof-model boundaries for this VC (v2+). |
 | `assurance`   | optional assurance map   | VC-level assurance tier + stable `L0`-`L3` labels.   |
+| `assurance_claim` | optional claim map    | Explicit strict vs non-strict trust-claim boundary marker. |
 
 The optional `proof` map contains `{ format: text, bytes: byte-string }` where `bytes`
 are the raw proof artifact (Alethe, LFSC, etc.). Phase 6.5 stores `null` / omits this
@@ -100,6 +102,11 @@ In strict compiler mode, assumption labels are validated first (`C031`), and any
   - `L1`: `checked core`
   - `L2`: `verified module`
   - `L3`: `verified package profile`
+
+`assurance_claim` is a map with:
+- `compiler_mode`: `permissive|standard|strict|unknown`
+- `non_strict_evidence_only`: boolean (`true` for permissive/standard outputs)
+- `release_grade_trust`: boolean (`true` only for strict outputs)
 
 ## Hashing Rules
 
@@ -129,6 +136,7 @@ uses the same zeroed-field procedure described above. Shape:
   "timestamp": "<RFC3339 UTC>",
   "scope": "module" | "proofs" | "both",
   "assurance": { "tier": "...", "label": "...", "levels": { "L0": "...", "L1": "...", "L2": "...", "L3": "..." } },
+  "assurance_claim": { "compiler_mode": "standard", "non_strict_evidence_only": true, "release_grade_trust": false },
   "trust_anchors": { "lean_checker": "<version>", "coq_checker": "<version>" }
 }
 ```
@@ -168,6 +176,11 @@ Manifest envelope shape:
     "build": {
       "compiler_mode": "permissive|standard|strict",
       "proof_strict": true|false
+    },
+    "assurance_claim": {
+      "compiler_mode": "permissive|standard|strict|unknown",
+      "non_strict_evidence_only": true|false,
+      "release_grade_trust": true|false
     },
     "artifacts": {
       "module_hash": "<hex>",

@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use clg_typer::{AssumptionBoundary, RefinementAttachmentDetail, VerificationCondition};
 
-use crate::proofs::assurance_for_assumptions;
+use crate::proofs::{assurance_claim_for_compiler_mode, assurance_for_assumptions};
 
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
 
@@ -14,6 +14,7 @@ pub(super) fn write_vcs_json(
     mangled_name_origins: &HashMap<String, String>,
     path: &Path,
     src: &Path,
+    compiler_mode: &str,
 ) -> Result<()> {
     use serde_json::json;
 
@@ -24,6 +25,7 @@ pub(super) fn write_vcs_json(
     }
 
     let file_str = src.to_string_lossy();
+    let assurance_claim = assurance_claim_for_compiler_mode(compiler_mode);
     let mut items = Vec::with_capacity(vcs.len());
     for vc in vcs {
         let positions = match (vc.pre.span, vc.post.span) {
@@ -56,6 +58,10 @@ pub(super) fn write_vcs_json(
         obj.insert(
             "assurance".to_string(),
             serde_json::to_value(assurance_for_assumptions(&vc.assumptions))?,
+        );
+        obj.insert(
+            "assurance_claim".to_string(),
+            serde_json::to_value(&assurance_claim)?,
         );
         if !vc.assumptions.is_empty() {
             obj.insert("assumptions".to_string(), assumptions_json(&vc.assumptions));

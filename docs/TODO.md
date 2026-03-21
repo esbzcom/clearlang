@@ -962,7 +962,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 21.0.8.2 Keep deterministic diagnostics ordering/hash assertions green after fixture migration, with no semantic regression in the existing `C101`-`C108` strict acceptance suite.
 
 ### 22 Package Trust + Dependency Resolution
-- [ ] 22.0 Package metadata trust hardening.
+- [x] 22.0 Package metadata trust hardening.
   - [x] 22.0.0 Publish and lock Phase 22 design documents (metadata migration, metadata v1, lockfile v1, resolver/solver determinism, advisory policy, diagnostics). (`docs/design/phase-22.0.0-package-trust-resolution-design-lock.md`, `docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, `docs/design/phase-22.0.2-package-metadata-v1.md`, `docs/design/phase-22.0.3-lockfile-v1.md`, `docs/design/phase-22.1.0-resolver-semver-determinism.md`, `docs/design/phase-22.1.3-vulnerability-response-policy.md`, `docs/design/phase-22.0.6-phase22-diagnostics-reservation.md`)
   - [x] 22.0.1 Unify package metadata to one canonical production model and define migration/deprecation from legacy `clg-packages.json`. (`docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, deterministic coexistence conflict gate in `crates/cli/src/commands/modules/package_metadata.rs`, IT coverage `legacy_and_canonical_package_metadata_conflict_reports_c027`)
   - [x] 22.0.2 Extend package metadata with artifact digest/signature/trust-anchor fields and strict validation. (strict preflight metadata schema v1 support + validation in `crates/cli/src/commands/build/strict_package_contract.rs`, trust-gate linkage checks in `crates/cli/src/commands/build/strict_package_signatures.rs`, regression coverage in strict unit/CLI IT suites)
@@ -982,6 +982,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.1.4 Add CI determinism replay gates for resolver/solver outputs (resolved graph artifact, lockfile bytes/hash, diagnostics ordering). (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`, `crates/cli/src/commands/pkg.rs`)
   - [x] 22.1.5 Add build/run resolution parity policy so package trust/resolution behavior is explicit for both `clg build` and `clg run`.
     - [x] 22.1.5.1 Migrate standard/permissive compiled-package import indexing from legacy `clg-packages.json` to canonical metadata/ABI inputs and retire legacy loader behavior. (`crates/cli/src/commands/modules/package_metadata.rs`, `crates/cli/tests/cli_it/imports.rs`, `crates/cli/tests/cli_it/vc_outputs.rs`, `docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, `docs/diagnostics.md`)
+    - [x] 22.1.5.2 Lock and document strict vs non-strict trust semantics for metadata v1 and proof-claim boundaries (strict-only release/audit trust claims). (`docs/design/phase-22.0.2-package-metadata-v1.md`)
+    - [x] 22.1.5.3 Emit an explicit non-strict assurance-claim marker in CLI/artifact outputs to prevent interpreting non-strict proofs as release-grade trust evidence.
 
 ### 23 Runtime Package Loader + Linker
 - [ ] 23.0 Runtime linker for compiled packages.

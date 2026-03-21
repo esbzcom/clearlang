@@ -10,6 +10,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -20,7 +25,7 @@
         ],
         "focus_span": {
           "end": 53,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 0
         },
@@ -33,7 +38,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 53,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 0
         },
@@ -41,7 +46,7 @@
         "related_spans": [
           {
             "end": 53,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 0
           }
@@ -102,7 +107,7 @@
     },
     "function": "inc",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 53,
       "post_start": 0,
       "pre_end": 0,

@@ -147,6 +147,7 @@ fn emit_explain_summary(
     let payload_module_hash = payload_str(sig_payload, "module_hash").unwrap_or("<missing>");
     let payload_proofs_hash = payload_str(sig_payload, "proofs_hash").unwrap_or("<missing>");
     let (tier, label) = payload_assurance(sig_payload);
+    let assurance_claim = payload_assurance_claim(sig_payload);
 
     let mut total_vcs = 0usize;
     let mut checked_core_vcs = 0usize;
@@ -219,6 +220,24 @@ fn emit_explain_summary(
     println!("module_hash: {}", payload_module_hash);
     println!("proofs_hash: {}", payload_proofs_hash);
     println!("assurance: {} ({})", tier, label);
+    if let Some(claim) = assurance_claim {
+        if claim.non_strict_evidence_only {
+            println!(
+                "assurance_claim: non-strict evidence only (compiler_mode={})",
+                claim.compiler_mode
+            );
+        } else if claim.release_grade_trust {
+            println!(
+                "assurance_claim: strict release-grade trust claim (compiler_mode={})",
+                claim.compiler_mode
+            );
+        } else {
+            println!(
+                "assurance_claim: policy marker present (compiler_mode={})",
+                claim.compiler_mode
+            );
+        }
+    }
     println!("functions: {}", section.functions.len());
     println!("vcs_total: {}", total_vcs);
     println!("vcs_checked_core: {}", checked_core_vcs);
@@ -483,6 +502,33 @@ fn payload_assurance(payload: &serde_json::Map<String, serde_json::Value>) -> (S
         .unwrap_or("unknown")
         .to_string();
     (tier, label)
+}
+
+struct PayloadAssuranceClaim {
+    compiler_mode: String,
+    non_strict_evidence_only: bool,
+    release_grade_trust: bool,
+}
+
+fn payload_assurance_claim(
+    payload: &serde_json::Map<String, serde_json::Value>,
+) -> Option<PayloadAssuranceClaim> {
+    let claim = payload.get("assurance_claim")?.as_object()?;
+    Some(PayloadAssuranceClaim {
+        compiler_mode: claim
+            .get("compiler_mode")
+            .and_then(|value| value.as_str())
+            .unwrap_or("unknown")
+            .to_string(),
+        non_strict_evidence_only: claim
+            .get("non_strict_evidence_only")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false),
+        release_grade_trust: claim
+            .get("release_grade_trust")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false),
+    })
 }
 
 fn payload_trust_anchors(

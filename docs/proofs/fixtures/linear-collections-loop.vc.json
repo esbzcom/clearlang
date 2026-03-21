@@ -10,6 +10,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -24,7 +29,7 @@
         ],
         "focus_span": {
           "end": 328,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 141
         },
@@ -37,7 +42,7 @@
         "clause_kind": "vc",
         "focus_span": {
           "end": 328,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 141
         },
@@ -45,7 +50,7 @@
         "related_spans": [
           {
             "end": 328,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 141
           }
@@ -100,7 +105,7 @@
     },
     "function": "loop_step",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 328,
       "post_start": 141,
       "pre_end": 0,
@@ -132,6 +137,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -142,7 +152,7 @@
         ],
         "focus_span": {
           "end": 171,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 165
         },
@@ -155,7 +165,7 @@
         "clause_kind": "invariant",
         "focus_span": {
           "end": 171,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 165
         },
@@ -163,7 +173,7 @@
         "related_spans": [
           {
             "end": 171,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 165
           }
@@ -224,7 +234,7 @@
     },
     "function": "loop_step",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 171,
       "post_start": 165,
       "pre_end": 0,
@@ -256,6 +266,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -266,7 +281,7 @@
         ],
         "focus_span": {
           "end": 186,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 184
         },
@@ -279,7 +294,7 @@
         "clause_kind": "variant",
         "focus_span": {
           "end": 186,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 184
         },
@@ -287,7 +302,7 @@
         "related_spans": [
           {
             "end": 186,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 184
           }
@@ -348,7 +363,7 @@
     },
     "function": "loop_step",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 186,
       "post_start": 184,
       "pre_end": 0,
@@ -380,6 +395,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -390,7 +410,7 @@
         ],
         "focus_span": {
           "end": 186,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 184
         },
@@ -403,7 +423,7 @@
         "clause_kind": "variant",
         "focus_span": {
           "end": 186,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 184
         },
@@ -411,7 +431,7 @@
         "related_spans": [
           {
             "end": 186,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 184
           }
@@ -472,7 +492,7 @@
     },
     "function": "loop_step",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 186,
       "post_start": 184,
       "pre_end": 0,

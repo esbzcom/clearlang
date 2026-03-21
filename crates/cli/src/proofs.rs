@@ -115,6 +115,13 @@ pub struct ProofAssurance {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProofAssuranceClaim {
+    pub compiler_mode: String,
+    pub non_strict_evidence_only: bool,
+    pub release_grade_trust: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProofProof {
     pub format: String,
     #[serde(with = "serde_bytes")]
@@ -161,6 +168,8 @@ pub struct ProofSection {
     pub functions: Vec<ProofFunction>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assurance: Option<ProofAssurance>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assurance_claim: Option<ProofAssuranceClaim>,
 }
 
 pub struct ProofPackage {
@@ -168,6 +177,7 @@ pub struct ProofPackage {
     functions: Vec<ProofFunction>,
     proofs_hash: [u8; 32],
     assurance: ProofAssurance,
+    assurance_claim: ProofAssuranceClaim,
 }
 
 impl ProofPackage {
@@ -176,6 +186,7 @@ impl ProofPackage {
         vcs: &[VerificationCondition],
         mangled_name_origins: &HashMap<String, String>,
         toolchain: String,
+        compiler_mode: &str,
     ) -> ProofPackage {
         let mut grouped: BTreeMap<String, Vec<ProofVc>> = BTreeMap::new();
         for vc in vcs {
@@ -306,6 +317,7 @@ impl ProofPackage {
             functions,
             proofs_hash,
             assurance: assurance_for_vcs(vcs),
+            assurance_claim: assurance_claim_for_compiler_mode(compiler_mode),
         }
     }
 
@@ -321,6 +333,7 @@ impl ProofPackage {
             proofs_hash: self.proofs_hash.to_vec(),
             functions: self.functions.clone(),
             assurance: Some(self.assurance.clone()),
+            assurance_claim: Some(self.assurance_claim.clone()),
         };
         to_cbor_bytes(&section)
     }
@@ -338,6 +351,7 @@ impl ProofPackage {
             "timestamp": timestamp,
             "scope": scope.as_str(),
             "assurance": self.assurance.clone(),
+            "assurance_claim": self.assurance_claim.clone(),
         })
     }
 }
@@ -393,6 +407,22 @@ pub fn assurance_for_vcs(vcs: &[VerificationCondition]) -> ProofAssurance {
     proof_assurance_for_tier("L1")
 }
 
+pub fn assurance_claim_for_compiler_mode(compiler_mode: &str) -> ProofAssuranceClaim {
+    let normalized = match compiler_mode.trim().to_ascii_lowercase().as_str() {
+        "strict" => "strict",
+        "standard" => "standard",
+        "permissive" => "permissive",
+        _ => "unknown",
+    }
+    .to_string();
+    let strict = normalized == "strict";
+    ProofAssuranceClaim {
+        compiler_mode: normalized,
+        non_strict_evidence_only: !strict,
+        release_grade_trust: strict,
+    }
+}
+
 pub fn build_assurance_manifest_payload(
     vcs: &[VerificationCondition],
     toolchain: &str,
@@ -422,6 +452,7 @@ pub fn build_assurance_manifest_payload(
         BTreeMap::new();
     let mut dependency_trust: BTreeMap<(String, String), String> = BTreeMap::new();
     let mut assumption_count = 0usize;
+    let assurance_claim = assurance_claim_for_compiler_mode(compiler_mode);
 
     for vc in ordered_vcs {
         for boundary in &vc.assumptions {
@@ -519,6 +550,7 @@ pub fn build_assurance_manifest_payload(
             "compiler_mode": compiler_mode,
             "proof_strict": proof_strict,
         },
+        "assurance_claim": assurance_claim,
         "artifacts": {
             "module_hash": module_hash_hex,
             "proofs_hash": proofs_hash_hex,

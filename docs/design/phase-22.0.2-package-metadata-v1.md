@@ -68,6 +68,21 @@ Define one canonical production package metadata schema for build/run resolution
 - During transition, if both legacy and canonical files are present, build fails closed with a deterministic build diagnostic.
 - Final production path: only canonical metadata v1 is accepted in strict and standard package flows.
 
+## Compiler-Mode Trust Semantics (Locked)
+1. Strict mode (`--compiler-mode strict`):
+   - Trust/signature gates are mandatory and fail-closed.
+   - Release/audit proof claims about trusted package provenance require strict mode gates to pass.
+2. Standard/permissive modes:
+   - Canonical metadata v1 remains the source-of-truth for package indexing and deterministic resolution behavior.
+   - `signature`/`trust` fields may be present for continuity, but non-strict flows do not elevate them to release-grade trust claims.
+3. Assurance claim boundary:
+   - Non-strict proof artifacts are developer evidence only.
+   - Production trust claims must be derived from strict mode outputs with trust/signature verification enabled.
+   - CLI/artifact outputs carry explicit marker fields:
+     - `assurance_claim.compiler_mode`
+     - `assurance_claim.non_strict_evidence_only`
+     - `assurance_claim.release_grade_trust`
+
 ## References
 - `docs/TODO.md` (`22.0.1`, `22.0.2`)
 - `docs/design/phase-20.1.0-package-metadata-abi-v0.md`

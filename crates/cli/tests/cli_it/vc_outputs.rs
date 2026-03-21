@@ -46,6 +46,28 @@ fn build_emits_vcs_json() {
         assurance.get("label").and_then(|s| s.as_str()),
         Some("checked core")
     );
+    let assurance_claim = first
+        .get("assurance_claim")
+        .and_then(|o| o.as_object())
+        .expect("assurance_claim obj");
+    assert_eq!(
+        assurance_claim
+            .get("compiler_mode")
+            .and_then(|s| s.as_str()),
+        Some("standard")
+    );
+    assert_eq!(
+        assurance_claim
+            .get("non_strict_evidence_only")
+            .and_then(|v| v.as_bool()),
+        Some(true)
+    );
+    assert_eq!(
+        assurance_claim
+            .get("release_grade_trust")
+            .and_then(|v| v.as_bool()),
+        Some(false)
+    );
     let levels = assurance
         .get("levels")
         .and_then(|o| o.as_object())
@@ -562,6 +584,13 @@ struct AssuranceEntry {
 }
 
 #[derive(Deserialize)]
+struct AssuranceClaimEntry {
+    compiler_mode: String,
+    non_strict_evidence_only: bool,
+    release_grade_trust: bool,
+}
+
+#[derive(Deserialize)]
 struct ProofAssumptionsEntry {
     items: Vec<ProofAssumptionEntry>,
 }
@@ -586,6 +615,8 @@ struct ProofAssumptionsSection {
     functions: Vec<ProofFunctionAssumptionsEntry>,
     #[serde(default)]
     assurance: Option<AssuranceEntry>,
+    #[serde(default)]
+    assurance_claim: Option<AssuranceClaimEntry>,
 }
 
 #[test]
@@ -690,6 +721,10 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
     assert_eq!(section_assurance.label, "assumed");
     assert_eq!(section_assurance.levels.l2, "verified module");
     assert_eq!(section_assurance.levels.l3, "verified package profile");
+    let section_claim = section.assurance_claim.expect("section assurance_claim");
+    assert_eq!(section_claim.compiler_mode, "standard");
+    assert!(section_claim.non_strict_evidence_only);
+    assert!(!section_claim.release_grade_trust);
     let vc_assumptions = section
         .functions
         .iter()

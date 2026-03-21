@@ -472,6 +472,7 @@ pub fn run(
             &vcs,
             &mangled_name_origins,
             toolchain.clone(),
+            compiler_mode.as_str(),
         )
     });
 
@@ -529,7 +530,13 @@ pub fn run(
 
     if let Some(vcs_path) = emit_vcs {
         let _stage = timings.start(logger, "emit_vcs");
-        write_vcs_json(&vcs, &mangled_name_origins, &vcs_path, &file)?;
+        write_vcs_json(
+            &vcs,
+            &mangled_name_origins,
+            &vcs_path,
+            &file,
+            compiler_mode.as_str(),
+        )?;
     }
 
     if sign {

@@ -10,6 +10,11 @@
       },
       "tier": "L1"
     },
+    "assurance_claim": {
+      "compiler_mode": "standard",
+      "non_strict_evidence_only": true,
+      "release_grade_trust": false
+    },
     "diagnostics": {
       "counterexample": {
         "bindings": [
@@ -24,7 +29,7 @@
         ],
         "focus_span": {
           "end": 319,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 142
         },
@@ -37,7 +42,7 @@
         "clause_kind": "vc",
         "focus_span": {
           "end": 319,
-          "file": ".tmp-fixtures\\fixture.clear",
+          "file": "target/fixture_tmp/fixture.clear",
           "role": "post",
           "start": 142
         },
@@ -45,7 +50,7 @@
         "related_spans": [
           {
             "end": 319,
-            "file": ".tmp-fixtures\\fixture.clear",
+            "file": "target/fixture_tmp/fixture.clear",
             "role": "post",
             "start": 142
           }
@@ -100,7 +105,7 @@
     },
     "function": "choose",
     "positions": {
-      "file": ".tmp-fixtures\\fixture.clear",
+      "file": "target/fixture_tmp/fixture.clear",
       "post_end": 319,
       "post_start": 142,
       "pre_end": 0,

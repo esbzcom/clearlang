@@ -72,6 +72,18 @@ fn ci_workflow_enforces_validation_and_tests() {
         "milestone_2 gate should include host-profile conformance certification coverage"
     );
     assert!(
+        contents.contains("milestone2-release-train-gate"),
+        "ci should include a milestone_2 release-train gate job for tag events"
+    );
+    assert!(
+        contents.contains("CLG_ENFORCE_MILESTONE2_RELEASE_GATE: \"1\""),
+        "release-train gate should explicitly enable enforced checklist validation"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-cli --test milestone2_release_train_gate"),
+        "release-train gate should run milestone2 checklist enforcement test"
+    );
+    assert!(
         contents.contains("cargo test -p clg-cli --test vc_snapshots"),
         "ci should enforce proof fixture snapshot regression tests"
     );

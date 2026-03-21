@@ -1023,8 +1023,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 24.2.9 Production SLO/performance gates: package resolution/link latency, startup overhead, and memory/CPU budgets are measured and within defined thresholds.
   - [ ] 24.2.10 Supply-chain compliance gates: SBOM/license checks for shipped package artifacts and runtime dependencies are green.
 - [ ] 24.3 Milestone_2 delivery governance (execution risk controls).
-  - [ ] 24.3.1 Assign an explicit owner/DRI for each Phase 20-24 parent task and record it in TODO/DEVPLAN.
-  - [ ] 24.3.2 Add target dates (planned start/end) for each Phase 20-24 parent task and mark critical-path dependencies.
-  - [ ] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly.
-  - [ ] 24.3.4 Add a release-train gate: do not tag milestone_2 unless 24.2.x is fully green and evidence links are attached.
+  - [x] 24.3.1 Assign an explicit owner/DRI for each Phase 20-24 parent task and record it in TODO/DEVPLAN. (`docs/rollout/milestone_2-governance.md`, `docs/rollout/DEVPLAN.md`)
+  - [x] 24.3.2 Add target dates (planned start/end) for each Phase 20-24 parent task and mark critical-path dependencies. (`docs/rollout/milestone_2-governance.md`)
+  - [x] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly. (`docs/rollout/milestone_2-governance.md`)
+  - [x] 24.3.4 Add a release-train gate: do not tag milestone_2 unless 24.2.x is fully green and evidence links are attached. (`.github/workflows/ci.yml`, `crates/cli/tests/milestone2_release_train_gate.rs`, `crates/cli/tests/ci_workflow.rs`)
 

@@ -16,6 +16,7 @@
 3) Execute **23** (runtime package loader/linker with fail-closed trust checks and rollout/rollback criteria).
 4) Execute **24.0-24.2** (host profile alignment, milestone_2 release gate, go-live checklist).
 5) Run **24.3 governance controls** throughout execution (DRIs, dates/critical path, risk register, release-train gate evidence).
+   - Governance lock document: `docs/rollout/milestone_2-governance.md`.
 
 ## Recently Completed
 - **Phase 20 - Runnable namespace baseline + strict package/link gates**: completed (`20.0`-`20.2`), including diagnostics `C101`-`C108` and deterministic strict import-map evidence gates.

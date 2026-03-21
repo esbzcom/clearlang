@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 #[test]
-fn milestone2_release_notes_draft_exists_with_publish_blockers_section() {
+fn milestone2_release_notes_published_with_release_evidence_sections() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let path = root.join("release_notes").join("milestone_2.md");
     let content = fs::read_to_string(&path).expect("read milestone_2 release notes");
@@ -12,19 +12,23 @@ fn milestone2_release_notes_draft_exists_with_publish_blockers_section() {
         "milestone_2 release notes title should be present"
     );
     assert!(
-        content.contains("Remaining Publish Blockers"),
-        "release notes draft should include explicit publish blockers"
+        content.contains("Published on"),
+        "release notes should include published status"
     );
     assert!(
-        content.contains("24.2.10"),
-        "release notes draft should track unresolved go-live gates"
+        content.contains("Release Evidence"),
+        "release notes should include release evidence section"
     );
     assert!(
         content.contains("24.2.8") && content.contains("milestone_2-readiness.md"),
-        "release notes draft should reference completed readiness evidence for 24.2.8"
+        "release notes should reference readiness evidence for 24.2.8"
     );
     assert!(
         content.contains("24.2.9") && content.contains("milestone_2-performance.md"),
-        "release notes draft should reference completed performance evidence for 24.2.9"
+        "release notes should reference performance evidence for 24.2.9"
+    );
+    assert!(
+        content.contains("24.2.10") && content.contains("milestone_2-supply-chain.md"),
+        "release notes should reference supply-chain evidence for 24.2.10"
     );
 }

@@ -121,4 +121,12 @@ fn ci_workflow_enforces_validation_and_tests() {
         contents.contains("name: milestone2-performance"),
         "ci should upload milestone_2 performance measurement artifact"
     );
+    assert!(
+        contents.contains("python scripts/ci/milestone2_supply_chain_gate.py"),
+        "ci should enforce milestone_2 supply-chain compliance gate"
+    );
+    assert!(
+        contents.contains("name: milestone2-supply-chain"),
+        "ci should upload milestone_2 supply-chain compliance artifact"
+    );
 }

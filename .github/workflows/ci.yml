@@ -49,6 +49,10 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/ci/milestone2_perf_gate.sh
+      - name: Milestone 2 supply-chain compliance gate
+        run: |
+          set -euo pipefail
+          python scripts/ci/milestone2_supply_chain_gate.py
       - name: Std-core artifact reproducibility
         run: |
           set -euo pipefail
@@ -97,6 +101,11 @@ jobs:
         with:
           name: milestone2-performance
           path: tmp/perf/*
+      - name: Upload milestone_2 supply-chain artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone2-supply-chain
+          path: tmp/sbom/*
       - name: Validate emitted Wasm
         run: |
           set -euo pipefail

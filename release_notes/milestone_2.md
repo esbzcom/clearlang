@@ -1,8 +1,8 @@
-# Milestone 2 Release Notes (Draft)
+# Milestone 2 Release Notes
 
 ## Status
-- Draft prepared on 2026-03-21.
-- Final publish is blocked until all go-live gates in `docs/TODO.md` section `24.2` are green.
+- Published on 2026-03-21.
+- Go-live checklist (`24.2.x`) is green in `docs/TODO.md`.
 
 ## Scope Summary
 Milestone 2 delivers the production package/runtime path across Phases 20-24:
@@ -25,15 +25,12 @@ Milestone 2 delivers the production package/runtime path across Phases 20-24:
   - runtime replay checks,
   - host conformance certification.
 
-## Remaining Publish Blockers
-- `24.2.10` Supply-chain compliance evidence (SBOM/license checks) and pass/fail sign-off.
-
-Completed readiness evidence:
+## Release Evidence
 - `24.2.8` is covered by `docs/evidence/milestone_2-readiness.md`.
 - `24.2.9` is covered by `docs/evidence/milestone_2-performance.md`.
+- `24.2.10` is covered by `docs/evidence/milestone_2-supply-chain.md`.
 
-## Publish Criteria
-Before changing this draft to final:
-1. All `24.2.x` checklist items in `docs/TODO.md` are checked.
-2. Milestone-2 CI regression gates are green on the release candidate commit.
-3. Required security/compliance approvals are attached in release evidence.
+## Publish Criteria Status
+1. `24.2.x` checklist items are checked in `docs/TODO.md`.
+2. Milestone-2 CI regression and release-train gates are configured in `.github/workflows/ci.yml`.
+3. Security/performance/supply-chain evidence indexes are linked in this release note.

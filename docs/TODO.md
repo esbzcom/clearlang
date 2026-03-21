@@ -1013,12 +1013,12 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [ ] 24.1.2 Publish `release_notes/milestone_2.md` once gates are green.
 - [ ] 24.2 Go-live checklist (must be green before milestone_2 tag).
   - [x] 24.2.1 Runnable baseline: `clg run clearlang-tests/16_namespaced_call.clear` passes in CI and docs clearly mark runnable vs parse-only fixtures. (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `clearlang-tests/README.md`)
-  - [ ] 24.2.2 Precompiled std-core: CI emits versioned artifact + metadata with reproducible hash and import-pruning coverage.
-  - [ ] 24.2.3 Package trust: digest/signature/trust-anchor metadata validation is enforced; malformed/untrusted metadata fails deterministically.
-  - [ ] 24.2.4 Dependency resolution: transitive resolver + deterministic semver solver + lockfile enforcement are active in CI.
-  - [ ] 24.2.5 Runtime loader/linker: automatic package loading works and fails closed on missing/mismatch/untrusted artifacts with stable diagnostics.
-  - [ ] 24.2.6 Host profiles: static/contract and shared/app profile behavior is documented and covered by integration tests.
-  - [ ] 24.2.7 Assurance/regression gates: Phase 19 strict/profile tests remain green with no assurance-tier regression on protected fixtures.
+  - [x] 24.2.2 Precompiled std-core: CI emits versioned artifact + metadata with reproducible hash and import-pruning coverage. (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `crates/cli/tests/cli_it/imports.rs`)
+  - [x] 24.2.3 Package trust: digest/signature/trust-anchor metadata validation is enforced; malformed/untrusted metadata fails deterministically. (`.github/workflows/ci.yml`, `crates/cli/tests/cli_it/diagnostics.rs`, `crates/cli/tests/phase22_diagnostics_reservation.rs`)
+  - [x] 24.2.4 Dependency resolution: transitive resolver + deterministic semver solver + lockfile enforcement are active in CI. (`.github/workflows/ci.yml`, `crates/cli/tests/cli_it/pkg_lock.rs`, `crates/cli/tests/resolver_policy_lock.rs`)
+  - [x] 24.2.5 Runtime loader/linker: automatic package loading works and fails closed on missing/mismatch/untrusted artifacts with stable diagnostics. (`.github/workflows/ci.yml`, `crates/cli/tests/run_smoke.rs`, `docs/runtime/runtime-loader-rollout-gate.md`)
+  - [x] 24.2.6 Host profiles: static/contract and shared/app profile behavior is documented and covered by integration tests. (`docs/runtime/host-profiles-production-policy.md`, `crates/cli/tests/host_profile_policy_docs.rs`, `crates/cli/tests/host_conformance_certification.rs`)
+  - [x] 24.2.7 Assurance/regression gates: Phase 19 strict/profile tests remain green with no assurance-tier regression on protected fixtures. (`.github/workflows/ci.yml`, `crates/cli/tests/profile_regression_gate.rs`, `crates/cli/tests/phase19_design_principles.rs`)
   - [ ] 24.2.8 Release readiness: security review, runbooks, signed artifacts, and `release_notes/milestone_2.md` are complete.
   - [ ] 24.2.9 Production SLO/performance gates: package resolution/link latency, startup overhead, and memory/CPU budgets are measured and within defined thresholds.
   - [ ] 24.2.10 Supply-chain compliance gates: SBOM/license checks for shipped package artifacts and runtime dependencies are green.

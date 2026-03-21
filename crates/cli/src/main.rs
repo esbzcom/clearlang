@@ -2,19 +2,15 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
-mod commands;
-mod logging;
-mod proofs;
-mod signing;
-use commands::{
+use clg_cli::commands::{
     build::{self as cmd_build, CompilerMode, StdCoreLinkMode},
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
     parse as cmd_parse, pkg as cmd_pkg, run as cmd_run,
     verify::{self as cmd_verify, VerifyMode},
 };
-use logging::Logger;
-use signing::SignScope;
+use clg_cli::logging::Logger;
+use clg_cli::signing::SignScope;
 
 #[derive(Parser, Debug)]
 #[command(name = "clg", version, about = "ClearLang CLI", long_about = None)]

@@ -56,6 +56,18 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should enforce runtime-loader replay determinism gates"
     );
     assert!(
+        contents.contains("milestone2-regression-gate"),
+        "ci should include an explicit milestone_2 cross-phase regression gate job"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-cli --test phase19_design_principles"),
+        "milestone_2 gate should re-check phase 19 design-principle guarantees"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-cli --test host_conformance_certification"),
+        "milestone_2 gate should include host-profile conformance certification coverage"
+    );
+    assert!(
         contents.contains("cargo test -p clg-cli --test vc_snapshots"),
         "ci should enforce proof fixture snapshot regression tests"
     );

@@ -153,3 +153,22 @@ jobs:
           set -euo pipefail
           cargo test -p clg-cli --test run_smoke runtime_loader_tamper_
           cargo test -p clg-cli --test run_smoke runtime_loader_replay_
+
+  milestone2-regression-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Milestone 2 cross-phase regression gate (Phase 19 + 20-24)
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test phase19_design_principles
+          cargo test -p clg-cli --test profile_regression_gate
+          cargo test -p clg-cli --test cli_it strict_acceptance_
+          cargo test -p clg-cli --test cli_it pkg_lock_diagnostics_output_is_deterministic_across_identical_runs
+          cargo test -p clg-cli --test run_smoke runtime_loader_replay_
+          cargo test -p clg-cli --test host_conformance_certification

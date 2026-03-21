@@ -1009,7 +1009,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 24.0.2 Expand host-profile docs from 20.1 host-profile v0 bootstrap to full static/contract vs shared/app production policy. (`docs/runtime/host-profiles-production-policy.md`, `docs/runtime/host-imports.md`, `docs/design/phase-20.1.0-host-profile-v0.md`, `crates/cli/tests/host_profile_policy_docs.rs`)
   - [x] 24.0.3 Add host conformance certification suite for deterministic std-host capability behavior across supported runtimes. (`crates/cli/tests/host_conformance_certification.rs`, `docs/runtime/host-profiles-production-policy.md`)
 - [ ] 24.1 Milestone_2 release gate.
-  - [ ] 24.1.1 Verify Phases 20-24 completion without regressions to Phase 19 strict/profile guarantees.
+  - [x] 24.1.1 Verify Phases 20-24 completion without regressions to Phase 19 strict/profile guarantees. (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `crates/cli/tests/host_conformance_certification.rs`)
   - [ ] 24.1.2 Publish `release_notes/milestone_2.md` once gates are green.
 - [ ] 24.2 Go-live checklist (must be green before milestone_2 tag).
   - [ ] 24.2.1 Runnable baseline: `clg run clearlang-tests/16_namespaced_call.clear` passes in CI and docs clearly mark runnable vs parse-only fixtures.

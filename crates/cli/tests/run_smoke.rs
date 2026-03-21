@@ -165,6 +165,56 @@ fn write_runtime_loader_gate_artifacts(root: &Path, digest: &str, include_store_
     .expect("write signature file");
 }
 
+fn setup_runtime_loader_fixture() -> (tempfile::TempDir, PathBuf) {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let store_dir = root.join("store");
+    fs::create_dir_all(&store_dir).expect("create store");
+    let artifact_path = store_dir.join("hello.wasm");
+    fs::copy(&wasm_path, &artifact_path).expect("copy artifact");
+    let artifact_bytes = fs::read(&artifact_path).expect("read artifact");
+    let digest = format!("sha256:{}", sha256_hex(artifact_bytes.as_slice()));
+    write_runtime_loader_gate_artifacts(root, digest.as_str(), true);
+
+    (tmp, wasm_path)
+}
+
+fn run_json_error_output(file: &Path) -> Vec<u8> {
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "run"])
+        .arg(file)
+        .output()
+        .expect("run command");
+    assert!(!output.status.success(), "run should fail");
+    output.stdout
+}
+
+fn assert_first_error_code(stdout: &[u8], expected_code: &str) {
+    let v: Value = serde_json::from_slice(stdout).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errors.is_empty());
+    let first = &errors[0];
+    assert_eq!(
+        first.get("code").and_then(|s| s.as_str()),
+        Some(expected_code)
+    );
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+}
+
 #[test]
 fn emit_hello_and_run() {
     let out = tempfile::Builder::new()
@@ -590,4 +640,92 @@ fn run_wasm_with_runtime_link_uses_mirror_when_primary_store_is_missing() {
         .assert()
         .success()
         .stdout(predicates::str::contains("42\n"));
+}
+
+#[test]
+fn runtime_loader_tamper_missing_artifact_reports_r012() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    fs::remove_file(root.join("store").join("hello.wasm")).expect("remove artifact");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R012");
+}
+
+#[test]
+fn runtime_loader_tamper_digest_mismatch_reports_r013() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    fs::write(root.join("store").join("hello.wasm"), b"tampered-bytes").expect("tamper artifact");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R013");
+}
+
+#[test]
+fn runtime_loader_tamper_untrusted_signer_reports_r014() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    let trust_path = root.join("clg.trust-policy.json");
+    let mut trust: Value =
+        serde_json::from_slice(fs::read(&trust_path).expect("read trust policy").as_slice())
+            .expect("parse trust policy");
+    trust["revoked_key_ids"] = serde_json::json!(["k1"]);
+    fs::write(
+        &trust_path,
+        serde_json::to_vec_pretty(&trust).expect("serialize trust policy"),
+    )
+    .expect("write trust policy");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R014");
+}
+
+#[test]
+fn runtime_loader_replay_missing_artifact_json_is_deterministic() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    fs::remove_file(root.join("store").join("hello.wasm")).expect("remove artifact");
+    let run_a = run_json_error_output(&wasm_path);
+    let run_b = run_json_error_output(&wasm_path);
+    assert_eq!(
+        run_a, run_b,
+        "runtime loader JSON output should be replay-stable"
+    );
+    assert_first_error_code(run_a.as_slice(), "R012");
+}
+
+#[test]
+fn runtime_loader_replay_digest_mismatch_json_is_deterministic() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    fs::write(root.join("store").join("hello.wasm"), b"tampered-bytes").expect("tamper artifact");
+    let run_a = run_json_error_output(&wasm_path);
+    let run_b = run_json_error_output(&wasm_path);
+    assert_eq!(
+        run_a, run_b,
+        "runtime loader JSON output should be replay-stable"
+    );
+    assert_first_error_code(run_a.as_slice(), "R013");
+}
+
+#[test]
+fn runtime_loader_replay_untrusted_signer_json_is_deterministic() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    let trust_path = root.join("clg.trust-policy.json");
+    let mut trust: Value =
+        serde_json::from_slice(fs::read(&trust_path).expect("read trust policy").as_slice())
+            .expect("parse trust policy");
+    trust["revoked_key_ids"] = serde_json::json!(["k1"]);
+    fs::write(
+        &trust_path,
+        serde_json::to_vec_pretty(&trust).expect("serialize trust policy"),
+    )
+    .expect("write trust policy");
+
+    let run_a = run_json_error_output(&wasm_path);
+    let run_b = run_json_error_output(&wasm_path);
+    assert_eq!(
+        run_a, run_b,
+        "runtime loader JSON output should be replay-stable"
+    );
+    assert_first_error_code(run_a.as_slice(), "R014");
 }

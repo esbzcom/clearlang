@@ -138,3 +138,18 @@ jobs:
           set -euo pipefail
           cargo test -p clg-cli --test cli_it pkg_lock_replay_with_identical_inputs_is_byte_identical
           cargo test -p clg-cli --test cli_it pkg_lock_diagnostics_output_is_deterministic_across_identical_runs
+
+  runtime-loader-determinism-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Runtime loader tamper + replay determinism gates
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test run_smoke runtime_loader_tamper_
+          cargo test -p clg-cli --test run_smoke runtime_loader_replay_

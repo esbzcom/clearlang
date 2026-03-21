@@ -48,6 +48,14 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should enforce resolver/solver diagnostics ordering replay determinism gates"
     );
     assert!(
+        contents.contains("cargo test -p clg-cli --test run_smoke runtime_loader_tamper_"),
+        "ci should enforce runtime-loader tamper failure matrix gates"
+    );
+    assert!(
+        contents.contains("cargo test -p clg-cli --test run_smoke runtime_loader_replay_"),
+        "ci should enforce runtime-loader replay determinism gates"
+    );
+    assert!(
         contents.contains("cargo test -p clg-cli --test vc_snapshots"),
         "ci should enforce proof fixture snapshot regression tests"
     );

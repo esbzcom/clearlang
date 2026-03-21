@@ -21,6 +21,7 @@ const RESOLVED_GRAPH_FILE: &str = "clg.resolved-graph.json";
 const RESOLVED_GRAPH_HASH_FILE: &str = "clg.resolved-graph.sha256";
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PackageMetadataRoot {
     schema_version: u32,
     #[serde(default)]
@@ -28,23 +29,41 @@ struct PackageMetadataRoot {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PackageMetadataEntry {
     name: String,
     version: String,
     digest: String,
-    #[serde(default)]
-    artifact: Option<PackageArtifactEntry>,
+    artifact: PackageArtifactEntry,
     abi_id: String,
     #[serde(default)]
     dependencies: Vec<PackageRequirementEntry>,
+    #[serde(default)]
+    signature: Option<PackageSignatureEntry>,
+    #[serde(default)]
+    trust: Option<PackageTrustEntry>,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PackageArtifactEntry {
-    #[serde(default)]
     format: String,
-    #[serde(default)]
     path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PackageSignatureEntry {
+    format: String,
+    key_id: String,
+    signed_at: String,
+    signature: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PackageTrustEntry {
+    trusted_anchor_ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -86,6 +105,7 @@ enum AdvisoryAction {
 }
 
 #[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PackageRequirementEntry {
     name: String,
     requirement: String,
@@ -753,64 +773,92 @@ fn load_lockfile_from_metadata(
     let mut duplicate_package_ids = BTreeSet::new();
     let mut packages = Vec::with_capacity(raw.packages.len());
     for pkg in raw.packages {
-        validate_package_id(pkg.name.as_str()).map_err(|msg| {
-            PkgLockError::new(
-                "C027",
-                format!("invalid package name `{}`: {msg}", pkg.name),
-            )
+        let PackageMetadataEntry {
+            name,
+            version,
+            digest,
+            artifact,
+            abi_id,
+            dependencies: raw_dependencies,
+            signature,
+            trust,
+        } = pkg;
+        validate_package_id(name.as_str()).map_err(|msg| {
+            PkgLockError::new("C027", format!("invalid package name `{}`: {msg}", name))
         })?;
-        validate_exact_semver(pkg.version.as_str()).map_err(|msg| {
+        validate_exact_semver(version.as_str()).map_err(|msg| {
             PkgLockError::new(
                 "C027",
                 format!(
                     "invalid package version `{}` for `{}`: {msg}",
-                    pkg.version, pkg.name
+                    version, name
                 ),
             )
         })?;
-        let semver = SemVer::parse(pkg.version.as_str())?;
-        validate_sha256_digest(pkg.digest.as_str()).map_err(|msg| {
+        let semver = SemVer::parse(version.as_str())?;
+        validate_sha256_digest(digest.as_str()).map_err(|msg| {
             PkgLockError::new(
                 "C027",
-                format!("invalid digest `{}` for `{}`: {msg}", pkg.digest, pkg.name),
+                format!("invalid digest `{}` for `{}`: {msg}", digest, name),
             )
         })?;
-        let artifact_path = match pkg.artifact {
-            Some(artifact) => {
-                if !artifact.format.is_empty() && artifact.format != "wasm" {
-                    return Err(PkgLockError::new(
-                        "C027",
-                        format!(
-                            "invalid artifact format `{}` for `{}`; expected `wasm`",
-                            artifact.format, pkg.name
-                        ),
-                    ));
-                }
-                artifact.path
-            }
-            None => String::new(),
-        };
-        if pkg.abi_id.trim().is_empty() {
+        if artifact.format != "wasm" {
             return Err(PkgLockError::new(
                 "C027",
-                format!("invalid abi_id for `{}`: abi_id is empty", pkg.name),
+                format!(
+                    "invalid artifact format `{}` for `{}`; expected `wasm`",
+                    artifact.format, name
+                ),
             ));
         }
-        let package_id = format!("{}@{}", pkg.name, pkg.version);
+        if artifact.path.trim().is_empty() {
+            return Err(PkgLockError::new(
+                "C027",
+                format!("invalid artifact path for `{}`: path is empty", name),
+            ));
+        }
+        if Path::new(artifact.path.as_str()).is_absolute() {
+            return Err(PkgLockError::new(
+                "C027",
+                format!(
+                    "invalid artifact path `{}` for `{}`: path must be relative",
+                    artifact.path, name
+                ),
+            ));
+        }
+        let artifact_path = artifact.path;
+        if abi_id.trim().is_empty() {
+            return Err(PkgLockError::new(
+                "C027",
+                format!("invalid abi_id for `{}`: abi_id is empty", name),
+            ));
+        }
+        if let Some(signature) = signature.as_ref() {
+            let _ = (
+                &signature.format,
+                &signature.key_id,
+                &signature.signed_at,
+                &signature.signature,
+            );
+        }
+        if let Some(trust) = trust.as_ref() {
+            let _ = &trust.trusted_anchor_ids;
+        }
+        let package_id = format!("{}@{}", name, version);
         if !seen_package_ids.insert(package_id.clone()) {
             duplicate_package_ids.insert(package_id);
             continue;
         }
 
-        let mut dependency_seen = HashSet::with_capacity(pkg.dependencies.len());
+        let mut dependency_seen = HashSet::with_capacity(raw_dependencies.len());
         let mut dependency_dupes = BTreeSet::new();
-        for dep in &pkg.dependencies {
+        for dep in &raw_dependencies {
             validate_package_id(dep.name.as_str()).map_err(|msg| {
                 PkgLockError::new(
                     "C027",
                     format!(
                         "invalid dependency name `{}` for package `{}`: {msg}",
-                        dep.name, pkg.name
+                        dep.name, name
                     ),
                 )
             })?;
@@ -819,7 +867,7 @@ fn load_lockfile_from_metadata(
                     "C027",
                     format!(
                         "invalid dependency requirement `{}` for package `{}` dependency `{}`: {msg}",
-                        dep.requirement, pkg.name, dep.name
+                        dep.requirement, name, dep.name
                     ),
                 )
             })?;
@@ -832,20 +880,20 @@ fn load_lockfile_from_metadata(
                 "C027",
                 format!(
                     "duplicate dependency name `{}` in package `{}` in canonical package metadata",
-                    first, pkg.name
+                    first, name
                 ),
             ));
         }
 
-        let mut dependencies = pkg.dependencies;
+        let mut dependencies = raw_dependencies;
         dependencies.sort_by(|a, b| a.name.cmp(&b.name));
         packages.push(ValidatedPackage {
-            name: pkg.name,
-            version: pkg.version,
+            name,
+            version,
             semver,
-            digest: pkg.digest,
+            digest,
             artifact_path,
-            abi_id: pkg.abi_id,
+            abi_id,
             dependencies,
         });
     }
@@ -1434,6 +1482,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [
         { "name": "lib::core", "requirement": "^1.0.0" }
@@ -1443,6 +1492,7 @@ mod tests {
       "name": "lib::core",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.0.0"
     }
   ]
@@ -1470,12 +1520,14 @@ mod tests {
       "name": "dup",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:dup:1.0.0"
     },
     {
       "name": "dup",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:dup-alt:1.0.0"
     }
   ]
@@ -1500,6 +1552,7 @@ mod tests {
       "name": "app::pkg",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::pkg:1.0.0",
       "dependencies": [
         { "name": "missing::pkg", "requirement": "^1.0.0" }
@@ -1529,6 +1582,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
     },
@@ -1536,18 +1590,21 @@ mod tests {
       "name": "lib::core",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.0.0"
     },
     {
       "name": "lib::core",
       "version": "1.2.0",
       "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.2.0"
     },
     {
       "name": "lib::core",
       "version": "2.0.0",
       "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:2.0.0"
     }
   ]
@@ -1575,6 +1632,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^2.0.0" }]
     },
@@ -1582,6 +1640,7 @@ mod tests {
       "name": "lib::core",
       "version": "1.2.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.2.0"
     }
   ]
@@ -1608,6 +1667,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
     },
@@ -1615,6 +1675,7 @@ mod tests {
       "name": "lib::core",
       "version": "1.1.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.1.0"
     }
   ]
@@ -1659,6 +1720,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
     },
@@ -1666,6 +1728,7 @@ mod tests {
       "name": "lib::core",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.0.0"
     }
   ]
@@ -1711,6 +1774,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "~1.0.0" }]
     },
@@ -1718,12 +1782,14 @@ mod tests {
       "name": "lib::core",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.0.0"
     },
     {
       "name": "lib::core",
       "version": "1.0.5",
       "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:lib::core:1.0.5"
     }
   ]
@@ -1770,6 +1836,7 @@ mod tests {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:app::entry:1.0.0"
     }
   ]
@@ -1942,6 +2009,7 @@ mod tests {
       "name": "z::pkg",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:z::pkg:1.0.0",
       "dependencies": [{ "name": "y::pkg", "requirement": "^1.0.0" }]
     },
@@ -1949,6 +2017,7 @@ mod tests {
       "name": "y::pkg",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:y::pkg:1.0.0",
       "dependencies": [{ "name": "x::pkg", "requirement": "^1.0.0" }]
     },
@@ -1956,6 +2025,7 @@ mod tests {
       "name": "x::pkg",
       "version": "1.0.0",
       "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "artifact": { "format": "wasm", "path": "store/pkg.wasm" },
       "abi_id": "abi:x::pkg:1.0.0",
       "dependencies": [{ "name": "z::pkg", "requirement": "^1.0.0" }]
     }
@@ -1975,3 +2045,4 @@ mod tests {
         );
     }
 }
+

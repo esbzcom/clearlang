@@ -974,7 +974,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.0.5 Expand signer lifecycle policy from 20.1 trust-policy v0 bootstrap to full production policy (rotation, revocation, expiry, emergency compromise handling). (`docs/design/phase-22.0.5-signer-lifecycle-policy.md`, `crates/cli/src/commands/build/strict_trust_policy.rs` tests, `crates/cli/src/commands/build/strict_package_signatures.rs` tests)
   - [x] 22.0.6 Reserve and register Phase 22 diagnostics for resolver/solver/advisory flows before implementation (stable JSON code contracts). (`docs/diagnostics.md` `C109`-`C119`, `crates/cli/tests/phase22_diagnostics_reservation.rs`)
   - [x] 22.0.7 Refactor shared strict validators (semver/digest/schema/id parsing) into a single module to prevent rule drift. (`docs/design/phase-22.0.7-strict-validator-consolidation.md`, `crates/cli/src/commands/build/strict_validation.rs`)
-- [ ] 22.1 Dependency resolution completion gates for milestone_2.
+- [x] 22.1 Dependency resolution completion gates for milestone_2.
   - [x] 22.1.0 Lock deterministic resolver + semver solver policy (tie-break rules, conflict precedence, diagnostics ordering). (`docs/design/phase-22.1.0-resolver-policy.lock.json`, `crates/cli/tests/resolver_policy_lock.rs`)
   - [x] 22.1.1 Add transitive dependency resolution for compiled packages (deterministic graph + cycle diagnostics). (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)
   - [x] 22.1.2 Add deterministic semver solver with lockfile generation/update flow. (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)

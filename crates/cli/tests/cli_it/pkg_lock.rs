@@ -146,6 +146,7 @@ fn pkg_lock_generate_prints_canonical_hash() {
       "name": "std::core",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core.wasm" },
       "abi_id": "abi:std::core:1.0.0"
     }
   ]
@@ -242,12 +243,14 @@ fn pkg_lock_replay_with_identical_inputs_is_byte_identical() {
       "name": "std::core",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core.wasm" },
       "abi_id": "abi:std::core:1.0.0"
     },
     {
       "name": "std::host",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/std-host.wasm" },
       "abi_id": "abi:std::host:1.0.0"
     }
   ]
@@ -323,6 +326,7 @@ fn pkg_lock_generate_derives_roots_from_unreferenced_packages() {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [
         { "name": "lib::core", "requirement": "^1.0.0" }
@@ -332,6 +336,7 @@ fn pkg_lock_generate_derives_roots_from_unreferenced_packages() {
       "name": "lib::core",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/lib-core.wasm" },
       "abi_id": "abi:lib::core:1.0.0"
     }
   ]
@@ -370,6 +375,7 @@ fn pkg_lock_generate_reports_c112_for_transitive_cycle() {
       "name": "z::pkg",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/z.wasm" },
       "abi_id": "abi:z::pkg:1.0.0",
       "dependencies": [{ "name": "y::pkg", "requirement": "^1.0.0" }]
     },
@@ -377,6 +383,7 @@ fn pkg_lock_generate_reports_c112_for_transitive_cycle() {
       "name": "y::pkg",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/y.wasm" },
       "abi_id": "abi:y::pkg:1.0.0",
       "dependencies": [{ "name": "x::pkg", "requirement": "^1.0.0" }]
     },
@@ -384,6 +391,7 @@ fn pkg_lock_generate_reports_c112_for_transitive_cycle() {
       "name": "x::pkg",
       "version": "1.0.0",
       "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "artifact": { "format": "wasm", "path": "store/x.wasm" },
       "abi_id": "abi:x::pkg:1.0.0",
       "dependencies": [{ "name": "z::pkg", "requirement": "^1.0.0" }]
     }
@@ -426,6 +434,7 @@ fn pkg_lock_generate_reports_c113_for_unsatisfiable_semver_constraints() {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^2.0.0" }]
     },
@@ -433,6 +442,7 @@ fn pkg_lock_generate_reports_c113_for_unsatisfiable_semver_constraints() {
       "name": "lib::core",
       "version": "1.0.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/lib-core.wasm" },
       "abi_id": "abi:lib::core:1.0.0"
     }
   ]
@@ -474,6 +484,7 @@ fn pkg_lock_generate_reports_c115_for_deny_advisory() {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
     },
@@ -481,6 +492,7 @@ fn pkg_lock_generate_reports_c115_for_deny_advisory() {
       "name": "lib::core",
       "version": "1.1.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/lib-core.wasm" },
       "abi_id": "abi:lib::core:1.1.0"
     }
   ]
@@ -538,6 +550,7 @@ fn pkg_lock_generate_reports_c116_for_force_upgrade_without_safe_version() {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
       "abi_id": "abi:app::entry:1.0.0",
       "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
     },
@@ -545,6 +558,7 @@ fn pkg_lock_generate_reports_c116_for_force_upgrade_without_safe_version() {
       "name": "lib::core",
       "version": "1.1.0",
       "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/lib-core.wasm" },
       "abi_id": "abi:lib::core:1.1.0"
     }
   ]
@@ -603,6 +617,7 @@ fn pkg_lock_generate_reports_c117_for_malformed_advisory_input() {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
       "abi_id": "abi:app::entry:1.0.0"
     }
   ]
@@ -647,6 +662,7 @@ fn pkg_lock_diagnostics_output_is_deterministic_across_identical_runs() {
       "name": "app::entry",
       "version": "1.0.0",
       "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
       "abi_id": "abi:app::entry:1.0.0"
     }
   ]

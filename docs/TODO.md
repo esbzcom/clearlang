@@ -993,7 +993,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 23.0.0.1 Lock runtime source-of-truth inputs (lockfile/import-map/trust-policy/host-profile), canonical artifact locator model, deterministic resolution ordering, and canonical runtime link artifact contract (`clg.runtime-link.json` + hash).
     - [x] 23.0.0.2 Reserve and register Phase 23 runtime-loader diagnostics (`R012`-`R017`) before wiring implementation, and pin with reservation tests. (`docs/diagnostics.md`, `crates/cli/tests/phase23_diagnostics_reservation.rs`)
     - [x] 23.0.0.3 Lock deterministic replay contract and runtime signer-time semantics (signed_at-anchored, no ambient wall-clock dependence) for runtime loader outputs/diagnostics.
-  - [ ] 23.0.1 Implement host-side package loader core from trusted local store/index with explicit no-implicit-network default.
+  - [x] 23.0.1 Implement host-side package loader core from trusted local store/index with explicit no-implicit-network default. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/src/commands/run/mod.rs`, `crates/cli/tests/run_smoke.rs`)
   - [ ] 23.0.2 Enforce fail-closed runtime trust gates (digest/signature/policy + lock/import-map consistency) before linking any package artifact.
   - [ ] 23.0.3 Implement deterministic runtime linker/import binding path and deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts.
   - [ ] 23.0.4 Add artifact availability/resilience policy (mirrors/cache/offline mode/retry/failure behavior) and operational runbook coverage.

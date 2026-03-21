@@ -1,6 +1,8 @@
 use assert_cmd::Command;
 use predicates::prelude::PredicateBooleanExt;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::fs;
 use std::path::PathBuf;
 
 fn sample(name: &str) -> PathBuf {
@@ -13,6 +15,35 @@ fn example_project(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/projects")
         .join(name)
+}
+
+fn canonicalize_json_value(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().cloned().collect();
+            keys.sort();
+            let mut out = serde_json::Map::new();
+            for key in keys {
+                out.insert(
+                    key.clone(),
+                    canonicalize_json_value(map.get(key.as_str()).expect("key exists")),
+                );
+            }
+            Value::Object(out)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json_value).collect()),
+        _ => value.clone(),
+    }
+}
+
+fn canonical_json_bytes(value: &Value) -> Vec<u8> {
+    serde_json::to_vec(&canonicalize_json_value(value)).expect("canonical json")
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
 }
 
 #[test]
@@ -254,4 +285,130 @@ fn run_crypto_project_fixture() {
         .success()
         .stdout(predicates::str::contains("crypto: auth pipeline"))
         .stdout(predicates::str::contains("1"));
+}
+
+#[test]
+fn run_wasm_with_runtime_link_artifacts_uses_local_store_loader_core() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let store_dir = root.join("store");
+    fs::create_dir_all(&store_dir).expect("create store");
+    fs::copy(&wasm_path, store_dir.join("hello.wasm")).expect("copy artifact");
+
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": "app::hello@1.0.0",
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "artifact_path": "store/hello.wasm",
+                "abi_id": "abi:app::hello:1.0.0"
+            }
+        ],
+        "bindings": []
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+    fs::write(
+        root.join("clg.package-store-index.json"),
+        r#"{
+  "schema_version": 0,
+  "artifacts": [
+    {
+      "id": "app::hello@1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "path": "store/hello.wasm"
+    }
+  ]
+}"#,
+    )
+    .expect("write store index");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("42\n"));
+}
+
+#[test]
+fn run_wasm_with_runtime_link_but_missing_store_index_fails_closed_with_r012() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": "app::hello@1.0.0",
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "artifact_path": "store/hello.wasm",
+                "abi_id": "abi:app::hello:1.0.0"
+            }
+        ],
+        "bindings": []
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .output()
+        .expect("run command");
+    assert!(!output.status.success(), "run should fail");
+    let v: Value = serde_json::from_slice(&output.stdout).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert!(!errors.is_empty());
+    let first = &errors[0];
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("R012"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
 }

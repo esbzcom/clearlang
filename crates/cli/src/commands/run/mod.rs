@@ -16,15 +16,37 @@ use crate::logging::{Logger, StageTimings};
 
 mod crypto;
 mod env;
+mod package_loader;
 mod runtime_error;
 mod wasm_state;
 
+use package_loader::{load_runtime_packages_from_local_store_if_present, RuntimeLoaderConfig};
 use runtime_error::{extract_runtime_error, extract_wasmtime_limit_error, RuntimeErrorDiag};
 
 pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> Result<()> {
     let mut timings = StageTimings::new();
     let engine = wt::Engine::new(&wt::Config::new())?;
     let module = load_module_for_run(&engine, &file, json_errors, logger, &mut timings)?;
+    {
+        let _stage = timings.start(logger, "runtime_load_packages");
+        let runtime_root = file.parent().unwrap_or(Path::new("."));
+        if let Some(runtime_packages) = load_runtime_packages_from_local_store_if_present(
+            runtime_root,
+            RuntimeLoaderConfig::default(),
+        )
+        .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?
+        {
+            let _ = runtime_packages.resolver_version;
+            for pkg in &runtime_packages.packages {
+                let _ = (
+                    pkg.id.as_str(),
+                    pkg.digest.as_str(),
+                    pkg.abi_id.as_str(),
+                    pkg.resolved_path.as_path(),
+                );
+            }
+        }
+    }
     let wasi = WasiCtxBuilder::new()
         .inherit_stdout()
         .inherit_stderr()
@@ -214,5 +236,18 @@ fn runtime_diag_to_error(file: &Path, json_errors: bool, diag: RuntimeErrorDiag)
             String::new()
         };
         anyhow!("{}{} (code {})", diag.message, span, diag.code)
+    }
+}
+
+fn runtime_loader_diag_to_error(
+    file: &Path,
+    json_errors: bool,
+    diag: package_loader::RuntimePackageLoaderError,
+) -> anyhow::Error {
+    if json_errors {
+        let json = make_single_json_error(diag.code(), "runtime", diag.message(), file, 0, 0, None);
+        CommandError::json(json).into()
+    } else {
+        anyhow!("{} (code {})", diag.message(), diag.code())
     }
 }

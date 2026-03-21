@@ -16,6 +16,7 @@ const RUNTIME_LINK_FILE: &str = "clg.runtime-link.json";
 const RUNTIME_LINK_HASH_FILE: &str = "clg.runtime-link.sha256";
 const PACKAGE_STORE_INDEX_FILE: &str = "clg.package-store-index.json";
 const RUNTIME_LOADER_POLICY_FILE: &str = "clg.runtime-loader.json";
+const HOST_PROFILE_FILE: &str = "clg.host-profile.json";
 const STRICT_LOCKFILE_FILE: &str = "clg.lock.json";
 const STRICT_PACKAGE_SIGNATURES_FILE: &str = "clg.package-signatures.json";
 
@@ -224,6 +225,14 @@ struct RawRuntimeLoaderPolicyV0 {
     artifact_read_retries: u32,
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawHostProfileV0 {
+    schema_version: u32,
+    profile: String,
+    capabilities: Vec<String>,
+}
+
 fn default_runtime_loader_offline_mode() -> bool {
     true
 }
@@ -243,8 +252,18 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
         ));
     }
 
+    let production_profile = load_runtime_production_profile_if_present(root)?;
     let runtime_link_path = root.join(RUNTIME_LINK_FILE);
     if !runtime_link_path.exists() {
+        if let Some(profile) = production_profile.as_deref() {
+            return Err(RuntimePackageLoaderError::new(
+                "R012",
+                format!(
+                    "runtime loader fail-closed: production host profile `{profile}` requires `{}` to enable mandatory runtime trust checks",
+                    RUNTIME_LINK_FILE
+                ),
+            ));
+        }
         return Ok(None);
     }
     if !runtime_link_path.is_file() {
@@ -1181,6 +1200,64 @@ fn load_runtime_availability_policy(
     })
 }
 
+fn load_runtime_production_profile_if_present(
+    root: &Path,
+) -> Result<Option<String>, RuntimePackageLoaderError> {
+    let path = root.join(HOST_PROFILE_FILE);
+    if !path.exists() {
+        return Ok(None);
+    }
+    if !path.is_file() {
+        return Err(RuntimePackageLoaderError::new(
+            "R016",
+            format!(
+                "runtime host profile path `{}` exists but is not a file",
+                path.display()
+            ),
+        ));
+    }
+    let content = fs::read_to_string(&path).map_err(|err| {
+        RuntimePackageLoaderError::new(
+            "R016",
+            format!(
+                "reading runtime host profile `{}` failed: {err}",
+                path.display()
+            ),
+        )
+    })?;
+    let raw: RawHostProfileV0 = serde_json::from_str(content.as_str()).map_err(|err| {
+        RuntimePackageLoaderError::new(
+            "R016",
+            format!(
+                "runtime host profile `{}` does not match schema v0 (`schema_version`, `profile`, `capabilities`): {err}",
+                path.display()
+            ),
+        )
+    })?;
+    if raw.schema_version != 0 {
+        return Err(RuntimePackageLoaderError::new(
+            "R016",
+            format!(
+                "runtime host profile `{}` has unsupported schema_version {}; expected 0",
+                path.display(),
+                raw.schema_version
+            ),
+        ));
+    }
+    let _ = raw.capabilities.len();
+    match raw.profile.as_str() {
+        "contract_static" | "shared_app" => Ok(Some(raw.profile)),
+        _ => Err(RuntimePackageLoaderError::new(
+            "R016",
+            format!(
+                "runtime host profile `{}` has unsupported profile `{}`; expected `contract_static` or `shared_app`",
+                path.display(),
+                raw.profile
+            ),
+        )),
+    }
+}
+
 fn resolve_runtime_artifact_with_availability_policy(
     root: &Path,
     package_id: &str,
@@ -1554,6 +1631,26 @@ mod tests {
         )
         .expect("no runtime link should be accepted");
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn production_host_profile_requires_runtime_link_artifact() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_file(
+            tmp.path().join(HOST_PROFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+        );
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig::default(),
+        )
+        .expect_err("missing runtime-link should fail closed in production profile");
+        assert_eq!(err.code(), "R012");
+        assert!(err.message().contains("fail-closed"));
     }
 
     #[test]

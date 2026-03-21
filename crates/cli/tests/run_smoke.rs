@@ -729,3 +729,30 @@ fn runtime_loader_replay_untrusted_signer_json_is_deterministic() {
     );
     assert_first_error_code(run_a.as_slice(), "R014");
 }
+
+#[test]
+fn runtime_loader_production_profile_without_runtime_link_fails_closed() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    fs::write(
+        root.join("clg.host-profile.json"),
+        r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+    )
+    .expect("write host profile");
+
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R012");
+}

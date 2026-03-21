@@ -17,6 +17,7 @@ This path includes:
 - strict lock/trust/signature checks,
 - deterministic runtime package link binding,
 - availability policy + mirror fallback behavior.
+- fail-closed enforcement for production host profiles (`contract_static`, `shared_app`) with no runtime-link fallback.
 
 ## Usage Pattern
 Use the same project root inputs required by `clg run`:

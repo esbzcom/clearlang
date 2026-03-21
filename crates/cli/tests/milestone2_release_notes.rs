@@ -16,7 +16,11 @@ fn milestone2_release_notes_draft_exists_with_publish_blockers_section() {
         "release notes draft should include explicit publish blockers"
     );
     assert!(
-        content.contains("24.2.8") && content.contains("24.2.9") && content.contains("24.2.10"),
+        content.contains("24.2.9") && content.contains("24.2.10"),
         "release notes draft should track unresolved go-live gates"
+    );
+    assert!(
+        content.contains("24.2.8") && content.contains("milestone_2-readiness.md"),
+        "release notes draft should reference completed readiness evidence for 24.2.8"
     );
 }

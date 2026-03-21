@@ -107,5 +107,5 @@ Canonical minimal valid file:
 ## Non-Goals
 - Runtime QoS, SLO, or resource budgets.
 - Dynamic host negotiation.
-- `env_time`/`env_random` capability enablement (Phase 21 lock keeps strict-mode deny policy with `C106` even when capability ids are schema-allowed; enablement is deferred to later phases).
+- `env_time`/`env_random` capability enablement (Phase 21 lock keeps strict-mode deny policy with `C106` even when capability ids are schema-allowed; expanded production profile policy is captured in `docs/runtime/host-profiles-production-policy.md`).
 - Chain-specific capability taxonomies.

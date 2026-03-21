@@ -70,6 +70,7 @@ Environment (io-only, optional, module: `clearlang_env`)
 ## Host-Backed Determinism Lock (Phase 24.0.1)
 - `std::crypto`, `std::env`, and `std::wasi` remain host-backed surfaces and are not compiled away into local app logic.
 - Determinism and replay policy for these surfaces is locked in `docs/runtime/host-backed-determinism-policy.md`.
+- Production profile policy for `contract_static` vs `shared_app` is expanded in `docs/runtime/host-profiles-production-policy.md`.
 
 ## Effect Gating
 - `pure` code must not call any host import.

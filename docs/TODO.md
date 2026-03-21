@@ -1006,7 +1006,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 ### 24 Host Profiles + Milestone_2 Exit
 - [ ] 24.0 Host capability profile alignment.
   - [x] 24.0.1 Keep `std::crypto`/`std::env`/`std::wasi` host-backed with explicit determinism policies. (`docs/runtime/host-backed-determinism-policy.md`, `docs/runtime/host-imports.md`, `crates/cli/tests/cli_it/imports.rs`, `crates/cli/tests/cli_it/runtime_env.rs`, `crates/cli/tests/cli_it/crypto.rs`)
-  - [ ] 24.0.2 Expand host-profile docs from 20.1 host-profile v0 bootstrap to full static/contract vs shared/app production policy.
+  - [x] 24.0.2 Expand host-profile docs from 20.1 host-profile v0 bootstrap to full static/contract vs shared/app production policy. (`docs/runtime/host-profiles-production-policy.md`, `docs/runtime/host-imports.md`, `docs/design/phase-20.1.0-host-profile-v0.md`, `crates/cli/tests/host_profile_policy_docs.rs`)
   - [ ] 24.0.3 Add host conformance certification suite for deterministic std-host capability behavior across supported runtimes.
 - [ ] 24.1 Milestone_2 release gate.
   - [ ] 24.1.1 Verify Phases 20-24 completion without regressions to Phase 19 strict/profile guarantees.

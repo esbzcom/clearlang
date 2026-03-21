@@ -19,11 +19,11 @@ Legacy model:
 1. Strict mode:
    - legacy `clg-packages.json` remains forbidden (`C101`) as source-of-truth violation.
 2. Standard/permissive mode transition:
-   - legacy metadata remains readable for compatibility while 22.x implementation converges.
-3. Deterministic coexistence rule:
-   - if both legacy `clg-packages.json` and canonical `clg.package-metadata.json` are present in the same module root, fail closed with deterministic build diagnostic (`C027` during transition).
+   - migration completed in `22.1.5.1`: standard/permissive compiled-package indexing reads only canonical metadata/ABI inputs.
+3. Legacy loader retirement rule:
+   - legacy `clg-packages.json` is rejected in standard/permissive and strict flows (strict remains `C101`; standard/permissive reports deterministic build diagnostic `C027`).
 4. Final production target:
-   - remove legacy `clg-packages.json` resolver path after 22.x migration gates are complete.
+   - canonical-only package metadata/ABI model is the sole accepted source-of-truth for package indexing.
 
 ## Implementation Notes (22.0.1)
 - Module metadata loader enforces deterministic coexistence rejection.
@@ -34,4 +34,3 @@ Legacy model:
 - `docs/design/phase-22.0.2-package-metadata-v1.md`
 - `docs/design/phase-20.1.0-package-metadata-abi-v0.md`
 - `docs/design/phase-18.4-compiled-package-imports.md`
-

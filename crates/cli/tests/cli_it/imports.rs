@@ -14,6 +14,46 @@ fn wasm_import_pairs(wasm: &[u8]) -> Vec<(String, String)> {
     imports
 }
 
+fn write_canonical_package_inputs(
+    root: &std::path::Path,
+    package_name: &str,
+    version: &str,
+    artifact_path: &str,
+    abi_id: &str,
+    imports_json: &str,
+) {
+    let metadata = format!(
+        r#"{{
+  "schema_version": 0,
+  "packages": [
+    {{
+      "name": "{package_name}",
+      "version": "{version}",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": {{ "format": "wasm", "path": "{artifact_path}" }},
+      "abi_id": "{abi_id}"
+    }}
+  ]
+}}"#
+    );
+    fs::write(root.join("clg.package-metadata.json"), metadata).expect("write metadata");
+
+    let abi = format!(
+        r#"{{
+  "schema_version": 0,
+  "contracts": [
+    {{
+      "abi_id": "{abi_id}",
+      "package": "{package_name}",
+      "version": "{version}",
+      "imports": {imports_json}
+    }}
+  ]
+}}"#
+    );
+    fs::write(root.join("clg.package-abi.json"), abi).expect("write abi");
+}
+
 #[test]
 fn build_and_run_with_imports() {
     let tmp = tempdir().unwrap();
@@ -63,37 +103,22 @@ fn build_with_compiled_package_import_succeeds() {
     fs::create_dir_all(&pkg_dir).expect("create pkg dir");
     fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
 
-    let metadata = r#"
-{
-  "schema_version": 1,
-  "packages": [
-    {
-      "name": "mathpkg",
-      "version": "1.0.0",
-      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
-      "modules": [
-        {
-          "path": "mathpkg::arith",
-          "exports": [
-            {
-              "name": "add2",
-              "kind": "value",
-              "effect": "pure",
-              "params": [
-                { "name": "a", "type": "Int" },
-                { "name": "b", "type": "Int" }
-              ],
-              "ret": "Int",
-              "import": { "module": "mathpkg_arith", "name": "add2" }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-    "#;
-    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+    write_canonical_package_inputs(
+        root,
+        "mathpkg",
+        "1.0.0",
+        "pkg/mathpkg.wasm",
+        "abi:mathpkg:1.0.0",
+        r#"[
+  {
+    "symbol": "mathpkg::arith::add2",
+    "effect": "pure",
+    "params": ["Int", "Int"],
+    "ret": "Int",
+    "capability": null
+  }
+]"#,
+    );
 
     let main_src = r#"
         import mathpkg::arith::{add2}
@@ -116,8 +141,8 @@ fn build_with_compiled_package_import_succeeds() {
     let imports = wasm_import_pairs(&wasm);
     let saw_import = imports
         .iter()
-        .any(|(module, name)| module == "mathpkg_arith" && name == "add2");
-    assert!(saw_import, "expected external import mathpkg_arith.add2");
+        .any(|(module, name)| module == "mathpkg::arith" && name == "add2");
+    assert!(saw_import, "expected external import mathpkg::arith.add2");
 }
 
 #[test]
@@ -128,48 +153,29 @@ fn build_with_compiled_package_import_prunes_unused_exports() {
     fs::create_dir_all(&pkg_dir).expect("create pkg dir");
     fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
 
-    let metadata = r#"
-{
-  "schema_version": 1,
-  "packages": [
-    {
-      "name": "mathpkg",
-      "version": "1.0.0",
-      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
-      "modules": [
-        {
-          "path": "mathpkg::arith",
-          "exports": [
-            {
-              "name": "add2",
-              "kind": "value",
-              "effect": "pure",
-              "params": [
-                { "name": "a", "type": "Int" },
-                { "name": "b", "type": "Int" }
-              ],
-              "ret": "Int",
-              "import": { "module": "mathpkg_arith", "name": "add2" }
-            },
-            {
-              "name": "sub2",
-              "kind": "value",
-              "effect": "pure",
-              "params": [
-                { "name": "a", "type": "Int" },
-                { "name": "b", "type": "Int" }
-              ],
-              "ret": "Int",
-              "import": { "module": "mathpkg_arith", "name": "sub2" }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-    "#;
-    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+    write_canonical_package_inputs(
+        root,
+        "mathpkg",
+        "1.0.0",
+        "pkg/mathpkg.wasm",
+        "abi:mathpkg:1.0.0",
+        r#"[
+  {
+    "symbol": "mathpkg::arith::add2",
+    "effect": "pure",
+    "params": ["Int", "Int"],
+    "ret": "Int",
+    "capability": null
+  },
+  {
+    "symbol": "mathpkg::arith::sub2",
+    "effect": "pure",
+    "params": ["Int", "Int"],
+    "ret": "Int",
+    "capability": null
+  }
+]"#,
+    );
 
     let main_src = r#"
         import mathpkg::arith::{add2}
@@ -192,14 +198,14 @@ fn build_with_compiled_package_import_prunes_unused_exports() {
     let imports = wasm_import_pairs(&wasm);
     let has_add2 = imports
         .iter()
-        .any(|(module, name)| module == "mathpkg_arith" && name == "add2");
+        .any(|(module, name)| module == "mathpkg::arith" && name == "add2");
     let has_sub2 = imports
         .iter()
-        .any(|(module, name)| module == "mathpkg_arith" && name == "sub2");
-    assert!(has_add2, "expected used import mathpkg_arith.add2");
+        .any(|(module, name)| module == "mathpkg::arith" && name == "sub2");
+    assert!(has_add2, "expected used import mathpkg::arith.add2");
     assert!(
         !has_sub2,
-        "unused export mathpkg_arith.sub2 should not be emitted as wasm import"
+        "unused export mathpkg::arith.sub2 should not be emitted as wasm import"
     );
 }
 
@@ -214,10 +220,15 @@ fn invalid_package_metadata_reports_c027() {
     let main_path = root.join("main.clear");
     fs::write(&main_path, main_src.trim()).expect("write main");
     fs::write(
-        root.join("clg-packages.json"),
+        root.join("clg.package-metadata.json"),
         r#"{ "schema_version": 9, "packages": [] }"#,
     )
     .expect("write metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{ "schema_version": 0, "contracts": [] }"#,
+    )
+    .expect("write abi");
 
     let wasm_path = root.join("out.wasm");
     let output = Command::cargo_bin("clg")
@@ -241,7 +252,7 @@ fn invalid_package_metadata_reports_c027() {
 }
 
 #[test]
-fn legacy_and_canonical_package_metadata_conflict_reports_c027() {
+fn legacy_package_metadata_is_rejected_reports_c027() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();
 
@@ -255,11 +266,6 @@ fn legacy_and_canonical_package_metadata_conflict_reports_c027() {
         r#"{ "schema_version": 1, "packages": [] }"#,
     )
     .expect("write legacy metadata");
-    fs::write(
-        root.join("clg.package-metadata.json"),
-        r#"{ "schema_version": 0, "packages": [] }"#,
-    )
-    .expect("write canonical metadata");
 
     let wasm_path = root.join("out.wasm");
     let output = Command::cargo_bin("clg")
@@ -292,22 +298,22 @@ fn source_and_package_module_conflict_reports_c028() {
     fs::create_dir_all(&src_dir).expect("create src dir");
     fs::write(pkg_dir.join("mathpkg.wasm"), [0u8]).expect("write package artifact");
 
-    let metadata = r#"
-{
-  "schema_version": 1,
-  "packages": [
-    {
-      "name": "mathpkg",
-      "version": "1.0.0",
-      "artifact": { "format": "wasm", "path": "pkg/mathpkg.wasm" },
-      "modules": [
-        { "path": "mathpkg::arith", "exports": [] }
-      ]
-    }
-  ]
-}
-    "#;
-    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+    write_canonical_package_inputs(
+        root,
+        "mathpkg",
+        "1.0.0",
+        "pkg/mathpkg.wasm",
+        "abi:mathpkg:1.0.0",
+        r#"[
+  {
+    "symbol": "mathpkg::arith::add2",
+    "effect": "pure",
+    "params": ["Int", "Int"],
+    "ret": "Int",
+    "capability": null
+  }
+]"#,
+    );
     fs::write(
         src_dir.join("arith.clear"),
         "export function add2(a: Int, b: Int) -> Int { a + b }",

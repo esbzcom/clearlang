@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -11,79 +11,113 @@ use super::ExternalImportBinding;
 
 pub(super) const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
 pub(super) const CANONICAL_PACKAGE_METADATA_FILE: &str = "clg.package-metadata.json";
-pub(super) const PACKAGE_METADATA_FILE: &str = LEGACY_PACKAGE_METADATA_FILE;
+pub(super) const CANONICAL_PACKAGE_ABI_FILE: &str = "clg.package-abi.json";
+pub(super) const PACKAGE_METADATA_FILE: &str = CANONICAL_PACKAGE_METADATA_FILE;
 
 #[derive(Deserialize)]
-struct RawPackageMetadata {
+#[serde(deny_unknown_fields)]
+struct RawPackageMetadataRootV0 {
     schema_version: u32,
     #[serde(default)]
-    packages: Vec<RawPackage>,
+    packages: Vec<RawPackageV0>,
 }
 
 #[derive(Deserialize)]
-struct RawPackage {
+#[serde(deny_unknown_fields)]
+struct RawPackageV0 {
     name: String,
     version: String,
+    digest: String,
     artifact: RawPackageArtifact,
-    #[serde(default)]
-    modules: Vec<RawModule>,
+    abi_id: String,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageMetadataRootV1 {
+    schema_version: u32,
+    #[serde(default)]
+    packages: Vec<RawPackageV1>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageV1 {
+    name: String,
+    version: String,
+    digest: String,
+    artifact: RawPackageArtifact,
+    abi_id: String,
+    #[serde(default)]
+    dependencies: Vec<RawPackageDependencyV1>,
+    signature: RawPackageSignatureV1,
+    trust: RawPackageTrustV1,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageDependencyV1 {
+    name: String,
+    requirement: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageSignatureV1 {
+    format: String,
+    key_id: String,
+    signed_at: String,
+    signature: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageTrustV1 {
+    trusted_anchor_ids: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawPackageArtifact {
     format: String,
     path: String,
 }
 
 #[derive(Deserialize)]
-struct RawModule {
-    path: String,
+#[serde(deny_unknown_fields)]
+struct RawAbiRoot {
+    schema_version: u32,
     #[serde(default)]
-    exports: Vec<RawExport>,
+    contracts: Vec<RawAbiContract>,
 }
 
 #[derive(Deserialize)]
-struct RawExport {
+#[serde(deny_unknown_fields)]
+struct RawAbiContract {
+    abi_id: String,
+    package: String,
+    version: String,
+    #[serde(default)]
+    imports: Vec<RawAbiImport>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawAbiImport {
+    symbol: String,
+    effect: String,
+    #[serde(default)]
+    params: Vec<String>,
+    ret: String,
+    #[serde(default)]
+    capability: Option<String>,
+}
+
+struct CanonicalPackageEntry {
     name: String,
-    kind: RawExportKind,
-    #[serde(default)]
-    layout: Option<RawTypeLayout>,
-    #[serde(default)]
-    effect: Option<String>,
-    #[serde(default)]
-    params: Vec<RawParam>,
-    #[serde(default)]
-    ret: Option<String>,
-    #[serde(default)]
-    import: Option<RawImportTarget>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum RawExportKind {
-    Type,
-    Value,
-}
-
-#[derive(Deserialize)]
-struct RawTypeLayout {
-    bytes: u32,
-    align: u32,
-}
-
-#[derive(Deserialize)]
-struct RawParam {
-    name: String,
-    #[serde(rename = "type")]
-    ty: String,
-    #[serde(default)]
-    kind: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct RawImportTarget {
-    module: String,
-    name: String,
+    version: String,
+    artifact: RawPackageArtifact,
+    abi_id: String,
 }
 
 pub(super) struct PackageModuleIndex {
@@ -100,36 +134,123 @@ pub(super) struct PackageMetadataIndex {
 
 impl PackageMetadataIndex {
     pub(super) fn load(root: &Path) -> Result<Self> {
-        let metadata_path = root.join(PACKAGE_METADATA_FILE);
-        let canonical_metadata_path = root.join(CANONICAL_PACKAGE_METADATA_FILE);
-        if metadata_path.exists() && canonical_metadata_path.exists() {
+        let legacy_path = root.join(LEGACY_PACKAGE_METADATA_FILE);
+        let metadata_path = root.join(CANONICAL_PACKAGE_METADATA_FILE);
+        let abi_path = root.join(CANONICAL_PACKAGE_ABI_FILE);
+
+        if legacy_path.exists() {
             return Err(anyhow!(
-                "package metadata migration conflict: both legacy `{}` and canonical `{}` exist; remove legacy `{}` and keep canonical strict metadata/ABI inputs only",
+                "legacy package metadata `{}` is no longer supported in standard/permissive import indexing; use canonical `{}` + `{}`",
                 LEGACY_PACKAGE_METADATA_FILE,
                 CANONICAL_PACKAGE_METADATA_FILE,
-                LEGACY_PACKAGE_METADATA_FILE
+                CANONICAL_PACKAGE_ABI_FILE
             ));
         }
-        if !metadata_path.exists() {
+
+        if !metadata_path.exists() && !abi_path.exists() {
             return Ok(Self::default());
         }
-        let content = fs::read_to_string(&metadata_path)
-            .with_context(|| format!("reading {}", metadata_path.display()))?;
-        let raw: RawPackageMetadata = serde_json::from_str(&content)
-            .with_context(|| format!("parsing {}", metadata_path.display()))?;
-        if raw.schema_version != 1 {
+        if !metadata_path.exists() {
             return Err(anyhow!(
-                "unsupported package metadata schema version {} (expected 1)",
-                raw.schema_version
+                "missing canonical package metadata `{}` required by `{}`",
+                CANONICAL_PACKAGE_METADATA_FILE,
+                CANONICAL_PACKAGE_ABI_FILE
+            ));
+        }
+        if !abi_path.exists() {
+            return Err(anyhow!(
+                "missing canonical package ABI `{}` required by `{}`",
+                CANONICAL_PACKAGE_ABI_FILE,
+                CANONICAL_PACKAGE_METADATA_FILE
             ));
         }
 
-        let mut modules = HashMap::new();
-        let mut external_imports = Vec::new();
-        let mut type_layouts = HashMap::new();
-        let mut seen_external_functions = HashSet::new();
+        let metadata_content = fs::read_to_string(&metadata_path)
+            .with_context(|| format!("reading {}", metadata_path.display()))?;
+        let metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
+            .with_context(|| format!("parsing {}", metadata_path.display()))?;
+        let schema_version = metadata_value
+            .get("schema_version")
+            .and_then(|value| value.as_u64())
+            .ok_or_else(|| {
+                anyhow!(
+                    "{} is missing integer `schema_version`",
+                    metadata_path.display()
+                )
+            })?;
 
-        for package in raw.packages {
+        let packages = match schema_version {
+            0 => {
+                let root_v0: RawPackageMetadataRootV0 = serde_json::from_value(metadata_value)
+                    .with_context(|| {
+                        format!(
+                            "parsing {} as canonical package metadata schema v0",
+                            metadata_path.display()
+                        )
+                    })?;
+                debug_assert_eq!(root_v0.schema_version, 0);
+                root_v0
+                    .packages
+                    .into_iter()
+                    .map(|entry| {
+                        let _ = entry.digest;
+                        CanonicalPackageEntry {
+                            name: entry.name,
+                            version: entry.version,
+                            artifact: entry.artifact,
+                            abi_id: entry.abi_id,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            }
+            1 => {
+                let root_v1: RawPackageMetadataRootV1 = serde_json::from_value(metadata_value)
+                    .with_context(|| {
+                        format!(
+                            "parsing {} as canonical package metadata schema v1",
+                            metadata_path.display()
+                        )
+                    })?;
+                debug_assert_eq!(root_v1.schema_version, 1);
+                root_v1
+                    .packages
+                    .into_iter()
+                    .map(|entry| {
+                        let _ = entry.digest;
+                        for dep in &entry.dependencies {
+                            let _ = (&dep.name, &dep.requirement);
+                        }
+                        let _ = (
+                            &entry.signature.format,
+                            &entry.signature.key_id,
+                            &entry.signature.signed_at,
+                            &entry.signature.signature,
+                            &entry.trust.trusted_anchor_ids,
+                        );
+                        CanonicalPackageEntry {
+                            name: entry.name,
+                            version: entry.version,
+                            artifact: entry.artifact,
+                            abi_id: entry.abi_id,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            }
+            other => {
+                return Err(anyhow!(
+                    "unsupported package metadata schema version {} (expected 0 or 1)",
+                    other
+                ));
+            }
+        };
+
+        let mut package_name_dupes = BTreeSet::new();
+        let mut seen_package_names = HashSet::new();
+        let mut abi_id_dupes = BTreeSet::new();
+        let mut packages_by_abi: HashMap<String, (String, String)> =
+            HashMap::with_capacity(packages.len());
+
+        for package in packages {
             validate_package_name(&package.name)?;
             validate_semver(&package.version).with_context(|| {
                 format!(
@@ -137,172 +258,201 @@ impl PackageMetadataIndex {
                     package.name, package.version
                 )
             })?;
-            validate_artifact(&package, root)?;
+            validate_artifact(&package.name, &package.artifact, root)?;
+            if package.abi_id.trim().is_empty() {
+                return Err(anyhow!("package `{}` has empty abi_id", package.name));
+            }
+            if !seen_package_names.insert(package.name.clone()) {
+                package_name_dupes.insert(package.name.clone());
+            }
+            if packages_by_abi
+                .insert(
+                    package.abi_id.clone(),
+                    (package.name.clone(), package.version.clone()),
+                )
+                .is_some()
+            {
+                abi_id_dupes.insert(package.abi_id.clone());
+            }
+        }
 
-            for module in package.modules {
-                validate_module_path(&module.path).with_context(|| {
-                    format!(
-                        "package `{}` has invalid module path `{}`",
-                        package.name, module.path
-                    )
-                })?;
-                if module.path.starts_with("std::") {
-                    return Err(anyhow!(
-                        "package module path `{}` is reserved for std",
-                        module.path
-                    ));
-                }
-                let root_segment = module.path.split("::").next().unwrap_or_default();
-                if root_segment != package.name {
-                    return Err(anyhow!(
-                        "package `{}` module `{}` must start with `{}`",
-                        package.name,
-                        module.path,
-                        package.name
-                    ));
-                }
+        if let Some(dupe) = package_name_dupes.iter().next() {
+            return Err(anyhow!(
+                "duplicate package name `{}` in package metadata",
+                dupe
+            ));
+        }
+        if let Some(dupe) = abi_id_dupes.iter().next() {
+            return Err(anyhow!("duplicate abi_id `{}` in package metadata", dupe));
+        }
 
-                let mut values = HashSet::new();
-                let mut types = HashSet::new();
-                let mut export_names = HashSet::new();
-                for export in module.exports {
-                    validate_identifier(&export.name)?;
-                    if !export_names.insert(export.name.clone()) {
+        let abi_content = fs::read_to_string(&abi_path)
+            .with_context(|| format!("reading {}", abi_path.display()))?;
+        let raw_abi: RawAbiRoot = serde_json::from_str(&abi_content)
+            .with_context(|| format!("parsing {}", abi_path.display()))?;
+        if raw_abi.schema_version != 0 {
+            return Err(anyhow!(
+                "unsupported package ABI schema version {} (expected 0)",
+                raw_abi.schema_version
+            ));
+        }
+
+        let mut seen_contract_ids = HashSet::with_capacity(raw_abi.contracts.len());
+        let mut duplicate_contract_ids = BTreeSet::new();
+        for contract in &raw_abi.contracts {
+            if contract.abi_id.trim().is_empty() {
+                return Err(anyhow!("package ABI contract has empty abi_id"));
+            }
+            if !seen_contract_ids.insert(contract.abi_id.clone()) {
+                duplicate_contract_ids.insert(contract.abi_id.clone());
+            }
+        }
+        if let Some(dupe) = duplicate_contract_ids.iter().next() {
+            return Err(anyhow!("duplicate ABI contract abi_id `{}`", dupe));
+        }
+
+        let mut modules = HashMap::new();
+        let mut external_imports = Vec::new();
+        let mut seen_external_functions = HashSet::new();
+        let mut contract_ids_used = HashSet::new();
+
+        for contract in raw_abi.contracts {
+            let Some((package_name, package_version)) = packages_by_abi.get(&contract.abi_id)
+            else {
+                return Err(anyhow!(
+                    "ABI contract `{}` is not referenced by package metadata",
+                    contract.abi_id
+                ));
+            };
+            if &contract.package != package_name {
+                return Err(anyhow!(
+                    "ABI contract `{}` package `{}` does not match metadata package `{}`",
+                    contract.abi_id,
+                    contract.package,
+                    package_name
+                ));
+            }
+            if &contract.version != package_version {
+                return Err(anyhow!(
+                    "ABI contract `{}` version `{}` does not match metadata version `{}`",
+                    contract.abi_id,
+                    contract.version,
+                    package_version
+                ));
+            }
+            contract_ids_used.insert(contract.abi_id.clone());
+
+            for import in contract.imports {
+                let RawAbiImport {
+                    symbol,
+                    effect,
+                    params: raw_params,
+                    ret: raw_ret,
+                    capability,
+                } = import;
+
+                if let Some(capability) = capability.as_ref() {
+                    if capability.trim().is_empty() {
                         return Err(anyhow!(
-                            "duplicate export `{}` in module `{}`",
-                            export.name,
-                            module.path
+                            "ABI contract `{}` symbol `{}` has empty capability",
+                            contract.abi_id,
+                            symbol
                         ));
                     }
-                    match export.kind {
-                        RawExportKind::Type => {
-                            let layout = export.layout.ok_or_else(|| {
-                                anyhow!(
-                                    "type export `{}` in `{}` is missing layout metadata",
-                                    export.name,
-                                    module.path
-                                )
-                            })?;
-                            if layout.bytes == 0 || layout.align == 0 {
-                                return Err(anyhow!(
-                                    "type export `{}` in `{}` has invalid layout",
-                                    export.name,
-                                    module.path
-                                ));
-                            }
-                            if !types.insert(export.name.clone()) {
-                                return Err(anyhow!(
-                                    "duplicate type export `{}` in `{}`",
-                                    export.name,
-                                    module.path
-                                ));
-                            }
-                            let qualified = format!("{}::{}", module.path, export.name);
-                            if type_layouts
-                                .insert(
-                                    qualified,
-                                    StdTypeInfo {
-                                        byte_len: layout.bytes,
-                                        align: layout.align,
-                                    },
-                                )
-                                .is_some()
-                            {
-                                return Err(anyhow!(
-                                    "duplicate type export `{}` in package metadata",
-                                    export.name
-                                ));
-                            }
-                        }
-                        RawExportKind::Value => {
-                            let effect =
-                                parse_effect(export.effect.as_deref()).with_context(|| {
-                                    format!(
-                                        "value export `{}` in `{}` has invalid effect",
-                                        export.name, module.path
-                                    )
-                                })?;
-                            let ret = parse_type(export.ret.as_deref().ok_or_else(|| {
-                                anyhow!(
-                                    "value export `{}` in `{}` is missing return type",
-                                    export.name,
-                                    module.path
-                                )
-                            })?)?;
-                            let mut params = Vec::with_capacity(export.params.len());
-                            for p in export.params {
-                                validate_identifier(&p.name)?;
-                                params.push(Param {
-                                    kind: parse_param_kind(p.kind.as_deref()).with_context(
-                                        || {
-                                            format!(
-                                            "value export `{}` in `{}` has invalid parameter kind",
-                                            export.name, module.path
-                                        )
-                                        },
-                                    )?,
-                                    name: p.name,
-                                    ty: parse_type(&p.ty).with_context(|| {
-                                        format!(
-                                            "value export `{}` in `{}` has invalid parameter type",
-                                            export.name, module.path
-                                        )
-                                    })?,
-                                });
-                            }
-                            let import = export.import.ok_or_else(|| {
-                                anyhow!(
-                                    "value export `{}` in `{}` is missing import target",
-                                    export.name,
-                                    module.path
-                                )
-                            })?;
-                            if import.module.trim().is_empty() || import.name.trim().is_empty() {
-                                return Err(anyhow!(
-                                    "value export `{}` in `{}` has invalid import target",
-                                    export.name,
-                                    module.path
-                                ));
-                            }
-                            if !values.insert(export.name.clone()) {
-                                return Err(anyhow!(
-                                    "duplicate value export `{}` in `{}`",
-                                    export.name,
-                                    module.path
-                                ));
-                            }
-                            let function = format!("{}::{}", module.path, export.name);
-                            if !seen_external_functions.insert(function.clone()) {
-                                return Err(anyhow!(
-                                    "duplicate value export `{}` in package metadata",
-                                    function
-                                ));
-                            }
-                            external_imports.push(ExternalImportBinding {
-                                function,
-                                import_module: import.module,
-                                import_name: import.name,
-                                params,
-                                ret,
-                                effect,
-                            });
-                        }
-                    }
                 }
 
-                if modules
-                    .insert(module.path, PackageModuleIndex { values, types })
-                    .is_some()
-                {
-                    return Err(anyhow!("duplicate module path in package metadata"));
+                let (module_path, export_name) = split_symbol(symbol.as_str())?;
+                let module_path = module_path.to_string();
+                let export_name = export_name.to_string();
+                validate_module_path(module_path.as_str()).with_context(|| {
+                    format!(
+                        "ABI contract `{}` symbol `{}` has invalid module path",
+                        contract.abi_id, symbol
+                    )
+                })?;
+                validate_identifier(export_name.as_str()).with_context(|| {
+                    format!(
+                        "ABI contract `{}` symbol `{}` has invalid exported name",
+                        contract.abi_id, symbol
+                    )
+                })?;
+
+                let effect = parse_effect(Some(effect.as_str())).with_context(|| {
+                    format!(
+                        "ABI contract `{}` symbol `{}` has invalid effect",
+                        contract.abi_id, symbol
+                    )
+                })?;
+                let ret = parse_type(raw_ret.as_str()).with_context(|| {
+                    format!(
+                        "ABI contract `{}` symbol `{}` has invalid return type",
+                        contract.abi_id, symbol
+                    )
+                })?;
+                let mut params = Vec::with_capacity(raw_params.len());
+                for (idx, ty) in raw_params.iter().enumerate() {
+                    params.push(Param {
+                        kind: ParamKind::Borrow,
+                        name: format!("p{}", idx),
+                        ty: parse_type(ty).with_context(|| {
+                            format!(
+                                "ABI contract `{}` symbol `{}` has invalid parameter type",
+                                contract.abi_id, symbol
+                            )
+                        })?,
+                    });
                 }
+
+                if !seen_external_functions.insert(symbol.clone()) {
+                    return Err(anyhow!(
+                        "duplicate value export `{}` in package ABI contracts",
+                        symbol
+                    ));
+                }
+
+                let module =
+                    modules
+                        .entry(module_path.clone())
+                        .or_insert_with(|| PackageModuleIndex {
+                            values: HashSet::new(),
+                            types: HashSet::new(),
+                        });
+                if !module.values.insert(export_name.clone()) {
+                    return Err(anyhow!(
+                        "duplicate value export `{}` in module `{}`",
+                        export_name,
+                        module_path
+                    ));
+                }
+
+                external_imports.push(ExternalImportBinding {
+                    function: symbol,
+                    import_module: module_path,
+                    import_name: export_name,
+                    params,
+                    ret,
+                    effect,
+                });
             }
+        }
+
+        let mut missing_contract_ids = packages_by_abi
+            .keys()
+            .filter(|abi_id| !contract_ids_used.contains(*abi_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        missing_contract_ids.sort();
+        if let Some(missing) = missing_contract_ids.first() {
+            return Err(anyhow!(
+                "package metadata references abi_id `{}` but package ABI is missing that contract",
+                missing
+            ));
         }
 
         Ok(Self {
             modules,
             external_imports,
-            type_layouts,
+            type_layouts: HashMap::new(),
         })
     }
 
@@ -331,8 +481,21 @@ impl PackageMetadataIndex {
     }
 }
 
+fn split_symbol(symbol: &str) -> Result<(&str, &str)> {
+    let (module_path, name) = symbol
+        .rsplit_once("::")
+        .ok_or_else(|| anyhow!("symbol `{}` must use `module::name` format", symbol))?;
+    if module_path.trim().is_empty() || name.trim().is_empty() {
+        return Err(anyhow!(
+            "symbol `{}` must use non-empty `module::name` segments",
+            symbol
+        ));
+    }
+    Ok((module_path, name))
+}
+
 fn validate_package_name(name: &str) -> Result<()> {
-    validate_identifier(name).with_context(|| format!("invalid package name `{name}`"))
+    validate_module_path_like_type(name).with_context(|| format!("invalid package name `{name}`"))
 }
 
 fn validate_module_path(path: &str) -> Result<()> {
@@ -381,29 +544,19 @@ fn validate_semver(version: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_artifact(pkg: &RawPackage, root: &Path) -> Result<()> {
-    if pkg.artifact.format != "wasm" {
-        return Err(anyhow!(
-            "package `{}` artifact format must be `wasm`",
-            pkg.name
-        ));
+fn validate_artifact(name: &str, artifact: &RawPackageArtifact, _root: &Path) -> Result<()> {
+    if artifact.format != "wasm" {
+        return Err(anyhow!("package `{}` artifact format must be `wasm`", name));
     }
-    if pkg.artifact.path.trim().is_empty() {
-        return Err(anyhow!("package `{}` artifact path is empty", pkg.name));
+    if artifact.path.trim().is_empty() {
+        return Err(anyhow!("package `{}` artifact path is empty", name));
     }
-    let artifact_path = root.join(&pkg.artifact.path);
-    if !artifact_path.exists() {
+    let artifact_path = Path::new(&artifact.path);
+    if artifact_path.is_absolute() {
         return Err(anyhow!(
-            "package `{}` artifact path `{}` does not exist",
-            pkg.name,
-            pkg.artifact.path
-        ));
-    }
-    if !artifact_path.is_file() {
-        return Err(anyhow!(
-            "package `{}` artifact path `{}` is not a file",
-            pkg.name,
-            pkg.artifact.path
+            "package `{}` artifact path `{}` must be relative",
+            name,
+            artifact.path
         ));
     }
     Ok(())
@@ -419,14 +572,6 @@ fn parse_effect(value: Option<&str>) -> Result<Effect> {
     }
 }
 
-fn parse_param_kind(value: Option<&str>) -> Result<ParamKind> {
-    match value.unwrap_or("borrow") {
-        "borrow" => Ok(ParamKind::Borrow),
-        "consume" => Ok(ParamKind::Consume),
-        other => Err(anyhow!("unsupported parameter kind `{}`", other)),
-    }
-}
-
 fn parse_type(raw: &str) -> Result<Type> {
     let value = raw.trim();
     if value.is_empty() {
@@ -439,6 +584,7 @@ fn parse_type(raw: &str) -> Result<Type> {
         || value.contains('(')
         || value.contains(')')
         || value.contains(',')
+        || value.contains(';')
     {
         return Err(anyhow!(
             "type `{}` uses unsupported generic/compound syntax in package metadata v1",

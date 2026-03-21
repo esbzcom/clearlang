@@ -743,37 +743,45 @@ fn build_labels_external_dependencies_as_assumed_boundaries() {
     fs::create_dir_all(&pkg_dir).expect("create pkg dir");
     fs::write(pkg_dir.join("extpkg.wasm"), [0u8]).expect("write package artifact");
 
-    let metadata = r#"
-{
-  "schema_version": 1,
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 0,
   "packages": [
     {
       "name": "extpkg",
       "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "artifact": { "format": "wasm", "path": "pkg/extpkg.wasm" },
-      "modules": [
+      "abi_id": "abi:extpkg:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:extpkg:1.0.0",
+      "package": "extpkg",
+      "version": "1.0.0",
+      "imports": [
         {
-          "path": "extpkg::math",
-          "exports": [
-            {
-              "name": "add2",
-              "kind": "value",
-              "effect": "pure",
-              "params": [
-                { "name": "a", "type": "Int" },
-                { "name": "b", "type": "Int" }
-              ],
-              "ret": "Int",
-              "import": { "module": "extpkg_math", "name": "add2" }
-            }
-          ]
+          "symbol": "extpkg::math::add2",
+          "effect": "pure",
+          "params": ["Int", "Int"],
+          "ret": "Int",
+          "capability": null
         }
       ]
     }
   ]
-}
-    "#;
-    fs::write(root.join("clg-packages.json"), metadata.trim()).expect("write metadata");
+}"#,
+    )
+    .expect("write abi");
 
     let src = r#"
         import extpkg::math::{add2}

@@ -153,7 +153,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C024 | build | Duplicate module path across source files. |
 | C025 | build | Import cycle detected. |
 | C026 | build | Reserved std module path used in user code. |
-| C027 | build | Invalid compiled-package metadata (legacy `clg-packages.json` content, package metadata migration conflict, or canonical package metadata contract violations). |
+| C027 | build | Invalid compiled-package metadata/ABI contract for standard or permissive build/run indexing (legacy `clg-packages.json` is rejected; canonical `clg.package-metadata.json` and `clg.package-abi.json` must be valid and aligned). |
 | C028 | build | Module path conflict between source files and compiled-package metadata. |
 | C029 | build | Strict compiler mode requires `--emit-vcs <FILE>`. |
 | C030 | build | Strict compiler mode cannot be combined with `--proof-strict=false`. |

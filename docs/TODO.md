@@ -980,8 +980,8 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 22.1.2 Add deterministic semver solver with lockfile generation/update flow. (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)
   - [x] 22.1.3 Add package vulnerability response flow (advisory ingestion, denylist/yank policy, forced-upgrade semantics, deterministic diagnostics). (`crates/cli/src/commands/pkg.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`)
   - [x] 22.1.4 Add CI determinism replay gates for resolver/solver outputs (resolved graph artifact, lockfile bytes/hash, diagnostics ordering). (`.github/workflows/ci.yml`, `crates/cli/tests/ci_workflow.rs`, `crates/cli/tests/cli_it/pkg_lock.rs`, `crates/cli/src/commands/pkg.rs`)
-  - [ ] 22.1.5 Add build/run resolution parity policy so package trust/resolution behavior is explicit for both `clg build` and `clg run`.
-    - [ ] 22.1.5.1 Migrate standard/permissive compiled-package import indexing from legacy `clg-packages.json` to canonical metadata/ABI inputs and retire legacy loader behavior.
+  - [x] 22.1.5 Add build/run resolution parity policy so package trust/resolution behavior is explicit for both `clg build` and `clg run`.
+    - [x] 22.1.5.1 Migrate standard/permissive compiled-package import indexing from legacy `clg-packages.json` to canonical metadata/ABI inputs and retire legacy loader behavior. (`crates/cli/src/commands/modules/package_metadata.rs`, `crates/cli/tests/cli_it/imports.rs`, `crates/cli/tests/cli_it/vc_outputs.rs`, `docs/design/phase-22.0.1-canonical-package-metadata-migration.md`, `docs/diagnostics.md`)
 
 ### 23 Runtime Package Loader + Linker
 - [ ] 23.0 Runtime linker for compiled packages.

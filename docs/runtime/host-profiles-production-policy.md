@@ -55,3 +55,12 @@ This policy covers both strict build-time gates and runtime loader behavior.
 - Keep `clg.host-profile.json` checked in for production deployments and review it together with lockfile/trust-policy updates.
 - Treat profile changes (`contract_static` <-> `shared_app`) as release-gated changes because they alter strict/runtime acceptance behavior.
 
+## Certification Suite (Phase 24.0.3)
+The host conformance certification suite is pinned in:
+- `crates/cli/tests/host_conformance_certification.rs`
+
+Locked coverage:
+- strict profile matrix enforces deterministic deny of `std::env::{time,random}` (`C106`),
+- strict profile matrix accepts allowed crypto capability paths,
+- runtime fail-closed behavior for production profiles without runtime-link (`R012`),
+- runtime rejection of unsupported profile identifiers (`R016`).

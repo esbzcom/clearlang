@@ -546,3 +546,48 @@ fn run_wasm_with_runtime_link_missing_provider_symbol_fails_with_r015() {
     assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("R015"));
     assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
 }
+
+#[test]
+fn run_wasm_with_runtime_link_uses_mirror_when_primary_store_is_missing() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let store_dir = root.join("store");
+    fs::create_dir_all(&store_dir).expect("create store");
+    let primary_artifact_path = store_dir.join("hello.wasm");
+    fs::copy(&wasm_path, &primary_artifact_path).expect("copy artifact");
+    let artifact_bytes = fs::read(&primary_artifact_path).expect("read artifact");
+    let digest = format!("sha256:{}", sha256_hex(artifact_bytes.as_slice()));
+    write_runtime_loader_gate_artifacts(root, digest.as_str(), true);
+
+    fs::remove_file(&primary_artifact_path).expect("remove primary artifact");
+    let mirror_store = root.join("mirror-a").join("store");
+    fs::create_dir_all(&mirror_store).expect("create mirror store");
+    fs::copy(&wasm_path, mirror_store.join("hello.wasm")).expect("copy mirror artifact");
+    fs::write(
+        root.join("clg.runtime-loader.json"),
+        r#"{
+  "schema_version": 0,
+  "offline_mode": true,
+  "mirror_paths": ["mirror-a"],
+  "artifact_read_retries": 2
+}"#,
+    )
+    .expect("write runtime loader policy");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("42\n"));
+}

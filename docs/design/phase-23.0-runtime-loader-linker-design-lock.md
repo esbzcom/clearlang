@@ -120,6 +120,9 @@ the loader/linker must produce:
 2. Runbook coverage for cache/mirror/offline modes and outage behavior.
 3. No production enablement without green CI acceptance matrix and rollback drill evidence.
 
+Operational runbook implementation for 23.0.4:
+- `docs/runtime/runtime-loader-resilience-runbook.md`
+
 ## References
 - `docs/TODO.md` (`23.0`, `23.1`, `24.2.5`)
 - `docs/design/phase-20.0-std-packaging-runtime-linking.md`

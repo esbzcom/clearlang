@@ -15,6 +15,7 @@ use crate::commands::validation::{
 const RUNTIME_LINK_FILE: &str = "clg.runtime-link.json";
 const RUNTIME_LINK_HASH_FILE: &str = "clg.runtime-link.sha256";
 const PACKAGE_STORE_INDEX_FILE: &str = "clg.package-store-index.json";
+const RUNTIME_LOADER_POLICY_FILE: &str = "clg.runtime-loader.json";
 const STRICT_LOCKFILE_FILE: &str = "clg.lock.json";
 const STRICT_PACKAGE_SIGNATURES_FILE: &str = "clg.package-signatures.json";
 
@@ -196,6 +197,41 @@ struct RuntimeLockfileEvidence {
     digests_by_id: HashMap<String, String>,
 }
 
+#[derive(Clone, Debug)]
+struct RuntimeAvailabilityPolicy {
+    mirror_roots: Vec<PathBuf>,
+    artifact_read_retries: u32,
+}
+
+impl Default for RuntimeAvailabilityPolicy {
+    fn default() -> Self {
+        Self {
+            mirror_roots: Vec::new(),
+            artifact_read_retries: 1,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawRuntimeLoaderPolicyV0 {
+    schema_version: u32,
+    #[serde(default = "default_runtime_loader_offline_mode")]
+    offline_mode: bool,
+    #[serde(default)]
+    mirror_paths: Vec<String>,
+    #[serde(default = "default_artifact_read_retries")]
+    artifact_read_retries: u32,
+}
+
+fn default_runtime_loader_offline_mode() -> bool {
+    true
+}
+
+fn default_artifact_read_retries() -> u32 {
+    1
+}
+
 pub(super) fn load_runtime_packages_from_local_store_if_present(
     root: &Path,
     config: RuntimeLoaderConfig,
@@ -335,6 +371,7 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
             ),
         )
     })?;
+    let availability_policy = load_runtime_availability_policy(root)?;
     let trust_signers: HashMap<
         &str,
         &crate::commands::build::strict_trust_policy::TrustedSignerV0,
@@ -600,37 +637,13 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
                 ),
             ));
         }
-        let resolved_path = root.join(store_artifact.path.as_str());
-        if !resolved_path.exists() || !resolved_path.is_file() {
-            return Err(RuntimePackageLoaderError::new(
-                "R012",
-                format!(
-                    "runtime package artifact `{}` resolved to `{}` which is missing/unavailable",
-                    pkg.id,
-                    resolved_path.display()
-                ),
-            ));
-        }
-        let bytes = fs::read(&resolved_path).map_err(|err| {
-            RuntimePackageLoaderError::new(
-                "R012",
-                format!(
-                    "reading runtime package artifact `{}` at `{}` failed: {err}",
-                    pkg.id,
-                    resolved_path.display()
-                ),
-            )
-        })?;
-        let actual_digest = format!("sha256:{}", sha256_hex(bytes.as_slice()));
-        if actual_digest != pkg.digest {
-            return Err(RuntimePackageLoaderError::new(
-                "R013",
-                format!(
-                    "runtime package artifact `{}` digest mismatch: expected `{}`, got `{}`",
-                    pkg.id, pkg.digest, actual_digest
-                ),
-            ));
-        }
+        let resolved_path = resolve_runtime_artifact_with_availability_policy(
+            root,
+            pkg.id.as_str(),
+            pkg.digest.as_str(),
+            store_artifact.path.as_str(),
+            &availability_policy,
+        )?;
         loaded_packages.push(LoadedRuntimePackage {
             id: pkg.id.clone(),
             digest: pkg.digest.clone(),
@@ -1062,6 +1075,173 @@ fn load_runtime_package_signatures(
         }
     }
     Ok(entries)
+}
+
+fn load_runtime_availability_policy(
+    root: &Path,
+) -> Result<RuntimeAvailabilityPolicy, RuntimePackageLoaderError> {
+    let path = root.join(RUNTIME_LOADER_POLICY_FILE);
+    if !path.exists() {
+        return Ok(RuntimeAvailabilityPolicy::default());
+    }
+    if !path.is_file() {
+        return Err(RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "runtime loader policy path `{}` exists but is not a file",
+                path.display()
+            ),
+        ));
+    }
+    let content = fs::read_to_string(&path).map_err(|err| {
+        RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "reading runtime loader policy `{}` failed: {err}",
+                path.display()
+            ),
+        )
+    })?;
+    let raw: RawRuntimeLoaderPolicyV0 = serde_json::from_str(content.as_str()).map_err(|err| {
+        RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "runtime loader policy `{}` does not match schema v0 (`schema_version`, `offline_mode`, `mirror_paths`, `artifact_read_retries`): {err}",
+                path.display()
+            ),
+        )
+    })?;
+    if raw.schema_version != 0 {
+        return Err(RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "runtime loader policy `{}` has unsupported schema_version {}; expected 0",
+                path.display(),
+                raw.schema_version
+            ),
+        ));
+    }
+    if !raw.offline_mode {
+        return Err(RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "runtime loader policy `{}` sets `offline_mode=false`, but remote fetching is not supported in phase 23.0.4",
+                path.display()
+            ),
+        ));
+    }
+    if raw.artifact_read_retries == 0 {
+        return Err(RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "runtime loader policy `{}` must set `artifact_read_retries` to >= 1",
+                path.display()
+            ),
+        ));
+    }
+    if raw.artifact_read_retries > 8 {
+        return Err(RuntimePackageLoaderError::new(
+            "R012",
+            format!(
+                "runtime loader policy `{}` must keep `artifact_read_retries` <= 8 for deterministic runtime bounds",
+                path.display()
+            ),
+        ));
+    }
+
+    let mut seen_paths = std::collections::HashSet::with_capacity(raw.mirror_paths.len());
+    let mut mirror_roots = Vec::with_capacity(raw.mirror_paths.len());
+    for value in raw.mirror_paths {
+        validate_relative_artifact_path(value.as_str()).map_err(|msg| {
+            RuntimePackageLoaderError::new(
+                "R012",
+                format!(
+                    "runtime loader policy `{}` has invalid mirror path `{}`: {msg}",
+                    path.display(),
+                    value
+                ),
+            )
+        })?;
+        if !seen_paths.insert(value.clone()) {
+            return Err(RuntimePackageLoaderError::new(
+                "R012",
+                format!(
+                    "runtime loader policy `{}` has duplicate mirror path `{}`",
+                    path.display(),
+                    value
+                ),
+            ));
+        }
+        mirror_roots.push(PathBuf::from(value));
+    }
+
+    Ok(RuntimeAvailabilityPolicy {
+        mirror_roots,
+        artifact_read_retries: raw.artifact_read_retries,
+    })
+}
+
+fn resolve_runtime_artifact_with_availability_policy(
+    root: &Path,
+    package_id: &str,
+    expected_digest: &str,
+    artifact_path: &str,
+    policy: &RuntimeAvailabilityPolicy,
+) -> Result<PathBuf, RuntimePackageLoaderError> {
+    let mut candidates = Vec::with_capacity(1 + policy.mirror_roots.len());
+    candidates.push(root.join(artifact_path));
+    for mirror_root in &policy.mirror_roots {
+        candidates.push(root.join(mirror_root).join(artifact_path));
+    }
+
+    let mut saw_digest_mismatch = false;
+    let mut available_digest_mismatches = Vec::new();
+    for candidate in &candidates {
+        for _ in 0..policy.artifact_read_retries {
+            if !candidate.exists() || !candidate.is_file() {
+                continue;
+            }
+            let bytes = match fs::read(candidate) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let actual_digest = format!("sha256:{}", sha256_hex(bytes.as_slice()));
+            if actual_digest != expected_digest {
+                saw_digest_mismatch = true;
+                available_digest_mismatches.push(format!(
+                    "{}=>{}",
+                    candidate.display(),
+                    actual_digest
+                ));
+                break;
+            }
+            return Ok(candidate.clone());
+        }
+    }
+
+    if saw_digest_mismatch {
+        let details = available_digest_mismatches.join(", ");
+        return Err(RuntimePackageLoaderError::new(
+            "R013",
+            format!(
+                "runtime package artifact `{}` digest mismatch across configured availability roots; expected `{}` ({})",
+                package_id, expected_digest, details
+            ),
+        ));
+    }
+
+    let attempted = candidates
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(RuntimePackageLoaderError::new(
+        "R012",
+        format!(
+            "runtime package artifact `{}` was unavailable at all configured roots: {}",
+            package_id, attempted
+        ),
+    ))
 }
 
 fn load_package_store_index(root: &Path) -> Result<PackageStoreIndexV0, RuntimePackageLoaderError> {
@@ -1500,6 +1680,58 @@ mod tests {
         )
         .expect_err("expected missing artifact");
         assert_eq!(err.code(), "R012");
+    }
+
+    #[test]
+    fn loads_from_mirror_when_primary_artifact_is_unavailable() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        write_baseline_runtime_artifacts(root, "artifact");
+
+        fs::remove_file(root.join("store").join("pkg-a.wasm")).expect("remove primary artifact");
+        let mirror_store = root.join("mirror-a").join("store");
+        fs::create_dir_all(&mirror_store).expect("create mirror store");
+        write_file(mirror_store.join("pkg-a.wasm").as_path(), "artifact");
+        write_file(
+            root.join(RUNTIME_LOADER_POLICY_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "offline_mode": true,
+  "mirror_paths": ["mirror-a"],
+  "artifact_read_retries": 2
+}"#,
+        );
+
+        let loaded =
+            load_runtime_packages_from_local_store_if_present(root, RuntimeLoaderConfig::default())
+                .expect("load runtime packages")
+                .expect("runtime-link present");
+        assert_eq!(
+            loaded.packages[0].resolved_path,
+            root.join("mirror-a").join("store").join("pkg-a.wasm")
+        );
+    }
+
+    #[test]
+    fn rejects_runtime_loader_policy_with_offline_mode_false() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        write_baseline_runtime_artifacts(root, "artifact");
+        write_file(
+            root.join(RUNTIME_LOADER_POLICY_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "offline_mode": false,
+  "mirror_paths": [],
+  "artifact_read_retries": 1
+}"#,
+        );
+
+        let err =
+            load_runtime_packages_from_local_store_if_present(root, RuntimeLoaderConfig::default())
+                .expect_err("offline_mode=false should fail");
+        assert_eq!(err.code(), "R012");
+        assert!(err.message().contains("offline_mode=false"));
     }
 
     #[test]

@@ -996,7 +996,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 23.0.1 Implement host-side package loader core from trusted local store/index with explicit no-implicit-network default. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/src/commands/run/mod.rs`, `crates/cli/tests/run_smoke.rs`)
   - [x] 23.0.2 Enforce fail-closed runtime trust gates (digest/signature/policy + lock/import-map consistency) before linking any package artifact. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
   - [x] 23.0.3 Implement deterministic runtime linker/import binding path and deterministic runtime diagnostics for missing/mismatched/untrusted package artifacts. (`crates/cli/src/commands/run/mod.rs`, `crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`)
-  - [ ] 23.0.4 Add artifact availability/resilience policy (mirrors/cache/offline mode/retry/failure behavior) and operational runbook coverage.
+  - [x] 23.0.4 Add artifact availability/resilience policy (mirrors/cache/offline mode/retry/failure behavior) and operational runbook coverage. (`crates/cli/src/commands/run/package_loader.rs`, `crates/cli/tests/run_smoke.rs`, `docs/runtime/runtime-loader-resilience-runbook.md`)
 - [ ] 23.1 Runtime loading completion gate for milestone_2.
   - [ ] 23.1.1 Enable automatic runtime package loader/linker path in runtime hosts (`clg run` and production host integrations) without manual import wiring.
   - [ ] 23.1.2 Add CI tamper + determinism replay matrix for runtime loading/linking (missing/mismatch/untrusted artifacts, diagnostics ordering, replay stability).

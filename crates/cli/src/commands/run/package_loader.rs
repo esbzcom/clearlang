@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -1244,9 +1244,11 @@ fn load_runtime_production_profile_if_present(
             ),
         ));
     }
-    let _ = raw.capabilities.len();
     match raw.profile.as_str() {
-        "contract_static" | "shared_app" => Ok(Some(raw.profile)),
+        "contract_static" | "shared_app" => {
+            validate_runtime_host_profile_capabilities(path.as_path(), raw.capabilities.as_slice())?;
+            Ok(Some(raw.profile))
+        }
         _ => Err(RuntimePackageLoaderError::new(
             "R016",
             format!(
@@ -1256,6 +1258,68 @@ fn load_runtime_production_profile_if_present(
             ),
         )),
     }
+}
+
+fn validate_runtime_host_profile_capabilities(
+    path: &Path,
+    capabilities: &[String],
+) -> Result<(), RuntimePackageLoaderError> {
+    let mut sorted = capabilities.to_vec();
+    sorted.sort();
+
+    let mut seen = HashSet::with_capacity(sorted.len());
+    let mut duplicates = BTreeSet::new();
+    for capability in &sorted {
+        if !seen.insert(capability.clone()) {
+            duplicates.insert(capability.clone());
+        }
+    }
+    if let Some(duplicate) = duplicates.iter().next() {
+        return Err(RuntimePackageLoaderError::new(
+            "R016",
+            format!(
+                "runtime host profile `{}` has duplicate capability `{}`",
+                path.display(),
+                duplicate
+            ),
+        ));
+    }
+
+    for capability in &sorted {
+        if capability.trim().is_empty() {
+            return Err(RuntimePackageLoaderError::new(
+                "R016",
+                format!(
+                    "runtime host profile `{}` contains an empty capability id",
+                    path.display()
+                ),
+            ));
+        }
+        if !is_allowed_runtime_host_capability(capability.as_str()) {
+            return Err(RuntimePackageLoaderError::new(
+                "R016",
+                format!(
+                    "runtime host profile `{}` has unsupported capability `{}`",
+                    path.display(),
+                    capability
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn is_allowed_runtime_host_capability(capability: &str) -> bool {
+    matches!(
+        capability,
+        "std::crypto::hash"
+            | "std::crypto::hmac"
+            | "std::crypto::verify"
+            | "std::env::time"
+            | "std::env::random"
+            | "std::env::chain_id"
+            | "std::wasi::print"
+    )
 }
 
 fn resolve_runtime_artifact_with_availability_policy(
@@ -1651,6 +1715,67 @@ mod tests {
         .expect_err("missing runtime-link should fail closed in production profile");
         assert_eq!(err.code(), "R012");
         assert!(err.message().contains("fail-closed"));
+    }
+
+    #[test]
+    fn runtime_host_profile_rejects_unsupported_capability_with_r016() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_file(
+            tmp.path().join(HOST_PROFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::env::unknown"]
+}"#,
+        );
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig::default(),
+        )
+        .expect_err("unsupported capability should fail");
+        assert_eq!(err.code(), "R016");
+        assert!(err.message().contains("unsupported capability"));
+    }
+
+    #[test]
+    fn runtime_host_profile_rejects_duplicate_capability_with_r016() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_file(
+            tmp.path().join(HOST_PROFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::crypto::hash", "std::crypto::hash", "std::wasi::print", "std::wasi::print"]
+}"#,
+        );
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig::default(),
+        )
+        .expect_err("duplicate capability should fail");
+        assert_eq!(err.code(), "R016");
+        assert!(err.message().contains("duplicate capability"));
+        assert!(err.message().contains("std::crypto::hash"));
+    }
+
+    #[test]
+    fn runtime_host_profile_rejects_empty_capability_with_r016() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_file(
+            tmp.path().join(HOST_PROFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "profile": "shared_app",
+  "capabilities": ["", "std::wasi::print"]
+}"#,
+        );
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig::default(),
+        )
+        .expect_err("empty capability should fail");
+        assert_eq!(err.code(), "R016");
+        assert!(err.message().contains("empty capability id"));
     }
 
     #[test]

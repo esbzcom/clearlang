@@ -33,7 +33,7 @@ def build_dependency_report(metadata: dict) -> tuple[dict, list[dict]]:
         license_expr = (pkg.get("license") or "").strip()
         license_file = (pkg.get("license_file") or "").strip()
         in_workspace = pkg_id in workspace_members
-        compliant = in_workspace or bool(license_expr or license_file)
+        compliant = bool(license_expr or license_file)
 
         record = {
             "id": pkg_id,
@@ -58,14 +58,31 @@ def build_dependency_report(metadata: dict) -> tuple[dict, list[dict]]:
 
 
 def build_package_artifact_report(root: Path) -> tuple[dict, list[dict]]:
-    ignored_roots = {"target", ".git", "tmp"}
-    metadata_files = []
-    for path in root.rglob("clg.package-metadata.json"):
-        rel_parts = set(path.relative_to(root).parts)
-        if rel_parts & ignored_roots:
-            continue
-        metadata_files.append(path)
-    metadata_files.sort()
+    metadata_files: set[Path] = set()
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "--", "**/clg.package-metadata.json"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        for line in tracked.stdout.splitlines():
+            rel = line.strip()
+            if not rel:
+                continue
+            metadata_files.add(root / rel)
+    except Exception:
+        ignored_roots = {"target", ".git"}
+        for path in root.rglob("clg.package-metadata.json"):
+            rel_parts = set(path.relative_to(root).parts)
+            if rel_parts & ignored_roots:
+                continue
+            metadata_files.add(path)
+    for path in root.glob("tmp/std-core/**/clg.package-metadata.json"):
+        metadata_files.add(path)
+
+    metadata_files = sorted(path for path in metadata_files if path.exists())
     records = []
     violations = []
 

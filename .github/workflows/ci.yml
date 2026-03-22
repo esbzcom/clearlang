@@ -49,10 +49,6 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/ci/milestone2_perf_gate.sh
-      - name: Milestone 2 supply-chain compliance gate
-        run: |
-          set -euo pipefail
-          python scripts/ci/milestone2_supply_chain_gate.py
       - name: Std-core artifact reproducibility
         run: |
           set -euo pipefail
@@ -81,6 +77,10 @@ jobs:
           cargo run -p xtask -- host-capability-policy-artifact --emit-artifact tmp/host-policy/run2
           cmp --silent tmp/host-policy/run1/host-capability-policy-v1.json tmp/host-policy/run2/host-capability-policy-v1.json
           cmp --silent tmp/host-policy/run1/host-capability-policy-v1.sha256 tmp/host-policy/run2/host-capability-policy-v1.sha256
+      - name: Milestone 2 supply-chain compliance gate
+        run: |
+          set -euo pipefail
+          python scripts/ci/milestone2_supply_chain_gate.py
       - name: Upload std-core artifact bundle
         uses: actions/upload-artifact@v4
         with:

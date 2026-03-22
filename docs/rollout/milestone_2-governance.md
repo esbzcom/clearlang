@@ -41,3 +41,15 @@ Last reviewed: 2026-03-21.
   - all `24.2.x` checklist items in `docs/TODO.md` are checked (`[x]`),
   - `release_notes/milestone_2.md` exists.
 - If either condition fails, the tag pipeline fails closed.
+
+## Post-Review Hardening Decisions (Option 1)
+Decision date: 2026-03-21.
+
+1. Supply-chain license gate has no workspace exemption:
+   - workspace crates must carry explicit `license` or `license_file` metadata.
+2. Supply-chain gate runs after std-core artifact generation:
+   - generated package metadata/artifacts are included in compliance scope.
+3. Runtime host-profile capability validation is fail-closed:
+   - unsupported/duplicate/empty capability ids are rejected with deterministic `R016`.
+4. Performance gate includes runtime-link startup KPI:
+   - runtime loader/linker path is measured directly, not only build-time package import resolution.

@@ -129,4 +129,14 @@ fn ci_workflow_enforces_validation_and_tests() {
         contents.contains("name: milestone2-supply-chain"),
         "ci should upload milestone_2 supply-chain compliance artifact"
     );
+    let std_core_gate_pos = contents
+        .find("Std-core artifact reproducibility")
+        .expect("std-core reproducibility gate should exist");
+    let supply_chain_gate_pos = contents
+        .find("Milestone 2 supply-chain compliance gate")
+        .expect("supply-chain gate should exist");
+    assert!(
+        supply_chain_gate_pos > std_core_gate_pos,
+        "supply-chain compliance gate should run after std-core artifact generation so generated artifacts are in scope"
+    );
 }

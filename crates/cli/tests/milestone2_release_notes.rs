@@ -31,4 +31,8 @@ fn milestone2_release_notes_published_with_release_evidence_sections() {
         content.contains("24.2.10") && content.contains("milestone_2-supply-chain.md"),
         "release notes should reference supply-chain evidence for 24.2.10"
     );
+    assert!(
+        content.contains("Post-Review Hardening (Option 1)"),
+        "release notes should document approved option 1 hardening decisions"
+    );
 }

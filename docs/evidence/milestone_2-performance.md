@@ -7,6 +7,7 @@ CI runs `scripts/ci/milestone2_perf_gate.sh` after release build and enforces
 the following default budgets:
 - startup overhead (`clg run clearlang-tests/16_namespaced_call.clear`) <= `2.0s`
 - package resolution/link build latency (`clg build` on `clearlang-tests/perf/pkg_resolution/main.clear`) <= `2.5s`
+- runtime-link startup latency (successful `clg run` with runtime-link/trust/signature inputs) <= `3.0s`
 - resident memory budget (RSS) for each measured command <= `400000 KB`
 - CPU utilization budget for each measured command <= `400%`
 
@@ -19,6 +20,7 @@ the following default budgets:
 - Thresholds can be overridden via CI env vars:
   - `STARTUP_LATENCY_MAX_S`
   - `PKG_RESOLUTION_LATENCY_MAX_S`
+  - `RUNTIME_LINK_STARTUP_LATENCY_MAX_S`
   - `MAX_RSS_KB`
   - `MAX_CPU_PERCENT`
 - Release train is blocked if this gate fails.

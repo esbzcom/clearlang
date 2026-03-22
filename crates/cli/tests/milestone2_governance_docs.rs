@@ -4,7 +4,10 @@ use std::path::Path;
 #[test]
 fn milestone2_governance_doc_covers_dri_dates_risks_and_release_train_gate() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let path = root.join("docs").join("rollout").join("milestone_2-governance.md");
+    let path = root
+        .join("docs")
+        .join("rollout")
+        .join("milestone_2-governance.md");
     let content = fs::read_to_string(&path).expect("read milestone_2 governance doc");
 
     assert!(

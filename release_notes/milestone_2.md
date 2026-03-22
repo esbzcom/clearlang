@@ -34,3 +34,9 @@ Milestone 2 delivers the production package/runtime path across Phases 20-24:
 1. `24.2.x` checklist items are checked in `docs/TODO.md`.
 2. Milestone-2 CI regression and release-train gates are configured in `.github/workflows/ci.yml`.
 3. Security/performance/supply-chain evidence indexes are linked in this release note.
+
+## Post-Review Hardening (Option 1)
+- Supply-chain license checks include workspace crates (no exemption).
+- Supply-chain compliance runs after std-core artifact generation to include generated artifacts.
+- Runtime host-profile capability validation rejects unsupported/duplicate/empty capabilities with deterministic runtime diagnostics.
+- Performance SLO gate includes runtime-link startup latency in addition to startup and package-resolution build metrics.

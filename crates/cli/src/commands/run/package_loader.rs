@@ -303,18 +303,24 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
     }
 
     let runtime_link_text = fs::read_to_string(&runtime_link_path).map_err(|err| {
-        let _ = err;
         RuntimePackageLoaderError::new(
             "R012",
-            format!("reading {} failed", runtime_link_path.display()),
+            format!(
+                "reading {} failed (io_kind={})",
+                runtime_link_path.display(),
+                io_error_kind_label(&err)
+            ),
         )
     })?;
     let runtime_link_value: serde_json::Value = serde_json::from_str(runtime_link_text.as_str())
         .map_err(|err| {
-            let _ = err;
             RuntimePackageLoaderError::new(
                 "R012",
-                format!("parsing {} failed", runtime_link_path.display()),
+                format!(
+                    "parsing {} failed (json_class={})",
+                    runtime_link_path.display(),
+                    json_error_class_label(&err)
+                ),
             )
         })?;
     let runtime_link: RuntimeLinkRootV0 = serde_json::from_value(runtime_link_value.clone())
@@ -351,10 +357,13 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
 
     let canonical_link_hash = sha256_hex(canonical_json_bytes(&runtime_link_value).as_slice());
     let expected_hash = fs::read_to_string(&runtime_link_hash_path).map_err(|err| {
-        let _ = err;
         RuntimePackageLoaderError::new(
             "R017",
-            format!("reading {} failed", runtime_link_hash_path.display()),
+            format!(
+                "reading {} failed (io_kind={})",
+                runtime_link_hash_path.display(),
+                io_error_kind_label(&err)
+            ),
         )
     })?;
     let expected_hash = expected_hash.trim();
@@ -761,19 +770,22 @@ fn load_runtime_lockfile_evidence(
         ));
     }
     let content = fs::read_to_string(&path).map_err(|err| {
-        let _ = err;
-        RuntimePackageLoaderError::new(
-            "R013",
-            format!("reading runtime lockfile `{}` failed", path.display()),
-        )
-    })?;
-    let value: serde_json::Value = serde_json::from_str(content.as_str()).map_err(|err| {
-        let _ = err;
         RuntimePackageLoaderError::new(
             "R013",
             format!(
-                "runtime lockfile `{}` is not valid JSON (expected schema v0/v1)",
-                path.display()
+                "reading runtime lockfile `{}` failed (io_kind={})",
+                path.display(),
+                io_error_kind_label(&err)
+            ),
+        )
+    })?;
+    let value: serde_json::Value = serde_json::from_str(content.as_str()).map_err(|err| {
+        RuntimePackageLoaderError::new(
+            "R013",
+            format!(
+                "runtime lockfile `{}` is not valid JSON (expected schema v0/v1; json_class={})",
+                path.display(),
+                json_error_class_label(&err)
             ),
         )
     })?;
@@ -878,6 +890,11 @@ fn load_runtime_lockfile_evidence(
                     ),
                 ));
             }
+            let mut package_versions_by_name: HashMap<String, BTreeSet<String>> =
+                HashMap::with_capacity(raw.packages.len());
+            let mut package_dependencies: Vec<(String, Vec<String>)> =
+                Vec::with_capacity(raw.packages.len());
+
             for root in &raw.roots {
                 if root.name.trim().is_empty() {
                     return Err(RuntimePackageLoaderError::new(
@@ -996,6 +1013,91 @@ fn load_runtime_lockfile_evidence(
                         ),
                     ));
                 }
+                package_versions_by_name
+                    .entry(pkg.name.clone())
+                    .or_default()
+                    .insert(pkg.version.clone());
+                package_dependencies.push((pkg.id.clone(), pkg.dependencies.clone()));
+            }
+
+            for root in &raw.roots {
+                let mut seen_dependency_names = HashSet::with_capacity(root.dependencies.len());
+                let mut duplicate_dependency_names = BTreeSet::new();
+                for dep in &root.dependencies {
+                    if !seen_dependency_names.insert(dep.name.clone()) {
+                        duplicate_dependency_names.insert(dep.name.clone());
+                    }
+                    let matching_versions = package_versions_by_name
+                        .get(dep.name.as_str())
+                        .ok_or_else(|| {
+                            RuntimePackageLoaderError::new(
+                                "R013",
+                                format!(
+                                    "runtime lockfile `{}` root `{}` dependency `{}` is missing from `packages[]`",
+                                    path.display(),
+                                    root.name,
+                                    dep.name
+                                ),
+                            )
+                        })?;
+                    if !matching_versions.iter().any(|version| {
+                        requirement_matches_version(dep.requirement.as_str(), version.as_str())
+                    }) {
+                        return Err(RuntimePackageLoaderError::new(
+                            "R013",
+                            format!(
+                                "runtime lockfile `{}` root `{}` dependency `{}` requirement `{}` is not satisfied by `packages[]`",
+                                path.display(),
+                                root.name,
+                                dep.name,
+                                dep.requirement
+                            ),
+                        ));
+                    }
+                }
+                if let Some(dupe) = duplicate_dependency_names.iter().next() {
+                    return Err(RuntimePackageLoaderError::new(
+                        "R013",
+                        format!(
+                            "runtime lockfile `{}` root `{}` has duplicate dependency name `{}`",
+                            path.display(),
+                            root.name,
+                            dupe
+                        ),
+                    ));
+                }
+            }
+
+            for (package_id, dependencies) in package_dependencies {
+                let mut seen_dependencies = HashSet::with_capacity(dependencies.len());
+                let mut duplicate_dependencies = BTreeSet::new();
+                for dep in dependencies {
+                    if !seen_dependencies.insert(dep.clone()) {
+                        duplicate_dependencies.insert(dep.clone());
+                    }
+                    if !digests_by_id.contains_key(dep.as_str()) {
+                        return Err(RuntimePackageLoaderError::new(
+                            "R013",
+                            format!(
+                                "runtime lockfile `{}` package `{}` references dependency id `{}` that is missing from `packages[]`",
+                                path.display(),
+                                package_id,
+                                dep
+                            ),
+                        ));
+                    }
+                }
+                if let Some(dupe) = duplicate_dependencies.iter().next() {
+                    return Err(RuntimePackageLoaderError::new(
+                        "R013",
+                        format!(
+                            "runtime lockfile `{}` package `{}` has duplicate dependency id `{}`",
+                            path.display(),
+                            package_id,
+                            dupe
+                        ),
+                    ));
+                }
             }
             Ok(RuntimeLockfileEvidence {
                 resolver_version: Some(raw.resolver_version),
@@ -1010,6 +1112,73 @@ fn load_runtime_lockfile_evidence(
                 other
             ),
         )),
+    }
+}
+
+fn requirement_matches_version(requirement: &str, version: &str) -> bool {
+    let req = requirement.trim();
+    let (op, base) = if let Some(value) = req.strip_prefix('=') {
+        ("=", value)
+    } else if let Some(value) = req.strip_prefix('^') {
+        ("^", value)
+    } else if let Some(value) = req.strip_prefix('~') {
+        ("~", value)
+    } else {
+        ("=", req)
+    };
+
+    let Some(base_triplet) = parse_semver_triplet(base) else {
+        return false;
+    };
+    let Some(version_triplet) = parse_semver_triplet(version) else {
+        return false;
+    };
+
+    match op {
+        "=" => version_triplet == base_triplet,
+        "^" => version_triplet.0 == base_triplet.0 && version_triplet >= base_triplet,
+        "~" => {
+            version_triplet.0 == base_triplet.0
+                && version_triplet.1 == base_triplet.1
+                && version_triplet >= base_triplet
+        }
+        _ => false,
+    }
+}
+
+fn parse_semver_triplet(value: &str) -> Option<(u64, u64, u64)> {
+    let mut parts = value.split('.');
+    let major = parts.next()?.parse::<u64>().ok()?;
+    let minor = parts.next()?.parse::<u64>().ok()?;
+    let patch = parts.next()?.parse::<u64>().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    Some((major, minor, patch))
+}
+
+fn io_error_kind_label(err: &std::io::Error) -> &'static str {
+    match err.kind() {
+        std::io::ErrorKind::NotFound => "not_found",
+        std::io::ErrorKind::PermissionDenied => "permission_denied",
+        std::io::ErrorKind::AlreadyExists => "already_exists",
+        std::io::ErrorKind::InvalidInput => "invalid_input",
+        std::io::ErrorKind::InvalidData => "invalid_data",
+        std::io::ErrorKind::TimedOut => "timed_out",
+        std::io::ErrorKind::UnexpectedEof => "unexpected_eof",
+        std::io::ErrorKind::WouldBlock => "would_block",
+        std::io::ErrorKind::Interrupted => "interrupted",
+        std::io::ErrorKind::OutOfMemory => "out_of_memory",
+        _ => "other",
+    }
+}
+
+fn json_error_class_label(err: &serde_json::Error) -> &'static str {
+    match err.classify() {
+        serde_json::error::Category::Io => "io",
+        serde_json::error::Category::Syntax => "syntax",
+        serde_json::error::Category::Data => "data",
+        serde_json::error::Category::Eof => "eof",
     }
 }
 

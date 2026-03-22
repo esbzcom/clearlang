@@ -114,24 +114,31 @@ fn link_runtime_packages(
         .collect();
     let (binding_by_import, bindings_by_provider) =
         index_runtime_bindings(runtime_packages.bindings.as_slice(), &provider_ids)?;
+    validate_runtime_import_binding_coverage(module, &binding_by_import)?;
 
     let mut provider_units: std::collections::HashMap<String, wt::Module> =
         std::collections::HashMap::with_capacity(runtime_packages.packages.len());
     let mut provider_imports: std::collections::HashMap<String, Vec<(String, String)>> =
         std::collections::HashMap::with_capacity(runtime_packages.packages.len());
+    let mut provider_exports: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        std::collections::HashMap::with_capacity(runtime_packages.packages.len());
 
     for pkg in &runtime_packages.packages {
         let provider_module = wt::Module::from_file(engine, &pkg.resolved_path).map_err(|err| {
-            let _ = err;
             package_loader::RuntimePackageLoaderError::new(
                 "R015",
                 format!(
-                    "runtime linker failed to load provider package `{}` module `{}`",
+                    "runtime linker failed to load provider package `{}` module `{}` (cause={})",
                     pkg.id,
-                    pkg.resolved_path.display()
+                    pkg.resolved_path.display(),
+                    classify_wasmtime_linker_error(&err)
                 ),
             )
         })?;
+        let exports = provider_module
+            .exports()
+            .map(|export| export.name().to_string())
+            .collect::<std::collections::HashSet<_>>();
         let imports = provider_module
             .imports()
             .map(|import| (import.module().to_string(), import.name().to_string()))
@@ -159,8 +166,10 @@ fn link_runtime_packages(
             }
         }
         provider_imports.insert(pkg.id.clone(), imports);
+        provider_exports.insert(pkg.id.clone(), exports);
         provider_units.insert(pkg.id.clone(), provider_module);
     }
+    validate_provider_symbol_coverage(&bindings_by_provider, &provider_exports)?;
     let provider_order =
         resolve_provider_link_order(&provider_imports, &binding_by_import, &provider_ids)?;
 
@@ -176,12 +185,12 @@ fn link_runtime_packages(
         let instance = linker
             .instantiate(&mut *store, &provider_module)
             .map_err(|err| {
-                let _ = err;
                 package_loader::RuntimePackageLoaderError::new(
                     "R015",
                     format!(
-                        "runtime linker failed to instantiate provider package `{}`",
-                        provider_id
+                        "runtime linker failed to instantiate provider package `{}` (cause={})",
+                        provider_id,
+                        classify_wasmtime_linker_error(&err)
                     ),
                 )
             })?;
@@ -189,12 +198,12 @@ fn link_runtime_packages(
         linker
             .instance(&mut *store, provider_module_name.as_str(), instance)
             .map_err(|err| {
-                let _ = err;
                 package_loader::RuntimePackageLoaderError::new(
                     "R015",
                     format!(
-                        "runtime linker failed to register provider package `{}` exports",
-                        provider_id
+                        "runtime linker failed to register provider package `{}` exports (cause={})",
+                        provider_id,
+                        classify_wasmtime_linker_error(&err)
                     ),
                 )
             })?;
@@ -208,15 +217,15 @@ fn link_runtime_packages(
                         binding.import_name.as_str(),
                     )
                     .map_err(|err| {
-                        let _ = err;
                         package_loader::RuntimePackageLoaderError::new(
                             "R015",
                             format!(
-                                "runtime linker failed to bind `{}`::`{}` to `{}`::`{}`",
+                                "runtime linker failed to bind `{}`::`{}` to `{}`::`{}` (cause={})",
                                 binding.import_module,
                                 binding.import_name,
                                 binding.provider_package_id,
-                                binding.provider_symbol
+                                binding.provider_symbol,
+                                classify_wasmtime_linker_error(&err)
                             ),
                         )
                     })?;
@@ -241,6 +250,76 @@ fn link_runtime_packages(
     }
 
     Ok(())
+}
+
+fn validate_runtime_import_binding_coverage(
+    module: &wt::Module,
+    binding_by_import: &std::collections::HashMap<
+        (String, String),
+        package_loader::LoadedRuntimeBinding,
+    >,
+) -> Result<(), package_loader::RuntimePackageLoaderError> {
+    let mut missing = std::collections::BTreeSet::new();
+    for import in module.imports() {
+        if runtime_import_capability(import.module(), import.name()).is_some() {
+            continue;
+        }
+        let key = (import.module().to_string(), import.name().to_string());
+        if !binding_by_import.contains_key(&key) {
+            missing.insert(format!("`{}`::`{}`", import.module(), import.name()));
+        }
+    }
+    if missing.is_empty() {
+        return Ok(());
+    }
+    Err(package_loader::RuntimePackageLoaderError::new(
+        "R015",
+        format!(
+            "runtime linker missing import-map bindings for required imports: {}",
+            missing.into_iter().collect::<Vec<_>>().join(", ")
+        ),
+    ))
+}
+
+fn validate_provider_symbol_coverage(
+    bindings_by_provider: &std::collections::HashMap<
+        String,
+        Vec<package_loader::LoadedRuntimeBinding>,
+    >,
+    provider_exports: &std::collections::HashMap<String, std::collections::HashSet<String>>,
+) -> Result<(), package_loader::RuntimePackageLoaderError> {
+    let mut missing = std::collections::BTreeSet::new();
+    for (provider_id, bindings) in bindings_by_provider {
+        let Some(exports) = provider_exports.get(provider_id.as_str()) else {
+            return Err(package_loader::RuntimePackageLoaderError::new(
+                "R015",
+                format!(
+                    "runtime linker has bindings for provider package `{provider_id}` but no loaded module exports"
+                ),
+            ));
+        };
+        for binding in bindings {
+            if !exports.contains(binding.provider_symbol.as_str()) {
+                missing.insert(format!(
+                    "`{}`::`{}` -> `{}`::`{}`",
+                    binding.import_module,
+                    binding.import_name,
+                    binding.provider_package_id,
+                    binding.provider_symbol
+                ));
+            }
+        }
+    }
+    if missing.is_empty() {
+        return Ok(());
+    }
+    Err(package_loader::RuntimePackageLoaderError::new(
+        "R015",
+        format!(
+            "runtime linker bindings reference missing provider exports: {}",
+            missing.into_iter().collect::<Vec<_>>().join(", ")
+        ),
+    ))
 }
 
 fn index_runtime_bindings(
@@ -393,6 +472,26 @@ fn resolve_provider_link_order(
             cycle_nodes.join(", ")
         ),
     ))
+}
+
+fn classify_wasmtime_linker_error(err: &impl std::fmt::Display) -> &'static str {
+    let text = err.to_string().to_ascii_lowercase();
+    if text.contains("unknown import") || text.contains("unknown module") {
+        return "unknown_import";
+    }
+    if text.contains("incompatible import") || text.contains("type mismatch") {
+        return "type_mismatch";
+    }
+    if text.contains("failed to parse")
+        || text.contains("malformed")
+        || text.contains("magic header not detected")
+    {
+        return "invalid_wasm";
+    }
+    if text.contains("link") {
+        return "link_failure";
+    }
+    "other"
 }
 
 fn load_module_for_run(

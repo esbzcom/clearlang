@@ -18,6 +18,9 @@ Milestone 2 delivers the production package/runtime path across Phases 20-24:
 - Std-core artifact reproducibility and drift checks in CI.
 - Resolver/solver determinism replay gates in CI.
 - Runtime loader tamper/replay determinism gates in CI.
+- Release-train gate lock-artifact enforcement:
+  - `docs/runtime/runtime-loader-rollout-gate.lock.json`,
+  - `docs/runtime/host-profiles-production-policy.lock.json`.
 - Milestone-2 cross-phase regression job:
   - Phase 19 design principles + profile regression,
   - strict acceptance checks,

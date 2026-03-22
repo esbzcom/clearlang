@@ -395,6 +395,112 @@ fn rejects_lockfile_v1_invalid_dependency_id_with_r013() {
 }
 
 #[test]
+fn rejects_lockfile_v1_missing_package_dependency_reference_with_r013() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_baseline_runtime_artifacts(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [],
+  "packages": [
+    {
+      "id": "pkg::a@1.0.0",
+      "name": "pkg::a",
+      "version": "1.0.0",
+      "digest": "sha256:c7c5c1d70c5dec441d7d17042f8bbf5be4c4bf4a4c8f89f46b5f58211a711000",
+      "abi_id": "abi:pkg::a:1.0.0",
+      "dependencies": ["pkg::missing@1.0.0"]
+    }
+  ]
+}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("expected missing package dependency reference");
+    assert_eq!(err.code(), "R013");
+    assert!(err.message().contains("missing from `packages[]`"));
+}
+
+#[test]
+fn rejects_lockfile_v1_duplicate_package_dependency_id_with_r013() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_baseline_runtime_artifacts(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [],
+  "packages": [
+    {
+      "id": "pkg::a@1.0.0",
+      "name": "pkg::a",
+      "version": "1.0.0",
+      "digest": "sha256:c7c5c1d70c5dec441d7d17042f8bbf5be4c4bf4a4c8f89f46b5f58211a711000",
+      "abi_id": "abi:pkg::a:1.0.0",
+      "dependencies": ["pkg::a@1.0.0", "pkg::a@1.0.0"]
+    }
+  ]
+}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("expected duplicate package dependency id");
+    assert_eq!(err.code(), "R013");
+    assert!(err.message().contains("duplicate dependency id"));
+}
+
+#[test]
+fn rejects_lockfile_v1_root_requirement_without_matching_package_with_r013() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_baseline_runtime_artifacts(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "app",
+      "dependencies": [
+        {
+          "name": "pkg::a",
+          "requirement": "^2.0.0"
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg::a@1.0.0",
+      "name": "pkg::a",
+      "version": "1.0.0",
+      "digest": "sha256:c7c5c1d70c5dec441d7d17042f8bbf5be4c4bf4a4c8f89f46b5f58211a711000",
+      "abi_id": "abi:pkg::a:1.0.0",
+      "dependencies": []
+    }
+  ]
+}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("expected unsatisfied root requirement");
+    assert_eq!(err.code(), "R013");
+    assert!(err.message().contains("is not satisfied by `packages[]`"));
+}
+
+#[test]
 fn rejects_invalid_signature_with_r014() {
     let tmp = tempfile::tempdir().expect("tempdir");
     write_baseline_runtime_artifacts(tmp.path(), "artifact");

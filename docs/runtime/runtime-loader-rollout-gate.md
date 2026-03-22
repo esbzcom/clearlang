@@ -6,6 +6,7 @@ Define production rollout controls for automatic runtime package loading/linking
 ## Lock Artifact
 - Machine-readable lock file: `docs/runtime/runtime-loader-rollout-gate.lock.json`
 - This lock pins required diagnostics, canary requirements, rollback triggers/procedure, and release-evidence requirements used by the rollout gate tests.
+- Milestone-2 release-train gate enforces this lock artifact schema/content before tag-time release validation.
 
 ## Enablement Stages
 1. Stage A - Shadow validation

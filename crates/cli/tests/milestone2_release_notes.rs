@@ -16,6 +16,10 @@ fn milestone2_release_notes_published_with_release_evidence_sections() {
         "release notes should include published status"
     );
     assert!(
+        !content.to_ascii_lowercase().contains("draft"),
+        "release notes should not be marked as draft once milestone_2 is published"
+    );
+    assert!(
         content.contains("Release Evidence"),
         "release notes should include release evidence section"
     );
@@ -34,5 +38,9 @@ fn milestone2_release_notes_published_with_release_evidence_sections() {
     assert!(
         content.contains("Post-Review Hardening (Option 1)"),
         "release notes should document approved option 1 hardening decisions"
+    );
+    assert!(
+        content.contains("Publish Criteria Status"),
+        "release notes should include explicit publish criteria status section"
     );
 }

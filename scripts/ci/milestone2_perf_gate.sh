@@ -15,8 +15,8 @@ MAX_CPU_PERCENT="${MAX_CPU_PERCENT:-400}"
 
 mkdir -p "${TMP_DIR}"
 
-if [[ "${PERF_GATE_MODE}" != "run" && "${PERF_GATE_MODE}" != "--portability-smoke" ]]; then
-  echo "usage: $0 [--portability-smoke]" >&2
+if [[ "${PERF_GATE_MODE}" != "run" && "${PERF_GATE_MODE}" != "--portability-smoke" && "${PERF_GATE_MODE}" != "--self-test" ]]; then
+  echo "usage: $0 [--portability-smoke|--self-test]" >&2
   exit 1
 fi
 
@@ -56,6 +56,23 @@ run_wasm_tools() {
   run_tool "${WASM_TOOLS_BIN}" "$@"
 }
 
+run_python() {
+  if command -v python >/dev/null 2>&1; then
+    python "$@"
+    return
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$@"
+    return
+  fi
+  if command -v py >/dev/null 2>&1; then
+    py "$@"
+    return
+  fi
+  echo "missing python interpreter (python/python3/py)" >&2
+  exit 1
+}
+
 portability_smoke() {
   local sample_unix="/tmp/clearlang/perf/sample.wasm"
   local converted_exe
@@ -87,6 +104,99 @@ portability_smoke() {
   fi
 
   echo "milestone_2 perf portability smoke passed"
+}
+
+write_performance_artifact() {
+  local out_file="$1"
+  local startup_s="$2"
+  local startup_rss="$3"
+  local startup_cpu="$4"
+  local pkg_s="$5"
+  local pkg_rss="$6"
+  local pkg_cpu="$7"
+  local runtime_s="$8"
+  local runtime_rss="$9"
+  local runtime_cpu="${10}"
+  cat > "${out_file}" <<EOF
+{
+  "schema_version": 1,
+  "thresholds": {
+    "startup_latency_s_max": ${STARTUP_LATENCY_MAX_S},
+    "pkg_resolution_latency_s_max": ${PKG_RESOLUTION_LATENCY_MAX_S},
+    "runtime_link_startup_latency_s_max": ${RUNTIME_LINK_STARTUP_LATENCY_MAX_S},
+    "max_rss_kb": ${MAX_RSS_KB},
+    "max_cpu_percent": ${MAX_CPU_PERCENT}
+  },
+  "measurements": {
+    "startup": {
+      "latency_s": ${startup_s},
+      "rss_kb": ${startup_rss},
+      "cpu_percent": ${startup_cpu}
+    },
+    "pkg_resolution": {
+      "latency_s": ${pkg_s},
+      "rss_kb": ${pkg_rss},
+      "cpu_percent": ${pkg_cpu}
+    },
+    "runtime_link_startup": {
+      "latency_s": ${runtime_s},
+      "rss_kb": ${runtime_rss},
+      "cpu_percent": ${runtime_cpu}
+    }
+  }
+}
+EOF
+}
+
+validate_performance_artifact_schema() {
+  local file="$1"
+  run_python - "$file" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert value["schema_version"] == 1
+for threshold in (
+    "startup_latency_s_max",
+    "pkg_resolution_latency_s_max",
+    "runtime_link_startup_latency_s_max",
+    "max_rss_kb",
+    "max_cpu_percent",
+):
+    assert threshold in value["thresholds"], threshold
+for metric in ("startup", "pkg_resolution", "runtime_link_startup"):
+    entry = value["measurements"][metric]
+    assert "latency_s" in entry, metric
+    assert "rss_kb" in entry, metric
+    assert "cpu_percent" in entry, metric
+PY
+}
+
+self_test() {
+  local self_dir="${TMP_DIR}/self-test"
+  mkdir -p "${self_dir}"
+
+  assert_le_float "self_float_pass" "1.0" "1.0"
+  if (assert_le_float "self_float_fail" "2.0" "1.0" >/dev/null 2>&1); then
+    echo "perf self-test failed: assert_le_float should fail when value > max" >&2
+    exit 1
+  fi
+
+  assert_le_int "self_int_pass" "1" "2"
+  if (assert_le_int "self_int_fail" "3" "2" >/dev/null 2>&1); then
+    echo "perf self-test failed: assert_le_int should fail when value > max" >&2
+    exit 1
+  fi
+
+  local artifact_file="${self_dir}/milestone2-performance.json"
+  write_performance_artifact "${artifact_file}" \
+    "0.10" "1000" "10" \
+    "0.20" "1100" "20" \
+    "0.30" "1200" "30"
+  validate_performance_artifact_schema "${artifact_file}"
+
+  echo "milestone_2 perf self-test passed"
 }
 
 measure() {
@@ -130,7 +240,7 @@ sha256_file() {
 
 canonical_json_sha256() {
   local json_file="$1"
-  python - "$json_file" <<'PY'
+  run_python - "$json_file" <<'PY'
 import hashlib
 import json
 import sys
@@ -276,6 +386,10 @@ if [[ "${PERF_GATE_MODE}" == "--portability-smoke" ]]; then
   portability_smoke
   exit 0
 fi
+if [[ "${PERF_GATE_MODE}" == "--self-test" ]]; then
+  self_test
+  exit 0
+fi
 
 if [[ ! -x "${CLG_BIN}" && -x "${CLG_BIN}.exe" ]]; then
   CLG_BIN="${CLG_BIN}.exe"
@@ -332,35 +446,10 @@ assert_le_float "startup_cpu_percent" "${startup_cpu}" "${MAX_CPU_PERCENT}"
 assert_le_float "pkg_resolution_cpu_percent" "${pkg_cpu}" "${MAX_CPU_PERCENT}"
 assert_le_float "runtime_link_cpu_percent" "${runtime_cpu}" "${MAX_CPU_PERCENT}"
 
-cat > "${TMP_DIR}/milestone2-performance.json" <<EOF
-{
-  "schema_version": 1,
-  "thresholds": {
-    "startup_latency_s_max": ${STARTUP_LATENCY_MAX_S},
-    "pkg_resolution_latency_s_max": ${PKG_RESOLUTION_LATENCY_MAX_S},
-    "runtime_link_startup_latency_s_max": ${RUNTIME_LINK_STARTUP_LATENCY_MAX_S},
-    "max_rss_kb": ${MAX_RSS_KB},
-    "max_cpu_percent": ${MAX_CPU_PERCENT}
-  },
-  "measurements": {
-    "startup": {
-      "latency_s": ${startup_s},
-      "rss_kb": ${startup_rss},
-      "cpu_percent": ${startup_cpu}
-    },
-    "pkg_resolution": {
-      "latency_s": ${pkg_s},
-      "rss_kb": ${pkg_rss},
-      "cpu_percent": ${pkg_cpu}
-    },
-    "runtime_link_startup": {
-      "latency_s": ${runtime_s},
-      "rss_kb": ${runtime_rss},
-      "cpu_percent": ${runtime_cpu}
-    }
-  }
-}
-EOF
+write_performance_artifact "${TMP_DIR}/milestone2-performance.json" \
+  "${startup_s}" "${startup_rss}" "${startup_cpu}" \
+  "${pkg_s}" "${pkg_rss}" "${pkg_cpu}" \
+  "${runtime_s}" "${runtime_rss}" "${runtime_cpu}"
 
 echo "milestone_2 performance gate passed"
 echo "artifact: ${TMP_DIR}/milestone2-performance.json"

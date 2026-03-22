@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 
 def run_cargo_metadata(root: Path) -> dict:
+    metadata_path = os.environ.get("CLG_SUPPLY_CHAIN_METADATA_JSON")
+    if metadata_path:
+        return json.loads(Path(metadata_path).read_text(encoding="utf-8"))
     proc = subprocess.run(
         ["cargo", "metadata", "--format-version", "1", "--locked"],
         cwd=root,
@@ -59,26 +63,33 @@ def build_dependency_report(metadata: dict) -> tuple[dict, list[dict]]:
 
 def build_package_artifact_report(root: Path) -> tuple[dict, list[dict]]:
     metadata_files: set[Path] = set()
-    try:
-        tracked = subprocess.run(
-            ["git", "ls-files", "--", "**/clg.package-metadata.json"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        for line in tracked.stdout.splitlines():
-            rel = line.strip()
-            if not rel:
-                continue
-            metadata_files.add(root / rel)
-    except Exception:
-        ignored_roots = {"target", ".git"}
-        for path in root.rglob("clg.package-metadata.json"):
-            rel_parts = set(path.relative_to(root).parts)
-            if rel_parts & ignored_roots:
-                continue
-            metadata_files.add(path)
+    tracked_override = os.environ.get("CLG_SUPPLY_CHAIN_TRACKED_METADATA")
+    if tracked_override:
+        for rel in tracked_override.splitlines():
+            rel = rel.strip()
+            if rel:
+                metadata_files.add(root / rel)
+    else:
+        try:
+            tracked = subprocess.run(
+                ["git", "ls-files", "--", "**/clg.package-metadata.json"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            for line in tracked.stdout.splitlines():
+                rel = line.strip()
+                if not rel:
+                    continue
+                metadata_files.add(root / rel)
+        except Exception:
+            ignored_roots = {"target", ".git"}
+            for path in root.rglob("clg.package-metadata.json"):
+                rel_parts = set(path.relative_to(root).parts)
+                if rel_parts & ignored_roots:
+                    continue
+                metadata_files.add(path)
     for path in root.glob("tmp/std-core/**/clg.package-metadata.json"):
         metadata_files.add(path)
 
@@ -132,8 +143,16 @@ def write_json(path: Path, value: dict) -> None:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[2]
-    out_dir = root / "tmp" / "sbom"
+    root_env = os.environ.get("CLG_SUPPLY_CHAIN_ROOT")
+    if root_env:
+        root = Path(root_env).resolve()
+    else:
+        root = Path(__file__).resolve().parents[2]
+    out_dir_env = os.environ.get("CLG_SUPPLY_CHAIN_OUT_DIR")
+    if out_dir_env:
+        out_dir = Path(out_dir_env).resolve()
+    else:
+        out_dir = root / "tmp" / "sbom"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     metadata = run_cargo_metadata(root)

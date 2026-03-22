@@ -35,6 +35,7 @@ predicates = "3"
 tempfile = "3"
 once_cell = "1"
 wat = "1"
+serde_yaml = "0.9"
 
 [[bin]]
 name = "clg"

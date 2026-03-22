@@ -81,6 +81,11 @@ jobs:
         run: |
           set -euo pipefail
           python scripts/ci/milestone2_supply_chain_gate.py
+      - name: Script gate self-tests
+        run: |
+          set -euo pipefail
+          python scripts/ci/test_milestone2_supply_chain_gate.py
+          bash scripts/ci/milestone2_perf_gate.sh --self-test
       - name: Upload std-core artifact bundle
         uses: actions/upload-artifact@v4
         with:

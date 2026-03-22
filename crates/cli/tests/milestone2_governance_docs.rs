@@ -30,4 +30,33 @@ fn milestone2_governance_doc_covers_dri_dates_risks_and_release_train_gate() {
         content.contains("@felto"),
         "governance doc should include explicit DRI assignments"
     );
+    assert!(
+        content.contains(
+            "| Phase 24 (host profiles + milestone exit) | `@felto` | `@felto` | complete |"
+        ),
+        "governance doc should mark phase 24 ownership status complete"
+    );
+    assert!(
+        content.contains("Last reviewed:"),
+        "governance doc should include a concrete risk-register review date"
+    );
+    assert!(
+        content.contains("`24.2.8`)")
+            && content.contains("`24.2.9`)")
+            && content.contains("`24.2.10`)"),
+        "governance doc should track milestone_2 evidence risks for 24.2.8/24.2.9/24.2.10"
+    );
+    assert!(
+        content.contains("| mitigated |"),
+        "governance doc should mark milestone_2 risk rows with explicit mitigated status"
+    );
+    assert!(
+        !content.contains("| open |") && !content.contains("| in_progress |"),
+        "governance doc should not leave milestone_2 control rows open or in_progress after completion"
+    );
+    assert!(
+        content.contains("all `24.2.x` checklist items in `docs/TODO.md` are checked (`[x]`)")
+            && content.contains("`release_notes/milestone_2.md` exists"),
+        "governance doc should keep release-train policy aligned with enforced gate criteria"
+    );
 }

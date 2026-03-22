@@ -4,6 +4,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use crate::commands::modules::host_capability_policy::is_known_host_capability;
+
 pub(super) const STRICT_HOST_PROFILE_FILE: &str = "clg.host-profile.json";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -154,7 +156,7 @@ fn parse_host_profile_v0(
                 ),
             ));
         }
-        if !is_allowed_capability(capability) {
+        if !is_known_host_capability(capability) {
             return Err(StrictHostProfileError::new(
                 "C106",
                 format!(
@@ -170,19 +172,6 @@ fn parse_host_profile_v0(
         profile: raw.profile,
         capabilities,
     })
-}
-
-fn is_allowed_capability(capability: &str) -> bool {
-    matches!(
-        capability,
-        "std::crypto::hash"
-            | "std::crypto::hmac"
-            | "std::crypto::verify"
-            | "std::env::time"
-            | "std::env::random"
-            | "std::env::chain_id"
-            | "std::wasi::print"
-    )
 }
 
 #[cfg(test)]

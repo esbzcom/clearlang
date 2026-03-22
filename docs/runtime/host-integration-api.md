@@ -16,7 +16,7 @@ This path includes:
 - runtime-link artifact verification,
 - strict lock/trust/signature checks,
 - deterministic runtime package link binding,
-- runtime host-capability checks derived from active module imports,
+- runtime host-capability checks derived from active app imports and runtime-linked provider package imports,
 - availability policy + mirror fallback behavior.
 - fail-closed enforcement for production host profiles (`contract_static`, `shared_app`) with no runtime-link fallback.
 

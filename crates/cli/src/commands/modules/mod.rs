@@ -8,6 +8,7 @@ use clg_typer::StdTypeInfo;
 
 mod error;
 mod graph;
+pub(crate) mod host_capability_policy;
 mod imports;
 mod package_metadata;
 mod resolve;

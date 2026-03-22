@@ -42,8 +42,7 @@ This policy covers both strict build-time gates and runtime loader behavior.
 - If `clg.host-profile.json` is present and profile is `contract_static` or `shared_app`:
   - runtime-link artifacts are mandatory (`clg.runtime-link.json` + hash),
   - loader is fail-closed on missing/mismatch/untrusted artifacts with `R012`,
-  - runtime host capability requirements are derived from active module imports and
-    missing required capabilities fail with `R016`,
+  - runtime host capability requirements are derived from active app-module imports and runtime-linked provider package imports; missing required capabilities fail with `R016`,
   - permissive fallback to manual/implicit runtime linking is not allowed.
 - Malformed host-profile runtime input also fails with `R016`.
 

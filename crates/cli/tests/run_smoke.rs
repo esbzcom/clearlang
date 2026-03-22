@@ -756,3 +756,185 @@ fn runtime_loader_production_profile_without_runtime_link_fails_closed() {
     let stdout = run_json_error_output(&wasm_path);
     assert_first_error_code(stdout.as_slice(), "R012");
 }
+
+#[test]
+fn runtime_loader_rejects_provider_package_missing_host_capability_with_r016() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let app_wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&app_wasm_path)
+        .assert()
+        .success();
+
+    let store_dir = root.join("store");
+    fs::create_dir_all(&store_dir).expect("create store");
+    let provider_src = root.join("provider.clear");
+    fs::write(
+        &provider_src,
+        r#"
+            io function main() -> Int {
+                std::env::time()
+            }
+        "#
+        .trim(),
+    )
+    .expect("write provider source");
+    let provider_wasm = store_dir.join("provider.wasm");
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["build"])
+        .arg(&provider_src)
+        .args(["-o"])
+        .arg(&provider_wasm)
+        .assert()
+        .success();
+
+    let provider_bytes = fs::read(&provider_wasm).expect("read provider artifact");
+    let provider_digest = format!("sha256:{}", sha256_hex(provider_bytes.as_slice()));
+    let package_id = "pkg::provider@1.0.0";
+    let package_name = "pkg::provider";
+    let package_version = "1.0.0";
+    let abi_id = "abi:pkg::provider:1.0.0";
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": package_id,
+                "digest": provider_digest,
+                "artifact_path": "store/provider.wasm",
+                "abi_id": abi_id
+            }
+        ],
+        "bindings": []
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+
+    fs::write(
+        root.join("clg.package-store-index.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "artifacts": [
+                {
+                    "id": package_id,
+                    "digest": provider_digest,
+                    "path": "store/provider.wasm"
+                }
+            ]
+        }))
+        .expect("serialize store index"),
+    )
+    .expect("write store index");
+    fs::write(
+        root.join("clg.lock.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 1,
+            "resolver_version": 1,
+            "roots": [],
+            "packages": [
+                {
+                    "id": package_id,
+                    "name": package_name,
+                    "version": package_version,
+                    "digest": provider_digest,
+                    "abi_id": abi_id,
+                    "dependencies": []
+                }
+            ]
+        }))
+        .expect("serialize lockfile"),
+    )
+    .expect("write lockfile");
+
+    let signing = SigningKey::from_bytes(&[11u8; 32]);
+    let signed_at = "2026-06-01T00:00:00Z";
+    let payload = format!(
+        "clg-package-signature-v0\n{package_name}\n{package_version}\n{provider_digest}\n{signed_at}\n"
+    );
+    let signature = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+    fs::write(
+        root.join("clg.trust-policy.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "trusted_signers": [
+                {
+                    "key_id": "k1",
+                    "scheme": "ed25519",
+                    "public_key": format!("hex:{}", hex::encode(signing.verifying_key().to_bytes())),
+                    "not_before": "2026-01-01T00:00:00Z",
+                    "not_after": "2027-01-01T00:00:00Z"
+                }
+            ],
+            "revoked_key_ids": []
+        }))
+        .expect("serialize trust policy"),
+    )
+    .expect("write trust policy");
+    fs::write(
+        root.join("clg.package-signatures.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "signatures": [
+                {
+                    "name": package_name,
+                    "version": package_version,
+                    "digest": provider_digest,
+                    "key_id": "k1",
+                    "signed_at": signed_at,
+                    "signature_format": "ed25519",
+                    "signature": signature
+                }
+            ]
+        }))
+        .expect("serialize signature file"),
+    )
+    .expect("write signature file");
+
+    fs::write(
+        root.join("clg.host-profile.json"),
+        r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+    )
+    .expect("write host profile");
+
+    let stdout = run_json_error_output(&app_wasm_path);
+    let v: Value = serde_json::from_slice(&stdout).expect("json");
+    let errors = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let first = errors.first().expect("first error");
+    assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("R016"));
+    assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    let msg = first
+        .get("message")
+        .and_then(|s| s.as_str())
+        .expect("error message");
+    assert!(
+        msg.contains(package_id),
+        "expected provider package id in deterministic R016 message"
+    );
+    assert!(
+        msg.contains("std::env::time"),
+        "expected missing provider capability in deterministic R016 message"
+    );
+}

@@ -74,7 +74,7 @@ Serialization/ordering lock:
 1. Artifact identity gate: runtime artifact digest must match locked digest.
 2. Signature/trust gate: signer/signature/trust policy checks must pass for every loaded package artifact.
 3. Contract gate: runtime-link bindings must remain deterministic and internally consistent.
-4. Profile gate: required host capabilities derived from active module imports must be present in active host profile.
+4. Profile gate: required host capabilities derived from active app-module imports and runtime-linked provider-package imports must be present in active host profile.
 5. Drift gate: runtime import-binding artifact/hash must match compile-time emitted artifacts.
 
 Any gate failure aborts loading/linking before user entrypoint execution.

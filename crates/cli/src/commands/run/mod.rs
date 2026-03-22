@@ -12,6 +12,7 @@ use super::{
     helpers::{extract_function_name, make_single_json_error, CommandError},
     modules::load_program,
 };
+use crate::commands::modules::host_capability_policy::collect_required_host_capabilities;
 use crate::logging::{Logger, StageTimings};
 
 mod crypto;
@@ -29,7 +30,13 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
     let mut timings = StageTimings::new();
     let engine = wt::Engine::new(&wt::Config::new())?;
     let module = load_module_for_run(&engine, &file, json_errors, logger, &mut timings)?;
-    let required_host_capabilities = required_host_capabilities_for_module(&module);
+    let required_host_capabilities = collect_required_host_capabilities(
+        module
+            .imports()
+            .map(|import| (import.module(), import.name())),
+    )
+    .into_iter()
+    .collect();
     let runtime_packages = {
         let _stage = timings.start(logger, "runtime_load_packages");
         let runtime_root = file.parent().unwrap_or(Path::new("."));
@@ -41,25 +48,6 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
             },
         )
         .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?;
-        if let Some(loaded_packages) = loaded.as_ref() {
-            let _ = loaded_packages.resolver_version;
-            for pkg in &loaded_packages.packages {
-                let _ = (
-                    pkg.id.as_str(),
-                    pkg.digest.as_str(),
-                    pkg.abi_id.as_str(),
-                    pkg.resolved_path.as_path(),
-                );
-            }
-            for binding in &loaded_packages.bindings {
-                let _ = (
-                    binding.import_module.as_str(),
-                    binding.import_name.as_str(),
-                    binding.provider_package_id.as_str(),
-                    binding.provider_symbol.as_str(),
-                );
-            }
-        }
         loaded
     };
     let wasi = WasiCtxBuilder::new()
@@ -106,29 +94,6 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
     }
 }
 
-fn required_host_capabilities_for_module(module: &wt::Module) -> Vec<String> {
-    let mut required = std::collections::BTreeSet::new();
-    for import in module.imports() {
-        if let Some(capability) = runtime_import_capability(import.module(), import.name()) {
-            required.insert(capability.to_string());
-        }
-    }
-    required.into_iter().collect()
-}
-
-fn runtime_import_capability(module: &str, name: &str) -> Option<&'static str> {
-    match (module, name) {
-        ("clearlang_crypto", "crypto_hash") => Some("std::crypto::hash"),
-        ("clearlang_crypto", "crypto_hmac") => Some("std::crypto::hmac"),
-        ("clearlang_crypto", "crypto_verify") => Some("std::crypto::verify"),
-        ("clearlang_env", "env_time") => Some("std::env::time"),
-        ("clearlang_env", "env_random") => Some("std::env::random"),
-        ("clearlang_env", "env_chain_id") => Some("std::env::chain_id"),
-        ("wasi_snapshot_preview1", "fd_write") => Some("std::wasi::print"),
-        _ => None,
-    }
-}
-
 fn link_runtime_packages(
     engine: &wt::Engine,
     module: &wt::Module,
@@ -136,6 +101,10 @@ fn link_runtime_packages(
     linker: &mut wt::Linker<wasmtime_wasi::WasiCtx>,
     runtime_packages: &LoadedRuntimePackageSet,
 ) -> Result<(), package_loader::RuntimePackageLoaderError> {
+    let active_profile_capabilities: Option<std::collections::HashSet<&str>> = runtime_packages
+        .active_profile_capabilities
+        .as_ref()
+        .map(|caps| caps.iter().map(String::as_str).collect());
     let mut provider_module_names: std::collections::HashMap<&str, String> =
         std::collections::HashMap::with_capacity(runtime_packages.packages.len());
 
@@ -150,6 +119,28 @@ fn link_runtime_packages(
                 ),
             )
         })?;
+        if let Some(configured_capabilities) = active_profile_capabilities.as_ref() {
+            let required_for_provider = collect_required_host_capabilities(
+                provider_module
+                    .imports()
+                    .map(|import| (import.module(), import.name())),
+            );
+            let missing = required_for_provider
+                .iter()
+                .filter(|capability| !configured_capabilities.contains(capability.as_str()))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !missing.is_empty() {
+                return Err(package_loader::RuntimePackageLoaderError::new(
+                    "R016",
+                    format!(
+                        "runtime host profile is missing required capabilities for provider package `{}`: {}",
+                        pkg.id,
+                        missing.join(", ")
+                    ),
+                ));
+            }
+        }
         let instance = linker
             .instantiate(&mut *store, &provider_module)
             .map_err(|err| {

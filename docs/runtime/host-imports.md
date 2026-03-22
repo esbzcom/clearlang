@@ -79,7 +79,7 @@ Environment (io-only, optional, module: `clearlang_env`)
   explicitly enabled by the host.
 
 ## Notes
-- `clg run` provides deterministic stubs for `env_time` (0) and `env_random` (zero-filled bytes).
+- `clg run` provides deterministic stubs for `env_time` (`0`), `env_random` (zero-filled bytes), and `env_chain_id` (`"dev-chain"`).
 - `clg run` also implements `clearlang_crypto` locally for dev/test; production hosts must supply real crypto imports.
 - Storage/crypto/logging interfaces remain design targets; hosts must provide their own imports.
 

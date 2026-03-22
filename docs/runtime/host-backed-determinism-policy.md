@@ -9,7 +9,7 @@ This policy locks runtime behavior for host-backed standard surfaces:
 ## Host-Backed Contract
 These surfaces remain host imports (not compiled away into app logic):
 - `std::crypto::{hash,hmac,verify}` -> `clearlang_crypto::*`
-- `std::env::{time,random}` -> `clearlang_env::*`
+- `std::env::{time,random,chain_id}` -> `clearlang_env::*`
 - `std::wasi::print` -> `wasi_snapshot_preview1::fd_write`
 
 ## Determinism Rules
@@ -22,6 +22,7 @@ These surfaces remain host imports (not compiled away into app logic):
 - Local runtime (`clg run`) stubs are deterministic:
   - `env_time()` returns a stable deterministic value.
   - `env_random(n)` returns deterministic bytes for identical `n`.
+  - `env_chain_id()` returns a stable deterministic value.
 - Production strict capability policy must explicitly allow/deny env capabilities by host profile.
 - No permissive fallback when production profile requires strict runtime checks.
 

@@ -596,7 +596,7 @@ fn run_wasm_with_runtime_link_but_missing_store_index_fails_closed_with_r012() {
 }
 
 #[test]
-fn run_wasm_with_runtime_link_missing_provider_symbol_fails_with_r015() {
+fn runtime_loader_replay_missing_provider_symbol_json_is_deterministic() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let root = tmp.path();
     let wasm_path = root.join("out.wasm");
@@ -802,6 +802,19 @@ fn runtime_loader_tamper_untrusted_signer_reports_r014() {
 }
 
 #[test]
+fn runtime_loader_tamper_runtime_link_hash_mismatch_reports_r017() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!("{}\n", "a".repeat(64)),
+    )
+    .expect("tamper runtime link hash");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R017");
+}
+
+#[test]
 fn runtime_loader_replay_missing_artifact_json_is_deterministic() {
     let (tmp, wasm_path) = setup_runtime_loader_fixture();
     let root = tmp.path();
@@ -851,6 +864,24 @@ fn runtime_loader_replay_untrusted_signer_json_is_deterministic() {
         "runtime loader JSON output should be replay-stable"
     );
     assert_first_error_code(run_a.as_slice(), "R014");
+}
+
+#[test]
+fn runtime_loader_replay_runtime_link_hash_mismatch_json_is_deterministic() {
+    let (tmp, wasm_path) = setup_runtime_loader_fixture();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!("{}\n", "a".repeat(64)),
+    )
+    .expect("tamper runtime link hash");
+    let run_a = run_json_error_output(&wasm_path);
+    let run_b = run_json_error_output(&wasm_path);
+    assert_eq!(
+        run_a, run_b,
+        "runtime loader JSON output should be replay-stable for runtime-link hash mismatch"
+    );
+    assert_first_error_code(run_a.as_slice(), "R017");
 }
 
 #[test]

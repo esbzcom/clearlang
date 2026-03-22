@@ -303,24 +303,27 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
     }
 
     let runtime_link_text = fs::read_to_string(&runtime_link_path).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R012",
-            format!("reading {}: {err}", runtime_link_path.display()),
+            format!("reading {} failed", runtime_link_path.display()),
         )
     })?;
     let runtime_link_value: serde_json::Value = serde_json::from_str(runtime_link_text.as_str())
         .map_err(|err| {
+            let _ = err;
             RuntimePackageLoaderError::new(
                 "R012",
-                format!("parsing {}: {err}", runtime_link_path.display()),
+                format!("parsing {} failed", runtime_link_path.display()),
             )
         })?;
     let runtime_link: RuntimeLinkRootV0 = serde_json::from_value(runtime_link_value.clone())
         .map_err(|err| {
+            let _ = err;
             RuntimePackageLoaderError::new(
                 "R012",
                 format!(
-                    "runtime link artifact `{}` does not match schema v0: {err}",
+                    "runtime link artifact `{}` does not match schema v0",
                     runtime_link_path.display()
                 ),
             )
@@ -348,9 +351,10 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
 
     let canonical_link_hash = sha256_hex(canonical_json_bytes(&runtime_link_value).as_slice());
     let expected_hash = fs::read_to_string(&runtime_link_hash_path).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R017",
-            format!("reading {}: {err}", runtime_link_hash_path.display()),
+            format!("reading {} failed", runtime_link_hash_path.display()),
         )
     })?;
     let expected_hash = expected_hash.trim();
@@ -397,8 +401,8 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
         RuntimePackageLoaderError::new(
             "R014",
             format!(
-                "loading trust policy for runtime package verification failed: {}",
-                err.message()
+                "loading trust policy for runtime package verification failed (strict code {})",
+                err.code()
             ),
         )
     })?;
@@ -418,9 +422,42 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
         .collect();
 
     let store_index = load_package_store_index(root)?;
+    let store_by_id_digest = build_store_artifact_lookup(store_index.artifacts.as_slice())?;
+
+    validate_runtime_link_bindings_reference_known_providers(&runtime_link)?;
+    let loaded_packages = resolve_runtime_link_packages(
+        root,
+        runtime_link.packages.as_slice(),
+        &lockfile,
+        &signatures,
+        &trust_signers,
+        &revoked,
+        &store_by_id_digest,
+        &availability_policy,
+    )?;
+
+    Ok(Some(LoadedRuntimePackageSet {
+        packages: loaded_packages,
+        bindings: runtime_link
+            .bindings
+            .iter()
+            .map(|binding| LoadedRuntimeBinding {
+                import_module: binding.import_module.clone(),
+                import_name: binding.import_name.clone(),
+                provider_package_id: binding.provider_package_id.clone(),
+                provider_symbol: binding.provider_symbol.clone(),
+            })
+            .collect(),
+        active_profile_capabilities: production_profile.map(|profile| profile.capabilities),
+    }))
+}
+
+fn build_store_artifact_lookup(
+    artifacts: &[PackageStoreArtifactV0],
+) -> Result<HashMap<(String, String), PackageStoreArtifactV0>, RuntimePackageLoaderError> {
     let mut store_by_id_digest: HashMap<(String, String), PackageStoreArtifactV0> =
-        HashMap::with_capacity(store_index.artifacts.len());
-    for artifact in &store_index.artifacts {
+        HashMap::with_capacity(artifacts.len());
+    for artifact in artifacts {
         validate_runtime_package_id(artifact.id.as_str()).map_err(|msg| {
             RuntimePackageLoaderError::new(
                 "R012",
@@ -457,7 +494,12 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
         }
         store_by_id_digest.insert(key, artifact.clone());
     }
+    Ok(store_by_id_digest)
+}
 
+fn validate_runtime_link_bindings_reference_known_providers(
+    runtime_link: &RuntimeLinkRootV0,
+) -> Result<(), RuntimePackageLoaderError> {
     let runtime_link_package_ids: std::collections::HashSet<&str> = runtime_link
         .packages
         .iter()
@@ -474,9 +516,21 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
             ));
         }
     }
+    Ok(())
+}
 
-    let mut loaded_packages = Vec::with_capacity(runtime_link.packages.len());
-    for pkg in &runtime_link.packages {
+fn resolve_runtime_link_packages(
+    root: &Path,
+    packages: &[RuntimeLinkPackageV0],
+    lockfile: &RuntimeLockfileEvidence,
+    signatures: &HashMap<String, RuntimePackageSignatureEntry>,
+    trust_signers: &HashMap<&str, &crate::commands::build::strict_trust_policy::TrustedSignerV0>,
+    revoked: &std::collections::HashSet<&str>,
+    store_by_id_digest: &HashMap<(String, String), PackageStoreArtifactV0>,
+    availability_policy: &RuntimeAvailabilityPolicy,
+) -> Result<Vec<LoadedRuntimePackage>, RuntimePackageLoaderError> {
+    let mut loaded_packages = Vec::with_capacity(packages.len());
+    for pkg in packages {
         validate_runtime_package_id(pkg.id.as_str()).map_err(|msg| {
             RuntimePackageLoaderError::new(
                 "R012",
@@ -577,14 +631,14 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
                     ),
                 )
             })?;
-        let signer_not_before =
-            parse_utc_timestamp_components(signer.not_before.as_str()).map_err(|msg| {
+        let signer_not_before = parse_utc_timestamp_components(signer.not_before.as_str())
+            .map_err(|msg| {
                 RuntimePackageLoaderError::new(
                     "R014",
                     format!(
-                        "runtime trust gate failed for `{}`: signer `{}` not_before is invalid: {msg}",
-                        pkg.id, signer.key_id
-                    ),
+                    "runtime trust gate failed for `{}`: signer `{}` not_before is invalid: {msg}",
+                    pkg.id, signer.key_id
+                ),
                 )
             })?;
         let signer_not_after =
@@ -592,9 +646,9 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
                 RuntimePackageLoaderError::new(
                     "R014",
                     format!(
-                        "runtime trust gate failed for `{}`: signer `{}` not_after is invalid: {msg}",
-                        pkg.id, signer.key_id
-                    ),
+                    "runtime trust gate failed for `{}`: signer `{}` not_after is invalid: {msg}",
+                    pkg.id, signer.key_id
+                ),
                 )
             })?;
         if signed_at < signer_not_before || signed_at >= signer_not_after {
@@ -673,28 +727,14 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
             pkg.id.as_str(),
             pkg.digest.as_str(),
             store_artifact.path.as_str(),
-            &availability_policy,
+            availability_policy,
         )?;
         loaded_packages.push(LoadedRuntimePackage {
             id: pkg.id.clone(),
             resolved_path,
         });
     }
-
-    Ok(Some(LoadedRuntimePackageSet {
-        packages: loaded_packages,
-        bindings: runtime_link
-            .bindings
-            .iter()
-            .map(|binding| LoadedRuntimeBinding {
-                import_module: binding.import_module.clone(),
-                import_name: binding.import_name.clone(),
-                provider_package_id: binding.provider_package_id.clone(),
-                provider_symbol: binding.provider_symbol.clone(),
-            })
-            .collect(),
-        active_profile_capabilities: production_profile.map(|profile| profile.capabilities),
-    }))
+    Ok(loaded_packages)
 }
 
 fn load_runtime_lockfile_evidence(
@@ -721,19 +761,18 @@ fn load_runtime_lockfile_evidence(
         ));
     }
     let content = fs::read_to_string(&path).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R013",
-            format!(
-                "reading runtime lockfile `{}` failed: {err}",
-                path.display()
-            ),
+            format!("reading runtime lockfile `{}` failed", path.display()),
         )
     })?;
     let value: serde_json::Value = serde_json::from_str(content.as_str()).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R013",
             format!(
-                "runtime lockfile `{}` is not valid JSON (expected schema v0/v1): {err}",
+                "runtime lockfile `{}` is not valid JSON (expected schema v0/v1)",
                 path.display()
             ),
         )
@@ -754,10 +793,11 @@ fn load_runtime_lockfile_evidence(
     match schema_version {
         0 => {
             let raw: RawStrictLockfileV0 = serde_json::from_value(value).map_err(|err| {
+                let _ = err;
                 RuntimePackageLoaderError::new(
                     "R013",
                     format!(
-                        "runtime lockfile `{}` does not match schema v0 (`dependencies[]`): {err}",
+                        "runtime lockfile `{}` does not match schema v0 (`dependencies[]`)",
                         path.display()
                     ),
                 )
@@ -818,10 +858,11 @@ fn load_runtime_lockfile_evidence(
         }
         1 => {
             let raw: RawStrictLockfileV1 = serde_json::from_value(value).map_err(|err| {
+                let _ = err;
                 RuntimePackageLoaderError::new(
                     "R013",
                     format!(
-                        "runtime lockfile `{}` does not match schema v1 (`resolver_version`, `roots[]`, `packages[]`): {err}",
+                        "runtime lockfile `{}` does not match schema v1 (`resolver_version`, `roots[]`, `packages[]`)",
                         path.display()
                     ),
                 )
@@ -996,19 +1037,21 @@ fn load_runtime_package_signatures(
         ));
     }
     let content = fs::read_to_string(&path).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R014",
             format!(
-                "reading runtime package signatures `{}` failed: {err}",
+                "reading runtime package signatures `{}` failed",
                 path.display()
             ),
         )
     })?;
     let raw: RawSignatureRootV0 = serde_json::from_str(content.as_str()).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R014",
             format!(
-                "runtime package signatures `{}` do not match schema v0 (`schema_version`, `signatures[]`): {err}",
+                "runtime package signatures `{}` do not match schema v0 (`schema_version`, `signatures[]`)",
                 path.display()
             ),
         )
@@ -1137,19 +1180,18 @@ fn load_runtime_availability_policy(
         ));
     }
     let content = fs::read_to_string(&path).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R012",
-            format!(
-                "reading runtime loader policy `{}` failed: {err}",
-                path.display()
-            ),
+            format!("reading runtime loader policy `{}` failed", path.display()),
         )
     })?;
     let raw: RawRuntimeLoaderPolicyV0 = serde_json::from_str(content.as_str()).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R012",
             format!(
-                "runtime loader policy `{}` does not match schema v0 (`schema_version`, `offline_mode`, `mirror_paths`, `artifact_read_retries`): {err}",
+                "runtime loader policy `{}` does not match schema v0 (`schema_version`, `offline_mode`, `mirror_paths`, `artifact_read_retries`)",
                 path.display()
             ),
         )
@@ -1241,19 +1283,18 @@ fn load_runtime_production_profile_if_present(
         ));
     }
     let content = fs::read_to_string(&path).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R016",
-            format!(
-                "reading runtime host profile `{}` failed: {err}",
-                path.display()
-            ),
+            format!("reading runtime host profile `{}` failed", path.display()),
         )
     })?;
     let raw: RawHostProfileV0 = serde_json::from_str(content.as_str()).map_err(|err| {
+        let _ = err;
         RuntimePackageLoaderError::new(
             "R016",
             format!(
-                "runtime host profile `{}` does not match schema v0 (`schema_version`, `profile`, `capabilities`): {err}",
+                "runtime host profile `{}` does not match schema v0 (`schema_version`, `profile`, `capabilities`)",
                 path.display()
             ),
         )
@@ -1450,10 +1491,12 @@ fn load_package_store_index(root: &Path) -> Result<PackageStoreIndexV0, RuntimeP
     }
 
     let text = fs::read_to_string(&index_path).map_err(|err| {
-        RuntimePackageLoaderError::new("R012", format!("reading {}: {err}", index_path.display()))
+        let _ = err;
+        RuntimePackageLoaderError::new("R012", format!("reading {} failed", index_path.display()))
     })?;
     let index: PackageStoreIndexV0 = serde_json::from_str(text.as_str()).map_err(|err| {
-        RuntimePackageLoaderError::new("R012", format!("parsing {}: {err}", index_path.display()))
+        let _ = err;
+        RuntimePackageLoaderError::new("R012", format!("parsing {} failed", index_path.display()))
     })?;
     if index.schema_version != 0 {
         return Err(RuntimePackageLoaderError::new(

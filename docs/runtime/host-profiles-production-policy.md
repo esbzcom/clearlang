@@ -12,6 +12,7 @@ This policy covers both strict build-time gates and runtime loader behavior.
 1. `clg.host-profile.json` (schema v0 input, loaded by strict build and runtime loader).
 2. `docs/design/phase-21.0-host-capability-policy.lock.json` (canonical strict capability policy matrix).
 3. `clg.runtime-link.json` + `clg.runtime-link.sha256` (runtime package loading contract in production profiles).
+4. `docs/runtime/host-profiles-production-policy.lock.json` (machine-readable production-profile/diagnostic lock for policy-conformance tests).
 
 ## Profile Identity
 - Accepted production profile ids: `contract_static`, `shared_app`.

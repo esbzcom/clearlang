@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "required_diagnostics": [
+    "R012",
+    "R013",
+    "R014",
+    "R015",
+    "R016",
+    "R017"
+  ],
+  "canary": {
+    "requirements": [
+      "zero_unexpected_runtime_loader_regressions",
+      "startup_latency_within_slo",
+      "no_unresolved_package_link_incidents"
+    ]
+  },
+  "rollback": {
+    "triggers": [
+      "sustained_runtime_loader_failures_above_threshold",
+      "package_link_integrity_failures_block_entrypoint",
+      "determinism_replay_mismatch"
+    ],
+    "procedure": [
+      "disable_automatic_runtime_package_loading",
+      "revert_to_previous_proven_host_release",
+      "preserve_failing_runtime_artifacts_and_diagnostics",
+      "rerun_replay_fixtures_for_recovery_determinism"
+    ]
+  },
+  "release_gate_evidence": [
+    "ci_runtime_tamper_replay_matrix",
+    "canary_report_with_latency_and_diagnostics_distribution",
+    "rollback_drill_execution_log",
+    "signed_runtime_and_release_owner_approval"
+  ]
+}

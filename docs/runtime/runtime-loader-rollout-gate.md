@@ -3,6 +3,10 @@
 ## Purpose
 Define production rollout controls for automatic runtime package loading/linking.
 
+## Lock Artifact
+- Machine-readable lock file: `docs/runtime/runtime-loader-rollout-gate.lock.json`
+- This lock pins required diagnostics, canary requirements, rollback triggers/procedure, and release-evidence requirements used by the rollout gate tests.
+
 ## Enablement Stages
 1. Stage A - Shadow validation
 - Keep runtime loader enabled in CI and staging.

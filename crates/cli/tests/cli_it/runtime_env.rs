@@ -154,3 +154,52 @@ fn run_env_stubs_are_replay_deterministic() {
         "expected deterministic env output to remain time=0 + len(random(8))=8"
     );
 }
+
+#[test]
+fn run_env_chain_id_stub_is_available_and_replay_deterministic() {
+    let tmp = tempdir().unwrap();
+    let wasm_path = tmp.path().join("env_chain_id_replay.wasm");
+    let wat = r#"
+        (module
+          (import "clearlang_env" "env_chain_id" (func $env_chain_id (result i32)))
+          (memory (export "memory") 1)
+          (global $__clg_heap_ptr (mut i32) (i32.const 0))
+          (export "__clg_heap_ptr" (global $__clg_heap_ptr))
+          (func (export "main") (result i32)
+            call $env_chain_id
+            i32.load
+          )
+        )
+    "#;
+    let wasm = wat::parse_str(wat).expect("wat parse");
+    fs::write(&wasm_path, wasm).expect("write wasm");
+
+    let first = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let second = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(
+        first, second,
+        "expected identical stdout on replay for deterministic env chain_id stub"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&first).trim(),
+        "9",
+        "expected deterministic chain_id stub value length to remain stable"
+    );
+}

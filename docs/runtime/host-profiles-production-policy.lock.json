@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "contract_static"
+    },
+    {
+      "id": "shared_app"
+    }
+  ],
+  "diagnostics": [
+    "C106",
+    "R012",
+    "R016"
+  ],
+  "strict_env_policy": {
+    "deny_capabilities": [
+      "std::env::time",
+      "std::env::random"
+    ]
+  }
+}

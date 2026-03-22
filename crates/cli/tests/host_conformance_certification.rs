@@ -422,3 +422,52 @@ fn host_conformance_runtime_rejects_missing_required_capability_with_r016() {
         "expected missing required capability to be surfaced deterministically"
     );
 }
+
+#[test]
+fn host_conformance_runtime_rejects_missing_chain_id_capability_with_r016() {
+    let tmp = tempdir().expect("tempdir");
+    let wasm_path = tmp.path().join("out.wasm");
+    let wat = r#"
+        (module
+          (import "clearlang_env" "env_chain_id" (func $env_chain_id (result i32)))
+          (memory (export "memory") 1)
+          (global $__clg_heap_ptr (mut i32) (i32.const 0))
+          (export "__clg_heap_ptr" (global $__clg_heap_ptr))
+          (func (export "main") (result i32)
+            call $env_chain_id
+            i32.load
+          )
+        )
+    "#;
+    fs::write(&wasm_path, wat::parse_str(wat).expect("wat parse")).expect("write wasm");
+    fs::write(
+        tmp.path().join("clg.host-profile.json"),
+        r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+    )
+    .expect("write host profile");
+    write_runtime_link_without_packages(tmp.path());
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let err = json_error(&output);
+    assert_eq!(err.get("code").and_then(|s| s.as_str()), Some("R016"));
+    assert_eq!(err.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    assert!(
+        err.get("message")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .contains("std::env::chain_id"),
+        "expected missing chain_id capability to be surfaced deterministically"
+    );
+}

@@ -36,8 +36,12 @@ Artifact locator precedence (deterministic, locked):
 2. Linker binds imports strictly from canonical runtime import-binding artifact + package ABI contract.
 3. Resolution/link ordering is deterministic:
    - package selection order by package id lexical ascending,
+   - provider-package instantiation order is dependency-topological with lexical tie-break for zero-indegree sets,
    - symbol binding order by `(module, symbol)` lexical ascending,
    - diagnostics order by `(code, package id, symbol)` lexical ascending.
+4. Runtime-link import endpoints must be unambiguous:
+   - a given `(import_module, import_name)` must resolve to at most one provider binding.
+   - ambiguous multi-provider bindings fail closed with deterministic linker diagnostics.
 
 ## Runtime Import-Binding Artifact Contract (Locked)
 Filename:
@@ -69,6 +73,7 @@ Serialization/ordering lock:
 2. `packages` sorted by `id` lexical ascending.
 3. `bindings` sorted by `(import_module, import_name, provider_package_id, provider_symbol)` lexical ascending.
 4. Hash computed from canonical JSON bytes, newline-free.
+5. Runtime linker must reject ambiguous duplicate import endpoints even if entries remain sort-valid under v0 schema.
 
 ## Runtime Trust Gates (Fail-Closed)
 1. Artifact identity gate: runtime artifact digest must match locked digest.
@@ -106,7 +111,7 @@ For identical inputs:
 
 the loader/linker must produce:
 1. identical loaded package set and binding map,
-2. identical diagnostics ordering and payloads on failure,
+2. identical diagnostics ordering and stable payloads on failure (without platform-specific external error text),
 3. identical runtime-link evidence artifact bytes/hash (if emitted).
 
 ## CI Acceptance Matrix (Phase 23 completion target)

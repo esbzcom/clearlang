@@ -41,4 +41,6 @@ Milestone 2 delivers the production package/runtime path across Phases 20-24:
 - Runtime host-profile capability validation rejects unsupported/duplicate/empty capabilities with deterministic runtime diagnostics.
 - Runtime loader host-capability validation now also enforces runtime-linked provider package imports (not only the root module) under production profiles.
 - Host-capability mapping for strict build and runtime loader paths is centralized to one canonical policy module to prevent capability allowlist drift.
+- Runtime linker now performs dependency-topological provider instantiation (with deterministic tie-breaks) instead of lexical-only order.
+- Runtime rollout/profile governance docs now include machine-readable lock artifacts for stronger conformance checks in CI.
 - Performance SLO gate includes runtime-link startup latency in addition to startup and package-resolution build metrics.

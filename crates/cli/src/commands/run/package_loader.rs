@@ -1591,26 +1591,22 @@ fn resolve_runtime_artifact_with_availability_policy(
     let mut saw_digest_mismatch = false;
     let mut available_digest_mismatches = Vec::new();
     for candidate in &candidates {
-        for _ in 0..policy.artifact_read_retries {
-            if !candidate.exists() || !candidate.is_file() {
-                continue;
-            }
-            let bytes = match fs::read(candidate) {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
-            let actual_digest = format!("sha256:{}", sha256_hex(bytes.as_slice()));
-            if actual_digest != expected_digest {
-                saw_digest_mismatch = true;
-                available_digest_mismatches.push(format!(
-                    "{}=>{}",
-                    candidate.display(),
-                    actual_digest
-                ));
-                break;
-            }
-            return Ok(candidate.clone());
+        if !candidate.exists() || !candidate.is_file() {
+            continue;
         }
+        let bytes = match read_artifact_bytes_with_retries(policy.artifact_read_retries, || {
+            fs::read(candidate)
+        }) {
+            Some(value) => value,
+            None => continue,
+        };
+        let actual_digest = format!("sha256:{}", sha256_hex(bytes.as_slice()));
+        if actual_digest != expected_digest {
+            saw_digest_mismatch = true;
+            available_digest_mismatches.push(format!("{}=>{}", candidate.display(), actual_digest));
+            continue;
+        }
+        return Ok(candidate.clone());
     }
 
     if saw_digest_mismatch {
@@ -1636,6 +1632,18 @@ fn resolve_runtime_artifact_with_availability_policy(
             package_id, attempted
         ),
     ))
+}
+
+fn read_artifact_bytes_with_retries<F>(retries: u32, mut reader: F) -> Option<Vec<u8>>
+where
+    F: FnMut() -> Result<Vec<u8>, std::io::Error>,
+{
+    for _ in 0..retries {
+        if let Ok(bytes) = reader() {
+            return Some(bytes);
+        }
+    }
+    None
 }
 
 fn load_package_store_index(root: &Path) -> Result<PackageStoreIndexV0, RuntimePackageLoaderError> {

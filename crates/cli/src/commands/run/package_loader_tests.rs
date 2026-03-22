@@ -646,3 +646,43 @@ fn rejects_unknown_binding_provider_package_with_r015() {
     .expect_err("expected provider mismatch");
     assert_eq!(err.code(), "R015");
 }
+
+#[test]
+fn artifact_read_retry_helper_succeeds_after_transient_failures() {
+    let mut attempts = 0u32;
+    let bytes = read_artifact_bytes_with_retries(3, || {
+        attempts += 1;
+        if attempts < 3 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                "transient read failure",
+            ));
+        }
+        Ok(b"artifact".to_vec())
+    });
+    assert_eq!(
+        attempts, 3,
+        "retry helper should consume all transient failures"
+    );
+    assert_eq!(bytes, Some(b"artifact".to_vec()));
+}
+
+#[test]
+fn artifact_read_retry_helper_returns_none_after_exhausting_retries() {
+    let mut attempts = 0u32;
+    let bytes = read_artifact_bytes_with_retries(2, || {
+        attempts += 1;
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Interrupted,
+            "transient read failure",
+        ))
+    });
+    assert_eq!(
+        attempts, 2,
+        "retry helper should stop after configured retries"
+    );
+    assert!(
+        bytes.is_none(),
+        "retry helper should fail closed after retry budget"
+    );
+}

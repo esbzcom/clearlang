@@ -215,6 +215,28 @@ fn write_runtime_trust_inputs(root: &Path, entries: &[(&str, &str, &str)]) {
     .expect("write signature file");
 }
 
+fn write_empty_runtime_link(root: &Path) {
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [],
+        "bindings": []
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+}
+
 fn setup_runtime_loader_fixture() -> (tempfile::TempDir, PathBuf) {
     let tmp = tempfile::tempdir().expect("tempdir");
     let root = tmp.path();
@@ -628,14 +650,25 @@ fn run_wasm_with_runtime_link_missing_provider_symbol_fails_with_r015() {
     )
     .expect("write runtime link hash");
 
-    let output = Command::cargo_bin("clg")
+    let output_a = Command::cargo_bin("clg")
         .expect("bin")
         .args(["--json-errors", "run"])
         .arg(&wasm_path)
         .output()
         .expect("run command");
-    assert!(!output.status.success(), "run should fail");
-    let v: Value = serde_json::from_slice(&output.stdout).expect("json");
+    let output_b = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .output()
+        .expect("run command");
+    assert!(!output_a.status.success(), "run should fail");
+    assert!(!output_b.status.success(), "run should fail");
+    assert_eq!(
+        output_a.stdout, output_b.stdout,
+        "runtime loader JSON output should be replay-stable for missing provider symbol"
+    );
+    let v: Value = serde_json::from_slice(&output_a.stdout).expect("json");
     assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
     let errors = v
         .get("errors")
@@ -645,6 +678,46 @@ fn run_wasm_with_runtime_link_missing_provider_symbol_fails_with_r015() {
     let first = &errors[0];
     assert_eq!(first.get("code").and_then(|s| s.as_str()), Some("R015"));
     assert_eq!(first.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+}
+
+#[test]
+fn runtime_loader_replay_missing_required_capability_json_is_deterministic() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    let wat = r#"
+        (module
+          (import "clearlang_env" "env_time" (func $env_time (result i64)))
+          (memory (export "memory") 1)
+          (global $__clg_heap_ptr (mut i32) (i32.const 0))
+          (export "__clg_heap_ptr" (global $__clg_heap_ptr))
+          (func (export "main") (result i32)
+            call $env_time
+            drop
+            i32.const 0
+          )
+        )
+    "#;
+    fs::write(&wasm_path, wat_parse_str(wat).expect("wat parse")).expect("write wasm");
+    write_empty_runtime_link(root);
+    fs::write(
+        root.join("clg.host-profile.json"),
+        r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+    )
+    .expect("write host profile");
+
+    let run_a = run_json_error_output(&wasm_path);
+    let run_b = run_json_error_output(&wasm_path);
+    assert_eq!(
+        run_a, run_b,
+        "runtime loader JSON output should be replay-stable for missing required capability"
+    );
+    assert_first_error_code(run_a.as_slice(), "R016");
 }
 
 #[test]

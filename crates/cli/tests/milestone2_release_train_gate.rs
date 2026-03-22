@@ -10,29 +10,24 @@ fn enforce_gate() -> bool {
         == Some("1")
 }
 
-#[test]
-fn milestone2_release_train_gate_requires_24_2_checklist_and_release_notes_when_enforced() {
-    if !enforce_gate() {
-        return;
-    }
+fn todo_has_checked_item(todo: &str, item: &str) -> bool {
+    todo.lines().any(|line| {
+        let line = line.trim_start();
+        let Some(rest) = line.strip_prefix("- [x] ") else {
+            return false;
+        };
+        let Some(after) = rest.strip_prefix(item) else {
+            return false;
+        };
+        after
+            .chars()
+            .next()
+            .map(|ch| ch.is_ascii_whitespace())
+            .unwrap_or(true)
+    })
+}
 
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let todo_path = root.join("docs").join("TODO.md");
-    let todo = fs::read_to_string(&todo_path).expect("read docs/TODO.md");
-    for idx in 1..=10 {
-        let token = format!("  - [x] 24.2.{idx}");
-        assert!(
-            todo.contains(&token),
-            "release-train gate requires checklist item `{token}` to be complete before milestone_2 tag"
-        );
-    }
-
-    let release_notes_path = root.join("release_notes").join("milestone_2.md");
-    assert!(
-        release_notes_path.exists(),
-        "release-train gate requires `release_notes/milestone_2.md`"
-    );
-
+fn validate_release_train_lock_artifacts(root: &Path) {
     let runtime_rollout_lock_path = root
         .join("docs")
         .join("runtime")
@@ -103,4 +98,35 @@ fn milestone2_release_train_gate_requires_24_2_checklist_and_release_notes_when_
             "release-train gate requires host profile lock profile `{profile}`"
         );
     }
+}
+
+#[test]
+fn milestone2_release_train_gate_validates_lock_artifacts_in_all_runs() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    validate_release_train_lock_artifacts(&root);
+}
+
+#[test]
+fn milestone2_release_train_gate_requires_24_2_checklist_and_release_notes_when_enforced() {
+    if !enforce_gate() {
+        return;
+    }
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let todo_path = root.join("docs").join("TODO.md");
+    let todo = fs::read_to_string(&todo_path).expect("read docs/TODO.md");
+    for idx in 1..=10 {
+        let item = format!("24.2.{idx}");
+        assert!(
+            todo_has_checked_item(&todo, item.as_str()),
+            "release-train gate requires checklist item `- [x] {item}` to be complete before milestone_2 tag"
+        );
+    }
+
+    let release_notes_path = root.join("release_notes").join("milestone_2.md");
+    assert!(
+        release_notes_path.exists(),
+        "release-train gate requires `release_notes/milestone_2.md`"
+    );
+    validate_release_train_lock_artifacts(&root);
 }

@@ -76,10 +76,11 @@ function main() -> Int {
 
 ## Docs
 
-- Typing rules: [docs/typing.md](docs/typing.md)
-- IR shape and encoding: [docs/ir.md](docs/ir.md)
-- Diagnostics JSON: [docs/diagnostics.md](docs/diagnostics.md)
-- Style & naming: [docs/style.md](docs/style.md)
+- Docs index: [README.md](README.md)
+- Typing rules: [typing.md](typing.md)
+- IR shape and encoding: [ir.md](ir.md)
+- Diagnostics JSON: [diagnostics.md](diagnostics.md)
+- Style & naming: [style.md](style.md)
 
 ---
 

@@ -1,6 +1,7 @@
 # Attestation: Production Readiness Notes
 
 This document explains what is required beyond the Phase 16.7 "minimal reference implementation" and how to migrate from the reference into a production-ready attestation system.
+Reference design: `docs/design/phase-16.7-attestation.md`.
 
 ## Phase 18.1 Status Update
 

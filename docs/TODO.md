@@ -665,7 +665,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 16.6 Document proof limitations for cryptographic primitives in `docs/proofs`.
     - [x] 16.6.1 Add `docs/proofs/crypto-limitations.md` and link from `docs/typing.md`.
   - [x] 16.7 On-chain attestation: design anchoring flow (EVM registry + IPFS URIs), minimal reference impl, and docs.
-    - [x] 16.7.1 Draft design note: registry schema, payload format, and verification flow.
+    - [x] 16.7.1 Draft design note: registry schema, payload format, and verification flow (`docs/design/phase-16.7-attestation.md`).
     - [x] 16.7.2 Minimal reference implementation (Solidity contract + sample payload).
     - [x] 16.7.3 Documentation and example workflow.
     - [x] 16.7.4 Production migration checklist (see `docs/rollout/attestation-production.md`, Phase 18 hardening reminder).

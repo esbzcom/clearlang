@@ -1,5 +1,21 @@
 # Codex Session Context
 
+## 2026-03-22 - Documentation maintenance and cleanup
+- Updated planning docs to reflect current milestone state:
+  - rewrote `docs/rollout/DEVPLAN.md` as a current-state snapshot (`milestone_2` complete, maintenance-only focus).
+- Improved documentation navigation:
+  - added `docs/README.md` as the docs index for canonical roadmap/runtime/proof/evidence docs.
+- Fixed stale markdown links:
+  - corrected local links in `docs/introduction.md` (`typing.md`, `ir.md`, `diagnostics.md`, `style.md`).
+- Linked attestation migration docs to the reference design:
+  - added `docs/design/phase-16.7-attestation.md` reference in `docs/rollout/attestation-production.md`.
+- Removed unreferenced legacy docs:
+  - deleted `docs/decisions.md` (superseded by phase design locks + TODO evidence model),
+  - deleted `docs/design/phase-12-contracts-mode.md` (superseded by current compiler-mode and proof/release policy docs).
+- Validation:
+  - markdown reference scan (`docs/*.md` cross-link check),
+  - orphan-doc scan (removed two truly unreferenced legacy files and kept phase 16.7 reference linked).
+
 ## 2026-02-25 - Phase 19.4/19.5 closure + verify hardening follow-up
 - Completed Phase 19.4 usability-first proof workflow:
   - `19.4.1`: VC repair hints (`diagnostics.repair_hints`),

@@ -29,6 +29,23 @@ Expected result:
 - prints `crypto: auth pipeline`
 - returns `1`
 
+## Build CLI, create Wasm, and run
+
+From repository root (`c:\clearlang\clearlang`):
+
+```powershell
+# 1) Compile CLI executable
+cargo build -p clg-cli --release
+
+# 2) Create Wasm from the generic example
+.\target\release\clg.exe build examples\projects\generic\main.clear -o tmp\generic.wasm
+
+# 3) Run using CLI
+.\target\release\clg.exe run examples\projects\generic\main.clear
+```
+
+Use `examples\projects\crypto\main.clear` in steps 2 and 3 to build/run the crypto example.
+
 ## What these validate
 
 - Multi-file module graphs with namespaced imports.

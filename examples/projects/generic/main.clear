@@ -1,7 +1,8 @@
 import services::checkout
 
 io function main() -> Int {
-    std::wasi::print(std::bytes::from_string("generic: checkout pipeline"));
+    // Example entrypoint: runs the generic checkout flow and returns the computed total.
+    std::wasi::print(std::bytes::from_string("generic: checkout pipeline\n"));
     if let Some(total) = checkout::simulate_checkout(1000, 6, 4) {
         total
     } else {

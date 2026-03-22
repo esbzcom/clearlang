@@ -2,7 +2,8 @@ import crypto::auth
 import protocol::message
 
 io function main() -> Int {
-    std::wasi::print(std::bytes::from_string("crypto: auth pipeline"));
+    // Example entrypoint: signs and verifies a request, then returns 1 on expected behavior.
+    std::wasi::print(std::bytes::from_string("crypto: auth pipeline\n"));
     let key = std::bytes::from_string("tenant-a-secret-key");
     let msg_ok = message::transfer_message("alice", "bob", "5", "42");
     if let Some(tag) = auth::sign_request(key, msg_ok) {

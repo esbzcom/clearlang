@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="${ROOT_DIR}/tmp/perf"
 CLG_BIN="${ROOT_DIR}/target/release/clg"
 WASM_TOOLS_BIN="${WASM_TOOLS_BIN:-}"
+PERF_GATE_MODE="${1:-run}"
 
 STARTUP_LATENCY_MAX_S="${STARTUP_LATENCY_MAX_S:-2.0}"
 PKG_RESOLUTION_LATENCY_MAX_S="${PKG_RESOLUTION_LATENCY_MAX_S:-2.5}"
@@ -14,26 +15,8 @@ MAX_CPU_PERCENT="${MAX_CPU_PERCENT:-400}"
 
 mkdir -p "${TMP_DIR}"
 
-if [[ ! -x "${CLG_BIN}" && -x "${CLG_BIN}.exe" ]]; then
-  CLG_BIN="${CLG_BIN}.exe"
-fi
-if [[ ! -x "${CLG_BIN}" ]]; then
-  echo "missing release binary at ${CLG_BIN}" >&2
-  exit 1
-fi
-if [[ -z "${WASM_TOOLS_BIN}" ]]; then
-  if command -v wasm-tools >/dev/null 2>&1; then
-    WASM_TOOLS_BIN="$(command -v wasm-tools)"
-  elif command -v wasm-tools.exe >/dev/null 2>&1; then
-    WASM_TOOLS_BIN="$(command -v wasm-tools.exe)"
-  fi
-fi
-if [[ -z "${WASM_TOOLS_BIN}" ]]; then
-  echo "missing wasm-tools in PATH" >&2
-  exit 1
-fi
-if ! command -v openssl >/dev/null 2>&1; then
-  echo "missing openssl in PATH" >&2
+if [[ "${PERF_GATE_MODE}" != "run" && "${PERF_GATE_MODE}" != "--portability-smoke" ]]; then
+  echo "usage: $0 [--portability-smoke]" >&2
   exit 1
 fi
 
@@ -71,6 +54,39 @@ run_clg() {
 
 run_wasm_tools() {
   run_tool "${WASM_TOOLS_BIN}" "$@"
+}
+
+portability_smoke() {
+  local sample_unix="/tmp/clearlang/perf/sample.wasm"
+  local converted_exe
+  converted_exe="$(to_tool_path "tool.exe" "${sample_unix}")"
+  if command -v cygpath >/dev/null 2>&1; then
+    local expected_exe
+    expected_exe="$(cygpath -w "${sample_unix}")"
+    if [[ "${converted_exe}" != "${expected_exe}" ]]; then
+      echo "portability smoke failed: .exe path conversion mismatch" >&2
+      exit 1
+    fi
+  elif [[ "${converted_exe}" != "${sample_unix}" ]]; then
+    echo "portability smoke failed: non-cygpath .exe conversion should be passthrough" >&2
+    exit 1
+  fi
+
+  local converted_native
+  converted_native="$(to_tool_path "tool" "${sample_unix}")"
+  if [[ "${converted_native}" != "${sample_unix}" ]]; then
+    echo "portability smoke failed: native tool path should be passthrough" >&2
+    exit 1
+  fi
+
+  local passthrough
+  passthrough="$(run_tool printf "%s" "${sample_unix}")"
+  if [[ "${passthrough}" != "${sample_unix}" ]]; then
+    echo "portability smoke failed: run_tool path passthrough mismatch" >&2
+    exit 1
+  fi
+
+  echo "milestone_2 perf portability smoke passed"
 }
 
 measure() {
@@ -255,6 +271,34 @@ EOF
 }
 EOF
 }
+
+if [[ "${PERF_GATE_MODE}" == "--portability-smoke" ]]; then
+  portability_smoke
+  exit 0
+fi
+
+if [[ ! -x "${CLG_BIN}" && -x "${CLG_BIN}.exe" ]]; then
+  CLG_BIN="${CLG_BIN}.exe"
+fi
+if [[ ! -x "${CLG_BIN}" ]]; then
+  echo "missing release binary at ${CLG_BIN}" >&2
+  exit 1
+fi
+if [[ -z "${WASM_TOOLS_BIN}" ]]; then
+  if command -v wasm-tools >/dev/null 2>&1; then
+    WASM_TOOLS_BIN="$(command -v wasm-tools)"
+  elif command -v wasm-tools.exe >/dev/null 2>&1; then
+    WASM_TOOLS_BIN="$(command -v wasm-tools.exe)"
+  fi
+fi
+if [[ -z "${WASM_TOOLS_BIN}" ]]; then
+  echo "missing wasm-tools in PATH" >&2
+  exit 1
+fi
+if ! command -v openssl >/dev/null 2>&1; then
+  echo "missing openssl in PATH" >&2
+  exit 1
+fi
 
 measure \
   "${TMP_DIR}/startup.time" \

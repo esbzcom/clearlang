@@ -128,6 +128,18 @@ fn ci_workflow_enforces_validation_and_tests() {
         "ci should upload milestone_2 performance measurement artifact"
     );
     assert!(
+        contents.contains("milestone2-perf-portability-smoke"),
+        "ci should include a Windows perf-gate portability smoke job"
+    );
+    assert!(
+        contents.contains("runs-on: windows-latest"),
+        "perf portability smoke should run on Windows to exercise path conversion behavior"
+    );
+    assert!(
+        contents.contains("bash scripts/ci/milestone2_perf_gate.sh --portability-smoke"),
+        "ci should execute milestone_2 perf gate portability smoke mode on Windows"
+    );
+    assert!(
         contents.contains("python scripts/ci/milestone2_supply_chain_gate.py"),
         "ci should enforce milestone_2 supply-chain compliance gate"
     );

@@ -26,4 +26,16 @@ fn milestone2_readiness_evidence_includes_security_runbook_signing_and_release_n
         content.contains("## Release Notes"),
         "readiness evidence should include release notes section"
     );
+    assert!(
+        !content.contains("release notes draft"),
+        "readiness evidence should not describe milestone release notes as a draft"
+    );
+    assert!(
+        !content.contains("Remaining go-live blockers"),
+        "readiness evidence should not list remaining go-live blockers after 24.2 completion"
+    );
+    assert!(
+        content.contains("Go-live blockers: none."),
+        "readiness evidence should explicitly record that go-live blockers are closed"
+    );
 }

@@ -27,6 +27,14 @@ fn todo_has_checked_item(todo: &str, item: &str) -> bool {
     })
 }
 
+fn required_release_evidence() -> [(&'static str, &'static str); 3] {
+    [
+        ("24.2.8", "docs/evidence/milestone_2-readiness.md"),
+        ("24.2.9", "docs/evidence/milestone_2-performance.md"),
+        ("24.2.10", "docs/evidence/milestone_2-supply-chain.md"),
+    ]
+}
+
 fn validate_release_train_lock_artifacts(root: &Path) {
     let runtime_rollout_lock_path = root
         .join("docs")
@@ -128,5 +136,17 @@ fn milestone2_release_train_gate_requires_24_2_checklist_and_release_notes_when_
         release_notes_path.exists(),
         "release-train gate requires `release_notes/milestone_2.md`"
     );
+    let release_notes =
+        fs::read_to_string(&release_notes_path).expect("read release_notes/milestone_2.md");
+    for (item, evidence_path) in required_release_evidence() {
+        assert!(
+            release_notes.contains(item) && release_notes.contains(evidence_path),
+            "release-train gate requires release notes to attach evidence link `{evidence_path}` for checklist item `{item}`"
+        );
+        assert!(
+            root.join(evidence_path).exists(),
+            "release-train gate requires evidence path `{evidence_path}` to exist"
+        );
+    }
     validate_release_train_lock_artifacts(&root);
 }

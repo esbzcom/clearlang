@@ -33,11 +33,10 @@ This document is the evidence index for TODO item `24.2.8`.
   - `crates/cli/tests/signing.rs`
 
 ## Release Notes
-- Milestone release notes draft:
+- Milestone release notes:
   - `release_notes/milestone_2.md`
 
 ## Sign-off Snapshot
 - Evidence index prepared: 2026-03-21.
-- Remaining go-live blockers tracked separately:
-  - `24.2.9` performance/SLO evidence
-  - `24.2.10` supply-chain compliance evidence
+- Go-live blockers: none.
+- `24.2.9` performance/SLO evidence and `24.2.10` supply-chain evidence are complete.

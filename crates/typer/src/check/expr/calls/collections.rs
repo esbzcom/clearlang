@@ -1,5 +1,6 @@
 use super::*;
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn type_collection_call<'a>(
     callee: &str,
     args: &'a [Expr],

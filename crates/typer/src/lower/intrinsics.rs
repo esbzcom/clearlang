@@ -27,7 +27,7 @@ pub(super) fn lower_u64_sat<'a>(
     }
     let lhs = lower_expr(ctx, &args[0], Some(Type::U64))?;
     let rhs = lower_expr(ctx, &args[1], Some(Type::U64))?;
-    let raw = emit_u64_bin(ctx, op.clone(), lhs, rhs);
+    let raw = emit_u64_bin(ctx, op, lhs, rhs);
     let Some(overflow) = emit_u64_overflow_flag(ctx, &op, lhs, rhs, raw)? else {
         return Ok(raw);
     };

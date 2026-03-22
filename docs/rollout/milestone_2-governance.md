@@ -10,7 +10,7 @@ Execution governance for Phase 20-24 delivery toward `milestone_2`.
 | Phase 21 (precompiled std-core packaging) | `@felto` | `@felto` | complete |
 | Phase 22 (package trust + dependency resolution) | `@felto` | `@felto` | complete |
 | Phase 23 (runtime loader + linker) | `@felto` | `@felto` | complete |
-| Phase 24 (host profiles + milestone exit) | `@felto` | `@felto` | in_progress |
+| Phase 24 (host profiles + milestone exit) | `@felto` | `@felto` | complete |
 
 ## 24.3.2 Target Dates + Critical Path
 | Parent task | Planned start | Planned end | Critical-path dependencies |
@@ -19,20 +19,20 @@ Execution governance for Phase 20-24 delivery toward `milestone_2`.
 | Phase 21 | 2026-02-03 | 2026-02-17 | Phase 20 |
 | Phase 22 | 2026-02-18 | 2026-03-07 | Phase 21 |
 | Phase 23 | 2026-03-08 | 2026-03-18 | Phase 22 |
-| Phase 24 | 2026-03-19 | 2026-04-05 | Phase 23 |
+| Phase 24 | 2026-03-19 | 2026-03-21 | Phase 23 |
 
 Critical path lock:
 `20 -> 21 -> 22 -> 23 -> 24 -> milestone_2 tag`
 
 ## 24.3.3 Risk Register (Weekly Review)
 Review cadence: weekly (every Friday).
-Last reviewed: 2026-03-21.
+Last reviewed: 2026-03-22.
 
 | Risk | Impact | Mitigation | Rollback owner | Status |
 |---|---|---|---|---|
-| Release readiness evidence (`24.2.8`) incomplete at tag time | high | block tag until security/runbook/signing evidence links are attached in release notes | `@felto` | open |
-| Performance budget evidence (`24.2.9`) not measured or over threshold | high | require measurement artifact and threshold pass/fail report before release | `@felto` | open |
-| Supply-chain compliance evidence (`24.2.10`) missing | high | require SBOM/license gate artifacts before release sign-off | `@felto` | open |
+| Release readiness evidence (`24.2.8`) incomplete at tag time | high | block tag until security/runbook/signing evidence links are attached in release notes | `@felto` | mitigated |
+| Performance budget evidence (`24.2.9`) not measured or over threshold | high | require measurement artifact and threshold pass/fail report before release | `@felto` | mitigated |
+| Supply-chain compliance evidence (`24.2.10`) missing | high | require SBOM/license gate artifacts before release sign-off | `@felto` | mitigated |
 | Release-train bypass by tagging before go-live checklist is complete | high | enforce tag-time release-train gate (`milestone2_release_train_gate`) | `@felto` | mitigated |
 
 ## 24.3.4 Release-Train Gate Policy

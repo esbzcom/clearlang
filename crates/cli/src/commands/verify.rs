@@ -25,6 +25,7 @@ impl VerifyMode {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     module: PathBuf,
     sig: PathBuf,

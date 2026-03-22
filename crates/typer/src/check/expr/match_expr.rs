@@ -56,6 +56,7 @@ fn resolve_alias_shallow_inner(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn type_match_expr<'a>(
     scrutinee: &Expr,
     arms: &'a [MatchArm],
@@ -215,7 +216,7 @@ pub(super) fn type_match_expr<'a>(
                     }
                 }
             }
-            if !seen_wildcard && !(seen_some && seen_none) {
+            if !(seen_wildcard || seen_some && seen_none) {
                 return Err(TyperError::match_non_exhaustive(span).into());
             }
             let result_ty = res_ty_opt.expect("match arms must not be empty");
@@ -362,7 +363,7 @@ pub(super) fn type_match_expr<'a>(
                     }
                 }
             }
-            if !seen_wildcard && !(seen_ok && seen_err) {
+            if !(seen_wildcard || seen_ok && seen_err) {
                 return Err(TyperError::match_non_exhaustive(span).into());
             }
             let result_ty = res_ty_opt.expect("match arms must not be empty");

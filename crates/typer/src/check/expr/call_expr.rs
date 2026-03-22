@@ -16,6 +16,7 @@ use super::traits::ensure_trait_bound;
 use super::{expr_span, type_of, ResourceTracker};
 use crate::errors::TyperError;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn type_call_expr<'a>(
     callee: &str,
     args: &'a [Expr],

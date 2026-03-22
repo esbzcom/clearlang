@@ -28,6 +28,11 @@ use package_loader::{
 };
 use runtime_error::{extract_runtime_error, extract_wasmtime_limit_error, RuntimeErrorDiag};
 
+type RuntimeBindingByImport =
+    std::collections::HashMap<(String, String), package_loader::LoadedRuntimeBinding>;
+type RuntimeBindingsByProvider =
+    std::collections::HashMap<String, Vec<package_loader::LoadedRuntimeBinding>>;
+
 pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> Result<()> {
     let mut timings = StageTimings::new();
     let engine = wt::Engine::new(&wt::Config::new())?;
@@ -326,20 +331,12 @@ fn index_runtime_bindings(
     bindings: &[package_loader::LoadedRuntimeBinding],
     provider_ids: &std::collections::HashSet<&str>,
 ) -> Result<
-    (
-        std::collections::HashMap<(String, String), package_loader::LoadedRuntimeBinding>,
-        std::collections::HashMap<String, Vec<package_loader::LoadedRuntimeBinding>>,
-    ),
+    (RuntimeBindingByImport, RuntimeBindingsByProvider),
     package_loader::RuntimePackageLoaderError,
 > {
-    let mut by_import: std::collections::HashMap<
-        (String, String),
-        package_loader::LoadedRuntimeBinding,
-    > = std::collections::HashMap::with_capacity(bindings.len());
-    let mut by_provider: std::collections::HashMap<
-        String,
-        Vec<package_loader::LoadedRuntimeBinding>,
-    > = std::collections::HashMap::new();
+    let mut by_import: RuntimeBindingByImport =
+        std::collections::HashMap::with_capacity(bindings.len());
+    let mut by_provider: RuntimeBindingsByProvider = std::collections::HashMap::new();
 
     for binding in bindings {
         if !provider_ids.contains(binding.provider_package_id.as_str()) {
@@ -374,7 +371,7 @@ fn index_runtime_bindings(
         by_import.insert(key, binding.clone());
         by_provider
             .entry(binding.provider_package_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(binding.clone());
     }
 
@@ -427,7 +424,7 @@ fn resolve_provider_link_order(
         for dep in deps {
             dependents
                 .entry(dep.clone())
-                .or_insert_with(std::collections::BTreeSet::new)
+                .or_default()
                 .insert(provider_id.clone());
         }
     }

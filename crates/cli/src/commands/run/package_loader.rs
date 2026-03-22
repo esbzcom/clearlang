@@ -528,6 +528,7 @@ fn validate_runtime_link_bindings_reference_known_providers(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn resolve_runtime_link_packages(
     root: &Path,
     packages: &[RuntimeLinkPackageV0],

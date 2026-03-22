@@ -214,6 +214,7 @@ impl ExportSource<'_> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn import_item(
     module: &ModuleUnit,
     module_aliases: &HashMap<String, String>,

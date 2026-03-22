@@ -372,7 +372,7 @@ pub fn encode_intrinsic_u64_from_bytes_be(_f: &IrFunction) -> Result<Function> {
         insts.i64_const(8);
         insts.i64_shl();
         insts.local_get(0);
-        insts.i32_const((4 + idx) as i32);
+        insts.i32_const(4 + idx);
         insts.i32_add();
         insts.i32_load8_u(MemArg {
             align: 0,

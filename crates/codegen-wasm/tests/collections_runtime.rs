@@ -1,3 +1,5 @@
+#![allow(clippy::identity_op)]
+
 use clg_codegen_wasm::emit_from_ir;
 use clg_parser::parse;
 use clg_typer::check;

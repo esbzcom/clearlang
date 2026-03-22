@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_DIR="${ROOT_DIR}/tmp/perf"
 CLG_BIN="${ROOT_DIR}/target/release/clg"
+WASM_TOOLS_BIN="${WASM_TOOLS_BIN:-}"
 
 STARTUP_LATENCY_MAX_S="${STARTUP_LATENCY_MAX_S:-2.0}"
 PKG_RESOLUTION_LATENCY_MAX_S="${PKG_RESOLUTION_LATENCY_MAX_S:-2.5}"
@@ -20,7 +21,14 @@ if [[ ! -x "${CLG_BIN}" ]]; then
   echo "missing release binary at ${CLG_BIN}" >&2
   exit 1
 fi
-if ! command -v wasm-tools >/dev/null 2>&1; then
+if [[ -z "${WASM_TOOLS_BIN}" ]]; then
+  if command -v wasm-tools >/dev/null 2>&1; then
+    WASM_TOOLS_BIN="$(command -v wasm-tools)"
+  elif command -v wasm-tools.exe >/dev/null 2>&1; then
+    WASM_TOOLS_BIN="$(command -v wasm-tools.exe)"
+  fi
+fi
+if [[ -z "${WASM_TOOLS_BIN}" ]]; then
   echo "missing wasm-tools in PATH" >&2
   exit 1
 fi
@@ -28,6 +36,42 @@ if ! command -v openssl >/dev/null 2>&1; then
   echo "missing openssl in PATH" >&2
   exit 1
 fi
+
+to_tool_path() {
+  local exe="$1"
+  local path="$2"
+  if [[ "${exe}" == *.exe ]] && command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "${path}"
+    return
+  fi
+  printf "%s\n" "${path}"
+}
+
+run_tool() {
+  local exe="$1"
+  shift
+  local args=()
+  local arg
+  for arg in "$@"; do
+    case "${arg}" in
+      /*|./*|../*)
+        args+=("$(to_tool_path "${exe}" "${arg}")")
+        ;;
+      *)
+        args+=("${arg}")
+        ;;
+    esac
+  done
+  "${exe}" "${args[@]}"
+}
+
+run_clg() {
+  run_tool "${CLG_BIN}" "$@"
+}
+
+run_wasm_tools() {
+  run_tool "${WASM_TOOLS_BIN}" "$@"
+}
 
 measure() {
   local time_file="$1"
@@ -53,6 +97,19 @@ assert_le_int() {
     echo "${name} budget exceeded: value=${value}, max=${max}" >&2
     exit 1
   fi
+}
+
+sha256_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "${file}" | awk '{print $1}'
+    return
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "${file}" | awk '{print $1}'
+    return
+  fi
+  openssl dgst -sha256 "${file}" | awk '{print $2}'
 }
 
 canonical_json_sha256() {
@@ -83,7 +140,7 @@ setup_runtime_loader_fixture() {
     i32.add)
 )
 WAT
-  wasm-tools parse "${fixture_dir}/provider.wat" -o "${fixture_dir}/store/pkg-a.wasm"
+  run_wasm_tools parse "${fixture_dir}/provider.wat" -o "${fixture_dir}/store/pkg-a.wasm"
 
   cat > "${fixture_dir}/app.wat" <<'WAT'
 (module
@@ -94,10 +151,10 @@ WAT
     call $add)
 )
 WAT
-  wasm-tools parse "${fixture_dir}/app.wat" -o "${fixture_dir}/app.wasm"
+  run_wasm_tools parse "${fixture_dir}/app.wat" -o "${fixture_dir}/app.wasm"
 
   local digest
-  digest="sha256:$(sha256sum "${fixture_dir}/store/pkg-a.wasm" | awk '{print $1}')"
+  digest="sha256:$(sha256_file "${fixture_dir}/store/pkg-a.wasm")"
 
   cat > "${fixture_dir}/clg.runtime-link.json" <<EOF
 {
@@ -201,17 +258,17 @@ EOF
 
 measure \
   "${TMP_DIR}/startup.time" \
-  "${CLG_BIN}" run "${ROOT_DIR}/clearlang-tests/16_namespaced_call.clear"
+  run_clg run "${ROOT_DIR}/clearlang-tests/16_namespaced_call.clear"
 
 measure \
   "${TMP_DIR}/pkg_resolution.time" \
-  "${CLG_BIN}" build "${ROOT_DIR}/clearlang-tests/perf/pkg_resolution/main.clear" \
+  run_clg build "${ROOT_DIR}/clearlang-tests/perf/pkg_resolution/main.clear" \
   -o "${TMP_DIR}/pkg_resolution.wasm"
 
 setup_runtime_loader_fixture
 measure \
   "${TMP_DIR}/runtime_link.time" \
-  "${CLG_BIN}" run "${TMP_DIR}/runtime_loader/app.wasm"
+  run_clg run "${TMP_DIR}/runtime_loader/app.wasm"
 
 read -r startup_s startup_rss startup_cpu_pct < "${TMP_DIR}/startup.time"
 read -r pkg_s pkg_rss pkg_cpu_pct < "${TMP_DIR}/pkg_resolution.time"

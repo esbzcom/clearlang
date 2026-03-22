@@ -2,7 +2,7 @@ use serde_cbor::Value;
 use std::collections::BTreeMap;
 
 fn hex_bytes(s: &str) -> Vec<u8> {
-    let cleaned = s.replace(' ', "").replace('\n', "");
+    let cleaned = s.replace([' ', '\n'], "");
     hex::decode(cleaned).expect("hex")
 }
 

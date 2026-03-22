@@ -182,6 +182,7 @@ fn collect_lambda_captures(
     captures
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn type_of<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,
@@ -487,6 +488,7 @@ pub(crate) fn type_of<'a>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn infer_expr_type<'a>(
     e: &'a Expr,
     env: &HashMap<&'a str, LocalBinding>,

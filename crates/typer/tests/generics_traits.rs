@@ -13,8 +13,8 @@ fn monomorphizes_generic_function_calls() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "id$Int"));
-    assert!(names.iter().any(|name| *name == "main"));
+    assert!(names.contains(&"id$Int"));
+    assert!(names.contains(&"main"));
 }
 
 #[test]
@@ -29,8 +29,8 @@ fn monomorphizes_generic_function_calls_with_explicit_type_args() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "id$Int"));
-    assert!(names.iter().any(|name| *name == "main"));
+    assert!(names.contains(&"id$Int"));
+    assert!(names.contains(&"main"));
 }
 
 #[test]
@@ -55,8 +55,8 @@ fn monomorphizes_trait_impl_calls() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "eq_pair$Int"));
-    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
+    assert!(names.contains(&"eq_pair$Int"));
+    assert!(names.contains(&"impl$Eq$Int$eq"));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn monomorphizes_trait_default_method_when_impl_omits_it() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
+    assert!(names.contains(&"impl$Eq$Int$eq"));
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn impl_can_override_trait_default_method() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
+    assert!(names.contains(&"impl$Eq$Int$eq"));
 }
 
 #[test]
@@ -208,7 +208,7 @@ fn monomorphizes_trait_calls_in_contracts_and_invariants() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "impl$Eq$Int$eq"));
+    assert!(names.contains(&"impl$Eq$Int$eq"));
 }
 
 #[test]
@@ -246,9 +246,7 @@ fn monomorphizes_nested_generic_calls() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names
-        .iter()
-        .any(|name| *name == "wrap$Result$Option$Int$Bool"));
+    assert!(names.contains(&"wrap$Result$Option$Int$Bool"));
 }
 
 #[test]
@@ -265,5 +263,5 @@ fn mangling_preserves_refined_alias_names() {
     let ast = parse(src).expect("parse");
     let output = check_with_vcs(&ast).expect("type-check ok");
     let names: Vec<&str> = output.ir.funcs.iter().map(|f| f.name.as_str()).collect();
-    assert!(names.iter().any(|name| *name == "id$Nat"));
+    assert!(names.contains(&"id$Nat"));
 }

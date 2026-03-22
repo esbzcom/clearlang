@@ -146,6 +146,7 @@ impl std::fmt::Display for VerifyError {
 
 impl std::error::Error for VerifyError {}
 
+#[allow(clippy::too_many_arguments)]
 pub fn sign_bundle(
     package: &ProofPackage,
     module_hash_hex: &str,

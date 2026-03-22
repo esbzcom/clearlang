@@ -24,7 +24,7 @@ fn align_up(value: u32, align: u32) -> Result<u32> {
     }
     let value = value as u64;
     let align = align as u64;
-    let aligned = (value + (align - 1)) / align * align;
+    let aligned = value.div_ceil(align) * align;
     if aligned > u32::MAX as u64 {
         anyhow::bail!("layout size exceeds u32 limits");
     }
@@ -149,7 +149,7 @@ pub(super) fn map_entry_layout(
     let tuple = tuple_layout(&[key_ty.clone(), val_ty.clone()], aliases, std_types)?;
     let key_offset = *tuple
         .offsets
-        .get(0)
+        .first()
         .ok_or_else(|| anyhow::anyhow!("map key offset missing"))?;
     let val_offset = *tuple
         .offsets
@@ -173,8 +173,8 @@ pub(super) fn build_type_param_subst(params: &[TypeParam], args: &[Type]) -> Res
     Ok(subst)
 }
 
-pub(super) fn struct_layout<'a>(
-    type_defs: &'a TypeDefs,
+pub(super) fn struct_layout(
+    type_defs: &TypeDefs,
     aliases: &AliasMap,
     std_types: &StdTypeMap,
     name: &str,
@@ -197,8 +197,8 @@ pub(super) fn struct_layout<'a>(
     Ok((fields, layout))
 }
 
-pub(super) fn enum_variant_info<'a>(
-    type_defs: &'a TypeDefs,
+pub(super) fn enum_variant_info(
+    type_defs: &TypeDefs,
     enum_name: &str,
     args: &[Type],
     variant_name: &str,

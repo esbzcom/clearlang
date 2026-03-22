@@ -31,9 +31,7 @@ pub(crate) fn collect_refinement_obligations<'a>(
                     out,
                 ));
             }
-            let Some(first) = elem_tys.first().cloned().flatten() else {
-                return None;
-            };
+            let first = elem_tys.first().cloned().flatten()?;
             if elem_tys
                 .iter()
                 .skip(1)
@@ -47,11 +45,8 @@ pub(crate) fn collect_refinement_obligations<'a>(
         Expr::TupleLit { elems, .. } => {
             let mut tys: Vec<Type> = Vec::with_capacity(elems.len());
             for elem in elems {
-                let Some(ty) =
-                    collect_refinement_obligations(elem, aliases, fn_sigs, &mut env.clone(), out)
-                else {
-                    return None;
-                };
+                let ty =
+                    collect_refinement_obligations(elem, aliases, fn_sigs, &mut env.clone(), out)?;
                 tys.push(ty);
             }
             Some(Type::Tuple(tys))
@@ -329,8 +324,7 @@ pub(crate) fn collect_refinement_obligations<'a>(
                             detail.name = Some(name.clone());
                         }
                         let attachment = RefinementAttachment::flow(detail);
-                        if let Some(obligation) =
-                            make_refinement_obligation(&alias, arg, attachment)
+                        if let Some(obligation) = make_refinement_obligation(alias, arg, attachment)
                         {
                             out.push(obligation);
                         }

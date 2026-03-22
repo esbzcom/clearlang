@@ -285,6 +285,7 @@ fn reject_recursive_closure_values(block: &Block) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn type_block_stmt<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,
@@ -486,6 +487,7 @@ fn type_while_stmt<'a>(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn type_block<'a>(
     block: &'a Block,
     env: &HashMap<&'a str, LocalBinding>,

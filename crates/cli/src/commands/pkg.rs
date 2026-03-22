@@ -1692,11 +1692,7 @@ fn solve_step(
 fn prefer_solver_error(left: PkgLockError, right: PkgLockError) -> PkgLockError {
     let left_rank = solver_error_rank(left.code());
     let right_rank = solver_error_rank(right.code());
-    if left_rank < right_rank {
-        left
-    } else if right_rank < left_rank {
-        right
-    } else if right.message <= left.message {
+    if right_rank < left_rank || (right_rank == left_rank && right.message <= left.message) {
         right
     } else {
         left

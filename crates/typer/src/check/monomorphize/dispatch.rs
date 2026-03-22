@@ -34,6 +34,7 @@ fn trait_default_base_func(method_name: &str, method: &clg_ast::TraitMethod) -> 
 }
 
 impl<'a> Monomorphizer<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn resolve_generic_call(
         &mut self,
         callee: &str,

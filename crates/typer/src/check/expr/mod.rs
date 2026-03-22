@@ -284,7 +284,7 @@ pub(crate) fn show_ty(t: Type) -> String {
             Type::Tuple(elements) => {
                 let rendered = elements
                     .into_iter()
-                    .map(|elem| render(elem))
+                    .map(render)
                     .collect::<Vec<_>>()
                     .join(", ");
                 format!("({})", rendered)

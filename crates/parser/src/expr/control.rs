@@ -117,7 +117,7 @@ where
         }))
         .map_with(|(((cond0, then0), mut elifs), else_opt), e| {
             let sp = e.span();
-            let else_br = else_opt.unwrap_or_else(|| {
+            let else_br = else_opt.unwrap_or({
                 Expr::Bool(
                     false,
                     Span {

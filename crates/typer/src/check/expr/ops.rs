@@ -12,6 +12,7 @@ use super::literals::{
 use super::{type_of, ResourceTracker};
 use crate::errors::TyperError;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn type_unary_expr<'a>(
     op: UnaryOp,
     expr: &Expr,
@@ -47,6 +48,7 @@ pub(super) fn type_unary_expr<'a>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn type_bin_expr<'a>(
     op: BinOp,
     lhs: &Expr,

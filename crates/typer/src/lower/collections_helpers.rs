@@ -362,6 +362,7 @@ pub(super) fn emit_cap_from_len(ctx: &mut LowerCtx<'_>, len: Value) -> Value {
     cap
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn emit_find_index(
     ctx: &mut LowerCtx<'_>,
     data_ptr: Value,

@@ -92,7 +92,7 @@ pub(super) fn strict_l3_claim_violation(vcs: &[VerificationCondition]) -> Option
 
 pub(super) fn strict_language_profile_violation(vcs: &[VerificationCondition]) -> Option<String> {
     for vc in vcs {
-        for assumption in &vc.assumptions {
+        if let Some(assumption) = vc.assumptions.first() {
             let symbols = if assumption.symbols.is_empty() {
                 "<none>".to_string()
             } else {
@@ -316,30 +316,18 @@ mod tests {
 
     #[test]
     fn compiler_mode_permissive_defaults_proof_strict_false() {
-        assert_eq!(
-            proof_strict_for_mode(CompilerMode::Permissive, None).expect("mode"),
-            false
-        );
+        assert!(!proof_strict_for_mode(CompilerMode::Permissive, None).expect("mode"));
     }
 
     #[test]
     fn compiler_mode_standard_defaults_proof_strict_true() {
-        assert_eq!(
-            proof_strict_for_mode(CompilerMode::Standard, None).expect("mode"),
-            true
-        );
+        assert!(proof_strict_for_mode(CompilerMode::Standard, None).expect("mode"));
     }
 
     #[test]
     fn compiler_mode_strict_forces_proof_strict_true() {
-        assert_eq!(
-            proof_strict_for_mode(CompilerMode::Strict, None).expect("mode"),
-            true
-        );
-        assert_eq!(
-            proof_strict_for_mode(CompilerMode::Strict, Some(true)).expect("mode"),
-            true
-        );
+        assert!(proof_strict_for_mode(CompilerMode::Strict, None).expect("mode"));
+        assert!(proof_strict_for_mode(CompilerMode::Strict, Some(true)).expect("mode"));
     }
 
     #[test]

@@ -395,6 +395,7 @@ pub(crate) struct LowerCtx<'a> {
     pub dispatcher_patches: Vec<DispatcherCallPatch>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn lower_func<'a>(
     f: &'a Func,
     fns: &HashMap<&'a str, FnSig>,

@@ -87,11 +87,11 @@ pub(super) fn lower_bool_lit(ctx: &mut LowerCtx<'_>, value: bool) -> Result<Valu
     Ok(dst)
 }
 
-pub(super) fn lower_string_lit(ctx: &mut LowerCtx<'_>, value: &String) -> Result<Value> {
+pub(super) fn lower_string_lit(ctx: &mut LowerCtx<'_>, value: &str) -> Result<Value> {
     let dst = fresh(ctx);
     ctx.body.push(Instr::IStringConst {
         dst,
-        s: value.clone(),
+        s: value.to_owned(),
     });
     Ok(dst)
 }

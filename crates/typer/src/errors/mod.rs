@@ -68,7 +68,7 @@ pub(super) fn render_type(ty: &Type) -> String {
         Type::Tuple(elements) => {
             let rendered = elements
                 .iter()
-                .map(|elem| render_type(elem))
+                .map(render_type)
                 .collect::<Vec<_>>()
                 .join(", ");
             format!("({})", rendered)

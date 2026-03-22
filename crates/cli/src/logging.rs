@@ -135,6 +135,12 @@ impl StageTimings {
     }
 }
 
+impl Default for StageTimings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 struct StageTiming {
     name: &'static str,
     duration: Duration,

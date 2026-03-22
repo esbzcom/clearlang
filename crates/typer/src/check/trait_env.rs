@@ -190,11 +190,11 @@ fn validate_impl_method_signature(
 }
 
 fn validate_impl_coherence(trait_env: &TraitEnv<'_>) -> Result<()> {
-    for (trait_name, _) in &trait_env.traits {
+    for trait_name in trait_env.traits.keys().copied() {
         let impls: Vec<&ImplInfo<'_>> = trait_env
             .impls
             .iter()
-            .filter(|info| info.decl.trait_name == *trait_name)
+            .filter(|info| info.decl.trait_name == trait_name)
             .collect();
         for i in 0..impls.len() {
             for j in (i + 1)..impls.len() {

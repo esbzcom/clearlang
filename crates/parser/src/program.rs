@@ -33,7 +33,7 @@ enum Item {
 #[derive(Debug)]
 enum TopLevel {
     Import(clg_ast::ImportDecl),
-    Item(Item),
+    Item(Box<Item>),
 }
 
 fn to_span(sp: chumsky::span::SimpleSpan<usize>) -> Span {
@@ -103,8 +103,8 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
     let top_level = choice((
         import_decl_p().map(TopLevel::Import),
-        exported_item.map(TopLevel::Item),
-        item.map(TopLevel::Item),
+        exported_item.map(|item| TopLevel::Item(Box::new(item))),
+        item.map(|item| TopLevel::Item(Box::new(item))),
     ));
 
     module_decl_p()
@@ -122,7 +122,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             for item in items {
                 match item {
                     TopLevel::Import(i) => imports.push(i),
-                    TopLevel::Item(item) => match item {
+                    TopLevel::Item(item) => match *item {
                         Item::Alias(a) => refined_aliases.push(a),
                         Item::Func(f) => {
                             refined_aliases.extend(f.inline_aliases);

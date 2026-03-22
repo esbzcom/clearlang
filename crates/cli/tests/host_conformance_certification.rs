@@ -1,6 +1,7 @@
 use assert_cmd::prelude::*;
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -137,6 +138,57 @@ fn json_error(output: &[u8]) -> Value {
     let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
     assert_eq!(errs.len(), 1, "expected a single deterministic diagnostic");
     errs[0].clone()
+}
+
+fn canonicalize_json_value(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().cloned().collect();
+            keys.sort();
+            let mut out = serde_json::Map::new();
+            for key in keys {
+                out.insert(
+                    key.clone(),
+                    canonicalize_json_value(map.get(key.as_str()).expect("key exists")),
+                );
+            }
+            Value::Object(out)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_json_value).collect()),
+        _ => value.clone(),
+    }
+}
+
+fn canonical_json_bytes(value: &Value) -> Vec<u8> {
+    serde_json::to_vec(&canonicalize_json_value(value)).expect("canonical json")
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
+fn write_runtime_link_without_packages(root: &Path) {
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [],
+        "bindings": []
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
 }
 
 #[test]
@@ -313,4 +365,60 @@ fn host_conformance_runtime_rejects_unsupported_profile() {
     let err = json_error(&output);
     assert_eq!(err.get("code").and_then(|s| s.as_str()), Some("R016"));
     assert_eq!(err.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+}
+
+#[test]
+fn host_conformance_runtime_rejects_missing_required_capability_with_r016() {
+    let tmp = tempdir().expect("tempdir");
+    let src_path = tmp.path().join("main.clear");
+    let wasm_path = tmp.path().join("out.wasm");
+    fs::write(
+        &src_path,
+        r#"
+            io function main() -> Int {
+                std::env::time()
+            }
+        "#
+        .trim(),
+    )
+    .expect("write source");
+    fs::write(
+        tmp.path().join("clg.host-profile.json"),
+        r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+    )
+    .expect("write host profile");
+    write_runtime_link_without_packages(tmp.path());
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "run"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let err = json_error(&output);
+    assert_eq!(err.get("code").and_then(|s| s.as_str()), Some("R016"));
+    assert_eq!(err.get("stage").and_then(|s| s.as_str()), Some("runtime"));
+    assert!(
+        err.get("message")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .contains("std::env::time"),
+        "expected missing required capability to be surfaced deterministically"
+    );
 }

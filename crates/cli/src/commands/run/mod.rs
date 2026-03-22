@@ -29,12 +29,16 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
     let mut timings = StageTimings::new();
     let engine = wt::Engine::new(&wt::Config::new())?;
     let module = load_module_for_run(&engine, &file, json_errors, logger, &mut timings)?;
+    let required_host_capabilities = required_host_capabilities_for_module(&module);
     let runtime_packages = {
         let _stage = timings.start(logger, "runtime_load_packages");
         let runtime_root = file.parent().unwrap_or(Path::new("."));
         let loaded = load_runtime_packages_from_local_store_if_present(
             runtime_root,
-            RuntimeLoaderConfig::default(),
+            RuntimeLoaderConfig {
+                allow_remote_fetch: false,
+                required_host_capabilities,
+            },
         )
         .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?;
         if let Some(loaded_packages) = loaded.as_ref() {
@@ -99,6 +103,29 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
             }
             Err(trap)
         }
+    }
+}
+
+fn required_host_capabilities_for_module(module: &wt::Module) -> Vec<String> {
+    let mut required = std::collections::BTreeSet::new();
+    for import in module.imports() {
+        if let Some(capability) = runtime_import_capability(import.module(), import.name()) {
+            required.insert(capability.to_string());
+        }
+    }
+    required.into_iter().collect()
+}
+
+fn runtime_import_capability(module: &str, name: &str) -> Option<&'static str> {
+    match (module, name) {
+        ("clearlang_crypto", "crypto_hash") => Some("std::crypto::hash"),
+        ("clearlang_crypto", "crypto_hmac") => Some("std::crypto::hmac"),
+        ("clearlang_crypto", "crypto_verify") => Some("std::crypto::verify"),
+        ("clearlang_env", "env_time") => Some("std::env::time"),
+        ("clearlang_env", "env_random") => Some("std::env::random"),
+        ("clearlang_env", "env_chain_id") => Some("std::env::chain_id"),
+        ("wasi_snapshot_preview1", "fd_write") => Some("std::wasi::print"),
+        _ => None,
     }
 }
 

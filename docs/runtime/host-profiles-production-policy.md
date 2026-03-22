@@ -42,8 +42,10 @@ This policy covers both strict build-time gates and runtime loader behavior.
 - If `clg.host-profile.json` is present and profile is `contract_static` or `shared_app`:
   - runtime-link artifacts are mandatory (`clg.runtime-link.json` + hash),
   - loader is fail-closed on missing/mismatch/untrusted artifacts with `R012`,
+  - runtime host capability requirements are derived from active module imports and
+    missing required capabilities fail with `R016`,
   - permissive fallback to manual/implicit runtime linking is not allowed.
-- Malformed host-profile runtime input fails with `R016`.
+- Malformed host-profile runtime input also fails with `R016`.
 
 ## Determinism Requirements
 - Strict build host-profile capability sets are sorted before evaluation.
@@ -63,4 +65,5 @@ Locked coverage:
 - strict profile matrix enforces deterministic deny of `std::env::{time,random}` (`C106`),
 - strict profile matrix accepts allowed crypto capability paths,
 - runtime fail-closed behavior for production profiles without runtime-link (`R012`),
-- runtime rejection of unsupported profile identifiers (`R016`).
+- runtime rejection of unsupported profile identifiers (`R016`),
+- runtime rejection when required host capabilities are missing (`R016`).

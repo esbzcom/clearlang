@@ -51,6 +51,7 @@ For each package artifact path from trusted store index:
 - `R013`: digest mismatch during artifact verification.
 - `R014`: trust/signature policy failure.
 - `R015`: runtime linker/binding mismatch.
+- `R016`: runtime host profile/capability mismatch (invalid profile input or missing required capability for active imports).
 - `R017`: runtime-link determinism/hash mismatch.
 
 ## Operational Procedures

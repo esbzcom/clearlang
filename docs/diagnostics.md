@@ -202,7 +202,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | R013 | runtime | Runtime package artifact digest mismatch against locked/runtime-link evidence. |
 | R014 | runtime | Runtime package signature/trust verification failed (untrusted/revoked/invalid signer or signature mismatch). |
 | R015 | runtime | Runtime package ABI/link binding mismatch (import contract does not match runtime provider symbol contract). |
-| R016 | runtime | Runtime loader capability/profile mismatch (required host capability absent under active profile). |
+| R016 | runtime | Runtime loader capability/profile mismatch (invalid host-profile input or required host capability absent under active profile). |
 | R017 | runtime | Runtime loader determinism replay mismatch on identical inputs (loaded package set/binding map/diagnostics drift). |
 | R999 | runtime | Unknown runtime trap (should not appear in released builds). |
 

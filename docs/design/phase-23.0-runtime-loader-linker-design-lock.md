@@ -13,10 +13,13 @@ Lock runtime package loading/linking policy before implementation so host/runtim
 
 ## Runtime Source of Truth (Locked)
 1. `clg.lock.json` (resolved package pins + digests).
-2. `clg.resolved-graph.json` + `clg.resolved-graph.sha256` (deterministic resolved dependency graph evidence).
-3. Canonical package metadata/ABI contracts (schema accepted by Phase 22 policy).
-4. Trust policy + host profile inputs.
-5. Runtime import-binding artifact (`clg.runtime-link.json`) + hash companion (`clg.runtime-link.sha256`) consumed by runtime loader/linker.
+2. Runtime import-binding artifact (`clg.runtime-link.json`) + hash companion (`clg.runtime-link.sha256`) consumed by runtime loader/linker.
+3. Trust policy + host profile inputs.
+4. Trusted package store index and resolved artifact paths (`clg.package-store-index.json` + optional `clg.runtime-loader.json` policy).
+
+Note:
+- `clg.resolved-graph.json` remains compile-time resolver evidence for Phase 22/CI replay gates.
+- Runtime loader decisions are derived from `clg.runtime-link.json` + lock/trust/store/profile inputs.
 
 No implicit network fetch by default:
 - default runtime loader policy is trusted local store/index only,
@@ -70,8 +73,8 @@ Serialization/ordering lock:
 ## Runtime Trust Gates (Fail-Closed)
 1. Artifact identity gate: runtime artifact digest must match locked digest.
 2. Signature/trust gate: signer/signature/trust policy checks must pass for every loaded package artifact.
-3. Contract gate: runtime import signatures/effects/capabilities must match locked ABI expectations.
-4. Profile gate: required host capabilities must be present in active host profile.
+3. Contract gate: runtime-link bindings must remain deterministic and internally consistent.
+4. Profile gate: required host capabilities derived from active module imports must be present in active host profile.
 5. Drift gate: runtime import-binding artifact/hash must match compile-time emitted artifacts.
 
 Any gate failure aborts loading/linking before user entrypoint execution.

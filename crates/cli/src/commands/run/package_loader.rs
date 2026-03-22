@@ -9,7 +9,7 @@ use crate::commands::build::strict_trust_policy::load_required_trust_policy_v0;
 use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 use crate::commands::validation::{
     parse_utc_timestamp_components, validate_exact_semver, validate_package_id,
-    validate_sha256_digest,
+    validate_semver_requirement, validate_sha256_digest,
 };
 
 const RUNTIME_LINK_FILE: &str = "clg.runtime-link.json";
@@ -20,9 +20,16 @@ const HOST_PROFILE_FILE: &str = "clg.host-profile.json";
 const STRICT_LOCKFILE_FILE: &str = "clg.lock.json";
 const STRICT_PACKAGE_SIGNATURES_FILE: &str = "clg.package-signatures.json";
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(super) struct RuntimeLoaderConfig {
     pub(super) allow_remote_fetch: bool,
+    pub(super) required_host_capabilities: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct RuntimeProductionHostProfile {
+    pub(super) profile: String,
+    pub(super) capabilities: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -255,12 +262,13 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
     let production_profile = load_runtime_production_profile_if_present(root)?;
     let runtime_link_path = root.join(RUNTIME_LINK_FILE);
     if !runtime_link_path.exists() {
-        if let Some(profile) = production_profile.as_deref() {
+        if let Some(profile) = production_profile.as_ref() {
             return Err(RuntimePackageLoaderError::new(
                 "R012",
                 format!(
                     "runtime loader fail-closed: production host profile `{profile}` requires `{}` to enable mandatory runtime trust checks",
-                    RUNTIME_LINK_FILE
+                    RUNTIME_LINK_FILE,
+                    profile = profile.profile
                 ),
             ));
         }
@@ -367,6 +375,11 @@ pub(super) fn load_runtime_packages_from_local_store_if_present(
             ),
         ));
     }
+
+    validate_required_runtime_host_capabilities(
+        production_profile.as_ref(),
+        config.required_host_capabilities.as_slice(),
+    )?;
 
     let lockfile = load_runtime_lockfile_evidence(root)?;
     if let Some(expected_resolver_version) = lockfile.resolver_version {
@@ -838,16 +851,29 @@ fn load_runtime_lockfile_evidence(
                     ));
                 }
                 for dep in &root.dependencies {
-                    if dep.name.trim().is_empty() || dep.requirement.trim().is_empty() {
-                        return Err(RuntimePackageLoaderError::new(
+                    validate_package_id(dep.name.as_str()).map_err(|msg| {
+                        RuntimePackageLoaderError::new(
                             "R013",
                             format!(
-                                "runtime lockfile `{}` root `{}` has invalid dependency entry",
+                                "runtime lockfile `{}` root `{}` has invalid dependency name `{}`: {msg}",
                                 path.display(),
-                                root.name
+                                root.name,
+                                dep.name
                             ),
-                        ));
-                    }
+                        )
+                    })?;
+                    validate_semver_requirement(dep.requirement.as_str()).map_err(|msg| {
+                        RuntimePackageLoaderError::new(
+                            "R013",
+                            format!(
+                                "runtime lockfile `{}` root `{}` dependency `{}` has invalid requirement `{}`: {msg}",
+                                path.display(),
+                                root.name,
+                                dep.name,
+                                dep.requirement
+                            ),
+                        )
+                    })?;
                 }
             }
 
@@ -908,16 +934,17 @@ fn load_runtime_lockfile_evidence(
                     ));
                 }
                 for dep in &pkg.dependencies {
-                    if dep.trim().is_empty() {
-                        return Err(RuntimePackageLoaderError::new(
+                    validate_runtime_package_id(dep.as_str()).map_err(|msg| {
+                        RuntimePackageLoaderError::new(
                             "R013",
                             format!(
-                                "runtime lockfile `{}` package `{}` has empty dependency id",
+                                "runtime lockfile `{}` package `{}` has invalid dependency id `{}`: {msg}",
                                 path.display(),
-                                pkg.id
+                                pkg.id,
+                                dep
                             ),
-                        ));
-                    }
+                        )
+                    })?;
                 }
                 if let Some(existing) = digests_by_id.insert(pkg.id.clone(), pkg.digest.clone()) {
                     return Err(RuntimePackageLoaderError::new(
@@ -1202,7 +1229,7 @@ fn load_runtime_availability_policy(
 
 fn load_runtime_production_profile_if_present(
     root: &Path,
-) -> Result<Option<String>, RuntimePackageLoaderError> {
+) -> Result<Option<RuntimeProductionHostProfile>, RuntimePackageLoaderError> {
     let path = root.join(HOST_PROFILE_FILE);
     if !path.exists() {
         return Ok(None);
@@ -1246,8 +1273,12 @@ fn load_runtime_production_profile_if_present(
     }
     match raw.profile.as_str() {
         "contract_static" | "shared_app" => {
-            validate_runtime_host_profile_capabilities(path.as_path(), raw.capabilities.as_slice())?;
-            Ok(Some(raw.profile))
+            let capabilities =
+                validate_runtime_host_profile_capabilities(path.as_path(), raw.capabilities.as_slice())?;
+            Ok(Some(RuntimeProductionHostProfile {
+                profile: raw.profile,
+                capabilities,
+            }))
         }
         _ => Err(RuntimePackageLoaderError::new(
             "R016",
@@ -1263,7 +1294,7 @@ fn load_runtime_production_profile_if_present(
 fn validate_runtime_host_profile_capabilities(
     path: &Path,
     capabilities: &[String],
-) -> Result<(), RuntimePackageLoaderError> {
+) -> Result<Vec<String>, RuntimePackageLoaderError> {
     let mut sorted = capabilities.to_vec();
     sorted.sort();
 
@@ -1306,7 +1337,35 @@ fn validate_runtime_host_profile_capabilities(
             ));
         }
     }
-    Ok(())
+    Ok(sorted)
+}
+
+fn validate_required_runtime_host_capabilities(
+    profile: Option<&RuntimeProductionHostProfile>,
+    required_capabilities: &[String],
+) -> Result<(), RuntimePackageLoaderError> {
+    let Some(profile) = profile else {
+        return Ok(());
+    };
+
+    let configured: HashSet<&str> = profile.capabilities.iter().map(String::as_str).collect();
+    let mut missing = BTreeSet::new();
+    for required in required_capabilities {
+        if !configured.contains(required.as_str()) {
+            missing.insert(required.clone());
+        }
+    }
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let missing_list = missing.iter().cloned().collect::<Vec<_>>().join(", ");
+    Err(RuntimePackageLoaderError::new(
+        "R016",
+        format!(
+            "runtime host profile `{}` is missing required capabilities for active module imports: {}",
+            profile.profile, missing_list
+        ),
+    ))
 }
 
 fn is_allowed_runtime_host_capability(capability: &str) -> bool {
@@ -1779,12 +1838,38 @@ mod tests {
     }
 
     #[test]
+    fn runtime_host_profile_missing_required_capability_with_r016() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_baseline_runtime_artifacts(tmp.path(), "artifact");
+        write_file(
+            tmp.path().join(HOST_PROFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 0,
+  "profile": "contract_static",
+  "capabilities": ["std::wasi::print"]
+}"#,
+        );
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig {
+                allow_remote_fetch: false,
+                required_host_capabilities: vec!["std::env::time".to_string()],
+            },
+        )
+        .expect_err("missing required capability should fail");
+        assert_eq!(err.code(), "R016");
+        assert!(err.message().contains("missing required capabilities"));
+        assert!(err.message().contains("std::env::time"));
+    }
+
+    #[test]
     fn rejects_remote_fetch_in_phase_23_0_1() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let err = load_runtime_packages_from_local_store_if_present(
             tmp.path(),
             RuntimeLoaderConfig {
                 allow_remote_fetch: true,
+                required_host_capabilities: Vec::new(),
             },
         )
         .expect_err("remote fetch should be rejected");
@@ -1855,6 +1940,75 @@ mod tests {
         )
         .expect_err("expected lock digest mismatch");
         assert_eq!(err.code(), "R013");
+    }
+
+    #[test]
+    fn rejects_lockfile_v1_invalid_root_requirement_with_r013() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_baseline_runtime_artifacts(tmp.path(), "artifact");
+        write_file(
+            tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "app",
+      "dependencies": [{ "name": "pkg::a", "requirement": "latest" }]
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg::a@1.0.0",
+      "name": "pkg::a",
+      "version": "1.0.0",
+      "digest": "sha256:c7c5c1d70c5dec441d7d17042f8bbf5be4c4bf4a4c8f89f46b5f58211a711000",
+      "abi_id": "abi:pkg::a:1.0.0",
+      "dependencies": []
+    }
+  ]
+}"#,
+        );
+
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig::default(),
+        )
+        .expect_err("expected invalid root requirement");
+        assert_eq!(err.code(), "R013");
+        assert!(err.message().contains("invalid requirement"));
+    }
+
+    #[test]
+    fn rejects_lockfile_v1_invalid_dependency_id_with_r013() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_baseline_runtime_artifacts(tmp.path(), "artifact");
+        write_file(
+            tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+            r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [],
+  "packages": [
+    {
+      "id": "pkg::a@1.0.0",
+      "name": "pkg::a",
+      "version": "1.0.0",
+      "digest": "sha256:c7c5c1d70c5dec441d7d17042f8bbf5be4c4bf4a4c8f89f46b5f58211a711000",
+      "abi_id": "abi:pkg::a:1.0.0",
+      "dependencies": ["not_a_package_id"]
+    }
+  ]
+}"#,
+        );
+
+        let err = load_runtime_packages_from_local_store_if_present(
+            tmp.path(),
+            RuntimeLoaderConfig::default(),
+        )
+        .expect_err("expected invalid package dependency id");
+        assert_eq!(err.code(), "R013");
+        assert!(err.message().contains("invalid dependency id"));
     }
 
     #[test]

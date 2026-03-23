@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::tempdir;
 
@@ -58,6 +58,41 @@ fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
+}
+
+fn file_or_includes_contains_signature(
+    path: &Path,
+    signature: &str,
+    visited: &mut BTreeSet<PathBuf>,
+) -> bool {
+    let normalized = path.to_path_buf();
+    if !visited.insert(normalized.clone()) {
+        return false;
+    }
+    let Ok(content) = fs::read_to_string(&normalized) else {
+        return false;
+    };
+    if content.contains(signature) {
+        return true;
+    }
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let Some(rest) = trimmed.strip_prefix("include!(\"") else {
+            continue;
+        };
+        let Some(rel_path) = rest.strip_suffix("\");") else {
+            continue;
+        };
+        let include_path = normalized
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(rel_path);
+        if file_or_includes_contains_signature(include_path.as_path(), signature, visited) {
+            return true;
+        }
+    }
+    false
 }
 
 #[test]
@@ -160,15 +195,10 @@ fn verified_std_core_subset_maps_to_proved_coverage_and_real_tests() {
             "obligation test file does not exist: {}",
             obligation.test_file
         );
-        let content = fs::read_to_string(&test_path).unwrap_or_else(|_| {
-            panic!(
-                "failed reading obligation test file: {}",
-                obligation.test_file
-            )
-        });
         let signature = format!("fn {}(", obligation.test_name);
+        let mut visited = BTreeSet::new();
         assert!(
-            content.contains(&signature),
+            file_or_includes_contains_signature(test_path.as_path(), &signature, &mut visited),
             "obligation test function not found: {} in {}",
             obligation.test_name,
             obligation.test_file

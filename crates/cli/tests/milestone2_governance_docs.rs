@@ -1,6 +1,52 @@
 use std::fs;
 use std::path::Path;
 
+fn parse_last_reviewed_ymd(content: &str) -> (i32, u32, u32) {
+    let line = content
+        .lines()
+        .find(|line| line.trim_start().starts_with("Last reviewed:"))
+        .expect("governance doc should include `Last reviewed:` line");
+    let raw = line
+        .split_once(':')
+        .map(|(_, rhs)| rhs.trim().trim_end_matches('.'))
+        .expect("`Last reviewed:` line should include date");
+    let mut parts = raw.split('-');
+    let year = parts
+        .next()
+        .and_then(|part| part.parse::<i32>().ok())
+        .expect("last reviewed year should parse");
+    let month = parts
+        .next()
+        .and_then(|part| part.parse::<u32>().ok())
+        .expect("last reviewed month should parse");
+    let day = parts
+        .next()
+        .and_then(|part| part.parse::<u32>().ok())
+        .expect("last reviewed day should parse");
+    assert!(
+        parts.next().is_none(),
+        "last reviewed date should be in YYYY-MM-DD format"
+    );
+    assert!(
+        (1..=12).contains(&month),
+        "last reviewed month should be in range 1..=12"
+    );
+    assert!(
+        (1..=31).contains(&day),
+        "last reviewed day should be in range 1..=31"
+    );
+    (year, month, day)
+}
+
+fn weekday_sunday_zero(year: i32, month: u32, day: u32) -> i32 {
+    let month_offsets = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+    let mut y = year;
+    if month < 3 {
+        y -= 1;
+    }
+    (y + (y / 4) - (y / 100) + (y / 400) + month_offsets[(month - 1) as usize] + day as i32) % 7
+}
+
 #[test]
 fn milestone2_governance_doc_covers_dri_dates_risks_and_release_train_gate() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -39,6 +85,16 @@ fn milestone2_governance_doc_covers_dri_dates_risks_and_release_train_gate() {
     assert!(
         content.contains("Last reviewed:"),
         "governance doc should include a concrete risk-register review date"
+    );
+    assert!(
+        content.contains("Review cadence: weekly (every Friday)."),
+        "governance doc should keep explicit weekly Friday review cadence"
+    );
+    let (year, month, day) = parse_last_reviewed_ymd(&content);
+    let weekday = weekday_sunday_zero(year, month, day);
+    assert_eq!(
+        weekday, 5,
+        "governance `Last reviewed` date should be a Friday when cadence is locked to Friday reviews"
     );
     assert!(
         content.contains("`24.2.8`)")

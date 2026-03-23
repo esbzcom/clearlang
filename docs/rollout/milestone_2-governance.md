@@ -26,7 +26,7 @@ Critical path lock:
 
 ## 24.3.3 Risk Register (Weekly Review)
 Review cadence: weekly (every Friday).
-Last reviewed: 2026-03-22.
+Last reviewed: 2026-03-20.
 
 | Risk | Impact | Mitigation | Rollback owner | Status |
 |---|---|---|---|---|

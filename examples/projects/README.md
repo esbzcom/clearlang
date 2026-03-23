@@ -56,7 +56,14 @@ Use `examples\projects\crypto\main.clear` in steps 2 and 3 to build/run the cryp
 
 ## Production Path Review (milestone_2)
 
-Current roadmap is split into Phases 20-24 in `docs/TODO.md`:
+Milestone 2 (Phases 20-24) is complete.
+
+Current state:
+- go-live checklist (`24.2.x`) is fully checked in `docs/TODO.md`.
+- governance and release evidence are published (`docs/rollout/milestone_2-governance.md`, `release_notes/milestone_2.md`).
+- focus is maintenance-only until the next milestone (`docs/rollout/DEVPLAN.md`).
+
+Milestone scope (completed):
 
 1. Phase 20: runnable namespace baseline + lock gates.
 2. Phase 21: precompiled `std::core` pipeline.
@@ -64,7 +71,7 @@ Current roadmap is split into Phases 20-24 in `docs/TODO.md`:
 4. Phase 23: runtime package loader/linker with fail-closed trust checks.
 5. Phase 24: host profiles + go-live/release gates.
 
-Immediate execution order:
+Historical execution order (completed):
 
 1. Make `clearlang-tests/16_namespaced_call.clear` runnable.
 2. Keep these two example projects green in CI as baseline app fixtures.

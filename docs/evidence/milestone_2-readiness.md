@@ -32,6 +32,16 @@ This document is the evidence index for TODO item `24.2.8`.
 - Signing/verification integration coverage:
   - `crates/cli/tests/signing.rs`
 
+## Concrete Signed Artifact Validation
+- Milestone readiness gate executes a concrete sign + verify artifact roundtrip:
+  - `crates/cli/tests/milestone2_readiness_evidence.rs::milestone2_readiness_gate_exercises_signed_artifact_roundtrip`
+- The gate requires real outputs to exist and verify:
+  - signed module wasm (`readiness.wasm`)
+  - VC artifact (`readiness.vc.json`)
+  - signature payload (`readiness.sig.json`)
+  - signed assurance manifest (`readiness.assurance.json`)
+- The gate runs `clg verify --module ... --sig ... --pubkey ...` and fails closed on verification errors.
+
 ## Release Notes
 - Milestone release notes:
   - `release_notes/milestone_2.md`

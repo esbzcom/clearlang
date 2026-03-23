@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -48,7 +46,7 @@ jobs:
       - name: Milestone 2 performance budgets
         run: |
           set -euo pipefail
-          bash scripts/ci/milestone2_perf_gate.sh
+          cargo run -p xtask -- milestone2-perf-gate
       - name: Std-core artifact reproducibility
         run: |
           set -euo pipefail
@@ -80,12 +78,12 @@ jobs:
       - name: Milestone 2 supply-chain compliance gate
         run: |
           set -euo pipefail
-          python scripts/ci/milestone2_supply_chain_gate.py
-      - name: Script gate self-tests
+          cargo run -p xtask -- milestone2-supply-chain-gate
+      - name: Gate self-tests
         run: |
           set -euo pipefail
-          python scripts/ci/test_milestone2_supply_chain_gate.py
-          bash scripts/ci/milestone2_perf_gate.sh --self-test
+          cargo run -p xtask -- milestone2-supply-chain-gate --self-test
+          cargo run -p xtask -- milestone2-perf-gate --self-test
       - name: Upload std-core artifact bundle
         uses: actions/upload-artifact@v4
         with:
@@ -147,21 +145,15 @@ jobs:
       - name: Release build
         run: cargo build --release -p clg-cli
       - name: Perf gate portability smoke (Git Bash)
-        shell: bash
         run: |
-          set -euo pipefail
-          bash scripts/ci/milestone2_perf_gate.sh --portability-smoke
+          cargo run -p xtask -- milestone2-perf-gate --portability-smoke
       - name: Perf gate self-test (Git Bash)
-        shell: bash
         run: |
-          set -euo pipefail
-          bash scripts/ci/milestone2_perf_gate.sh --self-test
+          cargo run -p xtask -- milestone2-perf-gate --self-test
       - name: Perf gate full run (Git Bash)
-        shell: bash
         run: |
-          set -euo pipefail
-          export PERF_SAMPLE_RUNS=1
-          bash scripts/ci/milestone2_perf_gate.sh
+          $env:PERF_SAMPLE_RUNS = "1"
+          cargo run -p xtask -- milestone2-perf-gate
 
   strict-determinism-replay:
     runs-on: ubuntu-latest

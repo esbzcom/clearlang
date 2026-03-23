@@ -120,8 +120,8 @@ fn ci_workflow_enforces_validation_and_tests() {
     let (_, perf_step) = find_step(checks_steps, "Milestone 2 performance budgets");
     let perf_run = mapping_get_str(perf_step, "run", "Milestone 2 performance budgets step");
     assert!(
-        perf_run.contains("bash scripts/ci/milestone2_perf_gate.sh"),
-        "Performance gate step should execute milestone2 perf script"
+        perf_run.contains("cargo run -p xtask -- milestone2-perf-gate"),
+        "Performance gate step should execute xtask milestone2 perf gate"
     );
 
     let (_, supply_step) = find_step(checks_steps, "Milestone 2 supply-chain compliance gate");
@@ -131,19 +131,19 @@ fn ci_workflow_enforces_validation_and_tests() {
         "Milestone 2 supply-chain compliance gate step",
     );
     assert!(
-        supply_run.contains("python scripts/ci/milestone2_supply_chain_gate.py"),
-        "Supply-chain gate step should execute python gate script"
+        supply_run.contains("cargo run -p xtask -- milestone2-supply-chain-gate"),
+        "Supply-chain gate step should execute xtask supply-chain gate"
     );
 
-    let (_, script_tests_step) = find_step(checks_steps, "Script gate self-tests");
-    let script_tests_run = mapping_get_str(script_tests_step, "run", "Script gate self-tests step");
+    let (_, script_tests_step) = find_step(checks_steps, "Gate self-tests");
+    let script_tests_run = mapping_get_str(script_tests_step, "run", "Gate self-tests step");
     assert!(
-        script_tests_run.contains("python scripts/ci/test_milestone2_supply_chain_gate.py"),
-        "Script self-tests step should execute supply-chain gate unit tests"
+        script_tests_run.contains("cargo run -p xtask -- milestone2-supply-chain-gate --self-test"),
+        "gate self-tests step should execute supply-chain gate self-test mode"
     );
     assert!(
-        script_tests_run.contains("bash scripts/ci/milestone2_perf_gate.sh --self-test"),
-        "Script self-tests step should execute perf-gate self-test mode"
+        script_tests_run.contains("cargo run -p xtask -- milestone2-perf-gate --self-test"),
+        "gate self-tests step should execute perf-gate self-test mode"
     );
 
     let (perf_idx, _) = find_step(checks_steps, "Milestone 2 performance budgets");
@@ -226,7 +226,7 @@ fn ci_workflow_enforces_validation_and_tests() {
         "Perf gate portability smoke (Git Bash) step",
     );
     assert!(
-        perf_smoke_run.contains("bash scripts/ci/milestone2_perf_gate.sh --portability-smoke"),
+        perf_smoke_run.contains("cargo run -p xtask -- milestone2-perf-gate --portability-smoke"),
         "perf portability smoke step should execute portability smoke mode"
     );
     let (_, perf_windows_build_step) = find_step(perf_smoke_steps, "Release build");
@@ -246,18 +246,18 @@ fn ci_workflow_enforces_validation_and_tests() {
         "Perf gate self-test (Git Bash) step",
     );
     assert!(
-        perf_self_test_run.contains("bash scripts/ci/milestone2_perf_gate.sh --self-test"),
+        perf_self_test_run.contains("cargo run -p xtask -- milestone2-perf-gate --self-test"),
         "windows perf job should run perf gate self-test mode"
     );
     let (_, perf_full_step) = find_step(perf_smoke_steps, "Perf gate full run (Git Bash)");
     let perf_full_run =
         mapping_get_str(perf_full_step, "run", "Perf gate full run (Git Bash) step");
     assert!(
-        perf_full_run.contains("export PERF_SAMPLE_RUNS=1"),
+        perf_full_run.contains("$env:PERF_SAMPLE_RUNS = \"1\""),
         "windows perf full run should pin PERF_SAMPLE_RUNS=1 for bounded runtime"
     );
     assert!(
-        perf_full_run.contains("bash scripts/ci/milestone2_perf_gate.sh"),
+        perf_full_run.contains("cargo run -p xtask -- milestone2-perf-gate"),
         "windows perf job should execute full perf gate path"
     );
 

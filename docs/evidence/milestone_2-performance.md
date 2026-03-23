@@ -3,7 +3,7 @@
 This document tracks TODO item `24.2.9`.
 
 ## Gate Definition
-CI runs `scripts/ci/milestone2_perf_gate.sh` after release build and enforces
+CI runs `cargo run -p xtask -- milestone2-perf-gate` after release build and enforces
 the following default budgets:
 - startup overhead (`clg run clearlang-tests/16_namespaced_call.clear`) <= `2.0s`
 - package resolution/link build latency (`clg build` on `clearlang-tests/perf/pkg_resolution/main.clear`) <= `2.5s`

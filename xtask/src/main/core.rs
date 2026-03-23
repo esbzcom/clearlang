@@ -35,6 +35,8 @@ fn main() -> Result<(), String> {
         "host-capability-policy-artifact" => {
             emit_host_capability_policy_artifact(&root, args.collect())?
         }
+        "milestone2-perf-gate" => run_milestone2_perf_gate(&root, args.collect())?,
+        "milestone2-supply-chain-gate" => run_milestone2_supply_chain_gate(&root, args.collect())?,
         "ci" => {
             cargo_cmd(&root, &["fmt", "--all", "--", "--check"])?;
             cargo_cmd(

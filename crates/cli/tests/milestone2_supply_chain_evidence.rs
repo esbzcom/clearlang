@@ -8,17 +8,19 @@ fn milestone2_supply_chain_evidence_doc_references_gate_and_artifacts() {
         .join("docs")
         .join("evidence")
         .join("milestone_2-supply-chain.md");
-    let script_path = root
-        .join("scripts")
-        .join("ci")
-        .join("milestone2_supply_chain_gate.py");
+    let xtask_path = root
+        .join("xtask")
+        .join("src")
+        .join("main")
+        .join("milestone2_gates.rs");
     let content =
         fs::read_to_string(&evidence_path).expect("read milestone_2 supply-chain evidence");
-    let script = fs::read_to_string(&script_path).expect("read supply-chain gate script");
+    let xtask_source =
+        fs::read_to_string(&xtask_path).expect("read xtask supply-chain gate source");
 
     assert!(
-        content.contains("milestone2_supply_chain_gate.py"),
-        "supply-chain evidence should reference the CI gate script"
+        content.contains("cargo run -p xtask -- milestone2-supply-chain-gate"),
+        "supply-chain evidence should reference the xtask gate command"
     );
     assert!(
         content.contains("milestone2-sbom.json")
@@ -53,8 +55,8 @@ fn milestone2_supply_chain_evidence_doc_references_gate_and_artifacts() {
         "milestone2-supply-chain-summary.json",
     ] {
         assert!(
-            script.contains(artifact_name),
-            "supply-chain gate script should emit `{artifact_name}`"
+            xtask_source.contains(artifact_name),
+            "supply-chain gate should emit `{artifact_name}`"
         );
     }
     for summary_key in [
@@ -63,12 +65,12 @@ fn milestone2_supply_chain_evidence_doc_references_gate_and_artifacts() {
         "\"runtime_dependency_violations\"",
     ] {
         assert!(
-            script.contains(summary_key),
+            xtask_source.contains(summary_key),
             "supply-chain gate summary should include `{summary_key}`"
         );
     }
     assert!(
-        script.contains("missing_runtime_link_artifacts"),
+        xtask_source.contains("missing_runtime_link_artifacts"),
         "supply-chain gate should fail closed when runtime-link artifacts are absent"
     );
 }

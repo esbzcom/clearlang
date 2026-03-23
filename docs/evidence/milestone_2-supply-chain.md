@@ -4,7 +4,7 @@ This document tracks TODO item `24.2.10`.
 
 ## Gate Definition
 CI runs:
-- `python scripts/ci/milestone2_supply_chain_gate.py`
+- `cargo run -p xtask -- milestone2-supply-chain-gate`
 
 The gate fails closed if either condition is violated:
 1. A resolved Cargo dependency (including workspace crates) is missing both `license` and `license_file` metadata.

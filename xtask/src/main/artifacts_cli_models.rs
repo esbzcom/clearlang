@@ -123,6 +123,8 @@ fn print_help() {
     println!(
         "  host-capability-policy-artifact [--emit-artifact DIR] [--refresh-lock] (phase 21 host policy gate)"
     );
+    println!("  milestone2-perf-gate [--portability-smoke|--self-test]");
+    println!("  milestone2-supply-chain-gate [--self-test]");
     println!("  ci         - fmt + clippy + test + validate");
 }
 

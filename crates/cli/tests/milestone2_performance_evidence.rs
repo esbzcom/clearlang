@@ -1,16 +1,19 @@
 use std::fs;
 use std::path::Path;
 
-fn extract_env_default(script: &str, name: &str) -> String {
-    let prefix = format!(r#"{name}="${{{name}:-"#);
-    let start = script
-        .find(&prefix)
-        .unwrap_or_else(|| panic!("perf gate script should define `{name}` default"));
-    let rest = &script[start + prefix.len()..];
-    let end = rest
-        .find("}")
-        .unwrap_or_else(|| panic!("perf gate script default for `{name}` should terminate"));
-    rest[..end].to_string()
+fn extract_xtask_const(xtask_source: &str, name: &str) -> String {
+    let prefix = format!("const {name}:");
+    for line in xtask_source.lines() {
+        let line = line.trim();
+        if line.starts_with(&prefix) {
+            let rhs = line
+                .split_once('=')
+                .map(|(_, rhs)| rhs.trim().trim_end_matches(';'))
+                .unwrap_or_else(|| panic!("xtask const `{name}` should have initializer"));
+            return rhs.replace('_', "");
+        }
+    }
+    panic!("xtask source should define const `{name}`");
 }
 
 #[test]
@@ -20,17 +23,18 @@ fn milestone2_performance_evidence_doc_references_gate_script_and_artifact() {
         .join("docs")
         .join("evidence")
         .join("milestone_2-performance.md");
-    let script_path = root
-        .join("scripts")
-        .join("ci")
-        .join("milestone2_perf_gate.sh");
+    let xtask_path = root
+        .join("xtask")
+        .join("src")
+        .join("main")
+        .join("milestone2_gates.rs");
     let content =
         fs::read_to_string(&evidence_path).expect("read milestone_2 performance evidence doc");
-    let script = fs::read_to_string(&script_path).expect("read milestone2 perf gate script");
+    let xtask_source = fs::read_to_string(&xtask_path).expect("read xtask milestone2 gate source");
 
     assert!(
-        content.contains("milestone2_perf_gate.sh"),
-        "performance evidence doc should reference CI gate script"
+        content.contains("cargo run -p xtask -- milestone2-perf-gate"),
+        "performance evidence doc should reference xtask perf gate command"
     );
     assert!(
         content.contains("milestone2-performance.json"),
@@ -61,12 +65,13 @@ fn milestone2_performance_evidence_doc_references_gate_script_and_artifact() {
             "performance evidence doc should list `{env_name}` override"
         );
     }
-    let startup_max = extract_env_default(&script, "STARTUP_LATENCY_MAX_S");
-    let pkg_max = extract_env_default(&script, "PKG_RESOLUTION_LATENCY_MAX_S");
-    let runtime_max = extract_env_default(&script, "RUNTIME_LINK_STARTUP_LATENCY_MAX_S");
-    let rss_max = extract_env_default(&script, "MAX_RSS_KB");
-    let cpu_max = extract_env_default(&script, "MAX_CPU_PERCENT");
-    let sample_runs = extract_env_default(&script, "PERF_SAMPLE_RUNS");
+    let startup_max = extract_xtask_const(&xtask_source, "STARTUP_LATENCY_MAX_S_DEFAULT");
+    let pkg_max = extract_xtask_const(&xtask_source, "PKG_RESOLUTION_LATENCY_MAX_S_DEFAULT");
+    let runtime_max =
+        extract_xtask_const(&xtask_source, "RUNTIME_LINK_STARTUP_LATENCY_MAX_S_DEFAULT");
+    let rss_max = extract_xtask_const(&xtask_source, "MAX_RSS_KB_DEFAULT");
+    let cpu_max = extract_xtask_const(&xtask_source, "MAX_CPU_PERCENT_DEFAULT");
+    let sample_runs = extract_xtask_const(&xtask_source, "PERF_SAMPLE_RUNS_DEFAULT");
     assert!(
         content.contains(&format!("<= `{startup_max}s`")),
         "performance evidence startup threshold should match script default"
@@ -84,7 +89,8 @@ fn milestone2_performance_evidence_doc_references_gate_script_and_artifact() {
         "performance evidence RSS threshold should match script default"
     );
     assert!(
-        content.contains(&format!("<= `{cpu_max}%`")),
+        content.contains(&format!("<= `{cpu_max}%`"))
+            || content.contains(&format!("<= `{}%`", cpu_max.trim_end_matches(".0"))),
         "performance evidence CPU threshold should match script default"
     );
     assert!(
@@ -92,11 +98,11 @@ fn milestone2_performance_evidence_doc_references_gate_script_and_artifact() {
         "performance evidence should match script sample-run default"
     );
     assert!(
-        script.contains(r#""sample_runs":"#) || script.contains(r#""sample_runs": "#),
+        xtask_source.contains("\"sample_runs\""),
         "perf gate artifact should include sample run metadata"
     );
     assert!(
-        script.contains(r#""aggregation_mode": "median""#),
+        xtask_source.contains(r#""aggregation_mode": "median""#),
         "perf gate artifact should declare median aggregation mode"
     );
 }

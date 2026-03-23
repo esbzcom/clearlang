@@ -621,8 +621,11 @@ fn run_perf_self_test(root: &Path) -> Result<(), String> {
         &fs::read(&path).map_err(|e| format!("read perf self-test artifact: {e}"))?,
     )
     .map_err(|e| format!("parse perf self-test artifact: {e}"))?;
-    if parsed["schema_version"] != Value::from(1)
-        || parsed["aggregation_mode"] != Value::from("median")
+    if parsed.get("schema_version").and_then(Value::as_i64) != Some(1)
+        || parsed
+            .get("aggregation_mode")
+            .and_then(Value::as_str)
+            != Some("median")
     {
         return Err("perf self-test failed: artifact schema mismatch".into());
     }
@@ -1131,7 +1134,7 @@ fn recurse_files(base: &Path, out: &mut Vec<PathBuf>, target_name: &str, skip_di
             let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
                 continue;
             };
-            if skip_dirs.iter().any(|skip| *skip == name) {
+            if skip_dirs.contains(&name) {
                 continue;
             }
             recurse_files(&path, out, target_name, skip_dirs);

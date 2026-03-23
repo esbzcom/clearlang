@@ -229,6 +229,16 @@ fn ci_workflow_enforces_validation_and_tests() {
         perf_smoke_run.contains("bash scripts/ci/milestone2_perf_gate.sh --portability-smoke"),
         "perf portability smoke step should execute portability smoke mode"
     );
+    let (_, perf_self_test_step) = find_step(perf_smoke_steps, "Perf gate self-test (Git Bash)");
+    let perf_self_test_run = mapping_get_str(
+        perf_self_test_step,
+        "run",
+        "Perf gate self-test (Git Bash) step",
+    );
+    assert!(
+        perf_self_test_run.contains("bash scripts/ci/milestone2_perf_gate.sh --self-test"),
+        "windows perf job should run perf gate self-test mode"
+    );
 
     let release_train_job = as_mapping(
         mapping_get(jobs, "milestone2-release-train-gate", "workflow jobs"),

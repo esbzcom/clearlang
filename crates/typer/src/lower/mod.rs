@@ -278,7 +278,7 @@ fn ir_ty(t: Type) -> IrType {
         Type::U128 => IrType::U128,
         Type::U256 => IrType::U256,
         Type::Bool => IrType::Bool,
-        Type::String => IrType::Int, // placeholder until strings have a runtime representation
+        Type::String => IrType::Int, // Runtime value is a pointer-like handle carried in i32.
         Type::Bytes => IrType::Int,
         Type::Named { .. } => IrType::Int,
         Type::Option(_) => IrType::Int,

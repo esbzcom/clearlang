@@ -143,6 +143,11 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/ci/milestone2_perf_gate.sh --portability-smoke
+      - name: Perf gate self-test (Git Bash)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/ci/milestone2_perf_gate.sh --self-test
 
   strict-determinism-replay:
     runs-on: ubuntu-latest

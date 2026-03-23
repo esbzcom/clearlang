@@ -262,6 +262,16 @@ class Milestone2SupplyChainGateTests(unittest.TestCase):
             any(item.get("entry_kind") == "runtime_package" for item in violations)
         )
 
+    def test_runtime_dependency_report_fails_closed_when_runtime_link_missing(self):
+        with patch.dict(os.environ, {}, clear=True):
+            report, violations = gate.build_runtime_dependency_report(self.root)
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(len(violations), 1)
+        violation = violations[0]
+        self.assertEqual(violation.get("entry_kind"), "runtime_link_presence")
+        self.assertEqual(violation.get("reason"), "missing_runtime_link_artifacts")
+        self.assertFalse(violation.get("compliant"))
+
 
 if __name__ == "__main__":
     unittest.main()

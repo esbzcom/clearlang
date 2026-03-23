@@ -1,4 +1,7 @@
-# ClearLang Docs Index
+# Clear Language Docs Index
+
+Branding: **Clear Language** (ClearLang)  
+Website: **https://clearlang.net**
 
 This directory is organized by role so operational docs stay easy to find.
 

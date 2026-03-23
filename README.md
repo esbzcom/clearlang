@@ -1,4 +1,4 @@
-# ClearLang Language
+# Clear Language
 
 
 
@@ -6,7 +6,10 @@
 
 
 
-**ClearLang** is a new programming language designed to make software - especially smart contracts - provably safe.  
+Branding: **Clear Language** (project shorthand: **ClearLang**)  
+Website: **https://clearlang.net**
+
+**Clear Language** is a new programming language designed to make software - especially smart contracts - provably safe.  
 
 Where today's languages leave room for bugs, hacks, and costly audits, ClearLang ensures that unsafe code simply won't compile.  
 

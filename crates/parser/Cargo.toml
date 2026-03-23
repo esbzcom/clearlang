@@ -2,7 +2,7 @@
 name = "clg-parser"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 
 [dependencies]
 chumsky = "0.10.1"

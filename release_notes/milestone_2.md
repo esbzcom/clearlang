@@ -41,6 +41,7 @@ Milestone 2 delivers the production package/runtime path across Phases 20-24:
 ## Post-Review Hardening (Option 1)
 - Supply-chain license checks include workspace crates (no exemption).
 - Supply-chain compliance runs after std-core artifact generation to include generated artifacts.
+- Supply-chain compliance now validates runtime-link dependency artifacts (runtime-link + lock/store digest consistency) in addition to SBOM/package-metadata checks.
 - Runtime host-profile capability validation rejects unsupported/duplicate/empty capabilities with deterministic runtime diagnostics.
 - Runtime loader host-capability validation now also enforces runtime-linked provider package imports (not only the root module) under production profiles.
 - Host-capability mapping for strict build and runtime loader paths is centralized to one canonical policy module to prevent capability allowlist drift.

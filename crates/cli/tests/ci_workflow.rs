@@ -21,6 +21,16 @@ fn as_sequence<'a>(value: &'a Value, ctx: &str) -> &'a [Value] {
         .unwrap_or_else(|| panic!("{ctx} should be a YAML sequence"))
 }
 
+fn as_string_sequence<'a>(value: &'a Value, ctx: &str) -> Vec<&'a str> {
+    as_sequence(value, ctx)
+        .iter()
+        .map(|item| {
+            item.as_str()
+                .unwrap_or_else(|| panic!("{ctx} should contain strings"))
+        })
+        .collect()
+}
+
 fn mapping_get<'a>(map: &'a Mapping, key: &str, ctx: &str) -> &'a Value {
     map.iter()
         .find_map(|(k, v)| (k.as_str() == Some(key)).then_some(v))
@@ -136,8 +146,13 @@ fn ci_workflow_enforces_validation_and_tests() {
         "Script self-tests step should execute perf-gate self-test mode"
     );
 
+    let (perf_idx, _) = find_step(checks_steps, "Milestone 2 performance budgets");
     let (std_core_idx, _) = find_step(checks_steps, "Std-core artifact reproducibility");
     let (supply_idx, _) = find_step(checks_steps, "Milestone 2 supply-chain compliance gate");
+    assert!(
+        supply_idx > perf_idx,
+        "supply-chain compliance gate should run after perf gate so runtime-link artifacts are available"
+    );
     assert!(
         supply_idx > std_core_idx,
         "supply-chain compliance gate should run after std-core artifact generation"
@@ -219,6 +234,27 @@ fn ci_workflow_enforces_validation_and_tests() {
         mapping_get(jobs, "milestone2-release-train-gate", "workflow jobs"),
         "milestone2-release-train-gate job",
     );
+    let release_needs = as_string_sequence(
+        mapping_get(
+            release_train_job,
+            "needs",
+            "milestone2-release-train-gate job",
+        ),
+        "milestone2-release-train-gate.needs",
+    );
+    for required in [
+        "checks",
+        "milestone2-perf-portability-smoke",
+        "strict-determinism-replay",
+        "resolver-determinism-replay",
+        "runtime-loader-determinism-replay",
+        "milestone2-regression-gate",
+    ] {
+        assert!(
+            release_needs.contains(&required),
+            "release-train gate should depend on `{required}` to enforce all milestone_2 gates before tagging"
+        );
+    }
     let release_if = mapping_get_str(release_train_job, "if", "milestone2-release-train-gate job");
     assert!(
         release_if.contains("startsWith(github.ref, 'refs/tags/milestone_2')"),

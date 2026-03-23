@@ -211,6 +211,13 @@ jobs:
 
   milestone2-release-train-gate:
     if: startsWith(github.ref, 'refs/tags/milestone_2')
+    needs:
+      - checks
+      - milestone2-perf-portability-smoke
+      - strict-determinism-replay
+      - resolver-determinism-replay
+      - runtime-loader-determinism-replay
+      - milestone2-regression-gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

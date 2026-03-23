@@ -40,6 +40,8 @@ Last reviewed: 2026-03-22.
 - That gate enforces:
   - all `24.2.x` checklist items in `docs/TODO.md` are checked (`[x]`),
   - `release_notes/milestone_2.md` exists.
+- The tag gate is blocked on prerequisite milestone jobs (`checks`, perf portability smoke,
+  strict/resolver/runtime replay, and cross-phase regression) via explicit CI `needs`.
 - If either condition fails, the tag pipeline fails closed.
 
 ## Post-Review Hardening Decisions (Option 1)

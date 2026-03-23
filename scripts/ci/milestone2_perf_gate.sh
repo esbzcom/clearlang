@@ -12,11 +12,16 @@ PKG_RESOLUTION_LATENCY_MAX_S="${PKG_RESOLUTION_LATENCY_MAX_S:-2.5}"
 RUNTIME_LINK_STARTUP_LATENCY_MAX_S="${RUNTIME_LINK_STARTUP_LATENCY_MAX_S:-3.0}"
 MAX_RSS_KB="${MAX_RSS_KB:-400000}"
 MAX_CPU_PERCENT="${MAX_CPU_PERCENT:-400}"
+PERF_SAMPLE_RUNS="${PERF_SAMPLE_RUNS:-3}"
 
 mkdir -p "${TMP_DIR}"
 
 if [[ "${PERF_GATE_MODE}" != "run" && "${PERF_GATE_MODE}" != "--portability-smoke" && "${PERF_GATE_MODE}" != "--self-test" ]]; then
   echo "usage: $0 [--portability-smoke|--self-test]" >&2
+  exit 1
+fi
+if ! [[ "${PERF_SAMPLE_RUNS}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "PERF_SAMPLE_RUNS must be a positive integer" >&2
   exit 1
 fi
 
@@ -120,6 +125,8 @@ write_performance_artifact() {
   cat > "${out_file}" <<EOF
 {
   "schema_version": 1,
+  "sample_runs": ${PERF_SAMPLE_RUNS},
+  "aggregation_mode": "median",
   "thresholds": {
     "startup_latency_s_max": ${STARTUP_LATENCY_MAX_S},
     "pkg_resolution_latency_s_max": ${PKG_RESOLUTION_LATENCY_MAX_S},
@@ -157,6 +164,8 @@ from pathlib import Path
 
 value = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 assert value["schema_version"] == 1
+assert isinstance(value["sample_runs"], int) and value["sample_runs"] >= 1
+assert value["aggregation_mode"] == "median"
 for threshold in (
     "startup_latency_s_max",
     "pkg_resolution_latency_s_max",
@@ -196,6 +205,26 @@ self_test() {
     "0.30" "1200" "30"
   validate_performance_artifact_schema "${artifact_file}"
 
+  cat > "${self_dir}/sample.1.time" <<EOF
+1.00 100 10%
+EOF
+  cat > "${self_dir}/sample.2.time" <<EOF
+3.00 300 30%
+EOF
+  cat > "${self_dir}/sample.3.time" <<EOF
+2.00 200 20%
+EOF
+  aggregate_measurements "${self_dir}/sample.median.time" \
+    "${self_dir}/sample.1.time" \
+    "${self_dir}/sample.2.time" \
+    "${self_dir}/sample.3.time"
+  local median_line
+  median_line="$(cat "${self_dir}/sample.median.time")"
+  if [[ "${median_line}" != "2.000000 200 20.000000" ]]; then
+    echo "perf self-test failed: median aggregation mismatch: ${median_line}" >&2
+    exit 1
+  fi
+
   echo "milestone_2 perf self-test passed"
 }
 
@@ -203,6 +232,52 @@ measure() {
   local time_file="$1"
   shift
   /usr/bin/time -f "%e %M %P" -o "${time_file}" "$@" >/dev/null
+}
+
+aggregate_measurements() {
+  local out_file="$1"
+  shift
+  run_python - "$out_file" "$@" <<'PY'
+import statistics
+import sys
+from pathlib import Path
+
+out_path = Path(sys.argv[1])
+sample_paths = [Path(p) for p in sys.argv[2:]]
+if not sample_paths:
+    raise SystemExit("no sample measurements provided")
+
+latencies = []
+rss_values = []
+cpu_values = []
+for sample in sample_paths:
+    raw = sample.read_text(encoding="utf-8").strip().split()
+    if len(raw) != 3:
+        raise SystemExit(f"invalid time sample format: {sample}")
+    latencies.append(float(raw[0]))
+    rss_values.append(int(raw[1]))
+    cpu_values.append(float(raw[2].rstrip("%")))
+
+out_path.write_text(
+    f"{statistics.median(latencies):.6f} "
+    f"{int(statistics.median(rss_values))} "
+    f"{statistics.median(cpu_values):.6f}\n",
+    encoding="utf-8",
+)
+PY
+}
+
+measure_samples() {
+  local prefix="$1"
+  shift
+  local sample_files=()
+  local i
+  for ((i = 1; i <= PERF_SAMPLE_RUNS; i++)); do
+    local sample_file="${TMP_DIR}/${prefix}.${i}.time"
+    measure "${sample_file}" "$@"
+    sample_files+=("${sample_file}")
+  done
+  aggregate_measurements "${TMP_DIR}/${prefix}.time" "${sample_files[@]}"
 }
 
 assert_le_float() {
@@ -414,19 +489,19 @@ if ! command -v openssl >/dev/null 2>&1; then
   exit 1
 fi
 
-measure \
-  "${TMP_DIR}/startup.time" \
-  run_clg run "${ROOT_DIR}/clearlang-tests/16_namespaced_call.clear"
+measure_samples \
+  "startup" \
+  "${CLG_BIN}" run "${ROOT_DIR}/clearlang-tests/16_namespaced_call.clear"
 
-measure \
-  "${TMP_DIR}/pkg_resolution.time" \
-  run_clg build "${ROOT_DIR}/clearlang-tests/perf/pkg_resolution/main.clear" \
+measure_samples \
+  "pkg_resolution" \
+  "${CLG_BIN}" build "${ROOT_DIR}/clearlang-tests/perf/pkg_resolution/main.clear" \
   -o "${TMP_DIR}/pkg_resolution.wasm"
 
 setup_runtime_loader_fixture
-measure \
-  "${TMP_DIR}/runtime_link.time" \
-  run_clg run "${TMP_DIR}/runtime_loader/app.wasm"
+measure_samples \
+  "runtime_link" \
+  "${CLG_BIN}" run "${TMP_DIR}/runtime_loader/app.wasm"
 
 read -r startup_s startup_rss startup_cpu_pct < "${TMP_DIR}/startup.time"
 read -r pkg_s pkg_rss pkg_cpu_pct < "${TMP_DIR}/pkg_resolution.time"

@@ -229,6 +229,16 @@ fn ci_workflow_enforces_validation_and_tests() {
         perf_smoke_run.contains("bash scripts/ci/milestone2_perf_gate.sh --portability-smoke"),
         "perf portability smoke step should execute portability smoke mode"
     );
+    let (_, perf_windows_build_step) = find_step(perf_smoke_steps, "Release build");
+    let perf_windows_build_run = mapping_get_str(
+        perf_windows_build_step,
+        "run",
+        "windows perf Release build step",
+    );
+    assert!(
+        perf_windows_build_run.contains("cargo build --release -p clg-cli"),
+        "windows perf job should build release clg before full gate execution"
+    );
     let (_, perf_self_test_step) = find_step(perf_smoke_steps, "Perf gate self-test (Git Bash)");
     let perf_self_test_run = mapping_get_str(
         perf_self_test_step,
@@ -238,6 +248,17 @@ fn ci_workflow_enforces_validation_and_tests() {
     assert!(
         perf_self_test_run.contains("bash scripts/ci/milestone2_perf_gate.sh --self-test"),
         "windows perf job should run perf gate self-test mode"
+    );
+    let (_, perf_full_step) = find_step(perf_smoke_steps, "Perf gate full run (Git Bash)");
+    let perf_full_run =
+        mapping_get_str(perf_full_step, "run", "Perf gate full run (Git Bash) step");
+    assert!(
+        perf_full_run.contains("export PERF_SAMPLE_RUNS=1"),
+        "windows perf full run should pin PERF_SAMPLE_RUNS=1 for bounded runtime"
+    );
+    assert!(
+        perf_full_run.contains("bash scripts/ci/milestone2_perf_gate.sh"),
+        "windows perf job should execute full perf gate path"
     );
 
     let release_train_job = as_mapping(

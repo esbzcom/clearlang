@@ -138,6 +138,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install wasm-tools
+        run: cargo install wasm-tools --locked
+      - name: Release build
+        run: cargo build --release -p clg-cli
       - name: Perf gate portability smoke (Git Bash)
         shell: bash
         run: |
@@ -148,6 +156,12 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/ci/milestone2_perf_gate.sh --self-test
+      - name: Perf gate full run (Git Bash)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PERF_SAMPLE_RUNS=1
+          bash scripts/ci/milestone2_perf_gate.sh
 
   strict-determinism-replay:
     runs-on: ubuntu-latest

@@ -34,7 +34,7 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoad> {
     graph::load_program(entry, json_errors)
 }
 
-pub fn std_type_info() -> HashMap<String, StdTypeInfo> {
+pub fn std_type_info() -> Result<HashMap<String, StdTypeInfo>> {
     std_metadata::std_type_info()
 }
 

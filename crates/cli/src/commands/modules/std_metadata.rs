@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
+use anyhow::{anyhow, Result};
 use clg_typer::StdTypeInfo;
 use serde::Deserialize;
 
@@ -48,15 +49,22 @@ pub(super) struct StdMetadataIndex {
 }
 
 impl StdMetadataIndex {
-    fn load() -> Self {
+    fn load_from_str(raw: &str) -> std::result::Result<Self, String> {
         let raw: StdMetadata =
-            serde_json::from_str(include_str!("../../../assets/std-metadata.json"))
-                .expect("invalid std metadata");
+            serde_json::from_str(raw).map_err(|err| format!("invalid std metadata JSON: {err}"))?;
+        Self::from_raw(raw)
+    }
+
+    fn load() -> std::result::Result<Self, String> {
+        Self::load_from_str(include_str!("../../../assets/std-metadata.json"))
+    }
+
+    fn from_raw(raw: StdMetadata) -> std::result::Result<Self, String> {
         if raw.schema_version != 2 {
-            panic!(
+            return Err(format!(
                 "unsupported std metadata schema version {}",
                 raw.schema_version
-            );
+            ));
         }
 
         let mut modules = HashMap::new();
@@ -71,14 +79,14 @@ impl StdMetadataIndex {
                         values.insert(export.name);
                     }
                     StdExportKind::Type => {
-                        let layout = export.layout.unwrap_or_else(|| {
-                            panic!("std type `{}` is missing layout metadata", export.name)
-                        });
+                        let layout = export.layout.ok_or_else(|| {
+                            format!("std type `{}` is missing layout metadata", export.name)
+                        })?;
                         if layout.bytes == 0 {
-                            panic!("std type `{}` has zero-byte layout", export.name);
+                            return Err(format!("std type `{}` has zero-byte layout", export.name));
                         }
                         if layout.align == 0 {
-                            panic!("std type `{}` has zero alignment", export.name);
+                            return Err(format!("std type `{}` has zero alignment", export.name));
                         }
 
                         let qualified = format!("{}::{}", module.path, export.name);
@@ -92,7 +100,7 @@ impl StdMetadataIndex {
                             )
                             .is_some()
                         {
-                            panic!("duplicate std type `{}`", export.name);
+                            return Err(format!("duplicate std type `{}`", export.name));
                         }
                         types_set.insert(export.name);
                     }
@@ -108,7 +116,7 @@ impl StdMetadataIndex {
             );
         }
 
-        StdMetadataIndex { modules, types }
+        Ok(StdMetadataIndex { modules, types })
     }
 
     pub(super) fn module(&self, path: &str) -> Option<&StdModuleIndex> {
@@ -116,11 +124,82 @@ impl StdMetadataIndex {
     }
 }
 
-pub(super) fn std_metadata() -> &'static StdMetadataIndex {
-    static STD_METADATA: OnceLock<StdMetadataIndex> = OnceLock::new();
-    STD_METADATA.get_or_init(StdMetadataIndex::load)
+pub(super) fn std_metadata() -> Result<&'static StdMetadataIndex> {
+    static STD_METADATA: OnceLock<std::result::Result<StdMetadataIndex, String>> = OnceLock::new();
+    match STD_METADATA.get_or_init(StdMetadataIndex::load) {
+        Ok(metadata) => Ok(metadata),
+        Err(message) => Err(anyhow!("invalid std metadata: {message}")),
+    }
 }
 
-pub(super) fn std_type_info() -> HashMap<String, StdTypeInfo> {
-    std_metadata().types.clone()
+pub(super) fn std_type_info() -> Result<HashMap<String, StdTypeInfo>> {
+    Ok(std_metadata()?.types.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StdMetadataIndex;
+
+    #[test]
+    fn rejects_unsupported_schema_version() {
+        let err = match StdMetadataIndex::load_from_str(
+            r#"{
+              "schema_version": 1,
+              "modules": []
+            }"#,
+        ) {
+            Ok(_) => panic!("invalid schema version should fail"),
+            Err(err) => err,
+        };
+        assert!(
+            err.contains("unsupported std metadata schema version"),
+            "expected schema version validation error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_type_without_layout() {
+        let err = match StdMetadataIndex::load_from_str(
+            r#"{
+              "schema_version": 2,
+              "modules": [
+                {
+                  "path": "std::foo",
+                  "exports": [
+                    {"name":"Bar","kind":"type"}
+                  ]
+                }
+              ]
+            }"#,
+        ) {
+            Ok(_) => panic!("missing type layout should fail"),
+            Err(err) => err,
+        };
+        assert!(
+            err.contains("missing layout metadata"),
+            "expected missing layout validation error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn accepts_minimal_valid_metadata() {
+        let index = StdMetadataIndex::load_from_str(
+            r#"{
+              "schema_version": 2,
+              "modules": [
+                {
+                  "path": "std::foo",
+                  "exports": [
+                    {"name":"make","kind":"value"},
+                    {"name":"Bar","kind":"type","layout":{"bytes":8,"align":4}}
+                  ]
+                }
+              ]
+            }"#,
+        )
+        .expect("valid metadata");
+        let module = index.module("std::foo").expect("std::foo module present");
+        assert!(module.values.contains("make"));
+        assert!(module.types.contains("Bar"));
+    }
 }

@@ -47,7 +47,16 @@ pub(super) fn build_import_env(
                 )?;
 
                 if is_std {
-                    if std_metadata().module(&target_path).is_none() {
+                    let std_index = std_metadata().map_err(|err| {
+                        module_error(
+                            "C027",
+                            format!("invalid std metadata: {err:#}"),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        )
+                    })?;
+                    if std_index.module(&target_path).is_none() {
                         return Err(module_error(
                             "C020",
                             format!("unknown module `{}`", target_path),
@@ -86,7 +95,16 @@ pub(super) fn build_import_env(
             }
             ImportKind::Items { items } => {
                 if is_std {
-                    let Some(std_module) = std_metadata().module(&target_path) else {
+                    let std_index = std_metadata().map_err(|err| {
+                        module_error(
+                            "C027",
+                            format!("invalid std metadata: {err:#}"),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        )
+                    })?;
+                    let Some(std_module) = std_index.module(&target_path) else {
                         return Err(module_error(
                             "C020",
                             format!("unknown module `{}`", target_path),

@@ -212,7 +212,15 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
         resolved.funcs.append(&mut program.funcs);
     }
 
-    let mut std_types = std_type_info();
+    let mut std_types = std_type_info().map_err(|err| {
+        module_error(
+            "C027",
+            format!("invalid std metadata: {err:#}"),
+            &entry_abs,
+            Span { start: 0, end: 0 },
+            json_errors,
+        )
+    })?;
     package_index
         .merge_type_layouts(&mut std_types)
         .map_err(|err| {

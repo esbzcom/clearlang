@@ -1028,3 +1028,48 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly. (`docs/rollout/milestone_2-governance.md`)
   - [x] 24.3.4 Add a release-train gate: do not tag milestone_2 unless 24.2.x is fully green and evidence links are attached. (`.github/workflows/ci.yml`, `crates/cli/tests/milestone2_release_train_gate.rs`, `crates/cli/tests/ci_workflow.rs`)
 
+### 25 Milestone_3 Roadmap
+- [ ] 25.0 Full compile -> prove -> publish flow.
+  - [ ] 25.0.1 Publish milestone_3 design lock with explicit proof completion thresholds and fail-closed policy.
+  - [ ] 25.0.2 Close VC soundness gaps so emitted obligations are solver-ready (no placeholder/unconstrained local symbols).
+  - [ ] 25.0.3 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`).
+  - [ ] 25.0.4 Make solver integration self-contained by default (no external system install required) by shipping a platform bundle or Rust-managed vendor path.
+  - [ ] 25.0.5 Add solver supply-chain/security gates: pinned version, checksum/signature verification, license/notice inclusion, CVE update policy, and rollback procedure.
+  - [ ] 25.0.6 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`.
+  - [ ] 25.0.7 Add CI/release gate that blocks publish unless required proof matrix and evidence artifacts are complete.
+  - [ ] 25.0.8 Add `clg fmt` for `.clear` sources with deterministic formatting output.
+  - [ ] 25.0.9 Add `clg lint` for `.clear` sources (quality/safety checks) with stable diagnostics and `--deny-warnings` support.
+  - [ ] 25.0.10 Add release-precheck gating so `fmt` + `lint` + tests must pass before strict signed publish flow (local and CI).
+- [ ] 25.1 Standard library work is tracked in standalone Phase 26 (critical path).
+- [ ] 25.2 First usable binary releases.
+  - [ ] 25.2.1 Lock GA target matrix and support policy (Windows/Linux/macOS baseline targets + preview targets).
+  - [ ] 25.2.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles.
+  - [ ] 25.2.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target.
+  - [ ] 25.2.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures.
+  - [ ] 25.2.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes.
+- [ ] 25.3 Online testbed (if feasible).
+  - [ ] 25.3.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation.
+  - [ ] 25.3.2 If approved, implement a deterministic sandboxed compile/run path with resource/time limits and clear diagnostics.
+  - [ ] 25.3.3 Add SLO/runbook/incident playbook and verify readiness before public rollout.
+  - [ ] 25.3.4 If gates fail, publish a defer decision and keep local/CLI-first workflow as canonical path.
+- [ ] 25.4 Unit testing and test runner.
+  - [ ] 25.4.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax).
+  - [ ] 25.4.2 Add `clg test` command that discovers/runs ClearLang unit tests and returns non-zero on failures.
+  - [ ] 25.4.3 Add deterministic test reports (`human|json|junit`) with stable failure diagnostics.
+  - [ ] 25.4.4 Add CI coverage and release-gate integration for `clg test` in strict production workflows.
+- [ ] 25.5 Clear project dependency manifests (`json`).
+  - [ ] 25.5.1 Define `clg.project.json` as the user-authored dependency manifest (declared packages/version ranges/source policy).
+  - [ ] 25.5.2 Keep `clg.lock.json` as the tool-generated deterministic lockfile (exact versions, digests, and resolved graph identity).
+  - [ ] 25.5.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` and writes canonical lock outputs.
+  - [ ] 25.5.4 Ensure imports in `.clear` remain version-free (logical module/package paths only); versions live only in project/lock JSON.
+  - [ ] 25.5.5 Add schema docs, migration notes, and CI drift gates that fail on manifest/lock inconsistency.
+
+### 26 Standalone Standard Library Phase (Critical)
+- [ ] 26.0 Full standard library completion.
+  - [ ] 26.0.1 Define and lock v1 std scope as `must-have` vs `stretch` symbols (`std::core`, `std::host`, package contracts).
+  - [ ] 26.0.2 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.
+  - [ ] 26.0.3 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
+  - [ ] 26.0.4 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
+  - [ ] 26.0.5 Publish explicit defer list for unresolved `stretch` symbols with follow-up phase assignment.
+  - [ ] 26.0.6 Add std stability policy (compatibility guarantees, deprecation windows, and versioning policy) before public GA.
+

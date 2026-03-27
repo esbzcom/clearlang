@@ -502,6 +502,7 @@ ClearLang aims to be:
 ## 7. Signing and Verifying Proofs
 
 ClearLang can embed proof metadata in a Wasm module and sign a canonical payload for offline verification.
+For the end-to-end strict production command flow, see `docs/release-process.md`.
 
 Build and sign:
 ```

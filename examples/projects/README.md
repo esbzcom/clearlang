@@ -40,11 +40,17 @@ cargo build -p clg-cli --release
 # 2) Create Wasm from the generic example
 .\target\release\clg.exe build examples\projects\generic\main.clear -o tmp\generic.wasm
 
-# 3) Run using CLI
+# 3) Run the generated Wasm using CLI
+.\target\release\clg.exe run tmp\generic.wasm
+```
+
+For debug iteration, you can also run source directly:
+
+```powershell
 .\target\release\clg.exe run examples\projects\generic\main.clear
 ```
 
-Use `examples\projects\crypto\main.clear` in steps 2 and 3 to build/run the crypto example.
+Use `examples\projects\crypto\main.clear` in step 2 (build) and run `tmp\crypto.wasm` in step 3 for the crypto example.
 
 ## What these validate
 
@@ -54,25 +60,20 @@ Use `examples\projects\crypto\main.clear` in steps 2 and 3 to build/run the cryp
 - `Option`/`Result` control flow in business decisions.
 - Crypto runtime integration (`hash`/`hmac`) with constant-time compare (`eq_ct`).
 
-## Production Path Review (milestone_2)
+## Quick Release
 
-Milestone 2 (Phases 20-24) is complete.
+For a strict production-style release of an example project:
 
-Current state:
-- go-live checklist (`24.2.x`) is fully checked in `docs/TODO.md`.
-- governance and release evidence are published (`docs/rollout/milestone_2-governance.md`, `release_notes/milestone_2.md`).
-- focus is maintenance-only until the next milestone (`docs/rollout/DEVPLAN.md`).
+```powershell
+# 1) Generate deterministic lock inputs
+clg pkg lock --generate --compiler-mode strict --advisory-as-of 2026-03-26T00:00:00Z --root examples/projects/generic
 
-Milestone scope (completed):
+# 2) Build in strict mode and emit VCs
+clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --validate
 
-1. Phase 20: runnable namespace baseline + lock gates.
-2. Phase 21: precompiled `std::core` pipeline.
-3. Phase 22: package trust + dependency resolution (transitive + semver + lockfile).
-4. Phase 23: runtime package loader/linker with fail-closed trust checks.
-5. Phase 24: host profiles + go-live/release gates.
+# 3) Sign and verify before publish
+clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --explain
+```
 
-Historical execution order (completed):
-
-1. Make `clearlang-tests/16_namespaced_call.clear` runnable.
-2. Keep these two example projects green in CI as baseline app fixtures.
-3. Add package-trust and runtime-loader integration tests on top of these fixtures.
+Full release flow details: `docs/release-process.md`.

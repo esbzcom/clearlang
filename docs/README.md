@@ -10,6 +10,7 @@ This directory is organized by role so operational docs stay easy to find.
 - Development plan snapshot: `docs/rollout/DEVPLAN.md`
 - Milestone 2 governance lock: `docs/rollout/milestone_2-governance.md`
 - Milestone 2 release notes: `release_notes/milestone_2.md`
+- Current release command flow: `docs/release-process.md`
 
 ## Language and Compiler
 - Language typing/effects/refinements: `docs/typing.md`

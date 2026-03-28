@@ -49,6 +49,7 @@ This directory is organized by role so operational docs stay easy to find.
   - `docs/design/phase-25.0.11-release-symbol-allowlist-gate.md`
   - `docs/design/phase-25.0.12-strict-release-surface-policy.md`
   - `docs/design/phase-25.0.13-crypto-proof-boundary-release-gate.md`
+  - `docs/design/phase-25.0.14-docs-assurance-profile-alignment.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

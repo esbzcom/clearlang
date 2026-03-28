@@ -51,6 +51,9 @@ This document is the evidence index for TODO item `25.0.8`.
   - `--release-profile production` fails with `C122` when used `std::...` symbols are outside the proved allowlist.
 - Production compile crypto-boundary gate:
   - `--release-profile production` fails with `C123` when `crypto.uninterpreted` remains in VC assumptions.
+- Docs/profile alignment gate:
+  - root `README.md` must state that `permissive`/`standard` are dev/evidence profiles and do not imply `proved_all`.
+  - `examples/projects/README.md` quick-release flow must include `--release-profile production` and `--require-assurance proved_all`.
 - Canonical workflow reference:
   - `docs/release-process.md`
 

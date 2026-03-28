@@ -504,6 +504,11 @@ ClearLang aims to be:
 ClearLang can embed proof metadata in a Wasm module and sign a canonical payload for offline verification.
 For the end-to-end strict production command flow, see `docs/release-process.md`.
 
+Assurance profile reality:
+- `--compiler-mode permissive` and `--compiler-mode standard` are dev/evidence workflows and do **not** imply theorem-grade status (`proved_all`).
+- Theorem-grade/release-grade claims require strict release gates (`--release-profile production`) plus verification policy gates (`--require-assurance proved_all`).
+- Production publish policy is `release == proved`; non-proved outputs remain non-release/dev artifacts.
+
 Build and sign:
 ```
 clg build examples/contract.clear -o out.wasm --emit-vcs out.vc.json \

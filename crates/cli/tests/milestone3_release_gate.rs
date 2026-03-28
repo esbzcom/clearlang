@@ -266,6 +266,28 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
             "milestone_3 proof gate evidence doc should include section `{section}`"
         );
     }
+    let root_readme = fs::read_to_string(root.join("README.md")).expect("read root README.md");
+    assert!(
+        root_readme.contains(
+            "`--compiler-mode permissive` and `--compiler-mode standard` are dev/evidence workflows"
+        ),
+        "root README must clarify permissive/standard profiles are dev/evidence workflows"
+    );
+    assert!(
+        root_readme.contains("do **not** imply theorem-grade status (`proved_all`)"),
+        "root README must avoid implying standard compile is theorem-grade"
+    );
+    let examples_readme =
+        fs::read_to_string(root.join("examples").join("projects").join("README.md"))
+            .expect("read examples/projects/README.md");
+    assert!(
+        examples_readme.contains("--release-profile production"),
+        "examples quick-release docs must include production release profile command"
+    );
+    assert!(
+        examples_readme.contains("--require-assurance proved_all"),
+        "examples quick-release docs must include theorem-grade verify gate command"
+    );
 }
 
 fn validate_ci_wiring(root: &Path) {
@@ -459,7 +481,7 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
     for item in [
-        "25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13",
+        "25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13", "25.0.14",
     ] {
         assert!(
             todo_has_checked_item(&todo, item),

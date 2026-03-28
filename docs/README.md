@@ -43,11 +43,13 @@ This directory is organized by role so operational docs stay easy to find.
   - `docs/design/phase-25.0.5-proof-status-emission.md`
   - `docs/design/phase-25.0.6-verify-require-assurance-gate.md`
   - `docs/design/phase-25.0.7-production-release-profile-gate.md`
+  - `docs/design/phase-25.0.8-ci-release-proof-matrix-gate.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`
 - Milestone 2 performance: `docs/evidence/milestone_2-performance.md`
 - Milestone 2 supply-chain: `docs/evidence/milestone_2-supply-chain.md`
+- Milestone 3 proof/release gate: `docs/evidence/milestone_3-proof-gate.md`
 
 ## Historical Notes
 - Session-by-session implementation log: `docs/rollout/codex-session-history.md`

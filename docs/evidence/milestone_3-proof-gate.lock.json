@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "required_artifacts": [
+    "docs/proofs/proof-coverage-matrix.json",
+    "docs/proofs/proof-coverage-matrix.md",
+    "docs/proofs/verified-std-core-subset.json",
+    "docs/proofs/verified-std-core-subset.md",
+    "docs/evidence/milestone_3-proof-gate.md"
+  ],
+  "required_ci_tests": [
+    "cargo test -p clg-cli --test vc_snapshots",
+    "cargo test -p clg-cli --test proof_coverage_matrix",
+    "cargo test -p clg-cli --test verified_std_core_subset",
+    "cargo test -p clg-cli --test profile_regression_gate",
+    "cargo test -p clg-cli --test milestone3_release_gate"
+  ],
+  "required_release_commands": [
+    "--release-profile production",
+    "--require-assurance proved_all"
+  ]
+}

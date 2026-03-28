@@ -16,7 +16,8 @@
     "cargo test -p clg-cli --test milestone3_proof_parity",
     "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all",
     "cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all",
-    "cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122"
+    "cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122",
+    "cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_crypto_assumption_boundary_with_c123"
   ],
   "cross_platform_proof_parity_targets": [
     "linux",
@@ -35,6 +36,11 @@
   "production_release_surface_policy": {
     "enforced_by": "C122",
     "rule": "release-profile production may use only std surfaces marked proved in proof-coverage-matrix"
+  },
+  "production_crypto_boundary_policy": {
+    "enforced_by": "C123",
+    "blocked_boundary": "crypto.uninterpreted",
+    "rule": "release-profile production fails closed when unresolved crypto proof boundary remains"
   },
   "required_release_commands": [
     "--release-profile production",

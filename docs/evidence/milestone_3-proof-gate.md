@@ -20,6 +20,7 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all`
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all`
   - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122`
+  - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_crypto_assumption_boundary_with_c123`
 - Cross-platform parity matrix artifacts:
   - Linux: `milestone3-proof-parity-linux`
   - Windows: `milestone3-proof-parity-windows`
@@ -48,6 +49,8 @@ This document is the evidence index for TODO item `25.0.8`.
   - canonical source: `docs/proofs/proof-coverage-matrix.json`
 - Production compile release-surface gate:
   - `--release-profile production` fails with `C122` when used `std::...` symbols are outside the proved allowlist.
+- Production compile crypto-boundary gate:
+  - `--release-profile production` fails with `C123` when `crypto.uninterpreted` remains in VC assumptions.
 - Canonical workflow reference:
   - `docs/release-process.md`
 

@@ -205,6 +205,33 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         ),
         "milestone_3 lock must pin production release surface policy rule"
     );
+    let production_crypto_boundary_policy = lock
+        .get("production_crypto_boundary_policy")
+        .and_then(|v| v.as_object())
+        .expect("milestone_3 lock production_crypto_boundary_policy{}");
+    assert_eq!(
+        production_crypto_boundary_policy
+            .get("enforced_by")
+            .and_then(|v| v.as_str()),
+        Some("C123"),
+        "milestone_3 lock must pin crypto release boundary diagnostic"
+    );
+    assert_eq!(
+        production_crypto_boundary_policy
+            .get("blocked_boundary")
+            .and_then(|v| v.as_str()),
+        Some("crypto.uninterpreted"),
+        "milestone_3 lock must pin blocked crypto boundary id"
+    );
+    assert_eq!(
+        production_crypto_boundary_policy
+            .get("rule")
+            .and_then(|v| v.as_str()),
+        Some(
+            "release-profile production fails closed when unresolved crypto proof boundary remains"
+        ),
+        "milestone_3 lock must pin crypto release boundary rule"
+    );
 
     let required_release_commands = lock
         .get("required_release_commands")
@@ -431,7 +458,9 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     }
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
-    for item in ["25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12"] {
+    for item in [
+        "25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13",
+    ] {
         assert!(
             todo_has_checked_item(&todo, item),
             "milestone_3 release gate requires TODO item `{item}` to be marked complete before tagging"

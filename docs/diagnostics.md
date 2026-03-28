@@ -184,6 +184,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C120 | build | `--release-profile production` requires `--compiler-mode strict`. |
 | C121 | build | Production release profile requires theorem-grade assurance (`proof_status=proved_all`). |
 | C122 | build | Production release profile only permits proved std release surfaces from the canonical proof matrix allowlist. |
+| C123 | build | Production release profile blocks unresolved crypto proof boundaries (`crypto.uninterpreted`) with fail-closed diagnostics. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

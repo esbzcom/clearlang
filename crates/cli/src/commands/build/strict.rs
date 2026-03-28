@@ -111,6 +111,25 @@ pub(super) fn strict_language_profile_violation(vcs: &[VerificationCondition]) -
     None
 }
 
+pub(super) fn release_crypto_boundary_violation(vcs: &[VerificationCondition]) -> Option<String> {
+    for vc in vcs {
+        for assumption in &vc.assumptions {
+            if assumption.id == ASSUMPTION_CRYPTO_ID {
+                let symbols = if assumption.symbols.is_empty() {
+                    "<none>".to_string()
+                } else {
+                    assumption.symbols.join(", ")
+                };
+                return Some(format!(
+                    "release profile `production` rejects VC `{}` in function `{}`: assumption boundary `{}` indicates unresolved crypto semantics [{}]",
+                    vc.vc_id, vc.function, assumption.id, symbols
+                ));
+            }
+        }
+    }
+    None
+}
+
 fn category_for_assumption_id(id: &str) -> Option<AssumptionCategory> {
     match id {
         ASSUMPTION_UNSIGNED_ID => Some(AssumptionCategory::Unsigned),
@@ -312,6 +331,31 @@ mod tests {
         let msg = strict_language_profile_violation(&[vc])
             .expect("expected strict language profile violation");
         assert!(msg.contains("bitwise.uninterpreted"));
+    }
+
+    #[test]
+    fn release_crypto_boundary_allows_non_crypto_assumptions() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![assumption(
+            ASSUMPTION_BITWISE_ID,
+            AssumptionCategory::Bitwise,
+            &["std::u64::rotl"],
+        )];
+        assert!(release_crypto_boundary_violation(&[vc]).is_none());
+    }
+
+    #[test]
+    fn release_crypto_boundary_rejects_crypto_assumption() {
+        let mut vc = sample_vc();
+        vc.assumptions = vec![assumption(
+            ASSUMPTION_CRYPTO_ID,
+            AssumptionCategory::Crypto,
+            &["std::bytes::eq_ct"],
+        )];
+        let msg =
+            release_crypto_boundary_violation(&[vc]).expect("expected crypto release violation");
+        assert!(msg.contains("crypto.uninterpreted"));
+        assert!(msg.contains("std::bytes::eq_ct"));
     }
 
     #[test]

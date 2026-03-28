@@ -357,6 +357,11 @@ pub fn run(
         }
     }
     if compiler_mode == CompilerMode::Strict && emit_vcs.is_some() {
+        if release_profile == ReleaseProfile::Production {
+            if let Some(message) = release_crypto_boundary_violation(&vcs) {
+                fail_build("C123", &message, None)?;
+            }
+        }
         if let Some(message) = strict_l3_claim_violation(&vcs) {
             fail_build("C031", &message, None)?;
         }

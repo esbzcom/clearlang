@@ -48,6 +48,7 @@ This directory is organized by role so operational docs stay easy to find.
   - `docs/design/phase-25.0.10-cross-platform-proof-parity-gate.md`
   - `docs/design/phase-25.0.11-release-symbol-allowlist-gate.md`
   - `docs/design/phase-25.0.12-strict-release-surface-policy.md`
+  - `docs/design/phase-25.0.13-crypto-proof-boundary-release-gate.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

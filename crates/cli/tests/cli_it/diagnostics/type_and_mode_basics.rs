@@ -369,6 +369,38 @@ fn production_release_profile_rejects_non_proved_std_surface_with_c122() {
 }
 
 #[test]
+fn production_release_profile_rejects_crypto_assumption_boundary_with_c123() {
+    let src = r#"
+        pure function check(a: Bytes, b: Bytes) -> Bool
+            ensure { result == std::bytes::eq_ct(a, b) }
+        { std::bytes::eq_ct(a, b) }
+        function main() -> Int {
+            if check(std::bytes::from_string("a"), std::bytes::from_string("b")) { 1 } else { 0 }
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_release_crypto_boundary.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--release-profile", "production"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C123", "build");
+}
+
+#[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
         function main() -> Int { std::str::len("abc") }

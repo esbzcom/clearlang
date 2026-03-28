@@ -38,8 +38,8 @@ mod strict_validation;
 mod vcs_json;
 
 use strict::{
-    proof_strict_for_mode, strict_l3_claim_violation, strict_language_profile_violation,
-    strict_proof_violation,
+    proof_strict_for_mode, release_crypto_boundary_violation, strict_l3_claim_violation,
+    strict_language_profile_violation, strict_proof_violation,
 };
 use strict_host_profile::StrictHostProfileV0;
 use strict_lockfile::StrictLockfileV0;

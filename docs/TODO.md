@@ -1029,47 +1029,109 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 24.3.4 Add a release-train gate: do not tag milestone_2 unless 24.2.x is fully green and evidence links are attached. (`.github/workflows/ci.yml`, `crates/cli/tests/milestone2_release_train_gate.rs`, `crates/cli/tests/ci_workflow.rs`)
 
 ### 25 Milestone_3 Roadmap
-- [ ] 25.0 Full compile -> prove -> publish flow.
+
+Execution order for Milestone 3: **policy lock -> proof closure -> release UX -> quality gates -> distribution**.
+
+- [ ] 25.0 Release assurance policy (`release == proved`) [Gate A]
   - [ ] 25.0.1 Publish milestone_3 design lock with explicit proof completion thresholds and fail-closed policy.
-  - [ ] 25.0.2 Close VC soundness gaps so emitted obligations are solver-ready (no placeholder/unconstrained local symbols).
-  - [ ] 25.0.3 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`).
-  - [ ] 25.0.4 Make solver integration self-contained by default (no external system install required) by shipping a platform bundle or Rust-managed vendor path.
-  - [ ] 25.0.5 Add solver supply-chain/security gates: pinned version, checksum/signature verification, license/notice inclusion, CVE update policy, and rollback procedure.
-  - [ ] 25.0.6 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`.
-  - [ ] 25.0.7 Add CI/release gate that blocks publish unless required proof matrix and evidence artifacts are complete.
-  - [ ] 25.0.8 Add `clg fmt` for `.clear` sources with deterministic formatting output.
-  - [ ] 25.0.9 Add `clg lint` for `.clear` sources (quality/safety checks) with stable diagnostics and `--deny-warnings` support.
-  - [ ] 25.0.10 Add release-precheck gating so `fmt` + `lint` + tests must pass before strict signed publish flow (local and CI).
-- [ ] 25.1 Standard library work is tracked in standalone Phase 26 (critical path).
-- [ ] 25.2 First usable binary releases.
-  - [ ] 25.2.1 Lock GA target matrix and support policy (Windows/Linux/macOS baseline targets + preview targets).
-  - [ ] 25.2.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles.
-  - [ ] 25.2.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target.
-  - [ ] 25.2.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures.
-  - [ ] 25.2.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes.
-- [ ] 25.3 Online testbed (if feasible).
-  - [ ] 25.3.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation.
-  - [ ] 25.3.2 If approved, implement a deterministic sandboxed compile/run path with resource/time limits and clear diagnostics.
-  - [ ] 25.3.3 Add SLO/runbook/incident playbook and verify readiness before public rollout.
-  - [ ] 25.3.4 If gates fail, publish a defer decision and keep local/CLI-first workflow as canonical path.
-- [ ] 25.4 Unit testing and test runner.
-  - [ ] 25.4.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax).
-  - [ ] 25.4.2 Add `clg test` command that discovers/runs ClearLang unit tests and returns non-zero on failures.
-  - [ ] 25.4.3 Add deterministic test reports (`human|json|junit`) with stable failure diagnostics.
-  - [ ] 25.4.4 Add CI coverage and release-gate integration for `clg test` in strict production workflows.
-- [ ] 25.5 Clear project dependency manifests (`json`).
-  - [ ] 25.5.1 Define `clg.project.json` as the user-authored dependency manifest (declared packages/version ranges/source policy).
-  - [ ] 25.5.2 Keep `clg.lock.json` as the tool-generated deterministic lockfile (exact versions, digests, and resolved graph identity).
-  - [ ] 25.5.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` and writes canonical lock outputs.
-  - [ ] 25.5.4 Ensure imports in `.clear` remain version-free (logical module/package paths only); versions live only in project/lock JSON.
-  - [ ] 25.5.5 Add schema docs, migration notes, and CI drift gates that fail on manifest/lock inconsistency.
+  - [ ] 25.0.2 Define theorem-grade proof certification policy (`proved_all`) requiring pure functions, all VCs `proved`, zero assumptions, and strict-mode verification.
+  - [ ] 25.0.3 Lock assurance policy decision: `release == proved`; allow non-proved compile only in non-release/dev workflows.
+  - [ ] 25.0.4 Enforce release fail-closed policy: block release on any `failed|unknown|timeout|assumed` proof outcome.
+  - [ ] 25.0.5 Emit theorem-grade status in assurance artifacts/signature payload (`proof_status: proved_all|not_proved_all`) with deterministic serialization.
+  - [ ] 25.0.6 Add verifier policy gate (`clg verify --require-assurance proved_all`) and wire it into release workflows.
+  - [ ] 25.0.7 Add release compile profile behavior so production compile/publish fails unless theorem-grade policy passes.
+  - [ ] 25.0.8 Add CI/release gate that blocks publish unless required proof matrix and evidence artifacts are complete.
+  - [ ] 25.0.9 Add CI gate asserting release bundles contain zero assumption boundaries (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted`).
+  - [ ] 25.0.10 Add cross-platform proof parity gate: release targets (Windows/Linux/macOS) must produce equivalent proof outcomes and deterministic assurance status.
+  - [ ] 25.0.11 Wire release gate to std proof matrix allowlist: release bundles may include only APIs/symbols marked `proved` in the canonical matrix.
+  - [ ] 25.0.12 Add strict release-surface policy that only permits features/intrinsics with fully proved semantics (unproved surfaces remain non-release/dev-only).
+  - [ ] 25.0.13 Enforce crypto proof boundary policy in strict release gates: any remaining `crypto.uninterpreted` boundary blocks theorem-grade/release-grade claims.
+  - [ ] 25.0.14 Align README/docs assurance claims with profile reality (avoid implying `standard` compile is theorem-grade proved).
+  - [ ] 25.0.15 Keep language surface minimal: defer `theorem` keyword and treat theorem-grade as certification status (not syntax) for milestone_3.
+
+- [ ] 25.1 Proof engine and solver closure [Gate B]
+  - [ ] 25.1.1 Close VC soundness gaps so emitted obligations are solver-ready (no placeholder/unconstrained local symbols).
+  - [ ] 25.1.2 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`).
+  - [ ] 25.1.3 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`.
+  - [ ] 25.1.4 Make solver integration self-contained by default (no external system install required) by shipping a platform bundle or Rust-managed vendor path.
+  - [ ] 25.1.5 Add solver supply-chain/security gates: pinned version, checksum/signature verification, license/notice inclusion, CVE update policy, and rollback procedure.
+  - [ ] 25.1.6 Harden solver determinism contract: pin solver version/options/timeouts and add replay-stability CI checks.
+  - [ ] 25.1.7 Add bitvector proof encoding for covered unsigned paths (starting with `U64`) to retire `unsigned.int_model` assumptions on those paths.
+  - [ ] 25.1.8 Add bitwise SMT encoding for covered operators/intrinsics to retire `bitwise.uninterpreted` assumptions on those paths.
+  - [ ] 25.1.9 Close crypto proof-model gaps required for `release == proved` by replacing `crypto.uninterpreted` for release-enabled intrinsic surfaces.
+
+- [ ] 25.2 Release workflow and developer UX [Gate C]
+  - [ ] 25.2.1 Add `clg strict init <root>` to generate/validate strict preflight inputs (`clg.project.json`/`clg.lock.json` + trust/profile files).
+  - [ ] 25.2.2 Add one-command `clg release` orchestration (lock -> build/prove -> sign -> verify -> release bundle) with fail-closed behavior.
+  - [ ] 25.2.3 Add release-precheck gating so `fmt` + `lint` + tests must pass before strict signed publish flow (local and CI).
+  - [ ] 25.2.4 Add `clg fmt` for `.clear` sources with deterministic formatting output.
+  - [ ] 25.2.5 Add `clg lint` for `.clear` sources (quality/safety checks) with stable diagnostics and `--deny-warnings` support.
+
+- [ ] 25.3 Unit testing and test runner [Gate D]
+  - [ ] 25.3.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax).
+  - [ ] 25.3.2 Add `clg test` command that discovers/runs ClearLang unit tests and returns non-zero on failures.
+  - [ ] 25.3.3 Add deterministic test reports (`human|json|junit`) with stable failure diagnostics.
+  - [ ] 25.3.4 Add CI coverage and release-gate integration for `clg test` in strict production workflows.
+  - [ ] 25.3.5 Lock `clg test` proof-mode policy for CI/release (`standard` vs `strict`) and require deterministic, documented mode selection.
+  - [ ] 25.3.6 Add deterministic migration/cutover from `clearlang-tests/` fixtures to canonical `tests/` layout (or document one source-of-truth alias model) and enforce it in CI.
+
+- [ ] 25.4 Clear project dependency manifests (`json`) [Gate E]
+  - [ ] 25.4.1 Define `clg.project.json` as the user-authored dependency manifest (declared packages/version ranges/source policy).
+  - [ ] 25.4.2 Keep `clg.lock.json` as the tool-generated deterministic lockfile (exact versions, digests, and resolved graph identity).
+  - [ ] 25.4.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` and writes canonical lock outputs.
+  - [ ] 25.4.4 Ensure imports in `.clear` remain version-free (logical module/package paths only); versions live only in project/lock JSON.
+  - [ ] 25.4.5 Add schema docs, migration notes, and CI drift gates that fail on manifest/lock inconsistency.
+  - [ ] 25.4.6 Define migration/coexistence policy from canonical package metadata/ABI inputs to `clg.project.json` + `clg.lock.json`, with deterministic conflict diagnostics.
+  - [ ] 25.4.7 Add backward-compatibility and deprecation timeline for legacy inputs with explicit fail-closed cutover milestone.
+  - [ ] 25.4.8 Add migration tooling command/docs (`clg pkg migrate-manifest`) to generate `clg.project.json` from existing canonical metadata inputs.
+
+- [ ] 25.5 Literal ergonomics for low-level/crypto code
+  - [ ] 25.5.1 Add integer literal support for `0x...` (hex) and `0b...` (binary) with deterministic parsing, underscore rules, and diagnostics.
+  - [ ] 25.5.2 Define typing/inference rules for new literals (`Int` default, unsigned expected-type coercion/casts) with deterministic diagnostics.
+  - [ ] 25.5.3 Add VC/proof regression coverage for hex/binary literals in bitwise/unsigned paths to ensure no proof determinism regressions.
+
+- [ ] 25.6 First usable binary releases
+  - [ ] 25.6.1 Lock GA target matrix and support policy (Windows/Linux/macOS baseline targets + preview targets).
+  - [ ] 25.6.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles.
+  - [ ] 25.6.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target.
+  - [ ] 25.6.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures.
+  - [ ] 25.6.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes.
+
+- [ ] 25.7 Online testbed (if feasible)
+  - [ ] 25.7.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation.
+  - [ ] 25.7.2 If approved, implement a deterministic sandboxed compile/run path with resource/time limits and clear diagnostics.
+  - [ ] 25.7.3 Add SLO/runbook/incident playbook and verify readiness before public rollout.
+  - [ ] 25.7.4 If gates fail, publish a defer decision and keep local/CLI-first workflow as canonical path.
+
+- [ ] 25.8 Standard library work is tracked in standalone Phase 26 (critical path).
 
 ### 26 Standalone Standard Library Phase (Critical)
-- [ ] 26.0 Full standard library completion.
-  - [ ] 26.0.1 Define and lock v1 std scope as `must-have` vs `stretch` symbols (`std::core`, `std::host`, package contracts).
-  - [ ] 26.0.2 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.
-  - [ ] 26.0.3 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
-  - [ ] 26.0.4 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
-  - [ ] 26.0.5 Publish explicit defer list for unresolved `stretch` symbols with follow-up phase assignment.
-  - [ ] 26.0.6 Add std stability policy (compatibility guarantees, deprecation windows, and versioning policy) before public GA.
 
+Execution order for std proof coverage: **scope lock -> core coverage -> set subset -> set ops -> cardinality -> list/map completion**.
+
+- [ ] 26.0 Std scope and governance [Std Gate A]
+  - [ ] 26.0.1 Define and lock v1 std scope as `must-have` vs `stretch` symbols (`std::core`, `std::host`, package contracts).
+  - [ ] 26.0.2 Publish explicit defer list for unresolved `stretch` symbols with follow-up phase assignment.
+  - [ ] 26.0.3 Add std stability policy (compatibility guarantees, deprecation windows, and versioning policy) before public GA.
+
+- [ ] 26.1 Std implementation and release gates [Std Gate B]
+  - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.
+  - [ ] 26.1.2 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
+  - [ ] 26.1.3 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
+
+- [ ] 26.2 Finite-set proof roadmap (ordered execution) [Std Gate C]
+  - [ ] 26.2.1 Add `std::set::subset(a, b) -> Bool` API with typing/lowering/runtime coverage and regression tests.
+  - [ ] 26.2.2 Add finite-set VC/SMT reasoning for membership + subset and enforce strict no-assumption gate for theorem-grade claims over set properties.
+  - [ ] 26.2.3 Sequence rule: complete subset proof support first (API + VC/SMT + tests) before expanding other set operators.
+  - [ ] 26.2.4 Sequence rule: add proof support for `union`/`intersect`/`diff` after subset is complete and stable.
+  - [ ] 26.2.5 Sequence rule: add cardinality-heavy proofs last (`len`, bounds, set-size relations) with solver performance guardrails.
+
+- [ ] 26.3 List proof roadmap [Std Gate D]
+  - [ ] 26.3.1 Define/lock list proof contracts for core APIs (`len`, `get`, `push`, `insert`, `remove`, `remove_take`, `pop`).
+  - [ ] 26.3.2 Add VC/SMT reasoning for list index bounds and shape-preservation invariants.
+  - [ ] 26.3.3 Add theorem-grade gates for list proofs (no assumption boundaries on release-enabled list surfaces).
+
+- [ ] 26.4 Map proof roadmap [Std Gate E]
+  - [ ] 26.4.1 Define/lock map proof contracts for core APIs (`len`, `contains`, `get`, `insert`, `insert_take`, `remove`, `remove_take`).
+  - [ ] 26.4.2 Add VC/SMT reasoning for key-membership/value-consistency invariants.
+  - [ ] 26.4.3 Add theorem-grade gates for map proofs (no assumption boundaries on release-enabled map surfaces).

@@ -45,6 +45,7 @@ This directory is organized by role so operational docs stay easy to find.
   - `docs/design/phase-25.0.7-production-release-profile-gate.md`
   - `docs/design/phase-25.0.8-ci-release-proof-matrix-gate.md`
   - `docs/design/phase-25.0.9-zero-assumption-boundary-release-gate.md`
+  - `docs/design/phase-25.0.10-cross-platform-proof-parity-gate.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

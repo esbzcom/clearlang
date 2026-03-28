@@ -17,6 +17,12 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test profile_regression_gate`
   - `cargo test -p clg-cli --test milestone3_release_gate`
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all`
+- Cross-platform parity matrix artifacts:
+  - Linux: `milestone3-proof-parity-linux`
+  - Windows: `milestone3-proof-parity-windows`
+  - macOS: `milestone3-proof-parity-macos`
+- Cross-platform compare gate:
+  - `milestone3-proof-parity-compare` enforces byte-equivalent parity summaries across Linux/Windows/macOS.
 - Tag gate (`refs/tags/milestone_3`) runs:
   - `cargo test -p clg-cli --test milestone3_release_gate`
   - with `CLG_ENFORCE_MILESTONE3_RELEASE_GATE=1`

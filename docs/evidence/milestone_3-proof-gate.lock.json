@@ -13,7 +13,13 @@
     "cargo test -p clg-cli --test verified_std_core_subset",
     "cargo test -p clg-cli --test profile_regression_gate",
     "cargo test -p clg-cli --test milestone3_release_gate",
+    "cargo test -p clg-cli --test milestone3_proof_parity",
     "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all"
+  ],
+  "cross_platform_proof_parity_targets": [
+    "linux",
+    "windows",
+    "macos"
   ],
   "prohibited_release_assumption_boundaries": [
     "unsigned.int_model",

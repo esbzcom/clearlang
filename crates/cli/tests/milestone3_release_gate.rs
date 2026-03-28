@@ -1,5 +1,6 @@
 use serde_json::Value as JsonValue;
 use serde_yaml::{Mapping, Value as YamlValue};
+use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -149,6 +150,23 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         ],
         "milestone_3 lock must pin prohibited assumption boundaries in deterministic order"
     );
+    let parity_targets = lock
+        .get("cross_platform_proof_parity_targets")
+        .and_then(|v| v.as_array())
+        .expect("milestone_3 lock cross_platform_proof_parity_targets[]");
+    let parity_target_ids: Vec<&str> = parity_targets
+        .iter()
+        .map(|entry| {
+            entry
+                .as_str()
+                .expect("cross-platform parity target should be a string")
+        })
+        .collect();
+    assert_eq!(
+        parity_target_ids,
+        vec!["linux", "windows", "macos"],
+        "milestone_3 lock must pin cross-platform parity targets in deterministic order"
+    );
 
     let required_release_commands = lock
         .get("required_release_commands")
@@ -219,6 +237,94 @@ fn validate_ci_wiring(root: &Path) {
         );
     }
 
+    let parity_job = as_mapping(
+        mapping_get(jobs, "milestone3-proof-parity", "workflow jobs"),
+        "milestone3-proof-parity job",
+    );
+    assert_eq!(
+        mapping_get_str(parity_job, "runs-on", "milestone3-proof-parity job"),
+        "${{ matrix.os }}",
+        "milestone3 proof parity job should run on matrix targets"
+    );
+    let parity_strategy = as_mapping(
+        mapping_get(parity_job, "strategy", "milestone3-proof-parity job"),
+        "milestone3-proof-parity strategy",
+    );
+    let parity_matrix = as_mapping(
+        mapping_get(
+            parity_strategy,
+            "matrix",
+            "milestone3-proof-parity strategy",
+        ),
+        "milestone3-proof-parity matrix",
+    );
+    let parity_include = as_sequence(
+        mapping_get(parity_matrix, "include", "milestone3-proof-parity matrix"),
+        "milestone3-proof-parity include[]",
+    );
+    let mut parity_ids = BTreeSet::new();
+    for entry in parity_include {
+        let entry_map = as_mapping(entry, "milestone3-proof-parity include entry");
+        parity_ids.insert(
+            mapping_get_str(entry_map, "id", "milestone3-proof-parity include entry").to_string(),
+        );
+    }
+    assert_eq!(
+        parity_ids,
+        BTreeSet::from([
+            "linux".to_string(),
+            "windows".to_string(),
+            "macos".to_string()
+        ]),
+        "milestone3 proof parity matrix should pin linux/windows/macos ids"
+    );
+
+    let parity_compare_job = as_mapping(
+        mapping_get(jobs, "milestone3-proof-parity-compare", "workflow jobs"),
+        "milestone3-proof-parity-compare job",
+    );
+    let parity_compare_needs = as_string_sequence(
+        mapping_get(
+            parity_compare_job,
+            "needs",
+            "milestone3-proof-parity-compare job",
+        ),
+        "milestone3-proof-parity-compare.needs",
+    );
+    assert!(
+        parity_compare_needs.contains(&"milestone3-proof-parity"),
+        "milestone3 proof parity compare job should depend on milestone3-proof-parity matrix job"
+    );
+    let parity_compare_steps = as_sequence(
+        mapping_get(
+            parity_compare_job,
+            "steps",
+            "milestone3-proof-parity-compare job",
+        ),
+        "milestone3-proof-parity-compare steps",
+    );
+    let (_, parity_compare_step) = find_step(
+        parity_compare_steps,
+        "Compare cross-platform proof parity artifacts",
+    );
+    let parity_compare_run = mapping_get_str(
+        parity_compare_step,
+        "run",
+        "Compare cross-platform proof parity artifacts step",
+    );
+    assert!(
+        parity_compare_run.contains(
+            "cmp --silent tmp/proof-parity/linux/linux.json tmp/proof-parity/windows/windows.json"
+        ),
+        "milestone3 proof parity compare should compare linux and windows artifacts"
+    );
+    assert!(
+        parity_compare_run.contains(
+            "cmp --silent tmp/proof-parity/linux/linux.json tmp/proof-parity/macos/macos.json"
+        ),
+        "milestone3 proof parity compare should compare linux and macos artifacts"
+    );
+
     let release_job = as_mapping(
         mapping_get(jobs, "milestone3-release-train-gate", "workflow jobs"),
         "milestone3-release-train-gate job",
@@ -233,8 +339,8 @@ fn validate_ci_wiring(root: &Path) {
         "milestone3-release-train-gate.needs",
     );
     assert!(
-        needs.contains(&"checks"),
-        "milestone_3 release gate must depend on `checks`"
+        needs.contains(&"checks") && needs.contains(&"milestone3-proof-parity-compare"),
+        "milestone_3 release gate must depend on `checks` and `milestone3-proof-parity-compare`"
     );
 
     let release_steps = as_sequence(
@@ -287,8 +393,10 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     }
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
-    assert!(
-        todo_has_checked_item(&todo, "25.0.8"),
-        "milestone_3 release gate requires TODO item `25.0.8` to be marked complete before tagging"
-    );
+    for item in ["25.0.8", "25.0.9", "25.0.10"] {
+        assert!(
+            todo_has_checked_item(&todo, item),
+            "milestone_3 release gate requires TODO item `{item}` to be marked complete before tagging"
+        );
+    }
 }

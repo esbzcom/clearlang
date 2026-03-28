@@ -110,6 +110,7 @@ fn ci_workflow_enforces_validation_and_tests() {
         "cargo test -p clg-cli --test verified_std_core_subset",
         "cargo test -p clg-cli --test profile_regression_gate",
         "cargo test -p clg-cli --test milestone3_release_gate",
+        "cargo test -p clg-cli --test milestone3_proof_parity",
         "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all",
         "cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section",
         "cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers",
@@ -331,5 +332,131 @@ fn ci_workflow_enforces_validation_and_tests() {
         ),
         "1",
         "release-train gate should explicitly enable checklist enforcement"
+    );
+
+    let parity_job = as_mapping(
+        mapping_get(jobs, "milestone3-proof-parity", "workflow jobs"),
+        "milestone3-proof-parity job",
+    );
+    assert_eq!(
+        mapping_get_str(parity_job, "runs-on", "milestone3-proof-parity job"),
+        "${{ matrix.os }}",
+        "milestone3 proof parity job should run on matrix OS targets"
+    );
+    let parity_strategy = as_mapping(
+        mapping_get(parity_job, "strategy", "milestone3-proof-parity job"),
+        "milestone3-proof-parity strategy",
+    );
+    let parity_matrix = as_mapping(
+        mapping_get(
+            parity_strategy,
+            "matrix",
+            "milestone3-proof-parity strategy",
+        ),
+        "milestone3-proof-parity matrix",
+    );
+    let parity_include = as_sequence(
+        mapping_get(parity_matrix, "include", "milestone3-proof-parity matrix"),
+        "milestone3-proof-parity include[]",
+    );
+    assert_eq!(
+        parity_include.len(),
+        3,
+        "milestone3 proof parity matrix should pin linux/windows/macos targets"
+    );
+    let parity_steps = as_sequence(
+        mapping_get(parity_job, "steps", "milestone3-proof-parity job"),
+        "milestone3-proof-parity steps",
+    );
+    let (_, parity_snapshot_step) = find_step(parity_steps, "Milestone 3 proof parity snapshot");
+    let parity_snapshot_run = mapping_get_str(
+        parity_snapshot_step,
+        "run",
+        "Milestone 3 proof parity snapshot step",
+    );
+    assert!(
+        parity_snapshot_run.contains("cargo test -p clg-cli --test milestone3_proof_parity"),
+        "milestone3 proof parity snapshot should run milestone3_proof_parity test"
+    );
+    let parity_snapshot_env = as_mapping(
+        mapping_get(
+            parity_snapshot_step,
+            "env",
+            "Milestone 3 proof parity snapshot step",
+        ),
+        "Milestone 3 proof parity snapshot step.env",
+    );
+    assert!(
+        mapping_get_str(
+            parity_snapshot_env,
+            "CLG_PROOF_PARITY_OUT",
+            "Milestone 3 proof parity snapshot step.env"
+        )
+        .contains("tmp/proof-parity/${{ matrix.id }}.json"),
+        "milestone3 proof parity snapshot should emit deterministic per-platform artifact path"
+    );
+
+    let parity_compare_job = as_mapping(
+        mapping_get(jobs, "milestone3-proof-parity-compare", "workflow jobs"),
+        "milestone3-proof-parity-compare job",
+    );
+    let parity_compare_needs = as_string_sequence(
+        mapping_get(
+            parity_compare_job,
+            "needs",
+            "milestone3-proof-parity-compare job",
+        ),
+        "milestone3-proof-parity-compare.needs",
+    );
+    assert!(
+        parity_compare_needs.contains(&"milestone3-proof-parity"),
+        "milestone3 proof parity compare job should depend on milestone3-proof-parity matrix job"
+    );
+    let parity_compare_steps = as_sequence(
+        mapping_get(
+            parity_compare_job,
+            "steps",
+            "milestone3-proof-parity-compare job",
+        ),
+        "milestone3-proof-parity-compare steps",
+    );
+    let (_, parity_compare_step) = find_step(
+        parity_compare_steps,
+        "Compare cross-platform proof parity artifacts",
+    );
+    let parity_compare_run = mapping_get_str(
+        parity_compare_step,
+        "run",
+        "Compare cross-platform proof parity artifacts step",
+    );
+    assert!(
+        parity_compare_run.contains(
+            "cmp --silent tmp/proof-parity/linux/linux.json tmp/proof-parity/windows/windows.json"
+        ),
+        "milestone3 proof parity compare should compare linux vs windows parity artifacts"
+    );
+    assert!(
+        parity_compare_run.contains(
+            "cmp --silent tmp/proof-parity/linux/linux.json tmp/proof-parity/macos/macos.json"
+        ),
+        "milestone3 proof parity compare should compare linux vs macos parity artifacts"
+    );
+
+    let milestone3_release_train_job = as_mapping(
+        mapping_get(jobs, "milestone3-release-train-gate", "workflow jobs"),
+        "milestone3-release-train-gate job",
+    );
+    let milestone3_needs = as_string_sequence(
+        mapping_get(
+            milestone3_release_train_job,
+            "needs",
+            "milestone3-release-train-gate job",
+        ),
+        "milestone3-release-train-gate.needs",
+    );
+    assert!(
+        milestone3_needs.contains(&"checks")
+            && milestone3_needs.contains(&"milestone3-proof-parity-compare"),
+        "milestone3 release-train gate should require checks + cross-platform parity compare"
     );
 }

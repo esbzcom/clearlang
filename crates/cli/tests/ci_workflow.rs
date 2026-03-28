@@ -107,7 +107,10 @@ fn ci_workflow_enforces_validation_and_tests() {
     for cmd in [
         "cargo test -p clg-cli --test vc_snapshots",
         "cargo test -p clg-cli --test proof_coverage_matrix",
+        "cargo test -p clg-cli --test verified_std_core_subset",
         "cargo test -p clg-cli --test profile_regression_gate",
+        "cargo test -p clg-cli --test milestone3_release_gate",
+        "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all",
         "cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section",
         "cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers",
     ] {

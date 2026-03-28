@@ -1,5 +1,5 @@
 use assert_cmd::prelude::*;
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{Signer, SigningKey};
 use predicates::prelude::predicate;
 use predicates::prelude::PredicateBooleanExt;
 use serde_json::json;
@@ -268,6 +268,47 @@ fn tamper_assurance_manifest_signature(manifest_path: &Path) {
         serde_json::Value::String(String::from_utf8(sig_bytes).expect("utf8"));
     fs::write(manifest_path, serde_json::to_vec_pretty(&value).unwrap())
         .expect("write assurance manifest");
+}
+
+fn rewrite_signature_payload_proof_status_and_resign(sig_path: &Path, proof_status: &str) {
+    let bytes = fs::read(sig_path).expect("read signature file");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("signature json");
+    value["payload"]["proof_status"] = serde_json::Value::String(proof_status.to_string());
+    let payload = value
+        .get("payload")
+        .expect("signature payload should exist")
+        .clone();
+    let canonical_payload = canonical_json_string(&payload);
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = signing.sign(canonical_payload.as_bytes());
+    value["signature"] = serde_json::Value::String(hex::encode(signature.to_bytes()));
+    fs::write(sig_path, serde_json::to_vec_pretty(&value).expect("serialize signature"))
+        .expect("write signature file");
+}
+
+fn rewrite_assurance_manifest_payload_proof_status_and_resign(
+    manifest_path: &Path,
+    proof_status: &str,
+) {
+    let bytes = fs::read(manifest_path).expect("read assurance manifest");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("manifest json");
+    value["payload"]["proof_status"] = serde_json::Value::String(proof_status.to_string());
+    let payload = value
+        .get("payload")
+        .expect("manifest payload should exist")
+        .clone();
+    let canonical_payload = canonical_json_string(&payload);
+    let payload_hash = sha256_hex(canonical_payload.as_bytes());
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = signing.sign(canonical_payload.as_bytes());
+    value["signature"]["payload_hash"] = serde_json::Value::String(payload_hash);
+    value["signature"]["signature"] =
+        serde_json::Value::String(hex::encode(signature.to_bytes()));
+    fs::write(
+        manifest_path,
+        serde_json::to_vec_pretty(&value).expect("serialize manifest"),
+    )
+    .expect("write assurance manifest");
 }
 
 fn strip_proof_section(module: &Path) {

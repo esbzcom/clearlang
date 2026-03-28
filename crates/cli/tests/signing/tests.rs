@@ -590,3 +590,42 @@ fn verify_require_assurance_rejects_invalid_value_with_v005() {
         )),
     );
 }
+
+#[test]
+fn verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all() {
+    let tmp = tempdir().unwrap();
+    let manifest = tmp.path().join("out.assurance.json");
+    let (wasm_path, sig_path, pub_path) =
+        build_signed_module_from_source_with_manifest_and_trust_anchors(
+            tmp.path(),
+            sample_source_with_assumptions(),
+            Some(&manifest),
+            None,
+            None,
+        );
+
+    rewrite_signature_payload_proof_status_and_resign(&sig_path, "proved_all");
+    rewrite_assurance_manifest_payload_proof_status_and_resign(&manifest, "proved_all");
+    let policy = write_release_policy(tmp.path(), "L0");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--release-policy")
+        .arg(&policy)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"")
+            .and(predicate::str::contains("zero assumption boundaries"))
+            .and(predicate::str::contains("crypto.uninterpreted")),
+    );
+}

@@ -183,6 +183,7 @@ pub struct ProofPackage {
     assurance: ProofAssurance,
     assurance_claim: ProofAssuranceClaim,
     proof_status: String,
+    assumption_boundaries: Vec<String>,
 }
 
 impl ProofPackage {
@@ -324,6 +325,7 @@ impl ProofPackage {
             assurance: assurance_for_vcs(vcs),
             assurance_claim: assurance_claim_for_compiler_mode(compiler_mode),
             proof_status: proof_status_for_vcs(vcs, compiler_mode).to_string(),
+            assumption_boundaries: assumption_boundary_ids_for_vcs(vcs),
         }
     }
 
@@ -360,6 +362,7 @@ impl ProofPackage {
             "assurance": self.assurance.clone(),
             "assurance_claim": self.assurance_claim.clone(),
             "proof_status": self.proof_status,
+            "assumption_boundaries": self.assumption_boundaries.clone(),
         })
     }
 }
@@ -440,6 +443,16 @@ pub fn proof_status_for_vcs(vcs: &[VerificationCondition], compiler_mode: &str) 
     } else {
         PROOF_STATUS_NOT_PROVED_ALL
     }
+}
+
+fn assumption_boundary_ids_for_vcs(vcs: &[VerificationCondition]) -> Vec<String> {
+    let mut ids = BTreeSet::new();
+    for vc in vcs {
+        for assumption in &vc.assumptions {
+            ids.insert(assumption.id.to_string());
+        }
+    }
+    ids.into_iter().collect()
 }
 
 pub fn build_assurance_manifest_payload(

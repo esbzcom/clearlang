@@ -72,6 +72,7 @@ Publish these files together:
 - Milestone 3 policy lock: production release is `release == proved` (`proved_all` required). Non-proved outputs are dev/non-release only.
 - `--release-profile production` enforces fail-closed theorem-grade gating at build/sign time.
 - Fail-closed release gate: block production release on any proof outcome `failed|unknown|timeout|assumed`.
+- `--require-assurance proved_all` now also requires zero assumption boundaries in signed payloads/manifests (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted` are prohibited in release bundles).
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.
 - Milestone 3 CI/tag gate is locked by `docs/evidence/milestone_3-proof-gate.lock.json` and enforced by `crates/cli/tests/milestone3_release_gate.rs`.
 - Today, `--emit-vcs` emits obligations; full solver-completion automation is tracked for Milestone 3.

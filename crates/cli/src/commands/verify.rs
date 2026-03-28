@@ -549,9 +549,17 @@ fn evaluate_required_assurance(
                 ),
             )
         })?;
+    let signature_assumption_boundaries = parse_signature_assumption_boundaries(sig_payload)
+        .ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "signature payload has invalid assumption_boundaries (expected string array)",
+            )
+        })?;
 
     let mut manifest_proof_status = None;
     let mut manifest_path_out = None;
+    let mut manifest_assumption_boundaries: Option<Vec<String>> = None;
     if let Some(manifest_path) = assurance_manifest_path {
         let manifest =
             signing::verify_assurance_manifest(manifest_path, pubkey_path).map_err(|err| {
@@ -592,6 +600,7 @@ fn evaluate_required_assurance(
                 ),
             ));
         }
+        manifest_assumption_boundaries = Some(parse_manifest_assumption_boundaries(payload)?);
         manifest_proof_status = Some(parsed_manifest_status);
         manifest_path_out = Some(manifest_path.to_path_buf());
     }
@@ -605,6 +614,28 @@ fn evaluate_required_assurance(
             ),
         ));
     }
+    if required_assurance == "proved_all" {
+        if !signature_assumption_boundaries.is_empty() {
+            return Err(signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "required assurance `proved_all` requires zero assumption boundaries in signature payload; found [{}]",
+                    signature_assumption_boundaries.join(", ")
+                ),
+            ));
+        }
+        if let Some(boundaries) = manifest_assumption_boundaries {
+            if !boundaries.is_empty() {
+                return Err(signing::VerifyError::new(
+                    signing::VerifyErrorCode::PolicyFailure,
+                    format!(
+                        "required assurance `proved_all` requires zero assumption boundaries in assurance manifest; found [{}]",
+                        boundaries.join(", ")
+                    ),
+                ));
+            }
+        }
+    }
 
     Ok(AssuranceRequirementOutcome {
         required_assurance,
@@ -612,6 +643,64 @@ fn evaluate_required_assurance(
         manifest_proof_status,
         manifest_path: manifest_path_out,
     })
+}
+
+fn parse_signature_assumption_boundaries(
+    payload: &serde_json::Map<String, serde_json::Value>,
+) -> Option<Vec<String>> {
+    let Some(value) = payload.get("assumption_boundaries") else {
+        return Some(Vec::new());
+    };
+    let items = value.as_array()?;
+    let mut out = BTreeSet::new();
+    for item in items {
+        let id = item.as_str()?.trim();
+        if !id.is_empty() {
+            out.insert(id.to_string());
+        }
+    }
+    Some(out.into_iter().collect())
+}
+
+fn parse_manifest_assumption_boundaries(
+    payload: &serde_json::Map<String, serde_json::Value>,
+) -> std::result::Result<Vec<String>, signing::VerifyError> {
+    let assumptions = payload
+        .get("assumptions")
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "assurance manifest payload missing `assumptions` object",
+            )
+        })?;
+    let items = assumptions
+        .get("items")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "assurance manifest payload assumptions.items must be an array",
+            )
+        })?;
+    let mut out = BTreeSet::new();
+    for item in items {
+        let id = item
+            .as_object()
+            .and_then(|obj| obj.get("id"))
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .ok_or_else(|| {
+                signing::VerifyError::new(
+                    signing::VerifyErrorCode::PolicyFailure,
+                    "assurance manifest payload assumptions.items[] entries must include string `id`",
+                )
+            })?;
+        if !id.is_empty() {
+            out.insert(id.to_string());
+        }
+    }
+    Ok(out.into_iter().collect())
 }
 
 fn normalize_assurance_tier(value: &str) -> Option<String> {

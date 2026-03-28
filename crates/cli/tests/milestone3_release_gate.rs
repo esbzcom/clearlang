@@ -119,6 +119,37 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         );
     }
 
+    let required_ci_tests = lock
+        .get("required_ci_tests")
+        .and_then(|v| v.as_array())
+        .expect("milestone_3 lock required_ci_tests[]");
+    assert!(
+        !required_ci_tests.is_empty(),
+        "milestone_3 proof gate lock must include required_ci_tests"
+    );
+
+    let prohibited_boundaries = lock
+        .get("prohibited_release_assumption_boundaries")
+        .and_then(|v| v.as_array())
+        .expect("milestone_3 lock prohibited_release_assumption_boundaries[]");
+    let actual_boundaries: Vec<&str> = prohibited_boundaries
+        .iter()
+        .map(|entry| {
+            entry
+                .as_str()
+                .expect("prohibited assumption boundary should be a string")
+        })
+        .collect();
+    assert_eq!(
+        actual_boundaries,
+        vec![
+            "unsigned.int_model",
+            "bitwise.uninterpreted",
+            "crypto.uninterpreted"
+        ],
+        "milestone_3 lock must pin prohibited assumption boundaries in deterministic order"
+    );
+
     let required_release_commands = lock
         .get("required_release_commands")
         .and_then(|v| v.as_array())
@@ -155,6 +186,18 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
 }
 
 fn validate_ci_wiring(root: &Path) {
+    let lock_path = root
+        .join("docs")
+        .join("evidence")
+        .join("milestone_3-proof-gate.lock.json");
+    let lock: JsonValue =
+        serde_json::from_slice(&fs::read(&lock_path).expect("read milestone_3 gate lock"))
+            .expect("parse milestone_3 gate lock");
+    let required_ci_tests = lock
+        .get("required_ci_tests")
+        .and_then(|v| v.as_array())
+        .expect("milestone_3 lock required_ci_tests[]");
+
     let ci_path = root.join(".github").join("workflows").join("ci.yml");
     let contents = fs::read_to_string(&ci_path).expect("read ci workflow");
     let workflow: YamlValue = serde_yaml::from_str(&contents).expect("parse ci workflow yaml");
@@ -168,13 +211,8 @@ fn validate_ci_wiring(root: &Path) {
     let check_steps = as_sequence(mapping_get(checks, "steps", "checks job"), "checks steps");
     let (_, proof_step) = find_step(check_steps, "Proof regression gates");
     let proof_run = mapping_get_str(proof_step, "run", "Proof regression gates step");
-    for cmd in [
-        "cargo test -p clg-cli --test vc_snapshots",
-        "cargo test -p clg-cli --test proof_coverage_matrix",
-        "cargo test -p clg-cli --test verified_std_core_subset",
-        "cargo test -p clg-cli --test profile_regression_gate",
-        "cargo test -p clg-cli --test milestone3_release_gate",
-    ] {
+    for cmd in required_ci_tests {
+        let cmd = cmd.as_str().expect("required_ci_tests[] should be strings");
         assert!(
             proof_run.contains(cmd),
             "Proof regression gates step should include `{cmd}`"

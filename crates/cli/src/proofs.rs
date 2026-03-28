@@ -184,6 +184,7 @@ pub struct ProofPackage {
     assurance_claim: ProofAssuranceClaim,
     proof_status: String,
     assumption_boundaries: Vec<String>,
+    bundle_symbols: Vec<String>,
 }
 
 impl ProofPackage {
@@ -326,6 +327,7 @@ impl ProofPackage {
             assurance_claim: assurance_claim_for_compiler_mode(compiler_mode),
             proof_status: proof_status_for_vcs(vcs, compiler_mode).to_string(),
             assumption_boundaries: assumption_boundary_ids_for_vcs(vcs),
+            bundle_symbols: bundle_symbols_for_program(program),
         }
     }
 
@@ -363,6 +365,7 @@ impl ProofPackage {
             "assurance_claim": self.assurance_claim.clone(),
             "proof_status": self.proof_status,
             "assumption_boundaries": self.assumption_boundaries.clone(),
+            "bundle_symbols": self.bundle_symbols.clone(),
         })
     }
 }
@@ -453,6 +456,97 @@ fn assumption_boundary_ids_for_vcs(vcs: &[VerificationCondition]) -> Vec<String>
         }
     }
     ids.into_iter().collect()
+}
+
+fn bundle_symbols_for_program(program: &Program) -> Vec<String> {
+    let mut symbols = BTreeSet::new();
+    for func in &program.funcs {
+        collect_bundle_symbols_from_expr(&func.body, &mut symbols);
+    }
+    symbols.into_iter().collect()
+}
+
+fn collect_bundle_symbols_from_block(block: &clg_ast::Block, out: &mut BTreeSet<String>) {
+    for stmt in &block.statements {
+        match stmt {
+            clg_ast::Stmt::Let { expr, .. } => collect_bundle_symbols_from_expr(expr, out),
+            clg_ast::Stmt::Expr { expr, .. } => collect_bundle_symbols_from_expr(expr, out),
+            clg_ast::Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_bundle_symbols_from_expr(cond, out);
+                collect_bundle_symbols_from_expr(invariant, out);
+                if let Some(variant_expr) = variant {
+                    collect_bundle_symbols_from_expr(variant_expr, out);
+                }
+                collect_bundle_symbols_from_block(body, out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_bundle_symbols_from_expr(tail, out);
+    }
+}
+
+fn collect_bundle_symbols_from_expr(expr: &clg_ast::Expr, out: &mut BTreeSet<String>) {
+    use clg_ast::Expr;
+    match expr {
+        Expr::Call { callee, args, .. } => {
+            if callee.starts_with("std::") {
+                out.insert(callee.clone());
+            }
+            for arg in args {
+                collect_bundle_symbols_from_expr(arg, out);
+            }
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_bundle_symbols_from_expr(lhs, out);
+            collect_bundle_symbols_from_expr(rhs, out);
+        }
+        Expr::Unary { expr, .. } | Expr::Return { expr, .. } | Expr::Try { expr, .. } => {
+            collect_bundle_symbols_from_expr(expr, out);
+        }
+        Expr::Index { base, index, .. } => {
+            collect_bundle_symbols_from_expr(base, out);
+            collect_bundle_symbols_from_expr(index, out);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_bundle_symbols_from_expr(scrutinee, out);
+            for arm in arms {
+                collect_bundle_symbols_from_expr(&arm.expr, out);
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_bundle_symbols_from_expr(cond, out);
+            collect_bundle_symbols_from_expr(then_br, out);
+            collect_bundle_symbols_from_expr(else_br, out);
+        }
+        Expr::Block { block } => collect_bundle_symbols_from_block(block, out),
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_bundle_symbols_from_expr(elem, out);
+            }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_bundle_symbols_from_expr(&field.expr, out);
+            }
+        }
+        Expr::FieldAccess { base, .. } => collect_bundle_symbols_from_expr(base, out),
+        Expr::Lambda { body, .. } => collect_bundle_symbols_from_expr(body, out),
+        Expr::Int(..) | Expr::Bool(..) | Expr::String(..) | Expr::Var(..) => {}
+    }
 }
 
 pub fn build_assurance_manifest_payload(

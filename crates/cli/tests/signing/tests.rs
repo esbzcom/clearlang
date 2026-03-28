@@ -629,3 +629,38 @@ fn verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_pro
             .and(predicate::str::contains("crypto.uninterpreted")),
     );
 }
+
+#[test]
+fn verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    rewrite_signature_payload_proof_status_and_symbols_and_resign(
+        &sig_path,
+        "proved_all",
+        &["std::bytes::eq_ct"],
+    );
+
+    let matrix_path = repo_root()
+        .join("docs")
+        .join("proofs")
+        .join("proof-coverage-matrix.json");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .env("CLG_PROOF_MATRIX_PATH", matrix_path)
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"")
+            .and(predicate::str::contains("proved allowlist"))
+            .and(predicate::str::contains("std::bytes::eq_ct")),
+    );
+}

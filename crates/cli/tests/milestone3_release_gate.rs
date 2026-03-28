@@ -167,6 +167,24 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         vec!["linux", "windows", "macos"],
         "milestone_3 lock must pin cross-platform parity targets in deterministic order"
     );
+    let release_symbol_allowlist = lock
+        .get("release_symbol_allowlist")
+        .and_then(|v| v.as_object())
+        .expect("milestone_3 lock release_symbol_allowlist{}");
+    assert_eq!(
+        release_symbol_allowlist
+            .get("source")
+            .and_then(|v| v.as_str()),
+        Some("docs/proofs/proof-coverage-matrix.json"),
+        "milestone_3 lock must pin release symbol allowlist source"
+    );
+    assert_eq!(
+        release_symbol_allowlist
+            .get("rule")
+            .and_then(|v| v.as_str()),
+        Some("bundle_symbols must be subset of entries[].surface where status==proved"),
+        "milestone_3 lock must pin release symbol allowlist rule"
+    );
 
     let required_release_commands = lock
         .get("required_release_commands")
@@ -393,7 +411,7 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     }
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
-    for item in ["25.0.8", "25.0.9", "25.0.10"] {
+    for item in ["25.0.8", "25.0.9", "25.0.10", "25.0.11"] {
         assert!(
             todo_has_checked_item(&todo, item),
             "milestone_3 release gate requires TODO item `{item}` to be marked complete before tagging"

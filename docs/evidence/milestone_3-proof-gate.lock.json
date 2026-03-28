@@ -14,7 +14,8 @@
     "cargo test -p clg-cli --test profile_regression_gate",
     "cargo test -p clg-cli --test milestone3_release_gate",
     "cargo test -p clg-cli --test milestone3_proof_parity",
-    "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all"
+    "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all",
+    "cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all"
   ],
   "cross_platform_proof_parity_targets": [
     "linux",
@@ -26,6 +27,10 @@
     "bitwise.uninterpreted",
     "crypto.uninterpreted"
   ],
+  "release_symbol_allowlist": {
+    "source": "docs/proofs/proof-coverage-matrix.json",
+    "rule": "bundle_symbols must be subset of entries[].surface where status==proved"
+  },
   "required_release_commands": [
     "--release-profile production",
     "--assurance-manifest",

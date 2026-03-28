@@ -286,6 +286,28 @@ fn rewrite_signature_payload_proof_status_and_resign(sig_path: &Path, proof_stat
         .expect("write signature file");
 }
 
+fn rewrite_signature_payload_proof_status_and_symbols_and_resign(
+    sig_path: &Path,
+    proof_status: &str,
+    bundle_symbols: &[&str],
+) {
+    let bytes = fs::read(sig_path).expect("read signature file");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("signature json");
+    value["payload"]["proof_status"] = serde_json::Value::String(proof_status.to_string());
+    value["payload"]["bundle_symbols"] =
+        serde_json::Value::Array(bundle_symbols.iter().map(|s| json!(s)).collect());
+    let payload = value
+        .get("payload")
+        .expect("signature payload should exist")
+        .clone();
+    let canonical_payload = canonical_json_string(&payload);
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = signing.sign(canonical_payload.as_bytes());
+    value["signature"] = serde_json::Value::String(hex::encode(signature.to_bytes()));
+    fs::write(sig_path, serde_json::to_vec_pretty(&value).expect("serialize signature"))
+        .expect("write signature file");
+}
+
 fn rewrite_assurance_manifest_payload_proof_status_and_resign(
     manifest_path: &Path,
     proof_status: &str,
@@ -309,6 +331,10 @@ fn rewrite_assurance_manifest_payload_proof_status_and_resign(
         serde_json::to_vec_pretty(&value).expect("serialize manifest"),
     )
     .expect("write assurance manifest");
+}
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 fn strip_proof_section(module: &Path) {

@@ -556,6 +556,13 @@ fn evaluate_required_assurance(
                 "signature payload has invalid assumption_boundaries (expected string array)",
             )
         })?;
+    let signature_bundle_symbols =
+        parse_signature_bundle_symbols(sig_payload).ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "signature payload has invalid bundle_symbols (expected string array)",
+            )
+        })?;
 
     let mut manifest_proof_status = None;
     let mut manifest_path_out = None;
@@ -635,6 +642,22 @@ fn evaluate_required_assurance(
                 ));
             }
         }
+        if !signature_bundle_symbols.is_empty() {
+            let proved_allowlist = load_proved_surface_allowlist()?;
+            let disallowed: Vec<String> = signature_bundle_symbols
+                .into_iter()
+                .filter(|symbol| !proved_allowlist.contains(symbol))
+                .collect();
+            if !disallowed.is_empty() {
+                return Err(signing::VerifyError::new(
+                    signing::VerifyErrorCode::PolicyFailure,
+                    format!(
+                        "required assurance `proved_all` requires bundle symbols in proved allowlist; disallowed [{}]",
+                        disallowed.join(", ")
+                    ),
+                ));
+            }
+        }
     }
 
     Ok(AssuranceRequirementOutcome {
@@ -660,6 +683,75 @@ fn parse_signature_assumption_boundaries(
         }
     }
     Some(out.into_iter().collect())
+}
+
+fn parse_signature_bundle_symbols(
+    payload: &serde_json::Map<String, serde_json::Value>,
+) -> Option<Vec<String>> {
+    let Some(value) = payload.get("bundle_symbols") else {
+        return Some(Vec::new());
+    };
+    let items = value.as_array()?;
+    let mut out = BTreeSet::new();
+    for item in items {
+        let symbol = item.as_str()?.trim();
+        if !symbol.is_empty() {
+            out.insert(symbol.to_string());
+        }
+    }
+    Some(out.into_iter().collect())
+}
+
+fn load_proved_surface_allowlist() -> std::result::Result<BTreeSet<String>, signing::VerifyError> {
+    let matrix_path = std::env::var("CLG_PROOF_MATRIX_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("docs/proofs/proof-coverage-matrix.json"));
+    let bytes = fs::read(&matrix_path).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "reading proof matrix allowlist {}: {err}",
+                matrix_path.display()
+            ),
+        )
+    })?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "parsing proof matrix allowlist {}: {err}",
+                matrix_path.display()
+            ),
+        )
+    })?;
+    let entries = value
+        .get("entries")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "proof matrix allowlist {} missing entries[]",
+                    matrix_path.display()
+                ),
+            )
+        })?;
+    let mut surfaces = BTreeSet::new();
+    for entry in entries {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        if obj.get("status").and_then(|v| v.as_str()) != Some("proved") {
+            continue;
+        }
+        if let Some(surface) = obj.get("surface").and_then(|v| v.as_str()) {
+            let surface = surface.trim();
+            if !surface.is_empty() {
+                surfaces.insert(surface.to_string());
+            }
+        }
+    }
+    Ok(surfaces)
 }
 
 fn parse_manifest_assumption_boundaries(

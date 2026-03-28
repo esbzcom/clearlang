@@ -16,7 +16,9 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test verified_std_core_subset`
   - `cargo test -p clg-cli --test profile_regression_gate`
   - `cargo test -p clg-cli --test milestone3_release_gate`
+  - `cargo test -p clg-cli --test milestone3_proof_parity`
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all`
+  - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all`
 - Cross-platform parity matrix artifacts:
   - Linux: `milestone3-proof-parity-linux`
   - Windows: `milestone3-proof-parity-windows`
@@ -40,6 +42,9 @@ This document is the evidence index for TODO item `25.0.8`.
   - `crypto.uninterpreted`
 - Fail-closed rule:
   - `proved_all` verification rejects bundles/manifests carrying any assumption boundaries.
+- Release symbol allowlist rule:
+  - bundle `std::...` symbols must be a subset of matrix entries with `status == proved`.
+  - canonical source: `docs/proofs/proof-coverage-matrix.json`
 - Canonical workflow reference:
   - `docs/release-process.md`
 

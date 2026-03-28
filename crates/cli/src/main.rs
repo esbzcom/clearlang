@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 use clg_cli::commands::{
-    build::{self as cmd_build, CompilerMode, StdCoreLinkMode},
+    build::{self as cmd_build, CompilerMode, ReleaseProfile, StdCoreLinkMode},
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
     parse as cmd_parse, pkg as cmd_pkg, run as cmd_run,
@@ -62,6 +62,9 @@ enum Commands {
         /// Compiler strictness profile (permissive, standard, strict)
         #[arg(long, value_enum, default_value_t = CompilerMode::Standard)]
         compiler_mode: CompilerMode,
+        /// Release assurance profile (dev or production)
+        #[arg(long, value_enum, default_value_t = ReleaseProfile::Dev)]
+        release_profile: ReleaseProfile,
         /// Std-core linkage mode (intrinsic or precompiled package contract path)
         #[arg(long, value_enum, default_value_t = StdCoreLinkMode::Intrinsic)]
         std_core_link_mode: StdCoreLinkMode,
@@ -125,6 +128,9 @@ enum Commands {
         /// Release policy file for assurance-tier gate checks
         #[arg(long, value_name = "FILE", requires = "assurance_manifest")]
         release_policy: Option<PathBuf>,
+        /// Require theorem-grade assurance status before accepting verification
+        #[arg(long, value_name = "STATUS")]
+        require_assurance: Option<String>,
         /// Print human-readable assurance explanation after successful verification
         #[arg(long, default_value_t = false)]
         explain: bool,
@@ -172,6 +178,7 @@ fn main() -> Result<()> {
             debug_names,
             emit_vcs,
             compiler_mode,
+            release_profile,
             std_core_link_mode,
             proof_strict,
             sign,
@@ -190,6 +197,7 @@ fn main() -> Result<()> {
             debug_names,
             emit_vcs,
             compiler_mode,
+            release_profile,
             std_core_link_mode,
             proof_strict,
             sign,
@@ -212,6 +220,7 @@ fn main() -> Result<()> {
             trust_policy,
             assurance_manifest,
             release_policy,
+            require_assurance,
             explain,
         } => cmd_verify::run(
             module,
@@ -221,6 +230,7 @@ fn main() -> Result<()> {
             trust_policy,
             assurance_manifest,
             release_policy,
+            require_assurance,
             explain,
             cli.json_errors,
             logger,

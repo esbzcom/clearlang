@@ -37,6 +37,10 @@ fn build_emits_vcs_json() {
         first.get("status").and_then(|s| s.as_str()),
         Some("generated")
     );
+    assert_eq!(
+        first.get("proof_status").and_then(|s| s.as_str()),
+        Some("not_proved_all")
+    );
     let assurance = first
         .get("assurance")
         .and_then(|o| o.as_object())

@@ -34,6 +34,7 @@ pub fn run(
     trust_policy: Option<PathBuf>,
     assurance_manifest: Option<PathBuf>,
     release_policy: Option<PathBuf>,
+    require_assurance: Option<String>,
     explain: bool,
     json_errors: bool,
     logger: Logger,
@@ -98,6 +99,22 @@ pub fn run(
                     }
                 };
 
+            let assurance_requirement_outcome = match require_assurance.as_deref() {
+                Some(required) => {
+                    let _stage = timings.start(logger, "verify_assurance_requirement");
+                    match evaluate_required_assurance(
+                        required,
+                        &verified_signature.payload,
+                        assurance_manifest.as_deref(),
+                        &pubkey,
+                    ) {
+                        Ok(outcome) => Some(outcome),
+                        Err(err) => return emit_verify_error(err),
+                    }
+                }
+                None => None,
+            };
+
             if explain {
                 let _stage = timings.start(logger, "verify_explain");
                 if let Err(err) = emit_explain_summary(
@@ -106,6 +123,7 @@ pub fn run(
                     verify_mode,
                     trust_policy.as_deref(),
                     release_policy_outcome.as_ref(),
+                    assurance_requirement_outcome.as_ref(),
                 ) {
                     return emit_verify_error(signing::VerifyError::new(
                         signing::VerifyErrorCode::SignatureFailure,
@@ -126,6 +144,7 @@ fn emit_explain_summary(
     verify_mode: VerifyMode,
     trust_policy: Option<&Path>,
     release_policy_outcome: Option<&ReleasePolicyOutcome>,
+    assurance_requirement_outcome: Option<&AssuranceRequirementOutcome>,
 ) -> Result<()> {
     #[derive(Default)]
     struct AssumptionAggregate {
@@ -147,6 +166,7 @@ fn emit_explain_summary(
 
     let payload_module_hash = payload_str(sig_payload, "module_hash").unwrap_or("<missing>");
     let payload_proofs_hash = payload_str(sig_payload, "proofs_hash").unwrap_or("<missing>");
+    let payload_proof_status = payload_str(sig_payload, "proof_status").unwrap_or("unknown");
     let (tier, label) = payload_assurance(sig_payload);
     let assurance_claim = payload_assurance_claim(sig_payload);
 
@@ -220,6 +240,7 @@ fn emit_explain_summary(
     println!("scope: {}", verified_signature.scope.as_str());
     println!("module_hash: {}", payload_module_hash);
     println!("proofs_hash: {}", payload_proofs_hash);
+    println!("proof_status: {}", payload_proof_status);
     println!("assurance: {} ({})", tier, label);
     if let Some(claim) = assurance_claim {
         if claim.non_strict_evidence_only {
@@ -299,6 +320,18 @@ fn emit_explain_summary(
         println!("release_policy_file: {}", outcome.policy_path.display());
         println!("assurance_manifest: {}", outcome.manifest_path.display());
     }
+    if let Some(outcome) = assurance_requirement_outcome {
+        println!(
+            "assurance_requirement: pass (required = {}, signature = {})",
+            outcome.required_assurance, outcome.signature_proof_status
+        );
+        if let Some(manifest_status) = &outcome.manifest_proof_status {
+            println!("assurance_manifest_proof_status: {}", manifest_status);
+        }
+        if let Some(path) = &outcome.manifest_path {
+            println!("assurance_manifest_checked: {}", path.display());
+        }
+    }
 
     Ok(())
 }
@@ -309,6 +342,14 @@ struct ReleasePolicyOutcome {
     manifest_tier: String,
     policy_path: PathBuf,
     manifest_path: PathBuf,
+}
+
+#[derive(Debug)]
+struct AssuranceRequirementOutcome {
+    required_assurance: String,
+    signature_proof_status: String,
+    manifest_proof_status: Option<String>,
+    manifest_path: Option<PathBuf>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -470,6 +511,109 @@ fn evaluate_release_policy(
     })
 }
 
+fn evaluate_required_assurance(
+    required_raw: &str,
+    verified_signature_payload: &serde_json::Value,
+    assurance_manifest_path: Option<&Path>,
+    pubkey_path: &Path,
+) -> std::result::Result<AssuranceRequirementOutcome, signing::VerifyError> {
+    let required_assurance = normalize_required_assurance(required_raw).ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "invalid `--require-assurance` value `{}` (expected `proved_all`)",
+                required_raw
+            ),
+        )
+    })?;
+
+    let sig_payload = verified_signature_payload.as_object().ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "signature payload must be a JSON object",
+        )
+    })?;
+    let signature_status_raw = payload_str(sig_payload, "proof_status").ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "signature payload missing proof_status",
+        )
+    })?;
+    let signature_proof_status =
+        normalize_proof_status(signature_status_raw).ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "signature payload has invalid proof_status `{}` (expected `proved_all|not_proved_all`)",
+                    signature_status_raw
+                ),
+            )
+        })?;
+
+    let mut manifest_proof_status = None;
+    let mut manifest_path_out = None;
+    if let Some(manifest_path) = assurance_manifest_path {
+        let manifest =
+            signing::verify_assurance_manifest(manifest_path, pubkey_path).map_err(|err| {
+                signing::VerifyError::new(
+                    signing::VerifyErrorCode::PolicyFailure,
+                    format!("assurance requirement manifest validation failed: {err}"),
+                )
+            })?;
+        let payload = manifest.payload.as_object().ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "assurance manifest payload must be a JSON object",
+            )
+        })?;
+        let manifest_status_raw = payload_str(payload, "proof_status").ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                "assurance manifest payload missing proof_status",
+            )
+        })?;
+        let parsed_manifest_status =
+            normalize_proof_status(manifest_status_raw).ok_or_else(|| {
+                signing::VerifyError::new(
+                    signing::VerifyErrorCode::PolicyFailure,
+                    format!(
+                        "assurance manifest has invalid proof_status `{}` (expected `proved_all|not_proved_all`)",
+                        manifest_status_raw
+                    ),
+                )
+            })?;
+
+        if parsed_manifest_status != signature_proof_status {
+            return Err(signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "assurance manifest proof_status `{}` does not match signature payload proof_status `{}`",
+                    parsed_manifest_status, signature_proof_status
+                ),
+            ));
+        }
+        manifest_proof_status = Some(parsed_manifest_status);
+        manifest_path_out = Some(manifest_path.to_path_buf());
+    }
+
+    if signature_proof_status != required_assurance {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "required assurance `{}` not satisfied: artifact proof_status is `{}`",
+                required_assurance, signature_proof_status
+            ),
+        ));
+    }
+
+    Ok(AssuranceRequirementOutcome {
+        required_assurance,
+        signature_proof_status,
+        manifest_proof_status,
+        manifest_path: manifest_path_out,
+    })
+}
+
 fn normalize_assurance_tier(value: &str) -> Option<String> {
     let trimmed = value.trim().to_ascii_uppercase();
     match trimmed.as_str() {
@@ -485,6 +629,22 @@ fn assurance_tier_rank(tier: &str) -> u8 {
         "L2" => 2,
         "L3" => 3,
         _ => 0,
+    }
+}
+
+fn normalize_required_assurance(value: &str) -> Option<String> {
+    let trimmed = value.trim().to_ascii_lowercase();
+    match trimmed.as_str() {
+        "proved_all" => Some(trimmed),
+        _ => None,
+    }
+}
+
+fn normalize_proof_status(value: &str) -> Option<String> {
+    let trimmed = value.trim().to_ascii_lowercase();
+    match trimmed.as_str() {
+        "proved_all" | "not_proved_all" => Some(trimmed),
+        _ => None,
     }
 }
 

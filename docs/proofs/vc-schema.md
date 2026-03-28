@@ -23,6 +23,7 @@ VC Object (v2)
 - `vc`: object - the VC implication `pre => post`
   - `smt2`: string
 - `status`: string - one of `generated|proved|failed`
+- `proof_status`: string - aggregate theorem-grade status for the emitted artifact (`proved_all|not_proved_all`)
 - `assurance`: object - explicit assurance-tier metadata (`L0`-`L3`)
   - `tier`: string - current VC tier (`L0` or `L1` in current implementation)
   - `label`: string - tier label (`assumed`, `checked core`, `verified module`, `verified package profile`)
@@ -143,6 +144,8 @@ Notes
 - `assumptions.items` enumerates model boundaries required for that VC; omission means no selected boundary was detected for that VC.
 - `assumptions.items[].intrinsic_levels` is emitted only for crypto boundaries and is ordered exactly like `symbols` for deterministic tool consumption.
 - `assurance` is always emitted so release/policy tooling can consume tier labels deterministically.
+- `proof_status` is always emitted and currently evaluates to `proved_all` only when compiler mode is strict, all VCs are `proved`, and assumption boundaries are absent.
+- `clg verify --require-assurance proved_all` consumes signed `proof_status` and fails closed if status is missing/invalid/not `proved_all`.
 - `assurance_claim.non_strict_evidence_only=true` explicitly marks non-strict outputs as developer evidence and not release-grade trust claims.
 - `diagnostics.repair_hints` is advisory guidance for failed-VC workflows; it does not alter VC semantics or assurance tiers.
 - `diagnostics.failure_slice` maps each VC obligation to exact source spans so failure reporting can point directly to user code.

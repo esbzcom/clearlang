@@ -1033,13 +1033,13 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 Execution order for Milestone 3: **policy lock -> proof closure -> release UX -> quality gates -> distribution**.
 
 - [ ] 25.0 Release assurance policy (`release == proved`) [Gate A]
-  - [ ] 25.0.1 Publish milestone_3 design lock with explicit proof completion thresholds and fail-closed policy.
-  - [ ] 25.0.2 Define theorem-grade proof certification policy (`proved_all`) requiring pure functions, all VCs `proved`, zero assumptions, and strict-mode verification.
-  - [ ] 25.0.3 Lock assurance policy decision: `release == proved`; allow non-proved compile only in non-release/dev workflows.
-  - [ ] 25.0.4 Enforce release fail-closed policy: block release on any `failed|unknown|timeout|assumed` proof outcome.
-  - [ ] 25.0.5 Emit theorem-grade status in assurance artifacts/signature payload (`proof_status: proved_all|not_proved_all`) with deterministic serialization.
-  - [ ] 25.0.6 Add verifier policy gate (`clg verify --require-assurance proved_all`) and wire it into release workflows.
-  - [ ] 25.0.7 Add release compile profile behavior so production compile/publish fails unless theorem-grade policy passes.
+  - [x] 25.0.1 Publish milestone_3 design lock with explicit proof completion thresholds and fail-closed policy. (`docs/design/phase-25.0.1-milestone-3-design-lock.md`)
+  - [x] 25.0.2 Define theorem-grade proof certification policy (`proved_all`) requiring pure functions, all VCs `proved`, zero assumptions, and strict-mode verification. (`docs/design/phase-25.0.2-theorem-grade-certification-policy.md`)
+  - [x] 25.0.3 Lock assurance policy decision: `release == proved`; allow non-proved compile only in non-release/dev workflows. (`docs/design/phase-25.0.3-release-equals-proved-policy.md`)
+  - [x] 25.0.4 Enforce release fail-closed policy: block release on any `failed|unknown|timeout|assumed` proof outcome. (`docs/design/phase-25.0.4-fail-closed-release-enforcement.md`)
+  - [x] 25.0.5 Emit theorem-grade status in assurance artifacts/signature payload (`proof_status: proved_all|not_proved_all`) with deterministic serialization. (`docs/design/phase-25.0.5-proof-status-emission.md`, `crates/cli/src/proofs.rs`, `crates/cli/src/commands/build/vcs_json.rs`, `crates/cli/tests/signing/tests.rs`)
+  - [x] 25.0.6 Add verifier policy gate (`clg verify --require-assurance proved_all`) and wire it into release workflows. (`docs/design/phase-25.0.6-verify-require-assurance-gate.md`, `crates/cli/src/commands/verify.rs`, `crates/cli/tests/signing/tests.rs`)
+  - [x] 25.0.7 Add release compile profile behavior so production compile/publish fails unless theorem-grade policy passes. (`docs/design/phase-25.0.7-production-release-profile-gate.md`, `crates/cli/src/main.rs`, `crates/cli/src/commands/build/run.rs`, `crates/cli/tests/cli_it/diagnostics/type_and_mode_basics.rs`)
   - [ ] 25.0.8 Add CI/release gate that blocks publish unless required proof matrix and evidence artifacts are complete.
   - [ ] 25.0.9 Add CI gate asserting release bundles contain zero assumption boundaries (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted`).
   - [ ] 25.0.10 Add cross-platform proof parity gate: release targets (Windows/Linux/macOS) must produce equivalent proof outcomes and deterministic assurance status.

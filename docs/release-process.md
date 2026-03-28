@@ -31,14 +31,14 @@ Outputs:
 Build Wasm and emit verification conditions.
 
 ```powershell
-clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --validate
+clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --release-profile production --validate
 ```
 
 ## 3) Sign Release Artifacts
 Sign module and proofs in one pass and emit assurance manifest.
 
 ```powershell
-clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
+clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --release-profile production --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
 ```
 
 ## 4) Verify Before Publish
@@ -46,6 +46,12 @@ Run verification gate against the produced artifacts.
 
 ```powershell
 clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --explain
+```
+
+Theorem-grade gate for release workflows:
+
+```powershell
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --require-assurance proved_all
 ```
 
 Optional release policy gate:
@@ -63,5 +69,9 @@ Publish these files together:
 - checksums/SBOM/release notes as needed by your distribution process
 
 ## Notes
+- Milestone 3 policy lock: production release is `release == proved` (`proved_all` required). Non-proved outputs are dev/non-release only.
+- `--release-profile production` enforces fail-closed theorem-grade gating at build/sign time.
+- Fail-closed release gate: block production release on any proof outcome `failed|unknown|timeout|assumed`.
+- Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.
 - Today, `--emit-vcs` emits obligations; full solver-completion automation is tracked for Milestone 3.
 - A single wrapper command (`clg release`) is planned, but not implemented yet.

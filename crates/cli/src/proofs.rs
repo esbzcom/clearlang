@@ -12,6 +12,8 @@ const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
 const ASSUMPTION_PRIMITIVE_ID: &str = "primitive.unproved";
 const ASSUMPTION_EXTERNAL_ID: &str = "external.dependency";
 const ASSURANCE_TIER_L0: &str = "L0";
+pub const PROOF_STATUS_PROVED_ALL: &str = "proved_all";
+pub const PROOF_STATUS_NOT_PROVED_ALL: &str = "not_proved_all";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProofSpan {
@@ -170,6 +172,8 @@ pub struct ProofSection {
     pub assurance: Option<ProofAssurance>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assurance_claim: Option<ProofAssuranceClaim>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_status: Option<String>,
 }
 
 pub struct ProofPackage {
@@ -178,6 +182,7 @@ pub struct ProofPackage {
     proofs_hash: [u8; 32],
     assurance: ProofAssurance,
     assurance_claim: ProofAssuranceClaim,
+    proof_status: String,
 }
 
 impl ProofPackage {
@@ -318,6 +323,7 @@ impl ProofPackage {
             proofs_hash,
             assurance: assurance_for_vcs(vcs),
             assurance_claim: assurance_claim_for_compiler_mode(compiler_mode),
+            proof_status: proof_status_for_vcs(vcs, compiler_mode).to_string(),
         }
     }
 
@@ -334,6 +340,7 @@ impl ProofPackage {
             functions: self.functions.clone(),
             assurance: Some(self.assurance.clone()),
             assurance_claim: Some(self.assurance_claim.clone()),
+            proof_status: Some(self.proof_status.clone()),
         };
         to_cbor_bytes(&section)
     }
@@ -352,6 +359,7 @@ impl ProofPackage {
             "scope": scope.as_str(),
             "assurance": self.assurance.clone(),
             "assurance_claim": self.assurance_claim.clone(),
+            "proof_status": self.proof_status,
         })
     }
 }
@@ -423,6 +431,17 @@ pub fn assurance_claim_for_compiler_mode(compiler_mode: &str) -> ProofAssuranceC
     }
 }
 
+pub fn proof_status_for_vcs(vcs: &[VerificationCondition], compiler_mode: &str) -> &'static str {
+    let strict_mode = compiler_mode.trim().eq_ignore_ascii_case("strict");
+    let all_vcs_proved = !vcs.is_empty() && vcs.iter().all(|vc| vc.status == "proved");
+    let zero_assumptions = vcs.iter().all(|vc| vc.assumptions.is_empty());
+    if strict_mode && all_vcs_proved && zero_assumptions {
+        PROOF_STATUS_PROVED_ALL
+    } else {
+        PROOF_STATUS_NOT_PROVED_ALL
+    }
+}
+
 pub fn build_assurance_manifest_payload(
     vcs: &[VerificationCondition],
     toolchain: &str,
@@ -453,6 +472,7 @@ pub fn build_assurance_manifest_payload(
     let mut dependency_trust: BTreeMap<(String, String), String> = BTreeMap::new();
     let mut assumption_count = 0usize;
     let assurance_claim = assurance_claim_for_compiler_mode(compiler_mode);
+    let proof_status = proof_status_for_vcs(vcs, compiler_mode);
 
     for vc in ordered_vcs {
         for boundary in &vc.assumptions {
@@ -551,6 +571,7 @@ pub fn build_assurance_manifest_payload(
             "proof_strict": proof_strict,
         },
         "assurance_claim": assurance_claim,
+        "proof_status": proof_status,
         "artifacts": {
             "module_hash": module_hash_hex,
             "proofs_hash": proofs_hash_hex,
@@ -695,4 +716,72 @@ fn rewrite_module_hash(bytes: &[u8], new_hash: &[u8; 32]) -> Result<Vec<u8>> {
         }
     }
     Err(anyhow!("clearlang.proof section not found"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clg_ast::Span;
+    use clg_typer::{AssumptionBoundary, AssumptionCategory, ContractExpr, VerificationCondition};
+
+    fn sample_vc(status: &'static str) -> VerificationCondition {
+        VerificationCondition {
+            function: "main".to_string(),
+            vc_id: "vc:0".to_string(),
+            pre: ContractExpr {
+                ast: "true".to_string(),
+                smt2: "true".to_string(),
+                span: Some(Span { start: 0, end: 0 }),
+            },
+            post: ContractExpr {
+                ast: "true".to_string(),
+                smt2: "true".to_string(),
+                span: Some(Span { start: 0, end: 0 }),
+            },
+            vc_smt2: "(=> true true)".to_string(),
+            status,
+            refinements: Vec::new(),
+            assumptions: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn proof_status_is_proved_all_only_for_strict_all_proved_without_assumptions() {
+        let vcs = vec![sample_vc("proved"), sample_vc("proved")];
+        assert_eq!(
+            proof_status_for_vcs(&vcs, "strict"),
+            PROOF_STATUS_PROVED_ALL
+        );
+    }
+
+    #[test]
+    fn proof_status_is_not_proved_all_when_any_vc_not_proved() {
+        let vcs = vec![sample_vc("proved"), sample_vc("generated")];
+        assert_eq!(
+            proof_status_for_vcs(&vcs, "strict"),
+            PROOF_STATUS_NOT_PROVED_ALL
+        );
+    }
+
+    #[test]
+    fn proof_status_is_not_proved_all_when_assumptions_exist_or_not_strict() {
+        let mut vc = sample_vc("proved");
+        vc.assumptions.push(AssumptionBoundary {
+            id: "crypto.uninterpreted",
+            category: AssumptionCategory::Crypto,
+            status: "assumed",
+            message: "crypto modeled as uninterpreted",
+            symbols: vec!["std::crypto::hash".to_string()],
+        });
+        assert_eq!(
+            proof_status_for_vcs(&[vc], "strict"),
+            PROOF_STATUS_NOT_PROVED_ALL
+        );
+
+        let vcs = vec![sample_vc("proved")];
+        assert_eq!(
+            proof_status_for_vcs(&vcs, "standard"),
+            PROOF_STATUS_NOT_PROVED_ALL
+        );
+    }
 }

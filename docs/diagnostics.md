@@ -181,6 +181,8 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C117 | build | Advisory policy input is missing/invalid (including strict-mode `--advisory-as-of` precondition, malformed advisory schema/timestamps, or strict trust/signature verification failure). |
 | C118 | build | Build/run resolution policy mismatch for equivalent package inputs. |
 | C119 | build | Resolver/solver replay determinism mismatch on identical inputs (graph/lockfile/diagnostics drift). |
+| C120 | build | `--release-profile production` requires `--compiler-mode strict`. |
+| C121 | build | Production release profile requires theorem-grade assurance (`proof_status=proved_all`). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

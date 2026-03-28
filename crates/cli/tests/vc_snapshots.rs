@@ -14,6 +14,7 @@ fn normalize_vcs(value: &mut Value) {
     for item in arr {
         if let Some(obj) = item.as_object_mut() {
             obj.remove("positions");
+            obj.remove("proof_status");
             if let Some(diagnostics) = obj.get_mut("diagnostics").and_then(|d| d.as_object_mut()) {
                 if let Some(failure_slice) = diagnostics
                     .get_mut("failure_slice")

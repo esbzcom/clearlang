@@ -202,6 +202,7 @@ fn tamper_proofs_hash(module: &Path) {
         functions: serde_cbor::Value,
         assurance: Option<serde_cbor::Value>,
         assurance_claim: Option<serde_cbor::Value>,
+        proof_status: Option<String>,
     }
 
     fn to_cbor_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {

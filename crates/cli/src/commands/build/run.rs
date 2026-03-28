@@ -7,6 +7,7 @@ pub fn run(
     debug_names: bool,
     emit_vcs: Option<PathBuf>,
     compiler_mode: CompilerMode,
+    release_profile: ReleaseProfile,
     std_core_link_mode: StdCoreLinkMode,
     proof_strict: Option<bool>,
     sign: bool,
@@ -35,6 +36,12 @@ pub fn run(
     let mut strict_host_profile_for_caps: Option<StrictHostProfileV0> = None;
     let mut strict_external_bindings_for_link: Option<StrictExternalBindings> = None;
 
+    if release_profile == ReleaseProfile::Production && compiler_mode != CompilerMode::Strict {
+        fail_preflight(
+            "C120",
+            "`--release-profile production` requires `--compiler-mode strict`",
+        )?;
+    }
     if std_core_link_mode == StdCoreLinkMode::Precompiled && compiler_mode != CompilerMode::Strict {
         fail_preflight(
             "C035",
@@ -355,6 +362,19 @@ pub fn run(
         }
         if let Some(message) = strict_language_profile_violation(&vcs) {
             fail_build("C033", &message, None)?;
+        }
+    }
+    if release_profile == ReleaseProfile::Production {
+        let proof_status = proof_status_for_vcs(&vcs, compiler_mode.as_str());
+        if proof_status != PROOF_STATUS_PROVED_ALL {
+            fail_build(
+                "C121",
+                &format!(
+                    "release profile `production` requires theorem-grade assurance (`proof_status={}`); got `{}`",
+                    PROOF_STATUS_PROVED_ALL, proof_status
+                ),
+                None,
+            )?;
         }
     }
 

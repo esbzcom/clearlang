@@ -35,6 +35,14 @@ This directory is organized by role so operational docs stay easy to find.
 - Phase design docs are in `docs/design/`.
 - The Phase 20-24 milestone design root is:
   - `docs/design/phase-20.0-std-packaging-runtime-linking.md`
+- Milestone 3 release-assurance design lock:
+  - `docs/design/phase-25.0.1-milestone-3-design-lock.md`
+  - `docs/design/phase-25.0.2-theorem-grade-certification-policy.md`
+  - `docs/design/phase-25.0.3-release-equals-proved-policy.md`
+  - `docs/design/phase-25.0.4-fail-closed-release-enforcement.md`
+  - `docs/design/phase-25.0.5-proof-status-emission.md`
+  - `docs/design/phase-25.0.6-verify-require-assurance-gate.md`
+  - `docs/design/phase-25.0.7-production-release-profile-gate.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

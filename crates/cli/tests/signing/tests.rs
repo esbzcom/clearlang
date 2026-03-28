@@ -44,6 +44,13 @@ fn sign_and_verify_roundtrip() {
             .and_then(|v| v.as_bool()),
         Some(false)
     );
+    assert_eq!(
+        sig_value
+            .get("payload")
+            .and_then(|v| v.get("proof_status"))
+            .and_then(|v| v.as_str()),
+        Some("not_proved_all")
+    );
 
     let mut verify = Command::cargo_bin("clg").expect("bin");
     verify
@@ -74,6 +81,7 @@ fn verify_explain_emits_checked_core_summary() {
     let stdout = verify.assert().success().get_output().stdout.clone();
     let text = String::from_utf8(stdout).expect("utf8 stdout");
     assert!(text.contains("Verification explanation"));
+    assert!(text.contains("proof_status: not_proved_all"));
     assert!(text.contains("assurance: L1 (checked core)"));
     assert!(text.contains("assurance_claim: non-strict evidence only"));
     assert!(text.contains("assumed_boundaries: none"));
@@ -177,6 +185,10 @@ fn build_emits_signed_assurance_manifest() {
             .and_then(|v| v.get("release_grade_trust"))
             .and_then(|v| v.as_bool()),
         Some(false)
+    );
+    assert_eq!(
+        payload.get("proof_status").and_then(|v| v.as_str()),
+        Some("not_proved_all")
     );
 
     let payload_hash = manifest_value
@@ -531,4 +543,50 @@ fn verify_release_policy_rejects_invalid_manifest_signature_with_v005() {
                 "release policy manifest validation failed",
             )),
         );
+}
+
+#[test]
+fn verify_require_assurance_rejects_not_proved_all_with_v005() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"")
+            .and(predicate::str::contains("required assurance `proved_all` not satisfied"))
+            .and(predicate::str::contains("not_proved_all")),
+    );
+}
+
+#[test]
+fn verify_require_assurance_rejects_invalid_value_with_v005() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("l3");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"").and(predicate::str::contains(
+            "invalid `--require-assurance` value",
+        )),
+    );
 }

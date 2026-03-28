@@ -21,7 +21,8 @@ use crate::commands::helpers::{
 use crate::commands::modules::load_program;
 use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{
-    build_assurance_manifest_payload, hash_module, module_bytes_with_zeroed_hash, ProofPackage,
+    build_assurance_manifest_payload, hash_module, module_bytes_with_zeroed_hash,
+    proof_status_for_vcs, ProofPackage, PROOF_STATUS_PROVED_ALL,
 };
 use crate::signing::{self, SignScope};
 
@@ -66,6 +67,14 @@ impl CompilerMode {
             CompilerMode::Strict => "strict",
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum ReleaseProfile {
+    /// Development compile flow: theorem-grade release gate is not enforced.
+    Dev,
+    /// Production compile flow: fail-closed gate requires theorem-grade proof status.
+    Production,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]

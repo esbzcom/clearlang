@@ -5,7 +5,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use clg_typer::{AssumptionBoundary, RefinementAttachmentDetail, VerificationCondition};
 
-use crate::proofs::{assurance_claim_for_compiler_mode, assurance_for_assumptions};
+use crate::proofs::{
+    assurance_claim_for_compiler_mode, assurance_for_assumptions, proof_status_for_vcs,
+};
 
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
 
@@ -26,6 +28,7 @@ pub(super) fn write_vcs_json(
 
     let file_str = src.to_string_lossy();
     let assurance_claim = assurance_claim_for_compiler_mode(compiler_mode);
+    let proof_status = proof_status_for_vcs(vcs, compiler_mode);
     let mut items = Vec::with_capacity(vcs.len());
     for vc in vcs {
         let positions = match (vc.pre.span, vc.post.span) {
@@ -55,6 +58,7 @@ pub(super) fn write_vcs_json(
         );
         obj.insert("vc".to_string(), json!({ "smt2": vc.vc_smt2 }));
         obj.insert("status".to_string(), json!(vc.status));
+        obj.insert("proof_status".to_string(), json!(proof_status));
         obj.insert(
             "assurance".to_string(),
             serde_json::to_value(assurance_for_assumptions(&vc.assumptions))?,

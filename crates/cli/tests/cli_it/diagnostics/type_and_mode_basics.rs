@@ -276,6 +276,57 @@ fn precompiled_std_core_mode_requires_strict_compiler_mode_with_c035() {
 }
 
 #[test]
+fn production_release_profile_requires_strict_compiler_mode_with_c120() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_release_non_strict.clear");
+    fs::write(&file, src).expect("write");
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "standard"])
+        .args(["--release-profile", "production"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C120", "build");
+}
+
+#[test]
+fn production_release_profile_requires_proved_all_with_c121() {
+    let src = r#"
+        function main() -> Int { 0 }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_release_not_proved_all.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--release-profile", "production"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C121", "build");
+}
+
+#[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
         function main() -> Int { std::str::len("abc") }

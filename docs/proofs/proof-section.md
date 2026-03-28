@@ -44,6 +44,7 @@ The payload is a CBOR map with the following fields:
 | `functions`     | array of function maps   | One entry per function carrying contracts/VCs.        |
 | `assurance`     | optional assurance map   | Module-level assurance tier + stable `L0`-`L3` labels. |
 | `assurance_claim` | optional claim map     | Explicit strict vs non-strict trust-claim boundary marker. |
+| `proof_status`  | optional text            | Theorem-grade aggregate status: `proved_all` or `not_proved_all`. |
 
 ### Function Entry
 
@@ -137,6 +138,7 @@ uses the same zeroed-field procedure described above. Shape:
   "scope": "module" | "proofs" | "both",
   "assurance": { "tier": "...", "label": "...", "levels": { "L0": "...", "L1": "...", "L2": "...", "L3": "..." } },
   "assurance_claim": { "compiler_mode": "standard", "non_strict_evidence_only": true, "release_grade_trust": false },
+  "proof_status": "not_proved_all",
   "trust_anchors": { "lean_checker": "<version>", "coq_checker": "<version>" }
 }
 ```
@@ -182,6 +184,7 @@ Manifest envelope shape:
       "non_strict_evidence_only": true|false,
       "release_grade_trust": true|false
     },
+    "proof_status": "proved_all|not_proved_all",
     "artifacts": {
       "module_hash": "<hex>",
       "proofs_hash": "<hex>"
@@ -215,6 +218,9 @@ release-tier policy gates and fails with `V005` when:
 - manifest/policy schema is invalid,
 - manifest hashes do not match the verified signature payload,
 - manifest `assurance.tier` is below policy `minimum_assurance_tier`.
+
+`clg verify --require-assurance proved_all` enforces theorem-grade status from signed
+`proof_status` and fails with `V005` when status is missing, invalid, or not `proved_all`.
 
 ## Backwards Compatibility
 

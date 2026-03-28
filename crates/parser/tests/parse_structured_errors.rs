@@ -127,6 +127,26 @@ fn parse_errors_reports_export_import_as_p011() {
 }
 
 #[test]
+fn parse_errors_reports_theorem_keyword_as_p014() {
+    let src = r#"
+        theorem function add(x: Int, y: Int) -> Int { x + y }
+    "#;
+    let errs = parse_errors(src).expect_err("theorem keyword should be rejected");
+    assert!(
+        errs.iter().any(|e| e.code == "P014"),
+        "expected P014, got {:?}",
+        errs.iter().map(|e| e.code).collect::<Vec<_>>()
+    );
+    assert!(
+        errs.iter().any(|e| e
+            .message
+            .contains("theorem-grade is a release certification status")),
+        "expected explicit deferred theorem syntax message, got {:?}",
+        errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn parse_errors_accepts_inline_refinements() {
     let src = r#"
         function f(x: Int where x >= 0) -> Int where result >= 0 { x }

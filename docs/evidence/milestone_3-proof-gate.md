@@ -21,6 +21,7 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all`
   - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122`
   - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_crypto_assumption_boundary_with_c123`
+  - `cargo test -p clg-cli --test cli_it parse_rejects_theorem_keyword_with_explicit_code`
 - Cross-platform parity matrix artifacts:
   - Linux: `milestone3-proof-parity-linux`
   - Windows: `milestone3-proof-parity-windows`
@@ -54,6 +55,9 @@ This document is the evidence index for TODO item `25.0.8`.
 - Docs/profile alignment gate:
   - root `README.md` must state that `permissive`/`standard` are dev/evidence profiles and do not imply `proved_all`.
   - `examples/projects/README.md` quick-release flow must include `--release-profile production` and `--require-assurance proved_all`.
+- Language-surface minimization gate:
+  - parser rejects `theorem` syntax with `P014`.
+  - theorem-grade remains certification status (build/verify policy), not milestone_3 syntax.
 - Canonical workflow reference:
   - `docs/release-process.md`
 

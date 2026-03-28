@@ -14,8 +14,8 @@ use clg_ast::{Program, Span};
 mod heuristics;
 
 use self::heuristics::{
-    find_capture_list_lambda, find_comma_grouped_number, find_export_import, find_untyped_lambda,
-    has_unclosed_paren, keyword_missing_brace, looks_like_missing_comma,
+    find_capture_list_lambda, find_comma_grouped_number, find_export_import, find_theorem_keyword,
+    find_untyped_lambda, has_unclosed_paren, keyword_missing_brace, looks_like_missing_comma,
     strip_comments_preserve_layout,
 };
 
@@ -260,6 +260,12 @@ pub fn parse(src: &str) -> Result<Program, String> {
                 start, end
             ));
         }
+        if let Some((start, end)) = find_theorem_keyword(normalized.as_str()) {
+            messages.push(format!(
+                "at {}..{}: error: `theorem` keyword is reserved in milestone_3; theorem-grade is a release certification status, not syntax",
+                start, end
+            ));
+        }
         messages.join("\n")
     })
 }
@@ -303,11 +309,20 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     )
                 };
                 let missing_else = msg.contains("missing `else` in expression-form `if`");
+                let theorem_deferred = msg.contains("`theorem` keyword is reserved in milestone_3");
                 let (code, message) = if missing_else {
                     (
                         "P010",
                         format!(
                             "at {}..{}: error: missing `else` in expression-form `if`",
+                            span.start, span.end
+                        ),
+                    )
+                } else if theorem_deferred {
+                    (
+                        "P014",
+                        format!(
+                            "at {}..{}: error: `theorem` keyword is reserved in milestone_3; theorem-grade is a release certification status, not syntax",
                             span.start, span.end
                         ),
                     )
@@ -417,9 +432,20 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     end,
                 });
             }
+            if let Some((start, end)) = find_theorem_keyword(normalized.as_str()) {
+                items.push(ParserError {
+                    code: "P014",
+                    message: format!(
+                        "at {}..{}: error: `theorem` keyword is reserved in milestone_3; theorem-grade is a release certification status, not syntax",
+                        start, end
+                    ),
+                    start,
+                    end,
+                });
+            }
             let specialized_spans: Vec<(usize, usize)> = items
                 .iter()
-                .filter(|e| e.code == "P011" || e.code == "P012")
+                .filter(|e| e.code == "P011" || e.code == "P012" || e.code == "P014")
                 .map(|e| (e.start, e.end))
                 .collect();
             if !specialized_spans.is_empty() {

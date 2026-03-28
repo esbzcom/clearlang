@@ -79,6 +79,11 @@ pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
             s
         })
         .try_map(|s: String, span| match s.as_str() {
+            "theorem" => Err(Rich::custom(
+                span,
+                "`theorem` keyword is reserved in milestone_3; theorem-grade is a release certification status, not syntax"
+                    .to_string(),
+            )),
             "function" | "pure" | "mut" | "io" | "return" | "let" | "while" | "invariant"
             | "variant" | "Int" | "U8" | "U64" | "U128" | "U256" | "Bool" | "String" | "Bytes"
             | "Option" | "Result" | "match" | "Some" | "None" | "Ok" | "Err" | "true" | "false"
@@ -104,6 +109,11 @@ pub(crate) fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
             s
         })
         .try_map(|s: String, span| match s.as_str() {
+            "theorem" => Err(Rich::custom(
+                span,
+                "`theorem` keyword is reserved in milestone_3; theorem-grade is a release certification status, not syntax"
+                    .to_string(),
+            )),
             "function" | "pure" | "mut" | "io" | "return" | "let" | "while" | "invariant"
             | "variant" | "Int" | "U8" | "U64" | "U128" | "U256" | "Bool" | "true" | "false"
             | "match" | "require" | "ensure" | "resource" | "struct" | "enum" | "interface"

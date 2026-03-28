@@ -277,6 +277,10 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         root_readme.contains("do **not** imply theorem-grade status (`proved_all`)"),
         "root README must avoid implying standard compile is theorem-grade"
     );
+    assert!(
+        root_readme.contains("no `theorem` language keyword"),
+        "root README must state theorem-grade is certification status, not milestone_3 syntax"
+    );
     let examples_readme =
         fs::read_to_string(root.join("examples").join("projects").join("README.md"))
             .expect("read examples/projects/README.md");
@@ -481,7 +485,7 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
     for item in [
-        "25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13", "25.0.14",
+        "25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13", "25.0.14", "25.0.15",
     ] {
         assert!(
             todo_has_checked_item(&todo, item),

@@ -71,6 +71,7 @@ Publish these files together:
 ## Notes
 - Milestone 3 policy lock: production release is `release == proved` (`proved_all` required). Non-proved outputs are dev/non-release only.
 - `--release-profile production` enforces fail-closed theorem-grade gating at build/sign time.
+- `--release-profile production` also enforces release-surface policy (`C122`): used `std::...` symbols must be listed as `proved` in `docs/proofs/proof-coverage-matrix.json`.
 - Fail-closed release gate: block production release on any proof outcome `failed|unknown|timeout|assumed`.
 - `--require-assurance proved_all` now also requires zero assumption boundaries in signed payloads/manifests (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted` are prohibited in release bundles).
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.

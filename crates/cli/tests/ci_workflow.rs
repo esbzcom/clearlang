@@ -113,6 +113,7 @@ fn ci_workflow_enforces_validation_and_tests() {
         "cargo test -p clg-cli --test milestone3_proof_parity",
         "cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all",
         "cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all",
+        "cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122",
         "cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section",
         "cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers",
     ] {

@@ -19,6 +19,7 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test milestone3_proof_parity`
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all`
   - `cargo test -p clg-cli --test signing verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved_all`
+  - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122`
 - Cross-platform parity matrix artifacts:
   - Linux: `milestone3-proof-parity-linux`
   - Windows: `milestone3-proof-parity-windows`
@@ -45,6 +46,8 @@ This document is the evidence index for TODO item `25.0.8`.
 - Release symbol allowlist rule:
   - bundle `std::...` symbols must be a subset of matrix entries with `status == proved`.
   - canonical source: `docs/proofs/proof-coverage-matrix.json`
+- Production compile release-surface gate:
+  - `--release-profile production` fails with `C122` when used `std::...` symbols are outside the proved allowlist.
 - Canonical workflow reference:
   - `docs/release-process.md`
 

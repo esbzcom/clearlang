@@ -365,6 +365,9 @@ pub fn run(
         }
     }
     if release_profile == ReleaseProfile::Production {
+        if let Some(message) = production_release_surface_violation(&mono_program)? {
+            fail_build("C122", &message, None)?;
+        }
         let proof_status = proof_status_for_vcs(&vcs, compiler_mode.as_str());
         if proof_status != PROOF_STATUS_PROVED_ALL {
             fail_build(
@@ -540,5 +543,33 @@ pub fn run(
 
     logger.summary(&timings);
     Ok(())
+}
+
+fn production_release_surface_violation(program: &Program) -> Result<Option<String>> {
+    let bundle_symbols = bundle_symbols_for_program(program);
+    if bundle_symbols.is_empty() {
+        return Ok(None);
+    }
+    let matrix_path = std::env::var("CLG_PROOF_MATRIX_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("docs/proofs/proof-coverage-matrix.json"));
+    let proved_allowlist = load_proved_surface_allowlist(&matrix_path).map_err(|err| {
+        anyhow!(
+            "release profile `production` surface allowlist load failed for `{}`: {err:#}",
+            matrix_path.display()
+        )
+    })?;
+    let disallowed: Vec<String> = bundle_symbols
+        .into_iter()
+        .filter(|symbol| !proved_allowlist.contains(symbol))
+        .collect();
+    if disallowed.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "release profile `production` only permits proved std surfaces from `{}`; disallowed [{}]",
+        matrix_path.display(),
+        disallowed.join(", ")
+    )))
 }
 

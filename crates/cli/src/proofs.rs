@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fs;
+use std::path::Path;
 
 use anyhow::{anyhow, Result};
 use clg_ast::Program;
@@ -458,12 +460,39 @@ fn assumption_boundary_ids_for_vcs(vcs: &[VerificationCondition]) -> Vec<String>
     ids.into_iter().collect()
 }
 
-fn bundle_symbols_for_program(program: &Program) -> Vec<String> {
+pub fn bundle_symbols_for_program(program: &Program) -> Vec<String> {
     let mut symbols = BTreeSet::new();
     for func in &program.funcs {
         collect_bundle_symbols_from_expr(&func.body, &mut symbols);
     }
     symbols.into_iter().collect()
+}
+
+pub fn load_proved_surface_allowlist(matrix_path: &Path) -> Result<BTreeSet<String>> {
+    let bytes = fs::read(matrix_path)
+        .map_err(|err| anyhow!("reading proof matrix {}: {err}", matrix_path.display()))?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|err| anyhow!("parsing proof matrix {}: {err}", matrix_path.display()))?;
+    let entries = value
+        .get("entries")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| anyhow!("proof matrix {} missing entries[]", matrix_path.display()))?;
+    let mut surfaces = BTreeSet::new();
+    for entry in entries {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        if obj.get("status").and_then(|v| v.as_str()) != Some("proved") {
+            continue;
+        }
+        if let Some(surface) = obj.get("surface").and_then(|v| v.as_str()) {
+            let surface = surface.trim();
+            if !surface.is_empty() {
+                surfaces.insert(surface.to_string());
+            }
+        }
+    }
+    Ok(surfaces)
 }
 
 fn collect_bundle_symbols_from_block(block: &clg_ast::Block, out: &mut BTreeSet<String>) {

@@ -327,6 +327,48 @@ fn production_release_profile_requires_proved_all_with_c121() {
 }
 
 #[test]
+fn production_release_profile_rejects_non_proved_std_surface_with_c122() {
+    let src = r#"
+        function main() -> Int { std::str::len("abc") }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_release_disallowed_surface.clear");
+    fs::write(&file, src).expect("write");
+    write_signed_strict_dependency_fixture(
+        tmp.path(),
+        r#"[
+        {
+          "symbol": "std::str::len",
+          "effect": "pure",
+          "params": ["String"],
+          "ret": "Int",
+          "capability": null
+        }
+      ]"#,
+    );
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let matrix_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/proofs/proof-coverage-matrix.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_PROOF_MATRIX_PATH", matrix_path)
+        .args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--std-core-link-mode", "precompiled"])
+        .args(["--release-profile", "production"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C122", "build");
+}
+
+#[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
         function main() -> Int { std::str::len("abc") }

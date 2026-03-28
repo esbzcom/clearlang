@@ -7,7 +7,7 @@ use wasmparser::{Parser, Payload};
 
 use crate::commands::helpers::{make_single_json_error, CommandError};
 use crate::logging::{Logger, StageTimings};
-use crate::proofs::decode_proof_section;
+use crate::proofs::{decode_proof_section, load_proved_surface_allowlist};
 use crate::signing;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -643,7 +643,15 @@ fn evaluate_required_assurance(
             }
         }
         if !signature_bundle_symbols.is_empty() {
-            let proved_allowlist = load_proved_surface_allowlist()?;
+            let matrix_path = std::env::var("CLG_PROOF_MATRIX_PATH")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("docs/proofs/proof-coverage-matrix.json"));
+            let proved_allowlist = load_proved_surface_allowlist(&matrix_path).map_err(|err| {
+                signing::VerifyError::new(
+                    signing::VerifyErrorCode::PolicyFailure,
+                    format!("proof matrix allowlist gate failed: {err:#}"),
+                )
+            })?;
             let disallowed: Vec<String> = signature_bundle_symbols
                 .into_iter()
                 .filter(|symbol| !proved_allowlist.contains(symbol))
@@ -700,58 +708,6 @@ fn parse_signature_bundle_symbols(
         }
     }
     Some(out.into_iter().collect())
-}
-
-fn load_proved_surface_allowlist() -> std::result::Result<BTreeSet<String>, signing::VerifyError> {
-    let matrix_path = std::env::var("CLG_PROOF_MATRIX_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("docs/proofs/proof-coverage-matrix.json"));
-    let bytes = fs::read(&matrix_path).map_err(|err| {
-        signing::VerifyError::new(
-            signing::VerifyErrorCode::PolicyFailure,
-            format!(
-                "reading proof matrix allowlist {}: {err}",
-                matrix_path.display()
-            ),
-        )
-    })?;
-    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|err| {
-        signing::VerifyError::new(
-            signing::VerifyErrorCode::PolicyFailure,
-            format!(
-                "parsing proof matrix allowlist {}: {err}",
-                matrix_path.display()
-            ),
-        )
-    })?;
-    let entries = value
-        .get("entries")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| {
-            signing::VerifyError::new(
-                signing::VerifyErrorCode::PolicyFailure,
-                format!(
-                    "proof matrix allowlist {} missing entries[]",
-                    matrix_path.display()
-                ),
-            )
-        })?;
-    let mut surfaces = BTreeSet::new();
-    for entry in entries {
-        let Some(obj) = entry.as_object() else {
-            continue;
-        };
-        if obj.get("status").and_then(|v| v.as_str()) != Some("proved") {
-            continue;
-        }
-        if let Some(surface) = obj.get("surface").and_then(|v| v.as_str()) {
-            let surface = surface.trim();
-            if !surface.is_empty() {
-                surfaces.insert(surface.to_string());
-            }
-        }
-    }
-    Ok(surfaces)
 }
 
 fn parse_manifest_assumption_boundaries(

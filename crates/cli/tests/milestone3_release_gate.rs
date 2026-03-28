@@ -185,6 +185,26 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         Some("bundle_symbols must be subset of entries[].surface where status==proved"),
         "milestone_3 lock must pin release symbol allowlist rule"
     );
+    let production_release_surface_policy = lock
+        .get("production_release_surface_policy")
+        .and_then(|v| v.as_object())
+        .expect("milestone_3 lock production_release_surface_policy{}");
+    assert_eq!(
+        production_release_surface_policy
+            .get("enforced_by")
+            .and_then(|v| v.as_str()),
+        Some("C122"),
+        "milestone_3 lock must pin production release surface policy diagnostic"
+    );
+    assert_eq!(
+        production_release_surface_policy
+            .get("rule")
+            .and_then(|v| v.as_str()),
+        Some(
+            "release-profile production may use only std surfaces marked proved in proof-coverage-matrix"
+        ),
+        "milestone_3 lock must pin production release surface policy rule"
+    );
 
     let required_release_commands = lock
         .get("required_release_commands")
@@ -411,7 +431,7 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     }
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
-    for item in ["25.0.8", "25.0.9", "25.0.10", "25.0.11"] {
+    for item in ["25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12"] {
         assert!(
             todo_has_checked_item(&todo, item),
             "milestone_3 release gate requires TODO item `{item}` to be marked complete before tagging"

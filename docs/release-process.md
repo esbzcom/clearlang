@@ -34,11 +34,17 @@ Build Wasm and emit verification conditions.
 clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --release-profile production --validate
 ```
 
+Optional (recommended for Gate B workflows):
+
+```powershell
+clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --emit-proof out/generic.proof.json --compiler-mode strict --release-profile production --validate
+```
+
 ## 3) Sign Release Artifacts
 Sign module and proofs in one pass and emit assurance manifest.
 
 ```powershell
-clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --release-profile production --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
+clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --emit-proof out/generic.proof.json --compiler-mode strict --release-profile production --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
 ```
 
 ## 4) Verify Before Publish
@@ -46,6 +52,12 @@ Run verification gate against the produced artifacts.
 
 ```powershell
 clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --explain
+```
+
+If proof-artifact claims are present, include:
+
+```powershell
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --assurance-manifest out/generic.assurance.json --proof-artifact out/generic.proof.json
 ```
 
 Theorem-grade gate for release workflows:
@@ -66,6 +78,7 @@ Publish these files together:
 - `out/generic.vc.json`
 - `out/generic.sig.json`
 - `out/generic.assurance.json`
+- `out/generic.proof.json` (when `--emit-proof` was used)
 - checksums/SBOM/release notes as needed by your distribution process
 
 ## Notes
@@ -78,5 +91,5 @@ Publish these files together:
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.
 - Milestone 3 CI/tag gate is locked by `docs/evidence/milestone_3-proof-gate.lock.json` and enforced by `crates/cli/tests/milestone3_release_gate.rs`.
 - Milestone 3 cross-platform parity gate (`linux/windows/macos`) compares emitted proof-parity artifacts before `milestone_3` tag release gating.
-- Today, `--emit-vcs` emits obligations; full solver-completion automation is tracked for Milestone 3.
+- `--emit-proof` emits deterministic proof artifact summaries and binds optional proof/solver hashes into signed payload/manifest claims for verify-time consistency checks.
 - A single wrapper command (`clg release`) is planned, but not implemented yet.

@@ -105,6 +105,7 @@ pub enum VerifyErrorCode {
     HashMismatch,
     TrustAnchorFailure,
     PolicyFailure,
+    ProofArtifactFailure,
 }
 
 impl VerifyErrorCode {
@@ -115,6 +116,7 @@ impl VerifyErrorCode {
             VerifyErrorCode::HashMismatch => "V003",
             VerifyErrorCode::TrustAnchorFailure => "V004",
             VerifyErrorCode::PolicyFailure => "V005",
+            VerifyErrorCode::ProofArtifactFailure => "V006",
         }
     }
 }
@@ -157,6 +159,9 @@ pub fn sign_bundle(
     timestamp: &str,
     lean_checker_version: Option<&str>,
     coq_checker_version: Option<&str>,
+    proof_artifact_hash: Option<&str>,
+    solver_profile_hash: Option<&str>,
+    solver_profile: Option<&serde_json::Value>,
 ) -> Result<()> {
     let signing = load_signing_key(key_path)?;
     let mut payload_value = package.build_signing_payload(module_hash_hex, scope, timestamp);
@@ -184,6 +189,24 @@ pub fn sign_bundle(
                 "coq_checker": coq_checker,
             }),
         );
+    }
+    if let Some(hash) = proof_artifact_hash {
+        payload_value
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?
+            .insert("proof_artifact_hash".to_string(), serde_json::json!(hash));
+    }
+    if let Some(hash) = solver_profile_hash {
+        payload_value
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?
+            .insert("solver_profile_hash".to_string(), serde_json::json!(hash));
+    }
+    if let Some(profile) = solver_profile {
+        payload_value
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?
+            .insert("solver_profile".to_string(), profile.clone());
     }
     let (sig_hex, _) = sign_payload(&signing, &payload_value);
     let sig_file = SignatureFile {

@@ -186,11 +186,16 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C121 | build | Production release profile requires theorem-grade assurance (`proof_status=proved_all`). |
 | C122 | build | Production release profile only permits proved std release surfaces from the canonical proof matrix allowlist. |
 | C123 | build | Production release profile blocks unresolved crypto proof boundaries (`crypto.uninterpreted`) with fail-closed diagnostics. |
+| C124 | build | Strict proof execution failed because configured theorem prover is unavailable. |
+| C125 | build | Strict proof execution reached configured theorem-prover timeout budget (fail-closed for release workflows). |
+| C126 | build | Proof artifact contract failure (missing/malformed artifact, schema mismatch, or signature/hash binding mismatch against VC/proof metadata). |
+| C127 | build | Deterministic solver replay mismatch on identical strict inputs (VC outcomes/proof artifact bytes drift). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |
 | V004 | verify | Trust-anchor verification failed (missing policy, policy parse/schema failure, payload trust-anchor mismatch). |
 | V005 | verify | Release policy/assurance gate failed (invalid policy/manifest, manifest tier below required minimum, or `proved_all` requested while assumption boundaries/disallowed release surfaces remain). |
+| V006 | verify | Proof artifact consistency gate failed (missing/malformed artifact, unsupported proof schema, or solver-profile/proof-hash mismatch against signed claims). |
 | R000 | runtime | Contract guard failed at runtime (detail indicates require/ensure). |
 | R001 | runtime | String allocator ran out of memory. |
 | R002 | runtime | Runtime rejected invalid input or malformed buffer. |

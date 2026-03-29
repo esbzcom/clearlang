@@ -22,7 +22,7 @@ VC Object (v2)
   - `smt2`: string
 - `vc`: object - the VC implication `pre => post`
   - `smt2`: string
-- `status`: string - one of `generated|proved|failed`
+- `status`: string - one of `generated|proved|failed|unknown|timeout`
 - `proof_status`: string - aggregate theorem-grade status for the emitted artifact (`proved_all|not_proved_all`)
 - `assurance`: object - explicit assurance-tier metadata (`L0`-`L3`)
   - `tier`: string - current VC tier (`L0` or `L1` in current implementation)
@@ -150,6 +150,7 @@ Notes
 - `diagnostics.repair_hints` is advisory guidance for failed-VC workflows; it does not alter VC semantics or assurance tiers.
 - `diagnostics.failure_slice` maps each VC obligation to exact source spans so failure reporting can point directly to user code.
 - `diagnostics.counterexample` carries the model-report envelope; in current implementation `state` is `solver_unavailable` and `bindings[*].value` is `null` until external solver/model attachment is provided.
+- `generated` remains transitional/non-release status for current implementation; release-grade closure requires solver-era terminal statuses and `proved` outcomes for release-enabled VCs.
 - `diagnostics.proof_context` bundles VC payload + assumptions + model snippet + span map for AI/tooling consumption; it is deterministic metadata and does not affect proof outcomes.
 - Strict compiler mode (`--compiler-mode strict`) validates assumption labels (`C031`) and then fails closed on any remaining assumption boundary (`C033`), enforcing the verified-by-construction strict language profile.
 - Consumers that do not understand refinements can ignore `refinements` and rely on `vc.smt2`.
@@ -201,14 +202,15 @@ Fixtures
 
 CLI Contract
 - `clg build file.clear --emit-vcs out.json` writes exactly the array above.
-- No solver integration in this phase; `status` is always `generated`.
-- Future: `--emit-proof proofs/` adds per-VC proof files keyed by `vc_id`.
+- Current implementation still emits `status=generated` for VCs.
+- Solver-era proof artifact contract is tracked in `docs/proofs/proof-artifact-schema.md`.
 
 Versioning and Compatibility
 - `version` is required. Consumers should handle v1 and v2 explicitly.
 - v1 fields are unchanged; v2 adds the optional `refinements` object.
 - Producers must bump `version` for any non-additive change.
 - Consumers may ignore unknown fields, but should reject unknown `version` values.
+- Status vocabulary compatibility is additive: consumers should accept `generated|proved|failed|unknown|timeout` and reject unknown status tokens in strict release verification paths.
 
 ## Example: ADT sugar
 ```json

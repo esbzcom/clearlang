@@ -6,6 +6,7 @@ pub fn run(
     validate: bool,
     debug_names: bool,
     emit_vcs: Option<PathBuf>,
+    emit_proof: Option<PathBuf>,
     compiler_mode: CompilerMode,
     release_profile: ReleaseProfile,
     std_core_link_mode: StdCoreLinkMode,
@@ -409,6 +410,7 @@ pub fn run(
     };
 
     let toolchain = format!("clg-cli/{}", env!("CARGO_PKG_VERSION"));
+    let mut proof_artifact_emission: Option<ProofArtifactEmission> = None;
     let proof_package = emit_vcs.as_ref().map(|_| {
         ProofPackage::from_program(
             &mono_program,
@@ -481,6 +483,24 @@ pub fn run(
             compiler_mode.as_str(),
         )?;
     }
+    if let Some(proof_path) = emit_proof.as_ref() {
+        let _stage = timings.start(logger, "emit_proof");
+        let emission =
+            write_proof_artifact_json(&vcs, proof_path, toolchain.as_str(), compiler_mode.as_str())?;
+        if logger.enabled(LogLevel::Debug) {
+            logger.event(
+                LogLevel::Debug,
+                "proof_artifact",
+                "emit_proof",
+                &[
+                    ("path", proof_path.display().to_string()),
+                    ("proof_artifact_hash", emission.artifact_hash.clone()),
+                    ("solver_profile_hash", emission.solver_profile_hash.clone()),
+                ],
+            );
+        }
+        proof_artifact_emission = Some(emission);
+    }
 
     if sign {
         let _stage = timings.start(logger, "sign");
@@ -496,6 +516,15 @@ pub fn run(
             assurance_manifest_out.unwrap_or_else(|| default_assurance_manifest_path(&sig_path));
         let module_hash_hex = hex::encode(hash_bytes);
         let proofs_hash_hex = pkg.proofs_hash_hex();
+        let proof_artifact_hash = proof_artifact_emission
+            .as_ref()
+            .map(|emission| emission.artifact_hash.as_str());
+        let solver_profile_hash = proof_artifact_emission
+            .as_ref()
+            .map(|emission| emission.solver_profile_hash.as_str());
+        let solver_profile = proof_artifact_emission
+            .as_ref()
+            .map(|emission| &emission.solver_profile);
         let timestamp = OffsetDateTime::now_utc()
             .format(&Rfc3339)
             .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string());
@@ -509,6 +538,9 @@ pub fn run(
             &timestamp,
             lean_checker_version.as_deref(),
             coq_checker_version.as_deref(),
+            proof_artifact_hash,
+            solver_profile_hash,
+            solver_profile,
         )?;
         let manifest_payload = build_assurance_manifest_payload(
             &vcs,
@@ -518,6 +550,8 @@ pub fn run(
             &module_hash_hex,
             &proofs_hash_hex,
             &timestamp,
+            proof_artifact_hash,
+            solver_profile_hash,
         );
         signing::sign_assurance_manifest(manifest_payload, &key_path, &key_id, &manifest_path)?;
         if logger.enabled(LogLevel::Debug) {
@@ -528,6 +562,14 @@ pub fn run(
                 &[
                     ("module_hash", module_hash_hex.clone()),
                     ("proofs_hash", proofs_hash_hex),
+                    (
+                        "proof_artifact_hash",
+                        proof_artifact_hash.unwrap_or("<none>").to_string(),
+                    ),
+                    (
+                        "solver_profile_hash",
+                        solver_profile_hash.unwrap_or("<none>").to_string(),
+                    ),
                     ("sig_path", sig_path.display().to_string()),
                     ("assurance_manifest", manifest_path.display().to_string()),
                 ],

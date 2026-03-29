@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "policy_version": "25.1.4",
+  "solver_profile": {
+    "solver_family": "z3",
+    "solver_version": "4.13.4",
+    "options": [
+      {
+        "key": "smt.random_seed",
+        "value": "0"
+      },
+      {
+        "key": "smt.phase_selection",
+        "value": "0"
+      },
+      {
+        "key": "sat.random_seed",
+        "value": "0"
+      }
+    ],
+    "timeouts_ms": {
+      "per_vc": 5000,
+      "total": 120000
+    }
+  },
+  "replay_policy": {
+    "require_identical_profile_hash": true,
+    "require_identical_vc_outcome_vector": true,
+    "require_identical_proof_artifact_hash": true
+  }
+}

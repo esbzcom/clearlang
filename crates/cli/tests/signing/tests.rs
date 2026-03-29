@@ -741,3 +741,90 @@ fn verify_require_assurance_ignores_proof_matrix_env_override() {
             .and(predicate::str::contains(fake_symbol)),
     );
 }
+
+#[test]
+fn verify_accepts_matching_proof_artifact_claims() {
+    let tmp = tempdir().unwrap();
+    let manifest = tmp.path().join("out.assurance.json");
+    let (wasm_path, sig_path, pub_path, proof_path) =
+        build_signed_module_with_manifest_and_proof_artifact(tmp.path(), Some(&manifest));
+
+    let sig_value: serde_json::Value =
+        serde_json::from_slice(&fs::read(&sig_path).expect("read signature")).expect("json");
+    assert!(sig_value
+        .get("payload")
+        .and_then(|payload| payload.get("proof_artifact_hash"))
+        .and_then(|value| value.as_str())
+        .is_some());
+    assert!(sig_value
+        .get("payload")
+        .and_then(|payload| payload.get("solver_profile_hash"))
+        .and_then(|value| value.as_str())
+        .is_some());
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--proof-artifact")
+        .arg(&proof_path);
+    verify.assert().success();
+}
+
+#[test]
+fn verify_rejects_missing_proof_artifact_when_claim_present_with_v006() {
+    let tmp = tempdir().unwrap();
+    let manifest = tmp.path().join("out.assurance.json");
+    let (wasm_path, sig_path, pub_path, _proof_path) =
+        build_signed_module_with_manifest_and_proof_artifact(tmp.path(), Some(&manifest));
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V006\"")
+            .and(predicate::str::contains("proof artifact claim is present")),
+    );
+}
+
+#[test]
+fn verify_rejects_tampered_proof_artifact_with_v006() {
+    let tmp = tempdir().unwrap();
+    let manifest = tmp.path().join("out.assurance.json");
+    let (wasm_path, sig_path, pub_path, proof_path) =
+        build_signed_module_with_manifest_and_proof_artifact(tmp.path(), Some(&manifest));
+    tamper_proof_artifact(&proof_path);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--proof-artifact")
+        .arg(&proof_path);
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V006\"")
+            .and(predicate::str::contains("proof artifact hash mismatch")),
+    );
+}

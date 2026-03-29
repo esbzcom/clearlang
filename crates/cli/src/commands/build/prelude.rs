@@ -23,8 +23,8 @@ use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{
     build_assurance_manifest_payload, bundle_symbols_for_program, hash_module,
     load_proved_surface_allowlist, module_bytes_with_zeroed_hash, proof_matrix_path_from_env,
-    proof_status_for_vcs,
-    ProofPackage, PROOF_STATUS_PROVED_ALL,
+    proof_status_for_vcs, write_proof_artifact_json, ProofArtifactEmission, ProofPackage,
+    PROOF_STATUS_PROVED_ALL,
 };
 use crate::signing::{self, SignScope};
 

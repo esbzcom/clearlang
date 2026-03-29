@@ -59,6 +59,9 @@ enum Commands {
         /// Emit verification conditions to JSON (see docs/proofs/vc-schema.md)
         #[arg(long, value_name = "FILE")]
         emit_vcs: Option<PathBuf>,
+        /// Emit proof artifact summary to JSON (see docs/proofs/proof-artifact-schema.md)
+        #[arg(long, value_name = "FILE")]
+        emit_proof: Option<PathBuf>,
         /// Compiler strictness profile (permissive, standard, strict)
         #[arg(long, value_enum, default_value_t = CompilerMode::Standard)]
         compiler_mode: CompilerMode,
@@ -126,6 +129,9 @@ enum Commands {
         /// (optional for --require-assurance; required for --release-policy)
         #[arg(long, value_name = "FILE")]
         assurance_manifest: Option<PathBuf>,
+        /// Proof artifact emitted by `clg build --emit-proof`
+        #[arg(long, value_name = "FILE")]
+        proof_artifact: Option<PathBuf>,
         /// Release policy file for assurance-tier gate checks
         #[arg(long, value_name = "FILE", requires = "assurance_manifest")]
         release_policy: Option<PathBuf>,
@@ -178,6 +184,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_vcs,
+            emit_proof,
             compiler_mode,
             release_profile,
             std_core_link_mode,
@@ -197,6 +204,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_vcs,
+            emit_proof,
             compiler_mode,
             release_profile,
             std_core_link_mode,
@@ -220,6 +228,7 @@ fn main() -> Result<()> {
             verify_mode,
             trust_policy,
             assurance_manifest,
+            proof_artifact,
             release_policy,
             require_assurance,
             explain,
@@ -230,6 +239,7 @@ fn main() -> Result<()> {
             verify_mode,
             trust_policy,
             assurance_manifest,
+            proof_artifact,
             release_policy,
             require_assurance,
             explain,

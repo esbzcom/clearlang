@@ -93,6 +93,46 @@ fn build_signed_module_with_manifest_and_trust_anchors(
     )
 }
 
+fn build_signed_module_with_manifest_and_proof_artifact(
+    tmp: &Path,
+    manifest_path: Option<&Path>,
+) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+    let src_path = tmp.join("contract.clear");
+    fs::write(&src_path, sample_source()).unwrap();
+
+    let wasm_path = tmp.join("out.wasm");
+    let vcs_path = tmp.join("out.vc.json");
+    let proof_path = tmp.join("out.proof.json");
+    let sig_path = tmp.join("out.sig.json");
+    let (key_path, pub_path) = write_key_material(tmp);
+
+    let mut cmd = Command::cargo_bin("clg").expect("bin");
+    cmd.current_dir(tmp);
+    cmd.args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .arg("--emit-proof")
+        .arg(&proof_path)
+        .arg("--sign")
+        .arg("--key")
+        .arg(&key_path)
+        .arg("--key-id")
+        .arg("test-key")
+        .arg("--scope")
+        .arg("both")
+        .arg("--sig-out")
+        .arg(&sig_path);
+    if let Some(path) = manifest_path {
+        cmd.arg("--assurance-manifest-out").arg(path);
+    }
+    cmd.assert().success();
+
+    (wasm_path, sig_path, pub_path, proof_path)
+}
+
 fn build_signed_module_from_source_with_manifest_and_trust_anchors(
     tmp: &Path,
     source: &str,
@@ -331,6 +371,19 @@ fn rewrite_assurance_manifest_payload_proof_status_and_resign(
         serde_json::to_vec_pretty(&value).expect("serialize manifest"),
     )
     .expect("write assurance manifest");
+}
+
+fn tamper_proof_artifact(proof_path: &Path) {
+    let bytes = fs::read(proof_path).expect("read proof artifact");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("proof artifact json");
+    let total_vcs = value
+        .get_mut("summary")
+        .and_then(|summary| summary.get_mut("total_vcs"))
+        .and_then(|value| value.as_u64())
+        .expect("summary.total_vcs");
+    value["summary"]["total_vcs"] = serde_json::json!(total_vcs + 1);
+    fs::write(proof_path, serde_json::to_vec_pretty(&value).expect("serialize proof artifact"))
+        .expect("write proof artifact");
 }
 
 fn repo_root() -> PathBuf {

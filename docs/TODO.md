@@ -1050,16 +1050,16 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.0.15 Keep language surface minimal: defer `theorem` keyword and treat theorem-grade as certification status (not syntax) for milestone_3. (`docs/design/phase-25.0.15-defer-theorem-keyword.md`)
 
 - [ ] 25.1 Proof engine and solver closure [Gate B]
-  - [ ] 25.1.1 Publish Gate B design lock (policy, non-goals, deterministic inputs, and exit criteria) before solver implementation lands.
-  - [ ] 25.1.2 Reserve and document solver-era diagnostics for proof execution/artifact failures (`solver unavailable`, `timeout`, `artifact mismatch`, deterministic replay mismatch).
-  - [ ] 25.1.3 Define `--emit-proof` artifact schema/version and canonical serialization rules (including backward/forward compatibility policy).
-  - [ ] 25.1.4 Lock deterministic solver profile as explicit strict input (version/options/timeouts) and include it in release evidence/signature claims.
-  - [ ] 25.1.5 Version VC/proof schemas for solver-era statuses and add backward/forward compatibility gates for `status` + counterexample fields.
-  - [ ] 25.1.6 Add solver runtime safety/isolation policy (resource limits, timeout/kill semantics, crash handling) with fail-closed diagnostics mapping.
+  - [x] 25.1.1 Publish Gate B design lock (policy, non-goals, deterministic inputs, and exit criteria) before solver implementation lands. (`docs/design/phase-25.1.1-gate-b-design-lock.md`)
+  - [x] 25.1.2 Reserve and document solver-era diagnostics for proof execution/artifact failures (`solver unavailable`, `timeout`, `artifact mismatch`, deterministic replay mismatch). (`docs/design/phase-25.1.2-solver-diagnostics-reservation.md`)
+  - [x] 25.1.3 Define `--emit-proof` artifact schema/version and canonical serialization rules (including backward/forward compatibility policy). (`docs/design/phase-25.1.3-emit-proof-schema-v1.md`)
+  - [x] 25.1.4 Lock deterministic solver profile as explicit strict input (version/options/timeouts) and include it in release evidence/signature claims. (`docs/design/phase-25.1.4-deterministic-solver-profile-lock.md`)
+  - [x] 25.1.5 Version VC/proof schemas for solver-era statuses and add backward/forward compatibility gates for `status` + counterexample fields. (`docs/design/phase-25.1.5-vc-proof-schema-compatibility-gates.md`)
+  - [x] 25.1.6 Add solver runtime safety/isolation policy (resource limits, timeout/kill semantics, crash handling) with fail-closed diagnostics mapping. (`docs/design/phase-25.1.6-solver-runtime-safety-isolation.md`)
   - [ ] 25.1.7 Close VC soundness gaps so emitted obligations are solver-ready (no placeholder/unconstrained local symbols).
   - [ ] 25.1.8 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`).
-  - [ ] 25.1.9 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`.
-  - [ ] 25.1.10 Bind proof artifact hash and solver-profile hash into signed payload/manifest and enforce verification consistency in `clg verify`.
+  - [x] 25.1.9 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`. (`docs/design/phase-25.1.9-proof-artifact-emit-verify-wiring.md`)
+  - [x] 25.1.10 Bind proof artifact hash and solver-profile hash into signed payload/manifest and enforce verification consistency in `clg verify`. (`docs/design/phase-25.1.10-proof-solver-hash-binding.md`)
   - [ ] 25.1.11 Add deterministic `--emit-proof` artifact reproducibility gate (byte/hash stability across identical inputs and runs).
   - [ ] 25.1.12 Harden solver determinism contract: pin solver version/options/timeouts and add replay-stability CI checks.
   - [ ] 25.1.13 Add CI replay gates for deterministic solver outcomes (`proved|failed|unknown|timeout`) across identical runs and release target platforms.

@@ -592,6 +592,36 @@ fn verify_require_assurance_rejects_invalid_value_with_v005() {
 }
 
 #[test]
+fn verify_require_assurance_accepts_manifest_without_release_policy_when_proved_all() {
+    let tmp = tempdir().unwrap();
+    let manifest = tmp.path().join("out.assurance.json");
+    let (wasm_path, sig_path, pub_path) = build_signed_module_with_manifest_and_trust_anchors(
+        tmp.path(),
+        Some(&manifest),
+        None,
+        None,
+    );
+
+    rewrite_signature_payload_proof_status_and_resign(&sig_path, "proved_all");
+    rewrite_assurance_manifest_payload_proof_status_and_resign(&manifest, "proved_all");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--assurance-manifest")
+        .arg(&manifest)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().success();
+}
+
+#[test]
 fn verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_proved_all() {
     let tmp = tempdir().unwrap();
     let manifest = tmp.path().join("out.assurance.json");
@@ -662,5 +692,52 @@ fn verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved
         predicate::str::contains("\"code\": \"V005\"")
             .and(predicate::str::contains("proved allowlist"))
             .and(predicate::str::contains("std::bytes::eq_ct")),
+    );
+}
+
+#[test]
+fn verify_require_assurance_ignores_proof_matrix_env_override() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+
+    let fake_symbol = "std::fake::always_disallowed";
+    rewrite_signature_payload_proof_status_and_symbols_and_resign(
+        &sig_path,
+        "proved_all",
+        &[fake_symbol],
+    );
+
+    let env_matrix_path = tmp.path().join("env-proof-matrix.json");
+    fs::write(
+        &env_matrix_path,
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 1,
+            "entries": [
+                {
+                    "surface": fake_symbol,
+                    "status": "proved"
+                }
+            ]
+        }))
+        .expect("serialize matrix"),
+    )
+    .expect("write matrix");
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .env("CLG_PROOF_MATRIX_PATH", &env_matrix_path)
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"")
+            .and(predicate::str::contains("proved allowlist"))
+            .and(predicate::str::contains(fake_symbol)),
     );
 }

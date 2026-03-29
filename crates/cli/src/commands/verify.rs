@@ -7,7 +7,9 @@ use wasmparser::{Parser, Payload};
 
 use crate::commands::helpers::{make_single_json_error, CommandError};
 use crate::logging::{Logger, StageTimings};
-use crate::proofs::{decode_proof_section, load_proved_surface_allowlist};
+use crate::proofs::{
+    decode_proof_section, default_proof_matrix_path, load_proved_surface_allowlist,
+};
 use crate::signing;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -76,28 +78,27 @@ pub fn run(
     };
     match verified_signature {
         Ok(verified_signature) => {
-            let release_policy_outcome =
-                match (assurance_manifest.as_ref(), release_policy.as_ref()) {
-                    (Some(manifest_path), Some(policy_path)) => {
-                        let _stage = timings.start(logger, "verify_release_policy");
-                        match evaluate_release_policy(
-                            manifest_path,
-                            policy_path,
-                            &verified_signature.payload,
-                            &pubkey,
-                        ) {
-                            Ok(outcome) => Some(outcome),
-                            Err(err) => return emit_verify_error(err),
-                        }
-                    }
-                    (None, None) => None,
-                    _ => {
+            let release_policy_outcome = match release_policy.as_ref() {
+                Some(policy_path) => {
+                    let Some(manifest_path) = assurance_manifest.as_ref() else {
                         return emit_verify_error(signing::VerifyError::new(
-                        signing::VerifyErrorCode::PolicyFailure,
-                        "`--assurance-manifest` and `--release-policy` must be provided together",
-                    ));
+                            signing::VerifyErrorCode::PolicyFailure,
+                            "`--release-policy` requires `--assurance-manifest <FILE>`",
+                        ));
+                    };
+                    let _stage = timings.start(logger, "verify_release_policy");
+                    match evaluate_release_policy(
+                        manifest_path,
+                        policy_path,
+                        &verified_signature.payload,
+                        &pubkey,
+                    ) {
+                        Ok(outcome) => Some(outcome),
+                        Err(err) => return emit_verify_error(err),
                     }
-                };
+                }
+                None => None,
+            };
 
             let assurance_requirement_outcome = match require_assurance.as_deref() {
                 Some(required) => {
@@ -643,9 +644,7 @@ fn evaluate_required_assurance(
             }
         }
         if !signature_bundle_symbols.is_empty() {
-            let matrix_path = std::env::var("CLG_PROOF_MATRIX_PATH")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("docs/proofs/proof-coverage-matrix.json"));
+            let matrix_path = default_proof_matrix_path();
             let proved_allowlist = load_proved_surface_allowlist(&matrix_path).map_err(|err| {
                 signing::VerifyError::new(
                     signing::VerifyErrorCode::PolicyFailure,

@@ -123,7 +123,8 @@ enum Commands {
         #[arg(long, value_name = "FILE")]
         trust_policy: Option<PathBuf>,
         /// Assurance manifest file emitted by signed builds
-        #[arg(long, value_name = "FILE", requires = "release_policy")]
+        /// (optional for --require-assurance; required for --release-policy)
+        #[arg(long, value_name = "FILE")]
         assurance_manifest: Option<PathBuf>,
         /// Release policy file for assurance-tier gate checks
         #[arg(long, value_name = "FILE", requires = "assurance_manifest")]

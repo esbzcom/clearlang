@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
 use clg_ast::Program;
@@ -493,6 +493,21 @@ pub fn load_proved_surface_allowlist(matrix_path: &Path) -> Result<BTreeSet<Stri
         }
     }
     Ok(surfaces)
+}
+
+pub fn proof_matrix_path_from_env() -> PathBuf {
+    std::env::var("CLG_PROOF_MATRIX_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("docs/proofs/proof-coverage-matrix.json"))
+}
+
+pub fn default_proof_matrix_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..")
+        .join("docs")
+        .join("proofs")
+        .join("proof-coverage-matrix.json")
 }
 
 fn collect_bundle_symbols_from_block(block: &clg_ast::Block, out: &mut BTreeSet<String>) {

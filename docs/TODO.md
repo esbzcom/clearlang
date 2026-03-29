@@ -1032,7 +1032,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 
 Execution order for Milestone 3: **policy lock -> proof closure -> release UX -> quality gates -> distribution**.
 
-- [ ] 25.0 Release assurance policy (`release == proved`) [Gate A]
+- [x] 25.0 Release assurance policy (`release == proved`) [Gate A]
   - [x] 25.0.1 Publish milestone_3 design lock with explicit proof completion thresholds and fail-closed policy. (`docs/design/phase-25.0.1-milestone-3-design-lock.md`)
   - [x] 25.0.2 Define theorem-grade proof certification policy (`proved_all`) requiring pure functions, all VCs `proved`, zero assumptions, and strict-mode verification. (`docs/design/phase-25.0.2-theorem-grade-certification-policy.md`)
   - [x] 25.0.3 Lock assurance policy decision: `release == proved`; allow non-proved compile only in non-release/dev workflows. (`docs/design/phase-25.0.3-release-equals-proved-policy.md`)

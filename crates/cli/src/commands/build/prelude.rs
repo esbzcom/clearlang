@@ -22,7 +22,8 @@ use crate::commands::modules::load_program;
 use crate::logging::{LogLevel, Logger, StageTimings};
 use crate::proofs::{
     build_assurance_manifest_payload, bundle_symbols_for_program, hash_module,
-    load_proved_surface_allowlist, module_bytes_with_zeroed_hash, proof_status_for_vcs,
+    load_proved_surface_allowlist, module_bytes_with_zeroed_hash, proof_matrix_path_from_env,
+    proof_status_for_vcs,
     ProofPackage, PROOF_STATUS_PROVED_ALL,
 };
 use crate::signing::{self, SignScope};

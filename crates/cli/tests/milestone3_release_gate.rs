@@ -485,7 +485,8 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
     for item in [
-        "25.0.8", "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13", "25.0.14", "25.0.15",
+        "25.0", "25.0.1", "25.0.2", "25.0.3", "25.0.4", "25.0.5", "25.0.6", "25.0.7", "25.0.8",
+        "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13", "25.0.14", "25.0.15",
     ] {
         assert!(
             todo_has_checked_item(&todo, item),

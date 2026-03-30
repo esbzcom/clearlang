@@ -13,13 +13,12 @@ pure function inc(x: Int) -> Int
 function main() -> Int { inc(1) }
 "#;
 
-fn write_fake_solver(dir: &Path) -> PathBuf {
-    let source = dir.join("fake_z3.rs");
-    let solver = if cfg!(windows) {
-        dir.join("fake-z3.exe")
-    } else {
-        dir.join("fake-z3")
-    };
+fn write_fake_solver_to(path: &Path) -> PathBuf {
+    let source = path.with_extension("rs");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create fake solver dir");
+    }
+    let solver = path.to_path_buf();
     let fake_solver_src = r#"
 use std::io::{self, Read};
 
@@ -61,6 +60,25 @@ fn main() {
         String::from_utf8_lossy(output.stderr.as_slice())
     );
     solver
+}
+
+fn write_fake_solver(dir: &Path) -> PathBuf {
+    let solver = if cfg!(windows) {
+        dir.join("fake-z3.exe")
+    } else {
+        dir.join("fake-z3")
+    };
+    write_fake_solver_to(&solver)
+}
+
+fn bundled_solver_path(bundle_root: &Path) -> PathBuf {
+    if cfg!(windows) {
+        bundle_root.join("windows").join("z3.exe")
+    } else if cfg!(target_os = "macos") {
+        bundle_root.join("macos").join("z3")
+    } else {
+        bundle_root.join("linux").join("z3")
+    }
 }
 
 fn build_with_solver_status(fake_status: &str) -> Value {
@@ -211,4 +229,76 @@ fn configured_solver_version_mismatch_fails_build() {
         .arg(&vcs)
         .assert()
         .failure();
+}
+
+#[test]
+fn bundled_solver_root_is_used_when_solver_env_not_set() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let bundle_root = tmp.path().join("solver-bundle");
+    let bundled_solver = bundled_solver_path(&bundle_root);
+    write_fake_solver_to(&bundled_solver);
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BUNDLE_ROOT", bundle_root)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("failed"),
+        "bundled solver should execute and map sat to failed status"
+    );
+}
+
+#[test]
+fn explicit_solver_env_path_overrides_bundle_root() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let bundle_root = tmp.path().join("solver-bundle");
+    let bundled_solver = bundled_solver_path(&bundle_root);
+    write_fake_solver_to(&bundled_solver);
+    let missing_solver = tmp.path().join("missing-z3.exe");
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BIN", missing_solver)
+        .env("CLG_SOLVER_BUNDLE_ROOT", bundle_root)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("generated"),
+        "explicit CLG_SOLVER_BIN should take precedence over bundle-root fallback"
+    );
 }

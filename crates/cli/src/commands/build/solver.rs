@@ -4,6 +4,7 @@ use std::time::Instant;
 use clg_typer::VerificationCondition;
 
 const CLG_SOLVER_BIN_ENV: &str = "CLG_SOLVER_BIN";
+const CLG_SOLVER_BUNDLE_ROOT_ENV: &str = "CLG_SOLVER_BUNDLE_ROOT";
 
 #[derive(Debug, Clone)]
 struct SolverOption {
@@ -21,7 +22,7 @@ struct SolverRuntimeProfile {
 }
 
 pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationCondition]) -> Result<()> {
-    let Some(solver_bin) = std::env::var_os(CLG_SOLVER_BIN_ENV) else {
+    let Some(solver_bin) = resolve_solver_bin() else {
         return Ok(());
     };
     if vcs.is_empty() {
@@ -65,6 +66,81 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
         }
     }
     Ok(())
+}
+
+fn resolve_solver_bin() -> Option<PathBuf> {
+    if let Some(configured) = configured_solver_bin_from_env() {
+        return Some(configured);
+    }
+    if let Some(from_bundle_env) = solver_bin_from_bundle_root_env() {
+        return Some(from_bundle_env);
+    }
+    resolver_default_bundle_candidates()
+}
+
+fn configured_solver_bin_from_env() -> Option<PathBuf> {
+    let value = std::env::var_os(CLG_SOLVER_BIN_ENV)?;
+    if value.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(value))
+}
+
+fn solver_bin_from_bundle_root_env() -> Option<PathBuf> {
+    let root = std::env::var_os(CLG_SOLVER_BUNDLE_ROOT_ENV)?;
+    if root.is_empty() {
+        return None;
+    }
+    let candidate = PathBuf::from(root).join(solver_bundle_relative_path());
+    candidate.is_file().then_some(candidate)
+}
+
+fn resolver_default_bundle_candidates() -> Option<PathBuf> {
+    let relative = solver_bundle_relative_path();
+    if let Ok(current_dir) = std::env::current_dir() {
+        if let Some(path) =
+            find_solver_in_ancestor_layouts(current_dir.as_path(), relative.as_path())
+        {
+            return Some(path);
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            if let Some(path) = find_solver_in_ancestor_layouts(exe_dir, relative.as_path()) {
+                return Some(path);
+            }
+            let packaged = exe_dir.join("solver").join(relative.as_path());
+            if packaged.is_file() {
+                return Some(packaged);
+            }
+        }
+    }
+    None
+}
+
+fn find_solver_in_ancestor_layouts(start: &std::path::Path, relative: &std::path::Path) -> Option<PathBuf> {
+    for ancestor in start.ancestors().take(8) {
+        let candidate = ancestor.join("tools").join("proof").join("z3").join(relative);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn solver_bundle_relative_path() -> PathBuf {
+    let platform = if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    };
+    if cfg!(target_os = "windows") {
+        PathBuf::from(platform).join("z3.exe")
+    } else {
+        PathBuf::from(platform).join("z3")
+    }
 }
 
 fn solver_reports_pinned_version(

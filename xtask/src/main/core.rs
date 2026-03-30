@@ -31,6 +31,7 @@ fn main() -> Result<(), String> {
         "validate" => validate_samples(&root)?,
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,
+        "solver-vendor-stage" => stage_solver_vendor(&root, args.collect())?,
         "std-surface-drift-check" => check_std_surface_drift(&root, args.collect())?,
         "host-capability-policy-artifact" => {
             emit_host_capability_policy_artifact(&root, args.collect())?
@@ -239,6 +240,87 @@ fn emit_std_core_artifact(root: &Path, raw_args: Vec<String>) -> Result<(), Stri
     fs::write(&digest_path, format!("{digest}\n"))
         .map_err(|e| format!("write digest file `{}`: {e}", digest_path.display()))?;
     Ok(())
+}
+
+fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_solver_vendor_stage_args(raw_args)?;
+    if !opts.from.is_file() {
+        return Err(format!(
+            "solver vendor source `{}` is not a file",
+            opts.from.display()
+        ));
+    }
+    let solver_file = match opts.platform.as_str() {
+        "windows" => "z3.exe",
+        "linux" | "macos" => "z3",
+        other => {
+            return Err(format!(
+                "unsupported solver vendor platform `{other}` (supported: windows, linux, macos)"
+            ));
+        }
+    };
+    let out_dir = root
+        .join("tools")
+        .join("proof")
+        .join("z3")
+        .join(opts.platform.as_str());
+    fs::create_dir_all(&out_dir).map_err(|e| format!("create `{}`: {e}", out_dir.display()))?;
+    let out = out_dir.join(solver_file);
+    fs::copy(&opts.from, &out).map_err(|e| {
+        format!(
+            "copy solver from `{}` to `{}`: {e}",
+            opts.from.display(),
+            out.display()
+        )
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&out)
+            .map_err(|e| format!("read `{}` metadata: {e}", out.display()))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&out, perms)
+            .map_err(|e| format!("set `{}` executable bit: {e}", out.display()))?;
+    }
+    println!(
+        "staged solver vendor binary: {} (platform={})",
+        out.display(),
+        opts.platform
+    );
+    Ok(())
+}
+
+fn parse_solver_vendor_stage_args(raw_args: Vec<String>) -> Result<SolverVendorStageOpts, String> {
+    let mut from: Option<PathBuf> = None;
+    let mut platform = "windows".to_string();
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--from" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--from`".to_string())?;
+                from = Some(PathBuf::from(value));
+            }
+            "--platform" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--platform`".to_string())?;
+                platform = value.to_ascii_lowercase();
+            }
+            other => {
+                return Err(format!(
+                    "unknown solver-vendor-stage arg `{other}` (supported: --from, --platform)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    let from = from.ok_or_else(|| "missing required `--from`".to_string())?;
+    Ok(SolverVendorStageOpts { from, platform })
 }
 
 fn parse_std_core_args(raw_args: Vec<String>) -> Result<StdCoreArtifactOpts, String> {

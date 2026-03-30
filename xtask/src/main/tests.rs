@@ -37,6 +37,39 @@ mod tests {
     }
 
     #[test]
+    fn parse_solver_vendor_stage_args_accepts_defaults_and_platform() {
+        let opts =
+            parse_solver_vendor_stage_args(vec!["--from".to_string(), "tmp/z3.exe".to_string()])
+                .expect("parse args");
+        assert_eq!(opts.from, PathBuf::from("tmp/z3.exe"));
+        assert_eq!(opts.platform, "windows");
+
+        let opts = parse_solver_vendor_stage_args(vec![
+            "--from".to_string(),
+            "tmp/z3".to_string(),
+            "--platform".to_string(),
+            "linux".to_string(),
+        ])
+        .expect("parse args");
+        assert_eq!(opts.from, PathBuf::from("tmp/z3"));
+        assert_eq!(opts.platform, "linux");
+    }
+
+    #[test]
+    fn parse_solver_vendor_stage_args_rejects_missing_from_and_unknown_flag() {
+        let err = parse_solver_vendor_stage_args(Vec::new()).expect_err("expected missing --from");
+        assert!(err.contains("missing required `--from`"));
+
+        let err = parse_solver_vendor_stage_args(vec![
+            "--from".to_string(),
+            "tmp/z3.exe".to_string(),
+            "--bad".to_string(),
+        ])
+        .expect_err("expected unknown flag");
+        assert!(err.contains("unknown solver-vendor-stage arg"));
+    }
+
+    #[test]
     fn parse_std_surface_args_accepts_emit_and_refresh() {
         let opts = parse_std_surface_args(vec![
             "--emit-artifact".to_string(),

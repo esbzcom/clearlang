@@ -15,6 +15,12 @@ Project module root must include:
 - `clg.trust-policy.json`
 - `clg.host-profile.json`
 
+Windows-first self-contained solver setup (no system install):
+
+```powershell
+cargo run -p xtask -- solver-vendor-stage --from C:\path\to\z3.exe --platform windows
+```
+
 ## 1) Generate Deterministic Lock Inputs
 Use an explicit advisory time for replay-stable policy evaluation.
 

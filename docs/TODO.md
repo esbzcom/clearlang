@@ -1060,7 +1060,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [ ] 25.1.8 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`).
   - [x] 25.1.9 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`. (`docs/design/phase-25.1.9-proof-artifact-emit-verify-wiring.md`)
   - [x] 25.1.10 Bind proof artifact hash and solver-profile hash into signed payload/manifest and enforce verification consistency in `clg verify`. (`docs/design/phase-25.1.10-proof-solver-hash-binding.md`)
-  - [ ] 25.1.11 Add deterministic `--emit-proof` artifact reproducibility gate (byte/hash stability across identical inputs and runs).
+  - [x] 25.1.11 Add deterministic `--emit-proof` artifact reproducibility gate (byte/hash stability across identical inputs and runs). (`docs/design/phase-25.1.11-emit-proof-reproducibility-gate.md`)
   - [ ] 25.1.12 Harden solver determinism contract: pin solver version/options/timeouts and add replay-stability CI checks.
   - [ ] 25.1.13 Add CI replay gates for deterministic solver outcomes (`proved|failed|unknown|timeout`) across identical runs and release target platforms.
   - [ ] 25.1.14 Make solver integration self-contained by default (no external system install required) by shipping a platform bundle or Rust-managed vendor path.

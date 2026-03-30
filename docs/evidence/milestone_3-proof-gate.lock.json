@@ -9,6 +9,7 @@
   ],
   "required_ci_tests": [
     "cargo test -p clg-cli --test vc_snapshots",
+    "cargo test -p clg-cli --test proof_artifact_replay",
     "cargo test -p clg-cli --test proof_coverage_matrix",
     "cargo test -p clg-cli --test verified_std_core_subset",
     "cargo test -p clg-cli --test profile_regression_gate",

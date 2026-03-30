@@ -3,15 +3,6 @@
     "assumptions": {
       "items": [
         {
-          "category": "bitwise",
-          "id": "bitwise.uninterpreted",
-          "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
-          "status": "assumed",
-          "symbols": [
-            "&"
-          ]
-        },
-        {
           "category": "crypto",
           "id": "crypto.uninterpreted",
           "intrinsic_levels": [
@@ -106,15 +97,6 @@
       "proof_context": {
         "assumptions": {
           "items": [
-            {
-              "category": "bitwise",
-              "id": "bitwise.uninterpreted",
-              "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
-              "status": "assumed",
-              "symbols": [
-                "&"
-              ]
-            },
             {
               "category": "crypto",
               "id": "crypto.uninterpreted",
@@ -230,15 +212,6 @@
     "assumptions": {
       "items": [
         {
-          "category": "bitwise",
-          "id": "bitwise.uninterpreted",
-          "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
-          "status": "assumed",
-          "symbols": [
-            "&"
-          ]
-        },
-        {
           "category": "crypto",
           "id": "crypto.uninterpreted",
           "intrinsic_levels": [
@@ -326,15 +299,6 @@
         "assumptions": {
           "items": [
             {
-              "category": "bitwise",
-              "id": "bitwise.uninterpreted",
-              "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
-              "status": "assumed",
-              "symbols": [
-                "&"
-              ]
-            },
-            {
               "category": "crypto",
               "id": "crypto.uninterpreted",
               "intrinsic_levels": [
@@ -389,7 +353,7 @@
           "function": "check",
           "post": {
             "ast": "x & y == x",
-            "smt2": "(= (clg.bit_and x y) x)"
+            "smt2": "(= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x)"
           },
           "pre": {
             "ast": "true",
@@ -397,7 +361,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
+            "smt2": "; U64 bitvector bridge helpers.\n(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x))"
           },
           "vc_id": "vc:1"
         }
@@ -423,7 +387,7 @@
     },
     "post": {
       "ast": "x & y == x",
-      "smt2": "(= (clg.bit_and x y) x)"
+      "smt2": "(= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x)"
     },
     "pre": {
       "ast": "true",
@@ -432,7 +396,7 @@
     "proof_status": "not_proved_all",
     "status": "generated",
     "vc": {
-      "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
+      "smt2": "; U64 bitvector bridge helpers.\n(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x))"
     },
     "vc_id": "vc:1",
     "version": 2

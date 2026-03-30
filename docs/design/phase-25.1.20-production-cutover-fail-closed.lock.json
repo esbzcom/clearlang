@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "policy_version": "25.1.20",
+  "release_profile": "production",
+  "required_compiler_mode": "strict",
+  "required_assurance": "proved_all",
+  "placeholder_statuses_blocked": [
+    "generated",
+    "failed",
+    "unknown",
+    "timeout"
+  ],
+  "enforced_by": "C121",
+  "required_ci_commands": [
+    "cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_requires_proved_all_with_c121",
+    "cargo test -p clg-cli --test solver_outcomes missing_solver_binary_keeps_generated_status"
+  ]
+}

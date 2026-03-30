@@ -33,7 +33,7 @@ const ASSUMPTION_STATUS_ASSUMED: &str = "assumed";
 const ASSUMPTION_UNSIGNED_MESSAGE: &str =
     "Uncovered unsigned values (currently non-U64 paths) are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.";
 const ASSUMPTION_BITWISE_MESSAGE: &str =
-    "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.";
+    "Uncovered bitwise/shift surfaces (outside the U64-covered operator/intrinsic set) are modeled as uninterpreted SMT functions.";
 const ASSUMPTION_CRYPTO_MESSAGE: &str =
     "Crypto and constant-time intrinsics are modeled as uninterpreted SMT functions; cryptographic and side-channel guarantees are assumed.";
 const ASSUMPTION_PRIMITIVE_MESSAGE: &str =

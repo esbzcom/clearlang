@@ -235,8 +235,15 @@ fn declares_bitwise_and_builtin_helpers() {
         output
             .vcs
             .iter()
-            .any(|vc| vc.vc_smt2.contains("declare-fun clg.bit_and")),
-        "expected bitwise helpers in SMT prelude"
+            .any(|vc| vc.vc_smt2.contains("bvand")),
+        "expected concrete bvand encoding in SMT output"
+    );
+    assert!(
+        output
+            .vcs
+            .iter()
+            .any(|vc| vc.vc_smt2.contains("declare-fun clg.u64.to_int ((_ BitVec 64)) Int")),
+        "expected U64 bitvector bridge declaration in SMT prelude"
     );
     assert!(
         output
@@ -259,8 +266,8 @@ fn declares_bitwise_and_builtin_helpers() {
     assert!(
         vc.assumptions
             .iter()
-            .any(|a| matches!(a.category, AssumptionCategory::Bitwise)),
-        "expected bitwise assumption boundary"
+            .all(|a| !matches!(a.category, AssumptionCategory::Bitwise)),
+        "U64-covered bitwise operators should not emit bitwise.uninterpreted boundary"
     );
     let crypto = vc
         .assumptions
@@ -313,14 +320,6 @@ fn labels_u64_rotate_and_byte_intrinsics_as_bitwise_assumptions() {
         .find(|a| matches!(a.category, AssumptionCategory::Bitwise))
         .expect("expected bitwise assumption boundary");
 
-    assert!(
-        bitwise.symbols.iter().any(|s| s == "std::u64::rotl"),
-        "expected std::u64::rotl in bitwise symbols"
-    );
-    assert!(
-        bitwise.symbols.iter().any(|s| s == "std::u64::rotr"),
-        "expected std::u64::rotr in bitwise symbols"
-    );
     assert!(
         bitwise.symbols.iter().any(|s| s == "std::u64::to_bytes_le"),
         "expected std::u64::to_bytes_le in bitwise symbols"

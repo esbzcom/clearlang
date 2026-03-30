@@ -57,9 +57,12 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
             .all(|item| item.get("id").and_then(|v| v.as_str()) != Some("unsigned.int_model")),
         "U64-covered paths should not emit unsigned.int_model assumption item"
     );
-    assert!(assumptions
-        .iter()
-        .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("bitwise.uninterpreted")));
+    assert!(
+        assumptions
+            .iter()
+            .all(|item| item.get("id").and_then(|v| v.as_str()) != Some("bitwise.uninterpreted")),
+        "U64-covered bitwise operators should not emit bitwise.uninterpreted assumption item"
+    );
     assert!(assumptions
         .iter()
         .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("primitive.unproved")));
@@ -128,10 +131,13 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
             .all(|item| !(item.id == "unsigned.int_model" && item.category == "unsigned")),
         "proof section should not carry unsigned.int_model for U64-covered paths"
     );
-    assert!(vc_assumptions
-        .items
-        .iter()
-        .any(|item| item.id == "bitwise.uninterpreted" && item.category == "bitwise"));
+    assert!(
+        vc_assumptions
+            .items
+            .iter()
+            .all(|item| !(item.id == "bitwise.uninterpreted" && item.category == "bitwise")),
+        "proof section should not carry bitwise.uninterpreted for U64-covered operators"
+    );
     assert!(vc_assumptions.items.iter().any(|item| {
         item.id == "primitive.unproved"
             && item.category == "primitive"

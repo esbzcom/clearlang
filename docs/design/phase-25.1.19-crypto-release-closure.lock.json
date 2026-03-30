@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "policy_version": "25.1.19",
+  "coverage_matrix_path": "docs/proofs/proof-coverage-matrix.json",
+  "blocked_assumption_boundary": "crypto.uninterpreted",
+  "release_enabled_crypto_surfaces": [],
+  "required_release_diagnostic": "C123",
+  "required_ci_command": "cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_crypto_assumption_boundary_with_c123"
+}

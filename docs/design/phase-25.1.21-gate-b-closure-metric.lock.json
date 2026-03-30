@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "policy_version": "25.1.21",
+  "release_enabled_surface_rule": "all release-enabled surfaces must be represented by proved entries in docs/proofs/proof-coverage-matrix.json",
+  "zero_assumption_boundaries_for_release": [
+    "unsigned.int_model",
+    "bitwise.uninterpreted",
+    "crypto.uninterpreted"
+  ],
+  "deterministic_evidence_tests": [
+    "cargo test -p clg-cli --test solver_outcomes",
+    "cargo test -p clg-cli --test solver_replay_stability",
+    "cargo test -p clg-cli --test phase25_solver_support_matrix",
+    "cargo test -p clg-cli --test phase25_solver_supply_chain_gate"
+  ],
+  "required_release_commands": [
+    "--release-profile production",
+    "--assurance-manifest",
+    "--require-assurance proved_all"
+  ]
+}

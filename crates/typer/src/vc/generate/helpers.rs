@@ -42,13 +42,21 @@ pub(super) fn collect_function_assumptions(
             symbols: uncovered_unsigned_symbols,
         });
     }
-    if !usage.bitwise_ops.is_empty() {
+    let u64_bitwise_covered = usage.unsigned_types.contains("U64")
+        && usage.unsigned_types.iter().all(|symbol| symbol == "U64");
+    let uncovered_bitwise_symbols: Vec<String> = usage
+        .bitwise_ops
+        .iter()
+        .filter(|symbol| !u64_bitwise_covered || !is_u64_covered_bitwise_symbol(symbol.as_str()))
+        .cloned()
+        .collect();
+    if !uncovered_bitwise_symbols.is_empty() {
         assumptions.push(AssumptionBoundary {
             id: ASSUMPTION_BITWISE_ID,
             category: AssumptionCategory::Bitwise,
             status: ASSUMPTION_STATUS_ASSUMED,
             message: ASSUMPTION_BITWISE_MESSAGE,
-            symbols: usage.bitwise_ops.iter().cloned().collect(),
+            symbols: uncovered_bitwise_symbols,
         });
     }
     if !usage.crypto_intrinsics.is_empty() {
@@ -277,6 +285,13 @@ fn is_bitwise_assumption_intrinsic(callee: &str) -> bool {
     )
 }
 
+fn is_u64_covered_bitwise_symbol(symbol: &str) -> bool {
+    matches!(
+        symbol,
+        "&" | "|" | "^" | "<<" | ">>" | "std::u64::rotl" | "std::u64::rotr"
+    )
+}
+
 pub(super) fn u64_bounds_smt(term: &str) -> String {
     format!("(and (<= 0 {term}) (<= {term} {U64_MAX_SMT}))")
 }
@@ -305,7 +320,6 @@ pub(super) fn u64_bitvector_bindings_smt(param_names: &[String]) -> String {
     }
     let mut lines = Vec::new();
     lines.push("; U64 bitvector bridge (phase 25.1.17)".to_string());
-    lines.push("(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)".to_string());
     for name in param_names {
         let bv_symbol = format!("clg.u64.bv.{}", name);
         lines.push(format!("(declare-const {} (_ BitVec 64))", bv_symbol));

@@ -7,7 +7,7 @@ enum SmtHelper {
     VariantAccessors,
     OptionCtor,
     ResultCtor,
-    BitwiseOps,
+    U64BitvectorBridge,
 }
 
 #[derive(Default)]
@@ -46,44 +46,34 @@ impl SmtEncoder {
                     self.encode_inner(rhs)
                 ),
                 BinOp::Shl => {
-                    self.helpers.insert(SmtHelper::BitwiseOps);
-                    format!(
-                        "(clg.shl {} {})",
-                        self.encode_inner(lhs),
-                        self.encode_inner(rhs)
-                    )
+                    self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                    let lhs = self.encode_inner(lhs);
+                    let rhs = self.encode_inner(rhs);
+                    self.encode_u64_shift(lhs, rhs, false)
                 }
                 BinOp::Shr => {
-                    self.helpers.insert(SmtHelper::BitwiseOps);
-                    format!(
-                        "(clg.shr {} {})",
-                        self.encode_inner(lhs),
-                        self.encode_inner(rhs)
-                    )
+                    self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                    let lhs = self.encode_inner(lhs);
+                    let rhs = self.encode_inner(rhs);
+                    self.encode_u64_shift(lhs, rhs, true)
                 }
                 BinOp::BitAnd => {
-                    self.helpers.insert(SmtHelper::BitwiseOps);
-                    format!(
-                        "(clg.bit_and {} {})",
-                        self.encode_inner(lhs),
-                        self.encode_inner(rhs)
-                    )
+                    self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                    let lhs = self.encode_inner(lhs);
+                    let rhs = self.encode_inner(rhs);
+                    self.encode_u64_bitwise_binop("bvand", lhs, rhs)
                 }
                 BinOp::BitXor => {
-                    self.helpers.insert(SmtHelper::BitwiseOps);
-                    format!(
-                        "(clg.bit_xor {} {})",
-                        self.encode_inner(lhs),
-                        self.encode_inner(rhs)
-                    )
+                    self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                    let lhs = self.encode_inner(lhs);
+                    let rhs = self.encode_inner(rhs);
+                    self.encode_u64_bitwise_binop("bvxor", lhs, rhs)
                 }
                 BinOp::BitOr => {
-                    self.helpers.insert(SmtHelper::BitwiseOps);
-                    format!(
-                        "(clg.bit_or {} {})",
-                        self.encode_inner(lhs),
-                        self.encode_inner(rhs)
-                    )
+                    self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                    let lhs = self.encode_inner(lhs);
+                    let rhs = self.encode_inner(rhs);
+                    self.encode_u64_bitwise_binop("bvor", lhs, rhs)
                 }
                 BinOp::Lt => format!("(< {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
                 BinOp::Le => format!("(<= {} {})", self.encode_inner(lhs), self.encode_inner(rhs)),
@@ -196,6 +186,26 @@ impl SmtEncoder {
                     .unwrap_or_else(|| "0".to_string());
                 format!("(cl.result.mk 0 {} 0)", val)
             }
+            "std::u64::rotl" => {
+                self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                if args.len() == 2 {
+                    let lhs = self.encode_inner(&args[0]);
+                    let rhs = self.encode_inner(&args[1]);
+                    self.encode_u64_rotate(lhs, rhs, true)
+                } else {
+                    "0".to_string()
+                }
+            }
+            "std::u64::rotr" => {
+                self.helpers.insert(SmtHelper::U64BitvectorBridge);
+                if args.len() == 2 {
+                    let lhs = self.encode_inner(&args[0]);
+                    let rhs = self.encode_inner(&args[1]);
+                    self.encode_u64_rotate(lhs, rhs, false)
+                } else {
+                    "0".to_string()
+                }
+            }
             _ => {
                 self.record_builtin_call(callee);
                 let parts: Vec<String> = args.iter().map(|a| self.encode_inner(a)).collect();
@@ -307,13 +317,9 @@ impl SmtEncoder {
         if self.helpers.contains(&SmtHelper::ResultCtor) {
             lines.push("(declare-fun cl.result.mk (Int Int Int) Int)".to_string());
         }
-        if self.helpers.contains(&SmtHelper::BitwiseOps) {
-            lines.push("; Bitwise ops are modeled as uninterpreted functions.".to_string());
-            lines.push("(declare-fun clg.bit_and (Int Int) Int)".to_string());
-            lines.push("(declare-fun clg.bit_or (Int Int) Int)".to_string());
-            lines.push("(declare-fun clg.bit_xor (Int Int) Int)".to_string());
-            lines.push("(declare-fun clg.shl (Int Int) Int)".to_string());
-            lines.push("(declare-fun clg.shr (Int Int) Int)".to_string());
+        if self.helpers.contains(&SmtHelper::U64BitvectorBridge) {
+            lines.push("; U64 bitvector bridge helpers.".to_string());
+            lines.push("(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)".to_string());
         }
         let builtin_lines = self.builtin_prelude();
         if !builtin_lines.is_empty() {
@@ -352,6 +358,55 @@ impl SmtEncoder {
             ));
         }
         lines
+    }
+
+    fn encode_u64_int_to_bv(&self, term: &str) -> String {
+        format!("((_ int2bv 64) {})", term)
+    }
+
+    fn encode_u64_bv_to_int(&self, term: &str) -> String {
+        format!("(clg.u64.to_int {})", term)
+    }
+
+    fn encode_u64_shift_mask(&self, rhs_int_term: &str) -> String {
+        format!(
+            "(bvand {} #x000000000000003f)",
+            self.encode_u64_int_to_bv(rhs_int_term)
+        )
+    }
+
+    fn encode_u64_bitwise_binop(&self, op: &str, lhs: String, rhs: String) -> String {
+        let lhs_bv = self.encode_u64_int_to_bv(lhs.as_str());
+        let rhs_bv = self.encode_u64_int_to_bv(rhs.as_str());
+        self.encode_u64_bv_to_int(format!("({op} {lhs_bv} {rhs_bv})").as_str())
+    }
+
+    fn encode_u64_shift(&self, lhs: String, rhs: String, right: bool) -> String {
+        let lhs_bv = self.encode_u64_int_to_bv(lhs.as_str());
+        let rhs_mask = self.encode_u64_shift_mask(rhs.as_str());
+        let op = if right { "bvlshr" } else { "bvshl" };
+        self.encode_u64_bv_to_int(format!("({op} {lhs_bv} {rhs_mask})").as_str())
+    }
+
+    fn encode_u64_rotate(&self, lhs: String, rhs: String, left: bool) -> String {
+        let lhs_bv = self.encode_u64_int_to_bv(lhs.as_str());
+        let shift = self.encode_u64_shift_mask(rhs.as_str());
+        let inv_shift = format!(
+            "(bvand (bvsub #x0000000000000040 {}) #x000000000000003f)",
+            shift
+        );
+        let rotated = if left {
+            format!(
+                "(bvor (bvshl {} {}) (bvlshr {} {}))",
+                lhs_bv, shift, lhs_bv, inv_shift
+            )
+        } else {
+            format!(
+                "(bvor (bvlshr {} {}) (bvshl {} {}))",
+                lhs_bv, shift, lhs_bv, inv_shift
+            )
+        };
+        self.encode_u64_bv_to_int(rotated.as_str())
     }
 }
 

@@ -1057,7 +1057,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.1.5 Version VC/proof schemas for solver-era statuses and add backward/forward compatibility gates for `status` + counterexample fields. (`docs/design/phase-25.1.5-vc-proof-schema-compatibility-gates.md`)
   - [x] 25.1.6 Add solver runtime safety/isolation policy (resource limits, timeout/kill semantics, crash handling) with fail-closed diagnostics mapping. (`docs/design/phase-25.1.6-solver-runtime-safety-isolation.md`)
   - [x] 25.1.7 Close VC soundness gaps so emitted obligations are solver-ready (no placeholder/unconstrained local symbols). (`docs/design/phase-25.1.7-vc-solver-ready-symbol-closure.md`)
-  - [ ] 25.1.8 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`).
+  - [x] 25.1.8 Integrate theorem-prover execution path (Z3 baseline) and record deterministic per-VC outcomes (`proved|failed|unknown|timeout`). (`docs/design/phase-25.1.8-z3-vc-outcome-integration.md`)
   - [x] 25.1.9 Add proof artifact emission (`--emit-proof`) and verification wiring in `clg verify`. (`docs/design/phase-25.1.9-proof-artifact-emit-verify-wiring.md`)
   - [x] 25.1.10 Bind proof artifact hash and solver-profile hash into signed payload/manifest and enforce verification consistency in `clg verify`. (`docs/design/phase-25.1.10-proof-solver-hash-binding.md`)
   - [x] 25.1.11 Add deterministic `--emit-proof` artifact reproducibility gate (byte/hash stability across identical inputs and runs). (`docs/design/phase-25.1.11-emit-proof-reproducibility-gate.md`)

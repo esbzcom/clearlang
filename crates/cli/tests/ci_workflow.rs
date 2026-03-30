@@ -106,6 +106,7 @@ fn ci_workflow_enforces_validation_and_tests() {
     let proof_run = mapping_get_str(proof_step, "run", "Proof regression gates step");
     for cmd in [
         "cargo test -p clg-cli --test vc_snapshots",
+        "cargo test -p clg-cli --test solver_outcomes",
         "cargo test -p clg-cli --test proof_artifact_replay",
         "cargo test -p clg-cli --test proof_coverage_matrix",
         "cargo test -p clg-cli --test verified_std_core_subset",

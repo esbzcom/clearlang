@@ -39,6 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo test -p clg-cli --test vc_snapshots
+          cargo test -p clg-cli --test solver_outcomes
           cargo test -p clg-cli --test proof_artifact_replay
           cargo test -p clg-cli --test proof_coverage_matrix
           cargo test -p clg-cli --test verified_std_core_subset

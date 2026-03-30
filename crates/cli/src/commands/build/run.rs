@@ -176,10 +176,11 @@ pub fn run(
 
     let TypecheckOutput {
         ir,
-        vcs,
+        mut vcs,
         mono_program,
         mangled_name_origins,
     } = type_output;
+    apply_solver_outcomes_if_configured(vcs.as_mut_slice())?;
 
     let fail_build = |code: &'static str, message: &str, function: Option<String>| -> Result<()> {
         if json_errors {

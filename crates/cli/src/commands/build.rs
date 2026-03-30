@@ -1,4 +1,5 @@
 include!("build/prelude.rs");
+include!("build/solver.rs");
 include!("build/run.rs");
 include!("build/contract.rs");
 include!("build/strict_bindings.rs");

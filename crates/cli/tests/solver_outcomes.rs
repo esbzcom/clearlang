@@ -24,6 +24,12 @@ fn write_fake_solver(dir: &Path) -> PathBuf {
 use std::io::{self, Read};
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-version") {
+        let version = std::env::var("CLG_FAKE_Z3_VERSION").unwrap_or_else(|_| "4.13.4".to_string());
+        println!("Z3 version {} - fake", version);
+        return;
+    }
     let mut stdin = Vec::new();
     let _ = io::stdin().read_to_end(&mut stdin);
     match std::env::var("CLG_FAKE_Z3_RESULT").as_deref() {
@@ -182,4 +188,27 @@ fn missing_solver_binary_keeps_generated_status() {
         first.get("status").and_then(|v| v.as_str()),
         Some("generated")
     );
+}
+
+#[test]
+fn configured_solver_version_mismatch_fails_build() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let solver = write_fake_solver(tmp.path());
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .env("CLG_FAKE_Z3_VERSION", "9.9.9")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .failure();
 }

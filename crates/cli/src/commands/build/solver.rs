@@ -13,6 +13,8 @@ struct SolverOption {
 
 #[derive(Debug, Clone)]
 struct SolverRuntimeProfile {
+    solver_family: String,
+    solver_version: String,
     options: Vec<SolverOption>,
     per_vc_timeout_ms: u64,
     total_timeout_ms: u64,
@@ -27,6 +29,21 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
     }
     let solver_bin = std::path::PathBuf::from(solver_bin);
     let profile = load_solver_runtime_profile()?;
+    match solver_reports_pinned_version(solver_bin.as_path(), &profile)? {
+        Some(true) => {}
+        Some(false) => {
+            anyhow::bail!(
+                "configured solver `{}` does not match pinned {} solver_version `{}` from `docs/design/phase-25.1.4-solver-profile.lock.json`",
+                solver_bin.display(),
+                profile.solver_family,
+                profile.solver_version
+            );
+        }
+        None => {
+            // Keep existing "generated" status when solver cannot be launched.
+            return Ok(());
+        }
+    }
     let started = Instant::now();
     for vc in vcs {
         let elapsed_ms = started.elapsed().as_millis() as u64;
@@ -48,6 +65,35 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
         }
     }
     Ok(())
+}
+
+fn solver_reports_pinned_version(
+    solver_bin: &std::path::Path,
+    profile: &SolverRuntimeProfile,
+) -> Result<Option<bool>> {
+    for flag in ["--version", "-version"] {
+        let output = match Command::new(solver_bin).arg(flag).output() {
+            Ok(output) => output,
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    return Ok(None);
+                }
+                continue;
+            }
+        };
+        let mut text = String::new();
+        text.push_str(String::from_utf8_lossy(output.stdout.as_slice()).as_ref());
+        text.push_str(String::from_utf8_lossy(output.stderr.as_slice()).as_ref());
+        if text.trim().is_empty() {
+            continue;
+        }
+        let lower = text.to_ascii_lowercase();
+        return Ok(Some(lower.contains(profile.solver_version.to_ascii_lowercase().as_str())));
+    }
+    anyhow::bail!(
+        "failed to read configured solver `{}` version output",
+        solver_bin.display()
+    );
 }
 
 fn solver_outcome_for_vc(
@@ -176,6 +222,24 @@ fn run_solver(
 
 fn load_solver_runtime_profile() -> Result<SolverRuntimeProfile> {
     let (profile, _hash) = load_solver_profile_claim()?;
+    let solver_family = profile
+        .get("solver_family")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| anyhow!("solver profile missing solver_family"))?
+        .trim()
+        .to_string();
+    if solver_family != "z3" {
+        anyhow::bail!("unsupported solver_family `{solver_family}` (expected `z3`)");
+    }
+    let solver_version = profile
+        .get("solver_version")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| anyhow!("solver profile missing solver_version"))?
+        .trim()
+        .to_string();
+    if solver_version.is_empty() {
+        anyhow::bail!("solver profile solver_version cannot be empty");
+    }
     let options = profile
         .get("options")
         .and_then(|value| value.as_array())
@@ -216,6 +280,8 @@ fn load_solver_runtime_profile() -> Result<SolverRuntimeProfile> {
         return Err(anyhow!("solver profile timeouts must be greater than zero"));
     }
     Ok(SolverRuntimeProfile {
+        solver_family,
+        solver_version,
         options,
         per_vc_timeout_ms,
         total_timeout_ms,

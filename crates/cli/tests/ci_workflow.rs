@@ -119,6 +119,7 @@ fn ci_workflow_enforces_validation_and_tests() {
         "cargo test -p clg-cli --test cli_it parse_rejects_theorem_keyword_with_explicit_code",
         "cargo test -p clg-cli --test cli_it vc_outputs::build_emits_assumption_boundaries_in_vc_json_and_proof_section",
         "cargo test -p clg-typer --test vc declares_bitwise_and_builtin_helpers",
+        "cargo test -p clg-typer --test vc vc_smt_declares_parameters_with_sorts_and_closes_let_locals",
     ] {
         assert!(
             proof_run.contains(cmd),

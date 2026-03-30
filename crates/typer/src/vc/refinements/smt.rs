@@ -51,7 +51,7 @@ fn instantiate_type(ty: &Type, subst: &HashMap<String, Type>) -> Type {
     }
 }
 
-pub(super) fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
+pub(crate) fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>>) -> &'static str {
     match ty {
         Type::Int => "Int",
         Type::U8 => "Int",

@@ -10,7 +10,8 @@ use crate::vc::linear::collect_linear_control_obligations;
 use crate::vc::loops::{collect_loops, expr_span};
 use crate::vc::refinements::{
     build_alias_map, build_fn_sigs, collect_refinement_obligations, fold_conjunction,
-    make_refinement_obligation, merge_extras, refinement_prelude, substitute_result,
+    make_refinement_obligation, merge_extras, refinement_prelude, smt_sort_for_type,
+    substitute_result,
 };
 use crate::vc::smt::SmtEncoder;
 use crate::vc::source::expr_to_source;
@@ -18,7 +19,7 @@ use crate::vc::source::expr_to_source;
 mod helpers;
 use self::helpers::{
     append_smt_bounds, collect_function_assumptions, linear_branch_post_smt, linear_loop_post_smt,
-    premise_from_obligation, u64_bounds_smt,
+    obligation_uses_only_symbols, premise_from_obligation, u64_bounds_smt,
 };
 
 const U64_MAX_SMT: &str = "18446744073709551615";
@@ -134,6 +135,22 @@ pub fn generate_vcs_with_dependencies(
             &mut body_obligations,
         );
         pre_obligations.extend(body_obligations.into_iter());
+        let allowed_symbols: HashSet<String> =
+            func.params.iter().map(|param| param.name.clone()).collect();
+        pre_obligations
+            .retain(|obligation| obligation_uses_only_symbols(obligation, &allowed_symbols));
+        let param_declarations = func
+            .params
+            .iter()
+            .map(|param| {
+                format!(
+                    "(declare-const {} {})",
+                    param.name,
+                    smt_sort_for_type(&param.ty, &alias_map)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
         let mut all_pre = require_exprs.clone();
         all_pre.extend(pre_obligations.iter().map(|ob| ob.predicate.clone()));
@@ -155,6 +172,7 @@ pub fn generate_vcs_with_dependencies(
             .map(premise_from_obligation)
             .collect();
         let base_refinement_prelude = refinement_prelude(&pre_obligations, None, &alias_map);
+        let base_vc_extra = merge_extras(&[&param_declarations, &base_refinement_prelude]);
         let linear_control = collect_linear_control_obligations(func, &resource_names);
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {
@@ -175,17 +193,15 @@ pub fn generate_vcs_with_dependencies(
                 };
                 let vc_body = format!("(=> {} {})", pre_smt, substituted_smt);
                 let mut refinements = pre_premises.clone();
-                let refinement_prelude = if let Some(obligation) = &ensure.return_obligation {
+                let refinement_extra = if let Some(obligation) = &ensure.return_obligation {
+                    let instantiated = instantiate_return_obligation(obligation, &func.body);
                     refinements.push(premise_from_obligation(obligation));
-                    refinement_prelude(&pre_obligations, Some(obligation), &alias_map)
+                    refinement_prelude(&pre_obligations, Some(&instantiated), &alias_map)
                 } else {
                     base_refinement_prelude.clone()
                 };
-                let vc_smt2 = if refinement_prelude.is_empty() {
-                    encoder.wrap_vc(&vc_body)
-                } else {
-                    encoder.wrap_vc_with_extra(&vc_body, Some(&refinement_prelude))
-                };
+                let merged_extra = merge_extras(&[&param_declarations, &refinement_extra]);
+                let vc_smt2 = wrap_vc_with_extra(&encoder, &vc_body, &merged_extra);
 
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -228,11 +244,7 @@ pub fn generate_vcs_with_dependencies(
                 let pre_smt = append_smt_bounds(encoder.encode(&pre_expr), &u64_param_bounds);
                 let post_smt = encoder.encode(&guard_expr);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
-                let vc_smt2 = if base_refinement_prelude.is_empty() {
-                    encoder.wrap_vc(&vc_body)
-                } else {
-                    encoder.wrap_vc_with_extra(&vc_body, Some(&base_refinement_prelude))
-                };
+                let vc_smt2 = wrap_vc_with_extra(&encoder, &vc_body, &base_vc_extra);
                 let refinements = pre_premises.clone();
 
                 out.push(VerificationCondition {
@@ -266,12 +278,8 @@ pub fn generate_vcs_with_dependencies(
             let (linear_extra, post_smt) =
                 linear_branch_post_smt("branch", idx, branch_ob.vars.len());
             let vc_body = format!("(=> {} {})", pre_smt, post_smt);
-            let merged_extra = merge_extras(&[&base_refinement_prelude, &linear_extra]);
-            let vc_smt2 = if merged_extra.is_empty() {
-                encoder.wrap_vc(&vc_body)
-            } else {
-                encoder.wrap_vc_with_extra(&vc_body, Some(&merged_extra))
-            };
+            let merged_extra = merge_extras(&[&base_vc_extra, &linear_extra]);
+            let vc_smt2 = wrap_vc_with_extra(&encoder, &vc_body, &merged_extra);
             let refinements = pre_premises.clone();
             out.push(VerificationCondition {
                 function: func.name.clone(),
@@ -302,12 +310,8 @@ pub fn generate_vcs_with_dependencies(
             );
             let (linear_extra, post_smt) = linear_loop_post_smt("loop", idx, loop_ob.vars.len());
             let vc_body = format!("(=> {} {})", pre_smt, post_smt);
-            let merged_extra = merge_extras(&[&base_refinement_prelude, &linear_extra]);
-            let vc_smt2 = if merged_extra.is_empty() {
-                encoder.wrap_vc(&vc_body)
-            } else {
-                encoder.wrap_vc_with_extra(&vc_body, Some(&merged_extra))
-            };
+            let merged_extra = merge_extras(&[&base_vc_extra, &linear_extra]);
+            let vc_smt2 = wrap_vc_with_extra(&encoder, &vc_body, &merged_extra);
             let refinements = pre_premises.clone();
             out.push(VerificationCondition {
                 function: func.name.clone(),
@@ -336,11 +340,7 @@ pub fn generate_vcs_with_dependencies(
             let pre_smt = append_smt_bounds(enc_inv.encode(&pre_expr), &u64_param_bounds);
             let inv_smt = enc_inv.encode(loop_ob.invariant);
             let vc_body = format!("(=> {} {})", pre_smt, inv_smt);
-            let vc_smt2 = if base_refinement_prelude.is_empty() {
-                enc_inv.wrap_vc(&vc_body)
-            } else {
-                enc_inv.wrap_vc_with_extra(&vc_body, Some(&base_refinement_prelude))
-            };
+            let vc_smt2 = wrap_vc_with_extra(&enc_inv, &vc_body, &base_vc_extra);
             let refinements = pre_premises.clone();
 
             out.push(VerificationCondition {
@@ -368,11 +368,7 @@ pub fn generate_vcs_with_dependencies(
                 let var_smt = enc_var.encode(var_expr);
                 let post_smt = format!("(>= {} 0)", var_smt);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
-                let vc_smt2 = if base_refinement_prelude.is_empty() {
-                    enc_var.wrap_vc(&vc_body)
-                } else {
-                    enc_var.wrap_vc_with_extra(&vc_body, Some(&base_refinement_prelude))
-                };
+                let vc_smt2 = wrap_vc_with_extra(&enc_var, &vc_body, &base_vc_extra);
                 let refinements = pre_premises.clone();
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -400,12 +396,8 @@ pub fn generate_vcs_with_dependencies(
                 let post_smt = format!("(< {} {})", next_sym, var_before);
                 let vc_body = format!("(=> {} {})", pre_smt, post_smt);
                 let extra = format!("(declare-const {} Int)", next_sym);
-                let merged_extra = merge_extras(&[&base_refinement_prelude, &extra]);
-                let vc_smt2 = if merged_extra.is_empty() {
-                    enc_dec.wrap_vc(&vc_body)
-                } else {
-                    enc_dec.wrap_vc_with_extra(&vc_body, Some(&merged_extra))
-                };
+                let merged_extra = merge_extras(&[&base_vc_extra, &extra]);
+                let vc_smt2 = wrap_vc_with_extra(&enc_dec, &vc_body, &merged_extra);
                 let refinements = pre_premises.clone();
                 out.push(VerificationCondition {
                     function: func.name.clone(),
@@ -434,4 +426,26 @@ pub fn generate_vcs_with_dependencies(
     }
     out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
+}
+
+fn wrap_vc_with_extra(encoder: &SmtEncoder, body: &str, extra: &str) -> String {
+    if extra.is_empty() {
+        encoder.wrap_vc(body)
+    } else {
+        encoder.wrap_vc_with_extra(body, Some(extra))
+    }
+}
+
+fn instantiate_return_obligation(
+    obligation: &RefinementObligation,
+    body: &Expr,
+) -> RefinementObligation {
+    RefinementObligation {
+        alias: obligation.alias.clone(),
+        binder: obligation.binder.clone(),
+        substitution: substitute_result(&obligation.substitution, body),
+        substitution_type: obligation.substitution_type.clone(),
+        predicate: substitute_result(&obligation.predicate, body),
+        attachment: obligation.attachment.clone(),
+    }
 }

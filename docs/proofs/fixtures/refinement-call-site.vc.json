@@ -25,7 +25,7 @@
         ],
         "focus_span": {
           "end": 228,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
           "role": "post",
           "start": 200
         },
@@ -38,7 +38,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 228,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
           "role": "post",
           "start": 200
         },
@@ -46,13 +46,13 @@
         "related_spans": [
           {
             "end": 193,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
             "role": "pre",
             "start": 166
           },
           {
             "end": 228,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
             "role": "post",
             "start": 200
           }
@@ -99,7 +99,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
+            "smt2": "(declare-const x Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
           },
           "vc_id": "vc:0"
         }
@@ -117,7 +117,7 @@
     },
     "function": "caller",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
       "post_end": 228,
       "post_start": 200,
       "pre_end": 193,
@@ -131,6 +131,7 @@
       "ast": "x >= 0 && x + 1 >= 0",
       "smt2": "(and (>= x 0) (>= (+ x 1) 0))"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -158,7 +159,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
+      "smt2": "(declare-const x Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
     },
     "vc_id": "vc:0",
     "version": 2
@@ -189,7 +190,7 @@
         ],
         "focus_span": {
           "end": 53,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
           "role": "post",
           "start": 0
         },
@@ -202,7 +203,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 53,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
           "role": "post",
           "start": 0
         },
@@ -210,13 +211,13 @@
         "related_spans": [
           {
             "end": 193,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
             "role": "pre",
             "start": 166
           },
           {
             "end": 53,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
             "role": "post",
             "start": 0
           }
@@ -263,7 +264,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
+            "smt2": "(declare-const x Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int (takes (+ x 1)))\n(define-fun cl.ref.premise.1.pred () Bool (>= (takes (+ x 1)) 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
           },
           "vc_id": "vc:1"
         }
@@ -281,7 +282,7 @@
     },
     "function": "caller",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
       "post_end": 53,
       "post_start": 0,
       "pre_end": 193,
@@ -295,6 +296,7 @@
       "ast": "x >= 0 && x + 1 >= 0",
       "smt2": "(and (>= x 0) (>= (+ x 1) 0))"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -341,7 +343,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
+      "smt2": "(declare-const x Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int (+ x 1))\n(define-fun cl.ref.premise.0.pred () Bool (>= (+ x 1) 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int (takes (+ x 1)))\n(define-fun cl.ref.premise.1.pred () Bool (>= (takes (+ x 1)) 0))\n(=> (and (>= x 0) (>= (+ x 1) 0)) (>= (takes (+ x 1)) 0))"
     },
     "vc_id": "vc:1",
     "version": 2
@@ -372,7 +374,7 @@
         ],
         "focus_span": {
           "end": 53,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
           "role": "post",
           "start": 0
         },
@@ -385,7 +387,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 53,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
           "role": "post",
           "start": 0
         },
@@ -393,7 +395,7 @@
         "related_spans": [
           {
             "end": 53,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
             "role": "post",
             "start": 0
           }
@@ -436,7 +438,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (>= n 0) (>= n 0))"
+            "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int n)\n(define-fun cl.ref.premise.1.pred () Bool (>= n 0))\n(=> (>= n 0) (>= n 0))"
           },
           "vc_id": "vc:0"
         }
@@ -454,7 +456,7 @@
     },
     "function": "takes",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-call-site.vc.json.clear",
       "post_end": 53,
       "post_start": 0,
       "pre_end": 0,
@@ -468,6 +470,7 @@
       "ast": "n >= 0",
       "smt2": "(>= n 0)"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -512,7 +515,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (>= n 0) (>= n 0))"
+      "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int n)\n(define-fun cl.ref.premise.1.pred () Bool (>= n 0))\n(=> (>= n 0) (>= n 0))"
     },
     "vc_id": "vc:0",
     "version": 2

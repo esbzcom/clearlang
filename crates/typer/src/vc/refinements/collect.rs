@@ -419,11 +419,9 @@ pub(super) fn collect_block_refinements<'a>(
                         let mut detail = RefinementFlowDetail::new(RefinementFlowKind::Let);
                         detail.name = Some(name.clone());
                         let attachment = RefinementAttachment::flow(detail);
-                        if let Some(obligation) = make_refinement_obligation(
-                            &alias,
-                            &Expr::Var(name.clone(), alias.alias_span),
-                            attachment,
-                        ) {
+                        if let Some(obligation) =
+                            make_refinement_obligation(&alias, expr.as_ref(), attachment)
+                        {
                             out.push(obligation);
                         }
                     }

@@ -1,5 +1,5 @@
 use crate::builtins::builtin_sigs;
-use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Type, UnaryOp};
+use clg_ast::{BinOp, Block, Expr, MatchArm, MatchPat, Stmt, Type, UnaryOp};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -119,15 +119,47 @@ impl SmtEncoder {
                 self.encode_inner(then_br),
                 self.encode_inner(else_br)
             ),
-            Expr::Block { block } => {
-                if let Some(tail) = &block.tail {
-                    self.encode_inner(tail.as_ref())
-                } else {
-                    "0".to_string()
-                }
-            }
+            Expr::Block { block } => self.encode_block(block),
             Expr::Lambda { .. } => "0".to_string(),
         }
+    }
+
+    fn encode_block(&mut self, block: &Block) -> String {
+        let mut bindings: Vec<(String, String)> = Vec::new();
+        for stmt in &block.statements {
+            match stmt {
+                Stmt::Let { name, expr, .. } => {
+                    bindings.push((name.clone(), self.encode_inner(expr)));
+                }
+                Stmt::Expr { expr, .. } => {
+                    let _ = self.encode_inner(expr);
+                }
+                Stmt::While {
+                    cond,
+                    invariant,
+                    variant,
+                    body,
+                    ..
+                } => {
+                    let _ = self.encode_inner(cond);
+                    let _ = self.encode_inner(invariant);
+                    if let Some(variant_expr) = variant {
+                        let _ = self.encode_inner(variant_expr);
+                    }
+                    let _ = self.encode_block(body);
+                }
+            }
+        }
+
+        let mut body = block
+            .tail
+            .as_ref()
+            .map(|tail| self.encode_inner(tail.as_ref()))
+            .unwrap_or_else(|| "0".to_string());
+        for (name, value) in bindings.into_iter().rev() {
+            body = format!("(let (({} {})) {})", name, value, body);
+        }
+        body
     }
 
     fn encode_call(&mut self, callee: &str, args: &[Expr]) -> String {

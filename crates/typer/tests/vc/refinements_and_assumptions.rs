@@ -84,8 +84,13 @@ fn propagates_refinement_through_let_bindings() {
     assert_eq!(vcs.len(), 1);
     let vc = &vcs[0];
     assert!(vc.pre.ast.contains("a >= 0"));
-    assert!(vc.pre.ast.contains("y >= 0"));
+    assert!(!vc.pre.ast.contains("y >= 0"));
     assert!(vc.post.ast.contains("result >= 0"));
+    assert_eq!(
+        vc.pre.ast.matches("a >= 0").count(),
+        2,
+        "expected let refinement to inline into parameter-level predicate"
+    );
     let has_let = vc
         .refinements
         .iter()
@@ -117,7 +122,10 @@ fn propagates_refinement_into_option_match_binders() {
     let vcs = generate_vcs(&ast);
     assert_eq!(vcs.len(), 1);
     let vc = &vcs[0];
-    assert!(vc.pre.ast.contains("v >= 0"));
+    assert!(
+        !vc.pre.ast.contains("v >= 0"),
+        "match-arm binder refinements should not leak unconstrained local symbols into VC preconditions"
+    );
     assert!(vc.vc_smt2.contains("=>"));
 }
 
@@ -137,7 +145,29 @@ fn vc_precondition_order_matches_runtime_guards() {
     let vcs = generate_vcs(&ast);
     assert_eq!(vcs.len(), 1);
     let parts: Vec<&str> = vcs[0].pre.ast.split("&&").map(|s| s.trim()).collect();
-    assert_eq!(parts, vec!["n > 1", "n >= 0", "y >= 0"]);
+    assert_eq!(parts, vec!["n > 1", "n >= 0", "n >= 0"]);
+}
+
+#[test]
+fn vc_smt_declares_parameters_with_sorts_and_closes_let_locals() {
+    let src = r#"
+        type Nat = Int where n >= 0;
+        pure function copy_if(flag: Bool, a: Nat) -> Nat {
+            let y = a;
+            if flag { y } else { a }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert!(vc.vc_smt2.contains("(declare-const flag Bool)"));
+    assert!(vc.vc_smt2.contains("(declare-const a Int)"));
+    assert!(
+        !vc.vc_smt2.contains("(>= y 0)"),
+        "solver prelude should not contain unconstrained local refinement symbols"
+    );
 }
 
 #[test]

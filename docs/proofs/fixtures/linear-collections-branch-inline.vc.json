@@ -29,7 +29,7 @@
         ],
         "focus_span": {
           "end": 407,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\linear-collections-branch-inline.vc.json.clear",
           "role": "post",
           "start": 222
         },
@@ -42,7 +42,7 @@
         "clause_kind": "vc",
         "focus_span": {
           "end": 407,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\linear-collections-branch-inline.vc.json.clear",
           "role": "post",
           "start": 222
         },
@@ -50,7 +50,7 @@
         "related_spans": [
           {
             "end": 407,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\linear-collections-branch-inline.vc.json.clear",
             "role": "post",
             "start": 222
           }
@@ -97,7 +97,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "(declare-const cl.linear.branch.0.0.then Int)\n(declare-const cl.linear.branch.0.0.else Int)\n(=> true (and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0)))"
+            "smt2": "(declare-const flag Bool)\n(declare-const files Int)\n(declare-const cl.linear.branch.0.0.then Int)\n(declare-const cl.linear.branch.0.0.else Int)\n(=> true (and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0)))"
           },
           "vc_id": "linear:branch:0"
         }
@@ -105,7 +105,7 @@
     },
     "function": "choose",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\linear-collections-branch-inline.vc.json.clear",
       "post_end": 407,
       "post_start": 222,
       "pre_end": 0,
@@ -119,9 +119,10 @@
       "ast": "true",
       "smt2": "true"
     },
+    "proof_status": "not_proved_all",
     "status": "generated",
     "vc": {
-      "smt2": "(declare-const cl.linear.branch.0.0.then Int)\n(declare-const cl.linear.branch.0.0.else Int)\n(=> true (and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0)))"
+      "smt2": "(declare-const flag Bool)\n(declare-const files Int)\n(declare-const cl.linear.branch.0.0.then Int)\n(declare-const cl.linear.branch.0.0.else Int)\n(=> true (and (= cl.linear.branch.0.0.then cl.linear.branch.0.0.else) (>= cl.linear.branch.0.0.then 0) (>= cl.linear.branch.0.0.else 0)))"
     },
     "vc_id": "linear:branch:0",
     "version": 2

@@ -25,7 +25,7 @@
         ],
         "focus_span": {
           "end": 225,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 219
         },
@@ -38,7 +38,7 @@
         "clause_kind": "invariant",
         "focus_span": {
           "end": 225,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 219
         },
@@ -46,13 +46,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 225,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "post",
             "start": 219
           }
@@ -99,7 +99,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
+            "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
           },
           "vc_id": "loop:0:invariant"
         }
@@ -117,7 +117,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
       "post_end": 225,
       "post_start": 219,
       "pre_end": 142,
@@ -131,6 +131,7 @@
       "ast": "n > 1 && n >= 0",
       "smt2": "(and (> n 1) (>= n 0))"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -156,7 +157,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
+      "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
     },
     "vc_id": "loop:0:invariant",
     "version": 2
@@ -187,7 +188,7 @@
         ],
         "focus_span": {
           "end": 240,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 238
         },
@@ -200,7 +201,7 @@
         "clause_kind": "variant",
         "focus_span": {
           "end": 240,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 238
         },
@@ -208,13 +209,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 240,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "post",
             "start": 238
           }
@@ -261,7 +262,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(declare-const cl.loop.variant.next.0 Int)\n(=> (and (> n 1) (>= n 0)) (< cl.loop.variant.next.0 n))"
+            "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(declare-const cl.loop.variant.next.0 Int)\n(=> (and (> n 1) (>= n 0)) (< cl.loop.variant.next.0 n))"
           },
           "vc_id": "loop:0:variant_decrease"
         }
@@ -279,7 +280,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
       "post_end": 240,
       "post_start": 238,
       "pre_end": 142,
@@ -293,6 +294,7 @@
       "ast": "n > 1 && n >= 0",
       "smt2": "(and (> n 1) (>= n 0))"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -318,7 +320,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(declare-const cl.loop.variant.next.0 Int)\n(=> (and (> n 1) (>= n 0)) (< cl.loop.variant.next.0 n))"
+      "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(declare-const cl.loop.variant.next.0 Int)\n(=> (and (> n 1) (>= n 0)) (< cl.loop.variant.next.0 n))"
     },
     "vc_id": "loop:0:variant_decrease",
     "version": 2
@@ -349,7 +351,7 @@
         ],
         "focus_span": {
           "end": 240,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 238
         },
@@ -362,7 +364,7 @@
         "clause_kind": "variant",
         "focus_span": {
           "end": 240,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 238
         },
@@ -370,13 +372,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 240,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "post",
             "start": 238
           }
@@ -423,7 +425,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
+            "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
           },
           "vc_id": "loop:0:variant_nonneg"
         }
@@ -441,7 +443,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
       "post_end": 240,
       "post_start": 238,
       "pre_end": 142,
@@ -455,6 +457,7 @@
       "ast": "n > 1 && n >= 0",
       "smt2": "(and (> n 1) (>= n 0))"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -480,7 +483,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
+      "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= n 0))"
     },
     "vc_id": "loop:0:variant_nonneg",
     "version": 2
@@ -511,7 +514,7 @@
         ],
         "focus_span": {
           "end": 177,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 149
         },
@@ -524,7 +527,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 177,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
           "role": "post",
           "start": 149
         },
@@ -532,13 +535,13 @@
         "related_spans": [
           {
             "end": 142,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "pre",
             "start": 116
           },
           {
             "end": 177,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
             "role": "post",
             "start": 149
           }
@@ -585,7 +588,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= (+ n 0) 0))"
+            "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= (+ n 0) 0))"
           },
           "vc_id": "vc:0"
         }
@@ -603,7 +606,7 @@
     },
     "function": "countdown",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-contracts-loops.vc.json.clear",
       "post_end": 177,
       "post_start": 149,
       "pre_end": 142,
@@ -617,6 +620,7 @@
       "ast": "n > 1 && n >= 0",
       "smt2": "(and (> n 1) (>= n 0))"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -642,7 +646,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= (+ n 0) 0))"
+      "smt2": "(declare-const n Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int n)\n(define-fun cl.ref.premise.0.pred () Bool (>= n 0))\n(=> (and (> n 1) (>= n 0)) (>= (+ n 0) 0))"
     },
     "vc_id": "vc:0",
     "version": 2

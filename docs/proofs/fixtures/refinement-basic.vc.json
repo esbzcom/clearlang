@@ -25,7 +25,7 @@
         ],
         "focus_span": {
           "end": 53,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-basic.vc.json.clear",
           "role": "post",
           "start": 0
         },
@@ -38,7 +38,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 53,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-basic.vc.json.clear",
           "role": "post",
           "start": 0
         },
@@ -46,7 +46,7 @@
         "related_spans": [
           {
             "end": 53,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-basic.vc.json.clear",
             "role": "post",
             "start": 0
           }
@@ -89,7 +89,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int a)\n(define-fun cl.ref.premise.0.pred () Bool (>= a 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (>= a 0) (>= (+ a 1) 0))"
+            "smt2": "(declare-const a Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int a)\n(define-fun cl.ref.premise.0.pred () Bool (>= a 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int (+ a 1))\n(define-fun cl.ref.premise.1.pred () Bool (>= (+ a 1) 0))\n(=> (>= a 0) (>= (+ a 1) 0))"
           },
           "vc_id": "vc:0"
         }
@@ -107,7 +107,7 @@
     },
     "function": "inc",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\refinement-basic.vc.json.clear",
       "post_end": 53,
       "post_start": 0,
       "pre_end": 0,
@@ -121,6 +121,7 @@
       "ast": "a >= 0",
       "smt2": "(>= a 0)"
     },
+    "proof_status": "not_proved_all",
     "refinements": {
       "premises": [
         {
@@ -165,7 +166,7 @@
     },
     "status": "generated",
     "vc": {
-      "smt2": "; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int a)\n(define-fun cl.ref.premise.0.pred () Bool (>= a 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int result)\n(define-fun cl.ref.premise.1.pred () Bool (>= result 0))\n(=> (>= a 0) (>= (+ a 1) 0))"
+      "smt2": "(declare-const a Int)\n; refinement ref:0 alias Nat binder n\n(define-fun cl.ref.premise.0.sub () Int a)\n(define-fun cl.ref.premise.0.pred () Bool (>= a 0))\n; refinement ref:1 alias Nat binder n\n(define-fun cl.ref.premise.1.sub () Int (+ a 1))\n(define-fun cl.ref.premise.1.pred () Bool (>= (+ a 1) 0))\n(=> (>= a 0) (>= (+ a 1) 0))"
     },
     "vc_id": "vc:0",
     "version": 2

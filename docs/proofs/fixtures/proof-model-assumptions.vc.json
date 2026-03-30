@@ -84,7 +84,7 @@
         ],
         "focus_span": {
           "end": 153,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
           "start": 99
         },
@@ -97,7 +97,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 153,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
           "start": 99
         },
@@ -105,7 +105,7 @@
         "related_spans": [
           {
             "end": 153,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
             "role": "post",
             "start": 99
           }
@@ -204,7 +204,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
+            "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
           },
           "vc_id": "vc:0"
         }
@@ -222,7 +222,7 @@
     },
     "function": "check",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
       "post_end": 153,
       "post_start": 99,
       "pre_end": 0,
@@ -236,9 +236,10 @@
       "ast": "true",
       "smt2": "(and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615)))"
     },
+    "proof_status": "not_proved_all",
     "status": "generated",
     "vc": {
-      "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
+      "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
     },
     "vc_id": "vc:0",
     "version": 2
@@ -320,7 +321,7 @@
         ],
         "focus_span": {
           "end": 189,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
           "start": 160
         },
@@ -333,7 +334,7 @@
         "clause_kind": "ensure",
         "focus_span": {
           "end": 189,
-          "file": "target/fixture_tmp/fixture.clear",
+          "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
           "start": 160
         },
@@ -341,7 +342,7 @@
         "related_spans": [
           {
             "end": 189,
-            "file": "target/fixture_tmp/fixture.clear",
+            "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
             "role": "post",
             "start": 160
           }
@@ -432,7 +433,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
+            "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
           },
           "vc_id": "vc:1"
         }
@@ -450,7 +451,7 @@
     },
     "function": "check",
     "positions": {
-      "file": "target/fixture_tmp/fixture.clear",
+      "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
       "post_end": 189,
       "post_start": 160,
       "pre_end": 0,
@@ -464,9 +465,10 @@
       "ast": "true",
       "smt2": "(and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615)))"
     },
+    "proof_status": "not_proved_all",
     "status": "generated",
     "vc": {
-      "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
+      "smt2": "; Bitwise ops are modeled as uninterpreted functions.\n(declare-fun clg.bit_and (Int Int) Int)\n(declare-fun clg.bit_or (Int Int) Int)\n(declare-fun clg.bit_xor (Int Int) Int)\n(declare-fun clg.shl (Int Int) Int)\n(declare-fun clg.shr (Int Int) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.bit_and x y) x))"
     },
     "vc_id": "vc:1",
     "version": 2

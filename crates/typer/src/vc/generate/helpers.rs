@@ -293,6 +293,160 @@ pub(super) fn premise_from_obligation(obligation: &RefinementObligation) -> Refi
     }
 }
 
+pub(super) fn obligation_uses_only_symbols(
+    obligation: &RefinementObligation,
+    allowed_symbols: &HashSet<String>,
+) -> bool {
+    let mut free_symbols = BTreeSet::new();
+    let bound = HashSet::new();
+    collect_free_symbols_expr(&obligation.substitution, &bound, &mut free_symbols);
+    collect_free_symbols_expr(&obligation.predicate, &bound, &mut free_symbols);
+    free_symbols
+        .iter()
+        .all(|symbol| allowed_symbols.contains(symbol))
+}
+
+fn collect_free_symbols_expr(
+    expr: &Expr,
+    bound_symbols: &HashSet<String>,
+    out: &mut BTreeSet<String>,
+) {
+    match expr {
+        Expr::Int(..) | Expr::Bool(..) | Expr::String(..) => {}
+        Expr::Var(name, _) => {
+            if !bound_symbols.contains(name) {
+                out.insert(name.clone());
+            }
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_free_symbols_expr(elem, bound_symbols, out);
+            }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_free_symbols_expr(&field.expr, bound_symbols, out);
+            }
+        }
+        Expr::FieldAccess { base, .. } => collect_free_symbols_expr(base, bound_symbols, out),
+        Expr::Index { base, index, .. } => {
+            collect_free_symbols_expr(base, bound_symbols, out);
+            collect_free_symbols_expr(index, bound_symbols, out);
+        }
+        Expr::Unary { expr, .. } | Expr::Try { expr, .. } | Expr::Return { expr, .. } => {
+            collect_free_symbols_expr(expr, bound_symbols, out);
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            collect_free_symbols_expr(lhs, bound_symbols, out);
+            collect_free_symbols_expr(rhs, bound_symbols, out);
+        }
+        Expr::Call { args, .. } => {
+            for arg in args {
+                collect_free_symbols_expr(arg, bound_symbols, out);
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_free_symbols_expr(cond, bound_symbols, out);
+            collect_free_symbols_expr(then_br, bound_symbols, out);
+            collect_free_symbols_expr(else_br, bound_symbols, out);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_free_symbols_expr(scrutinee, bound_symbols, out);
+            for arm in arms {
+                let mut arm_bound = bound_symbols.clone();
+                match &arm.pat {
+                    clg_ast::MatchPat::Some(name)
+                    | clg_ast::MatchPat::Ok(name)
+                    | clg_ast::MatchPat::Err(name) => {
+                        arm_bound.insert(name.clone());
+                    }
+                    clg_ast::MatchPat::None
+                    | clg_ast::MatchPat::Wildcard
+                    | clg_ast::MatchPat::EnumVariant { .. } => {}
+                }
+                collect_free_symbols_expr(&arm.expr, &arm_bound, out);
+            }
+        }
+        Expr::Block { block } => {
+            let mut local_bound = bound_symbols.clone();
+            for stmt in &block.statements {
+                match stmt {
+                    Stmt::Let { name, expr, .. } => {
+                        collect_free_symbols_expr(expr, &local_bound, out);
+                        local_bound.insert(name.clone());
+                    }
+                    Stmt::Expr { expr, .. } => collect_free_symbols_expr(expr, &local_bound, out),
+                    Stmt::While {
+                        cond,
+                        invariant,
+                        variant,
+                        body,
+                        ..
+                    } => {
+                        collect_free_symbols_expr(cond, &local_bound, out);
+                        collect_free_symbols_expr(invariant, &local_bound, out);
+                        if let Some(variant_expr) = variant {
+                            collect_free_symbols_expr(variant_expr, &local_bound, out);
+                        }
+                        collect_free_symbols_block(body, &local_bound, out);
+                    }
+                }
+            }
+            if let Some(tail) = &block.tail {
+                collect_free_symbols_expr(tail, &local_bound, out);
+            }
+        }
+        Expr::Lambda { params, body, .. } => {
+            let mut lambda_bound = bound_symbols.clone();
+            for param in params {
+                lambda_bound.insert(param.name.clone());
+            }
+            collect_free_symbols_expr(body, &lambda_bound, out);
+        }
+    }
+}
+
+fn collect_free_symbols_block(
+    block: &Block,
+    bound_symbols: &HashSet<String>,
+    out: &mut BTreeSet<String>,
+) {
+    let mut local_bound = bound_symbols.clone();
+    for stmt in &block.statements {
+        match stmt {
+            Stmt::Let { name, expr, .. } => {
+                collect_free_symbols_expr(expr, &local_bound, out);
+                local_bound.insert(name.clone());
+            }
+            Stmt::Expr { expr, .. } => collect_free_symbols_expr(expr, &local_bound, out),
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                ..
+            } => {
+                collect_free_symbols_expr(cond, &local_bound, out);
+                collect_free_symbols_expr(invariant, &local_bound, out);
+                if let Some(variant_expr) = variant {
+                    collect_free_symbols_expr(variant_expr, &local_bound, out);
+                }
+                collect_free_symbols_block(body, &local_bound, out);
+            }
+        }
+    }
+    if let Some(tail) = &block.tail {
+        collect_free_symbols_expr(tail, &local_bound, out);
+    }
+}
+
 pub(super) fn linear_branch_post_smt(scope: &str, idx: usize, vars: usize) -> (String, String) {
     linear_state_post_smt(scope, idx, vars, "then", "else")
 }

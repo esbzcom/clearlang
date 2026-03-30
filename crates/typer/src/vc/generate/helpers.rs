@@ -27,13 +27,19 @@ pub(super) fn collect_function_assumptions(
     collect_assumption_usage_expr(&func.body, &mut usage, dependencies);
 
     let mut assumptions = Vec::new();
-    if !usage.unsigned_types.is_empty() {
+    let uncovered_unsigned_symbols: Vec<String> = usage
+        .unsigned_types
+        .iter()
+        .filter(|symbol| symbol.as_str() != "U64")
+        .cloned()
+        .collect();
+    if !uncovered_unsigned_symbols.is_empty() {
         assumptions.push(AssumptionBoundary {
             id: ASSUMPTION_UNSIGNED_ID,
             category: AssumptionCategory::Unsigned,
             status: ASSUMPTION_STATUS_ASSUMED,
             message: ASSUMPTION_UNSIGNED_MESSAGE,
-            symbols: usage.unsigned_types.iter().cloned().collect(),
+            symbols: uncovered_unsigned_symbols,
         });
     }
     if !usage.bitwise_ops.is_empty() {
@@ -291,6 +297,24 @@ pub(super) fn premise_from_obligation(obligation: &RefinementObligation) -> Refi
         predicate: snapshot_expr(&obligation.predicate),
         attachment: obligation.attachment.clone(),
     }
+}
+
+pub(super) fn u64_bitvector_bindings_smt(param_names: &[String]) -> String {
+    if param_names.is_empty() {
+        return String::new();
+    }
+    let mut lines = Vec::new();
+    lines.push("; U64 bitvector bridge (phase 25.1.17)".to_string());
+    lines.push("(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)".to_string());
+    for name in param_names {
+        let bv_symbol = format!("clg.u64.bv.{}", name);
+        lines.push(format!("(declare-const {} (_ BitVec 64))", bv_symbol));
+        lines.push(format!(
+            "(assert (= {} (clg.u64.to_int {})))",
+            name, bv_symbol
+        ));
+    }
+    lines.join("\n")
 }
 
 pub(super) fn obligation_uses_only_symbols(

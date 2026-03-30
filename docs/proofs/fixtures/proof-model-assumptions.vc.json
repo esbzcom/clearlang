@@ -3,15 +3,6 @@
     "assumptions": {
       "items": [
         {
-          "category": "unsigned",
-          "id": "unsigned.int_model",
-          "message": "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.",
-          "status": "assumed",
-          "symbols": [
-            "U64"
-          ]
-        },
-        {
           "category": "bitwise",
           "id": "bitwise.uninterpreted",
           "message": "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.",
@@ -83,10 +74,10 @@
           }
         ],
         "focus_span": {
-          "end": 153,
+          "end": 117,
           "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
-          "start": 99
+          "start": 75
         },
         "format": "clg.counterexample.v1",
         "on_status": "failed",
@@ -96,18 +87,18 @@
       "failure_slice": {
         "clause_kind": "ensure",
         "focus_span": {
-          "end": 153,
+          "end": 117,
           "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
-          "start": 99
+          "start": 75
         },
         "on_status": "failed",
         "related_spans": [
           {
-            "end": 153,
+            "end": 117,
             "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
             "role": "post",
-            "start": 99
+            "start": 75
           }
         ],
         "vc_id": "vc:0"
@@ -115,15 +106,6 @@
       "proof_context": {
         "assumptions": {
           "items": [
-            {
-              "category": "unsigned",
-              "id": "unsigned.int_model",
-              "message": "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.",
-              "status": "assumed",
-              "symbols": [
-                "U64"
-              ]
-            },
             {
               "category": "bitwise",
               "id": "bitwise.uninterpreted",
@@ -187,8 +169,8 @@
         "span_map": {
           "focus_role": "post",
           "post": {
-            "end": 153,
-            "start": 99
+            "end": 117,
+            "start": 75
           }
         },
         "vc": {
@@ -223,8 +205,8 @@
     "function": "check",
     "positions": {
       "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
-      "post_end": 153,
-      "post_start": 99,
+      "post_end": 117,
+      "post_start": 75,
       "pre_end": 0,
       "pre_start": 0
     },
@@ -247,15 +229,6 @@
   {
     "assumptions": {
       "items": [
-        {
-          "category": "unsigned",
-          "id": "unsigned.int_model",
-          "message": "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.",
-          "status": "assumed",
-          "symbols": [
-            "U64"
-          ]
-        },
         {
           "category": "bitwise",
           "id": "bitwise.uninterpreted",
@@ -320,10 +293,10 @@
           }
         ],
         "focus_span": {
-          "end": 189,
+          "end": 141,
           "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
-          "start": 160
+          "start": 124
         },
         "format": "clg.counterexample.v1",
         "on_status": "failed",
@@ -333,18 +306,18 @@
       "failure_slice": {
         "clause_kind": "ensure",
         "focus_span": {
-          "end": 189,
+          "end": 141,
           "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
           "role": "post",
-          "start": 160
+          "start": 124
         },
         "on_status": "failed",
         "related_spans": [
           {
-            "end": 189,
+            "end": 141,
             "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
             "role": "post",
-            "start": 160
+            "start": 124
           }
         ],
         "vc_id": "vc:1"
@@ -352,15 +325,6 @@
       "proof_context": {
         "assumptions": {
           "items": [
-            {
-              "category": "unsigned",
-              "id": "unsigned.int_model",
-              "message": "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.",
-              "status": "assumed",
-              "symbols": [
-                "U64"
-              ]
-            },
             {
               "category": "bitwise",
               "id": "bitwise.uninterpreted",
@@ -416,8 +380,8 @@
         "span_map": {
           "focus_role": "post",
           "post": {
-            "end": 189,
-            "start": 160
+            "end": 141,
+            "start": 124
           }
         },
         "vc": {
@@ -452,8 +416,8 @@
     "function": "check",
     "positions": {
       "file": "C:\\clearlang\\clearlang\\tmp\\vc-fixture-refresh\\proof-model-assumptions.vc.json.clear",
-      "post_end": 189,
-      "post_start": 160,
+      "post_end": 141,
+      "post_start": 124,
       "pre_end": 0,
       "pre_start": 0
     },

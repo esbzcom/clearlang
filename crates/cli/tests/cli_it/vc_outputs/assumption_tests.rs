@@ -51,9 +51,12 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
         assurance.get("label").and_then(|v| v.as_str()),
         Some("assumed")
     );
-    assert!(assumptions
-        .iter()
-        .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("unsigned.int_model")));
+    assert!(
+        assumptions
+            .iter()
+            .all(|item| item.get("id").and_then(|v| v.as_str()) != Some("unsigned.int_model")),
+        "U64-covered paths should not emit unsigned.int_model assumption item"
+    );
     assert!(assumptions
         .iter()
         .any(|item| item.get("id").and_then(|v| v.as_str()) == Some("bitwise.uninterpreted")));
@@ -118,10 +121,13 @@ fn build_emits_assumption_boundaries_in_vc_json_and_proof_section() {
         .assumptions
         .as_ref()
         .expect("proof vc assumptions");
-    assert!(vc_assumptions
-        .items
-        .iter()
-        .any(|item| item.id == "unsigned.int_model" && item.category == "unsigned"));
+    assert!(
+        vc_assumptions
+            .items
+            .iter()
+            .all(|item| !(item.id == "unsigned.int_model" && item.category == "unsigned")),
+        "proof section should not carry unsigned.int_model for U64-covered paths"
+    );
     assert!(vc_assumptions
         .items
         .iter()

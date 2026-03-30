@@ -22,10 +22,10 @@ This document captures what ClearLang proofs do *not* guarantee for cryptographi
    - `std::bytes::eq_ct` is modeled only as a pure boolean equality helper.
    - Timing/leakage properties are out of scope for SMT proofs.
 
-4) **Unsigned arithmetic ≠ bit-precise arithmetic**
-   - The SMT encoding uses unbounded `Int` for unsigned arithmetic.
-   - Bitwise and shift operators are modeled as uninterpreted functions.
-   - Proofs cannot reason about overflow behavior or exact bit patterns without extra assumptions.
+4) **Unsigned modeling is still partial**
+   - `U64` now emits a deterministic bitvector bridge in VC SMT.
+   - Non-`U64` unsigned paths still rely on unbounded `Int` modeling (`unsigned.int_model`).
+   - Bitwise and shift operators remain assumption-boundary surfaces until their dedicated closure phase.
 
 5) **Runtime errors are not part of proofs**
    - Runtime diagnostics (e.g., R006-R008) are enforced by execution and covered by tests, not by SMT.
@@ -54,7 +54,7 @@ This document captures what ClearLang proofs do *not* guarantee for cryptographi
 
 ## Practical Guidance
 
-- VC artifacts expose assumption boundaries directly: `unsigned.int_model`, `bitwise.uninterpreted`, and `crypto.uninterpreted` under `assumptions.items`.
+- VC artifacts expose assumption boundaries directly: `bitwise.uninterpreted` and `crypto.uninterpreted` by default, plus `unsigned.int_model` when uncovered non-`U64` unsigned paths are present.
 - `crypto.uninterpreted` entries include deterministic per-intrinsic assurance metadata in `intrinsic_levels` (currently `L0` / `assumed`).
 - If a property depends on cryptographic strength, document it as an assumption in the contract or proof notes.
 - Avoid proving security-critical claims (e.g., "only signer can authorize") without an explicit attestation layer.

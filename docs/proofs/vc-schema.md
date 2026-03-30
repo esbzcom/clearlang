@@ -128,7 +128,7 @@ Assumption Boundary
   - `label`: string (currently `assumed`)
 
 Current assumption IDs
-- `unsigned.int_model`: unsigned values use SMT `Int` modeling with bounded-domain guards where available; overflow/bit-precise semantics are assumed.
+- `unsigned.int_model`: uncovered unsigned values (currently non-`U64` paths) use SMT `Int` modeling with bounded-domain guards where available; overflow/bit-precise semantics are assumed.
 - `bitwise.uninterpreted`: bitwise/shift operators and bitwise-sensitive `std::u64` intrinsics are encoded as uninterpreted SMT functions.
 - `crypto.uninterpreted`: crypto/constant-time intrinsics are encoded as uninterpreted SMT functions; emitted items include deterministic per-intrinsic `intrinsic_levels` metadata.
 - `primitive.unproved`: called std primitive intrinsics are outside current formal proof coverage and are treated as assumed dependencies.

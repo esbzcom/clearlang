@@ -253,8 +253,8 @@ fn declares_bitwise_and_builtin_helpers() {
     assert!(
         vc.assumptions
             .iter()
-            .any(|a| matches!(a.category, AssumptionCategory::Unsigned)),
-        "expected unsigned assumption boundary"
+            .all(|a| !matches!(a.category, AssumptionCategory::Unsigned)),
+        "U64-covered paths should not emit unsigned.int_model boundary"
     );
     assert!(
         vc.assumptions

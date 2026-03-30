@@ -19,7 +19,8 @@ use crate::vc::source::expr_to_source;
 mod helpers;
 use self::helpers::{
     append_smt_bounds, collect_function_assumptions, linear_branch_post_smt, linear_loop_post_smt,
-    obligation_uses_only_symbols, premise_from_obligation, u64_bounds_smt,
+    obligation_uses_only_symbols, premise_from_obligation, u64_bitvector_bindings_smt,
+    u64_bounds_smt,
 };
 
 const U64_MAX_SMT: &str = "18446744073709551615";
@@ -30,7 +31,7 @@ const ASSUMPTION_PRIMITIVE_ID: &str = "primitive.unproved";
 const ASSUMPTION_EXTERNAL_ID: &str = "external.dependency";
 const ASSUMPTION_STATUS_ASSUMED: &str = "assumed";
 const ASSUMPTION_UNSIGNED_MESSAGE: &str =
-    "Unsigned values are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.";
+    "Uncovered unsigned values (currently non-U64 paths) are modeled as SMT Int with bounded-domain guards where available; overflow and exact bit-level semantics are assumed.";
 const ASSUMPTION_BITWISE_MESSAGE: &str =
     "Bitwise and shift operators (including bitwise-sensitive std::u64 intrinsics) are modeled as uninterpreted SMT functions.";
 const ASSUMPTION_CRYPTO_MESSAGE: &str =
@@ -87,12 +88,17 @@ pub fn generate_vcs_with_dependencies(
                 }
             }
         }
-        let u64_param_bounds: Vec<String> = func
+        let u64_param_names: Vec<String> = func
             .params
             .iter()
             .filter(|p| matches!(p.ty, Type::U64))
-            .map(|p| u64_bounds_smt(p.name.as_str()))
+            .map(|p| p.name.clone())
             .collect();
+        let u64_param_bounds: Vec<String> = u64_param_names
+            .iter()
+            .map(|name| u64_bounds_smt(name.as_str()))
+            .collect();
+        let u64_bitvector_bindings = u64_bitvector_bindings_smt(&u64_param_names);
 
         // Ensure VCs follow source order, with an implicit refined-return predicate appended.
         let mut ensures: Vec<EnsureItem> = func
@@ -172,7 +178,11 @@ pub fn generate_vcs_with_dependencies(
             .map(premise_from_obligation)
             .collect();
         let base_refinement_prelude = refinement_prelude(&pre_obligations, None, &alias_map);
-        let base_vc_extra = merge_extras(&[&param_declarations, &base_refinement_prelude]);
+        let base_vc_extra = merge_extras(&[
+            &param_declarations,
+            &base_refinement_prelude,
+            &u64_bitvector_bindings,
+        ]);
         let linear_control = collect_linear_control_obligations(func, &resource_names);
 
         if matches!(func.effect, Effect::None | Effect::Pure) && !ensures.is_empty() {

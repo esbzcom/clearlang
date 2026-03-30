@@ -97,5 +97,6 @@ Publish these files together:
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.
 - Milestone 3 CI/tag gate is locked by `docs/evidence/milestone_3-proof-gate.lock.json` and enforced by `crates/cli/tests/milestone3_release_gate.rs`.
 - Milestone 3 release-target parity gate currently runs on Windows (`windows-latest`) and enforces deterministic proof-parity artifact emission before `milestone_3` tag release gating.
+- Solver supply-chain gate is locked by `docs/design/phase-25.1.16-solver-supply-chain.lock.json` (pinned version + checksum/signature + legal notices + CVE/rollback policy).
 - `--emit-proof` emits deterministic proof artifact summaries and binds optional proof/solver hashes into signed payload/manifest claims for verify-time consistency checks.
 - A single wrapper command (`clg release`) is planned, but not implemented yet.

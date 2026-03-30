@@ -1,0 +1,5 @@
+Z3 is distributed by the Z3Prover project.
+
+This repository requires including the upstream Z3 license text when distributing vendored solver binaries.
+
+For bundled releases, place the exact upstream license text for the shipped Z3 build in this file.

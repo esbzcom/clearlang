@@ -109,6 +109,7 @@ fn ci_workflow_enforces_validation_and_tests() {
         "cargo test -p clg-cli --test solver_outcomes",
         "cargo test -p clg-cli --test solver_replay_stability",
         "cargo test -p clg-cli --test phase25_solver_support_matrix",
+        "cargo test -p clg-cli --test phase25_solver_supply_chain_gate",
         "cargo test -p clg-cli --test proof_artifact_replay",
         "cargo test -p clg-cli --test proof_coverage_matrix",
         "cargo test -p clg-cli --test verified_std_core_subset",

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "policy_version": "25.1.16",
+  "solver_identity": {
+    "family": "z3",
+    "version": "4.13.4",
+    "source_lock": "docs/design/phase-25.1.4-solver-profile.lock.json"
+  },
+  "bundle_integrity": {
+    "checksum_algorithm": "sha256",
+    "checksum_required": true,
+    "signature_required": true,
+    "signature_file_pattern": "*.sig",
+    "checksum_file_pattern": "*.sha256"
+  },
+  "license_notice": {
+    "required_files": [
+      "docs/legal/third_party/z3-LICENSE.txt",
+      "docs/legal/third_party/z3-NOTICE.txt"
+    ]
+  },
+  "cve_update_policy": {
+    "max_advisory_age_days": 14,
+    "policy_doc": "docs/security/solver-cve-update-policy.md",
+    "sources": [
+      "github-advisory-db",
+      "nvd"
+    ]
+  },
+  "rollback_procedure": {
+    "doc": "docs/security/solver-rollback-procedure.md",
+    "require_last_known_good_manifest": true
+  },
+  "ci_validation_strategy": {
+    "workflow": ".github/workflows/ci.yml",
+    "required_step": "Proof regression gates",
+    "required_command": "cargo test -p clg-cli --test phase25_solver_supply_chain_gate"
+  }
+}

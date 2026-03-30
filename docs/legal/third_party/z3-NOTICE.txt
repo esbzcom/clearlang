@@ -1,0 +1,8 @@
+This product may include a bundled Z3 solver binary.
+
+Upstream project:
+- https://github.com/Z3Prover/z3
+
+Bundle policy:
+- Preserve upstream copyright/license notices.
+- Publish checksum and signature metadata alongside bundled solver artifacts.

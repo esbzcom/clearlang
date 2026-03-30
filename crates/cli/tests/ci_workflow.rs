@@ -108,6 +108,7 @@ fn ci_workflow_enforces_validation_and_tests() {
         "cargo test -p clg-cli --test vc_snapshots",
         "cargo test -p clg-cli --test solver_outcomes",
         "cargo test -p clg-cli --test solver_replay_stability",
+        "cargo test -p clg-cli --test phase25_solver_support_matrix",
         "cargo test -p clg-cli --test proof_artifact_replay",
         "cargo test -p clg-cli --test proof_coverage_matrix",
         "cargo test -p clg-cli --test verified_std_core_subset",
@@ -354,6 +355,18 @@ fn ci_workflow_enforces_validation_and_tests() {
     let parity_steps = as_sequence(
         mapping_get(parity_job, "steps", "milestone3-proof-parity job"),
         "milestone3-proof-parity steps",
+    );
+    let (_, solver_vendor_smoke_step) = find_step(parity_steps, "Solver vendor-path smoke gate");
+    let solver_vendor_smoke_run = mapping_get_str(
+        solver_vendor_smoke_step,
+        "run",
+        "Solver vendor-path smoke gate step",
+    );
+    assert!(
+        solver_vendor_smoke_run.contains(
+            "cargo test -p clg-cli --test solver_outcomes bundled_solver_root_is_used_when_solver_env_not_set"
+        ),
+        "milestone3 proof parity job should validate bundled solver fallback behavior"
     );
     let (_, parity_snapshot_step) = find_step(parity_steps, "Milestone 3 proof parity snapshot");
     let parity_snapshot_run = mapping_get_str(

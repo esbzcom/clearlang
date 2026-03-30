@@ -12,6 +12,7 @@ This document is the evidence index for TODO item `25.0.8`.
 ## CI and Release-Train Gate
 - Proof regression command set (CI `checks` job):
   - `cargo test -p clg-cli --test vc_snapshots`
+  - `cargo test -p clg-cli --test phase25_solver_support_matrix`
   - `cargo test -p clg-cli --test proof_coverage_matrix`
   - `cargo test -p clg-cli --test verified_std_core_subset`
   - `cargo test -p clg-cli --test profile_regression_gate`

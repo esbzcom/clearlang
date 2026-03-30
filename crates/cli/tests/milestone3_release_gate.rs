@@ -336,6 +336,22 @@ fn validate_ci_wiring(root: &Path) {
         "windows-latest",
         "milestone3 proof parity job should run on windows-latest"
     );
+    let parity_steps = as_sequence(
+        mapping_get(parity_job, "steps", "milestone3-proof-parity job"),
+        "milestone3-proof-parity steps",
+    );
+    let (_, solver_vendor_smoke_step) = find_step(parity_steps, "Solver vendor-path smoke gate");
+    let solver_vendor_smoke_run = mapping_get_str(
+        solver_vendor_smoke_step,
+        "run",
+        "Solver vendor-path smoke gate step",
+    );
+    assert!(
+        solver_vendor_smoke_run.contains(
+            "cargo test -p clg-cli --test solver_outcomes bundled_solver_root_is_used_when_solver_env_not_set"
+        ),
+        "milestone_3 release gate must require bundled solver fallback smoke coverage"
+    );
 
     let release_job = as_mapping(
         mapping_get(jobs, "milestone3-release-train-gate", "workflow jobs"),

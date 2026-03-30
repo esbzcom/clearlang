@@ -41,6 +41,7 @@ jobs:
           cargo test -p clg-cli --test vc_snapshots
           cargo test -p clg-cli --test solver_outcomes
           cargo test -p clg-cli --test solver_replay_stability
+          cargo test -p clg-cli --test phase25_solver_support_matrix
           cargo test -p clg-cli --test proof_artifact_replay
           cargo test -p clg-cli --test proof_coverage_matrix
           cargo test -p clg-cli --test verified_std_core_subset
@@ -287,6 +288,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
+      - name: Solver vendor-path smoke gate
+        run: cargo test -p clg-cli --test solver_outcomes bundled_solver_root_is_used_when_solver_env_not_set
       - name: Milestone 3 proof parity snapshot
         env:
           CLG_PROOF_PARITY_OUT: tmp/proof-parity/windows.json

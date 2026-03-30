@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "policy_version": "25.1.15",
+  "release_target_platforms": [
+    "windows-x64"
+  ],
+  "unsupported_target_policy": {
+    "release_mode": "fail_closed",
+    "diagnostic_code": "C124",
+    "reason": "self-contained solver bundle is required for release-grade proof execution"
+  },
+  "ci_validation_strategy": {
+    "workflow": ".github/workflows/ci.yml",
+    "required_job": "milestone3-proof-parity",
+    "required_step": "Solver vendor-path smoke gate",
+    "required_command": "cargo test -p clg-cli --test solver_outcomes bundled_solver_root_is_used_when_solver_env_not_set"
+  }
+}

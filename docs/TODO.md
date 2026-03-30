@@ -1064,7 +1064,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.1.12 Harden solver determinism contract: pin solver version/options/timeouts and add replay-stability CI checks. (`docs/design/phase-25.1.12-solver-determinism-contract-and-replay.md`)
   - [x] 25.1.13 Add CI replay gates for deterministic solver outcomes (`proved|failed|unknown|timeout`) across identical runs and release target platforms (Windows-only for current milestone scope). (`docs/design/phase-25.1.13-ci-replay-gates-release-target-platforms.md`)
   - [x] 25.1.14 Make solver integration self-contained by default (no external system install required) by shipping a platform bundle or Rust-managed vendor path. (`docs/design/phase-25.1.14-self-contained-solver-vendor-path.md`)
-  - [ ] 25.1.15 Define required self-contained solver support matrix (OS/arch coverage, unsupported-target policy, and CI validation strategy).
+  - [x] 25.1.15 Define required self-contained solver support matrix (OS/arch coverage, unsupported-target policy, and CI validation strategy). (`docs/design/phase-25.1.15-solver-support-matrix.md`)
   - [ ] 25.1.16 Add solver supply-chain/security gates: pinned version, checksum/signature verification, license/notice inclusion, CVE update policy, and rollback procedure.
   - [ ] 25.1.17 Add bitvector proof encoding for covered unsigned paths (starting with `U64`) to retire `unsigned.int_model` assumptions on those paths.
   - [ ] 25.1.18 Add bitwise SMT encoding for covered operators/intrinsics to retire `bitwise.uninterpreted` assumptions on those paths.

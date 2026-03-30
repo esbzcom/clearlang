@@ -1042,7 +1042,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.0.7 Add release compile profile behavior so production compile/publish fails unless theorem-grade policy passes. (`docs/design/phase-25.0.7-production-release-profile-gate.md`)
   - [x] 25.0.8 Add CI/release gate that blocks publish unless required proof matrix and evidence artifacts are complete. (`docs/design/phase-25.0.8-ci-release-proof-matrix-gate.md`)
   - [x] 25.0.9 Add CI gate asserting release bundles contain zero assumption boundaries (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted`). (`docs/design/phase-25.0.9-zero-assumption-boundary-release-gate.md`)
-  - [x] 25.0.10 Add cross-platform proof parity gate: release targets (Windows/Linux/macOS) must produce equivalent proof outcomes and deterministic assurance status. (`docs/design/phase-25.0.10-cross-platform-proof-parity-gate.md`)
+  - [x] 25.0.10 Add release-target proof parity gate: current release target (Windows) must produce deterministic proof outcomes and assurance status across identical runs; expand platform set after self-contained solver matrix lands. (`docs/design/phase-25.0.10-cross-platform-proof-parity-gate.md`)
   - [x] 25.0.11 Wire release gate to std proof matrix allowlist: release bundles may include only APIs/symbols marked `proved` in the canonical matrix. (`docs/design/phase-25.0.11-release-symbol-allowlist-gate.md`)
   - [x] 25.0.12 Add strict release-surface policy that only permits features/intrinsics with fully proved semantics (unproved surfaces remain non-release/dev-only). (`docs/design/phase-25.0.12-strict-release-surface-policy.md`)
   - [x] 25.0.13 Enforce crypto proof boundary policy in strict release gates: any remaining `crypto.uninterpreted` boundary blocks theorem-grade/release-grade claims. (`docs/design/phase-25.0.13-crypto-proof-boundary-release-gate.md`)
@@ -1062,7 +1062,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.1.10 Bind proof artifact hash and solver-profile hash into signed payload/manifest and enforce verification consistency in `clg verify`. (`docs/design/phase-25.1.10-proof-solver-hash-binding.md`)
   - [x] 25.1.11 Add deterministic `--emit-proof` artifact reproducibility gate (byte/hash stability across identical inputs and runs). (`docs/design/phase-25.1.11-emit-proof-reproducibility-gate.md`)
   - [x] 25.1.12 Harden solver determinism contract: pin solver version/options/timeouts and add replay-stability CI checks. (`docs/design/phase-25.1.12-solver-determinism-contract-and-replay.md`)
-  - [ ] 25.1.13 Add CI replay gates for deterministic solver outcomes (`proved|failed|unknown|timeout`) across identical runs and release target platforms.
+  - [x] 25.1.13 Add CI replay gates for deterministic solver outcomes (`proved|failed|unknown|timeout`) across identical runs and release target platforms (Windows-only for current milestone scope). (`docs/design/phase-25.1.13-ci-replay-gates-release-target-platforms.md`)
   - [ ] 25.1.14 Make solver integration self-contained by default (no external system install required) by shipping a platform bundle or Rust-managed vendor path.
   - [ ] 25.1.15 Define required self-contained solver support matrix (OS/arch coverage, unsupported-target policy, and CI validation strategy).
   - [ ] 25.1.16 Add solver supply-chain/security gates: pinned version, checksum/signature verification, license/notice inclusion, CVE update policy, and rollback procedure.

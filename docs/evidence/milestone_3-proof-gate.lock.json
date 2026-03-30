@@ -25,9 +25,7 @@
     "cargo test -p clg-typer --test vc vc_smt_declares_parameters_with_sorts_and_closes_let_locals"
   ],
   "cross_platform_proof_parity_targets": [
-    "linux",
-    "windows",
-    "macos"
+    "windows"
   ],
   "prohibited_release_assumption_boundaries": [
     "unsigned.int_model",

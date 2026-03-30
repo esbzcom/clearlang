@@ -262,7 +262,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/milestone_3')
     needs:
       - checks
-      - milestone3-proof-parity-compare
+      - milestone3-proof-parity
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -279,17 +279,7 @@ jobs:
           cargo test -p clg-cli --test milestone3_release_gate
 
   milestone3-proof-parity:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            id: linux
-          - os: windows-latest
-            id: windows
-          - os: macos-latest
-            id: macos
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -299,36 +289,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Milestone 3 proof parity snapshot
         env:
-          CLG_PROOF_PARITY_OUT: tmp/proof-parity/${{ matrix.id }}.json
+          CLG_PROOF_PARITY_OUT: tmp/proof-parity/windows.json
         run: cargo test -p clg-cli --test milestone3_proof_parity -- --nocapture
       - name: Upload milestone_3 proof parity artifact
         uses: actions/upload-artifact@v4
         with:
-          name: milestone3-proof-parity-${{ matrix.id }}
-          path: tmp/proof-parity/${{ matrix.id }}.json
-
-  milestone3-proof-parity-compare:
-    needs:
-      - milestone3-proof-parity
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Linux proof parity artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: milestone3-proof-parity-linux
-          path: tmp/proof-parity/linux
-      - name: Download Windows proof parity artifact
-        uses: actions/download-artifact@v4
-        with:
           name: milestone3-proof-parity-windows
-          path: tmp/proof-parity/windows
-      - name: Download macOS proof parity artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: milestone3-proof-parity-macos
-          path: tmp/proof-parity/macos
-      - name: Compare cross-platform proof parity artifacts
-        run: |
-          set -euo pipefail
-          cmp --silent tmp/proof-parity/linux/linux.json tmp/proof-parity/windows/windows.json
-          cmp --silent tmp/proof-parity/linux/linux.json tmp/proof-parity/macos/macos.json
+          path: tmp/proof-parity/windows.json

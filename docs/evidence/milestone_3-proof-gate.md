@@ -22,12 +22,10 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_non_proved_std_surface_with_c122`
   - `cargo test -p clg-cli --test cli_it diagnostics::production_release_profile_rejects_crypto_assumption_boundary_with_c123`
   - `cargo test -p clg-cli --test cli_it parse_rejects_theorem_keyword_with_explicit_code`
-- Cross-platform parity matrix artifacts:
-  - Linux: `milestone3-proof-parity-linux`
+- Release-target parity artifact:
   - Windows: `milestone3-proof-parity-windows`
-  - macOS: `milestone3-proof-parity-macos`
-- Cross-platform compare gate:
-  - `milestone3-proof-parity-compare` enforces byte-equivalent parity summaries across Linux/Windows/macOS.
+- Platform scope:
+  - Milestone 3 release target is currently Windows-only; parity replay runs and artifact emission are enforced on `windows-latest`.
 - Tag gate (`refs/tags/milestone_3`) runs:
   - `cargo test -p clg-cli --test milestone3_release_gate`
   - with `CLG_ENFORCE_MILESTONE3_RELEASE_GATE=1`

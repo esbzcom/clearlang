@@ -1,6 +1,33 @@
 use std::fs;
 use std::path::Path;
 
+fn load_xtask_milestone2_source(root: &Path) -> String {
+    let base = root
+        .join("xtask")
+        .join("src")
+        .join("main")
+        .join("milestone2_gates.rs");
+    let mut combined = fs::read_to_string(&base).expect("read xtask milestone2 gate source");
+    let split_dir = root
+        .join("xtask")
+        .join("src")
+        .join("main")
+        .join("milestone2_gates");
+    if split_dir.is_dir() {
+        let mut paths = fs::read_dir(&split_dir)
+            .expect("read milestone2_gates split dir")
+            .filter_map(|entry| entry.ok().map(|value| value.path()))
+            .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("rs"))
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            combined.push('\n');
+            combined.push_str(&fs::read_to_string(&path).expect("read split milestone2 gate source"));
+        }
+    }
+    combined
+}
+
 fn extract_xtask_const(xtask_source: &str, name: &str) -> String {
     let prefix = format!("const {name}:");
     for line in xtask_source.lines() {
@@ -23,14 +50,9 @@ fn milestone2_performance_evidence_doc_references_gate_script_and_artifact() {
         .join("docs")
         .join("evidence")
         .join("milestone_2-performance.md");
-    let xtask_path = root
-        .join("xtask")
-        .join("src")
-        .join("main")
-        .join("milestone2_gates.rs");
     let content =
         fs::read_to_string(&evidence_path).expect("read milestone_2 performance evidence doc");
-    let xtask_source = fs::read_to_string(&xtask_path).expect("read xtask milestone2 gate source");
+    let xtask_source = load_xtask_milestone2_source(&root);
 
     assert!(
         content.contains("cargo run -p xtask -- milestone2-perf-gate"),

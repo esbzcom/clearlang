@@ -1,6 +1,33 @@
 use std::fs;
 use std::path::Path;
 
+fn load_xtask_milestone2_source(root: &Path) -> String {
+    let base = root
+        .join("xtask")
+        .join("src")
+        .join("main")
+        .join("milestone2_gates.rs");
+    let mut combined = fs::read_to_string(&base).expect("read xtask milestone2 gate source");
+    let split_dir = root
+        .join("xtask")
+        .join("src")
+        .join("main")
+        .join("milestone2_gates");
+    if split_dir.is_dir() {
+        let mut paths = fs::read_dir(&split_dir)
+            .expect("read milestone2_gates split dir")
+            .filter_map(|entry| entry.ok().map(|value| value.path()))
+            .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("rs"))
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            combined.push('\n');
+            combined.push_str(&fs::read_to_string(&path).expect("read split milestone2 gate source"));
+        }
+    }
+    combined
+}
+
 #[test]
 fn milestone2_supply_chain_evidence_doc_references_gate_and_artifacts() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -8,15 +35,9 @@ fn milestone2_supply_chain_evidence_doc_references_gate_and_artifacts() {
         .join("docs")
         .join("evidence")
         .join("milestone_2-supply-chain.md");
-    let xtask_path = root
-        .join("xtask")
-        .join("src")
-        .join("main")
-        .join("milestone2_gates.rs");
     let content =
         fs::read_to_string(&evidence_path).expect("read milestone_2 supply-chain evidence");
-    let xtask_source =
-        fs::read_to_string(&xtask_path).expect("read xtask supply-chain gate source");
+    let xtask_source = load_xtask_milestone2_source(&root);
 
     assert!(
         content.contains("cargo run -p xtask -- milestone2-supply-chain-gate"),

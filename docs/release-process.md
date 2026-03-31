@@ -1,4 +1,4 @@
-# ClearLang Release Process (Current CLI)
+# ClearLang Release Process (Current CLI + Gate C Shape)
 
 This is the current production-style flow using existing commands.
 
@@ -7,6 +7,20 @@ This is the current production-style flow using existing commands.
 - Strict build with VC emission
 - Signing + verification gates
 - Publishable release artifacts
+
+## Primary UX Surface (Gate C Lock)
+Primary commands:
+- `clg check`
+- `clg test`
+- `clg release`
+
+Concrete `clg release` CLI shape:
+
+```powershell
+clg release examples/projects/generic/main.clear --advisory-as-of 2026-03-31T00:00:00Z --key keys/signing.json --key-id release-2026q2 --pubkey keys/public.json --root examples/projects/generic --out-dir out/release --trust-policy examples/projects/generic/clg.trust-policy.json
+```
+
+Current `clg release` output is a deterministic command contract JSON (policy lock, resolved paths, and orchestration stages). Full one-command execution wiring is tracked by TODO `25.2.3`.
 
 ## Prerequisites
 Project module root must include:
@@ -104,4 +118,4 @@ Publish these files together:
 - Milestone 3 release-target parity gate currently runs on Windows (`windows-latest`) and enforces deterministic proof-parity artifact emission before `milestone_3` tag release gating.
 - Solver supply-chain gate is locked by `docs/design/phase-25.1.16-solver-supply-chain.lock.json` (pinned version + checksum/signature + legal notices + CVE/rollback policy).
 - `--emit-proof` emits deterministic proof artifact summaries and binds optional proof/solver hashes into signed payload/manifest claims for verify-time consistency checks.
-- A single wrapper command (`clg release`) is planned, but not implemented yet.
+- `clg release` command shape is locked in Gate C (`25.2.2`) and emits deterministic orchestration/artifact contracts; execution wiring is tracked by `25.2.3`.

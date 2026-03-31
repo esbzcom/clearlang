@@ -6,7 +6,7 @@ use clg_cli::commands::{
     build::{self as cmd_build, CompilerMode, ReleaseProfile, StdCoreLinkMode},
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
-    parse as cmd_parse, pkg as cmd_pkg, run as cmd_run,
+    parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
     verify::{self as cmd_verify, VerifyMode},
 };
 use clg_cli::logging::Logger;
@@ -107,6 +107,33 @@ enum Commands {
         /// Export to invoke (default: main)
         #[arg(long, default_value = "main")]
         invoke: String,
+    },
+    /// Phase 25.2.2: release command shape (Gate C UX lock)
+    Release {
+        /// Entry ClearLang source file
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        /// Deterministic advisory policy evaluation time (UTC RFC3339)
+        #[arg(long, value_name = "RFC3339_UTC")]
+        advisory_as_of: String,
+        /// Signing key file (JSON)
+        #[arg(long, value_name = "FILE")]
+        key: PathBuf,
+        /// Identifier recorded in signature/manifests
+        #[arg(long)]
+        key_id: String,
+        /// Public key file (JSON) for verify stage
+        #[arg(long, value_name = "FILE")]
+        pubkey: PathBuf,
+        /// Module root containing strict preflight inputs
+        #[arg(long, value_name = "DIR")]
+        root: Option<PathBuf>,
+        /// Output directory for release artifacts
+        #[arg(long, value_name = "DIR")]
+        out_dir: Option<PathBuf>,
+        /// Trust policy file for compile-time verify
+        #[arg(long, value_name = "FILE")]
+        trust_policy: Option<PathBuf>,
     },
     /// Verify a signed proof bundle against a Wasm module
     Verify {
@@ -221,6 +248,27 @@ fn main() -> Result<()> {
             logger,
         ),
         Commands::Run { file, invoke } => cmd_run::run(file, invoke, cli.json_errors, logger),
+        Commands::Release {
+            file,
+            advisory_as_of,
+            key,
+            key_id,
+            pubkey,
+            root,
+            out_dir,
+            trust_policy,
+        } => cmd_release::run(
+            file,
+            advisory_as_of,
+            key,
+            key_id,
+            pubkey,
+            root,
+            out_dir,
+            trust_policy,
+            cli.json_errors,
+            logger,
+        ),
         Commands::Verify {
             module,
             sig,

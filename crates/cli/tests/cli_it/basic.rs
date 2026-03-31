@@ -320,3 +320,90 @@ fn build_contract_requires_query_function() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C011"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
 }
+
+#[test]
+fn release_help_exposes_gate_c_primary_shape() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["release", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let help = String::from_utf8(output).expect("utf8");
+    assert!(help.contains("release [OPTIONS]"));
+    assert!(help.contains("--advisory-as-of"));
+    assert!(help.contains("--key"));
+    assert!(help.contains("--key-id"));
+    assert!(help.contains("--pubkey"));
+    assert!(help.contains("--root"));
+    assert!(help.contains("--out-dir"));
+    assert!(help.contains("--trust-policy"));
+    assert!(
+        !help.contains("--compiler-mode"),
+        "release command shape should hide build internals from primary help"
+    );
+}
+
+#[test]
+fn release_emits_deterministic_shape_json() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+    let source = root.join("main.clear");
+    fs::write(&source, "function main() -> Int { 0 }").expect("write source");
+    let out_dir = root.join("out").join("release");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["release"])
+        .arg(&source)
+        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
+        .args(["--key"])
+        .arg(root.join("keys").join("signing.json"))
+        .args(["--key-id", "release-2026q2"])
+        .args(["--pubkey"])
+        .arg(root.join("keys").join("public.json"))
+        .args(["--root"])
+        .arg(&root)
+        .args(["--out-dir"])
+        .arg(&out_dir)
+        .args(["--trust-policy"])
+        .arg(root.join("clg.trust-policy.json"))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let shape: Value = serde_json::from_slice(output.as_slice()).expect("release shape json");
+    assert_eq!(
+        shape.get("policy_version").and_then(|v| v.as_str()),
+        Some("25.2.2")
+    );
+    assert_eq!(
+        shape.get("primary_commands").and_then(|v| v.as_array()),
+        Some(&vec![
+            Value::String("check".to_string()),
+            Value::String("test".to_string()),
+            Value::String("release".to_string())
+        ])
+    );
+    assert_eq!(
+        shape
+            .get("orchestration")
+            .and_then(|v| v.as_array())
+            .and_then(|steps| steps.last())
+            .and_then(|v| v.as_str()),
+        Some("bundle")
+    );
+    assert_eq!(
+        shape
+            .get("artifacts")
+            .and_then(|v| v.get("bundle_manifest"))
+            .and_then(|v| v.as_str())
+            .map(|value| value.ends_with("main.release-bundle.json")),
+        Some(true)
+    );
+}

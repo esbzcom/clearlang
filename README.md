@@ -495,7 +495,7 @@ ClearLang aims to be:
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 
-- CLI & tooling: `parse`/`build`/`run`/`verify`, `--json-errors`, `--emit-vcs` (stable schema + proof packaging/signing), and Wasmtime-backed `run`.
+- CLI & tooling: primary UX surface is `check`/`test`/`release` (Gate C lock), with advanced expert/debug commands `parse`/`build`/`run`/`verify` retained; supports `--json-errors`, `--emit-vcs`, and Wasmtime-backed `run`.
 
 ---
 
@@ -503,6 +503,14 @@ ClearLang aims to be:
 
 ClearLang can embed proof metadata in a Wasm module and sign a canonical payload for offline verification.
 For the end-to-end strict production command flow, see `docs/release-process.md`.
+Gate C release command shape (policy lock):
+```
+clg release examples/projects/generic/main.clear --advisory-as-of 2026-03-31T00:00:00Z \
+  --key keys/signing.json --key-id release-2026q2 --pubkey keys/public.json \
+  --root examples/projects/generic --out-dir out/release \
+  --trust-policy examples/projects/generic/clg.trust-policy.json
+```
+This currently emits a deterministic release-command contract JSON. Full one-command execution is tracked by TODO `25.2.3`.
 
 Assurance profile reality:
 - `--compiler-mode permissive` and `--compiler-mode standard` are dev/evidence workflows and do **not** imply theorem-grade status (`proved_all`).

@@ -51,6 +51,8 @@ This directory is organized by role so operational docs stay easy to find.
   - `docs/design/phase-25.0.13-crypto-proof-boundary-release-gate.md`
   - `docs/design/phase-25.0.14-docs-assurance-profile-alignment.md`
   - `docs/design/phase-25.0.15-defer-theorem-keyword.md`
+- Milestone 3 release UX lock:
+  - `docs/design/phase-25.2.2-release-ux-design-lock.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

@@ -39,6 +39,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.3 ")),
         "TODO must mark 25.2.3 complete once orchestration ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.4 ")),
+        "TODO must mark 25.2.4 complete once proved-only release defaults ship"
+    );
 }
 
 #[test]
@@ -53,4 +58,17 @@ fn gate_c_release_orchestration_design_note_is_published() {
     assert!(doc.contains("lock -> build/prove -> sign -> verify -> bundle"));
     assert!(doc.contains("clg.trust-policy.json"));
     assert!(doc.contains("trust-policy.json"));
+}
+
+#[test]
+fn gate_c_release_proved_only_default_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.4-release-proved-only-default.md");
+    let doc = fs::read_to_string(&path).expect("read gate c proved-only note");
+    assert!(doc.contains("25.2.4"));
+    assert!(doc.contains("no optional downgrade path"));
+    assert!(doc.contains("C121"));
 }

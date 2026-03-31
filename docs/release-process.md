@@ -123,4 +123,5 @@ Publish these files together:
 - Solver supply-chain gate is locked by `docs/design/phase-25.1.16-solver-supply-chain.lock.json` (pinned version + checksum/signature + legal notices + CVE/rollback policy).
 - `--emit-proof` emits deterministic proof artifact summaries and binds optional proof/solver hashes into signed payload/manifest claims for verify-time consistency checks.
 - `clg release` is implemented for one-command orchestration (`25.2.3`) and fails closed on any stage error.
+- `clg release` is proved-only by default (`25.2.4`): there is no downgrade flag path for non-`proved_all` release artifacts.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

@@ -344,6 +344,18 @@ fn release_help_exposes_gate_c_primary_shape() {
         !help.contains("--compiler-mode"),
         "release command shape should hide build internals from primary help"
     );
+    assert!(
+        !help.contains("--release-profile"),
+        "release command should not expose release profile downgrades"
+    );
+    assert!(
+        !help.contains("--proof-strict"),
+        "release command should not expose proof strictness downgrade controls"
+    );
+    assert!(
+        !help.contains("--require-assurance"),
+        "release command should not expose assurance downgrade controls"
+    );
 }
 
 #[test]

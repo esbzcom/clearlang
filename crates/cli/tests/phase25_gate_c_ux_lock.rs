@@ -59,6 +59,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.6 ")),
         "TODO must mark 25.2.6 complete once migration guidance ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.7 ")),
+        "TODO must mark 25.2.7 complete once check command ships"
+    );
 }
 
 #[test]
@@ -134,4 +139,17 @@ fn gate_c_release_migration_guidance_note_is_published() {
     assert!(doc.contains("25.2.6"));
     assert!(doc.contains("clg release"));
     assert!(doc.contains("expert/debug-only"));
+}
+
+#[test]
+fn gate_c_check_command_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.7-check-command.md");
+    let doc = fs::read_to_string(&path).expect("read gate c check note");
+    assert!(doc.contains("25.2.7"));
+    assert!(doc.contains("clg check"));
+    assert!(doc.contains("strict"));
 }

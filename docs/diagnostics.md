@@ -26,7 +26,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 - `ok`: always `false` for error output.
 - `errors`: one or more error objects.
 - `code`: stable error code.
-- `stage`: one of `parse` | `type` | `build` | `strict` | `release` | `verify` | `runtime`.
+- `stage`: one of `parse` | `type` | `build` | `check` | `strict` | `release` | `verify` | `runtime`.
 - `message`: concise, human-readable text.
 - `file`: input filename as provided to the CLI.
 - `start` / `end`: byte offsets in the source.
@@ -190,7 +190,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 | C125 | build | Strict proof execution reached configured theorem-prover timeout budget (fail-closed for release workflows). |
 | C126 | build | Proof artifact contract failure (missing/malformed artifact, schema mismatch, or signature/hash binding mismatch against VC/proof metadata). |
 | C127 | build | Deterministic solver replay mismatch on identical strict inputs (VC outcomes/proof artifact bytes drift). |
-| C131 | strict | `clg strict init` bootstrap/release-default contract input is invalid (for example malformed `clg.project.json`, invalid default paths, or template write/validation failure). |
+| C131 | strict/check | `clg strict init` or `clg check` bootstrap/release-default contract input is invalid (for example malformed `clg.project.json`, invalid default paths, or template write/validation failure). |
 | C130 | release | Release command contract input is invalid (for example, entry path has no usable stem for deterministic artifact naming). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |

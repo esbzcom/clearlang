@@ -506,6 +506,7 @@ For the end-to-end strict production command flow, see `docs/release-process.md`
 Gate C one-command release flow:
 ```
 clg strict init examples/projects/generic
+clg check examples/projects/generic/main.clear --root examples/projects/generic
 clg release examples/projects/generic/main.clear \
   --key keys/signing.json --pubkey keys/public.json \
   --root examples/projects/generic

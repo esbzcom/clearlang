@@ -21,6 +21,12 @@ Bootstrap strict preflight/release defaults once per project root:
 clg strict init examples/projects/generic
 ```
 
+Fast local preflight (non-release):
+
+```powershell
+clg check examples/projects/generic/main.clear --root examples/projects/generic
+```
+
 Concrete `clg release` CLI shape:
 
 ```powershell

@@ -511,3 +511,71 @@ fn build_help_marks_command_as_advanced() {
     let help = String::from_utf8(output).expect("utf8");
     assert!(help.contains("Advanced expert/debug compile command"));
 }
+
+#[test]
+fn check_succeeds_with_strict_inputs() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+    let file = root.join("main.clear");
+    fs::write(&file, "function main() -> Int { 0 }").expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["strict", "init"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["check"])
+        .arg(&file)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).expect("utf8 stdout");
+    assert!(text.contains("check ok:"));
+}
+
+#[test]
+fn check_reports_missing_lockfile_with_check_stage() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+    let file = root.join("main.clear");
+    fs::write(&file, "function main() -> Int { 0 }").expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["strict", "init"])
+        .arg(&root)
+        .assert()
+        .success();
+    fs::remove_file(root.join("clg.lock.json")).expect("remove lockfile");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "check"])
+        .arg(&file)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C101"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("check"));
+}

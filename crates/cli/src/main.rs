@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 use clg_cli::commands::{
     build::{self as cmd_build, CompilerMode, ReleaseProfile, StdCoreLinkMode},
-    emit_hello as cmd_emit_hello,
+    check as cmd_check, emit_hello as cmd_emit_hello,
     helpers::CommandError,
     parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
     strict as cmd_strict,
@@ -44,6 +44,15 @@ enum Commands {
         /// Input ClearLang source file
         #[arg(value_name = "FILE")]
         file: PathBuf,
+    },
+    /// Fast deterministic strict-aligned preflight (non-release)
+    Check {
+        /// Input ClearLang source file
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        /// Module root containing strict release-policy inputs
+        #[arg(long, value_name = "DIR")]
+        root: Option<PathBuf>,
     },
     /// Advanced expert/debug compile command. For production release, use `clg release`.
     Build {
@@ -225,6 +234,7 @@ fn main() -> Result<()> {
     let result = match cli.command {
         Commands::EmitHello { out } => cmd_emit_hello::run(out, logger),
         Commands::Parse { file } => cmd_parse::run(file, cli.json_errors, logger),
+        Commands::Check { file, root } => cmd_check::run(file, root, cli.json_errors, logger),
         Commands::Build {
             file,
             out,

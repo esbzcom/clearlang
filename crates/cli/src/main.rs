@@ -108,7 +108,7 @@ enum Commands {
         #[arg(long, default_value = "main")]
         invoke: String,
     },
-    /// Phase 25.2.2: release command shape (Gate C UX lock)
+    /// Phase 25.2.3: one-command release orchestration (Gate C)
     Release {
         /// Entry ClearLang source file
         #[arg(value_name = "FILE")]

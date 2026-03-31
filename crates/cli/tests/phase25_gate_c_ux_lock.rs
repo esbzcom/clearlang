@@ -34,4 +34,23 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.2 ")),
         "TODO must mark 25.2.2 complete once design lock ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.3 ")),
+        "TODO must mark 25.2.3 complete once orchestration ships"
+    );
+}
+
+#[test]
+fn gate_c_release_orchestration_design_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.3-release-command-orchestration.md");
+    let doc = fs::read_to_string(&path).expect("read gate c release orchestration note");
+    assert!(doc.contains("25.2.3"));
+    assert!(doc.contains("lock -> build/prove -> sign -> verify -> bundle"));
+    assert!(doc.contains("clg.trust-policy.json"));
+    assert!(doc.contains("trust-policy.json"));
 }

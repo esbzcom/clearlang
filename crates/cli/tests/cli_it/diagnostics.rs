@@ -5,3 +5,4 @@ include!("diagnostics/strict_acceptance_b.rs");
 include!("diagnostics/strict_compiler_mode_a.rs");
 include!("diagnostics/strict_compiler_mode_b.rs");
 include!("diagnostics/signing_flags.rs");
+include!("diagnostics/release_command.rs");

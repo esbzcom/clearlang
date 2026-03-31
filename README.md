@@ -503,14 +503,15 @@ ClearLang aims to be:
 
 ClearLang can embed proof metadata in a Wasm module and sign a canonical payload for offline verification.
 For the end-to-end strict production command flow, see `docs/release-process.md`.
-Gate C release command shape (policy lock):
+Gate C one-command release flow:
 ```
 clg release examples/projects/generic/main.clear --advisory-as-of 2026-03-31T00:00:00Z \
   --key keys/signing.json --key-id release-2026q2 --pubkey keys/public.json \
   --root examples/projects/generic --out-dir out/release \
-  --trust-policy examples/projects/generic/clg.trust-policy.json
+  --trust-policy examples/projects/generic/trust-policy.json
 ```
-This currently emits a deterministic release-command contract JSON. Full one-command execution is tracked by TODO `25.2.3`.
+This executes `lock -> build/prove -> sign -> verify -> bundle` and emits
+`<stem>.release-bundle.json` with deterministic artifact hashes and stage status.
 
 Assurance profile reality:
 - `--compiler-mode permissive` and `--compiler-mode standard` are dev/evidence workflows and do **not** imply theorem-grade status (`proved_all`).

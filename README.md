@@ -515,6 +515,8 @@ This executes `lock -> build/prove -> sign -> verify -> bundle` and emits
 
 Assurance profile reality:
 - `--compiler-mode permissive` and `--compiler-mode standard` are dev/evidence workflows and do **not** imply theorem-grade status (`proved_all`).
+- Non-strict modes are transitional migration workflows and are not accepted for production release artifacts.
+- Pre-production direction: remove compatibility debt rather than preserving legacy release paths once strict-first replacements exist.
 - Theorem-grade/release-grade claims require strict release gates (`--release-profile production`) plus verification policy gates (`--require-assurance proved_all`).
 - Production publish policy is `release == proved`; non-proved outputs remain non-release/dev artifacts.
 - Milestone 3 intentionally has no `theorem` language keyword; theorem-grade is a certification outcome from build/verify policy gates.

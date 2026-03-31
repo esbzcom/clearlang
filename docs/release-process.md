@@ -112,6 +112,7 @@ Publish these files together:
 
 ## Notes
 - Milestone 3 policy lock: production release is `release == proved` (`proved_all` required). Non-proved outputs are dev/non-release only.
+- `--compiler-mode permissive|standard` are transitional dev/evidence workflows and are not accepted for production release artifacts.
 - `--release-profile production` enforces fail-closed theorem-grade gating at build/sign time.
 - `--release-profile production` also enforces release-surface policy (`C122`): used `std::...` symbols must be listed as `proved` in `docs/proofs/proof-coverage-matrix.json`.
 - `--release-profile production` enforces crypto proof-boundary policy (`C123`): any remaining `crypto.uninterpreted` boundary blocks release-grade/theorem-grade claims.
@@ -124,4 +125,5 @@ Publish these files together:
 - `--emit-proof` emits deterministic proof artifact summaries and binds optional proof/solver hashes into signed payload/manifest claims for verify-time consistency checks.
 - `clg release` is implemented for one-command orchestration (`25.2.3`) and fails closed on any stage error.
 - `clg release` is proved-only by default (`25.2.4`): there is no downgrade flag path for non-`proved_all` release artifacts.
+- Pre-production roadmap policy: compatibility debt is not preserved; legacy release paths should be removed once strict-first replacements are in place.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

@@ -52,6 +52,7 @@ This directory is organized by role so operational docs stay easy to find.
   - `docs/design/phase-25.0.14-docs-assurance-profile-alignment.md`
   - `docs/design/phase-25.0.15-defer-theorem-keyword.md`
 - Milestone 3 release UX lock:
+  - `docs/design/phase-25.2.1-gate-c-policy-lock.md`
   - `docs/design/phase-25.2.2-release-ux-design-lock.md`
   - `docs/design/phase-25.2.3-release-command-orchestration.md`
   - `docs/design/phase-25.2.4-release-proved-only-default.md`

@@ -3,13 +3,14 @@
   "policy_version": "25.1.16",
   "solver_identity": {
     "family": "z3",
-    "version": "4.13.4",
+    "version": "4.16.0",
     "source_lock": "docs/design/phase-25.1.4-solver-profile.lock.json"
   },
   "bundle_integrity": {
     "checksum_algorithm": "sha256",
     "checksum_required": true,
     "signature_required": true,
+    "signature_mode": "integrity-metadata-only",
     "signature_file_pattern": "*.sig",
     "checksum_file_pattern": "*.sha256"
   },

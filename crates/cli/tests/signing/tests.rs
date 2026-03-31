@@ -592,7 +592,7 @@ fn verify_require_assurance_rejects_invalid_value_with_v005() {
 }
 
 #[test]
-fn verify_require_assurance_accepts_manifest_without_release_policy_when_proved_all() {
+fn verify_require_assurance_rejects_forged_proof_status_when_module_derivation_disagrees() {
     let tmp = tempdir().unwrap();
     let manifest = tmp.path().join("out.assurance.json");
     let (wasm_path, sig_path, pub_path) = build_signed_module_with_manifest_and_trust_anchors(
@@ -618,7 +618,83 @@ fn verify_require_assurance_accepts_manifest_without_release_policy_when_proved_
         .arg(&manifest)
         .arg("--require-assurance")
         .arg("proved_all");
-    verify.assert().success();
+    verify.assert().failure().stderr(predicate::str::contains(
+        "does not match module proof section derived proof_status",
+    ));
+}
+
+#[test]
+fn verify_require_assurance_rejects_signature_missing_assumption_boundaries_with_v005() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    remove_signature_payload_fields_and_resign(&sig_path, &["assumption_boundaries"]);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"").and(predicate::str::contains(
+            "invalid assumption_boundaries",
+        )),
+    );
+}
+
+#[test]
+fn verify_require_assurance_rejects_signature_missing_bundle_symbols_with_v005() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    remove_signature_payload_fields_and_resign(&sig_path, &["bundle_symbols"]);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"").and(predicate::str::contains(
+            "invalid bundle_symbols",
+        )),
+    );
+}
+
+#[test]
+fn verify_require_assurance_rejects_bundle_symbols_mismatch_with_module_derivation() {
+    let tmp = tempdir().unwrap();
+    let (wasm_path, sig_path, pub_path) = build_signed_module(tmp.path());
+    rewrite_signature_payload_bundle_symbols_and_resign(&sig_path, &["std::bytes::eq_ct"]);
+
+    let mut verify = Command::cargo_bin("clg").expect("bin");
+    verify
+        .args(["--json-errors", "verify"])
+        .arg("--module")
+        .arg(&wasm_path)
+        .arg("--sig")
+        .arg(&sig_path)
+        .arg("--pubkey")
+        .arg(&pub_path)
+        .arg("--require-assurance")
+        .arg("proved_all");
+    verify.assert().failure().stdout(
+        predicate::str::contains("\"code\": \"V005\"")
+            .and(predicate::str::contains("bundle_symbols"))
+            .and(predicate::str::contains(
+                "do not match module proof section derived bundle_symbols",
+            )),
+    );
 }
 
 #[test]
@@ -655,8 +731,8 @@ fn verify_require_assurance_rejects_manifest_with_assumption_boundaries_when_pro
         .arg("proved_all");
     verify.assert().failure().stdout(
         predicate::str::contains("\"code\": \"V005\"")
-            .and(predicate::str::contains("zero assumption boundaries"))
-            .and(predicate::str::contains("crypto.uninterpreted")),
+            .and(predicate::str::contains("derived proof_status"))
+            .and(predicate::str::contains("not_proved_all")),
     );
 }
 
@@ -690,8 +766,8 @@ fn verify_require_assurance_rejects_symbols_outside_proved_allowlist_when_proved
         .arg("proved_all");
     verify.assert().failure().stdout(
         predicate::str::contains("\"code\": \"V005\"")
-            .and(predicate::str::contains("proved allowlist"))
-            .and(predicate::str::contains("std::bytes::eq_ct")),
+            .and(predicate::str::contains("derived proof_status"))
+            .and(predicate::str::contains("not_proved_all")),
     );
 }
 
@@ -737,8 +813,8 @@ fn verify_require_assurance_ignores_proof_matrix_env_override() {
         .arg("proved_all");
     verify.assert().failure().stdout(
         predicate::str::contains("\"code\": \"V005\"")
-            .and(predicate::str::contains("proved allowlist"))
-            .and(predicate::str::contains(fake_symbol)),
+            .and(predicate::str::contains("derived proof_status"))
+            .and(predicate::str::contains("not_proved_all")),
     );
 }
 

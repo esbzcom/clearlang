@@ -1,5 +1,6 @@
 use assert_cmd::prelude::*;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -26,7 +27,7 @@ use std::io::{self, Read};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--version" || arg == "-version") {
-        println!("Z3 version 4.13.4 - fake");
+        println!("Z3 version 4.16.0 - fake");
         return;
     }
     let mut stdin = Vec::new();
@@ -62,6 +63,32 @@ fn main() {
     solver
 }
 
+fn write_solver_integrity_sidecars(solver: &Path) {
+    let solver_bytes = fs::read(solver).expect("read solver bytes");
+    let checksum = format!("sha256:{}", hex::encode(Sha256::digest(&solver_bytes)));
+    let checksum_path = solver.with_file_name(format!(
+        "{}.sha256",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&checksum_path, format!("{checksum}\n")).expect("write checksum sidecar");
+
+    let signature = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(checksum.as_bytes()))
+    );
+    let signature_path = solver.with_file_name(format!(
+        "{}.sig",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&signature_path, format!("{signature}\n")).expect("write signature sidecar");
+}
+
 #[test]
 fn solver_enabled_replay_is_status_and_artifact_stable() {
     let tmp = tempdir().expect("tempdir");
@@ -74,6 +101,7 @@ fn solver_enabled_replay_is_status_and_artifact_stable() {
     let proof_2 = tmp.path().join("run2.proof.json");
     fs::write(&source, SAMPLE_SOURCE).expect("write source");
     let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
 
     for (wasm, vcs, proof) in [(&wasm_1, &vcs_1, &proof_1), (&wasm_2, &vcs_2, &proof_2)] {
         Command::cargo_bin("clg")

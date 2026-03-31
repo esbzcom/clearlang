@@ -292,6 +292,112 @@ fn run_strict_build_success(root: &Path, file: &Path) {
     cmd.assert().success();
 }
 
+fn write_solver_integrity_sidecars(solver: &Path) {
+    let solver_bytes = fs::read(solver).expect("read solver bytes");
+    let checksum = format!("sha256:{}", hex::encode(Sha256::digest(&solver_bytes)));
+    let checksum_path = solver.with_file_name(format!(
+        "{}.sha256",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&checksum_path, format!("{checksum}\n")).expect("write checksum sidecar");
+
+    let signature = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(checksum.as_bytes()))
+    );
+    let signature_path = solver.with_file_name(format!(
+        "{}.sig",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&signature_path, format!("{signature}\n")).expect("write signature sidecar");
+}
+
+fn write_fake_solver_to(path: &Path, source_body: &str) -> PathBuf {
+    let source = path.with_extension("rs");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create fake solver dir");
+    }
+    fs::write(&source, source_body).expect("write fake solver source");
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
+    let output = Command::new(rustc)
+        .arg(&source)
+        .arg("-O")
+        .arg("-o")
+        .arg(path)
+        .output()
+        .expect("run rustc for fake solver");
+    assert!(
+        output.status.success(),
+        "fake solver compile failed: {}",
+        String::from_utf8_lossy(output.stderr.as_slice())
+    );
+    path.to_path_buf()
+}
+
+fn write_fake_timeout_solver(dir: &Path) -> PathBuf {
+    let solver = if cfg!(windows) {
+        dir.join("fake-timeout-z3.exe")
+    } else {
+        dir.join("fake-timeout-z3")
+    };
+    let source = r#"
+use std::thread::sleep;
+use std::time::Duration;
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-version") {
+        println!("Z3 version 4.16.0 - fake-timeout");
+        return;
+    }
+    sleep(Duration::from_millis(7_000));
+    println!("unsat");
+}
+"#;
+    write_fake_solver_to(&solver, source)
+}
+
+fn write_fake_flaky_solver(dir: &Path) -> PathBuf {
+    let solver = if cfg!(windows) {
+        dir.join("fake-flaky-z3.exe")
+    } else {
+        dir.join("fake-flaky-z3")
+    };
+    let source = r#"
+use std::fs;
+use std::path::PathBuf;
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-version") {
+        println!("Z3 version 4.16.0 - fake-flaky");
+        return;
+    }
+    let counter_path = std::env::var("CLG_FAKE_Z3_COUNTER_FILE")
+        .map(PathBuf::from)
+        .expect("CLG_FAKE_Z3_COUNTER_FILE");
+    let current = fs::read_to_string(&counter_path)
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    let next = current + 1;
+    fs::write(&counter_path, next.to_string()).expect("write counter");
+    if current % 2 == 0 {
+        println!("unsat");
+    } else {
+        println!("sat");
+    }
+}
+"#;
+    write_fake_solver_to(&solver, source)
+}
+
 fn strict_import_map_artifact_path(out: &Path) -> PathBuf {
     let file_name = out
         .file_name()

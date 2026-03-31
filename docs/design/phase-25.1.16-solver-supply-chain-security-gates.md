@@ -11,6 +11,8 @@ Lock and enforce supply-chain/security requirements for vendored solver binaries
    - Solver family/version must remain pinned and aligned with `phase-25.1.4-solver-profile.lock.json`.
 2. Bundle integrity
    - Each vendored solver bundle must provide SHA-256 checksum metadata and detached signature metadata.
+   - Current `.sig` policy is `integrity-metadata-only` (tamper-evidence metadata, not publisher-authenticity cryptographic signing).
+   - Cryptographic authenticity signing for solver bundles is deferred to a later phase.
 3. License + notice inclusion
    - Distribution must include:
      - `docs/legal/third_party/z3-LICENSE.txt`
@@ -24,3 +26,7 @@ Lock and enforce supply-chain/security requirements for vendored solver binaries
 - CI proof regression gates must include:
   - `cargo test -p clg-cli --test phase25_solver_supply_chain_gate`
 - Test validates lock schema, pinned-version alignment, required legal/security docs, and CI wiring.
+- Runtime solver loading enforces integrity metadata before execution for all resolved
+  candidates (including `CLG_SOLVER_BIN` explicit overrides):
+  - `<solver>.sha256` must match binary digest,
+  - `<solver>.sig` must match detached signature metadata policy.

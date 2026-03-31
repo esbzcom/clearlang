@@ -178,6 +178,8 @@ pub struct ProofSection {
     pub assurance_claim: Option<ProofAssuranceClaim>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bundle_symbols: Option<Vec<String>>,
 }
 
 pub struct ProofPackage {
@@ -356,6 +358,7 @@ impl ProofPackage {
             assurance: Some(self.assurance.clone()),
             assurance_claim: Some(self.assurance_claim.clone()),
             proof_status: Some(self.proof_status.clone()),
+            bundle_symbols: Some(self.bundle_symbols.clone()),
         };
         to_cbor_bytes(&section)
     }
@@ -472,6 +475,12 @@ fn assumption_boundary_ids_for_vcs(vcs: &[VerificationCondition]) -> Vec<String>
 pub fn bundle_symbols_for_program(program: &Program) -> Vec<String> {
     let mut symbols = BTreeSet::new();
     for func in &program.funcs {
+        for require in &func.requires {
+            collect_bundle_symbols_from_expr(&require.expr, &mut symbols);
+        }
+        for ensure in &func.ensures {
+            collect_bundle_symbols_from_expr(&ensure.expr, &mut symbols);
+        }
         collect_bundle_symbols_from_expr(&func.body, &mut symbols);
     }
     symbols.into_iter().collect()
@@ -1061,7 +1070,7 @@ fn rewrite_module_hash(bytes: &[u8], new_hash: &[u8; 32]) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clg_ast::Span;
+    use clg_ast::{Contract, Effect, Expr, Func, Program, Span, Type};
     use clg_typer::{AssumptionBoundary, AssumptionCategory, ContractExpr, VerificationCondition};
 
     fn sample_vc(status: &'static str) -> VerificationCondition {
@@ -1082,6 +1091,51 @@ mod tests {
             status,
             refinements: Vec::new(),
             assumptions: Vec::new(),
+        }
+    }
+
+    fn span() -> Span {
+        Span { start: 0, end: 0 }
+    }
+
+    fn call_expr(callee: &str) -> Expr {
+        Expr::Call {
+            callee: callee.to_string(),
+            type_args: Vec::new(),
+            args: vec![Expr::String("x".to_string(), span())],
+            span: span(),
+        }
+    }
+
+    fn sample_program_with_contract_calls() -> Program {
+        Program {
+            module: None,
+            imports: Vec::new(),
+            refined_aliases: Vec::new(),
+            resources: Vec::new(),
+            structs: Vec::new(),
+            enums: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+            funcs: vec![Func {
+                is_exported: false,
+                effect: Effect::Pure,
+                effect_span: None,
+                name: "main".to_string(),
+                type_params: Vec::new(),
+                params: Vec::new(),
+                ret: Type::Int,
+                where_bounds: Vec::new(),
+                requires: vec![Contract {
+                    span: span(),
+                    expr: call_expr("std::str::len"),
+                }],
+                ensures: vec![Contract {
+                    span: span(),
+                    expr: call_expr("std::bytes::eq_ct"),
+                }],
+                body: Expr::Int(0, span()),
+            }],
         }
     }
 
@@ -1122,6 +1176,20 @@ mod tests {
         assert_eq!(
             proof_status_for_vcs(&vcs, "standard"),
             PROOF_STATUS_NOT_PROVED_ALL
+        );
+    }
+
+    #[test]
+    fn bundle_symbols_include_contract_requires_and_ensures() {
+        let program = sample_program_with_contract_calls();
+        let symbols = bundle_symbols_for_program(&program);
+        assert!(
+            symbols.contains(&"std::str::len".to_string()),
+            "bundle symbols should include require-clause std calls"
+        );
+        assert!(
+            symbols.contains(&"std::bytes::eq_ct".to_string()),
+            "bundle symbols should include ensure-clause std calls"
         );
     }
 }

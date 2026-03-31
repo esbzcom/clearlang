@@ -1049,7 +1049,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.0.14 Align README/docs assurance claims with profile reality (avoid implying `standard` compile is theorem-grade proved). (`docs/design/phase-25.0.14-docs-assurance-profile-alignment.md`)
   - [x] 25.0.15 Keep language surface minimal: defer `theorem` keyword and treat theorem-grade as certification status (not syntax) for milestone_3. (`docs/design/phase-25.0.15-defer-theorem-keyword.md`)
 
-- [ ] 25.1 Proof engine and solver closure [Gate B]
+- [x] 25.1 Proof engine and solver closure [Gate B]
   - [x] 25.1.1 Publish Gate B design lock (policy, non-goals, deterministic inputs, and exit criteria) before solver implementation lands. (`docs/design/phase-25.1.1-gate-b-design-lock.md`)
   - [x] 25.1.2 Reserve and document solver-era diagnostics for proof execution/artifact failures (`solver unavailable`, `timeout`, `artifact mismatch`, deterministic replay mismatch). (`docs/design/phase-25.1.2-solver-diagnostics-reservation.md`)
   - [x] 25.1.3 Define `--emit-proof` artifact schema/version and canonical serialization rules (including backward/forward compatibility policy). (`docs/design/phase-25.1.3-emit-proof-schema-v1.md`)
@@ -1078,6 +1078,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [ ] 25.2.3 Add release-precheck gating so `fmt` + `lint` + tests must pass before strict signed publish flow (local and CI).
   - [ ] 25.2.4 Add `clg fmt` for `.clear` sources with deterministic formatting output.
   - [ ] 25.2.5 Add `clg lint` for `.clear` sources (quality/safety checks) with stable diagnostics and `--deny-warnings` support.
+  - [ ] 25.2.6 Upgrade solver bundle `.sig` verification from integrity-metadata mode to cryptographic publisher-authenticity verification (pinned vendor key/cert + rotation policy).
 
 - [ ] 25.3 Unit testing and test runner [Gate D]
   - [ ] 25.3.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax).

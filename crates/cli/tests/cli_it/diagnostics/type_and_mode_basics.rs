@@ -327,6 +327,108 @@ fn production_release_profile_requires_proved_all_with_c121() {
 }
 
 #[test]
+fn strict_mode_reports_c124_when_solver_is_unavailable() {
+    let src = r#"
+        pure function inc(x: Int) -> Int
+            require { x >= 0 }
+            ensure { result >= 0 }
+        { x + 1 }
+        function main() -> Int { inc(1) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_solver_unavailable.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let missing_solver = if cfg!(windows) {
+        tmp.path().join("missing-z3.exe")
+    } else {
+        tmp.path().join("missing-z3")
+    };
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_SOLVER_BIN", &missing_solver)
+        .args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C124", "build");
+}
+
+#[test]
+fn strict_mode_reports_c125_when_solver_times_out() {
+    let src = r#"
+        pure function inc(x: Int) -> Int
+            require { x >= 0 }
+            ensure { result >= 0 }
+        { x + 1 }
+        function main() -> Int { inc(1) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("strict_solver_timeout.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let solver = write_fake_timeout_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_SOLVER_BIN", &solver)
+        .args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C125", "build");
+}
+
+#[test]
+fn production_release_reports_c127_on_solver_replay_mismatch() {
+    let src = r#"
+        pure function inc(x: Int) -> Int
+            require { x >= 0 }
+            ensure { result >= 0 }
+        { x + 1 }
+        function main() -> Int { inc(1) }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_solver_replay_mismatch.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    let solver = write_fake_flaky_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
+    let counter = tmp.path().join("solver-counter.txt");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_SOLVER_BIN", &solver)
+        .env("CLG_FAKE_Z3_COUNTER_FILE", &counter)
+        .args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--release-profile", "production"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C127", "build");
+}
+
+#[test]
 fn production_release_profile_rejects_non_proved_std_surface_with_c122() {
     let src = r#"
         function main() -> Int { std::str::len("abc") }

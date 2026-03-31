@@ -21,6 +21,11 @@ Windows-first self-contained solver setup (no system install):
 cargo run -p xtask -- solver-vendor-stage --from C:\path\to\z3.exe --platform windows
 ```
 
+This command stages `z3(.exe)` and emits required integrity sidecars (`.sha256`, `.sig`).
+If you use `CLG_SOLVER_BIN` to override solver location, that binary must also include
+matching `.sha256` and `.sig` sidecars.
+Current `.sig` sidecar mode is integrity metadata (not full publisher-authenticity cryptographic signature verification yet).
+
 ## 1) Generate Deterministic Lock Inputs
 Use an explicit advisory time for replay-stable policy evaluation.
 

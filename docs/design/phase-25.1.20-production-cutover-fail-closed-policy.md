@@ -10,6 +10,10 @@ Define and lock strict production cutover from placeholder solver states to rele
 - Placeholder/non-proved VC status vectors are blocked for release:
   - `generated`, `failed`, `unknown`, `timeout`
 - Enforced by `C121`.
+- Strict root-cause diagnostics are emitted earlier when applicable:
+  - solver unavailable -> `C124`
+  - solver timeout budget exceeded -> `C125`
+  - deterministic strict replay mismatch (production) -> `C127`
 
 ## Lock
 - `docs/design/phase-25.1.20-production-cutover-fail-closed.lock.json`

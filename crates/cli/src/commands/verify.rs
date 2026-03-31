@@ -11,6 +11,7 @@ use crate::commands::helpers::{
 use crate::logging::{Logger, StageTimings};
 use crate::proofs::{
     decode_proof_section, default_proof_matrix_path, load_proved_surface_allowlist,
+    PROOF_STATUS_NOT_PROVED_ALL, PROOF_STATUS_PROVED_ALL,
 };
 use crate::signing;
 
@@ -120,6 +121,7 @@ pub fn run(
                     let _stage = timings.start(logger, "verify_assurance_requirement");
                     match evaluate_required_assurance(
                         required,
+                        &module,
                         &verified_signature.payload,
                         assurance_manifest.as_deref(),
                         &pubkey,
@@ -740,6 +742,7 @@ fn evaluate_release_policy(
 
 fn evaluate_required_assurance(
     required_raw: &str,
+    module_path: &Path,
     verified_signature_payload: &serde_json::Value,
     assurance_manifest_path: Option<&Path>,
     pubkey_path: &Path,
@@ -776,20 +779,50 @@ fn evaluate_required_assurance(
                 ),
             )
         })?;
-    let signature_assumption_boundaries = parse_signature_assumption_boundaries(sig_payload)
-        .ok_or_else(|| {
+    let signature_assumption_boundaries =
+        parse_signature_assumption_boundaries(sig_payload, true).ok_or_else(|| {
             signing::VerifyError::new(
                 signing::VerifyErrorCode::PolicyFailure,
-                "signature payload has invalid assumption_boundaries (expected string array)",
+                "signature payload has invalid assumption_boundaries (expected required string array)",
             )
         })?;
     let signature_bundle_symbols =
-        parse_signature_bundle_symbols(sig_payload).ok_or_else(|| {
+        parse_signature_bundle_symbols(sig_payload, true).ok_or_else(|| {
             signing::VerifyError::new(
                 signing::VerifyErrorCode::PolicyFailure,
-                "signature payload has invalid bundle_symbols (expected string array)",
+                "signature payload has invalid bundle_symbols (expected required string array)",
             )
         })?;
+    let derived_module_claims = derive_module_proof_claims(module_path)?;
+    if signature_proof_status != derived_module_claims.proof_status {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "signature payload proof_status `{}` does not match module proof section derived proof_status `{}`",
+                signature_proof_status, derived_module_claims.proof_status
+            ),
+        ));
+    }
+    if signature_assumption_boundaries != derived_module_claims.assumption_boundaries {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "signature payload assumption_boundaries [{}] do not match module proof section derived boundaries [{}]",
+                signature_assumption_boundaries.join(", "),
+                derived_module_claims.assumption_boundaries.join(", ")
+            ),
+        ));
+    }
+    if signature_bundle_symbols != derived_module_claims.bundle_symbols {
+        return Err(signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "signature payload bundle_symbols [{}] do not match module proof section derived bundle_symbols [{}]",
+                signature_bundle_symbols.join(", "),
+                derived_module_claims.bundle_symbols.join(", ")
+            ),
+        ));
+    }
 
     let mut manifest_proof_status = None;
     let mut manifest_path_out = None;
@@ -834,7 +867,18 @@ fn evaluate_required_assurance(
                 ),
             ));
         }
-        manifest_assumption_boundaries = Some(parse_manifest_assumption_boundaries(payload)?);
+        let parsed_manifest_assumptions = parse_manifest_assumption_boundaries(payload)?;
+        if parsed_manifest_assumptions != derived_module_claims.assumption_boundaries {
+            return Err(signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "assurance manifest assumption boundaries [{}] do not match module proof section derived boundaries [{}]",
+                    parsed_manifest_assumptions.join(", "),
+                    derived_module_claims.assumption_boundaries.join(", ")
+                ),
+            ));
+        }
+        manifest_assumption_boundaries = Some(parsed_manifest_assumptions);
         manifest_proof_status = Some(parsed_manifest_status);
         manifest_path_out = Some(manifest_path.to_path_buf());
     }
@@ -849,12 +893,12 @@ fn evaluate_required_assurance(
         ));
     }
     if required_assurance == "proved_all" {
-        if !signature_assumption_boundaries.is_empty() {
+        if !derived_module_claims.assumption_boundaries.is_empty() {
             return Err(signing::VerifyError::new(
                 signing::VerifyErrorCode::PolicyFailure,
                 format!(
-                    "required assurance `proved_all` requires zero assumption boundaries in signature payload; found [{}]",
-                    signature_assumption_boundaries.join(", ")
+                    "required assurance `proved_all` requires zero assumption boundaries in module proof section; found [{}]",
+                    derived_module_claims.assumption_boundaries.join(", ")
                 ),
             ));
         }
@@ -869,27 +913,26 @@ fn evaluate_required_assurance(
                 ));
             }
         }
-        if !signature_bundle_symbols.is_empty() {
-            let matrix_path = default_proof_matrix_path();
-            let proved_allowlist = load_proved_surface_allowlist(&matrix_path).map_err(|err| {
-                signing::VerifyError::new(
-                    signing::VerifyErrorCode::PolicyFailure,
-                    format!("proof matrix allowlist gate failed: {err:#}"),
-                )
-            })?;
-            let disallowed: Vec<String> = signature_bundle_symbols
-                .into_iter()
-                .filter(|symbol| !proved_allowlist.contains(symbol))
-                .collect();
-            if !disallowed.is_empty() {
-                return Err(signing::VerifyError::new(
-                    signing::VerifyErrorCode::PolicyFailure,
-                    format!(
-                        "required assurance `proved_all` requires bundle symbols in proved allowlist; disallowed [{}]",
-                        disallowed.join(", ")
-                    ),
-                ));
-            }
+        let matrix_path = default_proof_matrix_path();
+        let proved_allowlist = load_proved_surface_allowlist(&matrix_path).map_err(|err| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!("proof matrix allowlist gate failed: {err:#}"),
+            )
+        })?;
+        let disallowed: Vec<String> = derived_module_claims
+            .bundle_symbols
+            .into_iter()
+            .filter(|symbol| !proved_allowlist.contains(symbol))
+            .collect();
+        if !disallowed.is_empty() {
+            return Err(signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "required assurance `proved_all` requires bundle symbols in proved allowlist; disallowed [{}]",
+                    disallowed.join(", ")
+                ),
+            ));
         }
     }
 
@@ -903,9 +946,10 @@ fn evaluate_required_assurance(
 
 fn parse_signature_assumption_boundaries(
     payload: &serde_json::Map<String, serde_json::Value>,
+    required: bool,
 ) -> Option<Vec<String>> {
     let Some(value) = payload.get("assumption_boundaries") else {
-        return Some(Vec::new());
+        return if required { None } else { Some(Vec::new()) };
     };
     let items = value.as_array()?;
     let mut out = BTreeSet::new();
@@ -920,9 +964,10 @@ fn parse_signature_assumption_boundaries(
 
 fn parse_signature_bundle_symbols(
     payload: &serde_json::Map<String, serde_json::Value>,
+    required: bool,
 ) -> Option<Vec<String>> {
     let Some(value) = payload.get("bundle_symbols") else {
-        return Some(Vec::new());
+        return if required { None } else { Some(Vec::new()) };
     };
     let items = value.as_array()?;
     let mut out = BTreeSet::new();
@@ -974,6 +1019,106 @@ fn parse_manifest_assumption_boundaries(
         }
     }
     Ok(out.into_iter().collect())
+}
+
+struct ModuleProofClaims {
+    proof_status: String,
+    assumption_boundaries: Vec<String>,
+    bundle_symbols: Vec<String>,
+}
+
+fn derive_module_proof_claims(
+    module_path: &Path,
+) -> std::result::Result<ModuleProofClaims, signing::VerifyError> {
+    let module_bytes = fs::read(module_path).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!(
+                "reading module for assurance derivation {}: {err}",
+                module_path.display()
+            ),
+        )
+    })?;
+    let section_bytes = proof_section_bytes(&module_bytes).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!("loading clearlang.proof section for assurance derivation: {err:#}"),
+        )
+    })?;
+    let section = decode_proof_section(&section_bytes).map_err(|err| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            format!("decoding clearlang.proof section for assurance derivation: {err:#}"),
+        )
+    })?;
+    let strict_mode = section
+        .assurance_claim
+        .as_ref()
+        .map(|claim| claim.compiler_mode.eq_ignore_ascii_case("strict"))
+        .unwrap_or(false);
+    let mut has_any_vc = false;
+    let mut all_vcs_proved = true;
+    let mut boundaries = BTreeSet::new();
+    for function in &section.functions {
+        for vc in &function.vcs {
+            has_any_vc = true;
+            if !vc.status.eq_ignore_ascii_case("proved") {
+                all_vcs_proved = false;
+            }
+            if let Some(assumptions) = vc.assumptions.as_ref() {
+                for item in &assumptions.items {
+                    let id = item.id.trim();
+                    if !id.is_empty() {
+                        boundaries.insert(id.to_string());
+                    }
+                }
+            }
+        }
+    }
+    let zero_assumptions = boundaries.is_empty();
+    let derived_status = if strict_mode && has_any_vc && all_vcs_proved && zero_assumptions {
+        PROOF_STATUS_PROVED_ALL
+    } else {
+        PROOF_STATUS_NOT_PROVED_ALL
+    };
+    if let Some(section_status_raw) = section.proof_status.as_deref() {
+        let section_status = normalize_proof_status(section_status_raw).ok_or_else(|| {
+            signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "module proof section has invalid proof_status `{}` (expected `proved_all|not_proved_all`)",
+                    section_status_raw
+                ),
+            )
+        })?;
+        if section_status != derived_status {
+            return Err(signing::VerifyError::new(
+                signing::VerifyErrorCode::PolicyFailure,
+                format!(
+                    "module proof section proof_status `{}` does not match derived proof_status `{}`",
+                    section_status, derived_status
+                ),
+            ));
+        }
+    }
+    let section_bundle_symbols = section.bundle_symbols.ok_or_else(|| {
+        signing::VerifyError::new(
+            signing::VerifyErrorCode::PolicyFailure,
+            "module proof section missing bundle_symbols; rebuild with current toolchain",
+        )
+    })?;
+    let mut bundle_symbols = BTreeSet::new();
+    for symbol in section_bundle_symbols {
+        let symbol = symbol.trim();
+        if !symbol.is_empty() {
+            bundle_symbols.insert(symbol.to_string());
+        }
+    }
+    Ok(ModuleProofClaims {
+        proof_status: derived_status.to_string(),
+        assumption_boundaries: boundaries.into_iter().collect(),
+        bundle_symbols: bundle_symbols.into_iter().collect(),
+    })
 }
 
 fn normalize_assurance_tier(value: &str) -> Option<String> {

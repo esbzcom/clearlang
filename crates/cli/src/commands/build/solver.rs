@@ -1,10 +1,17 @@
 use std::process::{Command, Stdio};
+use std::thread::sleep;
+use std::time::Duration;
 use std::time::Instant;
 
 use clg_typer::VerificationCondition;
 
 const CLG_SOLVER_BIN_ENV: &str = "CLG_SOLVER_BIN";
 const CLG_SOLVER_BUNDLE_ROOT_ENV: &str = "CLG_SOLVER_BUNDLE_ROOT";
+
+#[derive(Debug, Clone)]
+struct ResolvedSolverBin {
+    path: PathBuf,
+}
 
 #[derive(Debug, Clone)]
 struct SolverOption {
@@ -22,13 +29,13 @@ struct SolverRuntimeProfile {
 }
 
 pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationCondition]) -> Result<()> {
-    let Some(solver_bin) = resolve_solver_bin() else {
+    let Some(resolved_solver) = resolve_solver_bin() else {
         return Ok(());
     };
     if vcs.is_empty() {
         return Ok(());
     }
-    let solver_bin = std::path::PathBuf::from(solver_bin);
+    let solver_bin = resolved_solver.path;
     let profile = load_solver_runtime_profile()?;
     match solver_reports_pinned_version(solver_bin.as_path(), &profile)? {
         Some(true) => {}
@@ -60,6 +67,12 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
                 // Keep existing "generated" status when solver cannot be launched.
                 return Ok(());
             }
+            Err(SolverExecError::TimedOut) => {
+                vc.status = "timeout";
+            }
+            Err(SolverExecError::TerminationFailed) => {
+                anyhow::bail!("solver timeout termination failed");
+            }
             Err(SolverExecError::InvocationFailed) => {
                 vc.status = "unknown";
             }
@@ -68,12 +81,12 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
     Ok(())
 }
 
-fn resolve_solver_bin() -> Option<PathBuf> {
+fn resolve_solver_bin() -> Option<ResolvedSolverBin> {
     if let Some(configured) = configured_solver_bin_from_env() {
-        return Some(configured);
+        return verify_solver_integrity(configured).map(|path| ResolvedSolverBin { path });
     }
     if let Some(from_bundle_env) = solver_bin_from_bundle_root_env() {
-        return Some(from_bundle_env);
+        return verify_solver_integrity(from_bundle_env).map(|path| ResolvedSolverBin { path });
     }
     resolver_default_bundle_candidates()
 }
@@ -95,37 +108,97 @@ fn solver_bin_from_bundle_root_env() -> Option<PathBuf> {
     candidate.is_file().then_some(candidate)
 }
 
-fn resolver_default_bundle_candidates() -> Option<PathBuf> {
+fn resolver_default_bundle_candidates() -> Option<ResolvedSolverBin> {
     let relative = solver_bundle_relative_path();
     if let Ok(current_dir) = std::env::current_dir() {
-        if let Some(path) =
-            find_solver_in_ancestor_layouts(current_dir.as_path(), relative.as_path())
-        {
-            return Some(path);
+        if let Some(path) = find_solver_in_ancestor_layouts(current_dir.as_path(), relative.as_path()) {
+            if let Some(path) = verify_solver_integrity(path) {
+                return Some(ResolvedSolverBin { path });
+            }
         }
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             if let Some(path) = find_solver_in_ancestor_layouts(exe_dir, relative.as_path()) {
-                return Some(path);
+                if let Some(path) = verify_solver_integrity(path) {
+                    return Some(ResolvedSolverBin { path });
+                }
             }
             let packaged = exe_dir.join("solver").join(relative.as_path());
-            if packaged.is_file() {
-                return Some(packaged);
+            if let Some(path) = verify_solver_integrity(packaged) {
+                return Some(ResolvedSolverBin { path });
             }
         }
     }
     None
 }
 
-fn find_solver_in_ancestor_layouts(start: &std::path::Path, relative: &std::path::Path) -> Option<PathBuf> {
+fn find_solver_in_ancestor_layouts(
+    start: &std::path::Path,
+    relative: &std::path::Path,
+) -> Option<PathBuf> {
+    let solver_name = relative.file_name()?.to_str()?;
     for ancestor in start.ancestors().take(8) {
         let candidate = ancestor.join("tools").join("proof").join("z3").join(relative);
         if candidate.is_file() {
             return Some(candidate);
         }
+        if let Some(extracted) = find_solver_in_extracted_bundle_layout(ancestor, solver_name) {
+            return Some(extracted);
+        }
     }
     None
+}
+
+fn find_solver_in_extracted_bundle_layout(
+    ancestor: &std::path::Path,
+    solver_name: &str,
+) -> Option<PathBuf> {
+    let extract_root = ancestor
+        .join("tools")
+        .join("proof")
+        .join("z3")
+        .join("z3-extract");
+    let entries = std::fs::read_dir(extract_root).ok()?;
+    let mut dirs = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect::<Vec<_>>();
+    // Prefer highest semantic-like version sequence when multiple extracted bundles exist.
+    dirs.sort_by(|lhs, rhs| {
+        extracted_bundle_version_key(rhs)
+            .cmp(&extracted_bundle_version_key(lhs))
+            .then_with(|| rhs.to_string_lossy().cmp(&lhs.to_string_lossy()))
+    });
+    for dir in dirs {
+        let candidate = dir.join("bin").join(solver_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn extracted_bundle_version_key(path: &std::path::Path) -> Vec<u32> {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    let mut nums = Vec::new();
+    let mut cur = String::new();
+    for ch in name.chars() {
+        if ch.is_ascii_digit() {
+            cur.push(ch);
+        } else if !cur.is_empty() {
+            nums.push(cur.parse::<u32>().unwrap_or(0));
+            cur.clear();
+        }
+    }
+    if !cur.is_empty() {
+        nums.push(cur.parse::<u32>().unwrap_or(0));
+    }
+    nums
 }
 
 fn solver_bundle_relative_path() -> PathBuf {
@@ -141,6 +214,62 @@ fn solver_bundle_relative_path() -> PathBuf {
     } else {
         PathBuf::from(platform).join("z3")
     }
+}
+
+fn verify_solver_integrity(solver_bin: PathBuf) -> Option<PathBuf> {
+    if !solver_bin.is_file() {
+        return None;
+    }
+    let checksum_path = sidecar_path(solver_bin.as_path(), "sha256");
+    let signature_path = sidecar_path(solver_bin.as_path(), "sig");
+
+    let checksum_entry = fs::read_to_string(&checksum_path).ok()?;
+    let checksum_entry = checksum_entry
+        .lines()
+        .next()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())?;
+    if !is_sha256_prefixed_hex(checksum_entry) {
+        return None;
+    }
+
+    let bytes = fs::read(&solver_bin).ok()?;
+    let computed_digest = format!("sha256:{}", sha256_hex(bytes.as_slice()));
+    if checksum_entry != computed_digest {
+        return None;
+    }
+
+    let signature_entry = fs::read_to_string(&signature_path).ok()?;
+    let signature_entry = signature_entry
+        .lines()
+        .next()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())?;
+    if !is_sha256_prefixed_hex(signature_entry) {
+        return None;
+    }
+    let expected_signature = format!("sha256:{}", sha256_hex(checksum_entry.as_bytes()));
+    if signature_entry != expected_signature {
+        return None;
+    }
+
+    Some(solver_bin)
+}
+
+fn sidecar_path(solver_bin: &std::path::Path, suffix: &str) -> PathBuf {
+    let mut name = solver_bin.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".{suffix}"));
+    solver_bin
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join(name)
+}
+
+fn is_sha256_prefixed_hex(value: &str) -> bool {
+    let Some(hex) = value.strip_prefix("sha256:") else {
+        return false;
+    };
+    hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 fn solver_reports_pinned_version(
@@ -284,6 +413,26 @@ fn run_solver(
             }
         }
     }
+    // Close stdin so solver can finish on bounded scripts and avoid deadlocks.
+    child.stdin.take();
+
+    let deadline = Instant::now()
+        .checked_add(Duration::from_millis(per_vc_timeout_ms.max(1)))
+        .unwrap_or_else(Instant::now);
+    loop {
+        if let Some(_status) = child
+            .try_wait()
+            .map_err(|_| SolverExecError::InvocationFailed)?
+        {
+            break;
+        }
+        if Instant::now() >= deadline {
+            child.kill().map_err(|_| SolverExecError::TerminationFailed)?;
+            child.wait().map_err(|_| SolverExecError::TerminationFailed)?;
+            return Err(SolverExecError::TimedOut);
+        }
+        sleep(Duration::from_millis(5));
+    }
     let output = child
         .wait_with_output()
         .map_err(|_| SolverExecError::InvocationFailed)?;
@@ -366,5 +515,7 @@ fn load_solver_runtime_profile() -> Result<SolverRuntimeProfile> {
 
 enum SolverExecError {
     Unavailable,
+    TimedOut,
+    TerminationFailed,
     InvocationFailed,
 }

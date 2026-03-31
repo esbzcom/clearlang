@@ -3,7 +3,7 @@
   "policy_version": "25.1.4",
   "solver_profile": {
     "solver_family": "z3",
-    "solver_version": "4.13.4",
+    "solver_version": "4.16.0",
     "options": [
       {
         "key": "smt.random_seed",

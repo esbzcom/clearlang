@@ -243,6 +243,7 @@ fn tamper_proofs_hash(module: &Path) {
         assurance: Option<serde_cbor::Value>,
         assurance_claim: Option<serde_cbor::Value>,
         proof_status: Option<String>,
+        bundle_symbols: Option<Vec<String>>,
     }
 
     fn to_cbor_bytes<T: serde::Serialize>(value: &T) -> Vec<u8> {
@@ -336,6 +337,44 @@ fn rewrite_signature_payload_proof_status_and_symbols_and_resign(
     value["payload"]["proof_status"] = serde_json::Value::String(proof_status.to_string());
     value["payload"]["bundle_symbols"] =
         serde_json::Value::Array(bundle_symbols.iter().map(|s| json!(s)).collect());
+    let payload = value
+        .get("payload")
+        .expect("signature payload should exist")
+        .clone();
+    let canonical_payload = canonical_json_string(&payload);
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = signing.sign(canonical_payload.as_bytes());
+    value["signature"] = serde_json::Value::String(hex::encode(signature.to_bytes()));
+    fs::write(sig_path, serde_json::to_vec_pretty(&value).expect("serialize signature"))
+        .expect("write signature file");
+}
+
+fn rewrite_signature_payload_bundle_symbols_and_resign(sig_path: &Path, bundle_symbols: &[&str]) {
+    let bytes = fs::read(sig_path).expect("read signature file");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("signature json");
+    value["payload"]["bundle_symbols"] =
+        serde_json::Value::Array(bundle_symbols.iter().map(|s| json!(s)).collect());
+    let payload = value
+        .get("payload")
+        .expect("signature payload should exist")
+        .clone();
+    let canonical_payload = canonical_json_string(&payload);
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = signing.sign(canonical_payload.as_bytes());
+    value["signature"] = serde_json::Value::String(hex::encode(signature.to_bytes()));
+    fs::write(sig_path, serde_json::to_vec_pretty(&value).expect("serialize signature"))
+        .expect("write signature file");
+}
+
+fn remove_signature_payload_fields_and_resign(sig_path: &Path, fields: &[&str]) {
+    let bytes = fs::read(sig_path).expect("read signature file");
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("signature json");
+    for field in fields {
+        value["payload"]
+            .as_object_mut()
+            .expect("signature payload object")
+            .remove(*field);
+    }
     let payload = value
         .get("payload")
         .expect("signature payload should exist")

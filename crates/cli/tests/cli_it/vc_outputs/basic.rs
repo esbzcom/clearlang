@@ -17,7 +17,13 @@ fn build_emits_vcs_json() {
     "#;
     fs::write(&src_path, src).expect("write contract");
 
+    let missing_solver = if cfg!(windows) {
+        tmp.path().join("missing-z3.exe")
+    } else {
+        tmp.path().join("missing-z3")
+    };
     let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_SOLVER_BIN", &missing_solver);
     cmd.args(["build"])
         .arg(&src_path)
         .args(["-o"])

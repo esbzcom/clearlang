@@ -43,6 +43,10 @@ fn solver_supply_chain_lock_pins_version_integrity_and_docs() {
         lock["bundle_integrity"]["signature_required"],
         Value::Bool(true)
     );
+    assert_eq!(
+        lock["bundle_integrity"]["signature_mode"],
+        Value::String("integrity-metadata-only".to_string())
+    );
 
     let profile_lock = read_json(
         root.join("docs")

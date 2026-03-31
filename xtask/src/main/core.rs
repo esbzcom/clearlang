@@ -273,6 +273,15 @@ fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String>
             out.display()
         )
     })?;
+    let solver_bytes = fs::read(&out).map_err(|e| format!("read `{}`: {e}", out.display()))?;
+    let checksum = format!("sha256:{}", hex::encode(Sha256::digest(&solver_bytes)));
+    let checksum_path = sidecar_path(out.as_path(), "sha256");
+    fs::write(&checksum_path, format!("{checksum}\n"))
+        .map_err(|e| format!("write `{}`: {e}", checksum_path.display()))?;
+    let signature_metadata = format!("sha256:{}", hex::encode(Sha256::digest(checksum.as_bytes())));
+    let signature_path = sidecar_path(out.as_path(), "sig");
+    fs::write(&signature_path, format!("{signature_metadata}\n"))
+        .map_err(|e| format!("write `{}`: {e}", signature_path.display()))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -284,11 +293,19 @@ fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String>
             .map_err(|e| format!("set `{}` executable bit: {e}", out.display()))?;
     }
     println!(
-        "staged solver vendor binary: {} (platform={})",
-        out.display(),
-        opts.platform
+        "staged solver vendor binary: {} (platform={}) checksum={} signature={}",
+        out.display(), opts.platform, checksum_path.display(), signature_path.display()
     );
     Ok(())
+}
+
+fn sidecar_path(solver_bin: &Path, suffix: &str) -> PathBuf {
+    let mut name = solver_bin.file_name().unwrap_or_else(|| OsStr::new("solver")).to_os_string();
+    name.push(format!(".{suffix}"));
+    solver_bin
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(name)
 }
 
 fn parse_solver_vendor_stage_args(raw_args: Vec<String>) -> Result<SolverVendorStageOpts, String> {

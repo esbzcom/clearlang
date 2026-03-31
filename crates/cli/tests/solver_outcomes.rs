@@ -1,5 +1,6 @@
 use assert_cmd::prelude::*;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -25,7 +26,7 @@ use std::io::{self, Read};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--version" || arg == "-version") {
-        let version = std::env::var("CLG_FAKE_Z3_VERSION").unwrap_or_else(|_| "4.13.4".to_string());
+        let version = std::env::var("CLG_FAKE_Z3_VERSION").unwrap_or_else(|_| "4.16.0".to_string());
         println!("Z3 version {} - fake", version);
         return;
     }
@@ -62,6 +63,32 @@ fn main() {
     solver
 }
 
+fn write_solver_integrity_sidecars(solver: &Path) {
+    let solver_bytes = fs::read(solver).expect("read solver bytes");
+    let checksum = format!("sha256:{}", hex::encode(Sha256::digest(&solver_bytes)));
+    let checksum_path = solver.with_file_name(format!(
+        "{}.sha256",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&checksum_path, format!("{checksum}\n")).expect("write checksum sidecar");
+
+    let signature = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(checksum.as_bytes()))
+    );
+    let signature_path = solver.with_file_name(format!(
+        "{}.sig",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&signature_path, format!("{signature}\n")).expect("write signature sidecar");
+}
+
 fn write_fake_solver(dir: &Path) -> PathBuf {
     let solver = if cfg!(windows) {
         dir.join("fake-z3.exe")
@@ -88,6 +115,7 @@ fn build_with_solver_status(fake_status: &str) -> Value {
     let vcs = tmp.path().join("out.vc.json");
     fs::write(&source, SAMPLE_SOURCE).expect("write source");
     let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
         .env("CLG_SOLVER_BIN", solver)
@@ -134,6 +162,7 @@ fn configured_solver_statuses_flow_into_emit_proof_summary() {
     let proof = tmp.path().join("out.proof.json");
     fs::write(&source, SAMPLE_SOURCE).expect("write source");
     let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
         .env("CLG_SOLVER_BIN", solver)
@@ -216,6 +245,7 @@ fn configured_solver_version_mismatch_fails_build() {
     let vcs = tmp.path().join("out.vc.json");
     fs::write(&source, SAMPLE_SOURCE).expect("write source");
     let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
         .env("CLG_SOLVER_BIN", solver)
@@ -241,6 +271,7 @@ fn bundled_solver_root_is_used_when_solver_env_not_set() {
     let bundle_root = tmp.path().join("solver-bundle");
     let bundled_solver = bundled_solver_path(&bundle_root);
     write_fake_solver_to(&bundled_solver);
+    write_solver_integrity_sidecars(&bundled_solver);
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
         .env("CLG_SOLVER_BUNDLE_ROOT", bundle_root)
@@ -263,6 +294,109 @@ fn bundled_solver_root_is_used_when_solver_env_not_set() {
         first.get("status").and_then(|v| v.as_str()),
         Some("failed"),
         "bundled solver should execute and map sat to failed status"
+    );
+}
+
+#[test]
+fn extracted_solver_bundle_layout_is_used_when_solver_env_not_set() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+
+    let extracted_solver = if cfg!(windows) {
+        tmp.path()
+            .join("tools")
+            .join("proof")
+            .join("z3")
+            .join("z3-extract")
+            .join("z3-4.16.0-x64-win")
+            .join("bin")
+            .join("z3.exe")
+    } else if cfg!(target_os = "macos") {
+        tmp.path()
+            .join("tools")
+            .join("proof")
+            .join("z3")
+            .join("z3-extract")
+            .join("z3-4.16.0-x64-osx")
+            .join("bin")
+            .join("z3")
+    } else {
+        tmp.path()
+            .join("tools")
+            .join("proof")
+            .join("z3")
+            .join("z3-extract")
+            .join("z3-4.16.0-x64-glibc-2.39")
+            .join("bin")
+            .join("z3")
+    };
+    write_fake_solver_to(&extracted_solver);
+    write_solver_integrity_sidecars(&extracted_solver);
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .current_dir(tmp.path())
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg("main.clear")
+        .arg("-o")
+        .arg("out.wasm")
+        .arg("--emit-vcs")
+        .arg("out.vc.json")
+        .assert()
+        .success();
+
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("failed"),
+        "extracted solver bundle fallback should execute and map sat to failed status"
+    );
+    assert!(wasm.exists(), "build output wasm should be generated");
+}
+
+#[test]
+fn bundled_solver_without_integrity_sidecars_keeps_generated_status() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+
+    let bundle_root = tmp.path().join("solver-bundle");
+    let bundled_solver = bundled_solver_path(&bundle_root);
+    write_fake_solver_to(&bundled_solver);
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BUNDLE_ROOT", bundle_root)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("generated"),
+        "solver bundle without integrity sidecars must be rejected and keep generated status"
     );
 }
 
@@ -300,5 +434,136 @@ fn explicit_solver_env_path_overrides_bundle_root() {
         first.get("status").and_then(|v| v.as_str()),
         Some("generated"),
         "explicit CLG_SOLVER_BIN should take precedence over bundle-root fallback"
+    );
+}
+
+#[test]
+fn configured_solver_without_integrity_sidecars_keeps_generated_status() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let solver = write_fake_solver(tmp.path());
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("generated"),
+        "configured solver without integrity sidecars must be rejected and keep generated status"
+    );
+}
+
+#[test]
+fn configured_solver_with_corrupt_checksum_sidecar_keeps_generated_status() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
+    let checksum_path = solver.with_file_name(format!(
+        "{}.sha256",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(
+        &checksum_path,
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000\n",
+    )
+    .expect("write corrupt checksum sidecar");
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("generated"),
+        "solver with corrupt checksum sidecar must be rejected and keep generated status"
+    );
+}
+
+#[test]
+fn configured_solver_with_corrupt_signature_sidecar_keeps_generated_status() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
+    let signature_path = solver.with_file_name(format!(
+        "{}.sig",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(
+        &signature_path,
+        "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\n",
+    )
+    .expect("write corrupt signature sidecar");
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("generated"),
+        "solver with corrupt signature sidecar must be rejected and keep generated status"
     );
 }

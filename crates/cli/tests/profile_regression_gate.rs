@@ -1,8 +1,9 @@
 use assert_cmd::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::tempdir;
 
@@ -58,6 +59,69 @@ fn tier_rank(tier: &str) -> Option<u8> {
         "L3" => Some(3),
         _ => None,
     }
+}
+
+fn write_fake_solver_to(path: &Path) -> PathBuf {
+    let source = path.with_extension("rs");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create fake solver dir");
+    }
+    let solver = path.to_path_buf();
+    let fake_solver_src = r#"
+use std::io::{self, Read};
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-version") {
+        println!("Z3 version 4.16.0 - fake");
+        return;
+    }
+    let mut stdin = Vec::new();
+    let _ = io::stdin().read_to_end(&mut stdin);
+    println!("unsat");
+}
+"#;
+    fs::write(&source, fake_solver_src).expect("write fake solver source");
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
+    let output = Command::new(rustc)
+        .arg(&source)
+        .arg("-O")
+        .arg("-o")
+        .arg(&solver)
+        .output()
+        .expect("run rustc for fake solver");
+    assert!(
+        output.status.success(),
+        "fake solver compile failed: {}",
+        String::from_utf8_lossy(output.stderr.as_slice())
+    );
+    solver
+}
+
+fn write_solver_integrity_sidecars(solver: &Path) {
+    let solver_bytes = fs::read(solver).expect("read solver bytes");
+    let checksum = format!("sha256:{}", hex::encode(Sha256::digest(&solver_bytes)));
+    let checksum_path = solver.with_file_name(format!(
+        "{}.sha256",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&checksum_path, format!("{checksum}\n")).expect("write checksum sidecar");
+
+    let signature = format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(checksum.as_bytes()))
+    );
+    let signature_path = solver.with_file_name(format!(
+        "{}.sig",
+        solver
+            .file_name()
+            .expect("solver filename")
+            .to_string_lossy()
+    ));
+    fs::write(&signature_path, format!("{signature}\n")).expect("write signature sidecar");
 }
 
 #[test]
@@ -126,7 +190,14 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
         let vcs_standard = tmp.path().join("fixture.standard.vc.json");
         let vcs_strict = tmp.path().join("fixture.strict.vc.json");
         let strict_src_path = tmp.path().join("fixture.clear");
+        let solver_path = if cfg!(windows) {
+            tmp.path().join("fake-z3.exe")
+        } else {
+            tmp.path().join("fake-z3")
+        };
         fs::copy(&src_path, &strict_src_path).expect("copy strict fixture source");
+        let solver = write_fake_solver_to(&solver_path);
+        write_solver_integrity_sidecars(&solver);
         fs::write(
             tmp.path().join("clg.lock.json"),
             r#"{"schema_version":0,"dependencies":[]}"#,
@@ -225,6 +296,7 @@ fn verified_profile_fixtures_do_not_regress_assurance_tier() {
 
         Command::cargo_bin("clg")
             .unwrap()
+            .env("CLG_SOLVER_BIN", &solver)
             .args(["build"])
             .arg(&strict_src_path)
             .args(["-o"])

@@ -180,7 +180,7 @@ pub fn run(
         mono_program,
         mangled_name_origins,
     } = type_output;
-    apply_solver_outcomes_if_configured(vcs.as_mut_slice())?;
+    let vcs_before_solver = vcs.clone();
 
     let fail_build = |code: &'static str, message: &str, function: Option<String>| -> Result<()> {
         if json_errors {
@@ -220,6 +220,16 @@ pub fn run(
             Err(anyhow!(message))
         }
     };
+    if let Err(err) = apply_solver_outcomes_if_configured(vcs.as_mut_slice()) {
+        if compiler_mode == CompilerMode::Strict {
+            return fail_build(
+                "C124",
+                &format!("strict proof execution failed: {err:#}"),
+                None,
+            );
+        }
+        return Err(err);
+    }
     if compiler_mode == CompilerMode::Strict {
         if let (Some(host_profile), Some(bindings)) = (
             strict_host_profile_for_caps.as_ref(),
@@ -369,6 +379,55 @@ pub fn run(
         }
         if let Some(message) = strict_language_profile_violation(&vcs) {
             fail_build("C033", &message, None)?;
+        }
+    }
+    if compiler_mode == CompilerMode::Strict && !vcs.is_empty() {
+        if vcs.iter().any(|vc| vc.status == "generated") {
+            fail_build(
+                "C124",
+                "strict proof execution failed because configured theorem prover is unavailable",
+                None,
+            )?;
+        }
+        if vcs.iter().any(|vc| vc.status == "timeout") {
+            fail_build(
+                "C125",
+                "strict proof execution reached configured theorem-prover timeout budget",
+                None,
+            )?;
+        }
+        if release_profile == ReleaseProfile::Production {
+            let mut replay_vcs = vcs_before_solver.clone();
+            if let Err(err) = apply_solver_outcomes_if_configured(replay_vcs.as_mut_slice()) {
+                return fail_build(
+                    "C124",
+                    &format!("strict proof replay failed: {err:#}"),
+                    None,
+                );
+            }
+            if replay_vcs.iter().any(|vc| vc.status == "generated") {
+                fail_build(
+                    "C124",
+                    "strict proof replay failed because configured theorem prover is unavailable",
+                    None,
+                )?;
+            }
+            if replay_vcs.iter().any(|vc| vc.status == "timeout") {
+                fail_build(
+                    "C125",
+                    "strict proof replay reached configured theorem-prover timeout budget",
+                    None,
+                )?;
+            }
+            let baseline_statuses = vcs.iter().map(|vc| vc.status).collect::<Vec<_>>();
+            let replay_statuses = replay_vcs.iter().map(|vc| vc.status).collect::<Vec<_>>();
+            if baseline_statuses != replay_statuses {
+                fail_build(
+                    "C127",
+                    "deterministic solver replay mismatch on identical strict inputs",
+                    None,
+                )?;
+            }
         }
     }
     if release_profile == ReleaseProfile::Production {

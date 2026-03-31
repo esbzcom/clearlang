@@ -77,17 +77,21 @@ fn assert_vcs_fixture(source: &str, fixture: &str) {
     let wasm_path = tmp.path().join("fixture.wasm");
     let vcs_path = tmp.path().join("fixture.vc.json");
     fs::write(&src_path, source).expect("write source");
+    let missing_solver = if cfg!(windows) {
+        tmp.path().join("missing-z3.exe")
+    } else {
+        tmp.path().join("missing-z3")
+    };
 
-    Command::cargo_bin("clg")
-        .unwrap()
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.env("CLG_SOLVER_BIN", &missing_solver)
         .args(["build"])
         .arg(&src_path)
         .args(["-o"])
         .arg(&wasm_path)
         .arg("--emit-vcs")
-        .arg(&vcs_path)
-        .assert()
-        .success();
+        .arg(&vcs_path);
+    cmd.assert().success();
 
     let mut actual: Value =
         serde_json::from_str(&fs::read_to_string(&vcs_path).expect("read vcs")).expect("vcs json");

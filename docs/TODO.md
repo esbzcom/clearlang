@@ -1072,13 +1072,26 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.1.20 Define strict-production cutover policy from `generated`/`solver_unavailable` placeholders to solver-required fail-closed behavior. (`docs/design/phase-25.1.20-production-cutover-fail-closed-policy.md`)
   - [x] 25.1.21 Define Gate B completion metric as a machine-checkable closure rule for release-enabled surfaces (explicit zero-boundary + deterministic proof-evidence thresholds). (`docs/design/phase-25.1.21-gate-b-closure-metric.md`)
 
-- [ ] 25.2 Release workflow and developer UX [Gate C]
-  - [ ] 25.2.1 Add `clg strict init <root>` to generate/validate strict preflight inputs (`clg.project.json`/`clg.lock.json` + trust/profile files).
-  - [ ] 25.2.2 Add one-command `clg release` orchestration (lock -> build/prove -> sign -> verify -> release bundle) with fail-closed behavior.
-  - [ ] 25.2.3 Add release-precheck gating so `fmt` + `lint` + tests must pass before strict signed publish flow (local and CI).
-  - [ ] 25.2.4 Add `clg fmt` for `.clear` sources with deterministic formatting output.
-  - [ ] 25.2.5 Add `clg lint` for `.clear` sources (quality/safety checks) with stable diagnostics and `--deny-warnings` support.
-  - [ ] 25.2.6 Upgrade solver bundle `.sig` verification from integrity-metadata mode to cryptographic publisher-authenticity verification (pinned vendor key/cert + rotation policy).
+- [ ] 25.2 Release workflow and proved-only UX simplification [Gate C]
+  - [ ] 25.2.1 Record Gate C discussion conclusions as policy lock: (a) simplified command options with proved-only release assumptions, (b) one-command release path, (c) built-in Z3 migration path, and (d) IDE/VSCode-first CLI contracts.
+  - [ ] 25.2.2 Publish Gate C UX design lock: default policy is `release == proved` (`proved_all` required), with minimal primary command surface (`clg check`, `clg test`, `clg release`) and advanced commands retained for expert/debug workflows only.
+  - [ ] 25.2.3 Add one-command `clg release` orchestration (lock -> build/prove -> sign -> verify -> release bundle) with fail-closed behavior and minimal required flags.
+  - [ ] 25.2.4 Make `clg release` enforce theorem-grade proof by default (no optional downgrade path for release artifacts).
+  - [ ] 25.2.5 Add `clg strict init <root>` to generate/validate strict preflight inputs (`clg.project.json`/`clg.lock.json` + trust/profile files) and prefill release defaults to reduce CLI parameters.
+  - [ ] 25.2.6 Add CLI simplification/deprecation pass: hide flag-heavy release path from primary docs/help, keep compatibility aliases for expert usage, and emit migration guidance to `clg release`.
+  - [ ] 25.2.7 Add `clg check` as a fast deterministic preflight command for local iteration (non-release), aligned with release policy inputs.
+  - [ ] 25.2.8 Add IDE integration contract for VSCode plugin support: stable machine-readable outputs (`--json-errors`, structured stage/progress events, deterministic exit-code mapping) for `check|test|release`.
+  - [ ] 25.2.9 Add non-interactive mode guarantees for all primary commands (no prompts, deterministic stdout/stderr separation, plugin-safe logs).
+  - [ ] 25.2.10 Add VSCode plugin-facing command profile docs (recommended invocations, expected JSON schema/versioning, cancellation/timeout behavior).
+  - [ ] 25.2.11 Add CI contract tests for IDE-facing CLI behavior to prevent breaking plugin integrations across releases.
+  - [ ] 25.2.12 Add release-precheck gating so `fmt` + `lint` + tests must pass before strict signed publish flow (local and CI).
+  - [ ] 25.2.13 Add `clg fmt` for `.clear` sources with deterministic formatting output.
+  - [ ] 25.2.14 Add `clg lint` for `.clear` sources (quality/safety checks) with stable diagnostics and `--deny-warnings` support.
+  - [ ] 25.2.15 Upgrade solver bundle `.sig` verification from integrity-metadata mode to cryptographic publisher-authenticity verification (pinned vendor key/cert + rotation policy).
+  - [ ] 25.2.16 Add solver backend abstraction (`external-z3-cli` and `rust-z3-lib`) with deterministic backend selection policy.
+  - [ ] 25.2.17 Implement `rust-z3-lib` backend behind a feature/cutover flag while keeping `external-z3-cli` as temporary fallback.
+  - [ ] 25.2.18 Add determinism parity gate between backends (same VC status outcomes and proof artifact hash for identical strict inputs).
+  - [ ] 25.2.19 Add release packaging gate to remove runtime dependency on `tools/proof/z3` for supported release targets once `rust-z3-lib` is cut over.
 
 - [ ] 25.3 Unit testing and test runner [Gate D]
   - [ ] 25.3.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax).

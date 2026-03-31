@@ -442,3 +442,72 @@ fn strict_init_fails_when_existing_preflight_file_is_invalid() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C104"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("strict"));
 }
+
+#[test]
+fn build_release_like_usage_emits_migration_guidance_to_release() {
+    let tmp = tempdir().expect("tempdir");
+    let file = tmp.path().join("main.clear");
+    let out = tmp.path().join("out.wasm");
+    fs::write(&file, "function main() -> Int { 0 }").expect("write source");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--release-profile", "production"])
+        .assert()
+        .failure()
+        .get_output()
+        .stderr
+        .clone();
+    let text = String::from_utf8(output).expect("utf8 stderr");
+    assert!(
+        text.contains("migration: prefer `clg release"),
+        "expected migration guidance, got: {text}"
+    );
+}
+
+#[test]
+fn verify_release_gate_usage_emits_migration_guidance_to_release() {
+    let tmp = tempdir().expect("tempdir");
+    let module = tmp.path().join("missing.wasm");
+    let sig = tmp.path().join("missing.sig.json");
+    let pubkey = tmp.path().join("missing.public.json");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["verify"])
+        .args(["--module"])
+        .arg(&module)
+        .args(["--sig"])
+        .arg(&sig)
+        .args(["--pubkey"])
+        .arg(&pubkey)
+        .args(["--require-assurance", "proved_all"])
+        .assert()
+        .failure()
+        .get_output()
+        .stderr
+        .clone();
+    let text = String::from_utf8(output).expect("utf8 stderr");
+    assert!(
+        text.contains("migration: prefer `clg release"),
+        "expected migration guidance, got: {text}"
+    );
+}
+
+#[test]
+fn build_help_marks_command_as_advanced() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let help = String::from_utf8(output).expect("utf8");
+    assert!(help.contains("Advanced expert/debug compile command"));
+}

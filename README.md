@@ -529,6 +529,8 @@ Assurance profile reality:
 - Production publish policy is `release == proved`; non-proved outputs remain non-release/dev artifacts.
 - Milestone 3 intentionally has no `theorem` language keyword; theorem-grade is a certification outcome from build/verify policy gates.
 
+Advanced expert/debug flows (legacy release-like path; CLI now emits migration guidance to `clg release`):
+
 Build and sign:
 ```
 clg build examples/contract.clear -o out.wasm --emit-vcs out.vc.json \

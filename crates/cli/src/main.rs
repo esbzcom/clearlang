@@ -14,7 +14,12 @@ use clg_cli::logging::Logger;
 use clg_cli::signing::SignScope;
 
 #[derive(Parser, Debug)]
-#[command(name = "clg", version, about = "ClearLang CLI", long_about = None)]
+#[command(
+    name = "clg",
+    version,
+    about = "ClearLang CLI (primary: check, test, release; advanced: parse, build, run, verify, pkg, strict)",
+    long_about = None
+)]
 struct Cli {
     /// Emit machine-readable JSON errors instead of human text
     #[arg(long, global = true, default_value_t = false)]
@@ -40,7 +45,7 @@ enum Commands {
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
-    /// Compile a ClearLang source file to WASM (very minimal subset for now)
+    /// Advanced expert/debug compile command. For production release, use `clg release`.
     Build {
         /// Input ClearLang source file
         #[arg(value_name = "FILE")]
@@ -141,7 +146,7 @@ enum Commands {
         #[command(subcommand)]
         command: StrictCommands,
     },
-    /// Verify a signed proof bundle against a Wasm module
+    /// Advanced expert/debug verify command. For production release, use `clg release`.
     Verify {
         /// Wasm module to verify
         #[arg(long, value_name = "FILE")]
@@ -175,7 +180,7 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         explain: bool,
     },
-    /// Package tooling commands
+    /// Advanced package tooling commands
     Pkg {
         #[command(subcommand)]
         command: PkgCommands,
@@ -240,29 +245,32 @@ fn main() -> Result<()> {
             assurance_manifest_out,
             lean_checker_version,
             coq_checker_version,
-        } => cmd_build::run(
-            file,
-            out,
-            contract,
-            validate,
-            debug_names,
-            emit_vcs,
-            emit_proof,
-            compiler_mode,
-            release_profile,
-            std_core_link_mode,
-            proof_strict,
-            sign,
-            key,
-            key_id,
-            scope.unwrap_or(SignScope::Both),
-            sig_out,
-            assurance_manifest_out,
-            lean_checker_version,
-            coq_checker_version,
-            cli.json_errors,
-            logger,
-        ),
+        } => {
+            emit_release_migration_guidance_for_build(release_profile, sign);
+            cmd_build::run(
+                file,
+                out,
+                contract,
+                validate,
+                debug_names,
+                emit_vcs,
+                emit_proof,
+                compiler_mode,
+                release_profile,
+                std_core_link_mode,
+                proof_strict,
+                sign,
+                key,
+                key_id,
+                scope.unwrap_or(SignScope::Both),
+                sig_out,
+                assurance_manifest_out,
+                lean_checker_version,
+                coq_checker_version,
+                cli.json_errors,
+                logger,
+            )
+        }
         Commands::Run { file, invoke } => cmd_run::run(file, invoke, cli.json_errors, logger),
         Commands::Release {
             file,
@@ -296,20 +304,27 @@ fn main() -> Result<()> {
             release_policy,
             require_assurance,
             explain,
-        } => cmd_verify::run(
-            module,
-            sig,
-            pubkey,
-            verify_mode,
-            trust_policy,
-            assurance_manifest,
-            proof_artifact,
-            release_policy,
-            require_assurance,
-            explain,
-            cli.json_errors,
-            logger,
-        ),
+        } => {
+            emit_release_migration_guidance_for_verify(
+                verify_mode,
+                &release_policy,
+                &require_assurance,
+            );
+            cmd_verify::run(
+                module,
+                sig,
+                pubkey,
+                verify_mode,
+                trust_policy,
+                assurance_manifest,
+                proof_artifact,
+                release_policy,
+                require_assurance,
+                explain,
+                cli.json_errors,
+                logger,
+            )
+        }
         Commands::Pkg { command } => match command {
             PkgCommands::Lock {
                 generate,
@@ -343,4 +358,27 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn emit_release_migration_guidance_for_build(release_profile: ReleaseProfile, sign: bool) {
+    if release_profile == ReleaseProfile::Production || sign {
+        eprintln!(
+            "migration: prefer `clg release <FILE> --key <FILE> --pubkey <FILE>` for production release artifacts; `clg build` release flags are expert/debug-only"
+        );
+    }
+}
+
+fn emit_release_migration_guidance_for_verify(
+    verify_mode: VerifyMode,
+    release_policy: &Option<PathBuf>,
+    require_assurance: &Option<String>,
+) {
+    if verify_mode == VerifyMode::CompileTime
+        || release_policy.is_some()
+        || require_assurance.is_some()
+    {
+        eprintln!(
+            "migration: prefer `clg release <FILE> --key <FILE> --pubkey <FILE>` for production release verification/bundling; standalone `clg verify` release gates are expert/debug-only"
+        );
+    }
 }

@@ -1,6 +1,7 @@
 # ClearLang Release Process (Current CLI + Gate C Orchestration)
 
 This is the current production-style flow using existing commands.
+Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` release gating is expert/debug-only.
 
 ## Scope
 - Strict preflight and deterministic lock input
@@ -78,7 +79,7 @@ Outputs:
 
 `clg release` performs this automatically (generate/update chosen by lockfile presence).
 
-## 3) Strict Build + VC Emission
+## 3) Advanced Expert Flow: Strict Build + VC Emission
 Build Wasm and emit verification conditions.
 
 ```powershell
@@ -91,14 +92,14 @@ Optional (recommended for Gate B workflows):
 clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --emit-proof out/generic.proof.json --compiler-mode strict --release-profile production --validate
 ```
 
-## 4) Sign Release Artifacts
+## 4) Advanced Expert Flow: Sign Release Artifacts
 Sign module and proofs in one pass and emit assurance manifest.
 
 ```powershell
 clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --emit-proof out/generic.proof.json --compiler-mode strict --release-profile production --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
 ```
 
-## 5) Verify Before Publish
+## 5) Advanced Expert Flow: Verify Before Publish
 Run verification gate against the produced artifacts.
 
 ```powershell
@@ -149,5 +150,6 @@ Publish these files together:
 - `clg release` is implemented for one-command orchestration (`25.2.3`) and fails closed on any stage error.
 - `clg release` is proved-only by default (`25.2.4`): there is no downgrade flag path for non-`proved_all` release artifacts.
 - `clg strict init <root>` (`25.2.5`) generates strict preflight templates and release-default bootstrap config (`clg.project.json`) for reduced `clg release` flag surface.
+- Legacy release-like `clg build`/`clg verify` flows emit migration guidance to `clg release` (`25.2.6`) and are documented as expert/debug-only.
 - Pre-production roadmap policy: compatibility debt is not preserved; legacy release paths should be removed once strict-first replacements are in place.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

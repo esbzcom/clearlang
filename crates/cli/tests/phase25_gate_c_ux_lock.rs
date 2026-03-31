@@ -54,6 +54,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.5 ")),
         "TODO must mark 25.2.5 complete once strict init defaults ship"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.6 ")),
+        "TODO must mark 25.2.6 complete once migration guidance ships"
+    );
 }
 
 #[test]
@@ -116,4 +121,17 @@ fn gate_c_strict_init_bootstrap_note_is_published() {
     assert!(doc.contains("clg strict init <root>"));
     assert!(doc.contains("clg.project.json"));
     assert!(doc.contains("C130"));
+}
+
+#[test]
+fn gate_c_release_migration_guidance_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.6-release-migration-guidance.md");
+    let doc = fs::read_to_string(&path).expect("read gate c migration note");
+    assert!(doc.contains("25.2.6"));
+    assert!(doc.contains("clg release"));
+    assert!(doc.contains("expert/debug-only"));
 }

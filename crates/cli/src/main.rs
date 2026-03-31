@@ -7,6 +7,7 @@ use clg_cli::commands::{
     emit_hello as cmd_emit_hello,
     helpers::CommandError,
     parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
+    strict as cmd_strict,
     verify::{self as cmd_verify, VerifyMode},
 };
 use clg_cli::logging::Logger;
@@ -115,13 +116,13 @@ enum Commands {
         file: PathBuf,
         /// Deterministic advisory policy evaluation time (UTC RFC3339)
         #[arg(long, value_name = "RFC3339_UTC")]
-        advisory_as_of: String,
+        advisory_as_of: Option<String>,
         /// Signing key file (JSON)
         #[arg(long, value_name = "FILE")]
         key: PathBuf,
         /// Identifier recorded in signature/manifests
         #[arg(long)]
-        key_id: String,
+        key_id: Option<String>,
         /// Public key file (JSON) for verify stage
         #[arg(long, value_name = "FILE")]
         pubkey: PathBuf,
@@ -134,6 +135,11 @@ enum Commands {
         /// Trust policy file for compile-time verify
         #[arg(long, value_name = "FILE")]
         trust_policy: Option<PathBuf>,
+    },
+    /// Strict workflow commands
+    Strict {
+        #[command(subcommand)]
+        command: StrictCommands,
     },
     /// Verify a signed proof bundle against a Wasm module
     Verify {
@@ -194,6 +200,16 @@ enum PkgCommands {
         advisory_as_of: Option<String>,
         /// Module root containing package metadata and lockfile
         #[arg(long, value_name = "DIR", default_value = ".")]
+        root: PathBuf,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum StrictCommands {
+    /// Initialize strict preflight inputs and release defaults
+    Init {
+        /// Project root directory
+        #[arg(value_name = "ROOT")]
         root: PathBuf,
     },
 }
@@ -310,6 +326,9 @@ fn main() -> Result<()> {
                 cli.json_errors,
                 logger,
             ),
+        },
+        Commands::Strict { command } => match command {
+            StrictCommands::Init { root } => cmd_strict::run_init(root, cli.json_errors, logger),
         },
     };
 

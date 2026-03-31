@@ -12,6 +12,26 @@ fn write_verify_trust_policy_v1(path: &Path) {
         .expect("write trust policy");
 }
 
+fn write_release_project_defaults(
+    path: &Path,
+    advisory_as_of: &str,
+    key_id: &str,
+    out_dir: &str,
+    trust_policy: &str,
+) {
+    let value = json!({
+        "schema_version": 0,
+        "release_defaults": {
+            "advisory_as_of": advisory_as_of,
+            "key_id": key_id,
+            "out_dir": out_dir,
+            "trust_policy": trust_policy,
+        }
+    });
+    fs::write(path, serde_json::to_vec_pretty(&value).expect("serialize project defaults"))
+        .expect("write project defaults");
+}
+
 fn write_signing_keys(root: &Path) -> (PathBuf, PathBuf) {
     let signing = SigningKey::from_bytes(&[7u8; 32]);
     let public = signing.verifying_key();
@@ -210,5 +230,99 @@ fn release_command_fails_closed_when_proved_all_is_not_met() {
     assert!(
         text.contains("\"stage\": \"build\""),
         "expected build stage, got: {text}"
+    );
+}
+
+#[test]
+fn release_command_uses_project_defaults_for_advisory_and_key_id() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-from-project",
+        "release-output",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .arg(&source)
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let bundle_path = root
+        .join("release-output")
+        .join("main.release-bundle.json");
+    let bundle: Value =
+        serde_json::from_slice(&fs::read(&bundle_path).expect("read bundle manifest")).expect("json");
+    assert_eq!(
+        bundle.get("advisory_as_of").and_then(|v| v.as_str()),
+        Some("2026-03-31T00:00:00Z")
+    );
+    assert_eq!(
+        bundle.get("key_id").and_then(|v| v.as_str()),
+        Some("release-from-project")
+    );
+    assert_eq!(
+        bundle.get("trust_policy").and_then(|v| v.as_str()),
+        Some(verify_trust_policy.to_string_lossy().as_ref())
+    );
+}
+
+#[test]
+fn release_command_requires_advisory_and_key_id_when_project_defaults_are_missing() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "release"])
+        .arg(&source)
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).expect("utf8");
+    assert!(text.contains("\"code\": \"C130\""), "expected C130, got: {text}");
+    assert!(
+        text.contains("release_defaults.advisory_as_of"),
+        "expected missing advisory project-default message, got: {text}"
     );
 }

@@ -5,6 +5,8 @@ pub mod modules;
 pub mod parse;
 pub mod pkg;
 pub mod release;
+pub(crate) mod release_defaults;
 pub mod run;
+pub mod strict;
 pub(crate) mod validation;
 pub mod verify;

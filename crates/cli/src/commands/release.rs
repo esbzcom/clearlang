@@ -2,11 +2,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::commands::build::{self, CompilerMode, ReleaseProfile, StdCoreLinkMode};
 use crate::commands::helpers::{make_single_json_error, sha256_hex, CommandError};
 use crate::commands::pkg;
+use crate::commands::release_defaults::{
+    is_release_defaults_placeholder, load_optional_release_defaults_v0,
+    load_verify_trust_policy_v1, ReleaseDefaultsV0, STRICT_PROJECT_FILE,
+};
 use crate::commands::verify::{self, VerifyMode};
 use crate::logging::{Logger, StageTimings};
 use crate::signing::SignScope;
@@ -58,24 +62,12 @@ struct ReleaseStageStatus {
     status: &'static str,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct VerifyTrustPolicyV1 {
-    schema_version: u32,
-    trust_anchors: VerifyTrustAnchors,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct VerifyTrustAnchors {
-    lean_checker: String,
-    coq_checker: String,
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     file: PathBuf,
-    advisory_as_of: String,
+    advisory_as_of: Option<String>,
     key: PathBuf,
-    key_id: String,
+    key_id: Option<String>,
     pubkey: PathBuf,
     root: Option<PathBuf>,
     out_dir: Option<PathBuf>,
@@ -88,11 +80,51 @@ pub fn run(
             .map(Path::to_path_buf)
             .unwrap_or_else(|| PathBuf::from("."))
     });
-    let verify_trust_policy = trust_policy.unwrap_or_else(|| root.join("trust-policy.json"));
+
+    let release_defaults = load_optional_release_defaults_v0(root.as_path()).map_err(|err| {
+        release_error(
+            "C130",
+            format!("loading `{}`: {}", STRICT_PROJECT_FILE, err.message()),
+            file.as_path(),
+            json_errors,
+        )
+    })?;
+
+    let advisory_as_of = resolve_required_release_value(
+        advisory_as_of,
+        release_defaults.as_ref().map(|d| d.advisory_as_of.as_str()),
+        "--advisory-as-of",
+        "release_defaults.advisory_as_of",
+        file.as_path(),
+        json_errors,
+    )?;
+
+    let key_id = resolve_required_release_value(
+        key_id,
+        release_defaults.as_ref().map(|d| d.key_id.as_str()),
+        "--key-id",
+        "release_defaults.key_id",
+        file.as_path(),
+        json_errors,
+    )?;
+
+    let verify_trust_policy =
+        resolve_release_trust_policy(trust_policy, release_defaults.as_ref(), root.as_path());
     let stem = file_stem_or_error(file.as_path(), json_errors)?;
-    let paths = release_paths(&root, out_dir, stem.as_str());
+    let paths = release_paths(
+        &root,
+        resolve_release_out_dir(out_dir, release_defaults.as_ref(), root.as_path()),
+        stem.as_str(),
+    );
     let trust_anchors =
-        load_verify_trust_policy_v1(verify_trust_policy.as_path(), file.as_path(), json_errors)?;
+        load_verify_trust_policy_v1(verify_trust_policy.as_path()).map_err(|err| {
+            release_error(
+                "C130",
+                err.message().to_string(),
+                file.as_path(),
+                json_errors,
+            )
+        })?;
 
     let mut timings = StageTimings::new();
     {
@@ -174,6 +206,72 @@ pub fn run(
     Ok(())
 }
 
+fn resolve_required_release_value(
+    cli_value: Option<String>,
+    default_value: Option<&str>,
+    flag_name: &str,
+    project_field: &str,
+    file: &Path,
+    json_errors: bool,
+) -> Result<String> {
+    if let Some(value) = cli_value {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Err(release_error(
+                "C130",
+                format!("{flag_name} must be non-empty"),
+                file,
+                json_errors,
+            ));
+        }
+        return Ok(trimmed.to_string());
+    }
+
+    if let Some(value) = default_value {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || is_release_defaults_placeholder(trimmed) {
+            return Err(release_error(
+                "C130",
+                format!(
+                    "missing required release value: set `{flag_name}` or configure `{}` in `{}`",
+                    project_field, STRICT_PROJECT_FILE
+                ),
+                file,
+                json_errors,
+            ));
+        }
+        return Ok(trimmed.to_string());
+    }
+
+    Err(release_error(
+        "C130",
+        format!(
+            "missing required release value: set `{flag_name}` or run `clg strict init <root>` and configure `{}` in `{}`",
+            project_field, STRICT_PROJECT_FILE
+        ),
+        file,
+        json_errors,
+    ))
+}
+
+fn resolve_release_out_dir(
+    out_dir: Option<PathBuf>,
+    defaults: Option<&ReleaseDefaultsV0>,
+    root: &Path,
+) -> Option<PathBuf> {
+    out_dir.or_else(|| defaults.map(|d| root.join(d.out_dir.as_str())))
+}
+
+fn resolve_release_trust_policy(
+    trust_policy: Option<PathBuf>,
+    defaults: Option<&ReleaseDefaultsV0>,
+    root: &Path,
+) -> PathBuf {
+    trust_policy
+        .or_else(|| defaults.map(|d| root.join(d.trust_policy.as_str())))
+        .unwrap_or_else(|| root.join("trust-policy.json"))
+}
+
 fn release_paths(root: &Path, out_dir: Option<PathBuf>, stem: &str) -> ReleasePaths {
     let out_dir = out_dir.unwrap_or_else(|| root.join("out").join("release"));
     ReleasePaths {
@@ -184,55 +282,6 @@ fn release_paths(root: &Path, out_dir: Option<PathBuf>, stem: &str) -> ReleasePa
         assurance_manifest: out_dir.join(format!("{stem}.assurance.json")),
         bundle_manifest: out_dir.join(format!("{stem}.release-bundle.json")),
     }
-}
-
-fn load_verify_trust_policy_v1(
-    path: &Path,
-    file: &Path,
-    json_errors: bool,
-) -> Result<VerifyTrustAnchors> {
-    let bytes = fs::read(path).map_err(|err| {
-        release_error(
-            "C130",
-            format!("reading trust policy {}: {err}", path.display()),
-            file,
-            json_errors,
-        )
-    })?;
-    let policy: VerifyTrustPolicyV1 = serde_json::from_slice(bytes.as_slice()).map_err(|err| {
-        release_error(
-            "C130",
-            format!("parsing trust policy {}: {err}", path.display()),
-            file,
-            json_errors,
-        )
-    })?;
-    if policy.schema_version != 1 {
-        return Err(release_error(
-            "C130",
-            format!(
-                "unsupported trust policy schema_version {} (expected 1) in {}",
-                policy.schema_version,
-                path.display()
-            ),
-            file,
-            json_errors,
-        ));
-    }
-    if policy.trust_anchors.lean_checker.trim().is_empty()
-        || policy.trust_anchors.coq_checker.trim().is_empty()
-    {
-        return Err(release_error(
-            "C130",
-            format!(
-                "trust policy {} must provide non-empty trust_anchors.lean_checker and trust_anchors.coq_checker",
-                path.display()
-            ),
-            file,
-            json_errors,
-        ));
-    }
-    Ok(policy.trust_anchors)
 }
 
 fn write_release_bundle_manifest(

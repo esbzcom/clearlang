@@ -5,4 +5,5 @@ include!("build/contract.rs");
 include!("build/strict_bindings.rs");
 include!("build/strict_gates.rs");
 include!("build/strict_artifact.rs");
+include!("build/strict_preflight_api.rs");
 include!("build/tests.rs");

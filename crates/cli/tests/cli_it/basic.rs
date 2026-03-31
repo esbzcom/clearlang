@@ -369,8 +369,76 @@ fn release_requires_minimal_required_flags() {
         .stderr
         .clone();
     let text = String::from_utf8(output).expect("utf8");
-    assert!(text.contains("--advisory-as-of"));
     assert!(text.contains("--key"));
-    assert!(text.contains("--key-id"));
     assert!(text.contains("--pubkey"));
+}
+
+#[test]
+fn strict_help_exposes_init_subcommand() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["strict", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let help = String::from_utf8(output).expect("utf8");
+    assert!(help.contains("strict"));
+    assert!(help.contains("init"));
+}
+
+#[test]
+fn strict_init_creates_required_preflight_files() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["strict", "init"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    for file in [
+        "clg.project.json",
+        "clg.lock.json",
+        "clg.trust-policy.json",
+        "clg.host-profile.json",
+        "clg.package-metadata.json",
+        "clg.package-abi.json",
+        "trust-policy.json",
+    ] {
+        assert!(
+            root.join(file).exists(),
+            "strict init should create `{}`",
+            file
+        );
+    }
+}
+
+#[test]
+fn strict_init_fails_when_existing_preflight_file_is_invalid() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+    fs::write(root.join("clg.lock.json"), r#"{"schema_version":"bad"}"#).expect("write bad lock");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "strict", "init"])
+        .arg(&root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C104"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("strict"));
 }

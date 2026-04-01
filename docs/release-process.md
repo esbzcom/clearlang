@@ -15,6 +15,12 @@ Primary commands:
 - `clg test`
 - `clg release`
 
+Local release-precheck gate (required before strict signed publish flow):
+
+```powershell
+cargo run -p xtask -- release-precheck
+```
+
 Bootstrap strict preflight/release defaults once per project root:
 
 ```powershell
@@ -175,4 +181,5 @@ Publish these files together:
 - `clg strict init <root>` (`25.2.5`) generates strict preflight templates and release-default bootstrap config (`clg.project.json`) for reduced `clg release` flag surface.
 - Legacy release-like `clg build`/`clg verify` flows emit migration guidance to `clg release` (`25.2.6`) and are documented as expert/debug-only.
 - Pre-production roadmap policy: compatibility debt is not preserved; legacy release paths should be removed once strict-first replacements are in place.
+- Release precheck gate (`25.2.12`) is fail-closed for local+CI release workflows: `cargo run -p xtask -- release-precheck` (`fmt --check` + lint + tests) must pass before strict signed publish flow.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

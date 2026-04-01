@@ -19,12 +19,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Install wasm-tools
         run: cargo install wasm-tools --locked
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --workspace
+      - name: Release precheck gate (fmt + lint + tests)
+        run: cargo run -p xtask -- release-precheck
       - name: SDK usability gates
         run: |
           set -euo pipefail

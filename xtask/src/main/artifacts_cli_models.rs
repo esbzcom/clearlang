@@ -114,6 +114,7 @@ fn print_help() {
     println!("  fmt        - cargo fmt --all");
     println!("  clippy     - cargo clippy --workspace --all-targets -- -D warnings");
     println!("  test       - cargo test --workspace");
+    println!("  release-precheck - cargo fmt --check + clippy -D warnings + test");
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");
@@ -126,7 +127,7 @@ fn print_help() {
     );
     println!("  milestone2-perf-gate [--portability-smoke|--self-test]");
     println!("  milestone2-supply-chain-gate [--self-test]");
-    println!("  ci         - fmt + clippy + test + validate");
+    println!("  ci         - release-precheck + build --release + validate");
 }
 
 #[derive(Clone, Debug)]

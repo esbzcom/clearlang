@@ -28,6 +28,7 @@ fn main() -> Result<(), String> {
             ],
         )?,
         "test" => cargo_cmd(&root, &["test", "--workspace"])?,
+        "release-precheck" => run_release_precheck(&root)?,
         "validate" => validate_samples(&root)?,
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,
@@ -39,19 +40,7 @@ fn main() -> Result<(), String> {
         "milestone2-perf-gate" => run_milestone2_perf_gate(&root, args.collect())?,
         "milestone2-supply-chain-gate" => run_milestone2_supply_chain_gate(&root, args.collect())?,
         "ci" => {
-            cargo_cmd(&root, &["fmt", "--all", "--", "--check"])?;
-            cargo_cmd(
-                &root,
-                &[
-                    "clippy",
-                    "--workspace",
-                    "--all-targets",
-                    "--",
-                    "-D",
-                    "warnings",
-                ],
-            )?;
-            cargo_cmd(&root, &["test", "--workspace"])?;
+            run_release_precheck(&root)?;
             cargo_cmd(&root, &["build", "--release", "-p", "clg-cli"])?;
             validate_samples(&root)?;
         }
@@ -73,6 +62,23 @@ fn repo_root() -> PathBuf {
 
 fn cargo_cmd(root: &Path, args: &[&str]) -> Result<(), String> {
     run(Command::new("cargo").args(args).current_dir(root))
+}
+
+fn run_release_precheck(root: &Path) -> Result<(), String> {
+    cargo_cmd(root, &["fmt", "--all", "--", "--check"])?;
+    cargo_cmd(
+        root,
+        &[
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    )?;
+    cargo_cmd(root, &["test", "--workspace"])?;
+    Ok(())
 }
 
 fn validate_samples(root: &Path) -> Result<(), String> {

@@ -503,6 +503,10 @@ ClearLang aims to be:
 
 ClearLang can embed proof metadata in a Wasm module and sign a canonical payload for offline verification.
 For the end-to-end strict production command flow, see `docs/release-process.md`.
+Release precheck gate for local publish flow:
+```
+cargo run -p xtask -- release-precheck
+```
 Gate C one-command release flow:
 ```
 clg strict init examples/projects/generic

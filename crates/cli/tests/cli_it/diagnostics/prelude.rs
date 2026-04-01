@@ -304,10 +304,8 @@ fn write_solver_integrity_sidecars(solver: &Path) {
     ));
     fs::write(&checksum_path, format!("{checksum}\n")).expect("write checksum sidecar");
 
-    let signature = format!(
-        "sha256:{}",
-        hex::encode(Sha256::digest(checksum.as_bytes()))
-    );
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = hex::encode(signing.sign(checksum.as_bytes()).to_bytes());
     let signature_path = solver.with_file_name(format!(
         "{}.sig",
         solver
@@ -315,7 +313,18 @@ fn write_solver_integrity_sidecars(solver: &Path) {
             .expect("solver filename")
             .to_string_lossy()
     ));
-    fs::write(&signature_path, format!("{signature}\n")).expect("write signature sidecar");
+    fs::write(
+        &signature_path,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 1,
+            "key_id": "z3-vendor-k7-2026q2",
+            "scheme": "ed25519",
+            "signed_payload": checksum,
+            "signature": signature
+        }))
+        .expect("serialize signature sidecar"),
+    )
+    .expect("write signature sidecar");
 }
 
 fn write_fake_solver_to(path: &Path, source_body: &str) -> PathBuf {

@@ -45,7 +45,41 @@ fn solver_supply_chain_lock_pins_version_integrity_and_docs() {
     );
     assert_eq!(
         lock["bundle_integrity"]["signature_mode"],
-        Value::String("integrity-metadata-only".to_string())
+        Value::String("publisher-auth-ed25519-v1".to_string())
+    );
+    assert_eq!(
+        lock["bundle_integrity"]["signature_schema_version"],
+        Value::from(1),
+        "solver bundle signature sidecar schema must be pinned"
+    );
+    let trusted_signers = lock["bundle_integrity"]["trusted_signers"]
+        .as_array()
+        .expect("bundle_integrity.trusted_signers[]");
+    assert!(
+        trusted_signers.iter().any(|entry| {
+            entry["key_id"] == Value::String("z3-vendor-k7-2026q2".to_string())
+                && entry["scheme"] == Value::String("ed25519".to_string())
+                && entry["status"] == Value::String("active".to_string())
+        }),
+        "trusted signer set must include active pinned vendor key"
+    );
+    assert!(
+        trusted_signers.iter().any(|entry| {
+            entry["key_id"] == Value::String("z3-vendor-k8-2026q3".to_string())
+                && entry["scheme"] == Value::String("ed25519".to_string())
+                && entry["status"] == Value::String("next".to_string())
+        }),
+        "trusted signer set must include next rotation key"
+    );
+    let allowed_statuses = lock["bundle_integrity"]["rotation_policy"]["allowed_statuses"]
+        .as_array()
+        .expect("bundle_integrity.rotation_policy.allowed_statuses[]");
+    assert!(
+        allowed_statuses
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|status| status == "active"),
+        "rotation policy must permit active signer status"
     );
 
     let profile_lock = read_json(

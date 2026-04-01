@@ -118,7 +118,7 @@ fn print_help() {
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");
-    println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos]");
+    println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos] [--key-id ID]");
     println!(
         "  std-surface-drift-check [--emit-artifact DIR] [--refresh-lock] (phase 21 drift gate)"
     );
@@ -140,6 +140,7 @@ struct StdCoreArtifactOpts {
 struct SolverVendorStageOpts {
     from: PathBuf,
     platform: String,
+    key_id: String,
 }
 
 #[derive(Clone, Debug)]

@@ -16,9 +16,9 @@ Close TODO item `25.1.14` by removing the requirement for system-wide solver ins
    - `<repo-or-ancestor>/tools/proof/z3/z3-extract/<bundle>/bin/z3(.exe)`
    - `<clg-exe-dir>/solver/<platform>/z3(.exe)` for packaged layouts.
 
-All resolved solver candidates must include integrity sidecars
-(`<solver>.sha256`, `<solver>.sig`) and pass checksum/signature metadata checks
-before execution.
+All resolved solver candidates must include integrity/authenticity sidecars
+(`<solver>.sha256`, `<solver>.sig`) and pass checksum + cryptographic signature
+checks before execution.
 
 If nothing resolves, non-strict flows remain non-fatal (VCs stay `generated`).
 Strict mode emits fail-closed build diagnostics (`C124`) when solver execution is unavailable.

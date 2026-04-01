@@ -1,4 +1,6 @@
 use assert_cmd::prelude::*;
+use ed25519_dalek::{Signer, SigningKey};
+use serde_json::json;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -75,10 +77,8 @@ fn write_solver_integrity_sidecars(solver: &Path) {
     ));
     fs::write(&checksum_path, format!("{checksum}\n")).expect("write checksum sidecar");
 
-    let signature = format!(
-        "sha256:{}",
-        hex::encode(Sha256::digest(checksum.as_bytes()))
-    );
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signature = hex::encode(signing.sign(checksum.as_bytes()).to_bytes());
     let signature_path = solver.with_file_name(format!(
         "{}.sig",
         solver
@@ -86,7 +86,18 @@ fn write_solver_integrity_sidecars(solver: &Path) {
             .expect("solver filename")
             .to_string_lossy()
     ));
-    fs::write(&signature_path, format!("{signature}\n")).expect("write signature sidecar");
+    fs::write(
+        &signature_path,
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 1,
+            "key_id": "z3-vendor-k7-2026q2",
+            "scheme": "ed25519",
+            "signed_payload": checksum,
+            "signature": signature
+        }))
+        .expect("serialize signature sidecar"),
+    )
+    .expect("write signature sidecar");
 }
 
 fn write_fake_solver(dir: &Path) -> PathBuf {
@@ -396,7 +407,7 @@ fn bundled_solver_without_integrity_sidecars_keeps_generated_status() {
     assert_eq!(
         first.get("status").and_then(|v| v.as_str()),
         Some("generated"),
-        "solver bundle without integrity sidecars must be rejected and keep generated status"
+        "solver bundle without required signature sidecars must be rejected and keep generated status"
     );
 }
 
@@ -468,7 +479,7 @@ fn configured_solver_without_integrity_sidecars_keeps_generated_status() {
     assert_eq!(
         first.get("status").and_then(|v| v.as_str()),
         Some("generated"),
-        "configured solver without integrity sidecars must be rejected and keep generated status"
+        "configured solver without required signature sidecars must be rejected and keep generated status"
     );
 }
 
@@ -536,9 +547,14 @@ fn configured_solver_with_corrupt_signature_sidecar_keeps_generated_status() {
             .expect("solver filename")
             .to_string_lossy()
     ));
+    let mut signature_json: Value =
+        serde_json::from_slice(&fs::read(&signature_path).expect("read signature sidecar"))
+            .expect("parse signature sidecar");
+    signature_json["signature"] =
+        Value::String("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string());
     fs::write(
         &signature_path,
-        "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\n",
+        serde_json::to_vec_pretty(&signature_json).expect("serialize signature sidecar"),
     )
     .expect("write corrupt signature sidecar");
 

@@ -93,10 +93,16 @@ Windows-first self-contained solver setup (no system install):
 cargo run -p xtask -- solver-vendor-stage --from C:\path\to\z3.exe --platform windows
 ```
 
-This command stages `z3(.exe)` and emits required integrity sidecars (`.sha256`, `.sig`).
+Set publisher signing key env var before staging:
+
+```powershell
+$env:CLG_SOLVER_VENDOR_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
+```
+
+This command stages `z3(.exe)` and emits required integrity/authenticity sidecars (`.sha256`, `.sig`).
 If you use `CLG_SOLVER_BIN` to override solver location, that binary must also include
 matching `.sha256` and `.sig` sidecars.
-Current `.sig` sidecar mode is integrity metadata (not full publisher-authenticity cryptographic signature verification yet).
+`.sig` sidecars are verified as cryptographic Ed25519 signatures against pinned vendor keys and rotation policy (`docs/design/phase-25.1.16-solver-supply-chain.lock.json`).
 
 ## 1) Initialize Strict Preflight Inputs
 

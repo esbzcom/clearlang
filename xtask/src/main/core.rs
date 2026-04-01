@@ -5,9 +5,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use ed25519_dalek::{Signer, SigningKey};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+const SOLVER_VENDOR_SIGNING_KEY_ENV: &str = "CLG_SOLVER_VENDOR_SIGNING_KEY_HEX";
+const DEFAULT_SOLVER_VENDOR_KEY_ID: &str = "z3-vendor-k7-2026q2";
 
 fn main() -> Result<(), String> {
     let mut args = env::args().skip(1);
@@ -284,9 +288,20 @@ fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String>
     let checksum_path = sidecar_path(out.as_path(), "sha256");
     fs::write(&checksum_path, format!("{checksum}\n"))
         .map_err(|e| format!("write `{}`: {e}", checksum_path.display()))?;
-    let signature_metadata = format!("sha256:{}", hex::encode(Sha256::digest(checksum.as_bytes())));
+    let signing_key = load_solver_vendor_signing_key()?;
+    let signature = hex::encode(signing_key.sign(checksum.as_bytes()).to_bytes());
+    let signature_payload = serde_json::json!({
+        "schema_version": 1,
+        "key_id": opts.key_id,
+        "scheme": "ed25519",
+        "signed_payload": checksum,
+        "signature": signature
+    });
     let signature_path = sidecar_path(out.as_path(), "sig");
-    fs::write(&signature_path, format!("{signature_metadata}\n"))
+    let mut signature_bytes =
+        serde_json::to_vec_pretty(&signature_payload).map_err(|e| format!("serialize signature sidecar: {e}"))?;
+    signature_bytes.push(b'\n');
+    fs::write(&signature_path, signature_bytes)
         .map_err(|e| format!("write `{}`: {e}", signature_path.display()))?;
     #[cfg(unix)]
     {
@@ -299,8 +314,12 @@ fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String>
             .map_err(|e| format!("set `{}` executable bit: {e}", out.display()))?;
     }
     println!(
-        "staged solver vendor binary: {} (platform={}) checksum={} signature={}",
-        out.display(), opts.platform, checksum_path.display(), signature_path.display()
+        "staged solver vendor binary: {} (platform={}) checksum={} signature={} key_id={}",
+        out.display(),
+        opts.platform,
+        checksum_path.display(),
+        signature_path.display(),
+        opts.key_id
     );
     Ok(())
 }
@@ -317,6 +336,7 @@ fn sidecar_path(solver_bin: &Path, suffix: &str) -> PathBuf {
 fn parse_solver_vendor_stage_args(raw_args: Vec<String>) -> Result<SolverVendorStageOpts, String> {
     let mut from: Option<PathBuf> = None;
     let mut platform = "windows".to_string();
+    let mut key_id = DEFAULT_SOLVER_VENDOR_KEY_ID.to_string();
     let mut idx = 0usize;
     while idx < raw_args.len() {
         match raw_args[idx].as_str() {
@@ -334,16 +354,53 @@ fn parse_solver_vendor_stage_args(raw_args: Vec<String>) -> Result<SolverVendorS
                     .ok_or_else(|| "missing value for `--platform`".to_string())?;
                 platform = value.to_ascii_lowercase();
             }
+            "--key-id" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--key-id`".to_string())?;
+                if value.trim().is_empty() {
+                    return Err("`--key-id` cannot be empty".to_string());
+                }
+                key_id = value.trim().to_string();
+            }
             other => {
                 return Err(format!(
-                    "unknown solver-vendor-stage arg `{other}` (supported: --from, --platform)"
+                    "unknown solver-vendor-stage arg `{other}` (supported: --from, --platform, --key-id)"
                 ));
             }
         }
         idx += 1;
     }
     let from = from.ok_or_else(|| "missing required `--from`".to_string())?;
-    Ok(SolverVendorStageOpts { from, platform })
+    Ok(SolverVendorStageOpts {
+        from,
+        platform,
+        key_id,
+    })
+}
+
+fn load_solver_vendor_signing_key() -> Result<SigningKey, String> {
+    let raw = env::var(SOLVER_VENDOR_SIGNING_KEY_ENV).map_err(|_| {
+        format!(
+            "missing `{SOLVER_VENDOR_SIGNING_KEY_ENV}` env var (expected 32-byte Ed25519 private key hex)"
+        )
+    })?;
+    let bytes = decode_fixed_hex32(raw.trim()).ok_or_else(|| {
+        format!(
+            "`{SOLVER_VENDOR_SIGNING_KEY_ENV}` must be a lowercase 32-byte hex key (64 hex chars)"
+        )
+    })?;
+    Ok(SigningKey::from_bytes(&bytes))
+}
+
+fn decode_fixed_hex32(value: &str) -> Option<[u8; 32]> {
+    if value.len() != 64 || value.bytes().any(|b| !b.is_ascii_hexdigit() || b.is_ascii_uppercase())
+    {
+        return None;
+    }
+    let raw = hex::decode(value).ok()?;
+    raw.try_into().ok()
 }
 
 fn parse_std_core_args(raw_args: Vec<String>) -> Result<StdCoreArtifactOpts, String> {

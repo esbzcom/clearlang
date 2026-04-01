@@ -10,7 +10,29 @@
     "checksum_algorithm": "sha256",
     "checksum_required": true,
     "signature_required": true,
-    "signature_mode": "integrity-metadata-only",
+    "signature_mode": "publisher-auth-ed25519-v1",
+    "signature_schema_version": 1,
+    "trusted_signers": [
+      {
+        "key_id": "z3-vendor-k7-2026q2",
+        "scheme": "ed25519",
+        "public_key": "hex:ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+        "status": "active"
+      },
+      {
+        "key_id": "z3-vendor-k8-2026q3",
+        "scheme": "ed25519",
+        "public_key": "hex:1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
+        "status": "next"
+      }
+    ],
+    "rotation_policy": {
+      "allowed_statuses": [
+        "active",
+        "next"
+      ],
+      "min_trusted_signers": 1
+    },
     "signature_file_pattern": "*.sig",
     "checksum_file_pattern": "*.sha256"
   },

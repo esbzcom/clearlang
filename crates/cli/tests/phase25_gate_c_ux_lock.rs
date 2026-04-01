@@ -99,6 +99,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.14 ")),
         "TODO must mark 25.2.14 complete once clg lint ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.15 ")),
+        "TODO must mark 25.2.15 complete once solver signature authenticity upgrade ships"
+    );
 }
 
 #[test]
@@ -325,4 +330,18 @@ fn gate_c_clg_lint_command_is_published() {
         .expect("read cli main");
     assert!(cli_main.contains("Lint {"));
     assert!(cli_main.contains("lint as cmd_lint"));
+}
+
+#[test]
+fn gate_c_solver_signature_authenticity_upgrade_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.15-solver-signature-authenticity-upgrade.md");
+    let doc = fs::read_to_string(&path).expect("read gate c solver signature authenticity note");
+    assert!(doc.contains("25.2.15"));
+    assert!(doc.contains("publisher-auth-ed25519-v1"));
+    assert!(doc.contains("CLG_SOLVER_VENDOR_SIGNING_KEY_HEX"));
+    assert!(doc.contains("trusted_signers"));
 }

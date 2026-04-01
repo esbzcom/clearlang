@@ -43,16 +43,20 @@ mod tests {
                 .expect("parse args");
         assert_eq!(opts.from, PathBuf::from("tmp/z3.exe"));
         assert_eq!(opts.platform, "windows");
+        assert_eq!(opts.key_id, "z3-vendor-k7-2026q2");
 
         let opts = parse_solver_vendor_stage_args(vec![
             "--from".to_string(),
             "tmp/z3".to_string(),
             "--platform".to_string(),
             "linux".to_string(),
+            "--key-id".to_string(),
+            "z3-vendor-k8-2026q3".to_string(),
         ])
         .expect("parse args");
         assert_eq!(opts.from, PathBuf::from("tmp/z3"));
         assert_eq!(opts.platform, "linux");
+        assert_eq!(opts.key_id, "z3-vendor-k8-2026q3");
     }
 
     #[test]
@@ -67,6 +71,18 @@ mod tests {
         ])
         .expect_err("expected unknown flag");
         assert!(err.contains("unknown solver-vendor-stage arg"));
+    }
+
+    #[test]
+    fn parse_solver_vendor_stage_args_rejects_empty_key_id() {
+        let err = parse_solver_vendor_stage_args(vec![
+            "--from".to_string(),
+            "tmp/z3.exe".to_string(),
+            "--key-id".to_string(),
+            "".to_string(),
+        ])
+        .expect_err("expected empty key-id error");
+        assert!(err.contains("`--key-id` cannot be empty"));
     }
 
     #[test]

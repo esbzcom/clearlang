@@ -74,6 +74,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.9 ")),
         "TODO must mark 25.2.9 complete once non-interactive contract ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.10 ")),
+        "TODO must mark 25.2.10 complete once VSCode command profile docs ship"
+    );
 }
 
 #[test]
@@ -189,4 +194,32 @@ fn gate_c_non_interactive_contract_note_is_published() {
     assert!(doc.contains("25.2.9"));
     assert!(doc.contains("--non-interactive"));
     assert!(doc.contains("stdout/stderr"));
+}
+
+#[test]
+fn gate_c_vscode_command_profile_design_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.10-vscode-command-profile.md");
+    let doc = fs::read_to_string(&path).expect("read gate c vscode profile note");
+    assert!(doc.contains("25.2.10"));
+    assert!(doc.contains("--non-interactive"));
+    assert!(doc.contains("--json-errors"));
+    assert!(doc.contains("--json-events"));
+    assert!(doc.contains("schema_version: 1"));
+    assert!(doc.contains("Cancellation and Timeout Contract"));
+}
+
+#[test]
+fn gate_c_vscode_plugin_profile_doc_is_published() {
+    let root = repo_root();
+    let path = root.join("docs").join("ide").join("vscode-cli-profile.md");
+    let doc = fs::read_to_string(&path).expect("read vscode plugin profile doc");
+    assert!(doc.contains("VSCode CLI Profile"));
+    assert!(doc.contains("clg --non-interactive --json-errors --json-events check"));
+    assert!(doc.contains("clg --non-interactive --json-errors --json-events release"));
+    assert!(doc.contains("\"schema_version\":1"));
+    assert!(doc.contains("Cancellation and Timeout Behavior"));
 }

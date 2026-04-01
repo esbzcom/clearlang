@@ -26,6 +26,7 @@ This fails closed if runtime behavior still depends on external solver bundle pa
 
 ## CI Wiring
 - Added to `Proof regression gates` in `.github/workflows/ci.yml`.
+- Added to `milestone3-proof-parity` Windows release-target job in `.github/workflows/ci.yml`.
 - Added CI workflow assertion in `crates/cli/tests/ci_workflow.rs`.
 
 ## References

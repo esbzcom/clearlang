@@ -9,7 +9,7 @@ Lock a simplified primary CLI surface for end users and AI tools while keeping r
 ## Primary Command Surface
 Primary commands are:
 - `clg check`
-- `clg test`
+- `clg test` (reserved contract; command implementation lands in `25.3.2`)
 - `clg release`
 
 Advanced/expert flows (`build`, `verify`, `pkg lock`, and detailed flags) remain available but are not the primary UX surface.

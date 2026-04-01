@@ -12,7 +12,7 @@ Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` 
 ## Primary UX Surface (Gate C Lock)
 Primary commands:
 - `clg check`
-- `clg test`
+- `clg test` (reserved contract; command implementation lands in `25.3.2`)
 - `clg release`
 
 Local release-precheck gate (required before strict signed publish flow):
@@ -206,6 +206,8 @@ Publish these files together:
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.
 - Milestone 3 CI/tag gate is locked by `docs/evidence/milestone_3-proof-gate.lock.json` and enforced by `crates/cli/tests/milestone3_release_gate.rs`.
 - Milestone 3 release-target parity gate currently runs on Windows (`windows-latest`) and enforces deterministic proof-parity artifact emission before `milestone_3` tag release gating.
+  - `cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`
+  - `cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging`
 - Solver supply-chain gate is locked by `docs/design/phase-25.1.16-solver-supply-chain.lock.json` (pinned version + checksum/signature + legal notices + CVE/rollback policy).
 - `--emit-proof` emits deterministic proof artifact summaries and binds optional proof/solver hashes into signed payload/manifest claims for verify-time consistency checks.
 - `clg release` is implemented for one-command orchestration (`25.2.3`) and fails closed on any stage error.

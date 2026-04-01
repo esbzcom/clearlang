@@ -26,6 +26,31 @@ fn gate_c_release_ux_design_lock_is_published() {
 }
 
 #[test]
+fn gate_c_primary_command_docs_mark_test_as_phase_25_3_reserved_contract() {
+    let root = repo_root();
+
+    let ux_lock = fs::read_to_string(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.2.2-release-ux-design-lock.md"),
+    )
+    .expect("read gate c ux lock");
+    assert!(ux_lock.contains("clg test"));
+    assert!(ux_lock.contains("25.3.2"));
+    assert!(ux_lock.contains("reserved contract"));
+
+    let release_process = fs::read_to_string(root.join("docs").join("release-process.md"))
+        .expect("read docs/release-process.md");
+    assert!(release_process.contains("clg test"));
+    assert!(release_process.contains("25.3.2"));
+    assert!(release_process.contains("reserved contract"));
+
+    let cli_main = fs::read_to_string(root.join("crates").join("cli").join("src").join("main.rs"))
+        .expect("read cli main");
+    assert!(cli_main.contains("primary: check, test [25.3.2], release"));
+}
+
+#[test]
 fn todo_marks_gate_c_ux_design_lock_complete() {
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read todo");

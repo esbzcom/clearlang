@@ -298,6 +298,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Solver vendor-path smoke gate
         run: cargo test -p clg-cli --test solver_outcomes bundled_solver_root_is_used_when_solver_env_not_set
+      - name: Rust backend parity gate (release-target)
+        run: cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity
+      - name: Rust cutover packaging gate (release-target)
+        run: cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging
       - name: Milestone 3 proof parity snapshot
         env:
           CLG_PROOF_PARITY_OUT: tmp/proof-parity/windows.json

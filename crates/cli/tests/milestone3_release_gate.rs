@@ -352,6 +352,31 @@ fn validate_ci_wiring(root: &Path) {
         ),
         "milestone_3 release gate must require bundled solver fallback smoke coverage"
     );
+    let (_, rust_backend_parity_step) =
+        find_step(parity_steps, "Rust backend parity gate (release-target)");
+    let rust_backend_parity_run = mapping_get_str(
+        rust_backend_parity_step,
+        "run",
+        "Rust backend parity gate (release-target) step",
+    );
+    assert!(
+        rust_backend_parity_run
+            .contains("cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity"),
+        "milestone_3 release gate must require rust backend parity gate on release-target platform"
+    );
+    let (_, rust_cutover_packaging_step) =
+        find_step(parity_steps, "Rust cutover packaging gate (release-target)");
+    let rust_cutover_packaging_run = mapping_get_str(
+        rust_cutover_packaging_step,
+        "run",
+        "Rust cutover packaging gate (release-target) step",
+    );
+    assert!(
+        rust_cutover_packaging_run.contains(
+            "cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging"
+        ),
+        "milestone_3 release gate must require rust cutover packaging gate on release-target platform"
+    );
 
     let release_job = as_mapping(
         mapping_get(jobs, "milestone3-release-train-gate", "workflow jobs"),

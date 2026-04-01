@@ -16,13 +16,26 @@ use std::process::Command;
 use tempfile::tempdir;
 
 #[cfg(feature = "rust-z3-lib")]
-const SAMPLE_SOURCE: &str = r#"
-pure function inc(x: Int) -> Int
-    require { x >= 0 }
-    ensure { result > x }
-{ x + 1 }
-function main() -> Int { inc(1) }
+const PROVED_SOURCE: &str = r#"
+function main() -> Int
+    ensure { result > 0 }
+{ 1 }
 "#;
+
+#[cfg(feature = "rust-z3-lib")]
+const FAILED_SOURCE: &str = r#"
+function main() -> Int
+    ensure { result < 0 }
+{ 1 }
+"#;
+
+#[cfg(feature = "rust-z3-lib")]
+struct ParityFixture {
+    name: &'static str,
+    source: &'static str,
+    external_solver_result: &'static str,
+    expected_status: &'static str,
+}
 
 #[cfg(feature = "rust-z3-lib")]
 fn write_fake_solver_to(path: &Path) -> PathBuf {
@@ -37,12 +50,24 @@ use std::io::{self, Read};
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--version" || arg == "-version") {
-        println!("Z3 version 4.16.0 - fake");
+        let version = std::env::var("CLG_FAKE_Z3_VERSION").unwrap_or_else(|_| "4.16.0".to_string());
+        println!("Z3 version {} - fake", version);
         return;
     }
     let mut stdin = Vec::new();
     let _ = io::stdin().read_to_end(&mut stdin);
-    println!("unsat");
+    match std::env::var("CLG_FAKE_Z3_RESULT").as_deref() {
+        Ok("sat") => println!("sat"),
+        Ok("unknown") => {
+            println!("unknown");
+            println!("(:reason-unknown \"incomplete\")");
+        }
+        Ok("timeout") => {
+            println!("unknown");
+            println!("(:reason-unknown \"timeout\")");
+        }
+        _ => println!("unsat"),
+    }
 }
 "#;
     fs::write(&source, fake_solver_src).expect("write fake solver source");
@@ -121,18 +146,32 @@ fn sha256_prefixed_hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(feature = "rust-z3-lib")]
-#[test]
-fn backend_parity_gate_keeps_vc_statuses_and_proof_hash_identical() {
-    let tmp = tempdir().expect("tempdir");
-    let source = tmp.path().join("main.clear");
-    let external_wasm = tmp.path().join("external.wasm");
-    let external_vcs = tmp.path().join("external.vc.json");
-    let external_proof = tmp.path().join("external.proof.json");
-    let rust_wasm = tmp.path().join("rust.wasm");
-    let rust_vcs = tmp.path().join("rust.vc.json");
-    let rust_proof = tmp.path().join("rust.proof.json");
-    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+fn run_build_with_backend(
+    source: &Path,
+    wasm: &Path,
+    vcs: &Path,
+    proof: &Path,
+    configure: impl FnOnce(&mut Command),
+) {
+    let mut command = Command::cargo_bin("clg").expect("cargo_bin clg");
+    configure(&mut command);
+    command
+        .arg("build")
+        .arg(source)
+        .arg("-o")
+        .arg(wasm)
+        .arg("--emit-vcs")
+        .arg(vcs)
+        .arg("--emit-proof")
+        .arg(proof)
+        .assert()
+        .success();
+}
 
+#[cfg(feature = "rust-z3-lib")]
+#[test]
+fn backend_parity_gate_keeps_status_vectors_and_proof_hashes_identical_across_fixture_matrix() {
+    let tmp = tempdir().expect("tempdir");
     let external_solver = if cfg!(windows) {
         tmp.path().join("fake-z3.exe")
     } else {
@@ -141,47 +180,82 @@ fn backend_parity_gate_keeps_vc_statuses_and_proof_hash_identical() {
     write_fake_solver_to(&external_solver);
     write_solver_integrity_sidecars(&external_solver);
 
-    Command::cargo_bin("clg")
-        .expect("cargo_bin clg")
-        .env("CLG_SOLVER_BACKEND", "external-z3-cli")
-        .env("CLG_SOLVER_BIN", &external_solver)
-        .arg("build")
-        .arg(&source)
-        .arg("-o")
-        .arg(&external_wasm)
-        .arg("--emit-vcs")
-        .arg(&external_vcs)
-        .arg("--emit-proof")
-        .arg(&external_proof)
-        .assert()
-        .success();
+    let fixtures = [
+        ParityFixture {
+            name: "proved",
+            source: PROVED_SOURCE,
+            external_solver_result: "unsat",
+            expected_status: "proved",
+        },
+        ParityFixture {
+            name: "failed",
+            source: FAILED_SOURCE,
+            external_solver_result: "sat",
+            expected_status: "failed",
+        },
+    ];
 
-    Command::cargo_bin("clg")
-        .expect("cargo_bin clg")
-        .env("CLG_SOLVER_BACKEND", "rust-z3-lib")
-        .env("CLG_SOLVER_RUST_Z3_CUTOVER", "1")
-        .env_remove("CLG_SOLVER_BIN")
-        .arg("build")
-        .arg(&source)
-        .arg("-o")
-        .arg(&rust_wasm)
-        .arg("--emit-vcs")
-        .arg(&rust_vcs)
-        .arg("--emit-proof")
-        .arg(&rust_proof)
-        .assert()
-        .success();
+    for fixture in fixtures {
+        let source = tmp.path().join(format!("{}-main.clear", fixture.name));
+        fs::write(&source, fixture.source).expect("write source");
 
-    assert_eq!(
-        vc_statuses(&external_vcs),
-        vc_statuses(&rust_vcs),
-        "external-z3-cli and rust-z3-lib backends must produce identical VC status vectors for identical strict inputs"
-    );
+        let external_wasm = tmp.path().join(format!("{}-external.wasm", fixture.name));
+        let external_vcs = tmp
+            .path()
+            .join(format!("{}-external.vc.json", fixture.name));
+        let external_proof = tmp
+            .path()
+            .join(format!("{}-external.proof.json", fixture.name));
 
-    let external_proof_hash = sha256_prefixed_hex(&fs::read(&external_proof).expect("read proof"));
-    let rust_proof_hash = sha256_prefixed_hex(&fs::read(&rust_proof).expect("read proof"));
-    assert_eq!(
-        external_proof_hash, rust_proof_hash,
-        "external-z3-cli and rust-z3-lib backends must produce identical proof artifact hash for identical strict inputs"
-    );
+        run_build_with_backend(
+            &source,
+            &external_wasm,
+            &external_vcs,
+            &external_proof,
+            |command| {
+                command
+                    .env("CLG_SOLVER_BACKEND", "external-z3-cli")
+                    .env("CLG_SOLVER_BIN", &external_solver)
+                    .env("CLG_FAKE_Z3_RESULT", fixture.external_solver_result);
+            },
+        );
+
+        let rust_wasm = tmp.path().join(format!("{}-rust.wasm", fixture.name));
+        let rust_vcs = tmp.path().join(format!("{}-rust.vc.json", fixture.name));
+        let rust_proof = tmp.path().join(format!("{}-rust.proof.json", fixture.name));
+
+        run_build_with_backend(&source, &rust_wasm, &rust_vcs, &rust_proof, |command| {
+            command
+                .env("CLG_SOLVER_BACKEND", "rust-z3-lib")
+                .env("CLG_SOLVER_RUST_Z3_CUTOVER", "1")
+                .env_remove("CLG_SOLVER_BIN")
+                .env_remove("CLG_FAKE_Z3_RESULT");
+        });
+
+        let external_statuses = vc_statuses(&external_vcs);
+        let rust_statuses = vc_statuses(&rust_vcs);
+        assert!(
+            external_statuses
+                .iter()
+                .all(|status| status == fixture.expected_status),
+            "external fixture `{}` should produce only `{}` VC statuses, got {:?}",
+            fixture.name,
+            fixture.expected_status,
+            external_statuses
+        );
+        assert_eq!(
+            external_statuses, rust_statuses,
+            "external-z3-cli and rust-z3-lib backends must produce identical VC status vectors for fixture `{}`",
+            fixture.name
+        );
+
+        let external_proof_hash =
+            sha256_prefixed_hex(&fs::read(&external_proof).expect("read proof"));
+        let rust_proof_hash = sha256_prefixed_hex(&fs::read(&rust_proof).expect("read proof"));
+        assert_eq!(
+            external_proof_hash, rust_proof_hash,
+            "external-z3-cli and rust-z3-lib backends must produce identical proof artifact hash for fixture `{}`",
+            fixture.name
+        );
+    }
 }

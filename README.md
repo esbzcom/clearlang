@@ -495,7 +495,7 @@ ClearLang aims to be:
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 
-- CLI & tooling: primary UX surface is `check`/`test`/`release` (Gate C lock), with additional deterministic quality/pro power commands (`fmt`, `parse`, `build`, `run`, `verify`) retained; supports `--json-errors`, `--emit-vcs`, and Wasmtime-backed `run`. VSCode/plugin profile: `docs/ide/vscode-cli-profile.md`.
+- CLI & tooling: primary UX contract is `check`/`test`/`release` (Gate C lock), where `test` is reserved for `25.3.2`; current shipped primary commands are `check` and `release`. Additional deterministic quality/pro power commands (`fmt`, `parse`, `build`, `run`, `verify`) are retained; supports `--json-errors`, `--emit-vcs`, and Wasmtime-backed `run`. VSCode/plugin profile: `docs/ide/vscode-cli-profile.md`.
 
 ---
 

@@ -10,16 +10,21 @@ Enforce deterministic parity between solver backends so migration to `rust-z3-li
 Feature-gated integration test:
 - `cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`
 
-Checks on identical input module:
+Checks on identical strict fixture modules:
 1. `external-z3-cli` backend run emits VC status vector.
 2. `rust-z3-lib` backend run (cutover enabled) emits VC status vector.
 3. Status vectors must match exactly.
 4. Proof artifact SHA-256 hash must match exactly.
 
+Fixture matrix is deterministic and must cover at least:
+- `proved` fixture (`unsat` external solver path)
+- `failed` fixture (`sat` external solver path)
+
 Any mismatch fails closed.
 
 ## CI Wiring
 - Added to `Proof regression gates` in `.github/workflows/ci.yml`.
+- Added to `milestone3-proof-parity` Windows release-target job in `.github/workflows/ci.yml`.
 - Added CI workflow test assertion in `crates/cli/tests/ci_workflow.rs`.
 
 ## Notes

@@ -28,6 +28,8 @@ This document is the evidence index for TODO item `25.0.8`.
   - Windows: `milestone3-proof-parity-windows`
 - Platform scope:
   - Milestone 3 release target is currently Windows-only; parity replay runs and artifact emission are enforced on `windows-latest`.
+  - `cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`
+  - `cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging`
 - Tag gate (`refs/tags/milestone_3`) runs:
   - `cargo test -p clg-cli --test milestone3_release_gate`
   - with `CLG_ENFORCE_MILESTONE3_RELEASE_GATE=1`

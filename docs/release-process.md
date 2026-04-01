@@ -109,6 +109,10 @@ Solver backend selection policy:
 - optional override: `CLG_SOLVER_BACKEND=external-z3-cli|rust-z3-lib`
 - unsupported backend values fail closed
 - selecting `rust-z3-lib` requires a build with Cargo feature `rust-z3-lib` enabled
+  - current build path statically links Z3 and requires `cmake` in the build environment
+- migration cutover flag: `CLG_SOLVER_RUST_Z3_CUTOVER=1|0` (or `true|false|on|off|yes|no`)
+  - `CLG_SOLVER_BACKEND=rust-z3-lib` + cutover false/unset -> deterministic fallback to `external-z3-cli`
+  - `CLG_SOLVER_BACKEND=rust-z3-lib` + cutover true -> use in-process `rust-z3-lib` backend
 
 ## 1) Initialize Strict Preflight Inputs
 

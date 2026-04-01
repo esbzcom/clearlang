@@ -644,3 +644,75 @@ fn rust_solver_backend_requires_enabled_feature() {
         "stderr should explain missing rust-z3-lib feature, got: {stderr}"
     );
 }
+
+#[test]
+fn external_backend_ignores_invalid_cutover_flag_value() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_RUST_Z3_CUTOVER", "maybe")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("generated"),
+        "external backend should ignore rust cutover flag when rust backend is not selected"
+    );
+}
+
+#[cfg(feature = "rust-z3-lib")]
+#[test]
+fn rust_backend_without_cutover_temporarily_falls_back_to_external_cli() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BACKEND", "rust-z3-lib")
+        .env("CLG_SOLVER_RUST_Z3_CUTOVER", "off")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .assert()
+        .success();
+
+    let vcs_json: Value =
+        serde_json::from_slice(&fs::read(&vcs).expect("read vcs json")).expect("parse vcs");
+    let first = vcs_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("first vc");
+    assert_eq!(
+        first.get("status").and_then(|v| v.as_str()),
+        Some("failed"),
+        "rust backend selection without cutover must fallback to external-z3-cli behavior"
+    );
+}

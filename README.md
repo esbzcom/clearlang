@@ -525,7 +525,11 @@ clg release examples/projects/generic/main.clear \
 ```
 Solver backend selection is deterministic: default is `external-z3-cli`; override with
 `CLG_SOLVER_BACKEND=external-z3-cli|rust-z3-lib` (the `rust-z3-lib` value requires a `clg`
-build compiled with Cargo feature `rust-z3-lib`).
+build compiled with Cargo feature `rust-z3-lib`; current static-link build path requires
+`cmake`). Migration cutover flag:
+`CLG_SOLVER_RUST_Z3_CUTOVER=1|0` (or `true|false|on|off|yes|no`).
+If `CLG_SOLVER_BACKEND=rust-z3-lib` and cutover is false/unset, execution deterministically
+falls back to `external-z3-cli` until cutover is explicitly enabled.
 IDE/VSCode plugin invocation profile (non-interactive + machine-readable):
 ```
 clg --non-interactive --json-errors --json-events check examples/projects/generic/main.clear --root examples/projects/generic

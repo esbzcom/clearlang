@@ -109,6 +109,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.16 ")),
         "TODO must mark 25.2.16 complete once solver backend abstraction policy ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.17 ")),
+        "TODO must mark 25.2.17 complete once rust-z3-lib backend implementation ships"
+    );
 }
 
 #[test]
@@ -361,6 +366,20 @@ fn gate_c_solver_backend_abstraction_policy_note_is_published() {
     let doc = fs::read_to_string(&path).expect("read gate c solver backend abstraction note");
     assert!(doc.contains("25.2.16"));
     assert!(doc.contains("CLG_SOLVER_BACKEND"));
+    assert!(doc.contains("external-z3-cli"));
+    assert!(doc.contains("rust-z3-lib"));
+}
+
+#[test]
+fn gate_c_rust_z3_backend_cutover_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.17-rust-z3-lib-backend-cutover.md");
+    let doc = fs::read_to_string(&path).expect("read gate c rust-z3 backend cutover note");
+    assert!(doc.contains("25.2.17"));
+    assert!(doc.contains("CLG_SOLVER_RUST_Z3_CUTOVER"));
     assert!(doc.contains("external-z3-cli"));
     assert!(doc.contains("rust-z3-lib"));
 }

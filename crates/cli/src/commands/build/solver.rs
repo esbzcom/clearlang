@@ -1,13 +1,21 @@
+#[cfg(feature = "rust-z3-lib")]
+use std::ffi::CStr;
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
 
 use clg_typer::VerificationCondition;
+#[cfg(feature = "rust-z3-lib")]
+use z3::{
+    Config as Z3Config, Context as Z3Context, Params as Z3Params, SatResult as Z3SatResult,
+    Solver as Z3Solver,
+};
 
 const CLG_SOLVER_BIN_ENV: &str = "CLG_SOLVER_BIN";
 const CLG_SOLVER_BUNDLE_ROOT_ENV: &str = "CLG_SOLVER_BUNDLE_ROOT";
 const CLG_SOLVER_BACKEND_ENV: &str = "CLG_SOLVER_BACKEND";
+const CLG_SOLVER_RUST_Z3_CUTOVER_ENV: &str = "CLG_SOLVER_RUST_Z3_CUTOVER";
 const SOLVER_BACKEND_EXTERNAL_Z3_CLI: &str = "external-z3-cli";
 const SOLVER_BACKEND_RUST_Z3_LIB: &str = "rust-z3-lib";
 const SOLVER_SUPPLY_CHAIN_LOCK_JSON: &str =
@@ -43,7 +51,9 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
     if vcs.is_empty() {
         return Ok(());
     }
-    match resolve_solver_backend_kind()? {
+    let selected_backend = resolve_solver_backend_kind()?;
+    let effective_backend = resolve_effective_solver_backend_kind(selected_backend)?;
+    match effective_backend {
         SolverBackendKind::ExternalZ3Cli => apply_external_z3_cli_solver_outcomes(vcs),
         SolverBackendKind::RustZ3Lib => apply_rust_z3_lib_solver_outcomes(vcs),
     }
@@ -73,6 +83,51 @@ fn select_solver_backend_kind(
         }
         Some(other) => anyhow::bail!(
             "unsupported solver backend `{other}` in `{CLG_SOLVER_BACKEND_ENV}` (supported: `{SOLVER_BACKEND_EXTERNAL_Z3_CLI}`, `{SOLVER_BACKEND_RUST_Z3_LIB}`)"
+        ),
+    }
+}
+
+fn effective_solver_backend_kind(
+    selected: SolverBackendKind,
+    rust_z3_cutover_enabled: bool,
+) -> SolverBackendKind {
+    match selected {
+        SolverBackendKind::ExternalZ3Cli => SolverBackendKind::ExternalZ3Cli,
+        SolverBackendKind::RustZ3Lib => {
+            if rust_z3_cutover_enabled {
+                SolverBackendKind::RustZ3Lib
+            } else {
+                SolverBackendKind::ExternalZ3Cli
+            }
+        }
+    }
+}
+
+fn resolve_effective_solver_backend_kind(selected: SolverBackendKind) -> Result<SolverBackendKind> {
+    match selected {
+        SolverBackendKind::ExternalZ3Cli => Ok(SolverBackendKind::ExternalZ3Cli),
+        SolverBackendKind::RustZ3Lib => Ok(effective_solver_backend_kind(
+            SolverBackendKind::RustZ3Lib,
+            rust_z3_lib_cutover_enabled()?,
+        )),
+    }
+}
+
+fn rust_z3_lib_cutover_enabled() -> Result<bool> {
+    let raw = std::env::var(CLG_SOLVER_RUST_Z3_CUTOVER_ENV).ok();
+    parse_bool_cutover_flag(raw.as_deref())
+}
+
+fn parse_bool_cutover_flag(raw: Option<&str>) -> Result<bool> {
+    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(false);
+    };
+    let normalized = raw.to_ascii_lowercase();
+    match normalized.as_str() {
+        "1" | "true" | "on" | "yes" => Ok(true),
+        "0" | "false" | "off" | "no" => Ok(false),
+        other => anyhow::bail!(
+            "invalid boolean value `{other}` for `{CLG_SOLVER_RUST_Z3_CUTOVER_ENV}` (supported: 1|0|true|false|on|off|yes|no)"
         ),
     }
 }
@@ -128,10 +183,34 @@ fn apply_external_z3_cli_solver_outcomes(vcs: &mut [VerificationCondition]) -> R
 }
 
 #[cfg(feature = "rust-z3-lib")]
-fn apply_rust_z3_lib_solver_outcomes(_vcs: &mut [VerificationCondition]) -> Result<()> {
-    anyhow::bail!(
-        "solver backend `{SOLVER_BACKEND_RUST_Z3_LIB}` is selected but implementation is not yet available (Phase 25.2.17)"
-    );
+fn apply_rust_z3_lib_solver_outcomes(vcs: &mut [VerificationCondition]) -> Result<()> {
+    let profile = load_solver_runtime_profile()?;
+    let version = rust_z3_full_version();
+    if !version
+        .to_ascii_lowercase()
+        .contains(profile.solver_version.to_ascii_lowercase().as_str())
+    {
+        anyhow::bail!(
+            "configured backend `{SOLVER_BACKEND_RUST_Z3_LIB}` reports version `{version}`, which does not match pinned solver_version `{}` from `docs/design/phase-25.1.4-solver-profile.lock.json`",
+            profile.solver_version
+        );
+    }
+    let started = Instant::now();
+    for vc in vcs {
+        let elapsed_ms = started.elapsed().as_millis() as u64;
+        if elapsed_ms >= profile.total_timeout_ms {
+            vc.status = "timeout";
+            continue;
+        }
+        let remaining_ms = profile.total_timeout_ms.saturating_sub(elapsed_ms);
+        let per_vc_timeout_ms = profile.per_vc_timeout_ms.min(remaining_ms);
+        match rust_z3_lib_outcome_for_vc(&profile.options, per_vc_timeout_ms, vc) {
+            Ok(status) => vc.status = status,
+            Err(RustZ3ExecError::TimedOut) => vc.status = "timeout",
+            Err(RustZ3ExecError::InvocationFailed) => vc.status = "unknown",
+        }
+    }
+    Ok(())
 }
 
 #[cfg(not(feature = "rust-z3-lib"))]
@@ -693,4 +772,83 @@ enum SolverExecError {
     TimedOut,
     TerminationFailed,
     InvocationFailed,
+}
+
+#[cfg(feature = "rust-z3-lib")]
+enum RustZ3ExecError {
+    TimedOut,
+    InvocationFailed,
+}
+
+#[cfg(feature = "rust-z3-lib")]
+fn rust_z3_lib_outcome_for_vc(
+    options: &[SolverOption],
+    per_vc_timeout_ms: u64,
+    vc: &VerificationCondition,
+) -> std::result::Result<&'static str, RustZ3ExecError> {
+    let (prelude, body) = split_vc_formula(&vc.vc_smt2);
+    let mut script = String::new();
+    if !prelude.is_empty() {
+        script.push_str(prelude.as_str());
+        script.push('\n');
+    }
+    script.push_str(format!("(assert (not {}))\n", body).as_str());
+
+    let mut cfg = Z3Config::new();
+    let timeout_ms = per_vc_timeout_ms.min(u64::from(u32::MAX)) as u32;
+    cfg.set_timeout_msec(timeout_ms);
+    let ctx = Z3Context::new(&cfg);
+    let solver = Z3Solver::new(&ctx);
+    let mut params = Z3Params::new(&ctx);
+    params.set_u32("timeout", timeout_ms);
+    apply_rust_z3_params(options, &mut params);
+    solver.set_params(&params);
+    solver.from_string(script.as_str());
+
+    match solver.check() {
+        Z3SatResult::Unsat => Ok("proved"),
+        Z3SatResult::Sat => Ok("failed"),
+        Z3SatResult::Unknown => {
+            let reason = solver.get_reason_unknown().unwrap_or_default();
+            if reason.to_ascii_lowercase().contains("timeout") {
+                Err(RustZ3ExecError::TimedOut)
+            } else {
+                Ok("unknown")
+            }
+        }
+    }
+}
+
+#[cfg(feature = "rust-z3-lib")]
+fn apply_rust_z3_params(options: &[SolverOption], params: &mut Z3Params) {
+    for option in options {
+        if option.value.eq_ignore_ascii_case("true") {
+            params.set_bool(option.key.as_str(), true);
+            continue;
+        }
+        if option.value.eq_ignore_ascii_case("false") {
+            params.set_bool(option.key.as_str(), false);
+            continue;
+        }
+        if let Ok(value) = option.value.parse::<u32>() {
+            params.set_u32(option.key.as_str(), value);
+            continue;
+        }
+        if let Ok(value) = option.value.parse::<f64>() {
+            params.set_f64(option.key.as_str(), value);
+            continue;
+        }
+        params.set_symbol(option.key.as_str(), option.value.as_str());
+    }
+}
+
+#[cfg(feature = "rust-z3-lib")]
+fn rust_z3_full_version() -> String {
+    let version_ptr = unsafe { z3_sys::Z3_get_full_version() };
+    if version_ptr.is_null() {
+        return "<unknown>".to_string();
+    }
+    unsafe { CStr::from_ptr(version_ptr) }
+        .to_string_lossy()
+        .to_string()
 }

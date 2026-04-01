@@ -27,6 +27,9 @@ struct Cli {
     /// Emit structured JSON stage/progress events on stderr (NDJSON)
     #[arg(long, global = true, default_value_t = false)]
     json_events: bool,
+    /// Enforce non-interactive CLI behavior (no prompts; plugin-safe I/O channels)
+    #[arg(long, global = true, default_value_t = false)]
+    non_interactive: bool,
     /// Increase verbosity (-v, -vv) for stage logs
     #[arg(short, long, action = ArgAction::Count, global = true, default_value_t = 0)]
     verbose: u8,
@@ -233,6 +236,7 @@ enum StrictCommands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let _non_interactive = cli.non_interactive;
     let logger = Logger::from_env(cli.verbose, cli.json_events);
     let result = match cli.command {
         Commands::EmitHello { out } => cmd_emit_hello::run(out, logger.with_command("emit-hello")),
@@ -358,6 +362,7 @@ fn main() -> Result<()> {
                 advisory_as_of,
                 root,
                 cli.json_errors,
+                true,
                 logger.with_command("pkg"),
             ),
         },

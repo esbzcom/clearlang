@@ -119,7 +119,7 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
     let output = Command::cargo_bin("clg")
         .unwrap()
         .env("CLG_SOLVER_BIN", &solver)
-        .args(["release"])
+        .args(["--non-interactive", "release"])
         .arg(&source)
         .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
         .args(["--key"])
@@ -140,8 +140,16 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
         .clone();
 
     let stdout = String::from_utf8(output).expect("utf8 stdout");
-    assert!(stdout.contains("\"policy_version\": \"25.2.3\""));
-    assert!(stdout.contains("\"verify(require-assurance=proved_all)\""));
+    let stdout_json: Value = serde_json::from_str(stdout.trim()).expect("stdout json");
+    assert_eq!(
+        stdout_json.get("policy_version").and_then(|v| v.as_str()),
+        Some("25.2.3")
+    );
+    assert!(
+        stdout
+            .contains("\"verify(require-assurance=proved_all)\""),
+        "stdout should include verify stage contract"
+    );
 
     let bundle_path = out_dir.join("main.release-bundle.json");
     assert!(bundle_path.exists(), "bundle manifest should exist");

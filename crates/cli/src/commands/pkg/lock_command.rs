@@ -5,6 +5,7 @@ pub fn run_lock(
     advisory_as_of: Option<String>,
     root: PathBuf,
     json_errors: bool,
+    emit_stdout_summary: bool,
     logger: Logger,
 ) -> Result<()> {
     let fail_pkg = |code: &'static str, message: String| -> Result<()> {
@@ -137,17 +138,19 @@ pub fn run_lock(
         write_resolved_graph_artifact(root.as_path(), &lockfile)?
     };
 
-    println!(
-        "wrote {} with {} pinned package(s) [sha256:{}]",
-        lockfile_path.display(),
-        lockfile.packages.len(),
-        canonical_hash
-    );
-    println!(
-        "wrote {} [sha256:{}]",
-        root.join(RESOLVED_GRAPH_FILE).display(),
-        resolved_graph_hash
-    );
+    if emit_stdout_summary {
+        println!(
+            "wrote {} with {} pinned package(s) [sha256:{}]",
+            lockfile_path.display(),
+            lockfile.packages.len(),
+            canonical_hash
+        );
+        println!(
+            "wrote {} [sha256:{}]",
+            root.join(RESOLVED_GRAPH_FILE).display(),
+            resolved_graph_hash
+        );
+    }
     logger.summary(&timings);
     Ok(())
 }

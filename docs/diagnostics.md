@@ -5,6 +5,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 ## CLI Flag
 - `--json-errors`: when set on `clg parse`, `clg check`, `clg build`, `clg run`, `clg strict init`, `clg release`, or `clg verify`, failures are printed as JSON to stdout.
 - `--json-events`: emit structured JSON stage/progress events on stderr (NDJSON), including command name and stage transitions.
+- `--non-interactive`: enforce non-interactive command behavior suitable for IDE/plugin execution.
 
 ## Exit Codes
 - `0`: success.
@@ -279,4 +280,5 @@ clg run bad-crypto.clear --json-errors
 ## Notes
 - Messages include `at <start>..<end>:` when a span is available.
 - Codes and JSON shape are stable; text remains concise and actionable.
+- Channel contract: success payloads and `--json-errors` payloads are on `stdout`; progress/events and human diagnostics are on `stderr`.
 

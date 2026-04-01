@@ -139,6 +139,7 @@ pub fn run(
             Some(advisory_as_of.clone()),
             root.clone(),
             json_errors,
+            false,
             logger,
         )?;
     }

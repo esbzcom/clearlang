@@ -523,6 +523,9 @@ clg release examples/projects/generic/main.clear \
   --key keys/signing.json --pubkey keys/public.json \
   --root examples/projects/generic
 ```
+Solver backend selection is deterministic: default is `external-z3-cli`; override with
+`CLG_SOLVER_BACKEND=external-z3-cli|rust-z3-lib` (the `rust-z3-lib` value requires a `clg`
+build compiled with Cargo feature `rust-z3-lib`).
 IDE/VSCode plugin invocation profile (non-interactive + machine-readable):
 ```
 clg --non-interactive --json-errors --json-events check examples/projects/generic/main.clear --root examples/projects/generic

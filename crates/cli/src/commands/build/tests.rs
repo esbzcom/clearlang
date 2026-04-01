@@ -602,4 +602,56 @@ mod tests {
             "C105|std::core|std::core::math::add\nC105|std::orphan|std::orphan::noop"
         );
     }
+
+    #[test]
+    fn solver_backend_selection_defaults_to_external_cli() {
+        assert_eq!(
+            select_solver_backend_kind(None, false).expect("default backend"),
+            SolverBackendKind::ExternalZ3Cli
+        );
+        assert_eq!(
+            select_solver_backend_kind(Some(""), false).expect("empty backend uses default"),
+            SolverBackendKind::ExternalZ3Cli
+        );
+        assert_eq!(
+            select_solver_backend_kind(Some("   "), false)
+                .expect("whitespace backend uses default"),
+            SolverBackendKind::ExternalZ3Cli
+        );
+    }
+
+    #[test]
+    fn solver_backend_selection_accepts_explicit_external_cli() {
+        assert_eq!(
+            select_solver_backend_kind(Some("external-z3-cli"), false)
+                .expect("explicit external backend"),
+            SolverBackendKind::ExternalZ3Cli
+        );
+    }
+
+    #[test]
+    fn solver_backend_selection_rejects_rust_backend_when_feature_disabled() {
+        let err = select_solver_backend_kind(Some("rust-z3-lib"), false)
+            .expect_err("rust backend without feature should fail");
+        assert!(err.to_string().contains("does not enable feature `rust-z3-lib`"));
+    }
+
+    #[cfg(feature = "rust-z3-lib")]
+    #[test]
+    fn solver_backend_selection_accepts_rust_backend_when_feature_enabled() {
+        assert_eq!(
+            select_solver_backend_kind(Some("rust-z3-lib"), true)
+                .expect("rust backend with feature"),
+            SolverBackendKind::RustZ3Lib
+        );
+    }
+
+    #[test]
+    fn solver_backend_selection_rejects_unknown_backend() {
+        let err = select_solver_backend_kind(Some("z3"), false)
+            .expect_err("unknown backend must fail");
+        assert!(err.to_string().contains("unsupported solver backend"));
+        assert!(err.to_string().contains("external-z3-cli"));
+        assert!(err.to_string().contains("rust-z3-lib"));
+    }
 }

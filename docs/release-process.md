@@ -104,6 +104,12 @@ If you use `CLG_SOLVER_BIN` to override solver location, that binary must also i
 matching `.sha256` and `.sig` sidecars.
 `.sig` sidecars are verified as cryptographic Ed25519 signatures against pinned vendor keys and rotation policy (`docs/design/phase-25.1.16-solver-supply-chain.lock.json`).
 
+Solver backend selection policy:
+- default backend is `external-z3-cli`
+- optional override: `CLG_SOLVER_BACKEND=external-z3-cli|rust-z3-lib`
+- unsupported backend values fail closed
+- selecting `rust-z3-lib` requires a build with Cargo feature `rust-z3-lib` enabled
+
 ## 1) Initialize Strict Preflight Inputs
 
 ```powershell

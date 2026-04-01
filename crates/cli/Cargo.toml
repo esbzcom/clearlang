@@ -5,6 +5,10 @@ edition = "2021"
 license = "MIT"
 autobins = false
 
+[features]
+default = []
+rust-z3-lib = []
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }

@@ -7,6 +7,9 @@ use clg_typer::VerificationCondition;
 
 const CLG_SOLVER_BIN_ENV: &str = "CLG_SOLVER_BIN";
 const CLG_SOLVER_BUNDLE_ROOT_ENV: &str = "CLG_SOLVER_BUNDLE_ROOT";
+const CLG_SOLVER_BACKEND_ENV: &str = "CLG_SOLVER_BACKEND";
+const SOLVER_BACKEND_EXTERNAL_Z3_CLI: &str = "external-z3-cli";
+const SOLVER_BACKEND_RUST_Z3_LIB: &str = "rust-z3-lib";
 const SOLVER_SUPPLY_CHAIN_LOCK_JSON: &str =
     include_str!("../../../../../docs/design/phase-25.1.16-solver-supply-chain.lock.json");
 
@@ -30,13 +33,54 @@ struct SolverRuntimeProfile {
     total_timeout_ms: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SolverBackendKind {
+    ExternalZ3Cli,
+    RustZ3Lib,
+}
+
 pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationCondition]) -> Result<()> {
-    let Some(resolved_solver) = resolve_solver_bin() else {
-        return Ok(());
-    };
     if vcs.is_empty() {
         return Ok(());
     }
+    match resolve_solver_backend_kind()? {
+        SolverBackendKind::ExternalZ3Cli => apply_external_z3_cli_solver_outcomes(vcs),
+        SolverBackendKind::RustZ3Lib => apply_rust_z3_lib_solver_outcomes(vcs),
+    }
+}
+
+fn resolve_solver_backend_kind() -> Result<SolverBackendKind> {
+    let raw = std::env::var(CLG_SOLVER_BACKEND_ENV).ok();
+    select_solver_backend_kind(raw.as_deref(), cfg!(feature = "rust-z3-lib"))
+}
+
+fn select_solver_backend_kind(
+    raw: Option<&str>,
+    rust_z3_lib_enabled: bool,
+) -> Result<SolverBackendKind> {
+    let requested = raw.map(str::trim).filter(|value| !value.is_empty());
+    match requested {
+        None => Ok(SolverBackendKind::ExternalZ3Cli),
+        Some(SOLVER_BACKEND_EXTERNAL_Z3_CLI) => Ok(SolverBackendKind::ExternalZ3Cli),
+        Some(SOLVER_BACKEND_RUST_Z3_LIB) => {
+            if rust_z3_lib_enabled {
+                Ok(SolverBackendKind::RustZ3Lib)
+            } else {
+                anyhow::bail!(
+                    "solver backend `{SOLVER_BACKEND_RUST_Z3_LIB}` requested via `{CLG_SOLVER_BACKEND_ENV}`, but this build does not enable feature `rust-z3-lib`"
+                );
+            }
+        }
+        Some(other) => anyhow::bail!(
+            "unsupported solver backend `{other}` in `{CLG_SOLVER_BACKEND_ENV}` (supported: `{SOLVER_BACKEND_EXTERNAL_Z3_CLI}`, `{SOLVER_BACKEND_RUST_Z3_LIB}`)"
+        ),
+    }
+}
+
+fn apply_external_z3_cli_solver_outcomes(vcs: &mut [VerificationCondition]) -> Result<()> {
+    let Some(resolved_solver) = resolve_solver_bin() else {
+        return Ok(());
+    };
     let solver_bin = resolved_solver.path;
     let profile = load_solver_runtime_profile()?;
     match solver_reports_pinned_version(solver_bin.as_path(), &profile)? {
@@ -81,6 +125,20 @@ pub(super) fn apply_solver_outcomes_if_configured(vcs: &mut [VerificationConditi
         }
     }
     Ok(())
+}
+
+#[cfg(feature = "rust-z3-lib")]
+fn apply_rust_z3_lib_solver_outcomes(_vcs: &mut [VerificationCondition]) -> Result<()> {
+    anyhow::bail!(
+        "solver backend `{SOLVER_BACKEND_RUST_Z3_LIB}` is selected but implementation is not yet available (Phase 25.2.17)"
+    );
+}
+
+#[cfg(not(feature = "rust-z3-lib"))]
+fn apply_rust_z3_lib_solver_outcomes(_vcs: &mut [VerificationCondition]) -> Result<()> {
+    anyhow::bail!(
+        "solver backend `{SOLVER_BACKEND_RUST_Z3_LIB}` is not enabled in this `clg` build"
+    );
 }
 
 fn resolve_solver_bin() -> Option<ResolvedSolverBin> {

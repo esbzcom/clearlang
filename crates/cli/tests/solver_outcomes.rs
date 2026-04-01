@@ -583,3 +583,64 @@ fn configured_solver_with_corrupt_signature_sidecar_keeps_generated_status() {
         "solver with corrupt signature sidecar must be rejected and keep generated status"
     );
 }
+
+#[test]
+fn unsupported_solver_backend_value_fails_build() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+
+    let output = Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BACKEND", "z3")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .output()
+        .expect("run clg build with unsupported backend");
+    assert!(
+        !output.status.success(),
+        "unsupported solver backend must fail build"
+    );
+    let stderr = String::from_utf8_lossy(output.stderr.as_slice());
+    assert!(
+        stderr.contains("unsupported solver backend"),
+        "stderr should explain unsupported backend, got: {stderr}"
+    );
+}
+
+#[cfg(not(feature = "rust-z3-lib"))]
+#[test]
+fn rust_solver_backend_requires_enabled_feature() {
+    let tmp = tempdir().expect("tempdir");
+    let source = tmp.path().join("main.clear");
+    let wasm = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+    fs::write(&source, SAMPLE_SOURCE).expect("write source");
+
+    let output = Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BACKEND", "rust-z3-lib")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&wasm)
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .output()
+        .expect("run clg build with rust backend");
+    assert!(
+        !output.status.success(),
+        "rust-z3-lib backend without feature must fail build"
+    );
+    let stderr = String::from_utf8_lossy(output.stderr.as_slice());
+    assert!(
+        stderr.contains("does not enable feature `rust-z3-lib`"),
+        "stderr should explain missing rust-z3-lib feature, got: {stderr}"
+    );
+}

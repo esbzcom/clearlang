@@ -104,6 +104,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.15 ")),
         "TODO must mark 25.2.15 complete once solver signature authenticity upgrade ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.16 ")),
+        "TODO must mark 25.2.16 complete once solver backend abstraction policy ships"
+    );
 }
 
 #[test]
@@ -344,4 +349,18 @@ fn gate_c_solver_signature_authenticity_upgrade_note_is_published() {
     assert!(doc.contains("publisher-auth-ed25519-v1"));
     assert!(doc.contains("CLG_SOLVER_VENDOR_SIGNING_KEY_HEX"));
     assert!(doc.contains("trusted_signers"));
+}
+
+#[test]
+fn gate_c_solver_backend_abstraction_policy_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.16-solver-backend-abstraction-policy.md");
+    let doc = fs::read_to_string(&path).expect("read gate c solver backend abstraction note");
+    assert!(doc.contains("25.2.16"));
+    assert!(doc.contains("CLG_SOLVER_BACKEND"));
+    assert!(doc.contains("external-z3-cli"));
+    assert!(doc.contains("rust-z3-lib"));
 }

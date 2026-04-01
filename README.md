@@ -530,6 +530,10 @@ build compiled with Cargo feature `rust-z3-lib`; current static-link build path 
 `CLG_SOLVER_RUST_Z3_CUTOVER=1|0` (or `true|false|on|off|yes|no`).
 If `CLG_SOLVER_BACKEND=rust-z3-lib` and cutover is false/unset, execution deterministically
 falls back to `external-z3-cli` until cutover is explicitly enabled.
+Backend migration parity gate:
+`cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`.
+Cutover packaging gate (no runtime dependency on `tools/proof/z3`):
+`cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging`.
 IDE/VSCode plugin invocation profile (non-interactive + machine-readable):
 ```
 clg --non-interactive --json-errors --json-events check examples/projects/generic/main.clear --root examples/projects/generic

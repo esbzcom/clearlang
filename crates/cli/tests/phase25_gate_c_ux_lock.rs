@@ -114,6 +114,16 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.17 ")),
         "TODO must mark 25.2.17 complete once rust-z3-lib backend implementation ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.18 ")),
+        "TODO must mark 25.2.18 complete once solver backend parity gate ships"
+    );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.19 ")),
+        "TODO must mark 25.2.19 complete once rust cutover packaging gate ships"
+    );
 }
 
 #[test]
@@ -382,4 +392,32 @@ fn gate_c_rust_z3_backend_cutover_note_is_published() {
     assert!(doc.contains("CLG_SOLVER_RUST_Z3_CUTOVER"));
     assert!(doc.contains("external-z3-cli"));
     assert!(doc.contains("rust-z3-lib"));
+}
+
+#[test]
+fn gate_c_solver_backend_parity_gate_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.18-solver-backend-parity-gate.md");
+    let doc = fs::read_to_string(&path).expect("read gate c solver backend parity note");
+    assert!(doc.contains("25.2.18"));
+    assert!(doc.contains("solver_backend_parity"));
+    assert!(doc.contains("external-z3-cli"));
+    assert!(doc.contains("rust-z3-lib"));
+}
+
+#[test]
+fn gate_c_rust_cutover_packaging_gate_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.19-rust-cutover-packaging-gate.md");
+    let doc = fs::read_to_string(&path).expect("read gate c rust cutover packaging note");
+    assert!(doc.contains("25.2.19"));
+    assert!(doc.contains("solver_rust_cutover_packaging"));
+    assert!(doc.contains("tools/proof/z3"));
+    assert!(doc.contains("generated_count"));
 }

@@ -113,6 +113,10 @@ Solver backend selection policy:
 - migration cutover flag: `CLG_SOLVER_RUST_Z3_CUTOVER=1|0` (or `true|false|on|off|yes|no`)
   - `CLG_SOLVER_BACKEND=rust-z3-lib` + cutover false/unset -> deterministic fallback to `external-z3-cli`
   - `CLG_SOLVER_BACKEND=rust-z3-lib` + cutover true -> use in-process `rust-z3-lib` backend
+- parity gate for migration safety:
+  - `cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`
+- cutover packaging gate (no runtime dependency on `tools/proof/z3` when cutover is enabled):
+  - `cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging`
 
 ## 1) Initialize Strict Preflight Inputs
 

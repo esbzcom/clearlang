@@ -1,5 +1,3 @@
-#[cfg(feature = "rust-z3-lib")]
-use std::ffi::CStr;
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -8,7 +6,7 @@ use std::time::Instant;
 use clg_typer::VerificationCondition;
 #[cfg(feature = "rust-z3-lib")]
 use z3::{
-    Config as Z3Config, Context as Z3Context, Params as Z3Params, SatResult as Z3SatResult,
+    with_z3_config, Config as Z3Config, Params as Z3Params, SatResult as Z3SatResult,
     Solver as Z3Solver,
 };
 
@@ -795,28 +793,30 @@ fn rust_z3_lib_outcome_for_vc(
     script.push_str(format!("(assert (not {}))\n", body).as_str());
 
     let mut cfg = Z3Config::new();
-    let timeout_ms = per_vc_timeout_ms.min(u64::from(u32::MAX)) as u32;
-    cfg.set_timeout_msec(timeout_ms);
-    let ctx = Z3Context::new(&cfg);
-    let solver = Z3Solver::new(&ctx);
-    let mut params = Z3Params::new(&ctx);
-    params.set_u32("timeout", timeout_ms);
-    apply_rust_z3_params(options, &mut params);
-    solver.set_params(&params);
-    solver.from_string(script.as_str());
+    let timeout_ms_u64 = per_vc_timeout_ms.min(u64::from(u32::MAX));
+    cfg.set_timeout_msec(timeout_ms_u64);
+    with_z3_config(&cfg, || {
+        let timeout_ms = timeout_ms_u64 as u32;
+        let solver = Z3Solver::new();
+        let mut params = Z3Params::new();
+        params.set_u32("timeout", timeout_ms);
+        apply_rust_z3_params(options, &mut params);
+        solver.set_params(&params);
+        solver.from_string(script.as_str());
 
-    match solver.check() {
-        Z3SatResult::Unsat => Ok("proved"),
-        Z3SatResult::Sat => Ok("failed"),
-        Z3SatResult::Unknown => {
-            let reason = solver.get_reason_unknown().unwrap_or_default();
-            if reason.to_ascii_lowercase().contains("timeout") {
-                Err(RustZ3ExecError::TimedOut)
-            } else {
-                Ok("unknown")
+        match solver.check() {
+            Z3SatResult::Unsat => Ok("proved"),
+            Z3SatResult::Sat => Ok("failed"),
+            Z3SatResult::Unknown => {
+                let reason = solver.get_reason_unknown().unwrap_or_default();
+                if reason.to_ascii_lowercase().contains("timeout") {
+                    Err(RustZ3ExecError::TimedOut)
+                } else {
+                    Ok("unknown")
+                }
             }
         }
-    }
+    })
 }
 
 #[cfg(feature = "rust-z3-lib")]
@@ -844,11 +844,5 @@ fn apply_rust_z3_params(options: &[SolverOption], params: &mut Z3Params) {
 
 #[cfg(feature = "rust-z3-lib")]
 fn rust_z3_full_version() -> String {
-    let version_ptr = unsafe { z3_sys::Z3_get_full_version() };
-    if version_ptr.is_null() {
-        return "<unknown>".to_string();
-    }
-    unsafe { CStr::from_ptr(version_ptr) }
-        .to_string_lossy()
-        .to_string()
+    z3::full_version().to_string()
 }

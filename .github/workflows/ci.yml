@@ -35,6 +35,10 @@ jobs:
         run: |
           set -euo pipefail
           cargo test -p clg-cli --test cli_it strict_acceptance_
+      - name: IDE CLI contract gates
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test ide_cli_contract
       - name: Proof regression gates
         run: |
           set -euo pipefail

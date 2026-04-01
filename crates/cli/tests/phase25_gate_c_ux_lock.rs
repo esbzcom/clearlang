@@ -79,6 +79,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.10 ")),
         "TODO must mark 25.2.10 complete once VSCode command profile docs ship"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.11 ")),
+        "TODO must mark 25.2.11 complete once IDE CI contract tests ship"
+    );
 }
 
 #[test]
@@ -222,4 +227,23 @@ fn gate_c_vscode_plugin_profile_doc_is_published() {
     assert!(doc.contains("clg --non-interactive --json-errors --json-events release"));
     assert!(doc.contains("\"schema_version\":1"));
     assert!(doc.contains("Cancellation and Timeout Behavior"));
+}
+
+#[test]
+fn gate_c_ide_ci_contract_note_and_ci_step_are_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.11-ide-cli-ci-contract-tests.md");
+    let doc = fs::read_to_string(&path).expect("read gate c ide ci contract note");
+    assert!(doc.contains("25.2.11"));
+    assert!(doc.contains("ide_cli_contract.rs"));
+    assert!(doc.contains("IDE CLI contract gates"));
+    assert!(doc.contains("schema_version: 1"));
+
+    let ci = fs::read_to_string(root.join(".github").join("workflows").join("ci.yml"))
+        .expect("read ci workflow");
+    assert!(ci.contains("name: IDE CLI contract gates"));
+    assert!(ci.contains("cargo test -p clg-cli --test ide_cli_contract"));
 }

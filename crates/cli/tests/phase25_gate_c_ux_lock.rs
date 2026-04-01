@@ -64,6 +64,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.7 ")),
         "TODO must mark 25.2.7 complete once check command ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.8 ")),
+        "TODO must mark 25.2.8 complete once IDE contract ships"
+    );
 }
 
 #[test]
@@ -152,4 +157,18 @@ fn gate_c_check_command_note_is_published() {
     assert!(doc.contains("25.2.7"));
     assert!(doc.contains("clg check"));
     assert!(doc.contains("strict"));
+}
+
+#[test]
+fn gate_c_ide_contract_note_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.8-ide-cli-contract.md");
+    let doc = fs::read_to_string(&path).expect("read gate c ide contract note");
+    assert!(doc.contains("25.2.8"));
+    assert!(doc.contains("--json-errors"));
+    assert!(doc.contains("--json-events"));
+    assert!(doc.contains("Exit-Code Contract"));
 }

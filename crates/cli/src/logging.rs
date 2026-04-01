@@ -31,19 +31,36 @@ impl LogLevel {
 #[derive(Clone, Copy, Debug)]
 pub struct Logger {
     level: LogLevel,
+    json_events: bool,
+    command: Option<&'static str>,
 }
 
 impl Logger {
-    pub fn from_env(verbosity: u8) -> Self {
+    pub fn from_env(verbosity: u8, json_events: bool) -> Self {
         let base = LogLevel::from_verbosity(verbosity);
         let level = std::env::var("CLG_LOG")
             .ok()
             .and_then(|value| parse_log_level(&value))
             .unwrap_or(base);
-        Logger { level }
+        Logger {
+            level,
+            json_events,
+            command: None,
+        }
+    }
+
+    pub fn with_command(self, command: &'static str) -> Self {
+        Logger {
+            level: self.level,
+            json_events: self.json_events,
+            command: Some(command),
+        }
     }
 
     pub fn enabled(self, level: LogLevel) -> bool {
+        if self.json_events {
+            return true;
+        }
         self.level >= level && self.level != LogLevel::Off
     }
 
@@ -95,8 +112,48 @@ impl Logger {
     }
 
     fn log(self, level: LogLevel, event: &str, stage: &str, fields: &[(&str, String)]) {
+        if self.json_events {
+            let mut payload = serde_json::Map::new();
+            payload.insert("schema_version".to_string(), serde_json::Value::from(1u64));
+            payload.insert(
+                "level".to_string(),
+                serde_json::Value::String(level.as_str().to_string()),
+            );
+            payload.insert(
+                "event".to_string(),
+                serde_json::Value::String(event.to_string()),
+            );
+            payload.insert(
+                "stage".to_string(),
+                serde_json::Value::String(stage.to_string()),
+            );
+            if let Some(command) = self.command {
+                payload.insert(
+                    "command".to_string(),
+                    serde_json::Value::String(command.to_string()),
+                );
+            }
+            if !fields.is_empty() {
+                let mut field_map = serde_json::Map::new();
+                for (key, value) in fields {
+                    field_map.insert(key.to_string(), serde_json::Value::String(value.clone()));
+                }
+                payload.insert("fields".to_string(), serde_json::Value::Object(field_map));
+            }
+            eprintln!(
+                "{}",
+                serde_json::to_string(&serde_json::Value::Object(payload))
+                    .expect("serialize json event")
+            );
+            return;
+        }
+
         let mut line = String::new();
         line.push_str("clg");
+        if let Some(command) = self.command {
+            line.push_str(" command=");
+            line.push_str(command);
+        }
         line.push_str(" level=");
         line.push_str(level.as_str());
         line.push_str(" event=");

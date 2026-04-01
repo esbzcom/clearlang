@@ -24,6 +24,9 @@ struct Cli {
     /// Emit machine-readable JSON errors instead of human text
     #[arg(long, global = true, default_value_t = false)]
     json_errors: bool,
+    /// Emit structured JSON stage/progress events on stderr (NDJSON)
+    #[arg(long, global = true, default_value_t = false)]
+    json_events: bool,
     /// Increase verbosity (-v, -vv) for stage logs
     #[arg(short, long, action = ArgAction::Count, global = true, default_value_t = 0)]
     verbose: u8,
@@ -230,11 +233,15 @@ enum StrictCommands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let logger = Logger::from_env(cli.verbose);
+    let logger = Logger::from_env(cli.verbose, cli.json_events);
     let result = match cli.command {
-        Commands::EmitHello { out } => cmd_emit_hello::run(out, logger),
-        Commands::Parse { file } => cmd_parse::run(file, cli.json_errors, logger),
-        Commands::Check { file, root } => cmd_check::run(file, root, cli.json_errors, logger),
+        Commands::EmitHello { out } => cmd_emit_hello::run(out, logger.with_command("emit-hello")),
+        Commands::Parse { file } => {
+            cmd_parse::run(file, cli.json_errors, logger.with_command("parse"))
+        }
+        Commands::Check { file, root } => {
+            cmd_check::run(file, root, cli.json_errors, logger.with_command("check"))
+        }
         Commands::Build {
             file,
             out,
@@ -278,10 +285,12 @@ fn main() -> Result<()> {
                 lean_checker_version,
                 coq_checker_version,
                 cli.json_errors,
-                logger,
+                logger.with_command("build"),
             )
         }
-        Commands::Run { file, invoke } => cmd_run::run(file, invoke, cli.json_errors, logger),
+        Commands::Run { file, invoke } => {
+            cmd_run::run(file, invoke, cli.json_errors, logger.with_command("run"))
+        }
         Commands::Release {
             file,
             advisory_as_of,
@@ -301,7 +310,7 @@ fn main() -> Result<()> {
             out_dir,
             trust_policy,
             cli.json_errors,
-            logger,
+            logger.with_command("release"),
         ),
         Commands::Verify {
             module,
@@ -332,7 +341,7 @@ fn main() -> Result<()> {
                 require_assurance,
                 explain,
                 cli.json_errors,
-                logger,
+                logger.with_command("verify"),
             )
         }
         Commands::Pkg { command } => match command {
@@ -349,11 +358,13 @@ fn main() -> Result<()> {
                 advisory_as_of,
                 root,
                 cli.json_errors,
-                logger,
+                logger.with_command("pkg"),
             ),
         },
         Commands::Strict { command } => match command {
-            StrictCommands::Init { root } => cmd_strict::run_init(root, cli.json_errors, logger),
+            StrictCommands::Init { root } => {
+                cmd_strict::run_init(root, cli.json_errors, logger.with_command("strict"))
+            }
         },
     };
 
@@ -363,7 +374,10 @@ fn main() -> Result<()> {
                 cmd_err.emit();
                 std::process::exit(cmd_err.exit_code());
             }
-            Err(err) => return Err(err),
+            Err(err) => {
+                eprintln!("{err:#}");
+                std::process::exit(1);
+            }
         }
     }
 

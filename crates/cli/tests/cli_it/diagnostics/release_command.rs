@@ -326,3 +326,55 @@ fn release_command_requires_advisory_and_key_id_when_project_defaults_are_missin
         "expected missing advisory project-default message, got: {text}"
     );
 }
+
+#[test]
+fn release_command_json_events_emit_structured_progress() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    let stderr = Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["--json-events", "release"])
+        .arg(&source)
+        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--key-id", "release-2026q2"])
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success()
+        .get_output()
+        .stderr
+        .clone();
+    let text = String::from_utf8(stderr).expect("utf8 stderr");
+    let events: Vec<Value> = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str::<Value>(line).expect("json event line"))
+        .collect();
+    assert!(
+        events.iter().any(|event| {
+            event.get("schema_version").and_then(|v| v.as_u64()) == Some(1)
+                && event.get("command").and_then(|v| v.as_str()) == Some("release")
+                && event.get("event").and_then(|v| v.as_str()) == Some("start")
+                && event.get("stage").and_then(|v| v.as_str()) == Some("release_lock")
+        }),
+        "expected release_lock start json event, got: {text}"
+    );
+}

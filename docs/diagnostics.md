@@ -3,7 +3,13 @@
 ClearLang provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
 
 ## CLI Flag
-- `--json-errors`: when set on `clg parse`, `clg build`, `clg run`, `clg release`, or `clg verify`, failures are printed as JSON to stdout.
+- `--json-errors`: when set on `clg parse`, `clg check`, `clg build`, `clg run`, `clg strict init`, `clg release`, or `clg verify`, failures are printed as JSON to stdout.
+- `--json-events`: emit structured JSON stage/progress events on stderr (NDJSON), including command name and stage transitions.
+
+## Exit Codes
+- `0`: success.
+- `1`: deterministic command failure (diagnostic/internal command failure).
+- `2`: CLI usage contract failure (argument parsing/required-flag mismatch from clap).
 
 ## JSON Shape
 ```json
@@ -31,6 +37,29 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 - `file`: input filename as provided to the CLI.
 - `start` / `end`: byte offsets in the source.
 - `function` (optional): when available, the current function context.
+
+## JSON Event Shape (`--json-events`)
+Each `stderr` line is a standalone JSON object (NDJSON):
+
+```json
+{
+  "schema_version": 1,
+  "command": "check",
+  "level": "info",
+  "event": "start",
+  "stage": "check_preflight",
+  "fields": {
+    "duration_ms": "12"
+  }
+}
+```
+
+- `schema_version`: pinned event schema version (`1`).
+- `command`: CLI command (`check`, `release`, etc.).
+- `level`: log/event level (`info`, `debug`, `trace`, `off` mapping context).
+- `event`: event type (for example `start`, `finish`, `summary`).
+- `stage`: deterministic stage identifier.
+- `fields` (optional): structured string map for extra event data.
 
 ## Error Code Table
 | Code | Stage | Meaning |

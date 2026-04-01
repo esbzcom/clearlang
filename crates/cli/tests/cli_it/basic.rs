@@ -579,3 +579,72 @@ fn check_reports_missing_lockfile_with_check_stage() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C101"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("check"));
 }
+
+#[test]
+fn check_json_events_emit_structured_progress_for_ide_contract() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+    let file = root.join("main.clear");
+    fs::write(&file, "function main() -> Int { 0 }").expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["strict", "init"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let stderr = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-events", "check"])
+        .arg(&file)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success()
+        .get_output()
+        .stderr
+        .clone();
+    let text = String::from_utf8(stderr).expect("utf8 stderr");
+    let events: Vec<Value> = text
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str::<Value>(line).expect("json event line"))
+        .collect();
+    assert!(!events.is_empty(), "expected progress events");
+    assert!(events.iter().any(|event| {
+        event.get("schema_version").and_then(|v| v.as_u64()) == Some(1)
+            && event.get("command").and_then(|v| v.as_str()) == Some("check")
+            && event.get("event").and_then(|v| v.as_str()) == Some("start")
+            && event.get("stage").and_then(|v| v.as_str()) == Some("check_preflight")
+    }));
+}
+
+#[test]
+fn exit_code_mapping_uses_2_for_usage_errors_and_1_for_diagnostics() {
+    let usage_status = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["check"])
+        .output()
+        .expect("run usage failure")
+        .status;
+    assert_eq!(usage_status.code(), Some(2));
+
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+    let file = root.join("main.clear");
+    fs::write(&file, "function main() -> Int { 0 }").expect("write source");
+
+    let diagnostic_status = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "check"])
+        .arg(&file)
+        .args(["--root"])
+        .arg(&root)
+        .output()
+        .expect("run check failure")
+        .status;
+    assert_eq!(diagnostic_status.code(), Some(1));
+}

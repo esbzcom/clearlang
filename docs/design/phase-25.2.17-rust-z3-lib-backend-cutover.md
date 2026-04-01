@@ -21,6 +21,7 @@ This keeps migration deterministic while preserving a safe fallback lane until p
 ## `rust-z3-lib` Runtime Contract
 - Uses in-process Z3 (`z3` crate) to evaluate per-VC obligations.
 - Current implementation uses static-link build path (`z3` crate `static-link-z3` feature), which requires `cmake` in the build environment when compiling with `rust-z3-lib`.
+- Windows build environments must provide a non-isolated Python runtime for Z3 codegen scripts (`mk_genfile_common` imports must resolve from the scripts directory). Python `_pth` isolated mode can break this and must be disabled for `rust-z3-lib` compilation.
 - Enforces pinned solver version alignment against lock profile (`phase-25.1.4-solver-profile.lock.json`).
 - Applies deterministic per-VC timeout and solver options from the locked solver profile.
 - Outcome mapping remains stable:

@@ -1,13 +1,23 @@
-pub fn run_lock(
-    generate: bool,
-    update: bool,
-    compiler_mode: CompilerMode,
-    advisory_as_of: Option<String>,
-    root: PathBuf,
-    json_errors: bool,
-    emit_stdout_summary: bool,
-    logger: Logger,
-) -> Result<()> {
+pub struct RunLockArgs {
+    pub generate: bool,
+    pub update: bool,
+    pub compiler_mode: CompilerMode,
+    pub advisory_as_of: Option<String>,
+    pub root: PathBuf,
+    pub json_errors: bool,
+    pub emit_stdout_summary: bool,
+}
+
+pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
+    let RunLockArgs {
+        generate,
+        update,
+        compiler_mode,
+        advisory_as_of,
+        root,
+        json_errors,
+        emit_stdout_summary,
+    } = args;
     let fail_pkg = |code: &'static str, message: String| -> Result<()> {
         if json_errors {
             let json = make_single_json_error(code, "build", message, &root, 0, 0, None);

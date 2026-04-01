@@ -7,10 +7,12 @@ Design lock for `25.2.2` in `docs/TODO.md`.
 Lock a simplified primary CLI surface for end users and AI tools while keeping release policy fail-closed (`release == proved`).
 
 ## Primary Command Surface
-Primary commands are:
+Shipped primary commands are:
 - `clg check`
-- `clg test` (reserved contract; command implementation lands in `25.3.2`)
 - `clg release`
+
+Planned primary command (reserved contract):
+- `clg test` (command implementation lands in `25.3.2`)
 
 Advanced/expert flows (`build`, `verify`, `pkg lock`, and detailed flags) remain available but are not the primary UX surface.
 

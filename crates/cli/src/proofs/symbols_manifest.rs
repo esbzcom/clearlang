@@ -81,18 +81,31 @@ fn collect_bundle_symbols_from_expr(expr: &clg_ast::Expr, out: &mut BTreeSet<Str
     }
 }
 
-pub fn build_assurance_manifest_payload(
-    vcs: &[VerificationCondition],
-    toolchain: &str,
-    compiler_mode: &str,
-    proof_strict: bool,
-    module_hash_hex: &str,
-    proofs_hash_hex: &str,
-    generated_at: &str,
-    proof_artifact_hash: Option<&str>,
-    solver_profile_hash: Option<&str>,
-) -> serde_json::Value {
+pub struct AssuranceManifestInput<'a> {
+    pub vcs: &'a [VerificationCondition],
+    pub toolchain: &'a str,
+    pub compiler_mode: &'a str,
+    pub proof_strict: bool,
+    pub module_hash_hex: &'a str,
+    pub proofs_hash_hex: &'a str,
+    pub generated_at: &'a str,
+    pub proof_artifact_hash: Option<&'a str>,
+    pub solver_profile_hash: Option<&'a str>,
+}
+
+pub fn build_assurance_manifest_payload(input: AssuranceManifestInput<'_>) -> serde_json::Value {
     use serde_json::json;
+    let AssuranceManifestInput {
+        vcs,
+        toolchain,
+        compiler_mode,
+        proof_strict,
+        module_hash_hex,
+        proofs_hash_hex,
+        generated_at,
+        proof_artifact_hash,
+        solver_profile_hash,
+    } = input;
 
     #[derive(Default)]
     struct AssumptionAggregate {

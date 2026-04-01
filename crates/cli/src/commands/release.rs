@@ -133,13 +133,15 @@ pub fn run(
         let generate = !lockfile_path.exists();
         let update = !generate;
         pkg::run_lock(
-            generate,
-            update,
-            CompilerMode::Strict,
-            Some(advisory_as_of.clone()),
-            root.clone(),
-            json_errors,
-            false,
+            pkg::RunLockArgs {
+                generate,
+                update,
+                compiler_mode: CompilerMode::Strict,
+                advisory_as_of: Some(advisory_as_of.clone()),
+                root: root.clone(),
+                json_errors,
+                emit_stdout_summary: false,
+            },
             logger,
         )?;
     }

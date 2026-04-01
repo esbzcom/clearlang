@@ -22,7 +22,8 @@ fn load_xtask_milestone2_source(root: &Path) -> String {
         paths.sort();
         for path in paths {
             combined.push('\n');
-            combined.push_str(&fs::read_to_string(&path).expect("read split milestone2 gate source"));
+            combined
+                .push_str(&fs::read_to_string(&path).expect("read split milestone2 gate source"));
         }
     }
     combined

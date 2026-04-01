@@ -44,10 +44,11 @@ fn gate_c_primary_command_docs_mark_test_as_phase_25_3_reserved_contract() {
     assert!(release_process.contains("clg test"));
     assert!(release_process.contains("25.3.2"));
     assert!(release_process.contains("reserved contract"));
+    assert!(release_process.contains("Shipped primary commands:"));
 
     let cli_main = fs::read_to_string(root.join("crates").join("cli").join("src").join("main.rs"))
         .expect("read cli main");
-    assert!(cli_main.contains("primary: check, test [25.3.2], release"));
+    assert!(cli_main.contains("primary now: check, release; planned: test [25.3.2];"));
 }
 
 #[test]
@@ -417,6 +418,7 @@ fn gate_c_rust_z3_backend_cutover_note_is_published() {
     assert!(doc.contains("CLG_SOLVER_RUST_Z3_CUTOVER"));
     assert!(doc.contains("external-z3-cli"));
     assert!(doc.contains("rust-z3-lib"));
+    assert!(doc.contains("non-isolated Python runtime"));
 }
 
 #[test]

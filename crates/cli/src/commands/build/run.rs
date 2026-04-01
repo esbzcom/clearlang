@@ -602,17 +602,17 @@ pub fn run(
             solver_profile_hash,
             solver_profile,
         )?;
-        let manifest_payload = build_assurance_manifest_payload(
-            &vcs,
-            &toolchain,
-            compiler_mode.as_str(),
-            proof_strict_enabled,
-            &module_hash_hex,
-            &proofs_hash_hex,
-            &timestamp,
+        let manifest_payload = build_assurance_manifest_payload(AssuranceManifestInput {
+            vcs: &vcs,
+            toolchain: &toolchain,
+            compiler_mode: compiler_mode.as_str(),
+            proof_strict: proof_strict_enabled,
+            module_hash_hex: &module_hash_hex,
+            proofs_hash_hex: &proofs_hash_hex,
+            generated_at: &timestamp,
             proof_artifact_hash,
             solver_profile_hash,
-        );
+        });
         signing::sign_assurance_manifest(manifest_payload, &key_path, &key_id, &manifest_path)?;
         if logger.enabled(LogLevel::Debug) {
             logger.event(

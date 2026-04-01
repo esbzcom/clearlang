@@ -10,10 +10,12 @@ Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` 
 - Publishable release artifacts
 
 ## Primary UX Surface (Gate C Lock)
-Primary commands:
+Shipped primary commands:
 - `clg check`
-- `clg test` (reserved contract; command implementation lands in `25.3.2`)
 - `clg release`
+
+Planned primary command (reserved contract):
+- `clg test` (command implementation lands in `25.3.2`)
 
 Local release-precheck gate (required before strict signed publish flow):
 
@@ -110,6 +112,9 @@ Solver backend selection policy:
 - unsupported backend values fail closed
 - selecting `rust-z3-lib` requires a build with Cargo feature `rust-z3-lib` enabled
   - current build path statically links Z3 and requires `cmake` in the build environment
+  - Windows builds also require a non-isolated Python runtime (for Z3 script generation imports):
+    - `python -c "import sys; print(sys.flags.isolated)"` should print `0`
+    - if it prints `1` due `python312._pth` isolation, disable that mode (for example by renaming/removing the `python312._pth` file) before compiling `rust-z3-lib`
 - migration cutover flag: `CLG_SOLVER_RUST_Z3_CUTOVER=1|0` (or `true|false|on|off|yes|no`)
   - `CLG_SOLVER_BACKEND=rust-z3-lib` + cutover false/unset -> deterministic fallback to `external-z3-cli`
   - `CLG_SOLVER_BACKEND=rust-z3-lib` + cutover true -> use in-process `rust-z3-lib` backend

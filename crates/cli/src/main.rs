@@ -17,7 +17,7 @@ use clg_cli::signing::SignScope;
 #[command(
     name = "clg",
     version,
-    about = "ClearLang CLI (primary: check, test [25.3.2], release; advanced: parse, build, run, verify, pkg, strict)",
+    about = "ClearLang CLI (primary now: check, release; planned: test [25.3.2]; advanced: parse, build, run, verify, pkg, strict)",
     long_about = None
 )]
 struct Cli {
@@ -386,13 +386,15 @@ fn main() -> Result<()> {
                 advisory_as_of,
                 root,
             } => cmd_pkg::run_lock(
-                generate,
-                update,
-                compiler_mode,
-                advisory_as_of,
-                root,
-                cli.json_errors,
-                true,
+                cmd_pkg::RunLockArgs {
+                    generate,
+                    update,
+                    compiler_mode,
+                    advisory_as_of,
+                    root,
+                    json_errors: cli.json_errors,
+                    emit_stdout_summary: true,
+                },
                 logger.with_command("pkg"),
             ),
         },

@@ -143,6 +143,14 @@ impl CommandError {
         }
     }
 
+    pub fn stderr(message: impl Into<String>) -> Self {
+        CommandError {
+            exit_code: 1,
+            stdout: None,
+            stderr: Some(message.into()),
+        }
+    }
+
     pub fn exit_code(&self) -> i32 {
         self.exit_code
     }

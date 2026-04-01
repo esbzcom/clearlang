@@ -81,25 +81,15 @@ fn ci_workflow_enforces_validation_and_tests() {
         "checks steps",
     );
 
-    let (_, format_step) = find_step(checks_steps, "Format");
-    let format_run = mapping_get_str(format_step, "run", "Format step");
-    assert!(
-        format_run.contains("cargo fmt --all -- --check"),
-        "Format step should enforce cargo fmt --check"
+    let (_, precheck_step) = find_step(checks_steps, "Release precheck gate (fmt + lint + tests)");
+    let precheck_run = mapping_get_str(
+        precheck_step,
+        "run",
+        "Release precheck gate (fmt + lint + tests) step",
     );
-
-    let (_, clippy_step) = find_step(checks_steps, "Clippy");
-    let clippy_run = mapping_get_str(clippy_step, "run", "Clippy step");
     assert!(
-        clippy_run.contains("cargo clippy --workspace --all-targets -- -D warnings"),
-        "Clippy step should enforce -D warnings"
-    );
-
-    let (_, test_step) = find_step(checks_steps, "Test");
-    let test_run = mapping_get_str(test_step, "run", "Test step");
-    assert!(
-        test_run.contains("cargo test --workspace"),
-        "Test step should execute workspace tests"
+        precheck_run.contains("cargo run -p xtask -- release-precheck"),
+        "release precheck step should execute fail-closed xtask precheck gate"
     );
 
     let (_, proof_step) = find_step(checks_steps, "Proof regression gates");

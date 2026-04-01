@@ -1,6 +1,7 @@
 pub mod build;
 pub mod check;
 pub mod emit_hello;
+pub mod fmt;
 pub mod helpers;
 pub mod modules;
 pub mod parse;

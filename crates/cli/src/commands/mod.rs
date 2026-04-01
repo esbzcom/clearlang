@@ -3,6 +3,7 @@ pub mod check;
 pub mod emit_hello;
 pub mod fmt;
 pub mod helpers;
+pub mod lint;
 pub mod modules;
 pub mod parse;
 pub mod pkg;

@@ -94,6 +94,11 @@ fn todo_marks_gate_c_ux_design_lock_complete() {
             .any(|line| line.trim_start().starts_with("- [x] 25.2.13 ")),
         "TODO must mark 25.2.13 complete once clg fmt ships"
     );
+    assert!(
+        todo.lines()
+            .any(|line| line.trim_start().starts_with("- [x] 25.2.14 ")),
+        "TODO must mark 25.2.14 complete once clg lint ships"
+    );
 }
 
 #[test]
@@ -301,4 +306,23 @@ fn gate_c_clg_fmt_command_is_published() {
         .expect("read cli main");
     assert!(cli_main.contains("Fmt {"));
     assert!(cli_main.contains("fmt as cmd_fmt"));
+}
+
+#[test]
+fn gate_c_clg_lint_command_is_published() {
+    let root = repo_root();
+    let path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.2.14-clg-lint-command.md");
+    let doc = fs::read_to_string(&path).expect("read gate c clg lint note");
+    assert!(doc.contains("25.2.14"));
+    assert!(doc.contains("clg lint <PATH>"));
+    assert!(doc.contains("--deny-warnings"));
+    assert!(doc.contains("C133"));
+
+    let cli_main = fs::read_to_string(root.join("crates").join("cli").join("src").join("main.rs"))
+        .expect("read cli main");
+    assert!(cli_main.contains("Lint {"));
+    assert!(cli_main.contains("lint as cmd_lint"));
 }

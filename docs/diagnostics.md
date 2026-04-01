@@ -3,7 +3,7 @@
 ClearLang provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
 
 ## CLI Flag
-- `--json-errors`: when set on `clg parse`, `clg fmt`, `clg check`, `clg build`, `clg run`, `clg strict init`, `clg release`, or `clg verify`, failures are printed as JSON to stdout.
+- `--json-errors`: when set on `clg parse`, `clg fmt`, `clg lint`, `clg check`, `clg build`, `clg run`, `clg strict init`, `clg release`, or `clg verify`, failures are printed as JSON to stdout.
 - `--json-events`: emit structured JSON stage/progress events on stderr (NDJSON), including command name and stage transitions.
 - `--non-interactive`: enforce non-interactive command behavior suitable for IDE/plugin execution.
 
@@ -33,7 +33,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 - `ok`: always `false` for error output.
 - `errors`: one or more error objects.
 - `code`: stable error code.
-- `stage`: one of `parse` | `type` | `fmt` | `build` | `check` | `strict` | `release` | `verify` | `runtime`.
+- `stage`: one of `parse` | `type` | `fmt` | `lint` | `build` | `check` | `strict` | `release` | `verify` | `runtime`.
 - `message`: concise, human-readable text.
 - `file`: input filename as provided to the CLI.
 - `start` / `end`: byte offsets in the source.
@@ -223,6 +223,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C131 | strict/check | `clg strict init` or `clg check` bootstrap/release-default contract input is invalid (for example malformed `clg.project.json`, invalid default paths, or template write/validation failure). |
 | C130 | release | Release command contract input is invalid (for example, entry path has no usable stem for deterministic artifact naming). |
 | C132 | fmt | Formatter contract failure (invalid path, no `.clear` inputs found, read/write failure, or `clg fmt --check` detected required changes). |
+| C133 | lint | Lint contract failure (invalid path, no `.clear` inputs found, read failure, or warnings rejected via `clg lint --deny-warnings`). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

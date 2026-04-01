@@ -27,6 +27,12 @@ Deterministic `.clear` source formatting check:
 clg fmt examples/projects/generic --check
 ```
 
+Deterministic `.clear` lint gate:
+
+```powershell
+clg lint examples/projects/generic --deny-warnings
+```
+
 Bootstrap strict preflight/release defaults once per project root:
 
 ```powershell
@@ -189,4 +195,5 @@ Publish these files together:
 - Pre-production roadmap policy: compatibility debt is not preserved; legacy release paths should be removed once strict-first replacements are in place.
 - Release precheck gate (`25.2.12`) is fail-closed for local+CI release workflows: `cargo run -p xtask -- release-precheck` (`fmt --check` + lint + tests) must pass before strict signed publish flow.
 - `clg fmt` (`25.2.13`) provides deterministic `.clear` formatting and supports `--check` fail-closed drift gating for release workflows.
+- `clg lint` (`25.2.14`) provides deterministic `.clear` quality/safety checks with `--deny-warnings` fail-closed mode.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

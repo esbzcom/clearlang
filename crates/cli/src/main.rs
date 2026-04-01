@@ -6,7 +6,7 @@ use clg_cli::commands::{
     build::{self as cmd_build, CompilerMode, ReleaseProfile, StdCoreLinkMode},
     check as cmd_check, emit_hello as cmd_emit_hello, fmt as cmd_fmt,
     helpers::CommandError,
-    parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
+    lint as cmd_lint, parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
     strict as cmd_strict,
     verify::{self as cmd_verify, VerifyMode},
 };
@@ -59,6 +59,15 @@ enum Commands {
         /// Check mode: fail if formatting changes are required
         #[arg(long, default_value_t = false)]
         check: bool,
+    },
+    /// Run deterministic quality/safety lints on `.clear` sources
+    Lint {
+        /// Input `.clear` file or directory root
+        #[arg(value_name = "PATH")]
+        path: PathBuf,
+        /// Fail if any warning is reported
+        #[arg(long, default_value_t = false)]
+        deny_warnings: bool,
     },
     /// Fast deterministic strict-aligned preflight (non-release)
     Check {
@@ -255,6 +264,15 @@ fn main() -> Result<()> {
         Commands::Fmt { path, check } => {
             cmd_fmt::run(path, check, cli.json_errors, logger.with_command("fmt"))
         }
+        Commands::Lint {
+            path,
+            deny_warnings,
+        } => cmd_lint::run(
+            path,
+            deny_warnings,
+            cli.json_errors,
+            logger.with_command("lint"),
+        ),
         Commands::Check { file, root } => {
             cmd_check::run(file, root, cli.json_errors, logger.with_command("check"))
         }

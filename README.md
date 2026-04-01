@@ -511,6 +511,10 @@ Deterministic ClearLang source formatting:
 ```
 clg fmt examples/projects/generic --check
 ```
+Deterministic lint checks with fail-closed warnings gate:
+```
+clg lint examples/projects/generic --deny-warnings
+```
 Gate C one-command release flow:
 ```
 clg strict init examples/projects/generic

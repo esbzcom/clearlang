@@ -1,0 +1,5 @@
+import services::discount
+
+function main() -> Int {
+    discount::compute_discount(1000)
+}

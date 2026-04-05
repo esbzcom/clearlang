@@ -1,0 +1,5 @@
+export pure function base_discount_rate() -> Int
+    ensure { result >= 0 }
+{
+    10
+}

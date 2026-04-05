@@ -1,0 +1,8 @@
+import domain::pricing
+
+export pure function compute_discount(subtotal: Int) -> Int
+    require { subtotal >= 0 }
+    ensure { result >= 0 }
+{
+    subtotal * pricing::base_discount_rate() / 100
+}

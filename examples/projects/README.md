@@ -1,11 +1,12 @@
 # ClearLang Real-Case Starter Projects
 
-This folder contains two runnable multi-file projects:
+This folder contains three multi-file projects:
 
 1. `generic/` - a non-crypto service-style project.
 2. `crypto/` - a crypto-oriented project that uses `std::crypto`.
+3. `testing/` - a Gate D planning example for unit tests + deterministic mock sets.
 
-Both projects are designed for current CLI behavior:
+`generic/` and `crypto/` are designed for current CLI behavior:
 - `clg run <entry.clear>` compiles and executes from source.
 - entrypoint must be `main() -> Int`.
 
@@ -28,6 +29,26 @@ clg run examples/projects/crypto/main.clear
 Expected result:
 - prints `crypto: auth pipeline`
 - returns `1`
+
+## Verify the testing example layout
+
+`testing/` is intentionally a Phase `25.3` contract example. It documents the planned
+unit-test and mock-set structure before `clg test` ships.
+
+Current validation:
+
+```powershell
+clg run examples/projects/testing/main.clear
+```
+
+Planned invocation once Gate D lands:
+
+```powershell
+clg test examples/projects/testing --report json
+```
+
+See `examples/projects/testing/README.md` for the full layout and `tests/test-plan.json`
+mock-binding example.
 
 ## Build CLI, create Wasm, and run
 

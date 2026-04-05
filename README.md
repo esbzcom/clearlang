@@ -497,6 +497,10 @@ ClearLang aims to be:
 
 - CLI & tooling: primary UX contract is `check`/`test`/`release` (Gate C lock), where `test` is reserved for `25.3.2`; current shipped primary commands are `check` and `release`. Additional deterministic quality/pro power commands (`fmt`, `parse`, `build`, `run`, `verify`) are retained; supports `--json-errors`, `--emit-vcs`, and Wasmtime-backed `run`. VSCode/plugin profile: `docs/ide/vscode-cli-profile.md`.
 
+Planned Gate D testing reference (structure/policy before `clg test` lands):
+- Test guide: `docs/testing.md`
+- Example project: `examples/projects/testing/`
+
 ---
 
 ## 7. Signing and Verifying Proofs

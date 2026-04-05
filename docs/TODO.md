@@ -1093,13 +1093,37 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.2.18 Add determinism parity gate between backends (same VC status outcomes and proof artifact hash for identical strict inputs). (`docs/design/phase-25.2.18-solver-backend-parity-gate.md`)
   - [x] 25.2.19 Add release packaging gate to remove runtime dependency on `tools/proof/z3` for supported release targets once `rust-z3-lib` is cut over. (`docs/design/phase-25.2.19-rust-cutover-packaging-gate.md`)
 
-- [ ] 25.3 Unit testing and test runner [Gate D]
-  - [ ] 25.3.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax).
-  - [ ] 25.3.2 Add `clg test` command that discovers/runs ClearLang unit tests and returns non-zero on failures.
+- [ ] 25.3 Unit testing and test runner with deterministic mock support [Gate D]
+  - [ ] 25.3.0 Publish Gate D design lock before implementation (scope, non-goals, deterministic contracts, fail-closed policy, completion criteria, and implementation order), and lock Gate D exit criterion: `clg test` is promoted from planned to shipped only after all required `25.3.x` gates are green.
+  - [ ] 25.3.0.1 Execute Gate D in dependency order: (1) contract/layout/schema foundations (`25.3.1`, `25.3.19`, `25.3.23`) -> (2) runner core (`25.3.2`, `25.3.10`, `25.3.11`, `25.3.14.1`) -> (3) machine-readable outputs (`25.3.3`, `25.3.9`, `25.3.21`) -> (4) deterministic mock system (`25.3.4`, `25.3.15`, `25.3.16`, `25.3.17`, `25.3.24`) -> (5) release/proved safety gates (`25.3.12`, `25.3.13`, `25.3.14`) -> (6) CI/release-precheck + platform determinism (`25.3.7`, `25.3.22`) -> (7) migration/quality/docs closeout (`25.3.6`, `25.3.8`, `25.3.18`, `25.3.25`, `25.3.26`).
+  - [ ] 25.3.1 Define canonical unit-test layout under `tests/` and function naming convention `test_*` (no annotation syntax), including deterministic discovery ordering and duplicate-name conflict diagnostics.
+  - [ ] 25.3.2 Add `clg test` command that discovers/runs ClearLang unit tests and returns non-zero on failures (zero discovered tests returns success with deterministic `no_tests` summary/report status for local runs; CI/release-precheck policy is explicit and fail-closed).
   - [ ] 25.3.3 Add deterministic test reports (`human|json|junit`) with stable failure diagnostics.
-  - [ ] 25.3.4 Add CI coverage and release-gate integration for `clg test` in strict production workflows.
-  - [ ] 25.3.5 Lock `clg test` proof-mode policy for CI/release (`standard` vs `strict`) and require deterministic, documented mode selection.
-  - [ ] 25.3.6 Add deterministic migration/cutover from `clearlang-tests/` fixtures to canonical `tests/` layout (or document one source-of-truth alias model) and enforce it in CI.
+  - [ ] 25.3.4 Add deterministic mock feature for unit tests (canonical `tests/mocks/` layout, explicit override/binding rules, per-test mock-set selection contract, multi-set precedence/merge policy, and fail-closed signature/effect mismatch diagnostics).
+  - [ ] 25.3.5 Lock `clg test` proof-mode policy for unit workflows with one deterministic default mode first; keep advanced mode selection as documented follow-up.
+  - [ ] 25.3.6 Define Gate D "enough test cases" acceptance matrix using risk/scenario completeness (parser/type/contracts/runtime/mock interactions; positive and negative cases) without fixed numeric thresholds.
+  - [ ] 25.3.7 Integrate `clg test` as a required gate in CI and `xtask release-precheck` with deterministic report schema checks (no smoke-only fallback for Gate D completion).
+  - [ ] 25.3.8 Defer deterministic migration/cutover from `clearlang-tests/` to canonical `tests/` until `clg test` + mock behavior is stable, and document temporary source-of-truth policy plus cutover trigger criteria.
+  - [ ] 25.3.9 Extend machine-readable contracts for `clg test`: add `test` stage support in diagnostics/docs, reserve stable test-specific error code range with explicit code-to-failure mapping (plan/schema/mock/timeout/runtime), and lock `--json-errors`/`--json-events` schema compatibility policy.
+  - [ ] 25.3.10 Lock deterministic execution model for `clg test` (strictly serial by default, ordering guarantees, seed/replay contract, and shared-state isolation rules), including deterministic timeout policy (default per-test timeout 2 minutes; overrides are policy-driven via `tests/test-plan.json`, not required in minimal CLI flags).
+  - [ ] 25.3.11 Define assertion/failure semantics for industrial unit tests (expected-failure tests, trap/error assertions, diff shape, and deterministic failure IDs in reports).
+  - [ ] 25.3.12 Add release isolation gates so `clg release`/production builds fail closed if module graph references `tests/` or `tests/mocks/`, with deterministic diagnostics.
+  - [ ] 25.3.13 Add release artifact scan gate proving release bundle/import-map contains production modules only (no test/mock paths).
+  - [ ] 25.3.14 Add tamper-evidence verification tests showing mock/test substitutions fail signed artifact verification/release acceptance.
+  - [ ] 25.3.14.1 Lock retry policy for deterministic quality gates: no automatic retries in `clg test` default/CI/release-precheck paths; rerun is explicit user action.
+  - [ ] 25.3.15 Add `tests/test-plan.json` schema v1 for deterministic case selection + per-test mock-set binding (`test_id -> mock_sets[]`) used by `clg test`.
+  - [ ] 25.3.16 Enforce explicit per-test mock binding policy (no implicit hidden mock fallback for tests that declare mock dependencies); missing bindings fail closed with deterministic diagnostics.
+  - [ ] 25.3.17 Add mock-state isolation contract so test cases cannot leak mutable mock state across runs (fresh test context or deterministic reset requirement).
+  - [ ] 25.3.18 Add balanced quality gate requiring non-mocked test coverage alongside mocked scenarios for critical paths (to avoid mock-only confidence).
+  - [ ] 25.3.19 Lock minimal `clg test` CLI contract surface for production use (`<path?>`, `--filter`, `--report human|json|junit`) with deterministic argument validation and stable diagnostics.
+  - [ ] 25.3.19.1 Defer non-essential test flags (`--plan`, `--mock-set`, `--timeout-ms`, `--fail-fast`, `--list`) unless a concrete production workflow requires them; keep equivalent behavior deterministic via `tests/test-plan.json` policy and runner defaults.
+  - [ ] 25.3.20 Lock suite execution policy for failures (default run-all with deterministic final exit/result aggregation); keep fail-fast as deferred/non-essential unless a concrete production workflow requires it.
+  - [ ] 25.3.21 Add deterministic per-test artifact/replay contract (captured stdout/stderr, selected mock sets, timeout/failure reason, and single-test replay command flow for failing cases).
+  - [ ] 25.3.22 Add cross-platform determinism gate for `clg test` outputs and report shape on milestone release targets (Windows baseline + Linux parity).
+  - [ ] 25.3.23 Lock `tests/test-plan.json` governance policy (ordering canonicalization, duplicate `test_id` rejection, unknown mock-set handling, missing-entry behavior, and schema migration/versioning).
+  - [ ] 25.3.24 Add path-resolution safety gates for `tests/` and `tests/mocks/` loading (reject traversal/symlink escape and non-canonical out-of-root bindings) with fail-closed diagnostics.
+  - [ ] 25.3.25 Extend deterministic runtime safety policy for test workers beyond timeout (memory/fuel limits, crash handling, and deterministic status mapping).
+  - [ ] 25.3.26 Update primary UX/docs/help contracts after `clg test` lands (README, release-process, IDE profile, diagnostics table, CLI help/about string) and add drift gates to prevent stale command-surface docs.
 
 - [ ] 25.4 Clear project dependency manifests (`json`) [Gate E]
   - [ ] 25.4.1 Define `clg.project.json` as the user-authored dependency manifest (declared packages/version ranges/source policy).

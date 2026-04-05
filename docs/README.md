@@ -18,6 +18,7 @@ This directory is organized by role so operational docs stay easy to find.
 - Diagnostics catalog: `docs/diagnostics.md`
 - Collections behavior: `docs/collections.md`
 - Resource ownership guide: `docs/resource-guide.md`
+- Unit testing contract guide (Gate D): `docs/testing.md`
 
 ## Runtime and Host Integration
 - Runtime host imports/policies: `docs/runtime/host-imports.md`

@@ -23,7 +23,13 @@ Release orchestration:
 clg --non-interactive --json-errors --json-events release examples/projects/generic/main.clear --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 
-`clg test` is part of the primary UX contract and must adopt the same flags/channels when it lands in `25.3.2`.
+Test runner:
+
+```powershell
+clg --non-interactive --json-errors --json-events test examples/projects/testing --report json
+```
+
+`clg test` uses the same stdout/stderr and event-channel contract as `check`/`release`.
 
 ## Machine-Readable Contract
 
@@ -63,6 +69,13 @@ Stability rules:
 - `schema_version` is currently pinned to `1`.
 - New optional fields may be added without changing the version.
 - Breaking changes require a schema-version bump.
+
+`clg test` report contract:
+- pass/fail summaries are emitted by `--report` (`human|json|junit`) on `stdout`.
+- JSON report (`--report json`) keeps `schema_version: 1` and stable per-test fields, including:
+  - `failure_kind` / `failure_code` (`C137|C138|C139`)
+  - `captured_stdout` / `captured_stderr`
+  - `replay.argv` for single-test replay flow.
 
 ## Channel and Exit-Code Contract
 - Success payloads: `stdout`.

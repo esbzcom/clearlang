@@ -20,11 +20,14 @@ use wasmtime as wt;
 
 use crate::commands::helpers::{extract_function_name, make_single_json_error, CommandError};
 use crate::commands::modules::load_program;
-use crate::logging::{Logger, StageTimings};
+use crate::logging::{LogLevel, Logger, StageTimings};
 
 const TEST_DISCOVERY_ERROR_CODE: &str = "C134";
 const TEST_PLAN_ERROR_CODE: &str = "C135";
 const TEST_MOCK_ERROR_CODE: &str = "C136";
+const TEST_TIMEOUT_FAILURE_CODE: &str = "C137";
+const TEST_RUNTIME_FAILURE_CODE: &str = "C138";
+const TEST_ASSERTION_FAILURE_CODE: &str = "C139";
 const DEFAULT_TEST_TIMEOUT_MS: u64 = 120_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
@@ -95,7 +98,12 @@ struct ExecutedTestCase {
     timeout_ms: u64,
     mock_sets: Vec<String>,
     status: &'static str,
+    failure_kind: Option<&'static str>,
+    failure_code: Option<&'static str>,
     reason: Option<String>,
+    captured_stdout: String,
+    captured_stderr: String,
+    replay: ReplayContract,
 }
 
 #[derive(Debug, Clone)]
@@ -131,7 +139,19 @@ struct JsonTestCase {
     mock_sets: Vec<String>,
     status: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
+    failure_kind: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    failure_code: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
+    captured_stdout: String,
+    captured_stderr: String,
+    replay: ReplayContract,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct ReplayContract {
+    argv: Vec<String>,
 }
 
 pub fn run(
@@ -181,6 +201,7 @@ pub fn run(
                 &execution_config,
                 &modules,
                 json_errors,
+                logger,
             )?
         }
     };
@@ -1006,6 +1027,7 @@ fn execute_selected_tests(
     execution_config: &[TestExecutionConfig],
     modules: &HashMap<PathBuf, wt::Module>,
     json_errors: bool,
+    logger: Logger,
 ) -> Result<Vec<ExecutedTestCase>> {
     if selected.len() != execution_config.len() {
         return Err(test_error(
@@ -1021,6 +1043,16 @@ fn execute_selected_tests(
 
     let mut results = Vec::with_capacity(selected.len());
     for (case, config) in selected.iter().zip(execution_config.iter()) {
+        logger.event(
+            LogLevel::Info,
+            "start",
+            "test_case",
+            &[
+                ("test_id", case.id.clone()),
+                ("timeout_ms", config.timeout_ms.to_string()),
+                ("mock_sets", format_mock_sets(config.mock_sets.as_slice())),
+            ],
+        );
         let module = modules.get(&case.file).ok_or_else(|| {
             test_error(
                 TEST_DISCOVERY_ERROR_CODE,
@@ -1035,19 +1067,48 @@ fn execute_selected_tests(
             )
         })?;
 
-        let (status, reason) = execute_single_test(engine, module, case, config.timeout_ms);
+        let outcome = execute_single_test(engine, module, case, config.timeout_ms);
+        logger.event(
+            LogLevel::Info,
+            "finish",
+            "test_case",
+            &[
+                ("test_id", case.id.clone()),
+                ("status", outcome.status.to_string()),
+                (
+                    "failure_code",
+                    outcome.failure_code.unwrap_or("<none>").to_string(),
+                ),
+                ("timeout_ms", config.timeout_ms.to_string()),
+            ],
+        );
         results.push(ExecutedTestCase {
             id: case.id.clone(),
             file: normalize_relpath(project_root, case.file.as_path()),
             function: case.function.clone(),
             timeout_ms: config.timeout_ms,
             mock_sets: config.mock_sets.clone(),
-            status,
-            reason,
+            status: outcome.status,
+            failure_kind: outcome.failure_kind,
+            failure_code: outcome.failure_code,
+            reason: outcome.reason,
+            captured_stdout: outcome.captured_stdout,
+            captured_stderr: outcome.captured_stderr,
+            replay: replay_contract(case.id.as_str()),
         });
     }
 
     Ok(results)
+}
+
+#[derive(Debug)]
+struct TestExecutionOutcome {
+    status: &'static str,
+    failure_kind: Option<&'static str>,
+    failure_code: Option<&'static str>,
+    reason: Option<String>,
+    captured_stdout: String,
+    captured_stderr: String,
 }
 
 fn execute_single_test(
@@ -1055,29 +1116,26 @@ fn execute_single_test(
     module: &wt::Module,
     case: &TestCase,
     timeout_ms: u64,
-) -> (&'static str, Option<String>) {
+) -> TestExecutionOutcome {
     let mut store = wt::Store::new(engine, ());
     store.set_epoch_deadline(1);
 
     let instance = match wt::Instance::new(&mut store, module, &[]) {
         Ok(instance) => instance,
         Err(err) => {
-            return (
-                "failed",
-                Some(format!("instantiate failed: {}", single_line_error(&err))),
-            );
+            return fail_runtime_outcome(format!(
+                "instantiate failed: {}",
+                single_line_error(&err)
+            ));
         }
     };
     let func = match instance.get_typed_func::<(), i32>(&mut store, case.function.as_str()) {
         Ok(func) => func,
         Err(err) => {
-            return (
-                "failed",
-                Some(format!(
-                    "invalid test signature (expected `() -> Bool`): {}",
-                    single_line_error(&err)
-                )),
-            );
+            return fail_runtime_outcome(format!(
+                "invalid test signature (expected `() -> Bool`): {}",
+                single_line_error(&err)
+            ));
         }
     };
 
@@ -1098,25 +1156,51 @@ fn execute_single_test(
     match call_result {
         Ok(value) => {
             if value == 1 {
-                ("passed", None)
+                TestExecutionOutcome {
+                    status: "passed",
+                    failure_kind: None,
+                    failure_code: None,
+                    reason: None,
+                    captured_stdout: String::new(),
+                    captured_stderr: String::new(),
+                }
             } else {
-                (
-                    "failed",
-                    Some(format!(
+                TestExecutionOutcome {
+                    status: "failed",
+                    failure_kind: Some("assertion_false"),
+                    failure_code: Some(TEST_ASSERTION_FAILURE_CODE),
+                    reason: Some(format!(
                         "assertion returned false (expected 1/true, got {value})"
                     )),
-                )
+                    captured_stdout: String::new(),
+                    captured_stderr: String::new(),
+                }
             }
         }
         Err(err) => {
             if timed_out.load(Ordering::Relaxed) {
-                return ("failed", Some(format!("timeout after {}ms", timeout_ms)));
+                return TestExecutionOutcome {
+                    status: "failed",
+                    failure_kind: Some("timeout"),
+                    failure_code: Some(TEST_TIMEOUT_FAILURE_CODE),
+                    reason: Some(format!("timeout after {}ms", timeout_ms)),
+                    captured_stdout: String::new(),
+                    captured_stderr: String::new(),
+                };
             }
-            (
-                "failed",
-                Some(format!("runtime trap: {}", single_line_error(&err))),
-            )
+            fail_runtime_outcome(format!("runtime trap: {}", single_line_error(&err)))
         }
+    }
+}
+
+fn fail_runtime_outcome(reason: String) -> TestExecutionOutcome {
+    TestExecutionOutcome {
+        status: "failed",
+        failure_kind: Some("runtime"),
+        failure_code: Some(TEST_RUNTIME_FAILURE_CODE),
+        reason: Some(reason),
+        captured_stdout: String::new(),
+        captured_stderr: String::new(),
     }
 }
 
@@ -1206,8 +1290,13 @@ fn emit_human_report(summary: &TestRunSummary, results: &[ExecutedTestCase]) {
         summary.discovered, summary.selected, summary.executed, summary.passed, summary.failed
     );
     for case in results.iter().filter(|case| case.status == "failed") {
+        let failure_code = case.failure_code.unwrap_or(TEST_RUNTIME_FAILURE_CODE);
         let reason = case.reason.as_deref().unwrap_or("unknown failure");
-        println!(" - {}: {}", case.id, reason);
+        println!(" - [{}] {}: {}", failure_code, case.id, reason);
+        println!(
+            "   replay: {}",
+            render_replay_command(case.replay.argv.as_slice())
+        );
     }
 }
 
@@ -1225,7 +1314,7 @@ fn emit_json_report(
         executed: summary.executed,
         passed: summary.passed,
         failed: summary.failed,
-        note: "Gate D runner core: serial execution with deterministic timeout policy; mock-set execution remains fail-closed until mock slice lands",
+        note: "Gate D machine-readable contract v1: serial execution, deterministic failure codes, per-test capture fields, and replay argv; mock-set execution remains fail-closed until mock slice lands",
         tests: results
             .iter()
             .map(|case| JsonTestCase {
@@ -1235,7 +1324,12 @@ fn emit_json_report(
                 timeout_ms: case.timeout_ms,
                 mock_sets: case.mock_sets.clone(),
                 status: case.status,
+                failure_kind: case.failure_kind,
+                failure_code: case.failure_code,
                 reason: case.reason.clone(),
+                captured_stdout: case.captured_stdout.clone(),
+                captured_stderr: case.captured_stderr.clone(),
+                replay: case.replay.clone(),
             })
             .collect(),
     };
@@ -1261,11 +1355,21 @@ fn render_junit_report(summary: &TestRunSummary, results: &[ExecutedTestCase]) -
             escape_xml(case.function.as_str())
         ));
         if case.status == "failed" {
+            let failure_code = case.failure_code.unwrap_or(TEST_RUNTIME_FAILURE_CODE);
             out.push_str(&format!(
-                "    <failure message=\"{}\" />\n",
+                "    <failure type=\"{}\" message=\"{}\" />\n",
+                escape_xml(failure_code),
                 escape_xml(case.reason.as_deref().unwrap_or("test failed"))
             ));
         }
+        out.push_str(&format!(
+            "    <system-out>{}</system-out>\n",
+            escape_xml(case.captured_stdout.as_str())
+        ));
+        out.push_str(&format!(
+            "    <system-err>{}</system-err>\n",
+            escape_xml(case.captured_stderr.as_str())
+        ));
         out.push_str("  </testcase>\n");
     }
     out.push_str("</testsuite>");
@@ -1279,6 +1383,48 @@ fn single_line_error(err: &impl std::fmt::Display) -> String {
         .map(|line| line.trim().to_string())
         .filter(|line| !line.is_empty())
         .unwrap_or_else(|| "unknown error".to_string())
+}
+
+fn format_mock_sets(mock_sets: &[String]) -> String {
+    if mock_sets.is_empty() {
+        "<none>".to_string()
+    } else {
+        mock_sets.join(",")
+    }
+}
+
+fn replay_contract(test_id: &str) -> ReplayContract {
+    ReplayContract {
+        argv: vec![
+            "clg".to_string(),
+            "test".to_string(),
+            "<project-root>".to_string(),
+            "--filter".to_string(),
+            test_id.to_string(),
+            "--report".to_string(),
+            "json".to_string(),
+        ],
+    }
+}
+
+fn render_replay_command(argv: &[String]) -> String {
+    argv.iter()
+        .map(|arg| {
+            if arg.bytes().all(|b| {
+                b.is_ascii_alphanumeric()
+                    || b == b'-'
+                    || b == b'_'
+                    || b == b':'
+                    || b == b'.'
+                    || b == b'/'
+            }) {
+                arg.clone()
+            } else {
+                format!("\"{}\"", arg.replace('"', "\\\""))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn escape_xml(input: &str) -> String {
@@ -1334,8 +1480,9 @@ fn test_error(
 #[cfg(test)]
 mod tests {
     use super::{
-        escape_xml, merge_mock_sets, normalize_relpath, TestPlan, TestPlanCase,
-        DEFAULT_TEST_TIMEOUT_MS,
+        escape_xml, merge_mock_sets, normalize_relpath, render_replay_command, replay_contract,
+        TestPlan, TestPlanCase, DEFAULT_TEST_TIMEOUT_MS, TEST_ASSERTION_FAILURE_CODE,
+        TEST_RUNTIME_FAILURE_CODE, TEST_TIMEOUT_FAILURE_CODE,
     };
     use std::path::Path;
 
@@ -1391,5 +1538,42 @@ mod tests {
     #[test]
     fn default_timeout_contract_is_two_minutes() {
         assert_eq!(DEFAULT_TEST_TIMEOUT_MS, 120_000);
+    }
+
+    #[test]
+    fn replay_contract_contains_single_test_filter_flow() {
+        let replay = replay_contract("tests/unit/a.clear::test_a");
+        assert_eq!(
+            replay.argv,
+            vec![
+                "clg".to_string(),
+                "test".to_string(),
+                "<project-root>".to_string(),
+                "--filter".to_string(),
+                "tests/unit/a.clear::test_a".to_string(),
+                "--report".to_string(),
+                "json".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn render_replay_command_quotes_non_identifier_arguments() {
+        let rendered = render_replay_command(&[
+            "clg".to_string(),
+            "test".to_string(),
+            "<project-root>".to_string(),
+            "--filter".to_string(),
+            "tests/unit/a.clear::test a".to_string(),
+        ]);
+        assert!(rendered.contains("\"<project-root>\""));
+        assert!(rendered.contains("\"tests/unit/a.clear::test a\""));
+    }
+
+    #[test]
+    fn test_failure_codes_are_stable() {
+        assert_eq!(TEST_TIMEOUT_FAILURE_CODE, "C137");
+        assert_eq!(TEST_RUNTIME_FAILURE_CODE, "C138");
+        assert_eq!(TEST_ASSERTION_FAILURE_CODE, "C139");
     }
 }

@@ -3,8 +3,8 @@
 This project is an example layout for Phase `25.3` (`clg test` + deterministic mocks).
 
 Status:
-- `clg test` is not shipped yet in the current branch.
-- This folder documents the intended test/mocks structure so teams can review and verify policy before command rollout.
+- `clg test` runner core is shipped in the current branch.
+- Mock-set execution remains fail-closed until deterministic mock-runner slices land.
 
 ## Layout
 
@@ -20,7 +20,7 @@ Status:
 clg run examples/projects/testing/main.clear
 ```
 
-## Planned Gate D invocation (when `clg test` lands)
+## Gate D runner invocation (available now)
 
 ```powershell
 clg test examples/projects/testing --report json

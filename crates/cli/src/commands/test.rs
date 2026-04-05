@@ -280,27 +280,26 @@ fn resolve_roots(input: &Path, json_errors: bool) -> Result<Roots> {
         }
     }
 
-    if canonical_input.file_name().and_then(|s| s.to_str()) == Some("unit") {
-        if canonical_input
+    if canonical_input.file_name().and_then(|s| s.to_str()) == Some("unit")
+        && canonical_input
             .parent()
             .and_then(|p| p.file_name())
             .and_then(|s| s.to_str())
             == Some("tests")
-        {
-            let tests_root = canonical_input
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| canonical_input.clone());
-            let project_root = tests_root
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| tests_root.clone());
-            return Ok(Roots {
-                project_root,
-                tests_root,
-                unit_root: canonical_input,
-            });
-        }
+    {
+        let tests_root = canonical_input
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| canonical_input.clone());
+        let project_root = tests_root
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| tests_root.clone());
+        return Ok(Roots {
+            project_root,
+            tests_root,
+            unit_root: canonical_input,
+        });
     }
 
     Err(test_error(

@@ -114,7 +114,9 @@ fn print_help() {
     println!("  fmt        - cargo fmt --all");
     println!("  clippy     - cargo clippy --workspace --all-targets -- -D warnings");
     println!("  test       - cargo test --workspace");
-    println!("  release-precheck - cargo fmt --check + clippy -D warnings + test");
+    println!(
+        "  release-precheck - cargo fmt --check + clippy -D warnings + test + clg test schema gate"
+    );
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");

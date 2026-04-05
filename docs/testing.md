@@ -5,6 +5,7 @@ This guide documents the Phase `25.3` unit-testing contract for ClearLang.
 Status:
 - `clg test` runner core is shipped for deterministic serial execution (`25.3.2`, `25.3.10`, `25.3.11`, `25.3.14.1`, `25.3.20`).
 - Deterministic mock execution is shipped with explicit per-test bindings and fail-closed path safety (`25.3.4`, `25.3.15`, `25.3.16`, `25.3.17`, `25.3.24`).
+- CI/release-precheck gates are shipped for `clg test` schema validation and cross-platform parity (`25.3.7`, `25.3.22`).
 
 ## Design Constraints
 
@@ -83,6 +84,12 @@ Non-essential flags are deferred; policy remains controlled via `tests/test-plan
 - Per-test timeout default: `120000ms` (2 minutes), policy override via test plan.
 - No automatic retries in default/CI/release-precheck paths.
 - Shared-state leak across tests is rejected by contract (fresh context or deterministic reset).
+
+## CI Gate Contract
+
+- `cargo run -p xtask -- release-precheck` includes fail-closed `clg test examples/projects/testing --report json` schema validation.
+- Milestone parity gate runs `milestone3_test_parity` on Windows and Linux and compares emitted summaries byte-for-byte.
+- `milestone3-release-train-gate` depends on both proof parity and `clg test` parity compare jobs before milestone tag release gating.
 
 ## Report Contract (v1)
 

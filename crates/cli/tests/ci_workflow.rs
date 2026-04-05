@@ -419,6 +419,125 @@ fn ci_workflow_enforces_validation_and_tests() {
         "milestone3 proof parity snapshot should emit deterministic windows artifact path"
     );
 
+    let test_parity_job = as_mapping(
+        mapping_get(jobs, "milestone3-test-parity", "workflow jobs"),
+        "milestone3-test-parity job",
+    );
+    assert_eq!(
+        mapping_get_str(test_parity_job, "runs-on", "milestone3-test-parity job"),
+        "${{ matrix.os }}",
+        "milestone3 test parity matrix job should run on matrix.os"
+    );
+    let test_parity_strategy = as_mapping(
+        mapping_get(test_parity_job, "strategy", "milestone3-test-parity job"),
+        "milestone3-test-parity strategy",
+    );
+    let test_parity_matrix = as_mapping(
+        mapping_get(
+            test_parity_strategy,
+            "matrix",
+            "milestone3-test-parity strategy",
+        ),
+        "milestone3-test-parity matrix",
+    );
+    let test_parity_include = as_sequence(
+        mapping_get(
+            test_parity_matrix,
+            "include",
+            "milestone3-test-parity matrix",
+        ),
+        "milestone3-test-parity matrix include",
+    );
+    let mut has_windows = false;
+    let mut has_linux = false;
+    for entry in test_parity_include {
+        let item = as_mapping(entry, "milestone3-test-parity include item");
+        let os = mapping_get_str(item, "os", "milestone3-test-parity include item");
+        let platform = mapping_get_str(item, "platform", "milestone3-test-parity include item");
+        if os == "windows-latest" && platform == "windows" {
+            has_windows = true;
+        }
+        if os == "ubuntu-latest" && platform == "linux" {
+            has_linux = true;
+        }
+    }
+    assert!(
+        has_windows && has_linux,
+        "milestone3 test parity matrix must include windows + linux parity targets"
+    );
+    let test_parity_steps = as_sequence(
+        mapping_get(test_parity_job, "steps", "milestone3-test-parity job"),
+        "milestone3-test-parity steps",
+    );
+    let (_, test_parity_snapshot_step) =
+        find_step(test_parity_steps, "Milestone 3 clg test parity snapshot");
+    let test_parity_snapshot_run = mapping_get_str(
+        test_parity_snapshot_step,
+        "run",
+        "Milestone 3 clg test parity snapshot step",
+    );
+    assert!(
+        test_parity_snapshot_run.contains("cargo test -p clg-cli --test milestone3_test_parity"),
+        "milestone3 test parity snapshot should run milestone3_test_parity test"
+    );
+    let test_parity_snapshot_env = as_mapping(
+        mapping_get(
+            test_parity_snapshot_step,
+            "env",
+            "Milestone 3 clg test parity snapshot step",
+        ),
+        "Milestone 3 clg test parity snapshot step.env",
+    );
+    assert!(
+        mapping_get_str(
+            test_parity_snapshot_env,
+            "CLG_TEST_PARITY_OUT",
+            "Milestone 3 clg test parity snapshot step.env",
+        )
+        .contains("tmp/test-parity/"),
+        "milestone3 test parity snapshot should emit deterministic parity artifact path"
+    );
+
+    let test_parity_compare_job = as_mapping(
+        mapping_get(jobs, "milestone3-test-parity-compare", "workflow jobs"),
+        "milestone3-test-parity-compare job",
+    );
+    let test_parity_compare_needs = as_string_sequence(
+        mapping_get(
+            test_parity_compare_job,
+            "needs",
+            "milestone3-test-parity-compare job",
+        ),
+        "milestone3-test-parity-compare.needs",
+    );
+    assert!(
+        test_parity_compare_needs.contains(&"milestone3-test-parity"),
+        "milestone3 test parity compare job should depend on milestone3-test-parity matrix job"
+    );
+    let test_parity_compare_steps = as_sequence(
+        mapping_get(
+            test_parity_compare_job,
+            "steps",
+            "milestone3-test-parity-compare job",
+        ),
+        "milestone3-test-parity-compare steps",
+    );
+    let (_, test_parity_compare_step) = find_step(
+        test_parity_compare_steps,
+        "Compare milestone_3 clg test parity artifacts",
+    );
+    let test_parity_compare_run = mapping_get_str(
+        test_parity_compare_step,
+        "run",
+        "Compare milestone_3 clg test parity artifacts step",
+    );
+    assert!(
+        test_parity_compare_run.contains(
+            "cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/linux/linux.json"
+        ),
+        "milestone3 test parity compare job should enforce windows/linux artifact parity"
+    );
+
     let milestone3_release_train_job = as_mapping(
         mapping_get(jobs, "milestone3-release-train-gate", "workflow jobs"),
         "milestone3-release-train-gate job",
@@ -433,7 +552,8 @@ fn ci_workflow_enforces_validation_and_tests() {
     );
     assert!(
         milestone3_needs.contains(&"checks")
-            && milestone3_needs.contains(&"milestone3-proof-parity"),
-        "milestone3 release-train gate should require checks + windows parity job"
+            && milestone3_needs.contains(&"milestone3-proof-parity")
+            && milestone3_needs.contains(&"milestone3-test-parity-compare"),
+        "milestone3 release-train gate should require checks + proof parity + test parity compare jobs"
     );
 }

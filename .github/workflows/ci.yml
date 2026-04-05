@@ -272,6 +272,7 @@ jobs:
     needs:
       - checks
       - milestone3-proof-parity
+      - milestone3-test-parity-compare
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -311,3 +312,50 @@ jobs:
         with:
           name: milestone3-proof-parity-windows
           path: tmp/proof-parity/windows.json
+
+  milestone3-test-parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Milestone 3 clg test parity snapshot
+        env:
+          CLG_TEST_PARITY_OUT: tmp/test-parity/${{ matrix.platform }}.json
+        run: cargo test -p clg-cli --test milestone3_test_parity -- --nocapture
+      - name: Upload milestone_3 clg test parity artifact (${{ matrix.platform }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone3-test-parity-${{ matrix.platform }}
+          path: tmp/test-parity/${{ matrix.platform }}.json
+
+  milestone3-test-parity-compare:
+    needs:
+      - milestone3-test-parity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download milestone_3 clg test parity artifact (windows)
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-test-parity-windows
+          path: tmp/test-parity/windows
+      - name: Download milestone_3 clg test parity artifact (linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-test-parity-linux
+          path: tmp/test-parity/linux
+      - name: Compare milestone_3 clg test parity artifacts
+        run: |
+          set -euo pipefail
+          cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/linux/linux.json

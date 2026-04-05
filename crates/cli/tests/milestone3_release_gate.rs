@@ -392,8 +392,38 @@ fn validate_ci_wiring(root: &Path) {
         "milestone3-release-train-gate.needs",
     );
     assert!(
-        needs.contains(&"checks") && needs.contains(&"milestone3-proof-parity"),
-        "milestone_3 release gate must depend on `checks` and `milestone3-proof-parity`"
+        needs.contains(&"checks")
+            && needs.contains(&"milestone3-proof-parity")
+            && needs.contains(&"milestone3-test-parity-compare"),
+        "milestone_3 release gate must depend on checks + proof parity + test parity compare jobs"
+    );
+
+    let test_parity_compare_job = as_mapping(
+        mapping_get(jobs, "milestone3-test-parity-compare", "workflow jobs"),
+        "milestone3-test-parity-compare job",
+    );
+    let test_parity_compare_steps = as_sequence(
+        mapping_get(
+            test_parity_compare_job,
+            "steps",
+            "milestone3-test-parity-compare job",
+        ),
+        "milestone3-test-parity-compare steps",
+    );
+    let (_, compare_step) = find_step(
+        test_parity_compare_steps,
+        "Compare milestone_3 clg test parity artifacts",
+    );
+    let compare_run = mapping_get_str(
+        compare_step,
+        "run",
+        "Compare milestone_3 clg test parity artifacts step",
+    );
+    assert!(
+        compare_run.contains(
+            "cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/linux/linux.json"
+        ),
+        "milestone_3 release gate must enforce windows/linux clg test parity compare command"
     );
 
     let release_steps = as_sequence(

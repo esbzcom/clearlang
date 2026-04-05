@@ -12,10 +12,10 @@ Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` 
 ## Primary UX Surface (Gate C Lock)
 Shipped primary commands:
 - `clg check`
+- `clg test` (shipped in `25.3.2`)
 - `clg release`
 
-Planned primary command (reserved contract):
-- `clg test` (command implementation lands in `25.3.2`)
+Gate C history: `clg test` was tracked as a reserved contract before `25.3.2`.
 
 Local release-precheck gate (required before strict signed publish flow):
 
@@ -223,7 +223,7 @@ Publish these files together:
 - `clg strict init <root>` (`25.2.5`) generates strict preflight templates and release-default bootstrap config (`clg.project.json`) for reduced `clg release` flag surface.
 - Legacy release-like `clg build`/`clg verify` flows emit migration guidance to `clg release` (`25.2.6`) and are documented as expert/debug-only.
 - Pre-production roadmap policy: compatibility debt is not preserved; legacy release paths should be removed once strict-first replacements are in place.
-- Release precheck gate (`25.2.12`) is fail-closed for local+CI release workflows: `cargo run -p xtask -- release-precheck` (`fmt --check` + lint + tests) must pass before strict signed publish flow.
+- Release precheck gate (`25.2.12`) is fail-closed for local+CI release workflows: `cargo run -p xtask -- release-precheck` (`fmt --check` + lint + tests + `clg test` schema gate) must pass before strict signed publish flow.
 - `clg fmt` (`25.2.13`) provides deterministic `.clear` formatting and supports `--check` fail-closed drift gating for release workflows.
 - `clg lint` (`25.2.14`) provides deterministic `.clear` quality/safety checks with `--deny-warnings` fail-closed mode.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

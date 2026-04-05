@@ -256,4 +256,74 @@ locked surface:
             .expect_err("expected duplicate capability error");
         assert!(err.contains("duplicate capability"));
     }
+
+    #[test]
+    fn validate_clg_test_report_schema_accepts_expected_shape() {
+        let report = r#"{
+  "schema_version": 1,
+  "status": "ok",
+  "report": "json",
+  "discovered": 1,
+  "selected": 1,
+  "executed": 1,
+  "passed": 1,
+  "failed": 0,
+  "tests": [
+    {
+      "id": "tests/unit/discount_tests.clear::test_discount",
+      "file": "tests/unit/discount_tests.clear",
+      "function": "test_discount",
+      "timeout_ms": 120000,
+      "mock_sets": ["common"],
+      "status": "passed",
+      "captured_stdout": "",
+      "captured_stderr": "",
+      "replay": {
+        "argv": ["clg", "test", "<project-root>", "--filter", "tests/unit/discount_tests.clear::test_discount", "--report", "json"]
+      }
+    }
+  ]
+}"#;
+        validate_clg_test_report_schema(report).expect("schema should validate");
+    }
+
+    #[test]
+    fn validate_clg_test_report_schema_rejects_unsorted_ids() {
+        let report = r#"{
+  "schema_version": 1,
+  "status": "ok",
+  "report": "json",
+  "discovered": 2,
+  "selected": 2,
+  "executed": 2,
+  "passed": 2,
+  "failed": 0,
+  "tests": [
+    {
+      "id": "tests/unit/b.clear::test_b",
+      "file": "tests/unit/b.clear",
+      "function": "test_b",
+      "timeout_ms": 120000,
+      "mock_sets": [],
+      "status": "passed",
+      "captured_stdout": "",
+      "captured_stderr": "",
+      "replay": { "argv": ["clg", "test", "<project-root>"] }
+    },
+    {
+      "id": "tests/unit/a.clear::test_a",
+      "file": "tests/unit/a.clear",
+      "function": "test_a",
+      "timeout_ms": 120000,
+      "mock_sets": [],
+      "status": "passed",
+      "captured_stdout": "",
+      "captured_stderr": "",
+      "replay": { "argv": ["clg", "test", "<project-root>"] }
+    }
+  ]
+}"#;
+        let err = validate_clg_test_report_schema(report).expect_err("expected unsorted ids error");
+        assert!(err.contains("must be sorted deterministically"));
+    }
 }

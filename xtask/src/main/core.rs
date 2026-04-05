@@ -82,6 +82,207 @@ fn run_release_precheck(root: &Path) -> Result<(), String> {
         ],
     )?;
     cargo_cmd(root, &["test", "--workspace"])?;
+    run_clg_test_schema_gate(root)?;
+    Ok(())
+}
+
+fn run_clg_test_schema_gate(root: &Path) -> Result<(), String> {
+    let project_root = root.join("examples").join("projects").join("testing");
+    let output = Command::new("cargo")
+        .arg("run")
+        .arg("-p")
+        .arg("clg-cli")
+        .arg("--")
+        .arg("test")
+        .arg(&project_root)
+        .arg("--report")
+        .arg("json")
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("failed to run `clg test` schema gate: {e}"))?;
+
+    let stdout = String::from_utf8(output.stdout)
+        .map_err(|e| format!("`clg test` schema gate stdout is not utf-8: {e}"))?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        return Err(format!(
+            "`clg test` schema gate failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+            output.status.code(),
+            stdout,
+            stderr
+        ));
+    }
+
+    validate_clg_test_report_schema(stdout.trim())
+}
+
+fn validate_clg_test_report_schema(raw: &str) -> Result<(), String> {
+    if raw.is_empty() {
+        return Err("`clg test` schema gate emitted empty stdout".to_string());
+    }
+    let payload: serde_json::Value =
+        serde_json::from_str(raw).map_err(|e| format!("parsing `clg test` report json: {e}"))?;
+    let obj = payload
+        .as_object()
+        .ok_or_else(|| "`clg test` report must be a JSON object".to_string())?;
+
+    let schema_version = obj
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "`clg test` report missing numeric `schema_version`".to_string())?;
+    if schema_version != 1 {
+        return Err(format!(
+            "`clg test` report schema_version must be 1, found {schema_version}"
+        ));
+    }
+
+    let report = obj
+        .get("report")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "`clg test` report missing string `report`".to_string())?;
+    if report != "json" {
+        return Err(format!(
+            "`clg test` report kind must be `json`, found `{report}`"
+        ));
+    }
+
+    let status = obj
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| "`clg test` report missing string `status`".to_string())?;
+    if status != "ok" {
+        return Err(format!(
+            "`clg test` schema gate expects `status=ok` for examples/projects/testing, found `{status}`"
+        ));
+    }
+
+    let discovered = obj
+        .get("discovered")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "`clg test` report missing numeric `discovered`".to_string())?;
+    let selected = obj
+        .get("selected")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "`clg test` report missing numeric `selected`".to_string())?;
+    let executed = obj
+        .get("executed")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "`clg test` report missing numeric `executed`".to_string())?;
+    let passed = obj
+        .get("passed")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "`clg test` report missing numeric `passed`".to_string())?;
+    let failed = obj
+        .get("failed")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| "`clg test` report missing numeric `failed`".to_string())?;
+
+    if discovered == 0 {
+        return Err("`clg test` schema gate requires at least one discovered test".to_string());
+    }
+    if selected == 0 || executed == 0 {
+        return Err(
+            "`clg test` schema gate requires selected/executed counts to be non-zero".to_string(),
+        );
+    }
+    if selected != executed {
+        return Err(format!(
+            "`clg test` schema gate requires selected ({selected}) == executed ({executed})"
+        ));
+    }
+    if failed != 0 {
+        return Err(format!(
+            "`clg test` schema gate requires zero failed tests, found {failed}"
+        ));
+    }
+    if passed != executed {
+        return Err(format!(
+            "`clg test` schema gate requires passed ({passed}) == executed ({executed})"
+        ));
+    }
+
+    let tests = obj
+        .get("tests")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "`clg test` report missing array `tests`".to_string())?;
+    if tests.len() as u64 != executed {
+        return Err(format!(
+            "`clg test` schema gate requires tests.len ({}) == executed ({executed})",
+            tests.len()
+        ));
+    }
+
+    let mut prev_id: Option<String> = None;
+    for case in tests {
+        let case_obj = case
+            .as_object()
+            .ok_or_else(|| "each `tests[]` entry must be an object".to_string())?;
+        let id = case_obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "each `tests[]` entry must include string `id`".to_string())?;
+        let _file = case_obj
+            .get("file")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("test `{id}` missing string `file`"))?;
+        let _function = case_obj
+            .get("function")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("test `{id}` missing string `function`"))?;
+        let _timeout_ms = case_obj
+            .get("timeout_ms")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| format!("test `{id}` missing numeric `timeout_ms`"))?;
+        let _mock_sets = case_obj
+            .get("mock_sets")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| format!("test `{id}` missing array `mock_sets`"))?;
+        let status = case_obj
+            .get("status")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("test `{id}` missing string `status`"))?;
+        if status != "passed" {
+            return Err(format!(
+                "`clg test` schema gate expected test `{id}` status `passed`, found `{status}`"
+            ));
+        }
+        let _captured_stdout = case_obj
+            .get("captured_stdout")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("test `{id}` missing string `captured_stdout`"))?;
+        let _captured_stderr = case_obj
+            .get("captured_stderr")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("test `{id}` missing string `captured_stderr`"))?;
+        let replay_argv = case_obj
+            .get("replay")
+            .and_then(serde_json::Value::as_object)
+            .and_then(|replay| replay.get("argv"))
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| format!("test `{id}` missing replay.argv[]"))?;
+        if replay_argv.len() < 3 {
+            return Err(format!(
+                "test `{id}` replay.argv[] must include at least command tokens"
+            ));
+        }
+        if replay_argv.first().and_then(serde_json::Value::as_str) != Some("clg")
+            || replay_argv.get(1).and_then(serde_json::Value::as_str) != Some("test")
+        {
+            return Err(format!(
+                "test `{id}` replay.argv[] must start with [`clg`, `test`]"
+            ));
+        }
+
+        if let Some(prev) = prev_id.as_ref() {
+            if prev.as_str() > id {
+                return Err(format!(
+                    "`clg test` report test ids must be sorted deterministically (`{prev}` > `{id}`)"
+                ));
+            }
+        }
+        prev_id = Some(id.to_string());
+    }
+
     Ok(())
 }
 

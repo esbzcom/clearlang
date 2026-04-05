@@ -19,6 +19,7 @@ Gate D follows project design principles in `README.md`:
 - Deterministic mock selection via `tests/test-plan.json`.
 - Fail-closed safety gates for plan/schema, mock binding, path safety, runtime safety, and release isolation.
 - CI + `xtask release-precheck` integration and cross-platform parity.
+- Proof-boundary separation: `clg test` validates quality behavior; theorem-grade assurance (`proved_all`) remains a production release artifact requirement.
 
 ## Non-Goals
 - No broad test-framework feature expansion beyond locked Gate D contract.

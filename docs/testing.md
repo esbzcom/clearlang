@@ -16,6 +16,7 @@ Status:
 - Fail-closed safety: invalid mock binding or policy mismatch must fail deterministically.
 - Release-grade isolation: `tests/` and `tests/mocks/` are test-only and must never enter production release artifacts.
 - Assurance alignment: testing workflow must stay compatible with `release == proved`.
+- Proof scope separation: theorem-grade assurance (`proved_all`) is required for production source/release artifacts, not for `tests/` sources executed by `clg test`.
 
 ## Canonical Layout
 
@@ -86,6 +87,58 @@ Non-essential flags are deferred; policy remains controlled via `tests/test-plan
 - `clg test` does not expose a proof-mode selector in the minimal production CLI contract.
 - Unit-test pass/fail does not weaken production release assurance policy.
 - `release == proved` remains enforced by release gates; theorem-grade release artifacts still require `proved_all`.
+- `clg test` is a deterministic quality runner for test behavior; it is not a theorem-grade certification gate for test sources.
+
+## Unit Assertions Package (25.3.27)
+
+Canonical package name:
+- Use `std::unit` as the standard assertion package namespace.
+- Do not use top-level `unit::` as the canonical std package name.
+- If concise call sites are preferred, import alias is allowed (`import std::unit as unit`) and tests may call `unit::...`.
+
+Locked production surface (v1 target API):
+- `pass() -> Bool`
+- `fail(msg: String) -> Bool`
+- `assert_true(cond: Bool, msg: String) -> Bool`
+- `assert_false(cond: Bool, msg: String) -> Bool`
+- `assert_eq_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_eq_bool(actual: Bool, expected: Bool, msg: String) -> Bool`
+- `assert_eq_u64(actual: U64, expected: U64, msg: String) -> Bool`
+- `assert_eq_u128(actual: U128, expected: U128, msg: String) -> Bool`
+- `assert_eq_u256(actual: U256, expected: U256, msg: String) -> Bool`
+- `assert_eq_string(actual: String, expected: String, msg: String) -> Bool`
+- `assert_ne_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_ne_string(actual: String, expected: String, msg: String) -> Bool`
+- `assert_lt_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_le_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_gt_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_ge_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_contains_string(haystack: String, needle: String, msg: String) -> Bool`
+- `assert_starts_with_string(actual: String, prefix: String, msg: String) -> Bool`
+- `assert_ends_with_string(actual: String, suffix: String, msg: String) -> Bool`
+- `assert_eq_bytes(actual: Bytes, expected: Bytes, msg: String) -> Bool` (enabled when `Bytes` is in std-core scope)
+
+Gate D implementation subset (initial ship target):
+- `assert_true(cond: Bool, msg: String) -> Bool`
+- `assert_eq_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `assert_eq_bool(actual: Bool, expected: Bool, msg: String) -> Bool`
+- `fail(msg: String) -> Bool`
+
+Semantics:
+- Assertion success returns `true`.
+- Assertion mismatch returns `false` (deterministic `C139` mapping in `clg test`).
+- Assertion helpers are deterministic and test-quality focused; they do not change production proof policy (`release == proved` remains enforced by release gates).
+
+Example:
+
+```clear
+import std::unit as unit
+import services::discount
+
+function test_discount_uses_promo_rate() -> Bool {
+    unit::assert_eq_int(discount::compute_discount(200), 50, "promo discount should be 50")
+}
+```
 
 ## Deferred Flags Policy (25.3.19.1)
 

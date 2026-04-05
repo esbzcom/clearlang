@@ -11,6 +11,7 @@ Lock one deterministic proof-policy default for unit-test workflows, without wea
 2. No `clg test` proof-mode selector flag is exposed in the minimal production CLI contract.
 3. Unit tests validate deterministic compile/type/runtime behavior for test cases and mocks.
 4. Production release assurance remains controlled by release gates (`release == proved`, `proved_all` required for release artifacts).
+5. Test sources under `tests/` are quality-validation inputs; theorem-grade assurance requirements apply to production source/release artifacts, not test files.
 
 ## Rationale
 - Keeps user and IDE surface simple and stable.

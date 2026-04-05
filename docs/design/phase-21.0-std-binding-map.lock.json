@@ -226,6 +226,22 @@
       "route": "intrinsic"
     },
     {
+      "symbol": "std::unit::assert_eq_bool",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::assert_eq_int",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::assert_true",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::fail",
+      "route": "package_import"
+    },
+    {
       "symbol": "std::u128::from_limbs",
       "route": "package_import"
     },

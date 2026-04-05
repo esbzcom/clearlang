@@ -59,3 +59,14 @@ Purpose: keep `docs/TODO.md` short while preserving traceability for modified Ru
 - `docs/release-process.md`
 - `docs/ide/vscode-cli-profile.md`
 - `crates/cli/tests/phase25_gate_d_closeout.rs`
+
+### 25.3.27
+- `crates/typer/src/builtins.rs`
+- `crates/typer/src/lower/calls.rs`
+- `crates/cli/assets/std-metadata.json`
+- `crates/cli/tests/cli_it/imports/std_and_edges.rs`
+- `crates/cli/tests/test_command_contract.rs`
+- `examples/projects/testing/tests/unit/discount_tests.clear`
+- `examples/projects/testing/README.md`
+- `docs/design/phase-21.0-std-core-package-surface.md`
+- `docs/design/phase-21.0-std-binding-map.lock.json`

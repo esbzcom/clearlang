@@ -1107,7 +1107,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.3.8 Defer deterministic migration/cutover from `clearlang-tests/` to canonical `tests/` until `clg test` + mock behavior is stable, and document temporary source-of-truth policy plus cutover trigger criteria. (`docs/design/phase-25.3-evidence-index.md`)
   - [x] 25.3.9 Extend machine-readable contracts for `clg test`: add `test` stage support in diagnostics/docs, reserve stable test-specific error code range with explicit code-to-failure mapping (plan/schema/mock/timeout/runtime), and lock `--json-errors`/`--json-events` schema compatibility policy.
   - [x] 25.3.10 Lock deterministic execution model for `clg test` (strictly serial by default, ordering guarantees, seed/replay contract, and shared-state isolation rules), including deterministic timeout policy (default per-test timeout 2 minutes; overrides are policy-driven via `tests/test-plan.json`, not required in minimal CLI flags).
-  - [x] 25.3.11 Define assertion/failure semantics for industrial unit tests (expected-failure tests, trap/error assertions, diff shape, and deterministic failure IDs in reports).
+  - [x] 25.3.11 Define baseline Gate D assertion/failure semantics: `test_*() -> Bool` contract, deterministic `assertion_false|runtime|timeout` mapping, stable failure codes (`C139|C138|C137`), and replay/report determinism.
   - [x] 25.3.12 Add release isolation gates so `clg release`/production builds fail closed if module graph references `tests/` or `tests/mocks/`, with deterministic diagnostics.
   - [x] 25.3.13 Add release artifact scan gate proving release bundle/import-map contains production modules only (no test/mock paths).
   - [x] 25.3.14 Add tamper-evidence verification tests showing mock/test substitutions fail signed artifact verification/release acceptance.
@@ -1125,6 +1125,13 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.3.24 Add path-resolution safety gates for `tests/` and `tests/mocks/` loading (reject traversal/symlink escape and non-canonical out-of-root bindings) with fail-closed diagnostics.
   - [x] 25.3.25 Extend deterministic runtime safety policy for test workers beyond timeout (memory/fuel limits, crash handling, and deterministic status mapping). (`docs/design/phase-25.3-evidence-index.md`)
   - [x] 25.3.26 Update primary UX/docs/help contracts after `clg test` lands (README, release-process, IDE profile, diagnostics table, CLI help/about string) and add drift gates to prevent stale command-surface docs. (`docs/design/phase-25.3-evidence-index.md`)
+  - [x] 25.3.27 Add minimal `std::unit` assertion package for Gate D ergonomics without expanding CLI/test-plan surface (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`).
+  - [ ] 25.3.28 Close Gate D negative-evidence gaps in `clg test` contract tests: add deterministic integration coverage for `C134` (discovery/layout/signature), `C135` (plan/schema governance), `C137` (timeout), and `C138` (runtime guardrails/crash capture).
+  - [x] 25.3.29 Lock policy that `clg test` single-process rule is documentation/operational guidance only for Gate D (no runtime project-lock mechanism in this phase). (`docs/design/phase-25.3.0-gate-d-design-lock.md`, `docs/testing.md`)
+  - [x] 25.3.30 Clarify proof boundary for tests: theorem-grade assurance (`proved_all`) applies to production source/release artifacts; `tests/` are quality-validation inputs only. (`docs/design/phase-25.3.5-test-proof-mode-policy.md`, `docs/testing.md`)
+  - [ ] 25.3.31 Add deterministic integration tests for `C136` unsafe mock-path rejection (`symlink`, non-canonical out-of-root resolution, and traversal-like bindings) to match Gate D path-safety claims.
+  - [ ] 25.3.32 Lock phased rollout/governance for `std::unit` API: Gate D ships minimal subset first (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`), remaining v1 methods are tracked as additive follow-ups only (no breaking signature/behavior changes).
+  - [ ] 25.3.33 Lock `assert_eq_bytes` activation policy: keep method reserved/conditional until `Bytes` is confirmed in std-core scope with deterministic typing/runtime support, and require deterministic unsupported-diagnostic behavior before activation.
 
 - [ ] 25.4 Clear project dependency manifests (`json`) [Gate E]
   - [ ] 25.4.1 Define `clg.project.json` as the user-authored dependency manifest (declared packages/version ranges/source policy).
@@ -1186,3 +1193,8 @@ Execution order for std proof coverage: **scope lock -> core coverage -> set sub
   - [ ] 26.4.1 Define/lock map proof contracts for core APIs (`len`, `contains`, `get`, `insert`, `insert_take`, `remove`, `remove_take`).
   - [ ] 26.4.2 Add VC/SMT reasoning for key-membership/value-consistency invariants.
   - [ ] 26.4.3 Add theorem-grade gates for map proofs (no assumption boundaries on release-enabled map surfaces).
+
+- [ ] 26.5 Deferred test assertion extensions [Std Gate F]
+  - [ ] 26.5.1 Add expected-failure and trap/error assertion semantics for `clg test` only after baseline `std::unit` assertions are stable.
+  - [ ] 26.5.2 Add deterministic assertion-mismatch diff shape and deterministic failure-id taxonomy for advanced assertion paths.
+  - [ ] 26.5.3 Evaluate generic `assert_eq<T>` only with explicit equality-capability constraints and deterministic diagnostics policy.

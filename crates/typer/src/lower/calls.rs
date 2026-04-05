@@ -2,7 +2,7 @@ use crate::check::{base_type, infer_expr_type};
 use crate::guards::guard_kind_for_callee;
 use anyhow::Result;
 use clg_ast::{BinOp, Expr, Type};
-use clg_ir::{Instr, IrType, Value};
+use clg_ir::{BinOpIR, Instr, IrType, Value};
 
 use super::array::{
     emit_array_data_ptr, emit_array_len_guard, emit_bytes_data_ptr, emit_bytes_len_guard,
@@ -15,9 +15,9 @@ use super::intrinsics::{
 use super::layout::std_type_info_for_module;
 use super::r#match::lower_enum_constructor;
 use super::{
-    emit_alloc, emit_int_const, emit_load_i32, emit_memcpy_bytes, emit_u64_const, fresh,
-    lower_expr, DispatcherCallPatch, DispatcherSignature, LowerCtx, CLOSURE_CODE_ID_OFFSET,
-    CLOSURE_ENV_PTR_OFFSET,
+    emit_alloc, emit_bool_const, emit_int_const, emit_load_i32, emit_memcpy_bytes,
+    emit_u64_const, fresh, lower_expr, DispatcherCallPatch, DispatcherSignature, LowerCtx,
+    CLOSURE_CODE_ID_OFFSET, CLOSURE_ENV_PTR_OFFSET,
 };
 
 pub(super) fn lower_call_expr<'a>(
@@ -125,6 +125,55 @@ pub(super) fn lower_call_expr<'a>(
         "std::u256::limb1" => lower_u256_load(ctx, args, 1),
         "std::u256::limb2" => lower_u256_load(ctx, args, 2),
         "std::u256::limb3" => lower_u256_load(ctx, args, 3),
+        "std::unit::assert_true" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::unit::assert_true` expects exactly two arguments");
+            }
+            let cond = lower_expr(ctx, &args[0], Some(Type::Bool))?;
+            let _msg = lower_expr(ctx, &args[1], Some(Type::String))?;
+            Ok(cond)
+        }
+        "std::unit::assert_eq_int" => {
+            if args.len() != 3 {
+                anyhow::bail!("`std::unit::assert_eq_int` expects exactly three arguments");
+            }
+            let actual = lower_expr(ctx, &args[0], Some(Type::Int))?;
+            let expected = lower_expr(ctx, &args[1], Some(Type::Int))?;
+            let _msg = lower_expr(ctx, &args[2], Some(Type::String))?;
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst,
+                op: BinOpIR::Eq,
+                ty: IrType::Int,
+                lhs: actual,
+                rhs: expected,
+            });
+            Ok(dst)
+        }
+        "std::unit::assert_eq_bool" => {
+            if args.len() != 3 {
+                anyhow::bail!("`std::unit::assert_eq_bool` expects exactly three arguments");
+            }
+            let actual = lower_expr(ctx, &args[0], Some(Type::Bool))?;
+            let expected = lower_expr(ctx, &args[1], Some(Type::Bool))?;
+            let _msg = lower_expr(ctx, &args[2], Some(Type::String))?;
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst,
+                op: BinOpIR::Eq,
+                ty: IrType::Bool,
+                lhs: actual,
+                rhs: expected,
+            });
+            Ok(dst)
+        }
+        "std::unit::fail" => {
+            if args.len() != 1 {
+                anyhow::bail!("`std::unit::fail` expects exactly one argument");
+            }
+            let _msg = lower_expr(ctx, &args[0], Some(Type::String))?;
+            Ok(emit_bool_const(ctx, false))
+        }
         "Some" => {
             if args.len() != 1 {
                 anyhow::bail!("`Some` expects exactly one argument");

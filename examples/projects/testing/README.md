@@ -11,6 +11,7 @@ Status:
 - `main.clear`: runnable app entrypoint for current `clg run` workflows.
 - `domain/`, `services/`: production modules.
 - `tests/unit/*.clear`: unit test sources with `test_*` functions.
+- `tests/unit/*.clear`: unit test sources use `std::unit` helpers (`assert_eq_int`) for deterministic assertion semantics.
 - `tests/mocks/<set>/...`: mock sets with production-matching module paths.
 - `tests/test-plan.json`: deterministic per-test mock binding plan.
 

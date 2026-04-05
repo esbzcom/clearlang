@@ -209,6 +209,49 @@ fn import_std_module_and_items_work() {
 }
 
 #[test]
+fn import_std_unit_module_and_items_work() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        import std::unit as unit
+        import std::unit::{assert_true, assert_eq_int, assert_eq_bool, fail}
+
+        function main() -> Int {
+            if assert_true(true, "assert_true should pass")
+                && assert_eq_int(2 + 2, 4, "assert_eq_int should pass")
+                && assert_eq_bool(unit::assert_true(true, "alias call should pass"), true, "assert_eq_bool should pass")
+                && assert_eq_bool(fail("fail should return false"), false, "fail should be false")
+            {
+                1
+            } else {
+                0
+            }
+        }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("1"));
+}
+
+#[test]
 fn import_std_list_remove_take_item_works() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

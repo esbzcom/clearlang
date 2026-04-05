@@ -27,6 +27,7 @@ Freeze the package split and callable function surface for precompiled std packa
 
 ### `std::core`
 - `std::str::{len, eq, concat}`
+- `std::unit::{assert_true, assert_eq_int, assert_eq_bool, fail}`
 - `std::bytes::{len, concat, eq, eq_ct, from_string, to_string}`
 - `std::u64::{add_wrap, sub_wrap, mul_wrap, add_sat, sub_sat, mul_sat, rotl, rotr, to_bytes_le, to_bytes_be, from_bytes_le, from_bytes_be}`
 - `std::u128::{from_limbs, lo, hi}`

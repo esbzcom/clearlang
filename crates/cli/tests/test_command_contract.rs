@@ -251,6 +251,67 @@ fn test_command_fails_with_nonzero_exit_when_any_test_returns_false() {
 }
 
 #[test]
+fn test_command_std_unit_assertions_map_to_bool_contract_deterministically() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let unit = root.join("tests").join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("unit_assertions.clear"),
+        "import std::unit as unit\n\nfunction test_pass() -> Bool {\n    unit::assert_true(true, \"assert_true pass\")\n        && unit::assert_eq_int(2 + 3, 5, \"assert_eq_int pass\")\n        && unit::assert_eq_bool(true, unit::assert_true(true, \"nested\"), \"assert_eq_bool pass\")\n}\n\nfunction test_fail() -> Bool {\n    unit::fail(\"forced failure\")\n}\n",
+    );
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["test"])
+        .arg(&root)
+        .args(["--report", "json"])
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json summary");
+    assert_eq!(
+        payload.get("status").and_then(|v| v.as_str()),
+        Some("failed")
+    );
+    assert_eq!(payload.get("executed").and_then(|v| v.as_u64()), Some(2));
+    assert_eq!(payload.get("passed").and_then(|v| v.as_u64()), Some(1));
+    assert_eq!(payload.get("failed").and_then(|v| v.as_u64()), Some(1));
+
+    let cases = payload
+        .get("tests")
+        .and_then(|v| v.as_array())
+        .expect("tests array");
+    let pass_case = cases
+        .iter()
+        .find(|case| {
+            case.get("id").and_then(|v| v.as_str())
+                == Some("tests/unit/unit_assertions.clear::test_pass")
+        })
+        .expect("pass case");
+    assert_eq!(pass_case.get("status").and_then(|v| v.as_str()), Some("passed"));
+
+    let fail_case = cases
+        .iter()
+        .find(|case| {
+            case.get("id").and_then(|v| v.as_str())
+                == Some("tests/unit/unit_assertions.clear::test_fail")
+        })
+        .expect("fail case");
+    assert_eq!(fail_case.get("status").and_then(|v| v.as_str()), Some("failed"));
+    assert_eq!(
+        fail_case.get("failure_kind").and_then(|v| v.as_str()),
+        Some("assertion_false")
+    );
+    assert_eq!(
+        fail_case.get("failure_code").and_then(|v| v.as_str()),
+        Some("C139")
+    );
+}
+
+#[test]
 fn test_command_junit_report_contains_failure_type_and_capture_fields() {
     let tmp = tempdir().expect("tempdir");
     let root = tmp.path().join("project");

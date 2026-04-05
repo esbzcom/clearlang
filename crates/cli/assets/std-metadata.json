@@ -21,6 +21,15 @@
       ]
     },
     {
+      "path": "std::unit",
+      "exports": [
+        { "name": "assert_true", "kind": "value" },
+        { "name": "assert_eq_int", "kind": "value" },
+        { "name": "assert_eq_bool", "kind": "value" },
+        { "name": "fail", "kind": "value" }
+      ]
+    },
+    {
       "path": "std::wasi",
       "exports": [
         { "name": "print", "kind": "value" }

@@ -1,9 +1,10 @@
+import std::unit as unit
 import services::discount
 
 function test_discount_uses_real_rate() -> Bool {
-    discount::compute_discount(200) == 20
+    unit::assert_eq_int(discount::compute_discount(200), 20, "real discount should be 20")
 }
 
 function test_discount_uses_promo_rate() -> Bool {
-    discount::compute_discount(200) == 50
+    unit::assert_eq_int(discount::compute_discount(200), 50, "promo discount should be 50")
 }

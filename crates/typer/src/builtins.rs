@@ -220,6 +220,77 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::unit::assert_true".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "cond".to_string(),
+                    ty: Type::Bool,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "msg".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::unit::assert_eq_int".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "actual".to_string(),
+                    ty: Type::Int,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "expected".to_string(),
+                    ty: Type::Int,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "msg".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::unit::assert_eq_bool".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "actual".to_string(),
+                    ty: Type::Bool,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "expected".to_string(),
+                    ty: Type::Bool,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "msg".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::unit::fail".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "msg".to_string(),
+                ty: Type::String,
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::u64::add_wrap".to_string(),
             vec![
                 Param {

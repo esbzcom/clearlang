@@ -1,19 +1,31 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::ValueEnum;
-use clg_ast::Func;
+use clg_ast::{Func, Type};
+use clg_codegen_wasm::{
+    emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport,
+    StdCoreLinkMode as WasmStdCoreLinkMode,
+};
 use clg_parser::parse_errors;
+use clg_typer::{check_with_vcs_with_std_and_external, ExternalBuiltinSig, TyperError};
 use serde::{Deserialize, Serialize};
+use wasmtime as wt;
 
-use crate::commands::helpers::{make_single_json_error, CommandError};
+use crate::commands::helpers::{extract_function_name, make_single_json_error, CommandError};
+use crate::commands::modules::load_program;
 use crate::logging::{Logger, StageTimings};
 
 const TEST_DISCOVERY_ERROR_CODE: &str = "C134";
 const TEST_PLAN_ERROR_CODE: &str = "C135";
 const TEST_MOCK_ERROR_CODE: &str = "C136";
+const DEFAULT_TEST_TIMEOUT_MS: u64 = 120_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum TestReportFormat {
@@ -46,6 +58,12 @@ struct TestCase {
     function: String,
 }
 
+#[derive(Debug, Clone)]
+struct TestExecutionConfig {
+    timeout_ms: u64,
+    mock_sets: Vec<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct TestPlan {
     schema_version: u64,
@@ -61,6 +79,33 @@ struct TestPlanCase {
     #[serde(default)]
     mock_sets: Vec<String>,
     timeout_ms: Option<u64>,
+}
+
+#[derive(Debug)]
+struct TestPlanLookup {
+    default_mock_sets: Vec<String>,
+    cases_by_id: HashMap<String, TestPlanCase>,
+}
+
+#[derive(Debug, Clone)]
+struct ExecutedTestCase {
+    id: String,
+    file: String,
+    function: String,
+    timeout_ms: u64,
+    mock_sets: Vec<String>,
+    status: &'static str,
+    reason: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct TestRunSummary {
+    status: &'static str,
+    discovered: usize,
+    selected: usize,
+    executed: usize,
+    passed: usize,
+    failed: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,6 +127,11 @@ struct JsonTestCase {
     id: String,
     file: String,
     function: String,
+    timeout_ms: u64,
+    mock_sets: Vec<String>,
+    status: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
 }
 
 pub fn run(
@@ -110,9 +160,42 @@ pub fn run(
     }
 
     let selected = select_tests(&discovered, filter.as_deref());
+    let plan_lookup = load_test_plan_lookup(&roots, json_errors)?;
+    let execution_config =
+        build_execution_config(&selected, plan_lookup.as_ref(), &roots, json_errors)?;
+
+    let results = if selected.is_empty() {
+        Vec::new()
+    } else {
+        let engine = build_execution_engine().context("building test execution engine")?;
+        let modules = {
+            let _stage = timings.start(logger, "test_compile");
+            compile_modules_for_selected(&engine, &selected, json_errors)?
+        };
+        {
+            let _stage = timings.start(logger, "test_execute");
+            execute_selected_tests(
+                &engine,
+                &roots.project_root,
+                &selected,
+                &execution_config,
+                &modules,
+                json_errors,
+            )?
+        }
+    };
+
+    let summary = summarize_results(discovered.len(), selected.len(), &results);
 
     logger.summary(&timings);
-    emit_success_report(&roots.project_root, &selected, discovered.len(), report);
+    emit_report(report, &summary, &results);
+    if summary.failed > 0 {
+        return Err(CommandError::stderr(format!(
+            "test failures: {} failed ({} passed)",
+            summary.failed, summary.passed
+        ))
+        .into());
+    }
     Ok(())
 }
 
@@ -267,6 +350,51 @@ fn collect_test_functions(
     for func in funcs {
         if !func.name.starts_with("test_") {
             continue;
+        }
+        if !func.type_params.is_empty() {
+            return Err(test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!(
+                    "test function `{}` in `{}` must not be generic",
+                    func.name,
+                    file.display()
+                ),
+                file,
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+        if !func.params.is_empty() {
+            return Err(test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!(
+                    "test function `{}` in `{}` must have signature `() -> Bool`",
+                    func.name,
+                    file.display()
+                ),
+                file,
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+        if func.ret != Type::Bool {
+            return Err(test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!(
+                    "test function `{}` in `{}` must return `Bool`",
+                    func.name,
+                    file.display()
+                ),
+                file,
+                0,
+                0,
+                json_errors,
+            )
+            .into());
         }
         let relative = normalize_relpath(project_root, file);
         let test_id = format!("{relative}::{}", func.name);
@@ -495,6 +623,107 @@ fn validate_test_plan(roots: &Roots, discovered: &[TestCase], json_errors: bool)
     Ok(())
 }
 
+fn load_test_plan_lookup(roots: &Roots, json_errors: bool) -> Result<Option<TestPlanLookup>> {
+    let plan_path = roots.tests_root.join("test-plan.json");
+    if !plan_path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&plan_path).map_err(|err| {
+        test_error(
+            TEST_PLAN_ERROR_CODE,
+            format!("reading `{}`: {err}", plan_path.display()),
+            plan_path.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+    let plan: TestPlan = serde_json::from_str(raw.as_str()).map_err(|err| {
+        test_error(
+            TEST_PLAN_ERROR_CODE,
+            format!("parsing `{}`: {err}", plan_path.display()),
+            plan_path.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+    let cases_by_id = plan
+        .cases
+        .into_iter()
+        .map(|case| (case.test_id.clone(), case))
+        .collect();
+    Ok(Some(TestPlanLookup {
+        default_mock_sets: plan.default_mock_sets,
+        cases_by_id,
+    }))
+}
+
+fn build_execution_config(
+    selected: &[TestCase],
+    plan: Option<&TestPlanLookup>,
+    roots: &Roots,
+    json_errors: bool,
+) -> Result<Vec<TestExecutionConfig>> {
+    let mut out = Vec::with_capacity(selected.len());
+    for case in selected {
+        let (timeout_ms, mock_sets) = if let Some(plan) = plan {
+            let case_plan = plan.cases_by_id.get(case.id.as_str());
+            let timeout_ms = case_plan
+                .and_then(|entry| entry.timeout_ms)
+                .unwrap_or(DEFAULT_TEST_TIMEOUT_MS);
+            let mock_sets = merge_mock_sets(
+                plan.default_mock_sets.as_slice(),
+                case_plan
+                    .map(|entry| entry.mock_sets.as_slice())
+                    .unwrap_or(&[]),
+            );
+            (timeout_ms, mock_sets)
+        } else {
+            (DEFAULT_TEST_TIMEOUT_MS, Vec::new())
+        };
+
+        if !mock_sets.is_empty() {
+            return Err(test_error(
+                TEST_MOCK_ERROR_CODE,
+                format!(
+                    "test `{}` resolves mock sets [{}], but mock-set execution is not enabled yet in the current runner slice",
+                    case.id,
+                    mock_sets.join(", ")
+                ),
+                roots.tests_root.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+
+        out.push(TestExecutionConfig {
+            timeout_ms,
+            mock_sets,
+        });
+    }
+    Ok(out)
+}
+
+fn merge_mock_sets(default_sets: &[String], case_sets: &[String]) -> Vec<String> {
+    let combined = default_sets
+        .iter()
+        .chain(case_sets.iter())
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut deduped_rev = Vec::new();
+    let mut seen = HashSet::new();
+    for name in combined.into_iter().rev() {
+        if seen.insert(name.clone()) {
+            deduped_rev.push(name);
+        }
+    }
+    deduped_rev.reverse();
+    deduped_rev
+}
+
 fn discover_mock_sets(tests_root: &Path, json_errors: bool) -> Result<HashSet<String>> {
     let mocks_root = tests_root.join("mocks");
     if !mocks_root.exists() {
@@ -577,84 +806,479 @@ fn validate_mock_sets(
     Ok(())
 }
 
-fn emit_success_report(
-    project_root: &Path,
+fn build_execution_engine() -> Result<wt::Engine> {
+    let mut config = wt::Config::new();
+    config.epoch_interruption(true);
+    wt::Engine::new(&config).context("creating wasmtime engine")
+}
+
+fn compile_modules_for_selected(
+    engine: &wt::Engine,
     selected: &[TestCase],
-    discovered_count: usize,
-    report: TestReportFormat,
-) {
-    let status = if selected.is_empty() {
-        "no_tests"
-    } else {
-        "ok"
-    };
-    match report {
-        TestReportFormat::Human => {
-            if selected.is_empty() {
-                println!(
-                    "test ok: no_tests (discovered={}, selected=0, execution=deferred)",
-                    discovered_count
-                );
+    json_errors: bool,
+) -> Result<HashMap<PathBuf, wt::Module>> {
+    let mut by_file: HashMap<PathBuf, Vec<String>> = HashMap::new();
+    for case in selected {
+        by_file
+            .entry(case.file.clone())
+            .or_default()
+            .push(case.function.clone());
+    }
+
+    let mut files: Vec<PathBuf> = by_file.keys().cloned().collect();
+    files.sort_by(|a, b| a.as_os_str().cmp(b.as_os_str()));
+
+    let mut modules = HashMap::with_capacity(files.len());
+    for file in files {
+        let mut functions = by_file
+            .remove(&file)
+            .expect("selected file must have associated functions");
+        functions.sort();
+        functions.dedup();
+        let module = compile_test_module(engine, file.as_path(), &functions, json_errors)?;
+        modules.insert(file, module);
+    }
+    Ok(modules)
+}
+
+fn compile_test_module(
+    engine: &wt::Engine,
+    file: &Path,
+    functions: &[String],
+    json_errors: bool,
+) -> Result<wt::Module> {
+    let loaded = load_program(file, json_errors)?;
+    let ast = &loaded.program;
+
+    let external_typer_sigs: Vec<ExternalBuiltinSig> = loaded
+        .external_imports
+        .iter()
+        .map(|binding| ExternalBuiltinSig {
+            name: binding.function.clone(),
+            params: binding.params.clone(),
+            ret: binding.ret.clone(),
+            effect: binding.effect,
+        })
+        .collect();
+    let external_codegen_imports: Vec<ExternalImport> = loaded
+        .external_imports
+        .iter()
+        .map(|binding| ExternalImport {
+            function: binding.function.clone(),
+            import_module: binding.import_module.clone(),
+            import_name: binding.import_name.clone(),
+        })
+        .collect();
+
+    let type_output =
+        match check_with_vcs_with_std_and_external(ast, &loaded.std_types, &external_typer_sigs) {
+            Ok(result) => result,
+            Err(err) => {
+                if json_errors {
+                    if let Some((typer, function)) = find_typer_error(&err) {
+                        let json = make_single_json_error(
+                            typer.code,
+                            "type",
+                            typer.message.clone(),
+                            file,
+                            typer.start,
+                            typer.end,
+                            function,
+                        );
+                        return Err(CommandError::json(json).into());
+                    }
+                    let json = make_single_json_error(
+                        "T000",
+                        "type",
+                        format!("{err:#}"),
+                        file,
+                        0,
+                        0,
+                        None,
+                    );
+                    return Err(CommandError::json(json).into());
+                }
+                return Err(err.context(format!("type-check failed for `{}`", file.display())));
+            }
+        };
+
+    let mut export_aliases = Vec::with_capacity(functions.len());
+    for function in functions {
+        let internal_name =
+            resolve_ir_function_name(&type_output.ir, function.as_str(), file, json_errors)?;
+        export_aliases.push(ExportAlias {
+            target: internal_name,
+            export: function.clone(),
+        });
+    }
+
+    let wasm_bytes = emit_from_ir_with_opts(
+        &type_output.ir,
+        CodegenOpts {
+            debug_names: false,
+            proof_section: None,
+            export_aliases,
+            external_imports: external_codegen_imports,
+            std_core_link_mode: WasmStdCoreLinkMode::Intrinsic,
+        },
+    )
+    .with_context(|| format!("codegen failed for `{}`", file.display()))?;
+
+    wt::Module::from_binary(engine, wasm_bytes.as_slice())
+        .with_context(|| format!("loading test module `{}`", file.display()))
+}
+
+fn resolve_ir_function_name(
+    ir: &clg_ir::Module,
+    test_function: &str,
+    file: &Path,
+    json_errors: bool,
+) -> Result<String> {
+    if let Some(found) = ir.funcs.iter().find(|func| func.name == test_function) {
+        return Ok(found.name.clone());
+    }
+
+    let suffix = format!("::{test_function}");
+    let suffix_matches: Vec<&str> = ir
+        .funcs
+        .iter()
+        .filter_map(|func| {
+            if func.name.ends_with(suffix.as_str()) {
+                Some(func.name.as_str())
             } else {
-                println!(
-                    "test contract ok: discovered={}, selected={}, execution=deferred",
-                    discovered_count,
-                    selected.len()
-                );
+                None
+            }
+        })
+        .collect();
+
+    match suffix_matches.as_slice() {
+        [single] => Ok((*single).to_string()),
+        [] => Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!(
+                "test function `{}` was not lowered in `{}`",
+                test_function,
+                file.display()
+            ),
+            file,
+            0,
+            0,
+            json_errors,
+        )
+        .into()),
+        _ => Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!(
+                "test function `{}` in `{}` is ambiguous after lowering: {}",
+                test_function,
+                file.display(),
+                suffix_matches.join(", ")
+            ),
+            file,
+            0,
+            0,
+            json_errors,
+        )
+        .into()),
+    }
+}
+
+fn find_typer_error(err: &anyhow::Error) -> Option<(&TyperError, Option<String>)> {
+    let mut function: Option<String> = None;
+    for cause in err.chain() {
+        if function.is_none() {
+            let msg = cause.to_string();
+            if let Some(name) = extract_function_name(&msg) {
+                function = Some(name);
             }
         }
-        TestReportFormat::Json => {
-            let payload = JsonTestSummary {
-                schema_version: 1,
-                status,
-                report: report.as_str(),
-                discovered: discovered_count,
-                selected: selected.len(),
-                executed: 0,
-                passed: 0,
-                failed: 0,
-                note: "Gate D foundation: discovery + contract validation only; execution lands in runner core slices",
-                tests: selected
-                    .iter()
-                    .map(|case| JsonTestCase {
-                        id: case.id.clone(),
-                        file: normalize_relpath(project_root, case.file.as_path()),
-                        function: case.function.clone(),
-                    })
-                    .collect(),
-            };
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&payload).expect("serialize test summary")
+        if let Some(typer) = cause.downcast_ref::<TyperError>() {
+            return Some((typer, function));
+        }
+    }
+    None
+}
+
+fn execute_selected_tests(
+    engine: &wt::Engine,
+    project_root: &Path,
+    selected: &[TestCase],
+    execution_config: &[TestExecutionConfig],
+    modules: &HashMap<PathBuf, wt::Module>,
+    json_errors: bool,
+) -> Result<Vec<ExecutedTestCase>> {
+    if selected.len() != execution_config.len() {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            "internal error: selected/config length mismatch".to_string(),
+            project_root,
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
+
+    let mut results = Vec::with_capacity(selected.len());
+    for (case, config) in selected.iter().zip(execution_config.iter()) {
+        let module = modules.get(&case.file).ok_or_else(|| {
+            test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!(
+                    "internal error: missing compiled test module for `{}`",
+                    case.file.display()
+                ),
+                case.file.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+
+        let (status, reason) = execute_single_test(engine, module, case, config.timeout_ms);
+        results.push(ExecutedTestCase {
+            id: case.id.clone(),
+            file: normalize_relpath(project_root, case.file.as_path()),
+            function: case.function.clone(),
+            timeout_ms: config.timeout_ms,
+            mock_sets: config.mock_sets.clone(),
+            status,
+            reason,
+        });
+    }
+
+    Ok(results)
+}
+
+fn execute_single_test(
+    engine: &wt::Engine,
+    module: &wt::Module,
+    case: &TestCase,
+    timeout_ms: u64,
+) -> (&'static str, Option<String>) {
+    let mut store = wt::Store::new(engine, ());
+    store.set_epoch_deadline(1);
+
+    let instance = match wt::Instance::new(&mut store, module, &[]) {
+        Ok(instance) => instance,
+        Err(err) => {
+            return (
+                "failed",
+                Some(format!("instantiate failed: {}", single_line_error(&err))),
             );
         }
+    };
+    let func = match instance.get_typed_func::<(), i32>(&mut store, case.function.as_str()) {
+        Ok(func) => func,
+        Err(err) => {
+            return (
+                "failed",
+                Some(format!(
+                    "invalid test signature (expected `() -> Bool`): {}",
+                    single_line_error(&err)
+                )),
+            );
+        }
+    };
+
+    let timeout = Duration::from_millis(timeout_ms.max(1));
+    let timed_out = Arc::new(AtomicBool::new(false));
+    let stop_watchdog = Arc::new(AtomicBool::new(false));
+    let watchdog = spawn_timeout_watchdog(
+        engine.clone(),
+        timeout,
+        Arc::clone(&timed_out),
+        Arc::clone(&stop_watchdog),
+    );
+
+    let call_result = func.call(&mut store, ());
+    stop_watchdog.store(true, Ordering::Relaxed);
+    let _ = watchdog.join();
+
+    match call_result {
+        Ok(value) => {
+            if value == 1 {
+                ("passed", None)
+            } else {
+                (
+                    "failed",
+                    Some(format!(
+                        "assertion returned false (expected 1/true, got {value})"
+                    )),
+                )
+            }
+        }
+        Err(err) => {
+            if timed_out.load(Ordering::Relaxed) {
+                return ("failed", Some(format!("timeout after {}ms", timeout_ms)));
+            }
+            (
+                "failed",
+                Some(format!("runtime trap: {}", single_line_error(&err))),
+            )
+        }
+    }
+}
+
+fn spawn_timeout_watchdog(
+    engine: wt::Engine,
+    timeout: Duration,
+    timed_out: Arc<AtomicBool>,
+    stop_watchdog: Arc<AtomicBool>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let start = Instant::now();
+        loop {
+            if stop_watchdog.load(Ordering::Relaxed) {
+                return;
+            }
+            let elapsed = start.elapsed();
+            if elapsed >= timeout {
+                timed_out.store(true, Ordering::Relaxed);
+                engine.increment_epoch();
+                return;
+            }
+            let remaining = timeout.saturating_sub(elapsed);
+            thread::sleep(remaining.min(Duration::from_millis(5)));
+        }
+    })
+}
+
+fn summarize_results(
+    discovered_count: usize,
+    selected_count: usize,
+    results: &[ExecutedTestCase],
+) -> TestRunSummary {
+    let passed = results
+        .iter()
+        .filter(|case| case.status == "passed")
+        .count();
+    let failed = results
+        .iter()
+        .filter(|case| case.status == "failed")
+        .count();
+    let status = if selected_count == 0 {
+        "no_tests"
+    } else if failed == 0 {
+        "ok"
+    } else {
+        "failed"
+    };
+    TestRunSummary {
+        status,
+        discovered: discovered_count,
+        selected: selected_count,
+        executed: results.len(),
+        passed,
+        failed,
+    }
+}
+
+fn emit_report(report: TestReportFormat, summary: &TestRunSummary, results: &[ExecutedTestCase]) {
+    match report {
+        TestReportFormat::Human => emit_human_report(summary, results),
+        TestReportFormat::Json => emit_json_report(report, summary, results),
         TestReportFormat::Junit => {
-            let xml = render_junit_report(selected, status);
+            let xml = render_junit_report(summary, results);
             println!("{xml}");
         }
     }
 }
 
-fn render_junit_report(selected: &[TestCase], status: &str) -> String {
+fn emit_human_report(summary: &TestRunSummary, results: &[ExecutedTestCase]) {
+    if summary.status == "no_tests" {
+        println!(
+            "test ok: no_tests (discovered={}, selected=0, executed=0)",
+            summary.discovered
+        );
+        return;
+    }
+    if summary.failed == 0 {
+        println!(
+            "test ok: discovered={}, selected={}, executed={}, passed={}, failed=0",
+            summary.discovered, summary.selected, summary.executed, summary.passed
+        );
+        return;
+    }
+
+    println!(
+        "test failed: discovered={}, selected={}, executed={}, passed={}, failed={}",
+        summary.discovered, summary.selected, summary.executed, summary.passed, summary.failed
+    );
+    for case in results.iter().filter(|case| case.status == "failed") {
+        let reason = case.reason.as_deref().unwrap_or("unknown failure");
+        println!(" - {}: {}", case.id, reason);
+    }
+}
+
+fn emit_json_report(
+    report: TestReportFormat,
+    summary: &TestRunSummary,
+    results: &[ExecutedTestCase],
+) {
+    let payload = JsonTestSummary {
+        schema_version: 1,
+        status: summary.status,
+        report: report.as_str(),
+        discovered: summary.discovered,
+        selected: summary.selected,
+        executed: summary.executed,
+        passed: summary.passed,
+        failed: summary.failed,
+        note: "Gate D runner core: serial execution with deterministic timeout policy; mock-set execution remains fail-closed until mock slice lands",
+        tests: results
+            .iter()
+            .map(|case| JsonTestCase {
+                id: case.id.clone(),
+                file: case.file.clone(),
+                function: case.function.clone(),
+                timeout_ms: case.timeout_ms,
+                mock_sets: case.mock_sets.clone(),
+                status: case.status,
+                reason: case.reason.clone(),
+            })
+            .collect(),
+    };
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&payload).expect("serialize test summary")
+    );
+}
+
+fn render_junit_report(summary: &TestRunSummary, results: &[ExecutedTestCase]) -> String {
     let mut out = String::new();
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str(&format!(
-        "<testsuite name=\"clg.test\" tests=\"{}\" failures=\"0\" errors=\"0\" skipped=\"{}\" status=\"{}\">\n",
-        selected.len(),
-        selected.len(),
-        escape_xml(status)
+        "<testsuite name=\"clg.test\" tests=\"{}\" failures=\"{}\" errors=\"0\" skipped=\"0\" status=\"{}\">\n",
+        summary.executed,
+        summary.failed,
+        escape_xml(summary.status)
     ));
-    for case in selected {
+    for case in results {
         out.push_str(&format!(
             "  <testcase classname=\"{}\" name=\"{}\">\n",
-            escape_xml(case.file.display().to_string().as_str()),
+            escape_xml(case.file.as_str()),
             escape_xml(case.function.as_str())
         ));
-        out.push_str("    <skipped message=\"execution deferred in Gate D foundation\" />\n");
+        if case.status == "failed" {
+            out.push_str(&format!(
+                "    <failure message=\"{}\" />\n",
+                escape_xml(case.reason.as_deref().unwrap_or("test failed"))
+            ));
+        }
         out.push_str("  </testcase>\n");
     }
     out.push_str("</testsuite>");
     out
+}
+
+fn single_line_error(err: &impl std::fmt::Display) -> String {
+    err.to_string()
+        .lines()
+        .next()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .unwrap_or_else(|| "unknown error".to_string())
 }
 
 fn escape_xml(input: &str) -> String {
@@ -709,7 +1333,10 @@ fn test_error(
 
 #[cfg(test)]
 mod tests {
-    use super::{escape_xml, normalize_relpath, TestPlan, TestPlanCase};
+    use super::{
+        escape_xml, merge_mock_sets, normalize_relpath, TestPlan, TestPlanCase,
+        DEFAULT_TEST_TIMEOUT_MS,
+    };
     use std::path::Path;
 
     #[test]
@@ -750,5 +1377,19 @@ mod tests {
             original, ids,
             "unsorted test plan fixtures should differ from sorted order"
         );
+    }
+
+    #[test]
+    fn merge_mock_sets_preserves_last_override_deterministically() {
+        let merged = merge_mock_sets(
+            &["common".to_string(), "base".to_string()],
+            &["promo".to_string(), "base".to_string()],
+        );
+        assert_eq!(merged, vec!["common", "promo", "base"]);
+    }
+
+    #[test]
+    fn default_timeout_contract_is_two_minutes() {
+        assert_eq!(DEFAULT_TEST_TIMEOUT_MS, 120_000);
     }
 }

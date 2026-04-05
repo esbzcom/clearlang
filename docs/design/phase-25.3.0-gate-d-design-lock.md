@@ -24,6 +24,7 @@ Gate D follows project design principles in `README.md`:
 - No broad test-framework feature expansion beyond locked Gate D contract.
 - No relaxation of release policy (`release == proved`).
 - No compatibility-first fallback behavior that hides contract failures.
+- No concurrent-process execution contract for the same project/workspace (`clg test` is single active process per project root by policy).
 
 ## Deterministic/Fall-Closed Contracts
 - Discovery order, selected case order, and report shape are deterministic.

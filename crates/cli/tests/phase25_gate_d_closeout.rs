@@ -87,6 +87,7 @@ fn gate_d_quality_matrix_and_migration_policy_docs_are_published() {
     assert!(testing.contains("Runtime Worker Safety Policy (25.3.25)"));
     assert!(testing.contains("Proof-Mode Policy (25.3.5)"));
     assert!(testing.contains("Deferred Flags Policy (25.3.19.1)"));
+    assert!(testing.contains("Single-process policy"));
 }
 
 #[test]
@@ -104,6 +105,7 @@ fn gate_d_design_and_policy_lock_docs_are_published() {
     assert!(gate_d_lock.contains("Gate D Exit Criterion"));
     assert!(gate_d_lock.contains("clg test"));
     assert!(gate_d_lock.contains("release == proved"));
+    assert!(gate_d_lock.contains("single active process per project root"));
 
     let proof_mode = fs::read_to_string(
         root.join("docs")
@@ -129,6 +131,17 @@ fn gate_d_design_and_policy_lock_docs_are_published() {
     assert!(deferred_flags.contains("--fail-fast"));
     assert!(deferred_flags.contains("--list"));
     assert!(deferred_flags.contains("tests/test-plan.json"));
+
+    let evidence = fs::read_to_string(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.3-evidence-index.md"),
+    )
+    .expect("read gate d evidence index");
+    assert!(evidence.contains("Phase 25.3 - Implementation Evidence Index"));
+    assert!(evidence.contains("crates/cli/src/commands/test.rs"));
+    assert!(evidence.contains("crates/cli/src/main.rs"));
+    assert!(evidence.contains("xtask/src/main/core.rs"));
 }
 
 #[test]

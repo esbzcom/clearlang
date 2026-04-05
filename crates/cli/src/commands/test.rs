@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -992,22 +993,49 @@ fn compile_modules_for_selected(
             config.mock_sets.as_slice(),
             json_errors,
         )?;
-        let harness = write_case_harness(
-            overlay_root.as_path(),
-            project_root.as_path(),
-            case,
-            json_errors,
-        )?;
-        let module = compile_test_module(
-            engine,
-            harness.as_path(),
-            std::slice::from_ref(&case.function),
-            json_errors,
-        )?;
-        let _ = fs::remove_dir_all(overlay_root.as_path());
-        modules.push(module);
+        let compile_result = (|| {
+            let harness = write_case_harness(
+                overlay_root.as_path(),
+                project_root.as_path(),
+                case,
+                json_errors,
+            )?;
+            compile_test_module(
+                engine,
+                harness.as_path(),
+                std::slice::from_ref(&case.function),
+                json_errors,
+            )
+        })();
+        let cleanup_result = cleanup_overlay_root(overlay_root.as_path(), json_errors);
+
+        match (compile_result, cleanup_result) {
+            (Ok(module), Ok(())) => modules.push(module),
+            (Ok(_), Err(cleanup_err)) => return Err(cleanup_err),
+            (Err(compile_err), Ok(())) => return Err(compile_err),
+            (Err(compile_err), Err(_cleanup_err)) => {
+                // Preserve deterministic compile diagnostics when both compile and cleanup fail.
+                return Err(compile_err);
+            }
+        }
     }
     Ok(modules)
+}
+
+fn cleanup_overlay_root(overlay_root: &Path, json_errors: bool) -> Result<()> {
+    match fs::remove_dir_all(overlay_root) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("removing `{}`: {err}", overlay_root.display()),
+            overlay_root,
+            0,
+            0,
+            json_errors,
+        )
+        .into()),
+    }
 }
 
 fn prepare_case_overlay_project(

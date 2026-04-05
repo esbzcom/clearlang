@@ -263,10 +263,10 @@ locked surface:
   "schema_version": 1,
   "status": "ok",
   "report": "json",
-  "discovered": 1,
-  "selected": 1,
-  "executed": 1,
-  "passed": 1,
+  "discovered": 2,
+  "selected": 2,
+  "executed": 2,
+  "passed": 2,
   "failed": 0,
   "tests": [
     {
@@ -274,12 +274,25 @@ locked surface:
       "file": "tests/unit/discount_tests.clear",
       "function": "test_discount",
       "timeout_ms": 120000,
-      "mock_sets": ["common"],
+      "mock_sets": ["promo"],
       "status": "passed",
       "captured_stdout": "",
       "captured_stderr": "",
       "replay": {
         "argv": ["clg", "test", "<project-root>", "--filter", "tests/unit/discount_tests.clear::test_discount", "--report", "json"]
+      }
+    },
+    {
+      "id": "tests/unit/discount_tests.clear::test_discount_real",
+      "file": "tests/unit/discount_tests.clear",
+      "function": "test_discount_real",
+      "timeout_ms": 120000,
+      "mock_sets": [],
+      "status": "passed",
+      "captured_stdout": "",
+      "captured_stderr": "",
+      "replay": {
+        "argv": ["clg", "test", "<project-root>", "--filter", "tests/unit/discount_tests.clear::test_discount_real", "--report", "json"]
       }
     }
   ]
@@ -325,5 +338,37 @@ locked surface:
 }"#;
         let err = validate_clg_test_report_schema(report).expect_err("expected unsorted ids error");
         assert!(err.contains("must be sorted deterministically"));
+    }
+
+    #[test]
+    fn validate_clg_test_report_schema_rejects_mock_only_coverage() {
+        let report = r#"{
+  "schema_version": 1,
+  "status": "ok",
+  "report": "json",
+  "discovered": 1,
+  "selected": 1,
+  "executed": 1,
+  "passed": 1,
+  "failed": 0,
+  "tests": [
+    {
+      "id": "tests/unit/discount_tests.clear::test_discount",
+      "file": "tests/unit/discount_tests.clear",
+      "function": "test_discount",
+      "timeout_ms": 120000,
+      "mock_sets": ["promo"],
+      "status": "passed",
+      "captured_stdout": "",
+      "captured_stderr": "",
+      "replay": {
+        "argv": ["clg", "test", "<project-root>", "--filter", "tests/unit/discount_tests.clear::test_discount", "--report", "json"]
+      }
+    }
+  ]
+}"#;
+        let err = validate_clg_test_report_schema(report)
+            .expect_err("expected balanced mocked/non-mocked coverage error");
+        assert!(err.contains("balanced critical-path coverage"));
     }
 }

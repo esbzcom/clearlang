@@ -230,7 +230,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C135 | test | Test plan schema/governance failure (`tests/test-plan.json` malformed, unsupported schema, unsorted/duplicate `test_id`, unknown referenced test id, or invalid timeout contract). |
 | C136 | test | Mock-set policy failure (unknown/missing mock set path, explicit binding policy breach, invalid mocks directory contract, or mock path-safety violation such as symlink/out-of-root resolution). |
 | C137 | test | Per-test timeout failure in runner execution (deterministic timeout policy breach; reported as case failure with `failure_kind=timeout`). |
-| C138 | test | Per-test runtime/harness failure in runner execution (instantiate/signature/runtime trap path; reported as case failure with `failure_kind=runtime`). |
+| C138 | test | Per-test runtime/harness failure in runner execution (instantiate/signature/runtime trap, deterministic fuel/memory worker-limit trap, or captured worker crash; reported as case failure with `failure_kind=runtime`). |
 | C139 | test | Per-test assertion failure (`test_*` returned false/0); reported as case failure with `failure_kind=assertion_false`. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |

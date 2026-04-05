@@ -1,6 +1,6 @@
 import services::discount
 
-function test_discount_uses_common_rate() -> Bool {
+function test_discount_uses_real_rate() -> Bool {
     discount::compute_discount(200) == 20
 }
 

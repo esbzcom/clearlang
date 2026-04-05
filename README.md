@@ -499,6 +499,7 @@ ClearLang aims to be:
 
 Gate D testing references:
 - Test guide: `docs/testing.md`
+- Quality matrix: `docs/testing-quality-matrix.md`
 - Example project: `examples/projects/testing/`
 
 ---

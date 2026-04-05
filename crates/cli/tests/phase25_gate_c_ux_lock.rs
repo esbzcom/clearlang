@@ -48,7 +48,10 @@ fn gate_c_primary_command_docs_mark_test_as_phase_25_3_reserved_contract() {
 
     let cli_main = fs::read_to_string(root.join("crates").join("cli").join("src").join("main.rs"))
         .expect("read cli main");
-    assert!(cli_main.contains("primary now: check, release; planned: test [25.3.2];"));
+    assert!(
+        cli_main.contains("primary: check, test, release;"),
+        "cli about string should mark `clg test` as shipped in the primary surface"
+    );
 }
 
 #[test]

@@ -6,6 +6,7 @@ Status:
 - `clg test` runner core is shipped for deterministic serial execution (`25.3.2`, `25.3.10`, `25.3.11`, `25.3.14.1`, `25.3.20`).
 - Deterministic mock execution is shipped with explicit per-test bindings and fail-closed path safety (`25.3.4`, `25.3.15`, `25.3.16`, `25.3.17`, `25.3.24`).
 - CI/release-precheck gates are shipped for `clg test` schema validation and cross-platform parity (`25.3.7`, `25.3.22`).
+- Closeout quality/runtime/docs gates are shipped for matrix coverage, balanced mock confidence, runtime worker safety, and contract drift detection (`25.3.6`, `25.3.8`, `25.3.18`, `25.3.25`, `25.3.26`).
 
 ## Design Constraints
 
@@ -69,7 +70,7 @@ Binding policy:
 - Effective mock-set execution is per-test and isolated (fresh compile + fresh runtime context per case).
 - Signature/effect mismatch is a deterministic failure.
 
-## Planned CLI Shape (Minimal)
+## CLI Shape (Minimal, Shipped)
 
 Minimal `clg test` surface:
 - `<path?>`
@@ -90,6 +91,40 @@ Non-essential flags are deferred; policy remains controlled via `tests/test-plan
 - `cargo run -p xtask -- release-precheck` includes fail-closed `clg test examples/projects/testing --report json` schema validation.
 - Milestone parity gate runs `milestone3_test_parity` on Windows and Linux and compares emitted summaries byte-for-byte.
 - `milestone3-release-train-gate` depends on both proof parity and `clg test` parity compare jobs before milestone tag release gating.
+
+## Coverage Matrix Contract (25.3.6)
+
+- "Enough tests" is defined by scenario completeness, not numeric thresholds.
+- Canonical matrix: `docs/testing-quality-matrix.md`.
+- Gate D completion requires positive + negative deterministic evidence across parser/type/contracts/runtime/mock/release-parity scenarios.
+
+## Migration Policy (25.3.8)
+
+- Canonical unit-test source-of-truth for `clg test` is `tests/` (`tests/unit`, `tests/mocks`, `tests/test-plan.json`).
+- `clearlang-tests/` remains a temporary legacy sample/e2e corpus for non-`clg test` compile/run coverage while migration finalization is deferred.
+- Cutover trigger criteria:
+  - `clg test` contract and mock behavior are stable across replay/parity gates.
+  - canonical `tests/` coverage matrix rows are complete and green in CI.
+  - release-precheck and release-train gates no longer depend on legacy-only fixtures.
+
+## Balanced Mock Confidence Gate (25.3.18)
+
+- Gate D quality policy requires critical-path evidence to include both:
+  - non-mocked execution, and
+  - mocked execution.
+- `xtask release-precheck` enforces this in the canonical testing example via fail-closed schema/quality checks on `clg test --report json`.
+- Purpose: avoid mock-only confidence for release-critical behavior.
+
+## Runtime Worker Safety Policy (25.3.25)
+
+- `clg test` workers apply deterministic runtime guardrails beyond timeout:
+  - fuel limit,
+  - memory-growth limit,
+  - crash capture (`worker_crash`) with deterministic runtime status mapping.
+- Failures from these safety guardrails remain `failure_kind=runtime` with `failure_code=C138` and stable reason prefixes:
+  - `fuel_exhausted: ...`
+  - `memory_limit: ...`
+  - `worker_crash: ...`
 
 ## Report Contract (v1)
 

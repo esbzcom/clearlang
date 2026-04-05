@@ -26,7 +26,7 @@ clg run examples/projects/testing/main.clear
 clg test examples/projects/testing --report json
 ```
 
-IDE/profile shape (planned):
+IDE/profile shape (available now):
 
 ```powershell
 clg --non-interactive --json-errors --json-events test examples/projects/testing --report json
@@ -35,5 +35,5 @@ clg --non-interactive --json-errors --json-events test examples/projects/testing
 ## Why this example exists
 
 - Demonstrates deterministic mock binding via `tests/test-plan.json`.
-- Demonstrates layered mock sets (`common` + `promo`) for per-test behavior.
+- Demonstrates balanced critical-path coverage with both non-mocked and mocked (`promo`) cases.
 - Demonstrates release-safety intent: test/mock files are test-only and must not enter release artifacts.

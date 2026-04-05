@@ -1,19 +1,10 @@
 {
   "schema_version": 1,
-  "default_mock_sets": [
-    "common"
-  ],
+  "default_mock_sets": [],
   "cases": [
-    {
-      "test_id": "tests/unit/discount_tests.clear::test_discount_uses_common_rate",
-      "mock_sets": [
-        "common"
-      ]
-    },
     {
       "test_id": "tests/unit/discount_tests.clear::test_discount_uses_promo_rate",
       "mock_sets": [
-        "common",
         "promo"
       ],
       "timeout_ms": 120000

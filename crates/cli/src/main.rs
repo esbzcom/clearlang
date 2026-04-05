@@ -18,7 +18,7 @@ use clg_cli::signing::SignScope;
 #[command(
     name = "clg",
     version,
-    about = "ClearLang CLI (primary now: check, release; planned: test [25.3.2]; advanced: parse, build, run, verify, pkg, strict)",
+    about = "ClearLang CLI (primary: check, test, release; advanced: parse, build, run, verify, pkg, strict)",
     long_about = None
 )]
 struct Cli {

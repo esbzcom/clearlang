@@ -213,6 +213,8 @@ fn validate_clg_test_report_schema(raw: &str) -> Result<(), String> {
     }
 
     let mut prev_id: Option<String> = None;
+    let mut mocked_cases = 0usize;
+    let mut non_mocked_cases = 0usize;
     for case in tests {
         let case_obj = case
             .as_object()
@@ -233,10 +235,15 @@ fn validate_clg_test_report_schema(raw: &str) -> Result<(), String> {
             .get("timeout_ms")
             .and_then(serde_json::Value::as_u64)
             .ok_or_else(|| format!("test `{id}` missing numeric `timeout_ms`"))?;
-        let _mock_sets = case_obj
+        let mock_sets = case_obj
             .get("mock_sets")
             .and_then(serde_json::Value::as_array)
             .ok_or_else(|| format!("test `{id}` missing array `mock_sets`"))?;
+        if mock_sets.is_empty() {
+            non_mocked_cases += 1;
+        } else {
+            mocked_cases += 1;
+        }
         let status = case_obj
             .get("status")
             .and_then(serde_json::Value::as_str)
@@ -281,6 +288,11 @@ fn validate_clg_test_report_schema(raw: &str) -> Result<(), String> {
             }
         }
         prev_id = Some(id.to_string());
+    }
+    if mocked_cases == 0 || non_mocked_cases == 0 {
+        return Err(format!(
+            "`clg test` schema gate requires balanced critical-path coverage with mocked and non-mocked cases (mocked={mocked_cases}, non_mocked={non_mocked_cases})"
+        ));
     }
 
     Ok(())

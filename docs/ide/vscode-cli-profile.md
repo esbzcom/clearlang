@@ -76,6 +76,7 @@ Stability rules:
   - `failure_kind` / `failure_code` (`C137|C138|C139`)
   - `captured_stdout` / `captured_stderr`
   - `replay.argv` for single-test replay flow.
+  - runtime safety reasons for `C138` (`fuel_exhausted`, `memory_limit`, `worker_crash`) when applicable.
 
 ## Channel and Exit-Code Contract
 - Success payloads: `stdout`.

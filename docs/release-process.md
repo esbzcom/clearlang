@@ -68,6 +68,7 @@ Use the plugin-safe profile for primary commands:
 
 ```powershell
 clg --non-interactive --json-errors --json-events check examples/projects/generic/main.clear --root examples/projects/generic
+clg --non-interactive --json-errors --json-events test examples/projects/testing --report json
 clg --non-interactive --json-errors --json-events release examples/projects/generic/main.clear --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 

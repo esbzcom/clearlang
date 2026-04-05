@@ -30,6 +30,8 @@ const TEST_TIMEOUT_FAILURE_CODE: &str = "C137";
 const TEST_RUNTIME_FAILURE_CODE: &str = "C138";
 const TEST_ASSERTION_FAILURE_CODE: &str = "C139";
 const DEFAULT_TEST_TIMEOUT_MS: u64 = 120_000;
+const DEFAULT_TEST_WORKER_FUEL_LIMIT: u64 = 50_000_000;
+const DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum TestReportFormat {
@@ -66,6 +68,11 @@ struct TestCase {
 struct TestExecutionConfig {
     timeout_ms: u64,
     mock_sets: Vec<String>,
+}
+
+#[derive(Debug)]
+struct TestStoreState {
+    limits: wt::StoreLimits,
 }
 
 #[derive(Debug, Deserialize)]
@@ -948,6 +955,7 @@ fn validate_mock_sets(
 fn build_execution_engine() -> Result<wt::Engine> {
     let mut config = wt::Config::new();
     config.epoch_interruption(true);
+    config.consume_fuel(true);
     wt::Engine::new(&config).context("creating wasmtime engine")
 }
 
@@ -1587,7 +1595,7 @@ fn execute_selected_tests(
                 ("mock_sets", format_mock_sets(config.mock_sets.as_slice())),
             ],
         );
-        let outcome = execute_single_test(engine, module, case, config.timeout_ms);
+        let outcome = execute_single_test_safely(engine, module, case, config.timeout_ms);
         logger.event(
             LogLevel::Info,
             "finish",
@@ -1631,14 +1639,39 @@ struct TestExecutionOutcome {
     captured_stderr: String,
 }
 
+fn execute_single_test_safely(
+    engine: &wt::Engine,
+    module: &wt::Module,
+    case: &TestCase,
+    timeout_ms: u64,
+) -> TestExecutionOutcome {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        execute_single_test(engine, module, case, timeout_ms)
+    })) {
+        Ok(outcome) => outcome,
+        Err(payload) => fail_runtime_outcome(format!(
+            "worker_crash: {}",
+            panic_payload_message(payload.as_ref())
+        )),
+    }
+}
+
 fn execute_single_test(
     engine: &wt::Engine,
     module: &wt::Module,
     case: &TestCase,
     timeout_ms: u64,
 ) -> TestExecutionOutcome {
-    let mut store = wt::Store::new(engine, ());
+    let limits = wt::StoreLimitsBuilder::new()
+        .memory_size(DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES)
+        .trap_on_grow_failure(true)
+        .build();
+    let mut store = wt::Store::new(engine, TestStoreState { limits });
+    store.limiter(|state| &mut state.limits);
     store.set_epoch_deadline(1);
+    if let Err(err) = store.set_fuel(DEFAULT_TEST_WORKER_FUEL_LIMIT) {
+        return fail_runtime_outcome(format!("fuel_config_error: {}", single_line_error(&err)));
+    }
 
     let instance = match wt::Instance::new(&mut store, module, &[]) {
         Ok(instance) => instance,
@@ -1708,7 +1741,7 @@ fn execute_single_test(
                     captured_stderr: String::new(),
                 };
             }
-            fail_runtime_outcome(format!("runtime trap: {}", single_line_error(&err)))
+            fail_runtime_outcome(classify_runtime_failure(single_line_error(&err).as_str()))
         }
     }
 }
@@ -1722,6 +1755,31 @@ fn fail_runtime_outcome(reason: String) -> TestExecutionOutcome {
         captured_stdout: String::new(),
         captured_stderr: String::new(),
     }
+}
+
+fn classify_runtime_failure(message: &str) -> String {
+    let lowered = message.to_ascii_lowercase();
+    if lowered.contains("out of fuel") || lowered.contains("fuel") {
+        return format!("fuel_exhausted: {message}");
+    }
+    if lowered.contains("growing memory")
+        || lowered.contains("memory.grow")
+        || lowered.contains("memory growth")
+        || (lowered.contains("memory") && lowered.contains("grow"))
+    {
+        return format!("memory_limit: {message}");
+    }
+    format!("runtime_trap: {message}")
+}
+
+fn panic_payload_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(msg) = payload.downcast_ref::<&'static str>() {
+        return (*msg).to_string();
+    }
+    if let Some(msg) = payload.downcast_ref::<String>() {
+        return msg.clone();
+    }
+    "panic payload is not a string".to_string()
 }
 
 fn spawn_timeout_watchdog(
@@ -1834,7 +1892,7 @@ fn emit_json_report(
         executed: summary.executed,
         passed: summary.passed,
         failed: summary.failed,
-        note: "Gate D machine-readable contract v1: serial execution, deterministic failure codes, per-test capture fields, replay argv, and deterministic mock-set execution",
+        note: "Gate D machine-readable contract v1: serial execution, deterministic failure codes, per-test capture fields, replay argv, deterministic mock-set execution, and runtime safety limits (fuel+memory)",
         tests: results
             .iter()
             .map(|case| JsonTestCase {
@@ -2008,8 +2066,10 @@ fn test_error(
 #[cfg(test)]
 mod tests {
     use super::{
-        escape_xml, merge_mock_sets, normalize_relpath, render_replay_command, replay_contract,
-        TestPlan, TestPlanCase, DEFAULT_TEST_TIMEOUT_MS, TEST_ASSERTION_FAILURE_CODE,
+        classify_runtime_failure, escape_xml, merge_mock_sets, normalize_relpath,
+        panic_payload_message, render_replay_command, replay_contract, TestPlan, TestPlanCase,
+        DEFAULT_TEST_TIMEOUT_MS, DEFAULT_TEST_WORKER_FUEL_LIMIT,
+        DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES, TEST_ASSERTION_FAILURE_CODE,
         TEST_RUNTIME_FAILURE_CODE, TEST_TIMEOUT_FAILURE_CODE,
     };
     use std::path::Path;
@@ -2103,5 +2163,36 @@ mod tests {
         assert_eq!(TEST_TIMEOUT_FAILURE_CODE, "C137");
         assert_eq!(TEST_RUNTIME_FAILURE_CODE, "C138");
         assert_eq!(TEST_ASSERTION_FAILURE_CODE, "C139");
+    }
+
+    #[test]
+    fn default_runtime_safety_limits_are_stable() {
+        assert_eq!(DEFAULT_TEST_WORKER_FUEL_LIMIT, 50_000_000);
+        assert_eq!(DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES, 64 * 1024 * 1024);
+    }
+
+    #[test]
+    fn classify_runtime_failure_maps_fuel_and_memory_reasons() {
+        assert_eq!(
+            classify_runtime_failure("all fuel consumed by WebAssembly"),
+            "fuel_exhausted: all fuel consumed by WebAssembly"
+        );
+        assert_eq!(
+            classify_runtime_failure("forcing trap when growing memory to 123 bytes"),
+            "memory_limit: forcing trap when growing memory to 123 bytes"
+        );
+        assert_eq!(
+            classify_runtime_failure("unexpected host trap"),
+            "runtime_trap: unexpected host trap"
+        );
+    }
+
+    #[test]
+    fn panic_payload_message_extracts_string_payloads() {
+        let static_payload: Box<dyn std::any::Any + Send> = Box::new("boom");
+        assert_eq!(panic_payload_message(static_payload.as_ref()), "boom");
+
+        let owned_payload: Box<dyn std::any::Any + Send> = Box::new("owned".to_string());
+        assert_eq!(panic_payload_message(owned_payload.as_ref()), "owned");
     }
 }

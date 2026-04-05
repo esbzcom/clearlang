@@ -193,6 +193,7 @@ clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/pu
 ## 6) Publish Bundle
 Publish these files together:
 - `out/generic.wasm`
+- `out/generic.strict-import-map.json`
 - `out/generic.vc.json`
 - `out/generic.sig.json`
 - `out/generic.assurance.json`
@@ -206,6 +207,8 @@ Publish these files together:
 - `--release-profile production` enforces fail-closed theorem-grade gating at build/sign time.
 - `--release-profile production` also enforces release-surface policy (`C122`): used `std::...` symbols must be listed as `proved` in `docs/proofs/proof-coverage-matrix.json`.
 - `--release-profile production` enforces crypto proof-boundary policy (`C123`): any remaining `crypto.uninterpreted` boundary blocks release-grade/theorem-grade claims.
+- `--release-profile production` enforces test isolation policy (`C128`): module graph must not reference `tests/` or `tests/mocks/`.
+- `clg release` enforces release artifact scan policy (`C129`): strict import-map/release-bundle evidence must not include test/mock source paths.
 - Fail-closed release gate: block production release on any proof outcome `failed|unknown|timeout|assumed`.
 - `--require-assurance proved_all` now also requires zero assumption boundaries in signed payloads/manifests (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted` are prohibited in release bundles).
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.

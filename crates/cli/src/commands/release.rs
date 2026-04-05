@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
+use serde_json::Value as JsonValue;
 
 use crate::commands::build::{self, CompilerMode, ReleaseProfile, StdCoreLinkMode};
 use crate::commands::helpers::{make_single_json_error, sha256_hex, CommandError};
@@ -18,6 +19,7 @@ use crate::signing::SignScope;
 #[derive(Debug, Clone)]
 struct ReleasePaths {
     module: PathBuf,
+    strict_import_map: PathBuf,
     vcs: PathBuf,
     proof: PathBuf,
     signature: PathBuf,
@@ -43,6 +45,7 @@ struct ReleaseBundleManifestV1 {
 #[derive(Debug, Clone, Serialize)]
 struct ReleaseArtifacts {
     module: ReleaseArtifactFile,
+    strict_import_map: ReleaseArtifactFile,
     vcs: ReleaseArtifactFile,
     proof: ReleaseArtifactFile,
     signature: ReleaseArtifactFile,
@@ -172,6 +175,10 @@ pub fn run(
         )?;
     }
     {
+        let _stage = timings.start(logger, "release_artifact_scan");
+        validate_release_import_map_has_no_test_paths(&paths, file.as_path(), json_errors)?;
+    }
+    {
         let _stage = timings.start(logger, "release_verify");
         verify::run(
             paths.module.clone(),
@@ -279,6 +286,7 @@ fn release_paths(root: &Path, out_dir: Option<PathBuf>, stem: &str) -> ReleasePa
     let out_dir = out_dir.unwrap_or_else(|| root.join("out").join("release"));
     ReleasePaths {
         module: out_dir.join(format!("{stem}.wasm")),
+        strict_import_map: out_dir.join(format!("{stem}.strict-import-map.json")),
         vcs: out_dir.join(format!("{stem}.vc.json")),
         proof: out_dir.join(format!("{stem}.proof.json")),
         signature: out_dir.join(format!("{stem}.sig.json")),
@@ -314,6 +322,7 @@ fn write_release_bundle_manifest(
         trust_policy: trust_policy.display().to_string(),
         artifacts: ReleaseArtifacts {
             module: artifact_file(paths.module.as_path())?,
+            strict_import_map: artifact_file(paths.strict_import_map.as_path())?,
             vcs: artifact_file(paths.vcs.as_path())?,
             proof: artifact_file(paths.proof.as_path())?,
             signature: artifact_file(paths.signature.as_path())?,
@@ -356,6 +365,78 @@ fn artifact_file(path: &Path) -> Result<ReleaseArtifactFile> {
         path: path.display().to_string(),
         sha256: sha256_hex(bytes.as_slice()),
     })
+}
+
+fn validate_release_import_map_has_no_test_paths(
+    paths: &ReleasePaths,
+    file: &Path,
+    json_errors: bool,
+) -> Result<()> {
+    let bytes = fs::read(paths.strict_import_map.as_path()).map_err(|err| {
+        release_error(
+            "C129",
+            format!(
+                "release artifact scan failed: reading strict import-map `{}`: {err}",
+                paths.strict_import_map.display()
+            ),
+            file,
+            json_errors,
+        )
+    })?;
+    let import_map: JsonValue = serde_json::from_slice(bytes.as_slice()).map_err(|err| {
+        release_error(
+            "C129",
+            format!(
+                "release artifact scan failed: parsing strict import-map `{}`: {err}",
+                paths.strict_import_map.display()
+            ),
+            file,
+            json_errors,
+        )
+    })?;
+    let source_files = import_map
+        .get("source_files")
+        .and_then(JsonValue::as_array)
+        .ok_or_else(|| {
+            release_error(
+                "C129",
+                format!(
+                    "release artifact scan failed: strict import-map `{}` is missing `source_files[]`",
+                    paths.strict_import_map.display()
+                ),
+                file,
+                json_errors,
+            )
+        })?;
+    let mut violations = source_files
+        .iter()
+        .filter_map(JsonValue::as_str)
+        .filter(|path| path_has_tests_or_mocks(path))
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    violations.sort();
+    violations.dedup();
+    if violations.is_empty() {
+        return Ok(());
+    }
+    Err(release_error(
+        "C129",
+        format!(
+            "release artifact scan failed: strict import-map references test/mock source paths [{}]",
+            violations.join(", ")
+        ),
+        file,
+        json_errors,
+    ))
+}
+
+fn path_has_tests_or_mocks(path: &str) -> bool {
+    let segments = path
+        .split(['/', '\\'])
+        .filter(|segment| !segment.trim().is_empty())
+        .map(|segment| segment.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    segments.iter().any(|segment| segment == "tests")
 }
 
 fn file_stem_or_error(file: &Path, json_errors: bool) -> Result<String> {

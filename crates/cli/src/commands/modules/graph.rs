@@ -232,11 +232,18 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
                 json_errors,
             )
         })?;
+    let mut source_files = modules
+        .iter()
+        .map(|module| module.file.clone())
+        .collect::<Vec<_>>();
+    source_files.sort_by(|lhs, rhs| lhs.as_os_str().cmp(rhs.as_os_str()));
+    source_files.dedup();
 
     Ok(ProgramLoad {
         program: resolved,
         std_types,
         external_imports: package_index.external_imports().to_vec(),
+        source_files,
     })
 }
 

@@ -122,6 +122,11 @@ Release workflows must enforce:
 - no test/mock paths in release bundle/import-map,
 - tamper evidence via signature/hash verification gates.
 
+Shipped Gate D release-safety diagnostics:
+- `C128`: production build/release module-graph isolation failure (`tests/` or `tests/mocks/` reference).
+- `C129`: release artifact scan failure (strict import-map/release bundle evidence invalid or includes test/mock source paths).
+- `V003`: signature-bound hash mismatch (including mock/test substitution tamper attempts).
+
 ## Example
 
 Reference example project:

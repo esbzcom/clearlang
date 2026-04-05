@@ -380,6 +380,7 @@ mod tests {
         assert!(strict_determinism_violation(
             &bindings.expected_profiles,
             &host_profile,
+            &[],
             linked.as_slice(),
             diagnostics.as_slice(),
         )
@@ -437,6 +438,7 @@ mod tests {
         let err = strict_determinism_violation(
             &bindings.expected_profiles,
             &host_profile,
+            &[],
             linked.as_slice(),
             diagnostics.as_slice(),
         )
@@ -466,6 +468,7 @@ mod tests {
         let artifact = strict_import_map_artifact_with_determinism_check(
             &expected_profiles,
             &host_profile,
+            &[],
             &baseline_outcome,
             &replay_outcome,
         )
@@ -483,6 +486,37 @@ mod tests {
                 .and_then(|code| code.as_str())
                 .unwrap_or_default(),
             "C105"
+        );
+    }
+
+    #[test]
+    fn release_module_graph_test_path_violation_detects_tests_tree() {
+        let root = Path::new("C:/repo/project");
+        let sources = vec![
+            PathBuf::from("C:/repo/project/main.clear"),
+            PathBuf::from("C:/repo/project/tests/unit/helper.clear"),
+        ];
+        let violation = release_module_graph_test_path_violation(root, sources.as_slice())
+            .expect("tests path should violate production release isolation gate");
+        assert!(violation.contains("tests/unit/helper.clear"));
+    }
+
+    #[test]
+    fn strict_import_map_source_files_are_sorted_and_normalized() {
+        let root = Path::new("C:/repo/project");
+        let sources = vec![
+            PathBuf::from("C:/repo/project/services/z.clear"),
+            PathBuf::from("C:/repo/project/main.clear"),
+            PathBuf::from("C:/repo/project/services/a.clear"),
+        ];
+        let normalized = strict_import_map_source_files(root, sources.as_slice());
+        assert_eq!(
+            normalized,
+            vec![
+                "main.clear".to_string(),
+                "services/a.clear".to_string(),
+                "services/z.clear".to_string(),
+            ]
         );
     }
 

@@ -327,6 +327,43 @@ fn production_release_profile_requires_proved_all_with_c121() {
 }
 
 #[test]
+fn production_release_profile_rejects_module_graph_test_paths_with_c128() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    let file = root.join("main.clear");
+    fs::create_dir_all(root.join("tests").join("unit")).expect("create tests/unit");
+    fs::write(
+        &file,
+        r#"
+        import tests::unit::helper
+        function main() -> Int { helper::value() }
+    "#,
+    )
+    .expect("write");
+    fs::write(
+        root.join("tests").join("unit").join("helper.clear"),
+        "export function value() -> Int { 1 }\n",
+    )
+    .expect("write helper");
+    write_minimal_strict_preflight_files(root);
+    let out = root.join("out.wasm");
+    let vcs = root.join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["--json-errors", "build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"])
+        .args(["--release-profile", "production"]);
+    let output = cmd.assert().failure().get_output().stdout.clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_single_json_error(&v, "C128", "build");
+}
+
+#[test]
 fn strict_mode_reports_c124_when_solver_is_unavailable() {
     let src = r#"
         pure function inc(x: Int) -> Int

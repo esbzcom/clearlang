@@ -28,6 +28,7 @@ pub struct ProgramLoad {
     pub program: Program,
     pub std_types: HashMap<String, StdTypeInfo>,
     pub external_imports: Vec<ExternalImportBinding>,
+    pub source_files: Vec<PathBuf>,
 }
 
 pub fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoad> {

@@ -32,12 +32,14 @@ fn write_strict_import_map_artifact(
 fn strict_import_map_artifact_with_determinism_check(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
+    source_files: &[String],
     baseline_outcome: &StrictGateOutcome,
     replay_outcome: &StrictGateOutcome,
 ) -> std::result::Result<StrictImportMapArtifact, String> {
     let baseline_json = strict_import_map_artifact_json(
         expected_profiles,
         host_profile,
+        source_files,
         baseline_outcome.linked_imports.as_slice(),
         baseline_outcome.violations.as_slice(),
     );
@@ -47,6 +49,7 @@ fn strict_import_map_artifact_with_determinism_check(
     let replay_json = strict_import_map_artifact_json(
         expected_profiles,
         host_profile,
+        source_files,
         replay_outcome.linked_imports.as_slice(),
         replay_outcome.violations.as_slice(),
     );
@@ -72,6 +75,7 @@ fn strict_import_map_artifact_with_determinism_check(
 fn strict_import_map_artifact_json(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
+    source_files: &[String],
     linked_imports: &[(String, AbiLinkProfile)],
     diagnostics: &[StrictGateViolation],
 ) -> serde_json::Value {
@@ -121,6 +125,7 @@ fn strict_import_map_artifact_json(
         "schema_version": 0,
         "kind": "clg.strict_direct_dependency_import_map.v0",
         "host_profile": host_profile.profile,
+        "source_files": source_files,
         "imports": imports,
         "diagnostics": diagnostics_json,
     })
@@ -130,6 +135,7 @@ fn strict_import_map_artifact_json(
 fn strict_determinism_violation(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
+    source_files: &[String],
     linked_imports: &[(String, AbiLinkProfile)],
     baseline_diagnostics: &[StrictGateViolation],
 ) -> Option<String> {
@@ -150,6 +156,7 @@ fn strict_determinism_violation(
     strict_import_map_artifact_with_determinism_check(
         expected_profiles,
         host_profile,
+        source_files,
         &baseline_outcome,
         &replay_outcome,
     )

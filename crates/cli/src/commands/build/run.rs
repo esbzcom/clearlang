@@ -99,7 +99,19 @@ pub fn run(
         let _stage = timings.start(logger, "parse");
         load_program(&file, json_errors)?
     };
+    if release_profile == ReleaseProfile::Production {
+        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
+        if let Some(message) =
+            release_module_graph_test_path_violation(module_root, loaded.source_files.as_slice())
+        {
+            fail_preflight("C128", &message)?;
+        }
+    }
     let ast = &loaded.program;
+    let strict_import_map_source_files = {
+        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
+        strict_import_map_source_files(module_root, loaded.source_files.as_slice())
+    };
     let (
         external_typer_sigs_for_typecheck,
         external_typer_sigs_for_link_resolution,
@@ -284,6 +296,7 @@ pub fn run(
             let strict_import_map_artifact = match strict_import_map_artifact_with_determinism_check(
                 &bindings.expected_profiles,
                 host_profile,
+                strict_import_map_source_files.as_slice(),
                 &baseline_outcome,
                 &replay_outcome,
             ) {
@@ -678,5 +691,72 @@ fn production_release_surface_violation(program: &Program) -> Result<Option<Stri
         matrix_path.display(),
         disallowed.join(", ")
     )))
+}
+
+fn strict_import_map_source_files(module_root: &Path, source_files: &[PathBuf]) -> Vec<String> {
+    let canonical_root = module_root
+        .canonicalize()
+        .unwrap_or_else(|_| module_root.to_path_buf());
+    let mut out = source_files
+        .iter()
+        .map(|source| {
+            let rel = source.strip_prefix(canonical_root.as_path()).unwrap_or(source);
+            normalize_path_for_report(rel)
+        })
+        .collect::<Vec<_>>();
+    out.sort();
+    out.dedup();
+    out
+}
+
+fn release_module_graph_test_path_violation(
+    module_root: &Path,
+    source_files: &[PathBuf],
+) -> Option<String> {
+    let canonical_root = module_root
+        .canonicalize()
+        .unwrap_or_else(|_| module_root.to_path_buf());
+    let mut offending = source_files
+        .iter()
+        .filter_map(|source| {
+            let rel = source.strip_prefix(canonical_root.as_path()).unwrap_or(source);
+            has_tests_or_mocks_segment(rel).then(|| normalize_path_for_report(rel))
+        })
+        .collect::<Vec<_>>();
+    offending.sort();
+    offending.dedup();
+    if offending.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "release profile `production` forbids module-graph references to `tests/` or `tests/mocks/`; found [{}]",
+        offending.join(", ")
+    ))
+}
+
+fn has_tests_or_mocks_segment(path: &Path) -> bool {
+    let mut segments = path
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    if segments.is_empty() {
+        return false;
+    }
+    segments.iter_mut().for_each(|segment| {
+        *segment = segment.to_ascii_lowercase();
+    });
+    for window in segments.windows(2) {
+        if window[0] == "tests" {
+            return true;
+        }
+    }
+    segments.iter().any(|segment| segment == "tests")
+}
+
+fn normalize_path_for_report(path: &Path) -> String {
+    path.components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 

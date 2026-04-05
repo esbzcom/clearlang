@@ -1107,9 +1107,9 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.3.9 Extend machine-readable contracts for `clg test`: add `test` stage support in diagnostics/docs, reserve stable test-specific error code range with explicit code-to-failure mapping (plan/schema/mock/timeout/runtime), and lock `--json-errors`/`--json-events` schema compatibility policy.
   - [x] 25.3.10 Lock deterministic execution model for `clg test` (strictly serial by default, ordering guarantees, seed/replay contract, and shared-state isolation rules), including deterministic timeout policy (default per-test timeout 2 minutes; overrides are policy-driven via `tests/test-plan.json`, not required in minimal CLI flags).
   - [x] 25.3.11 Define assertion/failure semantics for industrial unit tests (expected-failure tests, trap/error assertions, diff shape, and deterministic failure IDs in reports).
-  - [ ] 25.3.12 Add release isolation gates so `clg release`/production builds fail closed if module graph references `tests/` or `tests/mocks/`, with deterministic diagnostics.
-  - [ ] 25.3.13 Add release artifact scan gate proving release bundle/import-map contains production modules only (no test/mock paths).
-  - [ ] 25.3.14 Add tamper-evidence verification tests showing mock/test substitutions fail signed artifact verification/release acceptance.
+  - [x] 25.3.12 Add release isolation gates so `clg release`/production builds fail closed if module graph references `tests/` or `tests/mocks/`, with deterministic diagnostics.
+  - [x] 25.3.13 Add release artifact scan gate proving release bundle/import-map contains production modules only (no test/mock paths).
+  - [x] 25.3.14 Add tamper-evidence verification tests showing mock/test substitutions fail signed artifact verification/release acceptance.
   - [x] 25.3.14.1 Lock retry policy for deterministic quality gates: no automatic retries in `clg test` default/CI/release-precheck paths; rerun is explicit user action.
   - [x] 25.3.15 Add `tests/test-plan.json` schema v1 for deterministic case selection + per-test mock-set binding (`test_id -> mock_sets[]`) used by `clg test`.
   - [x] 25.3.16 Enforce explicit per-test mock binding policy (no implicit hidden mock fallback for tests that declare mock dependencies); missing bindings fail closed with deterministic diagnostics.

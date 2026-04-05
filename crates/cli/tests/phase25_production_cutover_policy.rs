@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -11,6 +12,34 @@ fn repo_root() -> PathBuf {
 fn read_json(path: PathBuf) -> Value {
     let raw = fs::read(path).expect("read json file");
     serde_json::from_slice(raw.as_slice()).expect("parse json file")
+}
+
+fn read_rust_source_with_includes(path: PathBuf) -> String {
+    fn visit(path: PathBuf, seen: &mut HashSet<PathBuf>, out: &mut String) {
+        let canonical = fs::canonicalize(&path).expect("canonicalize source path");
+        if !seen.insert(canonical.clone()) {
+            return;
+        }
+        let source = fs::read_to_string(&canonical).expect("read rust source");
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if let Some(rel) = trimmed
+                .strip_prefix("include!(\"")
+                .and_then(|rest| rest.strip_suffix("\");"))
+            {
+                let include_path = canonical.parent().expect("source has parent").join(rel);
+                visit(include_path, seen, out);
+                continue;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+
+    let mut seen = HashSet::new();
+    let mut out = String::new();
+    visit(path, &mut seen, &mut out);
+    out
 }
 
 #[test]
@@ -52,15 +81,14 @@ fn production_cutover_lock_pins_fail_closed_placeholder_policy() {
 #[test]
 fn production_cutover_policy_is_present_in_build_gate_logic() {
     let root = repo_root();
-    let run_rs = fs::read_to_string(
+    let run_rs = read_rust_source_with_includes(
         root.join("crates")
             .join("cli")
             .join("src")
             .join("commands")
             .join("build")
             .join("run.rs"),
-    )
-    .expect("read build/run.rs");
+    );
     assert!(
         run_rs.contains("release profile `production` requires theorem-grade assurance"),
         "production cutover should fail closed when proof_status is not proved_all"

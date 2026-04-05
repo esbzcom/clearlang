@@ -8,6 +8,7 @@ use clg_cli::commands::{
     helpers::CommandError,
     lint as cmd_lint, parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
     strict as cmd_strict,
+    test::{self as cmd_test, TestReportFormat},
     verify::{self as cmd_verify, VerifyMode},
 };
 use clg_cli::logging::Logger;
@@ -77,6 +78,18 @@ enum Commands {
         /// Module root containing strict release-policy inputs
         #[arg(long, value_name = "DIR")]
         root: Option<PathBuf>,
+    },
+    /// Phase 25.3 foundation: discover unit tests and validate test contracts
+    Test {
+        /// Project root/tests root/unit root (defaults to current directory)
+        #[arg(value_name = "PATH")]
+        path: Option<PathBuf>,
+        /// Select tests by substring match on stable test id
+        #[arg(long, value_name = "PATTERN")]
+        filter: Option<String>,
+        /// Report output format
+        #[arg(long, value_enum, default_value_t = TestReportFormat::Human)]
+        report: TestReportFormat,
     },
     /// Advanced expert/debug compile command. For production release, use `clg release`.
     Build {
@@ -276,6 +289,17 @@ fn main() -> Result<()> {
         Commands::Check { file, root } => {
             cmd_check::run(file, root, cli.json_errors, logger.with_command("check"))
         }
+        Commands::Test {
+            path,
+            filter,
+            report,
+        } => cmd_test::run(
+            path,
+            filter,
+            report,
+            cli.json_errors,
+            logger.with_command("test"),
+        ),
         Commands::Build {
             file,
             out,

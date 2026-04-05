@@ -11,5 +11,6 @@ pub mod release;
 pub(crate) mod release_defaults;
 pub mod run;
 pub mod strict;
+pub mod test;
 pub(crate) mod validation;
 pub mod verify;

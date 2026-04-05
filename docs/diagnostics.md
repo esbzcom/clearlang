@@ -33,7 +33,7 @@ ClearLang provides machine-readable diagnostics to keep tooling simple, provable
 - `ok`: always `false` for error output.
 - `errors`: one or more error objects.
 - `code`: stable error code.
-- `stage`: one of `parse` | `type` | `fmt` | `lint` | `build` | `check` | `strict` | `release` | `verify` | `runtime`.
+- `stage`: one of `parse` | `type` | `fmt` | `lint` | `build` | `check` | `test` | `strict` | `release` | `verify` | `runtime`.
 - `message`: concise, human-readable text.
 - `file`: input filename as provided to the CLI.
 - `start` / `end`: byte offsets in the source.
@@ -224,6 +224,9 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C130 | release | Release command contract input is invalid (for example, entry path has no usable stem for deterministic artifact naming). |
 | C132 | fmt | Formatter contract failure (invalid path, no `.clear` inputs found, read/write failure, or `clg fmt --check` detected required changes). |
 | C133 | lint | Lint contract failure (invalid path, no `.clear` inputs found, read failure, or warnings rejected via `clg lint --deny-warnings`). |
+| C134 | test | Test discovery/contract failure (invalid test root/layout, parse failure in test sources, duplicate discovered test id, or deterministic discovery contract violation). |
+| C135 | test | Test plan schema/governance failure (`tests/test-plan.json` malformed, unsupported schema, unsorted/duplicate `test_id`, unknown referenced test id, or invalid timeout contract). |
+| C136 | test | Mock-set binding policy failure (unknown/missing mock set path or invalid mocks directory contract during test-plan validation). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

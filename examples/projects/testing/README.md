@@ -4,7 +4,7 @@ This project is an example layout for Phase `25.3` (`clg test` + deterministic m
 
 Status:
 - `clg test` runner core is shipped in the current branch.
-- Mock-set execution remains fail-closed until deterministic mock-runner slices land.
+- Deterministic mock-set execution is shipped (explicit binding + deterministic merge/override).
 
 ## Layout
 

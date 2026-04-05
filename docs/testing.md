@@ -4,7 +4,7 @@ This guide documents the Phase `25.3` unit-testing contract for ClearLang.
 
 Status:
 - `clg test` runner core is shipped for deterministic serial execution (`25.3.2`, `25.3.10`, `25.3.11`, `25.3.14.1`, `25.3.20`).
-- Deterministic mock execution remains fail-closed until the mock runner slices land (`25.3.4` family).
+- Deterministic mock execution is shipped with explicit per-test bindings and fail-closed path safety (`25.3.4`, `25.3.15`, `25.3.16`, `25.3.17`, `25.3.24`).
 
 ## Design Constraints
 
@@ -36,6 +36,8 @@ Rules:
 - Unit test functions use `test_*` names.
 - Mock files mirror production module paths under `tests/mocks/<set>/...`.
 - Missing/invalid mock bindings fail closed.
+- When `default_mock_sets` is non-empty, each selected test must have an explicit `cases[]` entry.
+- Symlink/out-of-root mock paths are rejected with deterministic `C136` diagnostics.
 
 ## Deterministic Mock Binding
 
@@ -63,6 +65,7 @@ Binding policy:
 - Start from `default_mock_sets`.
 - Apply case `mock_sets` in listed order.
 - Later sets override earlier sets deterministically.
+- Effective mock-set execution is per-test and isolated (fresh compile + fresh runtime context per case).
 - Signature/effect mismatch is a deterministic failure.
 
 ## Planned CLI Shape (Minimal)

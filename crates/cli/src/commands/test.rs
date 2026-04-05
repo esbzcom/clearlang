@@ -16,6 +16,7 @@ use clg_codegen_wasm::{
 use clg_parser::parse_errors;
 use clg_typer::{check_with_vcs_with_std_and_external, ExternalBuiltinSig, TyperError};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use wasmtime as wt;
 
 use crate::commands::helpers::{extract_function_name, make_single_json_error, CommandError};
@@ -190,7 +191,13 @@ pub fn run(
         let engine = build_execution_engine().context("building test execution engine")?;
         let modules = {
             let _stage = timings.start(logger, "test_compile");
-            compile_modules_for_selected(&engine, &selected, json_errors)?
+            compile_modules_for_selected(
+                &engine,
+                &roots,
+                &selected,
+                &execution_config,
+                json_errors,
+            )?
         };
         {
             let _stage = timings.start(logger, "test_execute");
@@ -199,7 +206,7 @@ pub fn run(
                 &roots.project_root,
                 &selected,
                 &execution_config,
-                &modules,
+                modules.as_slice(),
                 json_errors,
                 logger,
             )?
@@ -440,17 +447,30 @@ fn collect_test_functions(
 }
 
 fn discover_clear_files(root: &Path, json_errors: bool) -> Result<Vec<PathBuf>> {
+    let canonical_root = canonicalize_path(root, json_errors)?;
     let mut files = Vec::new();
-    collect_clear_files(root, &mut files, json_errors)?;
+    collect_clear_files(
+        canonical_root.as_path(),
+        canonical_root.as_path(),
+        &mut files,
+        TEST_DISCOVERY_ERROR_CODE,
+        json_errors,
+    )?;
     files.sort_by(|a, b| a.as_os_str().cmp(b.as_os_str()));
     Ok(files)
 }
 
-fn collect_clear_files(dir: &Path, out: &mut Vec<PathBuf>, json_errors: bool) -> Result<()> {
+fn collect_clear_files(
+    dir: &Path,
+    canonical_root: &Path,
+    out: &mut Vec<PathBuf>,
+    error_code: &'static str,
+    json_errors: bool,
+) -> Result<()> {
     let mut entries = fs::read_dir(dir)
         .map_err(|err| {
             test_error(
-                TEST_DISCOVERY_ERROR_CODE,
+                error_code,
                 format!("reading `{}`: {err}", dir.display()),
                 dir,
                 0,
@@ -461,7 +481,7 @@ fn collect_clear_files(dir: &Path, out: &mut Vec<PathBuf>, json_errors: bool) ->
         .collect::<std::io::Result<Vec<_>>>()
         .map_err(|err| {
             test_error(
-                TEST_DISCOVERY_ERROR_CODE,
+                error_code,
                 format!("reading `{}`: {err}", dir.display()),
                 dir,
                 0,
@@ -475,7 +495,7 @@ fn collect_clear_files(dir: &Path, out: &mut Vec<PathBuf>, json_errors: bool) ->
         let path = entry.path();
         let ty = entry.file_type().map_err(|err| {
             test_error(
-                TEST_DISCOVERY_ERROR_CODE,
+                error_code,
                 format!("reading `{}`: {err}", path.display()),
                 path.as_path(),
                 0,
@@ -483,10 +503,59 @@ fn collect_clear_files(dir: &Path, out: &mut Vec<PathBuf>, json_errors: bool) ->
                 json_errors,
             )
         })?;
+        if ty.is_symlink() {
+            return Err(test_error(
+                error_code,
+                format!(
+                    "path safety violation: symlink entries are not allowed in `{}` (`{}`)",
+                    canonical_root.display(),
+                    path.display()
+                ),
+                path.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
         if ty.is_dir() {
-            collect_clear_files(path.as_path(), out, json_errors)?;
+            let canonical_dir =
+                canonicalize_path_with_code(path.as_path(), error_code, json_errors)?;
+            if !canonical_dir.starts_with(canonical_root) {
+                return Err(test_error(
+                    error_code,
+                    format!(
+                        "path safety violation: directory `{}` resolves outside `{}`",
+                        path.display(),
+                        canonical_root.display()
+                    ),
+                    path.as_path(),
+                    0,
+                    0,
+                    json_errors,
+                )
+                .into());
+            }
+            collect_clear_files(path.as_path(), canonical_root, out, error_code, json_errors)?;
         } else if ty.is_file() && is_clear_source(path.as_path()) {
-            out.push(path);
+            let canonical_file =
+                canonicalize_path_with_code(path.as_path(), error_code, json_errors)?;
+            if !canonical_file.starts_with(canonical_root) {
+                return Err(test_error(
+                    error_code,
+                    format!(
+                        "path safety violation: file `{}` resolves outside `{}`",
+                        path.display(),
+                        canonical_root.display()
+                    ),
+                    path.as_path(),
+                    0,
+                    0,
+                    json_errors,
+                )
+                .into());
+            }
+            out.push(canonical_file);
         }
     }
     Ok(())
@@ -690,6 +759,20 @@ fn build_execution_config(
     for case in selected {
         let (timeout_ms, mock_sets) = if let Some(plan) = plan {
             let case_plan = plan.cases_by_id.get(case.id.as_str());
+            if !plan.default_mock_sets.is_empty() && case_plan.is_none() {
+                return Err(test_error(
+                    TEST_MOCK_ERROR_CODE,
+                    format!(
+                        "missing explicit mock binding for test `{}`; add a `cases[]` entry in `tests/test-plan.json`",
+                        case.id
+                    ),
+                    roots.tests_root.as_path(),
+                    0,
+                    0,
+                    json_errors,
+                )
+                .into());
+            }
             let timeout_ms = case_plan
                 .and_then(|entry| entry.timeout_ms)
                 .unwrap_or(DEFAULT_TEST_TIMEOUT_MS);
@@ -703,22 +786,6 @@ fn build_execution_config(
         } else {
             (DEFAULT_TEST_TIMEOUT_MS, Vec::new())
         };
-
-        if !mock_sets.is_empty() {
-            return Err(test_error(
-                TEST_MOCK_ERROR_CODE,
-                format!(
-                    "test `{}` resolves mock sets [{}], but mock-set execution is not enabled yet in the current runner slice",
-                    case.id,
-                    mock_sets.join(", ")
-                ),
-                roots.tests_root.as_path(),
-                0,
-                0,
-                json_errors,
-            )
-            .into());
-        }
 
         out.push(TestExecutionConfig {
             timeout_ms,
@@ -764,6 +831,8 @@ fn discover_mock_sets(tests_root: &Path, json_errors: bool) -> Result<HashSet<St
         )
         .into());
     }
+    let canonical_mocks_root =
+        canonicalize_path_with_code(mocks_root.as_path(), TEST_MOCK_ERROR_CODE, json_errors)?;
 
     let mut entries = fs::read_dir(mocks_root.as_path())
         .map_err(|err| {
@@ -792,10 +861,60 @@ fn discover_mock_sets(tests_root: &Path, json_errors: bool) -> Result<HashSet<St
     let mut sets = HashSet::new();
     for entry in entries {
         let path = entry.path();
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                sets.insert(name.to_string());
+        let file_type = entry.file_type().map_err(|err| {
+            test_error(
+                TEST_MOCK_ERROR_CODE,
+                format!("reading `{}`: {err}", path.display()),
+                path.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+        if file_type.is_symlink() {
+            return Err(test_error(
+                TEST_MOCK_ERROR_CODE,
+                format!(
+                    "path safety violation: symlink mock-set entries are not allowed in `{}` (`{}`)",
+                    mocks_root.display(),
+                    path.display()
+                ),
+                path.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+        if file_type.is_dir() {
+            let canonical_set_root =
+                canonicalize_path_with_code(path.as_path(), TEST_MOCK_ERROR_CODE, json_errors)?;
+            if !canonical_set_root.starts_with(&canonical_mocks_root) {
+                return Err(test_error(
+                    TEST_MOCK_ERROR_CODE,
+                    format!(
+                        "path safety violation: mock set `{}` resolves outside `{}`",
+                        path.display(),
+                        mocks_root.display()
+                    ),
+                    path.as_path(),
+                    0,
+                    0,
+                    json_errors,
+                )
+                .into());
             }
+            let name = path.file_name().and_then(|n| n.to_str()).ok_or_else(|| {
+                test_error(
+                    TEST_MOCK_ERROR_CODE,
+                    format!("mock set path is not valid utf-8: `{}`", path.display()),
+                    path.as_path(),
+                    0,
+                    0,
+                    json_errors,
+                )
+            })?;
+            sets.insert(name.to_string());
         }
     }
     Ok(sets)
@@ -835,31 +954,432 @@ fn build_execution_engine() -> Result<wt::Engine> {
 
 fn compile_modules_for_selected(
     engine: &wt::Engine,
+    roots: &Roots,
     selected: &[TestCase],
+    execution_config: &[TestExecutionConfig],
     json_errors: bool,
-) -> Result<HashMap<PathBuf, wt::Module>> {
-    let mut by_file: HashMap<PathBuf, Vec<String>> = HashMap::new();
-    for case in selected {
-        by_file
-            .entry(case.file.clone())
-            .or_default()
-            .push(case.function.clone());
+) -> Result<Vec<wt::Module>> {
+    if selected.len() != execution_config.len() {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            "internal error: selected/config length mismatch".to_string(),
+            roots.project_root.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+        .into());
     }
 
-    let mut files: Vec<PathBuf> = by_file.keys().cloned().collect();
-    files.sort_by(|a, b| a.as_os_str().cmp(b.as_os_str()));
-
-    let mut modules = HashMap::with_capacity(files.len());
-    for file in files {
-        let mut functions = by_file
-            .remove(&file)
-            .expect("selected file must have associated functions");
-        functions.sort();
-        functions.dedup();
-        let module = compile_test_module(engine, file.as_path(), &functions, json_errors)?;
-        modules.insert(file, module);
+    let project_root = canonicalize_path_with_code(
+        roots.project_root.as_path(),
+        TEST_DISCOVERY_ERROR_CODE,
+        json_errors,
+    )?;
+    let mut modules = Vec::with_capacity(selected.len());
+    for (case, config) in selected.iter().zip(execution_config.iter()) {
+        let overlay_root = prepare_case_overlay_project(
+            roots,
+            project_root.as_path(),
+            case,
+            config.mock_sets.as_slice(),
+            json_errors,
+        )?;
+        let harness = write_case_harness(
+            overlay_root.as_path(),
+            project_root.as_path(),
+            case,
+            json_errors,
+        )?;
+        let module = compile_test_module(
+            engine,
+            harness.as_path(),
+            std::slice::from_ref(&case.function),
+            json_errors,
+        )?;
+        let _ = fs::remove_dir_all(overlay_root.as_path());
+        modules.push(module);
     }
     Ok(modules)
+}
+
+fn prepare_case_overlay_project(
+    roots: &Roots,
+    project_root: &Path,
+    case: &TestCase,
+    mock_sets: &[String],
+    json_errors: bool,
+) -> Result<PathBuf> {
+    if !case.file.starts_with(project_root) {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!(
+                "internal path error: discovered test `{}` is outside project root `{}`",
+                case.file.display(),
+                project_root.display()
+            ),
+            case.file.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
+
+    let overlay_base = std::env::temp_dir().join("clearlang-test-overlays-v1");
+    fs::create_dir_all(overlay_base.as_path()).map_err(|err| {
+        test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("creating `{}`: {err}", overlay_base.display()),
+            overlay_base.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+
+    let overlay_key = stable_overlay_key(project_root, case.id.as_str(), mock_sets);
+    let overlay_root = overlay_base.join(overlay_key);
+    if overlay_root.exists() {
+        fs::remove_dir_all(overlay_root.as_path()).map_err(|err| {
+            test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!("removing `{}`: {err}", overlay_root.display()),
+                overlay_root.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+    }
+    fs::create_dir_all(overlay_root.as_path()).map_err(|err| {
+        test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("creating `{}`: {err}", overlay_root.display()),
+            overlay_root.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+
+    let source_files = collect_project_source_files(project_root, json_errors)?;
+    for source in source_files {
+        let rel = source.strip_prefix(project_root).map_err(|_| {
+            test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!(
+                    "internal path error: cannot strip `{}` from `{}`",
+                    project_root.display(),
+                    source.display()
+                ),
+                source.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+        copy_overlay_file(
+            source.as_path(),
+            overlay_root.join(rel).as_path(),
+            TEST_DISCOVERY_ERROR_CODE,
+            json_errors,
+        )?;
+    }
+
+    for metadata_file in ["clg.package-metadata.json", "clg-packages.json"] {
+        let source = project_root.join(metadata_file);
+        if source.is_file() {
+            copy_overlay_file(
+                source.as_path(),
+                overlay_root.join(metadata_file).as_path(),
+                TEST_DISCOVERY_ERROR_CODE,
+                json_errors,
+            )?;
+        }
+    }
+
+    apply_mock_sets_to_overlay(
+        roots.tests_root.as_path(),
+        overlay_root.as_path(),
+        mock_sets,
+        json_errors,
+    )?;
+
+    Ok(overlay_root)
+}
+
+fn collect_project_source_files(project_root: &Path, json_errors: bool) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    collect_project_source_files_rec(project_root, &mut files, json_errors)?;
+    files.sort_by(|a, b| a.as_os_str().cmp(b.as_os_str()));
+    Ok(files)
+}
+
+fn collect_project_source_files_rec(
+    dir: &Path,
+    out: &mut Vec<PathBuf>,
+    json_errors: bool,
+) -> Result<()> {
+    let mut entries = fs::read_dir(dir)
+        .map_err(|err| {
+            test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!("reading `{}`: {err}", dir.display()),
+                dir,
+                0,
+                0,
+                json_errors,
+            )
+        })?
+        .collect::<std::io::Result<Vec<_>>>()
+        .map_err(|err| {
+            test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!("reading `{}`: {err}", dir.display()),
+                dir,
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+    entries.sort_by(|a, b| a.path().as_os_str().cmp(b.path().as_os_str()));
+
+    for entry in entries {
+        let path = entry.path();
+        let file_type = entry.file_type().map_err(|err| {
+            test_error(
+                TEST_DISCOVERY_ERROR_CODE,
+                format!("reading `{}`: {err}", path.display()),
+                path.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            collect_project_source_files_rec(path.as_path(), out, json_errors)?;
+        } else if file_type.is_file() && is_clear_source(path.as_path()) {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn apply_mock_sets_to_overlay(
+    tests_root: &Path,
+    overlay_root: &Path,
+    mock_sets: &[String],
+    json_errors: bool,
+) -> Result<()> {
+    if mock_sets.is_empty() {
+        return Ok(());
+    }
+
+    let mocks_root = tests_root.join("mocks");
+    let canonical_mocks_root =
+        canonicalize_path_with_code(mocks_root.as_path(), TEST_MOCK_ERROR_CODE, json_errors)?;
+    for set_name in mock_sets {
+        let set_root = mocks_root.join(set_name);
+        let canonical_set_root =
+            canonicalize_path_with_code(set_root.as_path(), TEST_MOCK_ERROR_CODE, json_errors)?;
+        if !canonical_set_root.starts_with(canonical_mocks_root.as_path()) {
+            return Err(test_error(
+                TEST_MOCK_ERROR_CODE,
+                format!(
+                    "path safety violation: mock set `{}` resolves outside `{}`",
+                    set_root.display(),
+                    mocks_root.display()
+                ),
+                set_root.as_path(),
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+        let mut mock_files = Vec::new();
+        collect_clear_files(
+            canonical_set_root.as_path(),
+            canonical_set_root.as_path(),
+            &mut mock_files,
+            TEST_MOCK_ERROR_CODE,
+            json_errors,
+        )?;
+        for source in mock_files {
+            let rel = source
+                .strip_prefix(canonical_set_root.as_path())
+                .map_err(|_| {
+                    test_error(
+                        TEST_MOCK_ERROR_CODE,
+                        format!(
+                            "internal path error: cannot strip `{}` from `{}`",
+                            canonical_set_root.display(),
+                            source.display()
+                        ),
+                        source.as_path(),
+                        0,
+                        0,
+                        json_errors,
+                    )
+                })?;
+            copy_overlay_file(
+                source.as_path(),
+                overlay_root.join(rel).as_path(),
+                TEST_MOCK_ERROR_CODE,
+                json_errors,
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+fn copy_overlay_file(
+    source: &Path,
+    destination: &Path,
+    error_code: &'static str,
+    json_errors: bool,
+) -> Result<()> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            test_error(
+                error_code,
+                format!("creating `{}`: {err}", parent.display()),
+                parent,
+                0,
+                0,
+                json_errors,
+            )
+        })?;
+    }
+    fs::copy(source, destination).map_err(|err| {
+        test_error(
+            error_code,
+            format!(
+                "copying `{}` to `{}`: {err}",
+                source.display(),
+                destination.display()
+            ),
+            source,
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+    Ok(())
+}
+
+fn write_case_harness(
+    overlay_root: &Path,
+    project_root: &Path,
+    case: &TestCase,
+    json_errors: bool,
+) -> Result<PathBuf> {
+    let rel = case.file.strip_prefix(project_root).map_err(|_| {
+        test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!(
+                "internal path error: discovered test `{}` is outside project root `{}`",
+                case.file.display(),
+                project_root.display()
+            ),
+            case.file.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+    let module_path = file_to_module_path(rel, case.file.as_path(), json_errors)?;
+    let module_alias = module_path.rsplit("::").next().ok_or_else(|| {
+        test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("invalid module path derived from `{}`", case.file.display()),
+            case.file.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+    let harness_source = format!(
+        "import {module_path}\n\nfunction {}() -> Bool {{\n    {module_alias}::{}()\n}}\n",
+        case.function, case.function
+    );
+    let digest = stable_overlay_key(project_root, case.id.as_str(), &[]);
+    let harness_path = overlay_root.join(format!("__clg_test_harness_{digest}.clear"));
+    fs::write(harness_path.as_path(), harness_source).map_err(|err| {
+        test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("writing `{}`: {err}", harness_path.display()),
+            harness_path.as_path(),
+            0,
+            0,
+            json_errors,
+        )
+    })?;
+    Ok(harness_path)
+}
+
+fn file_to_module_path(rel_file: &Path, file: &Path, json_errors: bool) -> Result<String> {
+    if rel_file.extension().and_then(|ext| ext.to_str()) != Some("clear") {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("expected `.clear` test file, found `{}`", file.display()),
+            file,
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
+    let mut segments = rel_file
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    if segments.is_empty() {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("invalid empty module path for `{}`", file.display()),
+            file,
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
+    let last = segments
+        .last_mut()
+        .expect("at least one module-path segment exists");
+    if let Some(stem) = Path::new(last).file_stem().and_then(|s| s.to_str()) {
+        *last = stem.to_string();
+    } else {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            format!("invalid utf-8 file name in `{}`", file.display()),
+            file,
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
+    Ok(segments.join("::"))
+}
+
+fn stable_overlay_key(project_root: &Path, test_id: &str, mock_sets: &[String]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(project_root.to_string_lossy().as_bytes());
+    hasher.update(b"\n");
+    hasher.update(test_id.as_bytes());
+    hasher.update(b"\n");
+    for set_name in mock_sets {
+        hasher.update(set_name.as_bytes());
+        hasher.update(b"\n");
+    }
+    format!("{:x}", hasher.finalize())
 }
 
 fn compile_test_module(
@@ -1025,7 +1545,7 @@ fn execute_selected_tests(
     project_root: &Path,
     selected: &[TestCase],
     execution_config: &[TestExecutionConfig],
-    modules: &HashMap<PathBuf, wt::Module>,
+    modules: &[wt::Module],
     json_errors: bool,
     logger: Logger,
 ) -> Result<Vec<ExecutedTestCase>> {
@@ -1040,9 +1560,24 @@ fn execute_selected_tests(
         )
         .into());
     }
+    if selected.len() != modules.len() {
+        return Err(test_error(
+            TEST_DISCOVERY_ERROR_CODE,
+            "internal error: selected/module length mismatch".to_string(),
+            project_root,
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
 
     let mut results = Vec::with_capacity(selected.len());
-    for (case, config) in selected.iter().zip(execution_config.iter()) {
+    for ((case, config), module) in selected
+        .iter()
+        .zip(execution_config.iter())
+        .zip(modules.iter())
+    {
         logger.event(
             LogLevel::Info,
             "start",
@@ -1053,20 +1588,6 @@ fn execute_selected_tests(
                 ("mock_sets", format_mock_sets(config.mock_sets.as_slice())),
             ],
         );
-        let module = modules.get(&case.file).ok_or_else(|| {
-            test_error(
-                TEST_DISCOVERY_ERROR_CODE,
-                format!(
-                    "internal error: missing compiled test module for `{}`",
-                    case.file.display()
-                ),
-                case.file.as_path(),
-                0,
-                0,
-                json_errors,
-            )
-        })?;
-
         let outcome = execute_single_test(engine, module, case, config.timeout_ms);
         logger.event(
             LogLevel::Info,
@@ -1314,7 +1835,7 @@ fn emit_json_report(
         executed: summary.executed,
         passed: summary.passed,
         failed: summary.failed,
-        note: "Gate D machine-readable contract v1: serial execution, deterministic failure codes, per-test capture fields, and replay argv; mock-set execution remains fail-closed until mock slice lands",
+        note: "Gate D machine-readable contract v1: serial execution, deterministic failure codes, per-test capture fields, replay argv, and deterministic mock-set execution",
         tests: results
             .iter()
             .map(|case| JsonTestCase {
@@ -1445,10 +1966,18 @@ fn normalize_relpath(root: &Path, path: &Path) -> String {
 }
 
 fn canonicalize_path(path: &Path, json_errors: bool) -> Result<PathBuf> {
+    canonicalize_path_with_code(path, TEST_DISCOVERY_ERROR_CODE, json_errors)
+}
+
+fn canonicalize_path_with_code(
+    path: &Path,
+    error_code: &'static str,
+    json_errors: bool,
+) -> Result<PathBuf> {
     fs::canonicalize(path).map_err(|err| {
         {
             test_error(
-                TEST_DISCOVERY_ERROR_CODE,
+                error_code,
                 format!("canonicalizing `{}`: {err}", path.display()),
                 path,
                 0,

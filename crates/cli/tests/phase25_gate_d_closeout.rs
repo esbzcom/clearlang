@@ -48,6 +48,26 @@ fn gate_d_cli_help_and_about_mark_test_as_shipped_primary_command() {
         stdout.contains("test") && stdout.contains("check") && stdout.contains("release"),
         "help output should include primary check/test/release commands"
     );
+
+    let test_help = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["test", "--help"])
+        .output()
+        .expect("run clg test --help");
+    assert_eq!(test_help.status.code(), Some(0));
+    let test_stdout = String::from_utf8(test_help.stdout).expect("test help stdout utf8");
+    for flag in [
+        "--plan",
+        "--mock-set",
+        "--timeout-ms",
+        "--fail-fast",
+        "--list",
+    ] {
+        assert!(
+            !test_stdout.contains(flag),
+            "deferred non-essential test flag should not be exposed in shipped CLI surface: {flag}"
+        );
+    }
 }
 
 #[test]
@@ -65,6 +85,50 @@ fn gate_d_quality_matrix_and_migration_policy_docs_are_published() {
     assert!(testing.contains("clearlang-tests/"));
     assert!(testing.contains("Balanced Mock Confidence Gate (25.3.18)"));
     assert!(testing.contains("Runtime Worker Safety Policy (25.3.25)"));
+    assert!(testing.contains("Proof-Mode Policy (25.3.5)"));
+    assert!(testing.contains("Deferred Flags Policy (25.3.19.1)"));
+}
+
+#[test]
+fn gate_d_design_and_policy_lock_docs_are_published() {
+    let root = repo_root();
+
+    let gate_d_lock = fs::read_to_string(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.3.0-gate-d-design-lock.md"),
+    )
+    .expect("read gate d design lock");
+    assert!(gate_d_lock.contains("Phase 25.3.0"));
+    assert!(gate_d_lock.contains("Design-Principle Alignment"));
+    assert!(gate_d_lock.contains("Gate D Exit Criterion"));
+    assert!(gate_d_lock.contains("clg test"));
+    assert!(gate_d_lock.contains("release == proved"));
+
+    let proof_mode = fs::read_to_string(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.3.5-test-proof-mode-policy.md"),
+    )
+    .expect("read test proof-mode policy");
+    assert!(proof_mode.contains("25.3.5"));
+    assert!(proof_mode.contains("one deterministic default mode"));
+    assert!(proof_mode.contains("release == proved"));
+    assert!(proof_mode.contains("proved_all"));
+
+    let deferred_flags = fs::read_to_string(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.3.19.1-test-cli-deferred-flags-policy.md"),
+    )
+    .expect("read deferred flags policy");
+    assert!(deferred_flags.contains("25.3.19.1"));
+    assert!(deferred_flags.contains("--plan"));
+    assert!(deferred_flags.contains("--mock-set"));
+    assert!(deferred_flags.contains("--timeout-ms"));
+    assert!(deferred_flags.contains("--fail-fast"));
+    assert!(deferred_flags.contains("--list"));
+    assert!(deferred_flags.contains("tests/test-plan.json"));
 }
 
 #[test]
@@ -73,6 +137,7 @@ fn gate_d_primary_docs_are_aligned_with_shipped_test_contracts() {
     let readme = fs::read_to_string(root.join("README.md")).expect("read README");
     assert!(readme.contains("primary UX contract is `check`/`test`/`release`"));
     assert!(readme.contains("docs/testing-quality-matrix.md"));
+    assert!(readme.contains("phase-25.3.0-gate-d-design-lock.md"));
 
     let release_process = fs::read_to_string(root.join("docs").join("release-process.md"))
         .expect("read release docs");
@@ -139,13 +204,24 @@ fn gate_d_balanced_mock_and_non_mocked_coverage_is_enforced_in_example() {
 }
 
 #[test]
-fn todo_marks_gate_d_group7_items_complete() {
+fn todo_marks_gate_d_phase_completion_items_complete() {
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read todo");
-    for item in ["25.3.6", "25.3.8", "25.3.18", "25.3.25", "25.3.26"] {
+    for item in [
+        "25.3",
+        "25.3.0",
+        "25.3.0.1",
+        "25.3.5",
+        "25.3.6",
+        "25.3.8",
+        "25.3.18",
+        "25.3.19.1",
+        "25.3.25",
+        "25.3.26",
+    ] {
         assert!(
             todo_has_checked_item(&todo, item),
-            "TODO should mark `{item}` complete for Gate D Group 7 closeout"
+            "TODO should mark `{item}` complete for Gate D final closeout"
         );
     }
 }

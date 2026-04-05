@@ -16,6 +16,7 @@ Shipped primary commands:
 - `clg release`
 
 Gate C history: `clg test` was tracked as a reserved contract before `25.3.2`.
+Gate D lock: `clg test` keeps one deterministic default unit-test proof policy, and non-essential test flags remain deferred to `tests/test-plan.json` policy controls.
 
 Local release-precheck gate (required before strict signed publish flow):
 

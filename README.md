@@ -500,6 +500,7 @@ ClearLang aims to be:
 Gate D testing references:
 - Test guide: `docs/testing.md`
 - Quality matrix: `docs/testing-quality-matrix.md`
+- Gate D design/policy locks: `docs/design/phase-25.3.0-gate-d-design-lock.md`, `docs/design/phase-25.3.5-test-proof-mode-policy.md`, `docs/design/phase-25.3.19.1-test-cli-deferred-flags-policy.md`
 - Example project: `examples/projects/testing/`
 
 ---

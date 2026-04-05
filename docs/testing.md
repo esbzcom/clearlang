@@ -7,6 +7,7 @@ Status:
 - Deterministic mock execution is shipped with explicit per-test bindings and fail-closed path safety (`25.3.4`, `25.3.15`, `25.3.16`, `25.3.17`, `25.3.24`).
 - CI/release-precheck gates are shipped for `clg test` schema validation and cross-platform parity (`25.3.7`, `25.3.22`).
 - Closeout quality/runtime/docs gates are shipped for matrix coverage, balanced mock confidence, runtime worker safety, and contract drift detection (`25.3.6`, `25.3.8`, `25.3.18`, `25.3.25`, `25.3.26`).
+- Gate D policy/design locks are published for overall scope, test proof-mode default, and deferred-flag contracts (`25.3.0`, `25.3.5`, `25.3.19.1`).
 
 ## Design Constraints
 
@@ -78,6 +79,26 @@ Minimal `clg test` surface:
 - `--report human|json|junit`
 
 Non-essential flags are deferred; policy remains controlled via `tests/test-plan.json` and deterministic runner defaults.
+
+## Proof-Mode Policy (25.3.5)
+
+- `clg test` uses one deterministic default policy for Gate D unit-test workflows.
+- `clg test` does not expose a proof-mode selector in the minimal production CLI contract.
+- Unit-test pass/fail does not weaken production release assurance policy.
+- `release == proved` remains enforced by release gates; theorem-grade release artifacts still require `proved_all`.
+
+## Deferred Flags Policy (25.3.19.1)
+
+Deferred non-essential `clg test` flags:
+- `--plan`
+- `--mock-set`
+- `--timeout-ms`
+- `--fail-fast`
+- `--list`
+
+Deterministic alternatives remain:
+- `tests/test-plan.json` for per-case policy (`mock_sets`, `timeout_ms`)
+- serial run-all default with explicit rerun for selection/replay
 
 ## Execution and Reliability Policy
 

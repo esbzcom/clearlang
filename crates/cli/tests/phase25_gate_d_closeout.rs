@@ -229,6 +229,7 @@ fn todo_marks_gate_d_phase_completion_items_complete() {
         "25.3.8",
         "25.3.18",
         "25.3.19.1",
+        "25.3.28",
         "25.3.25",
         "25.3.26",
     ] {

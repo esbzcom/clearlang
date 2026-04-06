@@ -168,6 +168,7 @@ Deterministic alternatives remain:
 - Serial-by-default execution.
 - Single-process policy: Gate D does not support concurrent `clg test` processes targeting the same project/workspace; run one active invocation per project root.
 - Per-test timeout default: `120000ms` (2 minutes), policy override via test plan.
+- Deterministic timeout floor: `timeout_ms=1` is treated as immediate timeout for stable cross-platform contract behavior.
 - No automatic retries in default/CI/release-precheck paths.
 - Shared-state leak across tests is rejected by contract (fresh context or deterministic reset).
 

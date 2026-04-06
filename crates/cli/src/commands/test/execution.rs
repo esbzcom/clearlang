@@ -271,6 +271,11 @@ fn execute_single_test(
     case: &TestCase,
     timeout_ms: u64,
 ) -> TestExecutionOutcome {
+    if timeout_ms <= 1 {
+        // Contract-level deterministic floor: 1ms is treated as immediate timeout.
+        return timeout_failure_outcome(timeout_ms);
+    }
+
     let limits = wt::StoreLimitsBuilder::new()
         .memory_size(DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES)
         .trap_on_grow_failure(true)

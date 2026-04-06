@@ -31,6 +31,24 @@ Purpose: keep `docs/TODO.md` short while preserving traceability for modified Ru
 - `docs/testing.md`
 - `crates/cli/tests/phase25_gate_d_closeout.rs`
 
+### 25.3.12
+- `crates/cli/src/commands/build.rs`
+- `crates/cli/tests/cli_it/diagnostics/release_command.rs`
+- `crates/cli/tests/cli_it/diagnostics/type_and_mode_basics.rs`
+- `docs/testing.md`
+
+### 25.3.13
+- `crates/cli/src/commands/release.rs`
+- `crates/cli/tests/cli_it/diagnostics/release_command.rs`
+- `docs/testing.md`
+- `docs/diagnostics.md`
+
+### 25.3.14
+- `crates/cli/src/commands/verify.rs`
+- `crates/cli/tests/cli_it/diagnostics/release_command.rs`
+- `crates/cli/tests/signing/tests/verification.rs`
+- `docs/testing.md`
+
 ### 25.3.18
 - `xtask/src/main/core.rs`
 - `examples/projects/testing/tests/test-plan.json`
@@ -50,6 +68,7 @@ Purpose: keep `docs/TODO.md` short while preserving traceability for modified Ru
 
 ### 25.3.25
 - `crates/cli/src/commands/test.rs`
+- `crates/cli/tests/test_command_contract.rs`
 - `docs/testing.md`
 - `docs/diagnostics.md`
 
@@ -74,6 +93,7 @@ Purpose: keep `docs/TODO.md` short while preserving traceability for modified Ru
 ### 25.3.28
 - `crates/cli/tests/test_command_contract.rs`
 - `crates/cli/src/commands/test/execution.rs`
+- `docs/testing-quality-matrix.md`
 - `docs/TODO.md`
 
 ### 25.3.31

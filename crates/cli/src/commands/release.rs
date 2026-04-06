@@ -473,3 +473,82 @@ fn release_error(
         anyhow::anyhow!(message)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{path_has_tests_or_mocks, validate_release_import_map_has_no_test_paths, ReleasePaths};
+    use serde_json::json;
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
+
+    fn release_paths_for_import_map(import_map: PathBuf) -> ReleasePaths {
+        ReleasePaths {
+            module: PathBuf::from("ignored.wasm"),
+            strict_import_map: import_map,
+            vcs: PathBuf::from("ignored.vc.json"),
+            proof: PathBuf::from("ignored.proof.json"),
+            signature: PathBuf::from("ignored.sig.json"),
+            assurance_manifest: PathBuf::from("ignored.assurance.json"),
+            bundle_manifest: PathBuf::from("ignored.release-bundle.json"),
+        }
+    }
+
+    #[test]
+    fn path_has_tests_or_mocks_detects_tests_segments_cross_platform() {
+        assert!(path_has_tests_or_mocks("tests/unit/a.clear"));
+        assert!(path_has_tests_or_mocks("src\\tests\\mocks\\a.clear"));
+        assert!(path_has_tests_or_mocks("a/TESTS/b.clear"));
+        assert!(!path_has_tests_or_mocks("src/domain/a.clear"));
+    }
+
+    #[test]
+    fn release_artifact_scan_rejects_tests_paths_with_c129() {
+        let tmp = tempdir().expect("tempdir");
+        let map_path = tmp.path().join("main.strict-import-map.json");
+        let payload = json!({
+            "schema_version": 1,
+            "source_files": [
+                "src/main.clear",
+                "tests/unit/helper.clear"
+            ]
+        });
+        fs::write(
+            &map_path,
+            serde_json::to_vec_pretty(&payload).expect("serialize import map"),
+        )
+        .expect("write import map");
+
+        let paths = release_paths_for_import_map(map_path);
+        let err = validate_release_import_map_has_no_test_paths(&paths, tmp.path(), true)
+            .expect_err("expected C129 rejection");
+        let text = err.to_string();
+        assert!(text.contains("\"code\": \"C129\""), "expected C129, got: {text}");
+        assert!(
+            text.contains("tests/unit/helper.clear"),
+            "expected offending test path evidence, got: {text}"
+        );
+    }
+
+    #[test]
+    fn release_artifact_scan_accepts_production_only_source_files() {
+        let tmp = tempdir().expect("tempdir");
+        let map_path = tmp.path().join("main.strict-import-map.json");
+        let payload = json!({
+            "schema_version": 1,
+            "source_files": [
+                "src/main.clear",
+                "src/domain/pricing.clear"
+            ]
+        });
+        fs::write(
+            &map_path,
+            serde_json::to_vec_pretty(&payload).expect("serialize import map"),
+        )
+        .expect("write import map");
+
+        let paths = release_paths_for_import_map(map_path);
+        validate_release_import_map_has_no_test_paths(&paths, tmp.path(), true)
+            .expect("production-only import map should pass C129 scan");
+    }
+}

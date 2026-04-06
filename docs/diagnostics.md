@@ -221,7 +221,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C126 | build | Proof artifact contract failure (missing/malformed artifact, schema mismatch, or signature/hash binding mismatch against VC/proof metadata). |
 | C127 | build | Deterministic solver replay mismatch on identical strict inputs (VC outcomes/proof artifact bytes drift). |
 | C128 | build | Production release/test isolation gate failure: module graph references `tests/` or `tests/mocks/` (fail-closed for `--release-profile production`). |
-| C129 | release | Release artifact scan gate failure: strict import-map/release bundle evidence is missing/invalid or includes test/mock source paths. |
+| C129 | release | Release artifact scan gate failure: strict import-map evidence is missing/invalid or includes test/mock source paths. |
 | C131 | strict/check | `clg strict init` or `clg check` bootstrap/release-default contract input is invalid (for example malformed `clg.project.json`, invalid default paths, or template write/validation failure). |
 | C130 | release | Release command contract input is invalid (for example, entry path has no usable stem for deterministic artifact naming). |
 | C132 | fmt | Formatter contract failure (invalid path, no `.clear` inputs found, read/write failure, or `clg fmt --check` detected required changes). |

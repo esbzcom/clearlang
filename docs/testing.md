@@ -27,7 +27,7 @@ Status:
   services/...
   tests/
     unit/
-      *_tests.clear
+      *.clear
     mocks/
       common/
         ...
@@ -38,6 +38,7 @@ Status:
 
 Rules:
 - Unit test functions use `test_*` names.
+- `*_tests.clear` is a recommended naming convention only; discovery is function-based for any `.clear` file under `tests/unit`.
 - Mock files mirror production module paths under `tests/mocks/<set>/...`.
 - Missing/invalid mock bindings fail closed.
 - When `default_mock_sets` is non-empty, each selected test must have an explicit `cases[]` entry.
@@ -211,6 +212,9 @@ Deterministic alternatives remain:
   - `fuel_exhausted: ...`
   - `memory_limit: ...`
   - `worker_crash: ...`
+- Coverage policy:
+  - integration tests lock fail-closed `C138` runtime mapping and report shape,
+  - unit tests lock deterministic fuel/memory reason-prefix classification.
 
 ## Report Contract (v1)
 
@@ -252,7 +256,7 @@ Release workflows must enforce:
 
 Shipped Gate D release-safety diagnostics:
 - `C128`: production build/release module-graph isolation failure (`tests/` or `tests/mocks/` reference).
-- `C129`: release artifact scan failure (strict import-map/release bundle evidence invalid or includes test/mock source paths).
+- `C129`: release artifact scan failure (strict import-map evidence missing/invalid or includes test/mock source paths).
 - `V003`: signature-bound hash mismatch (including mock/test substitution tamper attempts).
 
 ## Example

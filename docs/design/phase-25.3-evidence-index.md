@@ -79,3 +79,13 @@ Purpose: keep `docs/TODO.md` short while preserving traceability for modified Ru
 ### 25.3.31
 - `crates/cli/tests/test_command_contract.rs`
 - `docs/TODO.md`
+
+### 25.3.32
+- `docs/design/phase-25.3.32-std-unit-rollout-governance-policy.md`
+- `docs/testing.md`
+- `docs/TODO.md`
+
+### 25.3.33
+- `docs/design/phase-25.3.33-assert-eq-bytes-activation-policy.md`
+- `docs/testing.md`
+- `docs/TODO.md`

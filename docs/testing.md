@@ -129,6 +129,16 @@ Semantics:
 - Assertion mismatch returns `false` (deterministic `C139` mapping in `clg test`).
 - Assertion helpers are deterministic and test-quality focused; they do not change production proof policy (`release == proved` remains enforced by release gates).
 
+Phased rollout governance (25.3.32):
+- Gate D ships only the minimal subset (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`).
+- Remaining v1 methods listed above are roadmap targets and must be added additively only.
+- No breaking changes are allowed to already-shipped `std::unit` signatures or baseline Bool-return semantics.
+
+`assert_eq_bytes` activation policy (25.3.33):
+- `assert_eq_bytes` remains reserved until `Bytes` is confirmed in std-core scope with deterministic typing/runtime support for this assertion path.
+- Pre-activation behavior is fail-closed and deterministic: calls to `std::unit::assert_eq_bytes` are rejected as unknown function (`T001` at type stage).
+- Activation requires explicit policy update plus deterministic compatibility tests before moving from reserved to shipped.
+
 Example:
 
 ```clear

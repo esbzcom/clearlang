@@ -2,10 +2,10 @@
 mod tests {
     use super::{
         classify_runtime_failure, escape_xml, merge_mock_sets, normalize_relpath,
-        panic_payload_message, render_replay_command, replay_contract, TestPlan, TestPlanCase,
-        DEFAULT_TEST_TIMEOUT_MS, DEFAULT_TEST_WORKER_FUEL_LIMIT,
-        DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES, TEST_ASSERTION_FAILURE_CODE,
-        TEST_RUNTIME_FAILURE_CODE, TEST_TIMEOUT_FAILURE_CODE,
+        panic_payload_message, render_replay_command, replay_contract, timeout_failure_outcome,
+        TestPlan, TestPlanCase, DEFAULT_TEST_TIMEOUT_MS,
+        DEFAULT_TEST_WORKER_FUEL_LIMIT, DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES,
+        TEST_ASSERTION_FAILURE_CODE, TEST_RUNTIME_FAILURE_CODE, TEST_TIMEOUT_FAILURE_CODE,
     };
     use std::path::Path;
 
@@ -98,6 +98,22 @@ mod tests {
         assert_eq!(TEST_TIMEOUT_FAILURE_CODE, "C137");
         assert_eq!(TEST_RUNTIME_FAILURE_CODE, "C138");
         assert_eq!(TEST_ASSERTION_FAILURE_CODE, "C139");
+    }
+
+    #[test]
+    fn timeout_failure_outcome_maps_to_c137_contract() {
+        let outcome = timeout_failure_outcome(1);
+        assert_eq!(outcome.status, "failed");
+        assert_eq!(outcome.failure_kind, Some("timeout"));
+        assert_eq!(outcome.failure_code, Some(TEST_TIMEOUT_FAILURE_CODE));
+        assert!(
+            outcome
+                .reason
+                .as_deref()
+                .unwrap_or_default()
+                .contains("timeout after 1ms"),
+            "expected deterministic timeout reason"
+        );
     }
 
     #[test]

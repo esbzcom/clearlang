@@ -300,16 +300,6 @@ fn execute_single_test(
             ));
         }
     };
-    if force_timeout_for_contract_tests() {
-        return TestExecutionOutcome {
-            status: "failed",
-            failure_kind: Some("timeout"),
-            failure_code: Some(TEST_TIMEOUT_FAILURE_CODE),
-            reason: Some(format!("timeout after {}ms", timeout_ms)),
-            captured_stdout: String::new(),
-            captured_stderr: String::new(),
-        };
-    }
 
     let timeout = Duration::from_millis(timeout_ms.max(1));
     let timed_out = Arc::new(AtomicBool::new(false));
@@ -351,24 +341,22 @@ fn execute_single_test(
         }
         Err(err) => {
             if timed_out.load(Ordering::Relaxed) {
-                return TestExecutionOutcome {
-                    status: "failed",
-                    failure_kind: Some("timeout"),
-                    failure_code: Some(TEST_TIMEOUT_FAILURE_CODE),
-                    reason: Some(format!("timeout after {}ms", timeout_ms)),
-                    captured_stdout: String::new(),
-                    captured_stderr: String::new(),
-                };
+                return timeout_failure_outcome(timeout_ms);
             }
             fail_runtime_outcome(classify_runtime_failure(single_line_error(&err).as_str()))
         }
     }
 }
 
-fn force_timeout_for_contract_tests() -> bool {
-    std::env::var("CLG_TEST_FORCE_TIMEOUT")
-        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+fn timeout_failure_outcome(timeout_ms: u64) -> TestExecutionOutcome {
+    TestExecutionOutcome {
+        status: "failed",
+        failure_kind: Some("timeout"),
+        failure_code: Some(TEST_TIMEOUT_FAILURE_CODE),
+        reason: Some(format!("timeout after {}ms", timeout_ms)),
+        captured_stdout: String::new(),
+        captured_stderr: String::new(),
+    }
 }
 
 fn fail_runtime_outcome(reason: String) -> TestExecutionOutcome {

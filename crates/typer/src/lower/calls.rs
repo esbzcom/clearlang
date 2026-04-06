@@ -15,9 +15,9 @@ use super::intrinsics::{
 use super::layout::std_type_info_for_module;
 use super::r#match::lower_enum_constructor;
 use super::{
-    emit_alloc, emit_bool_const, emit_int_const, emit_load_i32, emit_memcpy_bytes,
-    emit_u64_const, fresh, lower_expr, DispatcherCallPatch, DispatcherSignature, LowerCtx,
-    CLOSURE_CODE_ID_OFFSET, CLOSURE_ENV_PTR_OFFSET,
+    emit_alloc, emit_bool_const, emit_int_const, emit_load_i32, emit_memcpy_bytes, emit_u64_const,
+    fresh, lower_expr, DispatcherCallPatch, DispatcherSignature, LowerCtx, CLOSURE_CODE_ID_OFFSET,
+    CLOSURE_ENV_PTR_OFFSET,
 };
 
 pub(super) fn lower_call_expr<'a>(

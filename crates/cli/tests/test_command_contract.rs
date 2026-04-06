@@ -20,6 +20,143 @@ fn parse_json_lines(lines: &str) -> Vec<Value> {
         .collect()
 }
 
+#[cfg(unix)]
+fn create_dir_link(link: &Path, target: &Path) {
+    std::os::unix::fs::symlink(target, link).expect("create symlink dir");
+}
+
+#[cfg(windows)]
+fn create_dir_link(link: &Path, target: &Path) {
+    let link_str = link.to_string_lossy().into_owned();
+    let target_str = target.to_string_lossy().into_owned();
+    let output = Command::new("cmd")
+        .args(["/C", "mklink", "/J", link_str.as_str(), target_str.as_str()])
+        .output()
+        .expect("create junction");
+    assert!(
+        output.status.success(),
+        "mklink /J failed: stdout=`{}` stderr=`{}`",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_command_layout_error_reports_c134() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create project root");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C134"));
+    assert!(
+        errors[0]
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("tests/unit"),
+        "expected deterministic layout error for missing tests/unit"
+    );
+}
+
+#[test]
+fn test_command_invalid_signature_reports_c134() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let unit = root.join("tests").join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("bad_signature.clear"),
+        "function test_bad(arg: Int) -> Bool { true }\n",
+    );
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C134"));
+    assert!(
+        errors[0]
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("must have signature `() -> Bool`"),
+        "expected deterministic signature error for test_* contract"
+    );
+}
+
+#[test]
+fn test_command_plan_schema_error_reports_c135() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let tests_root = root.join("tests");
+    let unit = tests_root.join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("schema.clear"),
+        "function test_schema() -> Bool { true }\n",
+    );
+    fs::write(
+        tests_root.join("test-plan.json"),
+        r#"{
+  "schema_version": 2,
+  "default_mock_sets": [],
+  "cases": []
+}"#,
+    )
+    .expect("write test-plan");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C135"));
+    assert!(
+        errors[0]
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("unsupported schema_version"),
+        "expected deterministic plan-governance schema error"
+    );
+}
+
 #[test]
 fn test_command_json_report_returns_no_tests_status_when_none_discovered() {
     let tmp = tempdir().expect("tempdir");
@@ -291,7 +428,10 @@ fn test_command_std_unit_assertions_map_to_bool_contract_deterministically() {
                 == Some("tests/unit/unit_assertions.clear::test_pass")
         })
         .expect("pass case");
-    assert_eq!(pass_case.get("status").and_then(|v| v.as_str()), Some("passed"));
+    assert_eq!(
+        pass_case.get("status").and_then(|v| v.as_str()),
+        Some("passed")
+    );
 
     let fail_case = cases
         .iter()
@@ -300,7 +440,10 @@ fn test_command_std_unit_assertions_map_to_bool_contract_deterministically() {
                 == Some("tests/unit/unit_assertions.clear::test_fail")
         })
         .expect("fail case");
-    assert_eq!(fail_case.get("status").and_then(|v| v.as_str()), Some("failed"));
+    assert_eq!(
+        fail_case.get("status").and_then(|v| v.as_str()),
+        Some("failed")
+    );
     assert_eq!(
         fail_case.get("failure_kind").and_then(|v| v.as_str()),
         Some("assertion_false")
@@ -426,6 +569,121 @@ fn test_command_timeout_override_is_reflected_in_report() {
 }
 
 #[test]
+fn test_command_timeout_failure_maps_to_c137() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let tests_root = root.join("tests");
+    let unit = tests_root.join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("timeout_failure.clear"),
+        "function test_timeout() -> Bool { true }\n",
+    );
+    fs::write(
+        tests_root.join("test-plan.json"),
+        r#"{
+  "schema_version": 1,
+  "default_mock_sets": [],
+  "cases": [
+    {
+      "test_id": "tests/unit/timeout_failure.clear::test_timeout",
+      "mock_sets": [],
+      "timeout_ms": 1
+    }
+  ]
+}"#,
+    )
+    .expect("write test-plan");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["test"])
+        .arg(&root)
+        .args(["--report", "json"])
+        .env("CLG_TEST_FORCE_TIMEOUT", "1")
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json summary");
+    let failed_case = payload["tests"]
+        .as_array()
+        .expect("tests array")
+        .iter()
+        .find(|case| {
+            case.get("id").and_then(|v| v.as_str())
+                == Some("tests/unit/timeout_failure.clear::test_timeout")
+        })
+        .expect("timeout case");
+    assert_eq!(
+        failed_case.get("failure_kind").and_then(|v| v.as_str()),
+        Some("timeout")
+    );
+    assert_eq!(
+        failed_case.get("failure_code").and_then(|v| v.as_str()),
+        Some("C137")
+    );
+    assert!(
+        failed_case
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("timeout after 1ms"),
+        "expected deterministic timeout reason"
+    );
+}
+
+#[test]
+fn test_command_runtime_failure_maps_to_c138() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let unit = root.join("tests").join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("runtime_trap.clear"),
+        "function test_runtime_trap() -> Bool {\n    (1 / 0) == 1\n}\n",
+    );
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["test"])
+        .arg(&root)
+        .args(["--report", "json"])
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json summary");
+    let failed_case = payload["tests"]
+        .as_array()
+        .expect("tests array")
+        .iter()
+        .find(|case| {
+            case.get("id").and_then(|v| v.as_str())
+                == Some("tests/unit/runtime_trap.clear::test_runtime_trap")
+        })
+        .expect("runtime trap case");
+    assert_eq!(
+        failed_case.get("failure_kind").and_then(|v| v.as_str()),
+        Some("runtime")
+    );
+    assert_eq!(
+        failed_case.get("failure_code").and_then(|v| v.as_str()),
+        Some("C138")
+    );
+    assert!(
+        failed_case
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("runtime_trap:"),
+        "expected deterministic runtime-trap reason prefix"
+    );
+}
+
+#[test]
 fn test_command_unknown_mock_set_in_plan_fails_with_c136() {
     let tmp = tempdir().expect("tempdir");
     let root = tmp.path().join("project");
@@ -471,6 +729,119 @@ fn test_command_unknown_mock_set_in_plan_fails_with_c136() {
     assert_eq!(
         errors[0].get("stage").and_then(|v| v.as_str()),
         Some("test")
+    );
+}
+
+#[test]
+fn test_command_mock_path_traversal_like_binding_fails_closed_with_c136() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let tests_root = root.join("tests");
+    let unit = tests_root.join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("traversal.clear"),
+        "function test_traversal() -> Bool { true }\n",
+    );
+    fs::write(
+        tests_root.join("test-plan.json"),
+        r#"{
+  "schema_version": 1,
+  "default_mock_sets": ["../outside"],
+  "cases": [
+    {
+      "test_id": "tests/unit/traversal.clear::test_traversal",
+      "mock_sets": []
+    }
+  ]
+}"#,
+    )
+    .expect("write test-plan");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C136"));
+    assert!(
+        errors[0]
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("unknown mock set `../outside`"),
+        "expected traversal-like mock binding rejection"
+    );
+}
+
+#[test]
+fn test_command_mock_symlink_or_out_of_root_set_fails_closed_with_c136() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let tests_root = root.join("tests");
+    let unit = tests_root.join("unit");
+    let mocks_root = tests_root.join("mocks");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    fs::create_dir_all(&mocks_root).expect("create tests/mocks");
+    write_test_file(
+        &unit.join("symlink.clear"),
+        "function test_symlink_guard() -> Bool { true }\n",
+    );
+
+    let outside = root.join("outside-mocks");
+    fs::create_dir_all(&outside).expect("create outside target");
+    create_dir_link(&mocks_root.join("escape"), &outside);
+
+    fs::write(
+        tests_root.join("test-plan.json"),
+        r#"{
+  "schema_version": 1,
+  "default_mock_sets": ["escape"],
+  "cases": [
+    {
+      "test_id": "tests/unit/symlink.clear::test_symlink_guard",
+      "mock_sets": []
+    }
+  ]
+}"#,
+    )
+    .expect("write test-plan");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C136"));
+    let message = errors[0]
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    assert!(
+        message.contains("path safety violation")
+            && (message.contains("symlink mock-set entries are not allowed")
+                || message.contains("resolves outside")),
+        "expected deterministic unsafe mock-path rejection, got: {message}"
     );
 }
 

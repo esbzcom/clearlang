@@ -70,3 +70,12 @@ Purpose: keep `docs/TODO.md` short while preserving traceability for modified Ru
 - `examples/projects/testing/README.md`
 - `docs/design/phase-21.0-std-core-package-surface.md`
 - `docs/design/phase-21.0-std-binding-map.lock.json`
+
+### 25.3.28
+- `crates/cli/tests/test_command_contract.rs`
+- `crates/cli/src/commands/test/execution.rs`
+- `docs/TODO.md`
+
+### 25.3.31
+- `crates/cli/tests/test_command_contract.rs`
+- `docs/TODO.md`

@@ -110,6 +110,102 @@ mod tests {
     }
 
     #[test]
+    fn parse_manifest_lock_drift_args_defaults_to_phase25_fixture_path() {
+        let opts = parse_manifest_lock_drift_args(Vec::new()).expect("parse args");
+        assert_eq!(
+            opts.paths,
+            vec![PathBuf::from("docs/fixtures/phase-25.4/manifest-lock-consistency")]
+        );
+    }
+
+    #[test]
+    fn check_manifest_lock_consistency_accepts_matching_roots() {
+        let dir = unique_temp_dir("manifest-lock-ok");
+        std::fs::write(
+            dir.join("clg.project.json"),
+            r#"{
+  "schema_version": 1,
+  "project": { "name": "fixture-app" },
+  "dependencies": [
+    { "name": "std::core", "requirement": "^1.0.0" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "REQUIRED_RFC3339_UTC",
+    "key_id": "REQUIRED_KEY_ID",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+        )
+        .expect("write manifest");
+        std::fs::write(
+            dir.join("clg.lock.json"),
+            r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "fixture-app",
+      "dependencies": [
+        { "name": "std::core", "requirement": "^1.0.0" }
+      ]
+    }
+  ],
+  "packages": []
+}"#,
+        )
+        .expect("write lock");
+
+        let result = check_manifest_lock_consistency_for_dir(dir.as_path());
+        cleanup_temp_dir(dir.as_path());
+        result.expect("expected consistency");
+    }
+
+    #[test]
+    fn check_manifest_lock_consistency_rejects_root_dependency_mismatch() {
+        let dir = unique_temp_dir("manifest-lock-mismatch");
+        std::fs::write(
+            dir.join("clg.project.json"),
+            r#"{
+  "schema_version": 1,
+  "project": { "name": "fixture-app" },
+  "dependencies": [
+    { "name": "std::core", "requirement": "^1.0.0" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "REQUIRED_RFC3339_UTC",
+    "key_id": "REQUIRED_KEY_ID",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+        )
+        .expect("write manifest");
+        std::fs::write(
+            dir.join("clg.lock.json"),
+            r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "fixture-app",
+      "dependencies": [
+        { "name": "std::core", "requirement": "~1.0.0" }
+      ]
+    }
+  ],
+  "packages": []
+}"#,
+        )
+        .expect("write lock");
+
+        let err = check_manifest_lock_consistency_for_dir(dir.as_path())
+            .expect_err("expected mismatch");
+        cleanup_temp_dir(dir.as_path());
+        assert!(err.contains("manifest/lock inconsistency"));
+    }
+
+    #[test]
     fn parse_phase21_locked_symbols_extracts_entries() {
         let markdown = r#"
 locked surface:
@@ -370,5 +466,24 @@ locked surface:
         let err = validate_clg_test_report_schema(report)
             .expect_err("expected balanced mocked/non-mocked coverage error");
         assert!(err.contains("balanced critical-path coverage"));
+    }
+
+    fn unique_temp_dir(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "clg-xtask-{label}-{}-{nanos}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    fn cleanup_temp_dir(path: &Path) {
+        if path.exists() {
+            std::fs::remove_dir_all(path).expect("cleanup temp dir");
+        }
     }
 }

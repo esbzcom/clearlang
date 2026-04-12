@@ -19,6 +19,8 @@ Behavior:
 - runs `cargo fmt --all -- --check`
 - runs `cargo clippy --workspace --all-targets -- -D warnings` (lint gate)
 - runs `cargo test --workspace`
+- runs `cargo run -p xtask -- manifest-lock-drift-check` (manifest/lock consistency drift gate)
+- runs fail-closed `clg test` JSON schema contract gate for `examples/projects/testing`
 
 Any failure blocks the release-precheck stage (fail-closed).
 

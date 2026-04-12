@@ -175,7 +175,7 @@ Deterministic alternatives remain:
 
 ## CI Gate Contract
 
-- `cargo run -p xtask -- release-precheck` includes fail-closed `clg test examples/projects/testing --report json` schema validation.
+- `cargo run -p xtask -- release-precheck` includes fail-closed manifest/lock drift validation plus `clg test examples/projects/testing --report json` schema validation.
 - Milestone parity gate runs `milestone3_test_parity` on Windows and Linux and compares emitted summaries byte-for-byte.
 - `milestone3-release-train-gate` depends on both proof parity and `clg test` parity compare jobs before milestone tag release gating.
 
@@ -199,7 +199,7 @@ Deterministic alternatives remain:
 - Gate D quality policy requires critical-path evidence to include both:
   - non-mocked execution, and
   - mocked execution.
-- `xtask release-precheck` enforces this in the canonical testing example via fail-closed schema/quality checks on `clg test --report json`.
+- `xtask release-precheck` enforces this in the canonical testing example via fail-closed manifest/lock drift checks and schema/quality checks on `clg test --report json`.
 - Purpose: avoid mock-only confidence for release-critical behavior.
 
 ## Runtime Worker Safety Policy (25.3.25)

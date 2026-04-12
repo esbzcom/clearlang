@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "fixture-app",
+      "dependencies": [
+        {
+          "name": "std::core",
+          "requirement": "^1.0.0"
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "id": "std::core@1.0.0",
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "abi_id": "abi:std::core:1.0.0",
+      "dependencies": []
+    }
+  ]
+}

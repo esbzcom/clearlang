@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "fixture-app",
+    "description": "Phase 25.4 manifest/lock drift gate fixture",
+    "version": "0.1.0",
+    "clg_version": "^0.1.0",
+    "website": "https://clearlang.net",
+    "contact": {
+      "name": "ClearLang Maintainers",
+      "email": "maintainers@clearlang.net"
+    }
+  },
+  "dependencies": [
+    {
+      "name": "std::core",
+      "requirement": "^1.0.0"
+    }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "REQUIRED_RFC3339_UTC",
+    "key_id": "REQUIRED_KEY_ID",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}

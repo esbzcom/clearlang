@@ -1138,7 +1138,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.4.2 Keep `clg.lock.json` as the tool-generated deterministic lockfile (exact versions, digests, and resolved graph identity). (`docs/design/phase-25.4.2-lockfile-tool-generated-contract.md`, `crates/cli/tests/cli_it/pkg_lock/core.rs`)
   - [x] 25.4.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` (schema v1) and writes canonical lock outputs. (`crates/cli/src/commands/pkg/lock_command.rs`, `crates/cli/tests/cli_it/pkg_lock/core.rs`)
   - [x] 25.4.4 Ensure imports in `.clear` remain version-free (logical module/package paths only); versions live only in project/lock JSON. (`docs/design/phase-25.4.4-version-free-imports.md`, `crates/parser/tests/parse_structured_errors.rs`)
-  - [ ] 25.4.5 Add schema docs, migration notes, and CI drift gates that fail on manifest/lock inconsistency.
+  - [x] 25.4.5 Add schema docs, migration notes, and CI drift gates that fail on manifest/lock inconsistency. (`docs/design/phase-25.4.5-manifest-lock-schema-migration-and-drift-gate.md`, `xtask/src/main/core.rs`, `xtask/src/main/tests.rs`)
   - [ ] 25.4.6 Define migration/coexistence policy from canonical package metadata/ABI inputs to `clg.project.json` + `clg.lock.json`, with deterministic conflict diagnostics.
   - [ ] 25.4.7 Define pre-GA fail-closed cutover policy that removes legacy inputs/flags; no backward-compatibility commitment before GA.
   - [ ] 25.4.8 Add migration tooling command/docs (`clg pkg migrate-manifest`) to generate `clg.project.json` from existing canonical metadata inputs.

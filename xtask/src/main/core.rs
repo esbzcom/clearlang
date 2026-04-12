@@ -37,6 +37,7 @@ fn main() -> Result<(), String> {
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,
         "solver-vendor-stage" => stage_solver_vendor(&root, args.collect())?,
+        "manifest-lock-drift-check" => run_manifest_lock_drift_gate(&root, args.collect())?,
         "std-surface-drift-check" => check_std_surface_drift(&root, args.collect())?,
         "host-capability-policy-artifact" => {
             emit_host_capability_policy_artifact(&root, args.collect())?
@@ -82,8 +83,201 @@ fn run_release_precheck(root: &Path) -> Result<(), String> {
         ],
     )?;
     cargo_cmd(root, &["test", "--workspace"])?;
+    run_manifest_lock_drift_gate(root, Vec::new())?;
     run_clg_test_schema_gate(root)?;
     Ok(())
+}
+
+fn run_manifest_lock_drift_gate(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_manifest_lock_drift_args(raw_args)?;
+    if opts.paths.is_empty() {
+        return Err("manifest-lock drift gate requires at least one check path".to_string());
+    }
+    for relative in &opts.paths {
+        let dir = root.join(relative);
+        check_manifest_lock_consistency_for_dir(&dir).map_err(|err| {
+            format!(
+                "manifest/lock drift at `{}`: {err}",
+                dir.strip_prefix(root).unwrap_or(dir.as_path()).display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
+fn parse_manifest_lock_drift_args(raw_args: Vec<String>) -> Result<ManifestLockDriftOpts, String> {
+    let mut paths: Vec<PathBuf> = Vec::new();
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--path" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--path`".to_string())?;
+                paths.push(PathBuf::from(value));
+            }
+            other => {
+                return Err(format!(
+                    "unknown manifest-lock-drift-check arg `{other}` (supported: --path)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    if paths.is_empty() {
+        paths.push(PathBuf::from(
+            "docs/fixtures/phase-25.4/manifest-lock-consistency",
+        ));
+    }
+    Ok(ManifestLockDriftOpts { paths })
+}
+
+fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
+    let manifest_path = dir.join("clg.project.json");
+    let lock_path = dir.join("clg.lock.json");
+    if !manifest_path.is_file() {
+        return Err(format!(
+            "missing manifest `{}`",
+            manifest_path.display()
+        ));
+    }
+    if !lock_path.is_file() {
+        return Err(format!("missing lockfile `{}`", lock_path.display()));
+    }
+
+    let manifest_raw = fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("read manifest `{}`: {e}", manifest_path.display()))?;
+    let lock_raw = fs::read_to_string(&lock_path)
+        .map_err(|e| format!("read lockfile `{}`: {e}", lock_path.display()))?;
+
+    let manifest: DriftManifestFile = serde_json::from_str(&manifest_raw)
+        .map_err(|e| format!("parse manifest `{}`: {e}", manifest_path.display()))?;
+    let lock: DriftLockFile = serde_json::from_str(&lock_raw)
+        .map_err(|e| format!("parse lockfile `{}`: {e}", lock_path.display()))?;
+
+    if manifest.schema_version != 1 {
+        return Err(format!(
+            "manifest `{}` must use schema_version 1 for drift checks",
+            manifest_path.display()
+        ));
+    }
+    if lock.schema_version != 1 || lock.resolver_version != 1 {
+        return Err(format!(
+            "lockfile `{}` must use schema_version=1 and resolver_version=1",
+            lock_path.display()
+        ));
+    }
+
+    let expected_dependencies = normalize_manifest_dependencies(&manifest.dependencies)?;
+    let expected_roots = vec![DriftLockRoot {
+        name: manifest.project.name.trim().to_string(),
+        dependencies: expected_dependencies,
+    }];
+    let actual_roots = normalize_lock_roots(lock.roots)?;
+
+    if actual_roots != expected_roots {
+        let expected_json =
+            serde_json::to_string(&expected_roots).map_err(|e| format!("serialize expected roots: {e}"))?;
+        let actual_json =
+            serde_json::to_string(&actual_roots).map_err(|e| format!("serialize lock roots: {e}"))?;
+        return Err(format!(
+            "manifest/lock inconsistency (`{}` vs `{}`): expected roots {}, found {}",
+            manifest_path.display(),
+            lock_path.display(),
+            expected_json,
+            actual_json
+        ));
+    }
+
+    Ok(())
+}
+
+fn normalize_manifest_dependencies(
+    dependencies: &[DriftManifestDependency],
+) -> Result<Vec<DriftLockRootDependency>, String> {
+    let mut out = Vec::with_capacity(dependencies.len());
+    let mut seen = BTreeSet::new();
+    for dep in dependencies {
+        let name = dep.name.trim();
+        let requirement = dep.requirement.trim();
+        if name.is_empty() {
+            return Err("manifest dependency name must be non-empty".to_string());
+        }
+        if requirement.is_empty() {
+            return Err(format!(
+                "manifest dependency `{name}` requirement must be non-empty"
+            ));
+        }
+        if !seen.insert(name.to_string()) {
+            return Err(format!("manifest has duplicate dependency `{name}`"));
+        }
+        out.push(DriftLockRootDependency {
+            name: name.to_string(),
+            requirement: requirement.to_string(),
+        });
+    }
+    out.sort_by(|a, b| {
+        a.name
+            .cmp(&b.name)
+            .then_with(|| a.requirement.cmp(&b.requirement))
+    });
+    Ok(out)
+}
+
+fn normalize_lock_roots(roots: Vec<DriftLockRoot>) -> Result<Vec<DriftLockRoot>, String> {
+    if roots.len() != 1 {
+        return Err(format!(
+            "lockfile roots must contain exactly one root for manifest v1 (found {})",
+            roots.len()
+        ));
+    }
+    let mut out = Vec::with_capacity(roots.len());
+    let mut seen_root_names = BTreeSet::new();
+    for mut root in roots {
+        let root_name = root.name.trim();
+        if root_name.is_empty() {
+            return Err("lockfile root name must be non-empty".to_string());
+        }
+        if !seen_root_names.insert(root_name.to_string()) {
+            return Err(format!("lockfile has duplicate root `{root_name}`"));
+        }
+        root.name = root_name.to_string();
+
+        let mut seen_dep_names = BTreeSet::new();
+        for dep in &mut root.dependencies {
+            let name = dep.name.trim();
+            let requirement = dep.requirement.trim();
+            if name.is_empty() {
+                return Err(format!(
+                    "lockfile root `{}` has dependency with empty name",
+                    root.name
+                ));
+            }
+            if requirement.is_empty() {
+                return Err(format!(
+                    "lockfile root `{}` dependency `{}` has empty requirement",
+                    root.name, name
+                ));
+            }
+            if !seen_dep_names.insert(name.to_string()) {
+                return Err(format!(
+                    "lockfile root `{}` has duplicate dependency `{}`",
+                    root.name, name
+                ));
+            }
+            dep.name = name.to_string();
+            dep.requirement = requirement.to_string();
+        }
+        root.dependencies.sort_by(|a, b| {
+            a.name
+                .cmp(&b.name)
+                .then_with(|| a.requirement.cmp(&b.requirement))
+        });
+        out.push(root);
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(out)
 }
 
 fn run_clg_test_schema_gate(root: &Path) -> Result<(), String> {

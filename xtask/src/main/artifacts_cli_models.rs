@@ -122,6 +122,9 @@ fn print_help() {
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");
     println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos] [--key-id ID]");
     println!(
+        "  manifest-lock-drift-check [--path DIR] (phase 25.4 manifest/lock consistency gate)"
+    );
+    println!(
         "  std-surface-drift-check [--emit-artifact DIR] [--refresh-lock] (phase 21 drift gate)"
     );
     println!(
@@ -143,6 +146,11 @@ struct SolverVendorStageOpts {
     from: PathBuf,
     platform: String,
     key_id: String,
+}
+
+#[derive(Clone, Debug)]
+struct ManifestLockDriftOpts {
+    paths: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -281,5 +289,43 @@ struct HostCapabilityRule {
     capability: String,
     strict_mode: String,
     reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct DriftManifestFile {
+    schema_version: u32,
+    project: DriftManifestProject,
+    #[serde(default)]
+    dependencies: Vec<DriftManifestDependency>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct DriftManifestProject {
+    name: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct DriftManifestDependency {
+    name: String,
+    requirement: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct DriftLockFile {
+    schema_version: u32,
+    resolver_version: u32,
+    roots: Vec<DriftLockRoot>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct DriftLockRoot {
+    name: String,
+    dependencies: Vec<DriftLockRootDependency>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct DriftLockRootDependency {
+    name: String,
+    requirement: String,
 }
 

@@ -136,6 +136,8 @@ fn parse_manifest_lock_drift_args(raw_args: Vec<String>) -> Result<ManifestLockD
 fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
     let manifest_path = dir.join("clg.project.json");
     let lock_path = dir.join("clg.lock.json");
+    let graph_path = dir.join("clg.resolved-graph.json");
+    let graph_hash_path = dir.join("clg.resolved-graph.sha256");
     if !manifest_path.is_file() {
         return Err(format!(
             "missing manifest `{}`",
@@ -145,16 +147,38 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
     if !lock_path.is_file() {
         return Err(format!("missing lockfile `{}`", lock_path.display()));
     }
+    if !graph_path.is_file() {
+        return Err(format!(
+            "missing resolved graph `{}`",
+            graph_path.display()
+        ));
+    }
+    if !graph_hash_path.is_file() {
+        return Err(format!(
+            "missing resolved graph hash `{}`",
+            graph_hash_path.display()
+        ));
+    }
 
     let manifest_raw = fs::read_to_string(&manifest_path)
         .map_err(|e| format!("read manifest `{}`: {e}", manifest_path.display()))?;
-    let lock_raw = fs::read_to_string(&lock_path)
-        .map_err(|e| format!("read lockfile `{}`: {e}", lock_path.display()))?;
+    let lock_raw_bytes =
+        fs::read(&lock_path).map_err(|e| format!("read lockfile `{}`: {e}", lock_path.display()))?;
+    let lock_raw = std::str::from_utf8(&lock_raw_bytes)
+        .map_err(|e| format!("lockfile `{}` is not valid utf-8: {e}", lock_path.display()))?;
+    let graph_raw_bytes =
+        fs::read(&graph_path).map_err(|e| format!("read resolved graph `{}`: {e}", graph_path.display()))?;
+    let graph_raw = std::str::from_utf8(&graph_raw_bytes)
+        .map_err(|e| format!("resolved graph `{}` is not valid utf-8: {e}", graph_path.display()))?;
+    let graph_hash_raw = fs::read_to_string(&graph_hash_path)
+        .map_err(|e| format!("read resolved graph hash `{}`: {e}", graph_hash_path.display()))?;
 
     let manifest: DriftManifestFile = serde_json::from_str(&manifest_raw)
         .map_err(|e| format!("parse manifest `{}`: {e}", manifest_path.display()))?;
-    let lock: DriftLockFile = serde_json::from_str(&lock_raw)
+    let lock: DriftLockFile = serde_json::from_str(lock_raw)
         .map_err(|e| format!("parse lockfile `{}`: {e}", lock_path.display()))?;
+    let graph: DriftLockFile = serde_json::from_str(graph_raw)
+        .map_err(|e| format!("parse resolved graph `{}`: {e}", graph_path.display()))?;
 
     if manifest.schema_version != 1 {
         return Err(format!(
@@ -168,6 +192,12 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
             lock_path.display()
         ));
     }
+    if graph.schema_version != 1 || graph.resolver_version != 1 {
+        return Err(format!(
+            "resolved graph `{}` must use schema_version=1 and resolver_version=1",
+            graph_path.display()
+        ));
+    }
 
     let expected_dependencies = normalize_manifest_dependencies(&manifest.dependencies)?;
     let expected_roots = vec![DriftLockRoot {
@@ -175,6 +205,21 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
         dependencies: expected_dependencies,
     }];
     let actual_roots = normalize_lock_roots(lock.roots)?;
+    let lock_packages = normalize_lock_packages(lock.packages)?;
+    let canonical_lock = DriftLockFile {
+        schema_version: 1,
+        resolver_version: 1,
+        roots: actual_roots.clone(),
+        packages: lock_packages.clone(),
+    };
+    let canonical_lock_bytes = pretty_json_bytes(&canonical_lock)?;
+    if lock_raw_bytes != canonical_lock_bytes {
+        return Err(format!(
+            "lockfile `{}` must match canonical tool-owned format; regenerate with `clg pkg lock --update --root {}`",
+            lock_path.display(),
+            dir.display()
+        ));
+    }
 
     if actual_roots != expected_roots {
         let expected_json =
@@ -187,6 +232,31 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
             lock_path.display(),
             expected_json,
             actual_json
+        ));
+    }
+
+    let graph_roots = normalize_lock_roots(graph.roots)?;
+    let graph_packages = normalize_lock_packages(graph.packages)?;
+    if graph_roots != actual_roots || graph_packages != lock_packages {
+        return Err(format!(
+            "lock/resolved-graph inconsistency (`{}` vs `{}`): roots/packages must match exactly",
+            lock_path.display(),
+            graph_path.display()
+        ));
+    }
+    let graph_canonical_bytes = if graph_raw_bytes.last() == Some(&b'\n') {
+        &graph_raw_bytes[..graph_raw_bytes.len() - 1]
+    } else {
+        graph_raw_bytes.as_slice()
+    };
+    let expected_graph_hash = hex::encode(Sha256::digest(graph_canonical_bytes));
+    let actual_graph_hash = graph_hash_raw.trim();
+    if actual_graph_hash != expected_graph_hash {
+        return Err(format!(
+            "resolved graph hash mismatch (`{}`): expected {}, found {}",
+            graph_hash_path.display(),
+            expected_graph_hash,
+            actual_graph_hash
         ));
     }
 
@@ -277,6 +347,60 @@ fn normalize_lock_roots(roots: Vec<DriftLockRoot>) -> Result<Vec<DriftLockRoot>,
         out.push(root);
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(out)
+}
+
+fn normalize_lock_packages(packages: Vec<DriftLockPackage>) -> Result<Vec<DriftLockPackage>, String> {
+    let mut out = Vec::with_capacity(packages.len());
+    let mut seen_ids = BTreeSet::new();
+    for mut pkg in packages {
+        let id = pkg.id.trim().to_string();
+        let name = pkg.name.trim().to_string();
+        let version = pkg.version.trim().to_string();
+        let digest = pkg.digest.trim().to_string();
+        let abi_id = pkg.abi_id.trim().to_string();
+        if id.is_empty() || name.is_empty() || version.is_empty() || digest.is_empty() || abi_id.is_empty() {
+            return Err("lockfile package identity fields must be non-empty".to_string());
+        }
+        if id != format!("{name}@{version}") {
+            return Err(format!(
+                "lockfile package id `{}` must match `{}@{}`",
+                id, name, version
+            ));
+        }
+        if !seen_ids.insert(id.clone()) {
+            return Err(format!("lockfile has duplicate package id `{id}`"));
+        }
+
+        let mut seen_deps = BTreeSet::new();
+        let mut normalized_deps = Vec::with_capacity(pkg.dependencies.len());
+        for dep in pkg.dependencies {
+            let dep_id = dep.trim().to_string();
+            if dep_id.is_empty() {
+                return Err(format!(
+                    "lockfile package `{}` has empty dependency id",
+                    id
+                ));
+            }
+            if !seen_deps.insert(dep_id.clone()) {
+                return Err(format!(
+                    "lockfile package `{}` has duplicate dependency id `{}`",
+                    id, dep_id
+                ));
+            }
+            normalized_deps.push(dep_id);
+        }
+        normalized_deps.sort();
+
+        pkg.id = id;
+        pkg.name = name;
+        pkg.version = version;
+        pkg.digest = digest;
+        pkg.abi_id = abi_id;
+        pkg.dependencies = normalized_deps;
+        out.push(pkg);
+    }
+    out.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(out)
 }
 

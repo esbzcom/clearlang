@@ -138,23 +138,28 @@ mod tests {
 }"#,
         )
         .expect("write manifest");
+        let lock_value = DriftLockFile {
+            schema_version: 1,
+            resolver_version: 1,
+            roots: vec![DriftLockRoot {
+                name: "fixture-app".to_string(),
+                dependencies: vec![DriftLockRootDependency {
+                    name: "std::core".to_string(),
+                    requirement: "^1.0.0".to_string(),
+                }],
+            }],
+            packages: Vec::new(),
+        };
+        let lock_bytes = pretty_json_bytes(&lock_value).expect("serialize lock");
+        std::fs::write(dir.join("clg.lock.json"), &lock_bytes).expect("write lock");
+        std::fs::write(dir.join("clg.resolved-graph.json"), &lock_bytes)
+            .expect("write resolved graph");
+        let graph_hash = hex::encode(Sha256::digest(&lock_bytes[..lock_bytes.len() - 1]));
         std::fs::write(
-            dir.join("clg.lock.json"),
-            r#"{
-  "schema_version": 1,
-  "resolver_version": 1,
-  "roots": [
-    {
-      "name": "fixture-app",
-      "dependencies": [
-        { "name": "std::core", "requirement": "^1.0.0" }
-      ]
-    }
-  ],
-  "packages": []
-}"#,
+            dir.join("clg.resolved-graph.sha256"),
+            format!("{graph_hash}\n"),
         )
-        .expect("write lock");
+        .expect("write resolved graph hash");
 
         let result = check_manifest_lock_consistency_for_dir(dir.as_path());
         cleanup_temp_dir(dir.as_path());
@@ -181,28 +186,87 @@ mod tests {
 }"#,
         )
         .expect("write manifest");
+        let lock_value = DriftLockFile {
+            schema_version: 1,
+            resolver_version: 1,
+            roots: vec![DriftLockRoot {
+                name: "fixture-app".to_string(),
+                dependencies: vec![DriftLockRootDependency {
+                    name: "std::core".to_string(),
+                    requirement: "~1.0.0".to_string(),
+                }],
+            }],
+            packages: Vec::new(),
+        };
+        let lock_bytes = pretty_json_bytes(&lock_value).expect("serialize lock");
+        std::fs::write(dir.join("clg.lock.json"), &lock_bytes).expect("write lock");
+        std::fs::write(dir.join("clg.resolved-graph.json"), &lock_bytes)
+            .expect("write resolved graph");
+        let graph_hash = hex::encode(Sha256::digest(&lock_bytes[..lock_bytes.len() - 1]));
         std::fs::write(
-            dir.join("clg.lock.json"),
-            r#"{
-  "schema_version": 1,
-  "resolver_version": 1,
-  "roots": [
-    {
-      "name": "fixture-app",
-      "dependencies": [
-        { "name": "std::core", "requirement": "~1.0.0" }
-      ]
-    }
-  ],
-  "packages": []
-}"#,
+            dir.join("clg.resolved-graph.sha256"),
+            format!("{graph_hash}\n"),
         )
-        .expect("write lock");
+        .expect("write resolved graph hash");
 
         let err = check_manifest_lock_consistency_for_dir(dir.as_path())
             .expect_err("expected mismatch");
         cleanup_temp_dir(dir.as_path());
         assert!(err.contains("manifest/lock inconsistency"));
+    }
+
+    #[test]
+    fn check_manifest_lock_consistency_rejects_non_canonical_lockfile_bytes() {
+        let dir = unique_temp_dir("manifest-lock-noncanonical");
+        std::fs::write(
+            dir.join("clg.project.json"),
+            r#"{
+  "schema_version": 1,
+  "project": { "name": "fixture-app" },
+  "dependencies": [
+    { "name": "std::core", "requirement": "^1.0.0" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "REQUIRED_RFC3339_UTC",
+    "key_id": "REQUIRED_KEY_ID",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+        )
+        .expect("write manifest");
+
+        let lock_value = serde_json::json!({
+            "schema_version": 1,
+            "resolver_version": 1,
+            "roots": [
+                {
+                    "name": "fixture-app",
+                    "dependencies": [
+                        { "name": "std::core", "requirement": "^1.0.0" }
+                    ]
+                }
+            ],
+            "packages": []
+        });
+        let lock_canonical =
+            serde_json::to_vec_pretty(&lock_value).expect("serialize canonical lock");
+        let mut graph_bytes = lock_canonical.clone();
+        graph_bytes.push(b'\n');
+        std::fs::write(dir.join("clg.lock.json"), &lock_canonical).expect("write noncanonical lock");
+        std::fs::write(dir.join("clg.resolved-graph.json"), &graph_bytes)
+            .expect("write resolved graph");
+        let graph_hash = hex::encode(Sha256::digest(&graph_bytes[..graph_bytes.len() - 1]));
+        std::fs::write(
+            dir.join("clg.resolved-graph.sha256"),
+            format!("{graph_hash}\n"),
+        )
+        .expect("write resolved graph hash");
+
+        let err = check_manifest_lock_consistency_for_dir(dir.as_path())
+            .expect_err("expected non-canonical lockfile rejection");
+        cleanup_temp_dir(dir.as_path());
+        assert!(err.contains("canonical tool-owned format"));
     }
 
     #[test]

@@ -1143,7 +1143,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.4.7 Define pre-GA fail-closed cutover policy that removes legacy inputs/flags; no backward-compatibility commitment before GA. (`docs/design/phase-25.4.7-pre-ga-cutover-policy.md`, `crates/cli/tests/phase25_gate_e_manifest_policy.rs`)
   - [x] 25.4.8 Add migration tooling command/docs (`clg pkg migrate-manifest`) to generate `clg.project.json` from existing canonical metadata inputs. (`docs/design/phase-25.4.8-migrate-manifest-command.md`, `crates/cli/src/commands/pkg/migrate_manifest.rs`, `crates/cli/tests/cli_it/pkg_lock/core.rs`)
   - [x] 25.4.9 Remove legacy non-secret release parameters (`--advisory-as-of`, `--key-id`, `--out-dir`, `--trust-policy`) from primary `clg release` UX once manifest defaults are complete; keep key material flags explicit. (`docs/design/phase-25.4.9-release-legacy-parameter-retirement.md`, `crates/cli/src/main.rs`, `crates/cli/src/commands/release.rs`, `crates/cli/tests/cli_it/diagnostics/release_command.rs`)
-  - [ ] 25.4.10 Enforce `clg.lock.json` tool-owned contract with CI drift gate (manual lockfile edits or manifest/lock mismatch fail closed).
+  - [x] 25.4.10 Enforce `clg.lock.json` tool-owned contract with CI drift gate (manual lockfile edits or manifest/lock mismatch fail closed). (`docs/design/phase-25.4.10-lockfile-tool-owned-drift-gate.md`, `xtask/src/main/core.rs`, `xtask/src/main/tests.rs`, `docs/fixtures/phase-25.4/manifest-lock-consistency/`)
   - [ ] 25.4.11 Clarify trust-policy UX contract (compile-time `trust-policy.json` vs strict package `clg.trust-policy.json`) and ensure manifest/docs/diagnostics use unambiguous naming.
 
 - [ ] 25.5 Literal ergonomics for low-level/crypto code

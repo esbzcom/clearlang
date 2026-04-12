@@ -310,11 +310,13 @@ struct DriftManifestDependency {
     requirement: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 struct DriftLockFile {
     schema_version: u32,
     resolver_version: u32,
     roots: Vec<DriftLockRoot>,
+    #[serde(default)]
+    packages: Vec<DriftLockPackage>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
@@ -327,5 +329,16 @@ struct DriftLockRoot {
 struct DriftLockRootDependency {
     name: String,
     requirement: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct DriftLockPackage {
+    id: String,
+    name: String,
+    version: String,
+    digest: String,
+    abi_id: String,
+    #[serde(default)]
+    dependencies: Vec<String>,
 }
 

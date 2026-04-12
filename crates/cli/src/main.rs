@@ -165,27 +165,15 @@ enum Commands {
         /// Entry ClearLang source file
         #[arg(value_name = "FILE")]
         file: PathBuf,
-        /// Deterministic advisory policy evaluation time (UTC RFC3339)
-        #[arg(long, value_name = "RFC3339_UTC")]
-        advisory_as_of: Option<String>,
         /// Signing key file (JSON)
         #[arg(long, value_name = "FILE")]
         key: PathBuf,
-        /// Identifier recorded in signature/manifests
-        #[arg(long)]
-        key_id: Option<String>,
         /// Public key file (JSON) for verify stage
         #[arg(long, value_name = "FILE")]
         pubkey: PathBuf,
         /// Module root containing strict preflight inputs
         #[arg(long, value_name = "DIR")]
         root: Option<PathBuf>,
-        /// Output directory for release artifacts
-        #[arg(long, value_name = "DIR")]
-        out_dir: Option<PathBuf>,
-        /// Trust policy file for compile-time verify
-        #[arg(long, value_name = "FILE")]
-        trust_policy: Option<PathBuf>,
     },
     /// Strict workflow commands
     Strict {
@@ -357,22 +345,14 @@ fn main() -> Result<()> {
         }
         Commands::Release {
             file,
-            advisory_as_of,
             key,
-            key_id,
             pubkey,
             root,
-            out_dir,
-            trust_policy,
         } => cmd_release::run(
             file,
-            advisory_as_of,
             key,
-            key_id,
             pubkey,
             root,
-            out_dir,
-            trust_policy,
             cli.json_errors,
             logger.with_command("release"),
         ),

@@ -1,7 +1,7 @@
 # Phase 25.4.9 - Release Legacy Parameter Retirement (Pre-GA)
 
 ## Status
-Design lock target for `25.4.9` in `docs/TODO.md`.
+Design lock + implementation record for `25.4.9` in `docs/TODO.md`.
 
 ## Goal
 Retire legacy non-secret `clg release` parameters and make `clg.project.json` the canonical release configuration source before GA.
@@ -58,5 +58,7 @@ Cutover is immediate once `25.4.9` ships and Gate E acceptance tests pass.
 - `docs/design/phase-25.4.1-project-manifest-v1.md`
 - `crates/cli/src/main.rs`
 - `crates/cli/src/commands/release.rs`
+- `crates/cli/tests/cli_it/diagnostics/release_command.rs`
+- `crates/cli/tests/cli_it/basic/build_release.rs`
 - `docs/release-process.md`
 - `docs/TODO.md`

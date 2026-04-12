@@ -190,16 +190,6 @@ pub(crate) fn load_required_release_defaults_v0(
     Ok(parsed.release_defaults)
 }
 
-pub(crate) fn load_optional_release_defaults_v0(
-    root: &Path,
-) -> Result<Option<ReleaseDefaultsV0>, ReleaseDefaultsError> {
-    let path = root.join(STRICT_PROJECT_FILE);
-    if !path.exists() {
-        return Ok(None);
-    }
-    load_required_release_defaults_v0(root).map(Some)
-}
-
 pub(crate) fn load_project_manifest_v1(
     root: &Path,
 ) -> Result<Option<ProjectManifestV1>, ReleaseDefaultsError> {

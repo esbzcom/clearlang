@@ -110,29 +110,30 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
 
     let verify_trust_policy = root.join("trust-policy.json");
     write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "out/release",
+        "trust-policy.json",
+    );
     let (key_path, pubkey_path) = write_signing_keys(&root);
 
     let solver = write_fake_unsat_solver(&root.join("solver"));
     write_solver_integrity_sidecars(&solver);
-
     let out_dir = root.join("out").join("release");
+
     let output = Command::cargo_bin("clg")
         .unwrap()
         .env("CLG_SOLVER_BIN", &solver)
         .args(["--non-interactive", "release"])
         .arg(&source)
-        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
         .args(["--key"])
         .arg(&key_path)
-        .args(["--key-id", "release-2026q2"])
         .args(["--pubkey"])
         .arg(&pubkey_path)
         .args(["--root"])
         .arg(&root)
-        .args(["--out-dir"])
-        .arg(&out_dir)
-        .args(["--trust-policy"])
-        .arg(&verify_trust_policy)
         .assert()
         .success()
         .get_output()
@@ -233,28 +234,28 @@ fn release_command_fails_closed_when_proved_all_is_not_met() {
     fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
     let verify_trust_policy = root.join("trust-policy.json");
     write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "out/release",
+        "trust-policy.json",
+    );
     let (key_path, pubkey_path) = write_signing_keys(&root);
     let solver = write_fake_unsat_solver(&root.join("solver"));
     write_solver_integrity_sidecars(&solver);
 
-    let out_dir = root.join("out").join("release");
     let output = Command::cargo_bin("clg")
         .unwrap()
         .env("CLG_SOLVER_BIN", &solver)
         .args(["--json-errors", "release"])
         .arg(&source)
-        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
         .args(["--key"])
         .arg(&key_path)
-        .args(["--key-id", "release-2026q2"])
         .args(["--pubkey"])
         .arg(&pubkey_path)
         .args(["--root"])
         .arg(&root)
-        .args(["--out-dir"])
-        .arg(&out_dir)
-        .args(["--trust-policy"])
-        .arg(&verify_trust_policy)
         .assert()
         .failure()
         .get_output()
@@ -293,6 +294,13 @@ function main() -> Int { helper::value() }
 
     let verify_trust_policy = root.join("trust-policy.json");
     write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "out/release",
+        "trust-policy.json",
+    );
     let (key_path, pubkey_path) = write_signing_keys(&root);
     let solver = write_fake_unsat_solver(&root.join("solver"));
     write_solver_integrity_sidecars(&solver);
@@ -302,16 +310,12 @@ function main() -> Int { helper::value() }
         .env("CLG_SOLVER_BIN", &solver)
         .args(["--json-errors", "release"])
         .arg(&source)
-        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
         .args(["--key"])
         .arg(&key_path)
-        .args(["--key-id", "release-2026q2"])
         .args(["--pubkey"])
         .arg(&pubkey_path)
         .args(["--root"])
         .arg(&root)
-        .args(["--trust-policy"])
-        .arg(&verify_trust_policy)
         .assert()
         .failure()
         .get_output()
@@ -337,6 +341,13 @@ fn verify_rejects_mock_substitution_against_release_signature_with_v003() {
     fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
     let verify_trust_policy = root.join("trust-policy.json");
     write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "out/release",
+        "trust-policy.json",
+    );
     let (key_path, pubkey_path) = write_signing_keys(&root);
     let solver = write_fake_unsat_solver(&root.join("solver"));
     write_solver_integrity_sidecars(&solver);
@@ -347,18 +358,12 @@ fn verify_rejects_mock_substitution_against_release_signature_with_v003() {
         .env("CLG_SOLVER_BIN", &solver)
         .args(["release"])
         .arg(&source)
-        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
         .args(["--key"])
         .arg(&key_path)
-        .args(["--key-id", "release-2026q2"])
         .args(["--pubkey"])
         .arg(&pubkey_path)
         .args(["--root"])
         .arg(&root)
-        .args(["--out-dir"])
-        .arg(&out_dir)
-        .args(["--trust-policy"])
-        .arg(&verify_trust_policy)
         .assert()
         .success();
 
@@ -466,7 +471,7 @@ fn release_command_uses_project_defaults_for_advisory_and_key_id() {
 }
 
 #[test]
-fn release_command_requires_advisory_and_key_id_when_project_defaults_are_missing() {
+fn release_command_requires_manifest_defaults_when_placeholders_are_unresolved() {
     let tmp = tempdir().unwrap();
     let root = tmp.path().join("project");
     fs::create_dir_all(&root).expect("create root");
@@ -474,6 +479,13 @@ fn release_command_requires_advisory_and_key_id_when_project_defaults_are_missin
     let source = root.join("main.clear");
     write_release_success_source(&source);
     write_minimal_strict_preflight_files(&root);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "REQUIRED_RFC3339_UTC",
+        "REQUIRED_KEY_ID",
+        "out/release",
+        "trust-policy.json",
+    );
     let verify_trust_policy = root.join("trust-policy.json");
     write_verify_trust_policy_v1(&verify_trust_policy);
     let (key_path, pubkey_path) = write_signing_keys(&root);
@@ -497,7 +509,7 @@ fn release_command_requires_advisory_and_key_id_when_project_defaults_are_missin
     assert!(text.contains("\"code\": \"C130\""), "expected C130, got: {text}");
     assert!(
         text.contains("release_defaults.advisory_as_of"),
-        "expected missing advisory project-default message, got: {text}"
+        "expected unresolved advisory placeholder message, got: {text}"
     );
 }
 
@@ -514,6 +526,13 @@ fn release_command_json_events_emit_structured_progress() {
 
     let verify_trust_policy = root.join("trust-policy.json");
     write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "out/release",
+        "trust-policy.json",
+    );
     let (key_path, pubkey_path) = write_signing_keys(&root);
     let solver = write_fake_unsat_solver(&root.join("solver"));
     write_solver_integrity_sidecars(&solver);
@@ -523,10 +542,8 @@ fn release_command_json_events_emit_structured_progress() {
         .env("CLG_SOLVER_BIN", &solver)
         .args(["--json-events", "release"])
         .arg(&source)
-        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
         .args(["--key"])
         .arg(&key_path)
-        .args(["--key-id", "release-2026q2"])
         .args(["--pubkey"])
         .arg(&pubkey_path)
         .args(["--root"])
@@ -550,5 +567,23 @@ fn release_command_json_events_emit_structured_progress() {
                 && event.get("stage").and_then(|v| v.as_str()) == Some("release_lock")
         }),
         "expected release_lock start json event, got: {text}"
+    );
+}
+
+#[test]
+fn release_command_rejects_retired_non_secret_flags_with_usage_error() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["release", "clearlang-tests/01_hello.clear"])
+        .args(["--key", "keys/signing.json"])
+        .args(["--pubkey", "keys/public.json"])
+        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
+        .output()
+        .expect("run release help");
+    assert_eq!(output.status.code(), Some(2), "usage error should exit with 2");
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(
+        stderr.contains("unexpected argument '--advisory-as-of'"),
+        "expected retired flag rejection, got: {stderr}"
     );
 }

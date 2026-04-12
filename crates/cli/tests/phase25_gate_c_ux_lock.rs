@@ -19,9 +19,11 @@ fn gate_c_release_ux_design_lock_is_published() {
     assert!(doc.contains("clg check"));
     assert!(doc.contains("clg test"));
     assert!(doc.contains("clg release"));
-    assert!(doc.contains("--advisory-as-of"));
     assert!(doc.contains("--key"));
     assert!(doc.contains("--pubkey"));
+    assert!(doc.contains("release_defaults.advisory_as_of"));
+    assert!(doc.contains("release_defaults.key_id"));
+    assert!(!doc.contains("--advisory-as-of"));
     assert!(doc.contains("verify(require-assurance=proved_all)"));
 }
 

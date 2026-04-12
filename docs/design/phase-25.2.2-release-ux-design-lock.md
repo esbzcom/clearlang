@@ -21,14 +21,16 @@ Advanced/expert flows (`build`, `verify`, `pkg lock`, and detailed flags) remain
 
 ```text
 clg release <FILE> \
-  --advisory-as-of <RFC3339_UTC> \
   --key <FILE> \
-  --key-id <ID> \
   --pubkey <FILE> \
-  [--root <DIR>] \
-  [--out-dir <DIR>] \
-  [--trust-policy <FILE>]
+  [--root <DIR>]
 ```
+
+Release non-secret defaults are manifest-owned (`clg.project.json`):
+- `release_defaults.advisory_as_of`
+- `release_defaults.key_id`
+- `release_defaults.out_dir`
+- `release_defaults.trust_policy`
 
 Command contract requirements:
 1. Release policy is fixed to theorem-grade (`proved_all`) for production artifacts.
@@ -38,7 +40,8 @@ Command contract requirements:
    - `sign`
    - `verify(require-assurance=proved_all)`
    - `bundle`
-3. Output artifacts are deterministic path contracts rooted under `--out-dir`:
+3. Output artifacts are deterministic path contracts rooted under
+   `clg.project.json -> release_defaults.out_dir`:
    - `<stem>.wasm`
    - `<stem>.vc.json`
    - `<stem>.proof.json`

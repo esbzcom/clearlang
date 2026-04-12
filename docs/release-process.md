@@ -54,14 +54,12 @@ Concrete `clg release` CLI shape:
 clg release examples/projects/generic/main.clear --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 
-`clg release` resolves required defaults (`advisory_as_of`, `key_id`) from `clg.project.json` when flags are not provided. You can still override per invocation with `--advisory-as-of` and `--key-id`.
+`clg release` resolves required non-secret defaults from `clg.project.json`:
+- `release_defaults.advisory_as_of`
+- `release_defaults.key_id`
+- `release_defaults.out_dir`
+- `release_defaults.trust_policy`
 `clg.project.json` schema v1 is also the user-authored project/dependency manifest for lock generation.
-
-Full explicit shape (override mode):
-
-```powershell
-clg release examples/projects/generic/main.clear --advisory-as-of 2026-03-31T00:00:00Z --key keys/signing.json --key-id release-2026q2 --pubkey keys/public.json --root examples/projects/generic --out-dir out/release --trust-policy examples/projects/generic/trust-policy.json
-```
 
 `clg release` now executes one-command orchestration (`lock -> build/prove -> sign -> verify -> bundle`) and writes a deterministic release bundle manifest JSON (`<stem>.release-bundle.json`) containing artifact hashes and stage status.
 
@@ -135,7 +133,7 @@ clg strict init examples/projects/generic
 This command generates missing strict preflight inputs, validates strict schemas, and writes `clg.project.json` schema v1 with:
 - project metadata (`name`, `description`, `version`, `clg_version`, `website`, `contact`)
 - dependency requirements (`dependencies[]`)
-- release defaults placeholders (`REQUIRED_RFC3339_UTC`, `REQUIRED_KEY_ID`) that must be replaced (or overridden via CLI flags) before production release.
+- release defaults placeholders (`REQUIRED_RFC3339_UTC`, `REQUIRED_KEY_ID`) that must be replaced before production release.
 
 ## 2) Generate Deterministic Lock Inputs
 Use an explicit advisory time for replay-stable policy evaluation.

@@ -1,11 +1,9 @@
 use assert_cmd::prelude::*;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::tempdir;
-
-const ADVISORY_AS_OF: &str = "2026-03-31T00:00:00Z";
 
 fn write_sample_program(root: &Path) -> PathBuf {
     fs::create_dir_all(root).expect("create root");
@@ -21,6 +19,26 @@ fn strict_init(root: &Path) {
         .arg(root)
         .assert()
         .success();
+}
+
+fn write_release_project_defaults(
+    path: &Path,
+    advisory_as_of: &str,
+    key_id: &str,
+    out_dir: &str,
+    trust_policy: &str,
+) {
+    let value = json!({
+        "schema_version": 0,
+        "release_defaults": {
+            "advisory_as_of": advisory_as_of,
+            "key_id": key_id,
+            "out_dir": out_dir,
+            "trust_policy": trust_policy,
+        }
+    });
+    fs::write(path, serde_json::to_vec_pretty(&value).expect("serialize project defaults"))
+        .expect("write project defaults");
 }
 
 fn parse_json_lines(lines: &str) -> Vec<Value> {
@@ -100,6 +118,13 @@ fn ide_contract_release_failure_preserves_stdout_stderr_machine_contract() {
     let root = tmp.path().join("project");
     let file = write_sample_program(&root);
     strict_init(&root);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "ide-contract",
+        "out/release",
+        "trust-policy.json",
+    );
 
     // Force a deterministic release-lock stage failure before key loading/prove/sign.
     fs::remove_file(root.join("clg.package-metadata.json")).expect("remove package metadata");
@@ -113,10 +138,8 @@ fn ide_contract_release_failure_preserves_stdout_stderr_machine_contract() {
             "release",
         ])
         .arg(&file)
-        .args(["--advisory-as-of", ADVISORY_AS_OF])
         .args(["--key"])
         .arg(root.join("missing.key.json"))
-        .args(["--key-id", "ide-contract"])
         .args(["--pubkey"])
         .arg(root.join("missing.pub.json"))
         .args(["--root"])

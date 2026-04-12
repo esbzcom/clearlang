@@ -9,8 +9,8 @@ use crate::commands::build::{self, CompilerMode, ReleaseProfile, StdCoreLinkMode
 use crate::commands::helpers::{make_single_json_error, sha256_hex, CommandError};
 use crate::commands::pkg;
 use crate::commands::release_defaults::{
-    is_release_defaults_placeholder, load_optional_release_defaults_v0,
-    load_verify_trust_policy_v1, ReleaseDefaultsV0, STRICT_PROJECT_FILE,
+    is_release_defaults_placeholder, load_required_release_defaults_v0, load_verify_trust_policy_v1,
+    STRICT_PROJECT_FILE,
 };
 use crate::commands::verify::{self, VerifyMode};
 use crate::logging::{Logger, StageTimings};
@@ -65,16 +65,11 @@ struct ReleaseStageStatus {
     status: &'static str,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn run(
     file: PathBuf,
-    advisory_as_of: Option<String>,
     key: PathBuf,
-    key_id: Option<String>,
     pubkey: PathBuf,
     root: Option<PathBuf>,
-    out_dir: Option<PathBuf>,
-    trust_policy: Option<PathBuf>,
     json_errors: bool,
     logger: Logger,
 ) -> Result<()> {
@@ -84,7 +79,7 @@ pub fn run(
             .unwrap_or_else(|| PathBuf::from("."))
     });
 
-    let release_defaults = load_optional_release_defaults_v0(root.as_path()).map_err(|err| {
+    let release_defaults = load_required_release_defaults_v0(root.as_path()).map_err(|err| {
         release_error(
             "C130",
             format!("loading `{}`: {}", STRICT_PROJECT_FILE, err.message()),
@@ -93,32 +88,23 @@ pub fn run(
         )
     })?;
 
-    let advisory_as_of = resolve_required_release_value(
-        advisory_as_of,
-        release_defaults.as_ref().map(|d| d.advisory_as_of.as_str()),
-        "--advisory-as-of",
+    let advisory_as_of = resolve_required_manifest_release_value(
+        release_defaults.advisory_as_of.as_str(),
         "release_defaults.advisory_as_of",
         file.as_path(),
         json_errors,
     )?;
 
-    let key_id = resolve_required_release_value(
-        key_id,
-        release_defaults.as_ref().map(|d| d.key_id.as_str()),
-        "--key-id",
+    let key_id = resolve_required_manifest_release_value(
+        release_defaults.key_id.as_str(),
         "release_defaults.key_id",
         file.as_path(),
         json_errors,
     )?;
 
-    let verify_trust_policy =
-        resolve_release_trust_policy(trust_policy, release_defaults.as_ref(), root.as_path());
+    let verify_trust_policy = root.join(release_defaults.trust_policy.as_str());
     let stem = file_stem_or_error(file.as_path(), json_errors)?;
-    let paths = release_paths(
-        &root,
-        resolve_release_out_dir(out_dir, release_defaults.as_ref(), root.as_path()),
-        stem.as_str(),
-    );
+    let paths = release_paths(root.join(release_defaults.out_dir.as_str()), stem.as_str());
     let trust_anchors =
         load_verify_trust_policy_v1(verify_trust_policy.as_path()).map_err(|err| {
             release_error(
@@ -216,74 +202,28 @@ pub fn run(
     Ok(())
 }
 
-fn resolve_required_release_value(
-    cli_value: Option<String>,
-    default_value: Option<&str>,
-    flag_name: &str,
+fn resolve_required_manifest_release_value(
+    configured_value: &str,
     project_field: &str,
     file: &Path,
     json_errors: bool,
 ) -> Result<String> {
-    if let Some(value) = cli_value {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            return Err(release_error(
-                "C130",
-                format!("{flag_name} must be non-empty"),
-                file,
-                json_errors,
-            ));
-        }
-        return Ok(trimmed.to_string());
+    let trimmed = configured_value.trim();
+    if trimmed.is_empty() || is_release_defaults_placeholder(trimmed) {
+        return Err(release_error(
+            "C130",
+            format!(
+                "missing required release value: configure `{}` in `{}` with a non-placeholder value",
+                project_field, STRICT_PROJECT_FILE
+            ),
+            file,
+            json_errors,
+        ));
     }
-
-    if let Some(value) = default_value {
-        let trimmed = value.trim();
-        if trimmed.is_empty() || is_release_defaults_placeholder(trimmed) {
-            return Err(release_error(
-                "C130",
-                format!(
-                    "missing required release value: set `{flag_name}` or configure `{}` in `{}`",
-                    project_field, STRICT_PROJECT_FILE
-                ),
-                file,
-                json_errors,
-            ));
-        }
-        return Ok(trimmed.to_string());
-    }
-
-    Err(release_error(
-        "C130",
-        format!(
-            "missing required release value: set `{flag_name}` or run `clg strict init <root>` and configure `{}` in `{}`",
-            project_field, STRICT_PROJECT_FILE
-        ),
-        file,
-        json_errors,
-    ))
+    Ok(trimmed.to_string())
 }
 
-fn resolve_release_out_dir(
-    out_dir: Option<PathBuf>,
-    defaults: Option<&ReleaseDefaultsV0>,
-    root: &Path,
-) -> Option<PathBuf> {
-    out_dir.or_else(|| defaults.map(|d| root.join(d.out_dir.as_str())))
-}
-
-fn resolve_release_trust_policy(
-    trust_policy: Option<PathBuf>,
-    defaults: Option<&ReleaseDefaultsV0>,
-    root: &Path,
-) -> PathBuf {
-    trust_policy
-        .or_else(|| defaults.map(|d| root.join(d.trust_policy.as_str())))
-        .unwrap_or_else(|| root.join("trust-policy.json"))
-}
-
-fn release_paths(root: &Path, out_dir: Option<PathBuf>, stem: &str) -> ReleasePaths {
-    let out_dir = out_dir.unwrap_or_else(|| root.join("out").join("release"));
+fn release_paths(out_dir: PathBuf, stem: &str) -> ReleasePaths {
     ReleasePaths {
         module: out_dir.join(format!("{stem}.wasm")),
         strict_import_map: out_dir.join(format!("{stem}.strict-import-map.json")),

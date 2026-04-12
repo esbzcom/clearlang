@@ -101,13 +101,25 @@ fn release_help_exposes_gate_c_primary_shape() {
         .clone();
     let help = String::from_utf8(output).expect("utf8");
     assert!(help.contains("release [OPTIONS]"));
-    assert!(help.contains("--advisory-as-of"));
     assert!(help.contains("--key"));
-    assert!(help.contains("--key-id"));
     assert!(help.contains("--pubkey"));
     assert!(help.contains("--root"));
-    assert!(help.contains("--out-dir"));
-    assert!(help.contains("--trust-policy"));
+    assert!(
+        !help.contains("--advisory-as-of"),
+        "release must not expose retired advisory override flag"
+    );
+    assert!(
+        !help.contains("--key-id"),
+        "release must not expose retired key-id override flag"
+    );
+    assert!(
+        !help.contains("--out-dir"),
+        "release must not expose retired out-dir override flag"
+    );
+    assert!(
+        !help.contains("--trust-policy"),
+        "release must not expose retired trust-policy override flag"
+    );
     assert!(
         !help.contains("--compiler-mode"),
         "release command shape should hide build internals from primary help"

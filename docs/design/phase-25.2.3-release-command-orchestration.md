@@ -20,6 +20,7 @@ Two trust-policy contracts are required and intentionally separate:
 ## Command Behavior
 `clg release` now performs stages in order:
 1. `clg pkg lock` (`--generate` or `--update` auto-selected by lockfile presence) in strict mode with required advisory timestamp.
+   - Lock roots are sourced from `clg.project.json` schema v1 `dependencies[]` when present.
 2. strict production build + proof + sign with deterministic output paths.
 3. compile-time verify with `--require-assurance proved_all`.
 4. bundle manifest emission with deterministic artifact hashes.

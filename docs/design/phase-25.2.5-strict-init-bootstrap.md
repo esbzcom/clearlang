@@ -6,6 +6,7 @@ Design lock + implementation record for `25.2.5` in `docs/TODO.md`.
 ## Gap Closed
 `25.2.5` requires `clg.project.json` defaults before full manifest semantics (`25.4.x`) are finalized.
 This lock defines a bootstrap schema that is strict, deterministic, and fail-closed for release defaults.
+`25.4.1` later extends this bootstrap into project manifest schema v1.
 
 ## `clg strict init <root>` Contract
 `clg strict init <root>` must:
@@ -21,8 +22,8 @@ This lock defines a bootstrap schema that is strict, deterministic, and fail-clo
 3. Validate `clg.project.json` release-default schema and validate `trust-policy.json` schema v1 trust anchors.
 4. Never downgrade strict release policy; failures are fail-closed.
 
-## Bootstrap `clg.project.json` Schema (v0)
-Current bootstrap schema:
+## Bootstrap `clg.project.json` Schema (v0, Historical)
+Initial bootstrap schema:
 
 ```json
 {
@@ -41,6 +42,14 @@ Rules:
 - `release_defaults.out_dir` and `release_defaults.trust_policy` must be relative non-traversing paths.
 - Placeholder values (`REQUIRED_RFC3339_UTC`, `REQUIRED_KEY_ID`) are allowed at init time.
 - `clg release` treats placeholders as missing and fails closed unless CLI flags provide values.
+
+## Current Schema Note
+Current `clg.project.json` template emitted by `clg strict init` uses schema v1 with:
+- project metadata (`name`, `description`, `version`, `clg_version`, `website`, `contact`),
+- dependency requirements (`dependencies[]`),
+- retained `release_defaults`.
+
+See `docs/design/phase-25.4.1-project-manifest-v1.md` for the current schema and validation contract.
 
 ## `clg release` Default Resolution
 `clg release` now resolves required values in this order:

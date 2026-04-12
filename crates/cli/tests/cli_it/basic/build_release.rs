@@ -185,6 +185,37 @@ fn strict_init_creates_required_preflight_files() {
 }
 
 #[test]
+fn strict_init_writes_project_manifest_schema_v1_with_project_metadata_fields() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["strict", "init"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let manifest_bytes = fs::read(root.join("clg.project.json")).expect("read project manifest");
+    let manifest: Value = serde_json::from_slice(&manifest_bytes).expect("parse project manifest");
+    assert_eq!(
+        manifest.get("schema_version").and_then(|v| v.as_u64()),
+        Some(1)
+    );
+    assert!(
+        manifest.get("project").is_some(),
+        "project metadata missing"
+    );
+    assert!(
+        manifest.get("dependencies").is_some(),
+        "dependencies array missing"
+    );
+    assert!(
+        manifest.get("release_defaults").is_some(),
+        "release_defaults missing"
+    );
+}
+
+#[test]
 fn strict_init_fails_when_existing_preflight_file_is_invalid() {
     let tmp = tempdir().expect("tempdir");
     let root = tmp.path().join("project");

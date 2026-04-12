@@ -159,6 +159,162 @@ fn pkg_lock_generate_writes_sorted_pins_from_metadata() {
 }
 
 #[test]
+fn pkg_lock_generate_prefers_project_manifest_dependencies_when_present() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.project.json"),
+        r#"{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.0.0",
+    "clg_version": "^0.1.0",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [
+    { "name": "app::entry", "requirement": "^1.0.0" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+    )
+    .expect("write project manifest");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
+      "abi_id": "abi:app::entry:1.0.0",
+      "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
+    },
+    {
+      "name": "lib::core",
+      "version": "1.2.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/lib-core.wasm" },
+      "abi_id": "abi:lib::core:1.2.0"
+    },
+    {
+      "name": "extra::pkg",
+      "version": "1.0.0",
+      "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "artifact": { "format": "wasm", "path": "store/extra.wasm" },
+      "abi_id": "abi:extra::pkg:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .success();
+
+    let lock_bytes = fs::read(root.join("clg.lock.json")).expect("read lockfile");
+    let v: Value = serde_json::from_slice(&lock_bytes).expect("lockfile json");
+    let roots = v["roots"].as_array().expect("roots array");
+    assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0]["name"], Value::String("example-app".to_string()));
+    let deps = roots[0]["dependencies"]
+        .as_array()
+        .expect("root dependencies");
+    assert_eq!(deps.len(), 1);
+    assert_eq!(deps[0]["name"], Value::String("app::entry".to_string()));
+    assert_eq!(deps[0]["requirement"], Value::String("^1.0.0".to_string()));
+
+    let packages = v["packages"].as_array().expect("packages array");
+    let mut ids: Vec<String> = packages
+        .iter()
+        .filter_map(|pkg| pkg.get("id").and_then(Value::as_str).map(ToOwned::to_owned))
+        .collect();
+    ids.sort();
+    assert_eq!(ids, vec!["app::entry@1.0.0", "lib::core@1.2.0"]);
+}
+
+#[test]
+fn pkg_lock_generate_rejects_invalid_project_manifest_dependencies_with_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.project.json"),
+        r#"{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.0.0",
+    "clg_version": "^0.1.0",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [
+    { "name": "std::core", "requirement": "not-semver" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+    )
+    .expect("write project manifest");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("write metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+    assert!(
+        e0.get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("invalid requirement"),
+        "expected invalid requirement diagnostics"
+    );
+}
+
+#[test]
 fn pkg_lock_generate_prints_canonical_hash() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();
@@ -535,4 +691,3 @@ fn pkg_lock_generate_reports_c113_for_unsatisfiable_semver_constraints() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C113"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
 }
-

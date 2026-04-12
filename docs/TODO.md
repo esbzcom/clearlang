@@ -1133,15 +1133,18 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.3.32 Lock phased rollout/governance for `std::unit` API: Gate D ships minimal subset first (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`), remaining v1 methods are tracked as additive follow-ups only (no breaking signature/behavior changes). (`docs/design/phase-25.3.32-std-unit-rollout-governance-policy.md`, `docs/testing.md`)
   - [x] 25.3.33 Lock `assert_eq_bytes` activation policy: keep method reserved/conditional until `Bytes` is confirmed in std-core scope with deterministic typing/runtime support, and require deterministic unsupported-diagnostic behavior before activation. (`docs/design/phase-25.3.33-assert-eq-bytes-activation-policy.md`, `docs/testing.md`)
 
-- [ ] 25.4 Clear project dependency manifests (`json`) [Gate E]
-  - [ ] 25.4.1 Define `clg.project.json` as the user-authored dependency manifest (declared packages/version ranges/source policy).
+- [ ] 25.4 Clear project manifests (`json`) [Gate E]
+  - [x] 25.4.1 Define `clg.project.json` as the user-authored project/dependency manifest (project name/description/version, `clg` compiler version range, website/contact metadata, declared package requirements). (`docs/design/phase-25.4.1-project-manifest-v1.md`, `crates/cli/src/commands/release_defaults.rs`)
   - [ ] 25.4.2 Keep `clg.lock.json` as the tool-generated deterministic lockfile (exact versions, digests, and resolved graph identity).
-  - [ ] 25.4.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` and writes canonical lock outputs.
+  - [x] 25.4.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` (schema v1) and writes canonical lock outputs. (`crates/cli/src/commands/pkg/lock_command.rs`, `crates/cli/tests/cli_it/pkg_lock/core.rs`)
   - [ ] 25.4.4 Ensure imports in `.clear` remain version-free (logical module/package paths only); versions live only in project/lock JSON.
   - [ ] 25.4.5 Add schema docs, migration notes, and CI drift gates that fail on manifest/lock inconsistency.
   - [ ] 25.4.6 Define migration/coexistence policy from canonical package metadata/ABI inputs to `clg.project.json` + `clg.lock.json`, with deterministic conflict diagnostics.
-  - [ ] 25.4.7 Add backward-compatibility and deprecation timeline for legacy inputs with explicit fail-closed cutover milestone.
+  - [ ] 25.4.7 Define pre-GA fail-closed cutover policy that removes legacy inputs/flags; no backward-compatibility commitment before GA.
   - [ ] 25.4.8 Add migration tooling command/docs (`clg pkg migrate-manifest`) to generate `clg.project.json` from existing canonical metadata inputs.
+  - [ ] 25.4.9 Remove legacy non-secret release parameters (`--advisory-as-of`, `--key-id`, `--out-dir`, `--trust-policy`) from primary `clg release` UX once manifest defaults are complete; keep key material flags explicit. (`docs/design/phase-25.4.9-release-legacy-parameter-retirement.md`)
+  - [ ] 25.4.10 Enforce `clg.lock.json` tool-owned contract with CI drift gate (manual lockfile edits or manifest/lock mismatch fail closed).
+  - [ ] 25.4.11 Clarify trust-policy UX contract (compile-time `trust-policy.json` vs strict package `clg.trust-policy.json`) and ensure manifest/docs/diagnostics use unambiguous naming.
 
 - [ ] 25.5 Literal ergonomics for low-level/crypto code
   - [ ] 25.5.1 Add integer literal support for `0x...` (hex) and `0b...` (binary) with deterministic parsing, underscore rules, and diagnostics.
@@ -1154,6 +1157,10 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [ ] 25.6.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target.
   - [ ] 25.6.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures.
   - [ ] 25.6.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes.
+  - [ ] 25.6.6 Add single distributable release bundle artifact contract (package all required release outputs + detached checksum/signature) to simplify operator workflow.
+  - [ ] 25.6.7 Add `clg verify-bundle` command that verifies from release bundle manifest without manual per-file wiring.
+  - [ ] 25.6.8 Add keyring-by-`key_id` verification workflow for rotated release keys (historical verification without manual key selection ambiguity).
+  - [ ] 25.6.9 Add deterministic release readiness gate command (`clg release --check-only` or equivalent) for pre-signing/operator preflight.
 
 - [ ] 25.7 Online testbed (if feasible)
   - [ ] 25.7.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation.

@@ -1,0 +1,26 @@
+﻿{
+    "schema_version":  1,
+    "project":  {
+                    "name":  "testing-example",
+                    "description":  "ClearLang testing example project",
+                    "version":  "0.1.0",
+                    "clg_version":  "^0.1.0",
+                    "website":  "https://clearlang.net",
+                    "contact":  {
+                                    "name":  "ClearLang Maintainers",
+                                    "email":  "info@clearlang.net"
+                                }
+                },
+    "dependencies":  [
+                         {
+                             "name":  "std::unit",
+                             "requirement":  "^1.0.0"
+                         }
+                     ],
+    "release_defaults":  {
+                             "out_dir":  "out/release",
+                             "advisory_as_of":  "REQUIRED_RFC3339_UTC",
+                             "trust_policy":  "trust-policy.json",
+                             "key_id":  "REQUIRED_KEY_ID"
+                         }
+}

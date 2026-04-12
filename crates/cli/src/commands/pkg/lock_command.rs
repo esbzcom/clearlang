@@ -99,6 +99,10 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
     let mut timings = StageTimings::new();
     let metadata_path = root.join(CANONICAL_PACKAGE_METADATA_FILE);
     let lockfile_path = root.join(STRICT_LOCKFILE_FILE);
+    let project_manifest = match load_project_manifest_v1(root.as_path()) {
+        Ok(value) => value,
+        Err(err) => return fail_pkg("C027", err.message().to_string()),
+    };
 
     if generate && lockfile_path.exists() {
         return fail_pkg(
@@ -121,7 +125,19 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
 
     let lockfile = {
         let _stage = timings.start(logger, "pkg_load_metadata");
-        let root_inputs = if update {
+        let root_inputs = if let Some(manifest) = project_manifest.as_ref() {
+            Some(vec![StrictLockRootV1 {
+                name: manifest.project.name.clone(),
+                dependencies: manifest
+                    .dependencies
+                    .iter()
+                    .map(|dependency| StrictLockRootDependencyV1 {
+                        name: dependency.name.clone(),
+                        requirement: dependency.requirement.clone(),
+                    })
+                    .collect(),
+            }])
+        } else if update {
             match load_root_inputs_for_update(lockfile_path.as_path()) {
                 Ok(v) => Some(v),
                 Err(err) => return fail_pkg(err.code(), err.to_string()),
@@ -280,4 +296,3 @@ fn load_root_inputs_for_update(path: &Path) -> Result<Vec<StrictLockRootV1>, Pkg
     }
     Ok(roots)
 }
-

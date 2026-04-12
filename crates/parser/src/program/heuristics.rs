@@ -476,6 +476,33 @@ pub(super) fn find_theorem_keyword(src: &str) -> Option<(usize, usize)> {
     None
 }
 
+pub(super) fn find_versioned_import(src: &str) -> Option<(usize, usize)> {
+    const KEYWORD: &str = "import";
+    let mut offset = 0usize;
+    for line in src.split_inclusive('\n') {
+        let line_no_nl = line.strip_suffix('\n').unwrap_or(line);
+        let line_text = line_no_nl.strip_suffix('\r').unwrap_or(line_no_nl);
+        let trimmed = line_text.trim_start();
+        if let Some(rest) = trimmed.strip_prefix(KEYWORD) {
+            let boundary_ok = rest
+                .chars()
+                .next()
+                .map(|c| c.is_whitespace())
+                .unwrap_or(false);
+            if boundary_ok {
+                if let Some(at_rel) = rest.find('@') {
+                    let leading = line_text.len().saturating_sub(trimmed.len());
+                    let start = offset + leading + KEYWORD.len() + at_rel;
+                    let end = start.saturating_add(1);
+                    return Some((start, end));
+                }
+            }
+        }
+        offset += line.len();
+    }
+    None
+}
+
 pub(super) fn find_comma_grouped_number(src: &str) -> Option<(usize, usize)> {
     let bytes = src.as_bytes();
     let mut i = 0usize;

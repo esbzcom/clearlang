@@ -15,8 +15,8 @@ mod heuristics;
 
 use self::heuristics::{
     find_capture_list_lambda, find_comma_grouped_number, find_export_import, find_theorem_keyword,
-    find_untyped_lambda, has_unclosed_paren, keyword_missing_brace, looks_like_missing_comma,
-    strip_comments_preserve_layout,
+    find_untyped_lambda, find_versioned_import, has_unclosed_paren, keyword_missing_brace,
+    looks_like_missing_comma, strip_comments_preserve_layout,
 };
 
 #[derive(Debug)]
@@ -266,6 +266,12 @@ pub fn parse(src: &str) -> Result<Program, String> {
                 start, end
             ));
         }
+        if let Some((start, end)) = find_versioned_import(normalized.as_str()) {
+            messages.push(format!(
+                "at {}..{}: error: versioned imports are not supported in source; keep import paths version-free and declare versions in `clg.project.json`/`clg.lock.json`",
+                start, end
+            ));
+        }
         messages.join("\n")
     })
 }
@@ -443,9 +449,22 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                     end,
                 });
             }
+            if let Some((start, end)) = find_versioned_import(normalized.as_str()) {
+                items.push(ParserError {
+                    code: "P015",
+                    message: format!(
+                        "at {}..{}: error: versioned imports are not supported in source; keep import paths version-free and declare versions in `clg.project.json`/`clg.lock.json`",
+                        start, end
+                    ),
+                    start,
+                    end,
+                });
+            }
             let specialized_spans: Vec<(usize, usize)> = items
                 .iter()
-                .filter(|e| e.code == "P011" || e.code == "P012" || e.code == "P014")
+                .filter(|e| {
+                    e.code == "P011" || e.code == "P012" || e.code == "P014" || e.code == "P015"
+                })
                 .map(|e| (e.start, e.end))
                 .collect();
             if !specialized_spans.is_empty() {

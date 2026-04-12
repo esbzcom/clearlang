@@ -71,6 +71,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | P012 | parse | Capture-list lambda syntax is not supported in v1. |
 | P013 | parse | Reserved legacy code from the Phase 18 deferred-inline period (no longer emitted in Phase 19.2.3+). |
 | P014 | parse | `theorem` keyword is deferred in milestone_3; theorem-grade remains release certification status, not syntax. |
+| P015 | parse | Versioned import path is not allowed in `.clear` source; versions must be declared in `clg.project.json`/`clg.lock.json`. |
 | T000 | type | Fallback for internal type-check failures. |
 | T001 | type | Unknown function. |
 | T002 | type | Arity mismatch. |

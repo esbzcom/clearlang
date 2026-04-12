@@ -147,6 +147,28 @@ fn parse_errors_reports_theorem_keyword_as_p014() {
 }
 
 #[test]
+fn parse_errors_reports_versioned_import_as_p015() {
+    let src = r#"
+        import vendor::crypto@1_2_3::hash;
+
+        function main() -> Int { 0 }
+    "#;
+    let errs = parse_errors(src).expect_err("versioned import should be rejected");
+    assert!(
+        errs.iter().any(|e| e.code == "P015"),
+        "expected P015, got {:?}",
+        errs.iter().map(|e| e.code).collect::<Vec<_>>()
+    );
+    assert!(
+        errs.iter().any(|e| e
+            .message
+            .contains("keep import paths version-free")),
+        "expected explicit version-free import guidance, got {:?}",
+        errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn parse_errors_accepts_inline_refinements() {
     let src = r#"
         function f(x: Int where x >= 0) -> Int where result >= 0 { x }

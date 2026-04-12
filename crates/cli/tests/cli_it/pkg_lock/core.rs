@@ -159,6 +159,127 @@ fn pkg_lock_generate_writes_sorted_pins_from_metadata() {
 }
 
 #[test]
+fn pkg_lock_generate_emits_exact_pins_and_matching_resolved_graph_identity() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "app::entry",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/app-entry.wasm" },
+      "abi_id": "abi:app::entry:1.0.0",
+      "dependencies": [{ "name": "lib::core", "requirement": "^1.0.0" }]
+    },
+    {
+      "name": "lib::core",
+      "version": "1.2.0",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact": { "format": "wasm", "path": "store/lib-core.wasm" },
+      "abi_id": "abi:lib::core:1.2.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .success();
+
+    let lock_bytes = fs::read(root.join("clg.lock.json")).expect("read lockfile");
+    let lock: Value = serde_json::from_slice(&lock_bytes).expect("lockfile json");
+    assert_eq!(lock["schema_version"], Value::from(1));
+    assert_eq!(lock["resolver_version"], Value::from(1));
+
+    let lock_packages = lock["packages"].as_array().expect("lock packages");
+    assert_eq!(lock_packages.len(), 2);
+    assert!(
+        lock_packages.iter().any(|pkg| {
+            pkg["id"] == Value::String("app::entry@1.0.0".to_string())
+                && pkg["name"] == Value::String("app::entry".to_string())
+                && pkg["version"] == Value::String("1.0.0".to_string())
+                && pkg["digest"]
+                    == Value::String(
+                        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                            .to_string()
+                    )
+        }),
+        "lockfile must pin exact app::entry identity (name/version/digest)"
+    );
+    assert!(
+        lock_packages.iter().any(|pkg| {
+            pkg["id"] == Value::String("lib::core@1.2.0".to_string())
+                && pkg["name"] == Value::String("lib::core".to_string())
+                && pkg["version"] == Value::String("1.2.0".to_string())
+                && pkg["digest"]
+                    == Value::String(
+                        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                            .to_string()
+                    )
+        }),
+        "lockfile must pin exact lib::core identity (name/version/digest)"
+    );
+
+    let mut lock_deps: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for pkg in lock_packages {
+        let id = pkg["id"].as_str().expect("lock id").to_string();
+        let mut deps = pkg["dependencies"]
+            .as_array()
+            .expect("lock deps")
+            .iter()
+            .map(|dep| dep.as_str().expect("dep id").to_string())
+            .collect::<Vec<_>>();
+        deps.sort();
+        lock_deps.insert(id, deps);
+    }
+
+    let graph_bytes = fs::read(root.join("clg.resolved-graph.json")).expect("read graph");
+    let graph_hash =
+        fs::read_to_string(root.join("clg.resolved-graph.sha256")).expect("read graph hash");
+    let graph_canonical = &graph_bytes[..graph_bytes.len() - 1];
+    assert_eq!(
+        sha256_hex(graph_canonical),
+        graph_hash.trim(),
+        "resolved graph sidecar hash must match canonical graph bytes"
+    );
+
+    let graph: Value = serde_json::from_slice(&graph_bytes).expect("graph json");
+    assert_eq!(graph["schema_version"], lock["schema_version"]);
+    assert_eq!(graph["resolver_version"], lock["resolver_version"]);
+    assert_eq!(
+        graph["roots"], lock["roots"],
+        "resolved graph roots must match lockfile roots"
+    );
+
+    let mut graph_deps: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for pkg in graph["packages"].as_array().expect("graph packages") {
+        let id = pkg["id"].as_str().expect("graph id").to_string();
+        let mut deps = pkg["dependencies"]
+            .as_array()
+            .expect("graph deps")
+            .iter()
+            .map(|dep| dep.as_str().expect("dep id").to_string())
+            .collect::<Vec<_>>();
+        deps.sort();
+        graph_deps.insert(id, deps);
+    }
+    assert_eq!(
+        graph_deps, lock_deps,
+        "resolved graph package/dependency identity must match lockfile identity"
+    );
+}
+
+#[test]
 fn pkg_lock_generate_prefers_project_manifest_dependencies_when_present() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

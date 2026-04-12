@@ -94,8 +94,8 @@ clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs ou
 
 # 3) Sign and verify before publish
 clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs out/generic.vc.json --compiler-mode strict --release-profile production --validate --sign --key keys/signing.json --key-id release-2026q1 --scope both --sig-out out/generic.sig.json --assurance-manifest-out out/generic.assurance.json
-clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --explain
-clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --require-assurance proved_all
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/trust-policy.json --assurance-manifest out/generic.assurance.json --explain
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/trust-policy.json --assurance-manifest out/generic.assurance.json --require-assurance proved_all
 ```
 
 Full release flow details: `docs/release-process.md`.

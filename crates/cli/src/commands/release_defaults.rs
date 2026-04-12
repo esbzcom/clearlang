@@ -427,14 +427,22 @@ pub(crate) fn load_verify_trust_policy_v1(
     path: &Path,
 ) -> Result<VerifyTrustAnchorsV1, ReleaseDefaultsError> {
     let bytes = fs::read(path)
-        .map_err(|err| ReleaseDefaultsError::new(format!("reading {}: {err}", path.display())))?;
+        .map_err(|err| {
+            ReleaseDefaultsError::new(format!(
+                "reading compile-time trust-anchor policy `{}`: {err}",
+                path.display()
+            ))
+        })?;
     let policy: RawVerifyTrustPolicyV1 =
         serde_json::from_slice(bytes.as_slice()).map_err(|err| {
-            ReleaseDefaultsError::new(format!("parsing trust policy `{}`: {err}", path.display()))
+            ReleaseDefaultsError::new(format!(
+                "parsing compile-time trust-anchor policy `{}`: {err}",
+                path.display()
+            ))
         })?;
     if policy.schema_version != 1 {
         return Err(ReleaseDefaultsError::new(format!(
-            "unsupported trust policy schema_version {} (expected 1) in {}",
+            "unsupported compile-time trust-anchor policy schema_version {} (expected 1) in {}",
             policy.schema_version,
             path.display()
         )));
@@ -443,7 +451,7 @@ pub(crate) fn load_verify_trust_policy_v1(
         || policy.trust_anchors.coq_checker.trim().is_empty()
     {
         return Err(ReleaseDefaultsError::new(format!(
-            "trust policy `{}` must provide non-empty trust_anchors.lean_checker and trust_anchors.coq_checker",
+            "compile-time trust-anchor policy `{}` must provide non-empty trust_anchors.lean_checker and trust_anchors.coq_checker",
             path.display()
         )));
     }

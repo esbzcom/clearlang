@@ -174,7 +174,7 @@ clg build examples/projects/generic/main.clear -o out/generic.wasm --emit-vcs ou
 Run verification gate against the produced artifacts.
 
 ```powershell
-clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --explain
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/trust-policy.json --assurance-manifest out/generic.assurance.json --explain
 ```
 
 If proof-artifact claims are present, include:
@@ -186,7 +186,7 @@ clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/pu
 Theorem-grade gate for release workflows:
 
 ```powershell
-clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/clg.trust-policy.json --assurance-manifest out/generic.assurance.json --require-assurance proved_all
+clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/trust-policy.json --assurance-manifest out/generic.assurance.json --require-assurance proved_all
 ```
 
 Optional release policy gate:

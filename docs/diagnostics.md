@@ -196,14 +196,14 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C035 | build | Invalid std-core activation contract for the selected build mode/profile (for Phase 21, `--std-core-link-mode precompiled` requires `--compiler-mode strict`). |
 | C101 | build | Strict source-of-truth gate failed (e.g., missing/unreadable `clg.lock.json` or disallowed package source such as legacy `clg-packages.json` in strict preflight context). Remediation: provide strict preflight inputs only and resolve packages via lockfile + trusted local store. |
 | C102 | build | Strict artifact identity gate failed (invalid lockfile digest format or `(name, version, digest)` mismatch between `clg.lock.json` and strict package metadata). |
-| C103 | build | Strict trust gate failed (missing/unreadable/malformed trust-policy or package-signature envelope, untrusted/revoked signer, invalid signer window at signature timestamp, or signature verification failure). Remediation: provide valid trust policy/signature preflight inputs and trusted signer keys. |
+| C103 | build | Strict trust gate failed for strict package policy input `clg.trust-policy.json` (missing/unreadable/malformed strict trust policy, package-signature envelope failure, untrusted/revoked signer, invalid signer window at signature timestamp, or signature verification failure). Remediation: provide valid strict trust-policy/signature preflight inputs and trusted signer keys. |
 | C104 | build | Strict preflight schema input is malformed or unsupported (strict lockfile v0, strict package metadata v0/v1, strict package ABI v0). Remediation: provide valid accepted schema files with required keys only. |
 | C105 | build | Strict ABI/link gate failed (package metadata/ABI contract mismatch, unresolved ABI import symbol, or resolved symbol signature/effect mismatch against strict ABI expectations). Remediation: align strict ABI contracts with resolved external import surface exactly. |
 | C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
 | C107 | build | Strict determinism replay failed (identical strict inputs did not produce identical canonical direct-dependency import map and diagnostics ordering). Remediation: normalize gate evaluation ordering and import-map serialization to be deterministic. |
 | C108 | build | Strict import-map artifact emission failed (canonical strict preflight artifact could not be written). Remediation: fix output path/permissions and retry the strict build. |
 | C109 | build | Package metadata model compatibility failure (for example legacy `clg-packages.json` coexistence with canonical Gate E inputs, or `clg.project.json` roots conflicting with existing `clg.lock.json` roots during migration/update). |
-| C110 | build | Metadata trust-anchor/signature linkage failure against trust policy. |
+| C110 | build | Metadata trust-anchor/signature linkage failure against strict package trust policy `clg.trust-policy.json`. |
 | C111 | build | Lockfile generate/update input contract failure (invalid roots or policy preconditions). |
 | C112 | build | Deterministic transitive dependency cycle detected in package resolution graph. |
 | C113 | build | Deterministic semver solver found no satisfiable version set for constraints. |
@@ -236,7 +236,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |
-| V004 | verify | Trust-anchor verification failed (missing policy, policy parse/schema failure, payload trust-anchor mismatch). |
+| V004 | verify | Compile-time trust-anchor verification failed (`--trust-policy` file, typically `trust-policy.json`, is missing/invalid or payload trust-anchor versions mismatch; this is distinct from strict package trust policy `clg.trust-policy.json`). |
 | V005 | verify | Release policy/assurance gate failed (invalid policy/manifest, manifest tier below required minimum, or `proved_all` requested while assumption boundaries/disallowed release surfaces remain). |
 | V006 | verify | Proof artifact consistency gate failed (missing/malformed artifact, unsupported proof schema, or solver-profile/proof-hash mismatch against signed claims). |
 | R000 | runtime | Contract guard failed at runtime (detail indicates require/ensure). |

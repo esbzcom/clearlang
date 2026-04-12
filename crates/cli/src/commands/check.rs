@@ -48,7 +48,10 @@ pub fn run(file: PathBuf, root: Option<PathBuf>, json_errors: bool, logger: Logg
         load_verify_trust_policy_v1(trust_policy_path.as_path()).map_err(|err| {
             check_error(
                 CHECK_DEFAULTS_DIAGNOSTIC_CODE,
-                format!("trust policy check failed: {}", err.message()),
+                format!(
+                    "compile-time trust-anchor policy check failed (release_defaults.trust_policy -> `trust-policy.json`, distinct from strict package policy `clg.trust-policy.json`): {}",
+                    err.message()
+                ),
                 &file,
                 json_errors,
             )

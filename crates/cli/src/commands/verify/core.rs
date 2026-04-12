@@ -63,7 +63,7 @@ pub fn run(
                 if trust_policy.is_some() {
                     Err(signing::VerifyError::new(
                         signing::VerifyErrorCode::TrustAnchorFailure,
-                        "`--trust-policy` requires `--verify-mode compile-time`",
+                        "`--trust-policy` requires `--verify-mode compile-time` (use compile-time trust-anchor policy file, typically `trust-policy.json`; do not pass strict package policy `clg.trust-policy.json`)",
                     ))
                 } else {
                     signing::verify_signature_details(&module, &sig, &pubkey)
@@ -75,7 +75,7 @@ pub fn run(
                 ),
                 None => Err(signing::VerifyError::new(
                     signing::VerifyErrorCode::TrustAnchorFailure,
-                    "`--verify-mode compile-time` requires `--trust-policy <FILE>`",
+                    "`--verify-mode compile-time` requires `--trust-policy <FILE>` (compile-time trust-anchor policy, typically `trust-policy.json`; distinct from strict package policy `clg.trust-policy.json`)",
                 )),
             },
         }

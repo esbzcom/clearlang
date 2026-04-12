@@ -549,20 +549,26 @@ fn read_trust_anchor_policy(path: &Path) -> std::result::Result<TrustAnchorVersi
     let bytes = fs::read(path).map_err(|err| {
         VerifyError::new(
             VerifyErrorCode::TrustAnchorFailure,
-            format!("reading trust policy {}: {err}", path.display()),
+            format!(
+                "reading compile-time trust-anchor policy {}: {err}",
+                path.display()
+            ),
         )
     })?;
     let policy: TrustAnchorPolicyFile = serde_json::from_slice(&bytes).map_err(|err| {
         VerifyError::new(
             VerifyErrorCode::TrustAnchorFailure,
-            format!("parsing trust policy {}: {err}", path.display()),
+            format!(
+                "parsing compile-time trust-anchor policy {}: {err}",
+                path.display()
+            ),
         )
     })?;
     if policy.schema_version != 1 {
         return Err(VerifyError::new(
             VerifyErrorCode::TrustAnchorFailure,
             format!(
-                "unsupported trust policy schema_version {} (expected 1)",
+                "unsupported compile-time trust-anchor policy schema_version {} (expected 1)",
                 policy.schema_version
             ),
         ));
@@ -572,7 +578,7 @@ fn read_trust_anchor_policy(path: &Path) -> std::result::Result<TrustAnchorVersi
     {
         return Err(VerifyError::new(
             VerifyErrorCode::TrustAnchorFailure,
-            "trust policy checker versions must be non-empty",
+            "compile-time trust-anchor policy checker versions must be non-empty",
         ));
     }
     Ok(policy.trust_anchors)

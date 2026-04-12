@@ -253,6 +253,12 @@ enum PkgCommands {
         #[arg(long, value_name = "DIR", default_value = ".")]
         root: PathBuf,
     },
+    /// Generate `clg.project.json` from canonical package inputs for Gate E migration
+    MigrateManifest {
+        /// Module root containing canonical package metadata (and optional lockfile)
+        #[arg(long, value_name = "DIR", default_value = ".")]
+        root: PathBuf,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -415,6 +421,14 @@ fn main() -> Result<()> {
                     update,
                     compiler_mode,
                     advisory_as_of,
+                    root,
+                    json_errors: cli.json_errors,
+                    emit_stdout_summary: true,
+                },
+                logger.with_command("pkg"),
+            ),
+            PkgCommands::MigrateManifest { root } => cmd_pkg::run_migrate_manifest(
+                cmd_pkg::RunMigrateManifestArgs {
                     root,
                     json_errors: cli.json_errors,
                     emit_stdout_summary: true,

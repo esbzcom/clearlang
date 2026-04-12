@@ -11,7 +11,10 @@ use crate::commands::build::CompilerMode;
 use crate::commands::helpers::{
     canonical_json_bytes, make_single_json_error, sha256_hex, CommandError,
 };
-use crate::commands::release_defaults::load_project_manifest_v1;
+use crate::commands::release_defaults::{
+    load_project_manifest_v1, RELEASE_DEFAULT_ADVISORY_PLACEHOLDER,
+    RELEASE_DEFAULT_KEY_ID_PLACEHOLDER, STRICT_PROJECT_FILE,
+};
 use crate::commands::validation::{
     parse_utc_timestamp_components, validate_exact_semver, validate_package_id,
     validate_semver_requirement, validate_sha256_digest, validate_utc_rfc3339,

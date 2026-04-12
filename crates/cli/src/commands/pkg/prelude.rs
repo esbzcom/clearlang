@@ -19,6 +19,7 @@ use crate::commands::validation::{
 use crate::logging::{Logger, StageTimings};
 
 const CANONICAL_PACKAGE_METADATA_FILE: &str = "clg.package-metadata.json";
+const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
 const STRICT_LOCKFILE_FILE: &str = "clg.lock.json";
 const ADVISORY_FILE: &str = "clg.advisories.json";
 const RESOLVED_GRAPH_FILE: &str = "clg.resolved-graph.json";

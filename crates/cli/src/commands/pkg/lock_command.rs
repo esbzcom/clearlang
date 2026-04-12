@@ -99,10 +99,21 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
     let mut timings = StageTimings::new();
     let metadata_path = root.join(CANONICAL_PACKAGE_METADATA_FILE);
     let lockfile_path = root.join(STRICT_LOCKFILE_FILE);
+    let legacy_metadata_path = root.join(LEGACY_PACKAGE_METADATA_FILE);
     let project_manifest = match load_project_manifest_v1(root.as_path()) {
         Ok(value) => value,
         Err(err) => return fail_pkg("C027", err.message().to_string()),
     };
+    if legacy_metadata_path.exists() {
+        return fail_pkg(
+            "C109",
+            format!(
+                "package metadata model coexistence conflict: legacy metadata `{}` is not supported; migrate to canonical `{}` + `clg.project.json` + `clg.lock.json`",
+                legacy_metadata_path.display(),
+                CANONICAL_PACKAGE_METADATA_FILE
+            ),
+        );
+    }
 
     if generate && lockfile_path.exists() {
         return fail_pkg(
@@ -126,7 +137,7 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
     let lockfile = {
         let _stage = timings.start(logger, "pkg_load_metadata");
         let root_inputs = if let Some(manifest) = project_manifest.as_ref() {
-            Some(vec![StrictLockRootV1 {
+            let manifest_roots = vec![StrictLockRootV1 {
                 name: manifest.project.name.clone(),
                 dependencies: manifest
                     .dependencies
@@ -136,7 +147,16 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
                         requirement: dependency.requirement.clone(),
                     })
                     .collect(),
-            }])
+            }];
+            if update {
+                if let Err(err) = ensure_manifest_roots_match_existing_lock(
+                    manifest_roots.as_slice(),
+                    lockfile_path.as_path(),
+                ) {
+                    return fail_pkg(err.code(), err.to_string());
+                }
+            }
+            Some(manifest_roots)
         } else if update {
             match load_root_inputs_for_update(lockfile_path.as_path()) {
                 Ok(v) => Some(v),
@@ -295,4 +315,52 @@ fn load_root_inputs_for_update(path: &Path) -> Result<Vec<StrictLockRootV1>, Pkg
         ));
     }
     Ok(roots)
+}
+
+fn ensure_manifest_roots_match_existing_lock(
+    manifest_roots: &[StrictLockRootV1],
+    lockfile_path: &Path,
+) -> Result<(), PkgLockError> {
+    let existing_roots = load_root_inputs_for_update(lockfile_path)?;
+    if root_signature(manifest_roots) == root_signature(existing_roots.as_slice()) {
+        return Ok(());
+    }
+    Err(PkgLockError::new(
+        "C109",
+        format!(
+            "package metadata model compatibility failure: manifest roots do not match existing lockfile roots in `{}`; expected `{}` from `clg.project.json`, found `{}` in `clg.lock.json`; regenerate lockfile from manifest",
+            lockfile_path.display(),
+            describe_roots(manifest_roots),
+            describe_roots(existing_roots.as_slice())
+        ),
+    ))
+}
+
+fn root_signature(roots: &[StrictLockRootV1]) -> Vec<(String, Vec<(String, String)>)> {
+    let mut out = Vec::with_capacity(roots.len());
+    for root in roots {
+        let mut deps = root
+            .dependencies
+            .iter()
+            .map(|dep| (dep.name.clone(), dep.requirement.clone()))
+            .collect::<Vec<_>>();
+        deps.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        out.push((root.name.clone(), deps));
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+fn describe_roots(roots: &[StrictLockRootV1]) -> String {
+    let signature = root_signature(roots);
+    let mut parts = Vec::with_capacity(signature.len());
+    for (name, deps) in signature {
+        let deps_text = deps
+            .iter()
+            .map(|(dep_name, requirement)| format!("{dep_name}:{requirement}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        parts.push(format!("{name}[{deps_text}]"));
+    }
+    parts.join(";")
 }

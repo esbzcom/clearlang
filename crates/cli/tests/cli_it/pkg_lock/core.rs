@@ -436,6 +436,131 @@ fn pkg_lock_generate_rejects_invalid_project_manifest_dependencies_with_c027() {
 }
 
 #[test]
+fn pkg_lock_generate_reports_c109_when_legacy_metadata_model_is_present() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg-packages.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("write legacy metadata");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("write canonical metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C109"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+    assert!(
+        e0.get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("coexistence conflict"),
+        "expected coexistence conflict diagnostics"
+    );
+}
+
+#[test]
+fn pkg_lock_update_reports_c109_when_manifest_roots_conflict_with_existing_lock() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.project.json"),
+        r#"{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.0.0",
+    "clg_version": "^0.1.0",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [
+    { "name": "std::core", "requirement": "^1.0.0" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+    )
+    .expect("write project manifest");
+    fs::write(
+        root.join("clg.lock.json"),
+        r#"{
+  "schema_version": 1,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "example-app",
+      "dependencies": [
+        { "name": "std::host", "requirement": "^1.0.0" }
+      ]
+    }
+  ],
+  "packages": []
+}"#,
+    )
+    .expect("write existing lockfile");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("write metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--update", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C109"));
+    assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+    assert!(
+        e0.get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("manifest roots do not match existing lockfile roots"),
+        "expected manifest-lock conflict diagnostics"
+    );
+}
+
+#[test]
 fn pkg_lock_generate_prints_canonical_hash() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

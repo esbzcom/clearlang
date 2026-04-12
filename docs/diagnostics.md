@@ -202,7 +202,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C106 | build | Strict host-profile validation failed (missing/unreadable/malformed profile or required capability absent). Remediation: provide valid `clg.host-profile.json` schema v0 with required capability ids. |
 | C107 | build | Strict determinism replay failed (identical strict inputs did not produce identical canonical direct-dependency import map and diagnostics ordering). Remediation: normalize gate evaluation ordering and import-map serialization to be deterministic. |
 | C108 | build | Strict import-map artifact emission failed (canonical strict preflight artifact could not be written). Remediation: fix output path/permissions and retry the strict build. |
-| C109 | build | Package metadata model compatibility failure (conflicting or unsupported metadata model, including migration/coexistence violations). |
+| C109 | build | Package metadata model compatibility failure (for example legacy `clg-packages.json` coexistence with canonical Gate E inputs, or `clg.project.json` roots conflicting with existing `clg.lock.json` roots during migration/update). |
 | C110 | build | Metadata trust-anchor/signature linkage failure against trust policy. |
 | C111 | build | Lockfile generate/update input contract failure (invalid roots or policy preconditions). |
 | C112 | build | Deterministic transitive dependency cycle detected in package resolution graph. |

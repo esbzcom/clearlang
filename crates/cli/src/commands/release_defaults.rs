@@ -146,13 +146,14 @@ struct ParsedProjectManifest {
 }
 
 pub(crate) fn release_project_template_pretty_json() -> Vec<u8> {
+    let clg_version_requirement = default_project_clg_version_requirement();
     serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": 1,
         "project": {
             "name": "app",
             "description": "ClearLang project",
             "version": "0.1.0",
-            "clg_version": "^0.1.0",
+            "clg_version": clg_version_requirement,
             "entry": "main.clear",
             "website": "https://example.com",
             "contact": {
@@ -471,14 +472,23 @@ pub(crate) fn is_release_defaults_placeholder(value: &str) -> bool {
     value == RELEASE_DEFAULT_ADVISORY_PLACEHOLDER || value == RELEASE_DEFAULT_KEY_ID_PLACEHOLDER
 }
 
+pub(crate) fn default_project_clg_version_requirement() -> String {
+    let current_core = normalized_clg_core_version();
+    let mut parts = current_core.split('.');
+    let major = parts.next().and_then(|raw| raw.parse::<u64>().ok());
+    let minor = parts.next().and_then(|raw| raw.parse::<u64>().ok());
+    let patch = parts.next().and_then(|raw| raw.parse::<u64>().ok());
+    if major.is_none() || minor.is_none() || patch.is_none() || parts.next().is_some() {
+        return "^0.1.0".to_string();
+    }
+    format!("^{}.{}.0", major.unwrap_or(0), minor.unwrap_or(1))
+}
+
 pub(crate) fn enforce_project_clg_version_compatibility(
     manifest: &ProjectManifestV1,
 ) -> Result<(), ReleaseDefaultsError> {
     let current_full = env!("CARGO_PKG_VERSION");
-    let current_core = current_full
-        .split(['-', '+'])
-        .next()
-        .unwrap_or(current_full);
+    let current_core = normalized_clg_core_version();
     let requirement = manifest.project.clg_version.as_str();
     let is_match = semver_requirement_matches_version(requirement, current_core).map_err(|msg| {
         ReleaseDefaultsError::new(format!(
@@ -493,6 +503,14 @@ pub(crate) fn enforce_project_clg_version_compatibility(
         )));
     }
     Ok(())
+}
+
+fn normalized_clg_core_version() -> &'static str {
+    let current_full = env!("CARGO_PKG_VERSION");
+    current_full
+        .split(['-', '+'])
+        .next()
+        .unwrap_or(current_full)
 }
 
 fn validate_non_empty(path: &Path, field: &str, value: &str) -> Result<(), ReleaseDefaultsError> {
@@ -580,6 +598,12 @@ mod tests {
         assert!(value.get("project").is_some());
         assert!(value.get("dependencies").is_some());
         assert!(value.get("release_defaults").is_some());
+        assert_eq!(
+            value.get("project")
+                .and_then(|v| v.get("clg_version"))
+                .and_then(|v| v.as_str()),
+            Some(default_project_clg_version_requirement().as_str())
+        );
     }
 
     #[test]
@@ -708,7 +732,7 @@ mod tests {
     "name": "example-app",
     "description": "Example project",
     "version": "1.2.3",
-    "clg_version": "^0.1.0",
+    "clg_version": "__CLG_VERSION_REQ__",
     "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
@@ -723,9 +747,14 @@ mod tests {
     "out_dir": "out/release",
     "trust_policy": "trust-policy.json"
   }
-}"#;
+}"#
+        .replace(
+            "__CLG_VERSION_REQ__",
+            default_project_clg_version_requirement().as_str(),
+        );
         let parsed =
-            parse_project_manifest(content, Path::new(STRICT_PROJECT_FILE)).expect("manifest");
+            parse_project_manifest(content.as_str(), Path::new(STRICT_PROJECT_FILE))
+                .expect("manifest");
         let manifest = parsed.manifest_v1.expect("schema v1 manifest");
         enforce_project_clg_version_compatibility(&manifest).expect("version should match");
     }
@@ -761,5 +790,18 @@ mod tests {
             .expect_err("version requirement should fail");
         assert!(err.message().contains("project.clg_version"));
         assert!(err.message().contains("current `clg` version"));
+    }
+
+    #[test]
+    fn default_project_clg_version_requirement_matches_current_clg_version() {
+        let requirement = default_project_clg_version_requirement();
+        let current_core = normalized_clg_core_version();
+        assert!(
+            semver_requirement_matches_version(requirement.as_str(), current_core)
+                .expect("valid default requirement"),
+            "default requirement `{}` should match current clg version `{}`",
+            requirement,
+            current_core
+        );
     }
 }

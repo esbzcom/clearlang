@@ -186,7 +186,7 @@ fn build_generated_manifest(
             name: inferred_name.clone(),
             description: format!("Migrated manifest for `{}`", inferred_name),
             version: "0.1.0".to_string(),
-            clg_version: "^0.1.0".to_string(),
+            clg_version: default_project_clg_version_requirement(),
             entry: "main.clear".to_string(),
             website: "https://example.com".to_string(),
             contact: GeneratedContactV1 {

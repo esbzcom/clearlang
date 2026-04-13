@@ -41,6 +41,35 @@ fn canonical_json_bytes(value: &Value) -> Vec<u8> {
     serde_json::to_vec(&canonicalize_json_value(value)).expect("serialize canonical json")
 }
 
+fn current_clg_version_requirement() -> String {
+    let current_full = env!("CARGO_PKG_VERSION");
+    let current_core = current_full
+        .split(['-', '+'])
+        .next()
+        .unwrap_or(current_full);
+    let mut parts = current_core.split('.');
+    let major = parts
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
+    let minor = parts
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(1);
+    format!("^{}.{}.0", major, minor)
+}
+
+fn with_current_clg_version_requirement(template: &str) -> String {
+    template.replace(
+        "\"clg_version\": \"^0.1.0\"",
+        format!(
+            "\"clg_version\": \"{}\"",
+            current_clg_version_requirement()
+        )
+        .as_str(),
+    )
+}
+
 #[test]
 fn pkg_lock_and_build_accept_same_schema_v1_metadata_contract() {
     let tmp = tempdir().unwrap();
@@ -285,7 +314,8 @@ fn pkg_lock_generate_prefers_project_manifest_dependencies_when_present() {
     let root = tmp.path();
     fs::write(
         root.join("clg.project.json"),
-        r#"{
+        with_current_clg_version_requirement(
+            r#"{
   "schema_version": 1,
   "project": {
     "name": "example-app",
@@ -309,6 +339,7 @@ fn pkg_lock_generate_prefers_project_manifest_dependencies_when_present() {
     "trust_policy": "trust-policy.json"
   }
 }"#,
+        ),
     )
     .expect("write project manifest");
     fs::write(
@@ -377,7 +408,8 @@ fn pkg_lock_generate_rejects_invalid_project_manifest_dependencies_with_c027() {
     let root = tmp.path();
     fs::write(
         root.join("clg.project.json"),
-        r#"{
+        with_current_clg_version_requirement(
+            r#"{
   "schema_version": 1,
   "project": {
     "name": "example-app",
@@ -401,6 +433,7 @@ fn pkg_lock_generate_rejects_invalid_project_manifest_dependencies_with_c027() {
     "trust_policy": "trust-policy.json"
   }
 }"#,
+        ),
     )
     .expect("write project manifest");
     fs::write(
@@ -443,7 +476,8 @@ fn pkg_lock_generate_rejects_incompatible_project_clg_version_with_c027() {
     let root = tmp.path();
     fs::write(
         root.join("clg.project.json"),
-        r#"{
+        with_current_clg_version_requirement(
+            r#"{
   "schema_version": 1,
   "project": {
     "name": "example-app",
@@ -465,6 +499,7 @@ fn pkg_lock_generate_rejects_incompatible_project_clg_version_with_c027() {
     "trust_policy": "trust-policy.json"
   }
 }"#,
+        ),
     )
     .expect("write project manifest");
     fs::write(

@@ -733,24 +733,32 @@ fn release_command_json_events_emit_structured_progress() {
 
 #[test]
 fn release_command_rejects_retired_non_secret_flags_with_usage_error() {
-    let output = Command::cargo_bin("clg")
-        .unwrap()
-        .args(["release"])
-        .args(["--key", "keys/signing.json"])
-        .args(["--pubkey", "keys/public.json"])
-        .args(["--advisory-as-of", "2026-03-31T00:00:00Z"])
-        .output()
-        .expect("run release help");
-    assert_eq!(
-        output.status.code(),
-        Some(2),
-        "usage error should exit with 2"
-    );
-    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
-    assert!(
-        stderr.contains("unexpected argument '--advisory-as-of'"),
-        "expected retired flag rejection, got: {stderr}"
-    );
+    for (flag, value) in [
+        ("--advisory-as-of", "2026-03-31T00:00:00Z"),
+        ("--key-id", "release-2026q2"),
+        ("--out-dir", "out/release"),
+        ("--trust-policy", "trust-policy.json"),
+    ] {
+        let output = Command::cargo_bin("clg")
+            .unwrap()
+            .args(["release"])
+            .args(["--key", "keys/signing.json"])
+            .args(["--pubkey", "keys/public.json"])
+            .arg(flag)
+            .arg(value)
+            .output()
+            .expect("run release usage rejection");
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "usage error should exit with 2 for {flag}"
+        );
+        let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+        assert!(
+            stderr.contains(format!("unexpected argument '{flag}'").as_str()),
+            "expected retired flag rejection for {flag}, got: {stderr}"
+        );
+    }
 }
 
 #[test]
@@ -850,5 +858,35 @@ fn release_command_rejects_ambiguous_manifest_discovery_without_root() {
     assert!(
         text.contains("multiple `clg.project.json` files found"),
         "expected ambiguity diagnostics, got: {text}"
+    );
+}
+
+#[test]
+fn release_command_rejects_missing_manifest_discovery_without_root() {
+    let tmp = tempdir().unwrap();
+    let workspace = tmp.path().join("workspace");
+    fs::create_dir_all(&workspace).expect("create workspace");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .current_dir(&workspace)
+        .args(["--json-errors", "release"])
+        .args(["--key"])
+        .arg(workspace.join("keys").join("signing.json"))
+        .args(["--pubkey"])
+        .arg(workspace.join("keys").join("public.json"))
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C130\""),
+        "expected C130, got: {text}"
+    );
+    assert!(
+        text.contains("could not find `clg.project.json`"),
+        "expected missing-manifest discovery diagnostics, got: {text}"
     );
 }

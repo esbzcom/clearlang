@@ -21,6 +21,24 @@ fn strict_init(root: &Path) {
         .success();
 }
 
+fn current_clg_version_requirement() -> String {
+    let current_full = env!("CARGO_PKG_VERSION");
+    let current_core = current_full
+        .split(['-', '+'])
+        .next()
+        .unwrap_or(current_full);
+    let mut parts = current_core.split('.');
+    let major = parts
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
+    let minor = parts
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(1);
+    format!("^{}.{}.0", major, minor)
+}
+
 fn write_release_project_defaults(
     path: &Path,
     advisory_as_of: &str,
@@ -35,7 +53,7 @@ fn write_release_project_defaults(
             "name": "example-app",
             "description": "Example project",
             "version": "0.1.0",
-            "clg_version": "^0.1.0",
+            "clg_version": current_clg_version_requirement(),
             "entry": entry,
             "website": "https://example.com",
             "contact": {

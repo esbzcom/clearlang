@@ -584,7 +584,8 @@ fn pkg_lock_update_reports_c109_when_manifest_roots_conflict_with_existing_lock(
     let root = tmp.path();
     fs::write(
         root.join("clg.project.json"),
-        r#"{
+        with_current_clg_version_requirement(
+            r#"{
   "schema_version": 1,
   "project": {
     "name": "example-app",
@@ -608,6 +609,7 @@ fn pkg_lock_update_reports_c109_when_manifest_roots_conflict_with_existing_lock(
     "trust_policy": "trust-policy.json"
   }
 }"#,
+        ),
     )
     .expect("write project manifest");
     fs::write(
@@ -1088,6 +1090,10 @@ fn pkg_migrate_manifest_generates_project_manifest_from_existing_lock_roots() {
     let manifest: Value = serde_json::from_slice(&manifest_bytes).expect("project manifest json");
     assert_eq!(manifest["schema_version"], Value::from(1));
     assert_eq!(manifest["project"]["name"], Value::from("example-app"));
+    assert_eq!(
+        manifest["project"]["clg_version"],
+        Value::from(current_clg_version_requirement())
+    );
     assert_eq!(manifest["project"]["entry"], Value::from("main.clear"));
     assert_eq!(manifest["dependencies"][0]["name"], Value::from("std::core"));
     assert_eq!(

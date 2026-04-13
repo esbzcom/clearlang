@@ -292,6 +292,7 @@ fn pkg_lock_generate_prefers_project_manifest_dependencies_when_present() {
     "description": "Example project",
     "version": "1.0.0",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
       "name": "Example Maintainer",
@@ -383,6 +384,7 @@ fn pkg_lock_generate_rejects_invalid_project_manifest_dependencies_with_c027() {
     "description": "Example project",
     "version": "1.0.0",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
       "name": "Example Maintainer",
@@ -432,6 +434,69 @@ fn pkg_lock_generate_rejects_invalid_project_manifest_dependencies_with_c027() {
             .unwrap_or_default()
             .contains("invalid requirement"),
         "expected invalid requirement diagnostics"
+    );
+}
+
+#[test]
+fn pkg_lock_generate_rejects_incompatible_project_clg_version_with_c027() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.project.json"),
+        r#"{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.0.0",
+    "clg_version": "^999.0.0",
+    "entry": "main.clear",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#,
+    )
+    .expect("write project manifest");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{"schema_version":1,"packages":[]}"#,
+    )
+    .expect("write metadata");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--generate", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert_eq!(v.get("ok").and_then(|b| b.as_bool()), Some(false));
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C027"));
+    assert!(
+        e0.get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("project.clg_version"),
+        "expected clg_version compatibility diagnostics"
     );
 }
 
@@ -491,6 +556,7 @@ fn pkg_lock_update_reports_c109_when_manifest_roots_conflict_with_existing_lock(
     "description": "Example project",
     "version": "1.0.0",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
       "name": "Example Maintainer",
@@ -987,6 +1053,7 @@ fn pkg_migrate_manifest_generates_project_manifest_from_existing_lock_roots() {
     let manifest: Value = serde_json::from_slice(&manifest_bytes).expect("project manifest json");
     assert_eq!(manifest["schema_version"], Value::from(1));
     assert_eq!(manifest["project"]["name"], Value::from("example-app"));
+    assert_eq!(manifest["project"]["entry"], Value::from("main.clear"));
     assert_eq!(manifest["dependencies"][0]["name"], Value::from("std::core"));
     assert_eq!(
         manifest["dependencies"][0]["requirement"],

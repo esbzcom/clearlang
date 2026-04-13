@@ -104,6 +104,11 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
         Ok(value) => value,
         Err(err) => return fail_pkg("C027", err.message().to_string()),
     };
+    if let Some(manifest) = project_manifest.as_ref() {
+        if let Err(err) = enforce_project_clg_version_compatibility(manifest) {
+            return fail_pkg("C027", err.message().to_string());
+        }
+    }
     if legacy_metadata_path.exists() {
         return fail_pkg(
             "C109",

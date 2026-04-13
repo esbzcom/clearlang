@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +10,8 @@ use crate::commands::build::{self, CompilerMode, ReleaseProfile, StdCoreLinkMode
 use crate::commands::helpers::{make_single_json_error, sha256_hex, CommandError};
 use crate::commands::pkg;
 use crate::commands::release_defaults::{
-    is_release_defaults_placeholder, load_required_release_defaults_v0, load_verify_trust_policy_v1,
+    enforce_project_clg_version_compatibility, is_release_defaults_placeholder,
+    load_project_manifest_v1, load_required_release_defaults_v0, load_verify_trust_policy_v1,
     STRICT_PROJECT_FILE,
 };
 use crate::commands::verify::{self, VerifyMode};
@@ -66,27 +68,64 @@ struct ReleaseStageStatus {
 }
 
 pub fn run(
-    file: PathBuf,
     key: PathBuf,
     pubkey: PathBuf,
     root: Option<PathBuf>,
     json_errors: bool,
     logger: Logger,
 ) -> Result<()> {
-    let root = root.unwrap_or_else(|| {
-        file.parent()
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| PathBuf::from("."))
-    });
+    let root = resolve_release_root(root, json_errors)?;
+    let manifest_path = root.join(STRICT_PROJECT_FILE);
 
     let release_defaults = load_required_release_defaults_v0(root.as_path()).map_err(|err| {
         release_error(
             "C130",
             format!("loading `{}`: {}", STRICT_PROJECT_FILE, err.message()),
-            file.as_path(),
+            manifest_path.as_path(),
             json_errors,
         )
     })?;
+
+    let project_manifest = load_project_manifest_v1(root.as_path()).map_err(|err| {
+        release_error(
+            "C130",
+            err.message().to_string(),
+            manifest_path.as_path(),
+            json_errors,
+        )
+    })?;
+    let project_manifest = project_manifest.ok_or_else(|| {
+        release_error(
+            "C130",
+            format!(
+                "release requires schema v1 `{}` with `project.entry` configured",
+                STRICT_PROJECT_FILE
+            ),
+            manifest_path.as_path(),
+            json_errors,
+        )
+    })?;
+    enforce_project_clg_version_compatibility(&project_manifest).map_err(|err| {
+        release_error(
+            "C130",
+            err.message().to_string(),
+            manifest_path.as_path(),
+            json_errors,
+        )
+    })?;
+    let file = root.join(project_manifest.project.entry.as_str());
+    if !file.exists() || !file.is_file() {
+        return Err(release_error(
+            "C130",
+            format!(
+                "release entrypoint `project.entry = {}` resolved to `{}` which is missing or not a file",
+                project_manifest.project.entry,
+                file.display()
+            ),
+            manifest_path.as_path(),
+            json_errors,
+        ));
+    }
 
     let advisory_as_of = resolve_required_manifest_release_value(
         release_defaults.advisory_as_of.as_str(),
@@ -200,6 +239,94 @@ pub fn run(
         serde_json::to_string_pretty(&bundle_manifest).expect("serialize release bundle manifest")
     );
     Ok(())
+}
+
+fn resolve_release_root(root: Option<PathBuf>, json_errors: bool) -> Result<PathBuf> {
+    if let Some(explicit_root) = root {
+        return Ok(explicit_root);
+    }
+    let cwd = std::env::current_dir()
+        .map_err(|err| anyhow::anyhow!("resolving current directory for release: {err}"))?;
+    let mut candidates = discover_manifest_roots(cwd.as_path())?;
+    candidates.sort();
+    candidates.dedup();
+    match candidates.len() {
+        0 => Err(release_error(
+            "C130",
+            format!(
+                "could not find `{}` under current directory `{}`; pass `--root <DIR>` or run from a project directory",
+                STRICT_PROJECT_FILE,
+                cwd.display()
+            ),
+            cwd.as_path(),
+            json_errors,
+        )),
+        1 => Ok(candidates.remove(0)),
+        _ => {
+            let shown = candidates
+                .iter()
+                .take(5)
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let suffix = if candidates.len() > 5 {
+                format!(" (showing 5 of {})", candidates.len())
+            } else {
+                String::new()
+            };
+            Err(release_error(
+                "C130",
+                format!(
+                    "multiple `{}` files found under current directory `{}`: {}{}; pass `--root <DIR>`",
+                    STRICT_PROJECT_FILE,
+                    cwd.display(),
+                    shown,
+                    suffix
+                ),
+                cwd.as_path(),
+                json_errors,
+            ))
+        }
+    }
+}
+
+fn discover_manifest_roots(search_root: &Path) -> Result<Vec<PathBuf>> {
+    let mut stack = vec![search_root.to_path_buf()];
+    let mut roots = Vec::new();
+    while let Some(dir) = stack.pop() {
+        let entries = fs::read_dir(&dir).with_context(|| {
+            format!(
+                "reading directory `{}` during release root discovery",
+                dir.display()
+            )
+        })?;
+        let mut children = entries
+            .map(|entry| entry.map_err(anyhow::Error::from))
+            .collect::<Result<Vec<_>>>()?;
+        children.sort_by(|a, b| a.path().cmp(&b.path()));
+        for entry in children {
+            let path = entry.path();
+            let file_type = entry
+                .file_type()
+                .with_context(|| format!("reading file type for `{}`", path.display()))?;
+            let name = entry.file_name();
+            if file_type.is_file() && name == OsStr::new(STRICT_PROJECT_FILE) {
+                roots.push(dir.clone());
+                continue;
+            }
+            if file_type.is_dir() && !is_release_discovery_ignored_dir(name.as_os_str()) {
+                stack.push(path);
+            }
+        }
+    }
+    Ok(roots)
+}
+
+fn is_release_discovery_ignored_dir(name: &OsStr) -> bool {
+    matches!(
+        name.to_str(),
+        Some(".git") | Some(".hg") | Some(".svn") | Some("target")
+    )
 }
 
 fn resolve_required_manifest_release_value(
@@ -416,8 +543,13 @@ fn release_error(
 
 #[cfg(test)]
 mod tests {
-    use super::{path_has_tests_or_mocks, validate_release_import_map_has_no_test_paths, ReleasePaths};
+    use super::{
+        discover_manifest_roots, is_release_discovery_ignored_dir, path_has_tests_or_mocks,
+        validate_release_import_map_has_no_test_paths, ReleasePaths,
+    };
+    use crate::commands::release_defaults::STRICT_PROJECT_FILE;
     use serde_json::json;
+    use std::ffi::OsStr;
     use std::fs;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -463,7 +595,10 @@ mod tests {
         let err = validate_release_import_map_has_no_test_paths(&paths, tmp.path(), true)
             .expect_err("expected C129 rejection");
         let text = err.to_string();
-        assert!(text.contains("\"code\": \"C129\""), "expected C129, got: {text}");
+        assert!(
+            text.contains("\"code\": \"C129\""),
+            "expected C129, got: {text}"
+        );
         assert!(
             text.contains("tests/unit/helper.clear"),
             "expected offending test path evidence, got: {text}"
@@ -490,5 +625,24 @@ mod tests {
         let paths = release_paths_for_import_map(map_path);
         validate_release_import_map_has_no_test_paths(&paths, tmp.path(), true)
             .expect("production-only import map should pass C129 scan");
+    }
+
+    #[test]
+    fn release_discovery_ignores_tooling_dirs() {
+        assert!(is_release_discovery_ignored_dir(OsStr::new("target")));
+        assert!(is_release_discovery_ignored_dir(OsStr::new(".git")));
+        assert!(!is_release_discovery_ignored_dir(OsStr::new("src")));
+    }
+
+    #[test]
+    fn discover_manifest_roots_finds_nested_project_files() {
+        let tmp = tempdir().expect("tempdir");
+        let project = tmp.path().join("workspace").join("generic");
+        fs::create_dir_all(&project).expect("create project dir");
+        fs::write(project.join(STRICT_PROJECT_FILE), b"{}").expect("write manifest");
+
+        let roots = discover_manifest_roots(tmp.path().join("workspace").as_path())
+            .expect("discover manifest roots");
+        assert_eq!(roots, vec![project]);
     }
 }

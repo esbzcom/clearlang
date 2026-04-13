@@ -5,7 +5,8 @@ use std::path::{Component, Path};
 use serde::Deserialize;
 
 use crate::commands::validation::{
-    validate_exact_semver, validate_package_id, validate_semver_requirement,
+    semver_requirement_matches_version, validate_exact_semver, validate_package_id,
+    validate_semver_requirement,
 };
 
 pub(crate) const STRICT_PROJECT_FILE: &str = "clg.project.json";
@@ -38,6 +39,7 @@ pub(crate) struct ProjectMetadataV1 {
     pub(crate) description: String,
     pub(crate) version: String,
     pub(crate) clg_version: String,
+    pub(crate) entry: String,
     pub(crate) website: String,
     pub(crate) contact: ProjectContactV1,
 }
@@ -95,6 +97,7 @@ struct RawProjectMetadataV1 {
     description: String,
     version: String,
     clg_version: String,
+    entry: String,
     website: String,
     contact: RawProjectContactV1,
 }
@@ -150,6 +153,7 @@ pub(crate) fn release_project_template_pretty_json() -> Vec<u8> {
             "description": "ClearLang project",
             "version": "0.1.0",
             "clg_version": "^0.1.0",
+            "entry": "main.clear",
             "website": "https://example.com",
             "contact": {
                 "name": "Project Maintainer",
@@ -303,6 +307,7 @@ fn validate_project_metadata(
     validate_non_empty(path, "project.description", project.description.as_str())?;
     validate_non_empty(path, "project.version", project.version.as_str())?;
     validate_non_empty(path, "project.clg_version", project.clg_version.as_str())?;
+    validate_non_empty(path, "project.entry", project.entry.as_str())?;
     validate_non_empty(path, "project.website", project.website.as_str())?;
     validate_non_empty(path, "project.contact.name", project.contact.name.as_str())?;
     validate_non_empty(
@@ -327,6 +332,7 @@ fn validate_project_metadata(
             msg
         ))
     })?;
+    validate_manifest_relative_path(path, "project.entry", project.entry.as_str())?;
     validate_website(path, project.website.as_str())?;
     validate_email(path, project.contact.email.as_str())?;
 
@@ -335,6 +341,7 @@ fn validate_project_metadata(
         description: project.description,
         version: project.version,
         clg_version: project.clg_version,
+        entry: project.entry,
         website: project.website,
         contact: ProjectContactV1 {
             name: project.contact.name,
@@ -426,13 +433,12 @@ fn validate_email(path: &Path, email: &str) -> Result<(), ReleaseDefaultsError> 
 pub(crate) fn load_verify_trust_policy_v1(
     path: &Path,
 ) -> Result<VerifyTrustAnchorsV1, ReleaseDefaultsError> {
-    let bytes = fs::read(path)
-        .map_err(|err| {
-            ReleaseDefaultsError::new(format!(
-                "reading compile-time trust-anchor policy `{}`: {err}",
-                path.display()
-            ))
-        })?;
+    let bytes = fs::read(path).map_err(|err| {
+        ReleaseDefaultsError::new(format!(
+            "reading compile-time trust-anchor policy `{}`: {err}",
+            path.display()
+        ))
+    })?;
     let policy: RawVerifyTrustPolicyV1 =
         serde_json::from_slice(bytes.as_slice()).map_err(|err| {
             ReleaseDefaultsError::new(format!(
@@ -465,6 +471,30 @@ pub(crate) fn is_release_defaults_placeholder(value: &str) -> bool {
     value == RELEASE_DEFAULT_ADVISORY_PLACEHOLDER || value == RELEASE_DEFAULT_KEY_ID_PLACEHOLDER
 }
 
+pub(crate) fn enforce_project_clg_version_compatibility(
+    manifest: &ProjectManifestV1,
+) -> Result<(), ReleaseDefaultsError> {
+    let current_full = env!("CARGO_PKG_VERSION");
+    let current_core = current_full
+        .split(['-', '+'])
+        .next()
+        .unwrap_or(current_full);
+    let requirement = manifest.project.clg_version.as_str();
+    let is_match = semver_requirement_matches_version(requirement, current_core).map_err(|msg| {
+        ReleaseDefaultsError::new(format!(
+            "project manifest `{}` field `project.clg_version` compatibility check failed: {}",
+            STRICT_PROJECT_FILE, msg
+        ))
+    })?;
+    if !is_match {
+        return Err(ReleaseDefaultsError::new(format!(
+            "project manifest `{}` requires `project.clg_version = {}` but current `clg` version is `{}`",
+            STRICT_PROJECT_FILE, requirement, current_full
+        )));
+    }
+    Ok(())
+}
+
 fn validate_non_empty(path: &Path, field: &str, value: &str) -> Result<(), ReleaseDefaultsError> {
     if value.trim().is_empty() {
         return Err(ReleaseDefaultsError::new(format!(
@@ -481,11 +511,29 @@ fn validate_project_relative_path(
     field: &str,
     value: &str,
 ) -> Result<(), ReleaseDefaultsError> {
+    validate_relative_path(path, field, value, "release defaults")
+}
+
+fn validate_manifest_relative_path(
+    path: &Path,
+    field: &str,
+    value: &str,
+) -> Result<(), ReleaseDefaultsError> {
+    validate_relative_path(path, field, value, "project manifest")
+}
+
+fn validate_relative_path(
+    path: &Path,
+    field: &str,
+    value: &str,
+    contract: &str,
+) -> Result<(), ReleaseDefaultsError> {
     validate_non_empty(path, field, value)?;
     let relative = Path::new(value);
     if relative.is_absolute() {
         return Err(ReleaseDefaultsError::new(format!(
-            "release defaults `{}` field `{}` must be a relative path",
+            "{} `{}` field `{}` must be a relative path",
+            contract,
             path.display(),
             field
         )));
@@ -494,14 +542,16 @@ fn validate_project_relative_path(
         match component {
             Component::ParentDir => {
                 return Err(ReleaseDefaultsError::new(format!(
-                    "release defaults `{}` field `{}` must not contain `..`",
+                    "{} `{}` field `{}` must not contain `..`",
+                    contract,
                     path.display(),
                     field
                 )));
             }
             Component::Prefix(_) | Component::RootDir => {
                 return Err(ReleaseDefaultsError::new(format!(
-                    "release defaults `{}` field `{}` must be a relative path",
+                    "{} `{}` field `{}` must be a relative path",
+                    contract,
                     path.display(),
                     field
                 )));
@@ -557,6 +607,7 @@ mod tests {
     "description": "Example project",
     "version": "1.2.3",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
       "name": "Example Maintainer",
@@ -588,6 +639,7 @@ mod tests {
         let manifest = parsed.manifest_v1.expect("manifest");
         assert_eq!(manifest.project.name, "example-app");
         assert_eq!(manifest.project.version, "1.2.3");
+        assert_eq!(manifest.project.entry, "main.clear");
         assert_eq!(manifest.dependencies.len(), 2);
         assert_eq!(manifest.dependencies[0].name, "std::core");
         assert_eq!(manifest.dependencies[1].name, "std::host");
@@ -605,6 +657,7 @@ mod tests {
     "description": "Example project",
     "version": "1.2.3",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
       "name": "Example Maintainer",
@@ -645,5 +698,68 @@ mod tests {
         .expect("write trust policy");
         let err = load_verify_trust_policy_v1(path.as_path()).expect_err("expected anchor error");
         assert!(err.message().contains("must provide non-empty"));
+    }
+
+    #[test]
+    fn clg_version_compatibility_accepts_matching_requirement() {
+        let content = r#"{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.2.3",
+    "clg_version": "^0.1.0",
+    "entry": "main.clear",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#;
+        let parsed =
+            parse_project_manifest(content, Path::new(STRICT_PROJECT_FILE)).expect("manifest");
+        let manifest = parsed.manifest_v1.expect("schema v1 manifest");
+        enforce_project_clg_version_compatibility(&manifest).expect("version should match");
+    }
+
+    #[test]
+    fn clg_version_compatibility_rejects_non_matching_requirement() {
+        let content = r#"{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.2.3",
+    "clg_version": "^999.0.0",
+    "entry": "main.clear",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#;
+        let parsed =
+            parse_project_manifest(content, Path::new(STRICT_PROJECT_FILE)).expect("manifest");
+        let manifest = parsed.manifest_v1.expect("schema v1 manifest");
+        let err = enforce_project_clg_version_compatibility(&manifest)
+            .expect_err("version requirement should fail");
+        assert!(err.message().contains("project.clg_version"));
+        assert!(err.message().contains("current `clg` version"));
     }
 }

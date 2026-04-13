@@ -51,7 +51,7 @@ clg check examples/projects/generic/main.clear --root examples/projects/generic
 Concrete `clg release` CLI shape:
 
 ```powershell
-clg release examples/projects/generic/main.clear --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
+clg release --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 
 `clg release` resolves required non-secret defaults from `clg.project.json`:
@@ -69,7 +69,7 @@ Use the plugin-safe profile for primary commands:
 ```powershell
 clg --non-interactive --json-errors --json-events check examples/projects/generic/main.clear --root examples/projects/generic
 clg --non-interactive --json-errors --json-events test examples/projects/testing --report json
-clg --non-interactive --json-errors --json-events release examples/projects/generic/main.clear --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
+clg --non-interactive --json-errors --json-events release --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 
 Contract summary:
@@ -131,9 +131,11 @@ clg strict init examples/projects/generic
 ```
 
 This command generates missing strict preflight inputs, validates strict schemas, and writes `clg.project.json` schema v1 with:
-- project metadata (`name`, `description`, `version`, `clg_version`, `website`, `contact`)
+- project metadata (`name`, `description`, `version`, `clg_version`, `entry`, `website`, `contact`)
 - dependency requirements (`dependencies[]`)
 - release defaults placeholders (`REQUIRED_RFC3339_UTC`, `REQUIRED_KEY_ID`) that must be replaced before production release.
+
+`clg release`/`clg pkg lock` also fail closed if `project.clg_version` does not match the running `clg` binary version.
 
 ## 2) Generate Deterministic Lock Inputs
 Use an explicit advisory time for replay-stable policy evaluation.
@@ -188,6 +190,8 @@ Theorem-grade gate for release workflows:
 ```powershell
 clg verify --module out/generic.wasm --sig out/generic.sig.json --pubkey keys/public.json --verify-mode compile-time --trust-policy examples/projects/generic/trust-policy.json --assurance-manifest out/generic.assurance.json --require-assurance proved_all
 ```
+
+Note: example project sources may intentionally exercise non-proved std APIs; adapt `project.entry`/sources to production-allowed surfaces before expecting `clg release` to pass.
 
 Optional release policy gate:
 

@@ -70,6 +70,42 @@ pub(crate) fn validate_semver_requirement(requirement: &str) -> Result<(), Strin
     })
 }
 
+pub(crate) fn semver_requirement_matches_version(
+    requirement: &str,
+    version: &str,
+) -> Result<bool, String> {
+    validate_semver_requirement(requirement)?;
+    validate_exact_semver(version)?;
+
+    let trimmed = requirement.trim();
+    let (kind, base_raw) = if let Some(rest) = trimmed.strip_prefix('=') {
+        ('=', rest)
+    } else if let Some(rest) = trimmed.strip_prefix('^') {
+        ('^', rest)
+    } else if let Some(rest) = trimmed.strip_prefix('~') {
+        ('~', rest)
+    } else {
+        ('=', trimmed)
+    };
+
+    let base = parse_semver_triplet(base_raw)?;
+    let candidate = parse_semver_triplet(version)?;
+    Ok(match kind {
+        '=' => candidate == base,
+        '^' => {
+            if base.0 > 0 {
+                candidate.0 == base.0 && candidate >= base
+            } else if base.1 > 0 {
+                candidate.0 == 0 && candidate.1 == base.1 && candidate.2 >= base.2
+            } else {
+                candidate.0 == 0 && candidate.1 == 0 && candidate.2 == base.2
+            }
+        }
+        '~' => candidate.0 == base.0 && candidate.1 == base.1 && candidate >= base,
+        _ => false,
+    })
+}
+
 pub(crate) fn validate_sha256_digest(digest: &str) -> Result<(), String> {
     const PREFIX: &str = "sha256:";
     if !digest.starts_with(PREFIX) {
@@ -170,4 +206,27 @@ fn days_in_month(year: u16, month: u8) -> u8 {
 
 fn is_leap_year(year: u16) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn parse_semver_triplet(value: &str) -> Result<(u64, u64, u64), String> {
+    let mut parts = value.split('.');
+    let major = parts
+        .next()
+        .ok_or_else(|| "missing major segment".to_string())?
+        .parse::<u64>()
+        .map_err(|_| "major segment is not numeric".to_string())?;
+    let minor = parts
+        .next()
+        .ok_or_else(|| "missing minor segment".to_string())?
+        .parse::<u64>()
+        .map_err(|_| "minor segment is not numeric".to_string())?;
+    let patch = parts
+        .next()
+        .ok_or_else(|| "missing patch segment".to_string())?
+        .parse::<u64>()
+        .map_err(|_| "patch segment is not numeric".to_string())?;
+    if parts.next().is_some() {
+        return Err("too many semver segments".to_string());
+    }
+    Ok((major, minor, patch))
 }

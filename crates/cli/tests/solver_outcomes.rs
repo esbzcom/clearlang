@@ -652,9 +652,14 @@ fn external_backend_ignores_invalid_cutover_flag_value() {
     let wasm = tmp.path().join("out.wasm");
     let vcs = tmp.path().join("out.vc.json");
     fs::write(&source, SAMPLE_SOURCE).expect("write source");
+    let solver = write_fake_solver(tmp.path());
+    write_solver_integrity_sidecars(&solver);
 
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BACKEND", "external-z3-cli")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "unsat")
         .env("CLG_SOLVER_RUST_Z3_CUTOVER", "maybe")
         .arg("build")
         .arg(&source)
@@ -673,8 +678,8 @@ fn external_backend_ignores_invalid_cutover_flag_value() {
         .expect("first vc");
     assert_eq!(
         first.get("status").and_then(|v| v.as_str()),
-        Some("generated"),
-        "external backend should ignore rust cutover flag when rust backend is not selected"
+        Some("proved"),
+        "external backend should ignore rust cutover flag and still run configured external solver when rust backend is not selected"
     );
 }
 

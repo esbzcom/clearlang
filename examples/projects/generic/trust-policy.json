@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "trust_anchors": {
+    "lean_checker": "4.14.0",
+    "coq_checker": "8.19.2"
+  }
+}

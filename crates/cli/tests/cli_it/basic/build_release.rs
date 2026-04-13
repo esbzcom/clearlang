@@ -142,7 +142,7 @@ fn release_help_exposes_gate_c_primary_shape() {
 fn release_requires_minimal_required_flags() {
     let output = Command::cargo_bin("clg")
         .unwrap()
-        .args(["release", "clearlang-tests/01_hello.clear"])
+        .args(["release"])
         .assert()
         .failure()
         .get_output()
@@ -216,6 +216,11 @@ fn strict_init_writes_project_manifest_schema_v1_with_project_metadata_fields() 
     assert!(
         manifest.get("project").is_some(),
         "project metadata missing"
+    );
+    assert_eq!(
+        manifest.get("project").and_then(|p| p.get("entry")).and_then(|v| v.as_str()),
+        Some("main.clear"),
+        "project.entry must be present in strict-init manifest template"
     );
     assert!(
         manifest.get("dependencies").is_some(),

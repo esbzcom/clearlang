@@ -14,13 +14,14 @@ Two trust-policy contracts are required and intentionally separate:
 
 `clg release` resolves this by:
 - using module-root strict preflight inputs for strict build (`clg.*` files);
-- taking `--trust-policy` (default: `<root>/trust-policy.json`) for verify-mode policy;
+- taking `release_defaults.trust_policy` (default value in `<root>/clg.project.json`) for verify-mode policy;
 - reading `trust_anchors.lean_checker` and `trust_anchors.coq_checker` from that verify policy and passing them to build/sign so compile-time verification is deterministic and aligned.
 
 ## Command Behavior
 `clg release` now performs stages in order:
 1. `clg pkg lock` (`--generate` or `--update` auto-selected by lockfile presence) in strict mode with required advisory timestamp.
    - Lock roots are sourced from `clg.project.json` schema v1 `dependencies[]` when present.
+   - Release entrypoint is sourced from `clg.project.json` schema v1 `project.entry`.
 2. strict production build + proof + sign with deterministic output paths.
 3. compile-time verify with `--require-assurance proved_all`.
 4. bundle manifest emission with deterministic artifact hashes.
@@ -28,7 +29,7 @@ Two trust-policy contracts are required and intentionally separate:
 If any stage fails, command fails immediately (fail-closed).
 
 ## Artifacts
-For entry file `<stem>.clear` and output directory `<out>`:
+For `project.entry` file `<stem>.clear` and output directory `<out>`:
 - `<out>/<stem>.wasm`
 - `<out>/<stem>.vc.json`
 - `<out>/<stem>.proof.json`

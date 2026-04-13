@@ -14,7 +14,7 @@ For plugin execution, invoke primary commands with:
 
 Canonical command shapes:
 - `clg --non-interactive --json-errors --json-events check <FILE> --root <DIR>`
-- `clg --non-interactive --json-errors --json-events release <FILE> --key <FILE> --pubkey <FILE> --root <DIR>`
+- `clg --non-interactive --json-errors --json-events release --key <FILE> --pubkey <FILE> --root <DIR>`
 
 ## Output Contract (Pinned)
 - Error payload: JSON on `stdout` with stable shape `{ "ok": false, "errors": [...] }`.

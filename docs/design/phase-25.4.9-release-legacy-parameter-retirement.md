@@ -7,7 +7,7 @@ Design lock + implementation record for `25.4.9` in `docs/TODO.md`.
 Retire legacy non-secret `clg release` parameters and make `clg.project.json` the canonical release configuration source before GA.
 
 ## Design Principles Check
-- Simple for users: default release invocation should be short (`clg release <FILE> --root <DIR>`).
+- Simple for users: default release invocation should be short (`clg release --key <FILE> --pubkey <FILE> --root <DIR>`).
 - AI-friendly: one manifest source-of-truth reduces parameter ambiguity in tool-generated flows.
 - Provably correct: release inputs stay explicit, deterministic, and fail closed when missing.
 - Crypto-focused: release verification/signing gates remain strict and unchanged.
@@ -32,7 +32,7 @@ Rationale: sensitive key-path handling should stay operator-controlled and avoid
 Primary release command:
 
 ```powershell
-clg release <FILE> --key <FILE> --pubkey <FILE> --root <DIR>
+clg release --key <FILE> --pubkey <FILE> --root <DIR>
 ```
 
 Required manifest defaults under `<DIR>/clg.project.json`:

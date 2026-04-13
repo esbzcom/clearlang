@@ -178,7 +178,7 @@ pub fn run_init(root: PathBuf, json_errors: bool, logger: Logger) -> Result<()> 
         release_defaults.trust_policy
     );
     println!("release defaults loaded from {}", STRICT_PROJECT_FILE);
-    println!("release command: clg release <FILE> --key <FILE> --pubkey <FILE>");
+    println!("release command: clg release --key <FILE> --pubkey <FILE> [--root <DIR>]");
     Ok(())
 }
 

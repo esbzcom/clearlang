@@ -20,7 +20,7 @@ Advanced/expert flows (`build`, `verify`, `pkg lock`, and detailed flags) remain
 `clg release` is the single production release entrypoint. The concrete CLI shape is:
 
 ```text
-clg release <FILE> \
+clg release \
   --key <FILE> \
   --pubkey <FILE> \
   [--root <DIR>]

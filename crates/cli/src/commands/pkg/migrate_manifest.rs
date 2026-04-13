@@ -12,6 +12,7 @@ struct GeneratedProjectMetadataV1 {
     description: String,
     version: String,
     clg_version: String,
+    entry: String,
     website: String,
     contact: GeneratedContactV1,
 }
@@ -186,6 +187,7 @@ fn build_generated_manifest(
             description: format!("Migrated manifest for `{}`", inferred_name),
             version: "0.1.0".to_string(),
             clg_version: "^0.1.0".to_string(),
+            entry: "main.clear".to_string(),
             website: "https://example.com".to_string(),
             contact: GeneratedContactV1 {
                 name: "Project Maintainer".to_string(),

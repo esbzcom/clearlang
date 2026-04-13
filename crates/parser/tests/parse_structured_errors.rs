@@ -160,9 +160,8 @@ fn parse_errors_reports_versioned_import_as_p015() {
         errs.iter().map(|e| e.code).collect::<Vec<_>>()
     );
     assert!(
-        errs.iter().any(|e| e
-            .message
-            .contains("keep import paths version-free")),
+        errs.iter()
+            .any(|e| e.message.contains("keep import paths version-free")),
         "expected explicit version-free import guidance, got {:?}",
         errs.iter().map(|e| e.message.as_str()).collect::<Vec<_>>()
     );

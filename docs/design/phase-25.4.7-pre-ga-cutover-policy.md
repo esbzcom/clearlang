@@ -27,6 +27,8 @@ Lock Gate E cutover behavior before GA:
    - `25.4.10` (drift gate/manual-edit mismatch fail closed)
 4. Trust-policy naming clarification:
    - `25.4.11` (`trust-policy.json` vs `clg.trust-policy.json`)
+5. Release entrypoint manifest ownership:
+   - `25.4.12` (`project.entry` is required; `clg release <FILE>` positional input removed)
 
 ## Fail-Closed Requirements
 1. Removed legacy flags/options must return deterministic usage/contract errors.
@@ -41,4 +43,5 @@ Lock Gate E cutover behavior before GA:
 - `docs/design/phase-25.4.1-project-manifest-v1.md`
 - `docs/design/phase-25.4.6-manifest-lock-migration-coexistence-policy.md`
 - `docs/design/phase-25.4.9-release-legacy-parameter-retirement.md`
+- `docs/design/phase-25.4.12-release-entrypoint-manifest-cutover.md`
 - `docs/TODO.md`

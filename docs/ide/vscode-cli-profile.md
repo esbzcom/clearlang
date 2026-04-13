@@ -20,7 +20,7 @@ clg --non-interactive --json-errors --json-events check examples/projects/generi
 Release orchestration:
 
 ```powershell
-clg --non-interactive --json-errors --json-events release examples/projects/generic/main.clear --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
+clg --non-interactive --json-errors --json-events release --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 
 Test runner:

@@ -5,6 +5,7 @@
     "description": "Phase 25.4 manifest/lock drift gate fixture",
     "version": "0.1.0",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://clearlang.net",
     "contact": {
       "name": "ClearLang Maintainers",

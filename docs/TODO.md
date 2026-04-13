@@ -1145,6 +1145,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.4.9 Remove legacy non-secret release parameters (`--advisory-as-of`, `--key-id`, `--out-dir`, `--trust-policy`) from primary `clg release` UX once manifest defaults are complete; keep key material flags explicit. (`docs/design/phase-25.4.9-release-legacy-parameter-retirement.md`)
   - [x] 25.4.10 Enforce `clg.lock.json` tool-owned contract with CI drift gate (manual lockfile edits or manifest/lock mismatch fail closed). (`docs/design/phase-25.4.10-lockfile-tool-owned-drift-gate.md`)
   - [x] 25.4.11 Clarify trust-policy UX contract (compile-time `trust-policy.json` vs strict package `clg.trust-policy.json`) and ensure manifest/docs/diagnostics use unambiguous naming. (`docs/design/phase-25.4.11-trust-policy-ux-clarification.md`)
+  - [x] 25.4.12 Move release entrypoint into `clg.project.json` (`project.entry`) and remove positional `<FILE>` from `clg release`; release must fail closed when schema v1 entry metadata is missing. (`docs/design/phase-25.4.12-release-entrypoint-manifest-cutover.md`)
 
 - [ ] 25.5 Literal ergonomics for low-level/crypto code
   - [ ] 25.5.1 Add integer literal support for `0x...` (hex) and `0b...` (binary) with deterministic parsing, underscore rules, and diagnostics.

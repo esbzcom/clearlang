@@ -1,0 +1,7 @@
+{
+  "capabilities": [
+    "std::wasi::print"
+  ],
+  "profile": "contract_static",
+  "schema_version": 0
+}

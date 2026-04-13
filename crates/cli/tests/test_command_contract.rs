@@ -201,8 +201,14 @@ fn test_command_plan_unsorted_case_order_reports_c135() {
     let tests_root = root.join("tests");
     let unit = tests_root.join("unit");
     fs::create_dir_all(&unit).expect("create tests/unit");
-    write_test_file(&unit.join("a.clear"), "function test_a() -> Bool { true }\n");
-    write_test_file(&unit.join("b.clear"), "function test_b() -> Bool { true }\n");
+    write_test_file(
+        &unit.join("a.clear"),
+        "function test_a() -> Bool { true }\n",
+    );
+    write_test_file(
+        &unit.join("b.clear"),
+        "function test_b() -> Bool { true }\n",
+    );
     fs::write(
         tests_root.join("test-plan.json"),
         r#"{

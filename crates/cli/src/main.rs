@@ -162,9 +162,6 @@ enum Commands {
     },
     /// Phase 25.2.3: one-command release orchestration (Gate C)
     Release {
-        /// Entry ClearLang source file
-        #[arg(value_name = "FILE")]
-        file: PathBuf,
         /// Signing key file (JSON)
         #[arg(long, value_name = "FILE")]
         key: PathBuf,
@@ -343,13 +340,7 @@ fn main() -> Result<()> {
         Commands::Run { file, invoke } => {
             cmd_run::run(file, invoke, cli.json_errors, logger.with_command("run"))
         }
-        Commands::Release {
-            file,
-            key,
-            pubkey,
-            root,
-        } => cmd_release::run(
-            file,
+        Commands::Release { key, pubkey, root } => cmd_release::run(
             key,
             pubkey,
             root,
@@ -442,7 +433,7 @@ fn main() -> Result<()> {
 fn emit_release_migration_guidance_for_build(release_profile: ReleaseProfile, sign: bool) {
     if release_profile == ReleaseProfile::Production || sign {
         eprintln!(
-            "migration: prefer `clg release <FILE> --key <FILE> --pubkey <FILE>` for production release artifacts; `clg build` release flags are expert/debug-only"
+            "migration: prefer `clg release --key <FILE> --pubkey <FILE> [--root <DIR>]` for production release artifacts; `clg build` release flags are expert/debug-only"
         );
     }
 }
@@ -457,7 +448,7 @@ fn emit_release_migration_guidance_for_verify(
         || require_assurance.is_some()
     {
         eprintln!(
-            "migration: prefer `clg release <FILE> --key <FILE> --pubkey <FILE>` for production release verification/bundling; standalone `clg verify` release gates are expert/debug-only"
+            "migration: prefer `clg release --key <FILE> --pubkey <FILE> [--root <DIR>]` for production release verification/bundling; standalone `clg verify` release gates are expert/debug-only"
         );
     }
 }

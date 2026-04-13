@@ -19,7 +19,7 @@ Migration guidance is emitted when users invoke legacy release-like flows:
 Guidance text points users to:
 
 ```text
-clg release <FILE> --key <FILE> --pubkey <FILE>
+clg release --key <FILE> --pubkey <FILE> --root <DIR>
 ```
 
 This guidance is emitted on `stderr` and does not alter exit-code semantics.

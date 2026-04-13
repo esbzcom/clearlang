@@ -25,11 +25,25 @@ fn write_release_project_defaults(
     path: &Path,
     advisory_as_of: &str,
     key_id: &str,
+    entry: &str,
     out_dir: &str,
     trust_policy: &str,
 ) {
     let value = json!({
-        "schema_version": 0,
+        "schema_version": 1,
+        "project": {
+            "name": "example-app",
+            "description": "Example project",
+            "version": "0.1.0",
+            "clg_version": "^0.1.0",
+            "entry": entry,
+            "website": "https://example.com",
+            "contact": {
+                "name": "Example Maintainer",
+                "email": "maintainer@example.com"
+            }
+        },
+        "dependencies": [],
         "release_defaults": {
             "advisory_as_of": advisory_as_of,
             "key_id": key_id,
@@ -37,8 +51,11 @@ fn write_release_project_defaults(
             "trust_policy": trust_policy,
         }
     });
-    fs::write(path, serde_json::to_vec_pretty(&value).expect("serialize project defaults"))
-        .expect("write project defaults");
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(&value).expect("serialize project defaults"),
+    )
+    .expect("write project defaults");
 }
 
 fn parse_json_lines(lines: &str) -> Vec<Value> {
@@ -116,12 +133,13 @@ fn ide_contract_check_json_events_are_ndjson_schema_v1_on_stderr() {
 fn ide_contract_release_failure_preserves_stdout_stderr_machine_contract() {
     let tmp = tempdir().expect("tempdir");
     let root = tmp.path().join("project");
-    let file = write_sample_program(&root);
+    write_sample_program(&root);
     strict_init(&root);
     write_release_project_defaults(
         root.join("clg.project.json").as_path(),
         "2026-03-31T00:00:00Z",
         "ide-contract",
+        "main.clear",
         "out/release",
         "trust-policy.json",
     );
@@ -137,7 +155,6 @@ fn ide_contract_release_failure_preserves_stdout_stderr_machine_contract() {
             "--json-events",
             "release",
         ])
-        .arg(&file)
         .args(["--key"])
         .arg(root.join("missing.key.json"))
         .args(["--pubkey"])
@@ -183,11 +200,10 @@ fn ide_contract_usage_failures_keep_exit_code_2() {
 
     let tmp = tempdir().expect("tempdir");
     let root = tmp.path().join("project");
-    let file = write_sample_program(&root);
+    write_sample_program(&root);
     let release_usage_status = Command::cargo_bin("clg")
         .expect("bin")
         .args(["release"])
-        .arg(&file)
         .output()
         .expect("run release usage failure")
         .status;

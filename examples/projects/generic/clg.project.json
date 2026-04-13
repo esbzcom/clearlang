@@ -1,10 +1,11 @@
-﻿{
+{
     "schema_version":  1,
     "project":  {
                     "name":  "generic-example",
                     "description":  "ClearLang generic example project",
                     "version":  "0.1.0",
                     "clg_version":  "^0.1.0",
+                    "entry":  "main.clear",
                     "website":  "https://clearlang.net",
                     "contact":  {
                                     "name":  "ClearLang Maintainers",
@@ -16,8 +17,8 @@
                      ],
     "release_defaults":  {
                              "out_dir":  "out/release",
-                             "advisory_as_of":  "REQUIRED_RFC3339_UTC",
+                             "advisory_as_of":  "2026-04-13T00:00:00Z",
                              "trust_policy":  "trust-policy.json",
-                             "key_id":  "REQUIRED_KEY_ID"
+                             "key_id":  "release-2026q2"
                          }
 }

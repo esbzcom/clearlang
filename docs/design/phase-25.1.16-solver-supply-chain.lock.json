@@ -1,62 +1,68 @@
 {
-  "schema_version": 1,
-  "policy_version": "25.1.16",
-  "solver_identity": {
-    "family": "z3",
-    "version": "4.16.0",
-    "source_lock": "docs/design/phase-25.1.4-solver-profile.lock.json"
-  },
-  "bundle_integrity": {
-    "checksum_algorithm": "sha256",
-    "checksum_required": true,
-    "signature_required": true,
-    "signature_mode": "publisher-auth-ed25519-v1",
-    "signature_schema_version": 1,
-    "trusted_signers": [
-      {
-        "key_id": "z3-vendor-k7-2026q2",
-        "scheme": "ed25519",
-        "public_key": "hex:ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
-        "status": "active"
-      },
-      {
-        "key_id": "z3-vendor-k8-2026q3",
-        "scheme": "ed25519",
-        "public_key": "hex:1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
-        "status": "next"
-      }
-    ],
-    "rotation_policy": {
-      "allowed_statuses": [
-        "active",
-        "next"
-      ],
-      "min_trusted_signers": 1
-    },
-    "signature_file_pattern": "*.sig",
-    "checksum_file_pattern": "*.sha256"
-  },
-  "license_notice": {
-    "required_files": [
-      "docs/legal/third_party/z3-LICENSE.txt",
-      "docs/legal/third_party/z3-NOTICE.txt"
-    ]
-  },
-  "cve_update_policy": {
-    "max_advisory_age_days": 14,
-    "policy_doc": "docs/security/solver-cve-update-policy.md",
-    "sources": [
-      "github-advisory-db",
-      "nvd"
-    ]
-  },
-  "rollback_procedure": {
-    "doc": "docs/security/solver-rollback-procedure.md",
-    "require_last_known_good_manifest": true
-  },
-  "ci_validation_strategy": {
-    "workflow": ".github/workflows/ci.yml",
-    "required_step": "Proof regression gates",
-    "required_command": "cargo test -p clg-cli --test phase25_solver_supply_chain_gate"
-  }
+    "schema_version":  1,
+    "policy_version":  "25.1.16",
+    "solver_identity":  {
+                            "family":  "z3",
+                            "version":  "4.16.0",
+                            "source_lock":  "docs/design/phase-25.1.4-solver-profile.lock.json"
+                        },
+    "bundle_integrity":  {
+                             "checksum_algorithm":  "sha256",
+                             "checksum_required":  true,
+                             "signature_required":  true,
+                             "signature_mode":  "publisher-auth-ed25519-v1",
+                             "signature_schema_version":  1,
+                             "trusted_signers":  [
+                                                     {
+                                                         "key_id":  "z3-vendor-k7-2026q2",
+                                                         "scheme":  "ed25519",
+                                                         "public_key":  "hex:ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+                                                         "status":  "active"
+                                                     },
+                                                     {
+                                                         "key_id":  "z3-vendor-k8-2026q3",
+                                                         "scheme":  "ed25519",
+                                                         "public_key":  "hex:1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca",
+                                                         "status":  "next"
+                                                     },
+                                                     {
+                                                         "key_id":  "local-z3-vendor-dev",
+                                                         "scheme":  "ed25519",
+                                                         "public_key":  "hex:bceb973cdbee10fde41787a7f7ef142f38c6862fad8bc5554475a1e896da1f2a",
+                                                         "status":  "active"
+                                                     }
+                                                 ],
+                             "rotation_policy":  {
+                                                     "allowed_statuses":  [
+                                                                              "active",
+                                                                              "next"
+                                                                          ],
+                                                     "min_trusted_signers":  1
+                                                 },
+                             "signature_file_pattern":  "*.sig",
+                             "checksum_file_pattern":  "*.sha256"
+                         },
+    "license_notice":  {
+                           "required_files":  [
+                                                  "docs/legal/third_party/z3-LICENSE.txt",
+                                                  "docs/legal/third_party/z3-NOTICE.txt"
+                                              ]
+                       },
+    "cve_update_policy":  {
+                              "max_advisory_age_days":  14,
+                              "policy_doc":  "docs/security/solver-cve-update-policy.md",
+                              "sources":  [
+                                              "github-advisory-db",
+                                              "nvd"
+                                          ]
+                          },
+    "rollback_procedure":  {
+                               "doc":  "docs/security/solver-rollback-procedure.md",
+                               "require_last_known_good_manifest":  true
+                           },
+    "ci_validation_strategy":  {
+                                   "workflow":  ".github/workflows/ci.yml",
+                                   "required_step":  "Proof regression gates",
+                                   "required_command":  "cargo test -p clg-cli --test phase25_solver_supply_chain_gate"
+                               }
 }

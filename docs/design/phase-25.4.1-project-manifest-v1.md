@@ -13,7 +13,7 @@ Before official GA release, project policy is manifest-first and compatibility-m
 - No long-term backward-compatibility commitment is required for pre-GA legacy parameter surfaces.
 
 Target release UX after Gate E closure:
-- canonical flow: `clg release <FILE> --root <DIR>`
+- canonical flow: `clg release --key <FILE> --pubkey <FILE> --root <DIR>`
 - optional overrides only for exceptional/operator cases
 - sensitive key material remains explicit by policy (`--key`, `--pubkey`)
 
@@ -34,6 +34,7 @@ Target release UX after Gate E closure:
     "description": "ClearLang project",
     "version": "0.1.0",
     "clg_version": "^0.1.0",
+    "entry": "main.clear",
     "website": "https://example.com",
     "contact": {
       "name": "Project Maintainer",
@@ -59,7 +60,7 @@ Target release UX after Gate E closure:
 4. `project.contact.email` must be email-like and non-empty.
 5. `dependencies[]` entries must have valid package ids and semver requirements.
 6. `dependencies[]` must not contain duplicate package names.
-7. `release_defaults.out_dir` and `release_defaults.trust_policy` remain relative non-traversing paths.
+7. `project.entry`, `release_defaults.out_dir`, and `release_defaults.trust_policy` must be relative non-traversing paths.
 
 ## Resolver Contract
 - `clg pkg lock --generate|--update` now reads dependency roots from `clg.project.json` schema v1 when present.

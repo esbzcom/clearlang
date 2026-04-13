@@ -41,11 +41,11 @@ Rules:
 - `schema_version` must be `0`.
 - `release_defaults.out_dir` and `release_defaults.trust_policy` must be relative non-traversing paths.
 - Placeholder values (`REQUIRED_RFC3339_UTC`, `REQUIRED_KEY_ID`) are allowed at init time.
-- `clg release` treats placeholders as missing and fails closed unless CLI flags provide values.
+- `clg release` treats placeholders as missing and fails closed until manifest values are explicitly filled.
 
 ## Current Schema Note
 Current `clg.project.json` template emitted by `clg strict init` uses schema v1 with:
-- project metadata (`name`, `description`, `version`, `clg_version`, `website`, `contact`),
+- project metadata (`name`, `description`, `version`, `clg_version`, `entry`, `website`, `contact`),
 - dependency requirements (`dependencies[]`),
 - retained `release_defaults`.
 
@@ -53,14 +53,9 @@ See `docs/design/phase-25.4.1-project-manifest-v1.md` for the current schema and
 
 ## `clg release` Default Resolution
 `clg release` now resolves required values in this order:
-1. CLI flag (`--advisory-as-of`, `--key-id`).
+1. `clg.project.json` schema v1 `project.entry`.
 2. `clg.project.json` `release_defaults`.
 3. Fail with deterministic release diagnostic (`C130`) if unresolved.
-
-Optional output/trust-policy resolution:
-1. CLI `--out-dir` / `--trust-policy`.
-2. `clg.project.json` defaults.
-3. Existing fallback (`out/release`, `trust-policy.json` under root).
 
 ## References
 - `crates/cli/src/commands/strict.rs`

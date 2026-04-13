@@ -22,6 +22,7 @@ fn gate_e_pre_ga_cutover_policy_doc_is_published() {
     assert!(doc.contains("25.4.9"));
     assert!(doc.contains("25.4.10"));
     assert!(doc.contains("25.4.11"));
+    assert!(doc.contains("25.4.12"));
 }
 
 #[test]

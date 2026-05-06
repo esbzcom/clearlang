@@ -98,6 +98,29 @@ fn write_signing_keys(root: &Path) -> (PathBuf, PathBuf) {
     (key_path, pubkey_path)
 }
 
+fn write_release_verify_keyring(path: &Path, entries: &[(&str, &Path)], revoked: &[&str]) {
+    let keys = entries
+        .iter()
+        .map(|(key_id, pubkey)| {
+            json!({
+                "key_id": key_id,
+                "pubkey": pubkey.to_string_lossy().to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let revoked_ids = revoked.iter().map(|id| json!(id)).collect::<Vec<_>>();
+    let value = json!({
+        "schema_version": 1,
+        "keys": keys,
+        "revoked_key_ids": revoked_ids,
+    });
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(&value).expect("serialize release verify keyring"),
+    )
+    .expect("write release verify keyring");
+}
+
 fn write_release_success_source(path: &Path) {
     fs::write(
         path,

@@ -274,6 +274,8 @@ jobs:
       - checks
       - milestone3-proof-parity
       - milestone3-test-parity-compare
+      - milestone3-binary-repro-compare
+      - milestone3-binary-smoke
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -360,3 +362,125 @@ jobs:
         run: |
           set -euo pipefail
           cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/linux/linux.json
+
+  milestone3-binary-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Build clg release binary
+        run: cargo build --release -p clg-cli
+      - name: Binary help smoke
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          target/release/clg --help
+          target/release/clg release --help
+          target/release/clg verify-bundle --help
+      - name: Binary help smoke (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\target\release\clg.exe --help
+          .\target\release\clg.exe release --help
+          .\target\release\clg.exe verify-bundle --help
+
+  milestone3-binary-repro:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            lane: a
+          - os: windows-latest
+            platform: windows
+            lane: b
+          - os: ubuntu-latest
+            platform: linux
+            lane: a
+          - os: ubuntu-latest
+            platform: linux
+            lane: b
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Emit binary reproducibility witness (${{ matrix.platform }}-${{ matrix.lane }})
+        run: cargo run -p xtask -- binary-repro-witness --out tmp/binary-repro/${{ matrix.platform }}-${{ matrix.lane }}.json
+      - name: Upload binary reproducibility witness (${{ matrix.platform }}-${{ matrix.lane }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone3-binary-repro-${{ matrix.platform }}-${{ matrix.lane }}
+          path: tmp/binary-repro/${{ matrix.platform }}-${{ matrix.lane }}.json
+
+  milestone3-binary-repro-compare:
+    needs:
+      - milestone3-binary-repro
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binary witness windows-a
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-binary-repro-windows-a
+          path: tmp/binary-repro/windows-a
+      - name: Download binary witness windows-b
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-binary-repro-windows-b
+          path: tmp/binary-repro/windows-b
+      - name: Download binary witness linux-a
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-binary-repro-linux-a
+          path: tmp/binary-repro/linux-a
+      - name: Download binary witness linux-b
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-binary-repro-linux-b
+          path: tmp/binary-repro/linux-b
+      - name: Compare binary reproducibility witnesses per platform
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def read(path):
+              return json.loads(Path(path).read_text(encoding="utf-8"))
+
+          pairs = [
+              ("windows", "tmp/binary-repro/windows-a/windows-a.json", "tmp/binary-repro/windows-b/windows-b.json"),
+              ("linux", "tmp/binary-repro/linux-a/linux-a.json", "tmp/binary-repro/linux-b/linux-b.json"),
+          ]
+          for platform, a_path, b_path in pairs:
+              a = read(a_path)
+              b = read(b_path)
+              if not a.get("equal", False):
+                  raise SystemExit(f"{platform} lane a local reproducibility check failed")
+              if not b.get("equal", False):
+                  raise SystemExit(f"{platform} lane b local reproducibility check failed")
+              a_hash = a["run1"]["sha256"]
+              b_hash = b["run1"]["sha256"]
+              if a_hash != b_hash:
+                  raise SystemExit(
+                      f"{platform} cross-runner reproducibility mismatch: {a_hash} != {b_hash}"
+                  )
+          print("milestone3 binary reproducibility witness compare passed")
+          PY

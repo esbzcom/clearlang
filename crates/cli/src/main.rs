@@ -18,7 +18,7 @@ use clg_cli::signing::SignScope;
 #[command(
     name = "clg",
     version,
-    about = "ClearLang CLI (primary: check, test, release; advanced: parse, build, run, verify, pkg, strict)",
+    about = "ClearLang CLI (primary: check, test, release; advanced: parse, build, run, verify, verify-bundle, pkg, strict)",
     long_about = None
 )]
 struct Cli {
@@ -163,14 +163,52 @@ enum Commands {
     /// Phase 25.2.3: one-command release orchestration (Gate C)
     Release {
         /// Signing key file (JSON)
-        #[arg(long, value_name = "FILE")]
-        key: PathBuf,
+        #[arg(
+            long,
+            value_name = "FILE",
+            required_unless_present = "check_only",
+            requires = "pubkey"
+        )]
+        key: Option<PathBuf>,
         /// Public key file (JSON) for verify stage
-        #[arg(long, value_name = "FILE")]
-        pubkey: PathBuf,
+        #[arg(
+            long,
+            value_name = "FILE",
+            required_unless_present = "check_only",
+            requires = "key"
+        )]
+        pubkey: Option<PathBuf>,
+        /// Run deterministic release readiness preflight only (lock/build/prove/artifact scan; no sign/verify/bundle)
+        #[arg(long, default_value_t = false, conflicts_with_all = ["key", "pubkey"])]
+        check_only: bool,
         /// Module root containing strict preflight inputs
         #[arg(long, value_name = "DIR")]
         root: Option<PathBuf>,
+    },
+    /// Verify a release bundle manifest and its referenced artifacts
+    VerifyBundle {
+        /// Release bundle manifest emitted by `clg release`
+        #[arg(long, value_name = "FILE")]
+        bundle: PathBuf,
+        /// Public key file (JSON) used to verify release signatures
+        #[arg(
+            long,
+            value_name = "FILE",
+            required_unless_present = "keyring",
+            conflicts_with = "keyring"
+        )]
+        pubkey: Option<PathBuf>,
+        /// Keyring file (JSON) used to resolve `key_id` -> public key for rotated release keys
+        #[arg(
+            long,
+            value_name = "FILE",
+            required_unless_present = "pubkey",
+            conflicts_with = "pubkey"
+        )]
+        keyring: Option<PathBuf>,
+        /// Require a signed provenance artifact in the bundle and fail closed when missing/invalid
+        #[arg(long, default_value_t = false)]
+        require_provenance: bool,
     },
     /// Strict workflow commands
     Strict {
@@ -340,12 +378,31 @@ fn main() -> Result<()> {
         Commands::Run { file, invoke } => {
             cmd_run::run(file, invoke, cli.json_errors, logger.with_command("run"))
         }
-        Commands::Release { key, pubkey, root } => cmd_release::run(
+        Commands::Release {
             key,
             pubkey,
+            check_only,
+            root,
+        } => cmd_release::run(
+            key,
+            pubkey,
+            check_only,
             root,
             cli.json_errors,
             logger.with_command("release"),
+        ),
+        Commands::VerifyBundle {
+            bundle,
+            pubkey,
+            keyring,
+            require_provenance,
+        } => cmd_release::run_verify_bundle(
+            bundle,
+            pubkey,
+            keyring,
+            require_provenance,
+            cli.json_errors,
+            logger.with_command("verify-bundle"),
         ),
         Commands::Verify {
             module,

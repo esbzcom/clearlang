@@ -80,6 +80,7 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
         "proof",
         "signature",
         "assurance_manifest",
+        "provenance",
     ] {
         let artifact = bundle
             .get("artifacts")
@@ -327,3 +328,766 @@ fn verify_rejects_mock_substitution_against_release_signature_with_v003() {
     );
 }
 
+#[test]
+fn release_check_only_runs_readiness_gate_without_signing_flags() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release", "--check-only", "--root"])
+        .arg(&root)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8(output).expect("utf8 stdout");
+    let summary: Value = serde_json::from_str(stdout.trim()).expect("check-only summary json");
+    assert_eq!(
+        summary.get("mode").and_then(|v| v.as_str()),
+        Some("check_only")
+    );
+    assert_eq!(summary.get("status").and_then(|v| v.as_str()), Some("ready"));
+    assert!(
+        !root.join("out").join("release").join("main.sig.json").exists(),
+        "check-only should not emit signed artifact"
+    );
+}
+
+#[test]
+fn release_check_only_rejects_signing_flags() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["release", "--check-only", "--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .output()
+        .expect("run release --check-only conflict");
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "conflicting flags should fail as usage error"
+    );
+    let text = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(
+        text.contains("--check-only"),
+        "expected check-only conflict message, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_verifies_release_manifest_without_manual_artifact_flags() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    let summary: Value = serde_json::from_str(text.trim()).expect("verify-bundle summary json");
+    assert_eq!(
+        summary.get("status").and_then(|v| v.as_str()),
+        Some("verified")
+    );
+}
+
+#[test]
+fn verify_bundle_verifies_with_keyring_key_id_resolution() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let keyring = root.join("keys").join("release-keyring.json");
+    write_release_verify_keyring(&keyring, &[("release-2026q2", &pubkey_path)], &[]);
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--keyring"])
+        .arg(&keyring)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    let summary: Value = serde_json::from_str(text.trim()).expect("verify-bundle summary json");
+    assert_eq!(
+        summary.get("status").and_then(|v| v.as_str()),
+        Some("verified")
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_signature_key_id_is_unknown_in_keyring() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let keyring = root.join("keys").join("release-keyring.json");
+    write_release_verify_keyring(&keyring, &[("release-2026q1", &pubkey_path)], &[]);
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--keyring"])
+        .arg(&keyring)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for unknown key_id, got: {text}"
+    );
+    assert!(
+        text.contains("not found in keyring"),
+        "expected unknown key_id message, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_signature_key_id_is_revoked_in_keyring() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let keyring = root.join("keys").join("release-keyring.json");
+    write_release_verify_keyring(
+        &keyring,
+        &[("release-2026q2", &pubkey_path)],
+        &["release-2026q2"],
+    );
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--keyring"])
+        .arg(&keyring)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for revoked key_id, got: {text}"
+    );
+    assert!(
+        text.contains("is revoked"),
+        "expected revoked key_id message, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_on_artifact_hash_mismatch_with_c140() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let module = root.join("out").join("release").join("main.wasm");
+    fs::write(&module, b"tampered wasm bytes").expect("tamper module");
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140, got: {text}"
+    );
+    assert!(
+        text.contains("hash mismatch"),
+        "expected hash mismatch message, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_manifest_is_tampered_or_missing_members() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+    let manifest_bytes = fs::read(&bundle).expect("read bundle");
+    let manifest: Value = serde_json::from_slice(&manifest_bytes).expect("parse bundle");
+
+    let mut tampered_manifest = manifest.clone();
+    tampered_manifest
+        .as_object_mut()
+        .expect("bundle object")
+        .insert("schema_version".to_string(), serde_json::json!(999));
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&tampered_manifest).expect("serialize tampered bundle"),
+    )
+    .expect("write tampered bundle");
+
+    let tampered = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let tampered_text = String::from_utf8(tampered).expect("utf8");
+    assert!(
+        tampered_text.contains("\"code\": \"C140\""),
+        "expected C140 for tampered schema, got: {tampered_text}"
+    );
+
+    let mut missing = manifest;
+    if let Some(artifacts) = missing.get_mut("artifacts").and_then(Value::as_object_mut) {
+        artifacts.remove("proof");
+    }
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&missing).expect("serialize missing member bundle"),
+    )
+    .expect("write missing member bundle");
+
+    let missing_out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let missing_text = String::from_utf8(missing_out).expect("utf8");
+    assert!(
+        missing_text.contains("\"code\": \"C140\""),
+        "expected C140 for missing bundle member, got: {missing_text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_on_detached_signature_mismatch_with_v001() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let out_dir = root.join("out").join("release");
+    let signature = out_dir.join("main.sig.json");
+    fs::write(
+        &signature,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "key_id": "release-2026q2",
+            "scope": "both",
+            "signature_format": "ed25519",
+            "signature": "00",
+            "payload": {}
+        }))
+        .expect("serialize tampered signature"),
+    )
+    .expect("write tampered signature");
+
+    let bundle = out_dir.join("main.release-bundle.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&bundle).expect("read bundle")).expect("parse bundle");
+    let sig_hash = format!("sha256:{}", hex::encode(Sha256::digest(fs::read(&signature).expect("read signature"))));
+    if let Some(artifacts) = manifest.get_mut("artifacts").and_then(Value::as_object_mut) {
+        if let Some(sig_entry) = artifacts.get_mut("signature").and_then(Value::as_object_mut) {
+            sig_entry.insert("sha256".to_string(), Value::String(sig_hash.trim_start_matches("sha256:").to_string()));
+        }
+    }
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&manifest).expect("serialize bundle"),
+    )
+    .expect("write bundle");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"V001\""),
+        "expected detached signature verification failure V001, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_required_provenance_is_missing() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let bundle = root
+        .join("out")
+        .join("release")
+        .join("main.release-bundle.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&bundle).expect("read bundle")).expect("parse bundle");
+    if let Some(artifacts) = manifest.get_mut("artifacts").and_then(Value::as_object_mut) {
+        artifacts.remove("provenance");
+    }
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&manifest).expect("serialize bundle"),
+    )
+    .expect("write bundle");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--require-provenance"])
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for missing required provenance, got: {text}"
+    );
+    assert!(
+        text.contains("required provenance"),
+        "expected required provenance diagnostic, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_provenance_signature_payload_is_tampered() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let out_dir = root.join("out").join("release");
+    let provenance = out_dir.join("main.provenance.json");
+    let mut provenance_json: Value =
+        serde_json::from_slice(&fs::read(&provenance).expect("read provenance"))
+            .expect("parse provenance");
+    if let Some(payload) = provenance_json.get_mut("payload").and_then(Value::as_object_mut) {
+        payload.insert(
+            "release_signature_key_id".to_string(),
+            Value::String("different-key".to_string()),
+        );
+    }
+    fs::write(
+        &provenance,
+        serde_json::to_vec_pretty(&provenance_json).expect("serialize provenance"),
+    )
+    .expect("write provenance");
+
+    let bundle = out_dir.join("main.release-bundle.json");
+    let mut bundle_json: Value =
+        serde_json::from_slice(&fs::read(&bundle).expect("read bundle")).expect("parse bundle");
+    let prov_hash = hex::encode(Sha256::digest(fs::read(&provenance).expect("read provenance")));
+    if let Some(artifacts) = bundle_json.get_mut("artifacts").and_then(Value::as_object_mut) {
+        if let Some(entry) = artifacts.get_mut("provenance").and_then(Value::as_object_mut) {
+            entry.insert("sha256".to_string(), Value::String(prov_hash));
+        }
+    }
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&bundle_json).expect("serialize bundle"),
+    )
+    .expect("write bundle");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for tampered provenance signature, got: {text}"
+    );
+    assert!(
+        text.contains("provenance signature verification failed"),
+        "expected provenance signature failure detail, got: {text}"
+    );
+}

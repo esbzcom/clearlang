@@ -3,7 +3,7 @@
 ClearLang provides machine-readable diagnostics to keep tooling simple, provable, and AI-friendly.
 
 ## CLI Flag
-- `--json-errors`: when set on `clg parse`, `clg fmt`, `clg lint`, `clg check`, `clg build`, `clg run`, `clg strict init`, `clg release`, or `clg verify`, failures are printed as JSON to stdout.
+- `--json-errors`: when set on `clg parse`, `clg fmt`, `clg lint`, `clg check`, `clg build`, `clg run`, `clg strict init`, `clg release`, `clg verify`, or `clg verify-bundle`, failures are printed as JSON to stdout.
 - `--json-events`: emit structured JSON stage/progress events on stderr (NDJSON), including command name and stage transitions.
 - `--non-interactive`: enforce non-interactive command behavior suitable for IDE/plugin execution.
 
@@ -233,6 +233,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C137 | test | Per-test timeout failure in runner execution (deterministic timeout policy breach; reported as case failure with `failure_kind=timeout`). |
 | C138 | test | Per-test runtime/harness failure in runner execution (instantiate/signature/runtime trap, deterministic fuel/memory worker-limit trap, or captured worker crash; reported as case failure with `failure_kind=runtime`). |
 | C139 | test | Per-test assertion failure (`test_*` returned false/0); reported as case failure with `failure_kind=assertion_false`. |
+| C140 | verify | Release-bundle verification contract failure (invalid/tampered bundle manifest, missing bundle members, missing artifacts, artifact-hash mismatch, keyring key-selection failure such as unknown/revoked `key_id`, or required provenance missing/invalid). |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

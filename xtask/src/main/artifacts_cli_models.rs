@@ -121,6 +121,7 @@ fn print_help() {
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");
     println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos] [--key-id ID]");
+    println!("  binary-repro-witness [--out FILE] (phase 25.6 binary reproducibility witness)");
     println!(
         "  manifest-lock-drift-check [--path DIR] (phase 25.4 manifest/lock consistency gate)"
     );
@@ -146,6 +147,11 @@ struct SolverVendorStageOpts {
     from: PathBuf,
     platform: String,
     key_id: String,
+}
+
+#[derive(Clone, Debug)]
+struct BinaryReproWitnessOpts {
+    out: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]

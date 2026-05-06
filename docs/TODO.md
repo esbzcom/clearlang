@@ -1171,15 +1171,25 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
     - [x] Add CI determinism checks for proof artifact/report stability (status + hash invariants) when using base-prefixed literals.
 
 - [ ] 25.6 First usable binary releases
-  - [ ] 25.6.1 Lock GA target matrix and support policy (Windows/Linux/macOS baseline targets + preview targets).
+  - [x] 25.6.0 Lock Phase 25.6 artifact/provenance policy before implementation (GA artifact = distributable `clg` binaries; provenance required for GA release-train artifacts; local/dev may remain non-GA). (`docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`)
+  - [x] 25.6.1 Lock GA target matrix and support policy (baseline required gates: Windows + Linux; macOS is preview/non-blocking in this phase). (`docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`)
   - [ ] 25.6.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles.
-  - [ ] 25.6.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target.
-  - [ ] 25.6.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures.
-  - [ ] 25.6.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes.
-  - [ ] 25.6.6 Add single distributable release bundle artifact contract (package all required release outputs + detached checksum/signature) to simplify operator workflow.
-  - [ ] 25.6.7 Add `clg verify-bundle` command that verifies from release bundle manifest without manual per-file wiring.
-  - [ ] 25.6.8 Add keyring-by-`key_id` verification workflow for rotated release keys (historical verification without manual key selection ambiguity).
-  - [ ] 25.6.9 Add deterministic release readiness gate command (`clg release --check-only` or equivalent) for pre-signing/operator preflight.
+  - [x] 25.6.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target. (`docs/release/milestone_3-binary-operations.md`, `.github/workflows/ci.yml`)
+  - [x] 25.6.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures. (`docs/release/milestone_3-release-train-checklist.md`, `docs/release/milestone_3-binary-incident-runbook.md`)
+  - [x] 25.6.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes. (`release_notes/milestone_3.md`)
+  - [x] 25.6.6 Add single distributable release bundle artifact contract (package all required release outputs + detached checksum/signature) to simplify operator workflow. (`docs/design/phase-25.6.6-single-distributable-bundle-contract.md`)
+  - [x] 25.6.7 Add `clg verify-bundle` command that verifies from release bundle manifest without manual per-file wiring.
+  - [x] 25.6.8 Add keyring-by-`key_id` verification workflow for rotated release keys (historical verification without manual key selection ambiguity).
+  - [x] 25.6.9 Add deterministic release readiness gate command (`clg release --check-only` or equivalent) for pre-signing/operator preflight.
+  - [x] 25.6.10 Add release-bundle provenance attestation contract (signed builder/provenance statement with deterministic schema); provenance is required for GA release-train artifacts and `clg verify-bundle` must fail closed when required provenance is missing/invalid. (`docs/design/phase-25.6.10-release-bundle-provenance-contract.md`, `crates/cli/src/commands/release.rs`)
+  - [x] 25.6.11 Add fail-closed negative test matrix for `clg verify-bundle` (tampered manifest, artifact hash mismatch, detached signature mismatch, unknown/revoked `key_id`, and truncated/missing bundle members) with deterministic diagnostics.
+    - [x] Tampered bundle manifest fails closed with deterministic diagnostics.
+    - [x] Artifact hash mismatch fails closed with deterministic diagnostics.
+    - [x] Detached signature mismatch fails closed with deterministic diagnostics.
+    - [x] Truncated/missing bundle members fail closed with deterministic diagnostics.
+    - [x] Unknown/revoked `key_id` flow (depends on 25.6.8 keyring-by-`key_id` workflow).
+  - [x] 25.6.12 Add cross-runner reproducibility witness gate for GA binaries (independent clean builders produce identical bytes/hashes per supported target, or fail release-train gate). (`xtask binary-repro-witness`, `.github/workflows/ci.yml`)
+  - [x] 25.6.13 Lock binary publication/distribution policy (supported channels, metadata/signature/checksum parity requirements, and explicit defer list for unsupported channels) before GA. (`docs/design/phase-25.6.13-binary-publication-policy-lock.md`)
 
 - [ ] 25.7 Online testbed (if feasible)
   - [ ] 25.7.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation.

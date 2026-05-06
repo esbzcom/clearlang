@@ -9,11 +9,17 @@ Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` 
 - Signing + verification gates
 - Publishable release artifacts
 
+Phase 25.6 policy lock:
+- GA artifact scope is distributable `clg` binaries (release bundles remain assurance evidence).
+- GA baseline targets are Windows + Linux; macOS is preview/non-blocking in this phase.
+- Provenance attestation is required for GA release-train artifacts.
+
 ## Primary UX Surface (Gate C Lock)
 Shipped primary commands:
 - `clg check`
 - `clg test` (shipped in `25.3.2`)
 - `clg release`
+- `clg verify-bundle`
 
 Gate C history: `clg test` was tracked as a reserved contract before `25.3.2`.
 Gate D lock: `clg test` keeps one deterministic default unit-test proof policy, and non-essential test flags remain deferred to `tests/test-plan.json` policy controls.
@@ -54,6 +60,12 @@ Concrete `clg release` CLI shape:
 clg release --key keys/signing.json --pubkey keys/public.json --root examples/projects/generic
 ```
 
+Deterministic pre-signing readiness gate:
+
+```powershell
+clg release --check-only --root examples/projects/generic
+```
+
 `clg release` resolves required non-secret defaults from `clg.project.json`:
 - `release_defaults.advisory_as_of`
 - `release_defaults.key_id`
@@ -62,6 +74,26 @@ clg release --key keys/signing.json --pubkey keys/public.json --root examples/pr
 `clg.project.json` schema v1 is also the user-authored project/dependency manifest for lock generation.
 
 `clg release` now executes one-command orchestration (`lock -> build/prove -> sign -> verify -> bundle`) and writes a deterministic release bundle manifest JSON (`<stem>.release-bundle.json`) containing artifact hashes and stage status.
+
+`clg verify-bundle` verifies the bundle manifest/artifact hashes and then runs compile-time signature/assurance verification from manifest wiring (no manual `--module/--sig/--assurance-manifest` flag set required):
+
+```powershell
+clg verify-bundle --bundle out/generic.release-bundle.json --pubkey keys/public.json
+```
+
+Rotated-key workflow (recommended for historical verification):
+
+```powershell
+clg verify-bundle --bundle out/generic.release-bundle.json --keyring keys/release-keyring.json
+```
+
+`--keyring` resolves the signature `key_id` to a public-key file path and fails closed if the key is unknown or revoked.
+
+GA release-train provenance requirement:
+
+```powershell
+clg verify-bundle --bundle out/generic.release-bundle.json --keyring keys/release-keyring.json --require-provenance
+```
 
 ## VSCode/IDE Plugin Profile (25.2.10)
 Use the plugin-safe profile for primary commands:
@@ -206,6 +238,7 @@ Publish these files together:
 - `out/generic.vc.json`
 - `out/generic.sig.json`
 - `out/generic.assurance.json`
+- `out/generic.provenance.json`
 - `out/generic.proof.json` (when `--emit-proof` was used)
 - `out/generic.release-bundle.json`
 - checksums/SBOM/release notes as needed by your distribution process
@@ -234,6 +267,13 @@ Publish these files together:
 - Pre-production roadmap policy: compatibility debt is not preserved; legacy release paths should be removed once strict-first replacements are in place.
 - Gate E cutover policy (`25.4.7`): pre-GA legacy manifest/release inputs are removed with fail-closed behavior and no backward-compatibility commitment before GA.
 - Release precheck gate (`25.2.12`) is fail-closed for local+CI release workflows: `cargo run -p xtask -- release-precheck` (`fmt --check` + lint + tests + manifest/lock drift gate + `clg test` schema gate) must pass before strict signed publish flow.
+- Milestone 3 binary operations/checklist/runbook:
+  - `docs/release/milestone_3-binary-operations.md`
+  - `docs/release/milestone_3-release-train-checklist.md`
+  - `docs/release/milestone_3-binary-incident-runbook.md`
+- Binary reproducibility witness gate (`25.6.12`) is wired through:
+  - `cargo run -p xtask -- binary-repro-witness --out <FILE>`
+  - `.github/workflows/ci.yml` (`milestone3-binary-repro`, `milestone3-binary-repro-compare`)
 - `clg fmt` (`25.2.13`) provides deterministic `.clear` formatting and supports `--check` fail-closed drift gating for release workflows.
 - `clg lint` (`25.2.14`) provides deterministic `.clear` quality/safety checks with `--deny-warnings` fail-closed mode.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.

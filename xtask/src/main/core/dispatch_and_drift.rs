@@ -42,6 +42,7 @@ fn main() -> Result<(), String> {
         "host-capability-policy-artifact" => {
             emit_host_capability_policy_artifact(&root, args.collect())?
         }
+        "binary-repro-witness" => run_binary_repro_witness(&root, args.collect())?,
         "milestone2-perf-gate" => run_milestone2_perf_gate(&root, args.collect())?,
         "milestone2-supply-chain-gate" => run_milestone2_supply_chain_gate(&root, args.collect())?,
         "ci" => {
@@ -103,6 +104,125 @@ fn run_manifest_lock_drift_gate(root: &Path, raw_args: Vec<String>) -> Result<()
         })?;
     }
     Ok(())
+}
+
+fn run_binary_repro_witness(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_binary_repro_witness_args(raw_args)?;
+    let out_path = opts.out.unwrap_or_else(|| {
+        root.join("tmp")
+            .join("binary-repro")
+            .join(format!("{}.json", current_platform_id()))
+    });
+    if let Some(parent) = out_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("create binary repro output dir `{}`: {e}", parent.display()))?;
+    }
+
+    let run1_dir = root.join("tmp").join("binary-repro").join("run1-target");
+    let run2_dir = root.join("tmp").join("binary-repro").join("run2-target");
+    if run1_dir.exists() {
+        fs::remove_dir_all(&run1_dir)
+            .map_err(|e| format!("cleanup `{}`: {e}", run1_dir.display()))?;
+    }
+    if run2_dir.exists() {
+        fs::remove_dir_all(&run2_dir)
+            .map_err(|e| format!("cleanup `{}`: {e}", run2_dir.display()))?;
+    }
+
+    run(
+        Command::new("cargo")
+            .arg("build")
+            .arg("--release")
+            .arg("-p")
+            .arg("clg-cli")
+            .arg("--target-dir")
+            .arg(&run1_dir)
+            .current_dir(root),
+    )?;
+    run(
+        Command::new("cargo")
+            .arg("build")
+            .arg("--release")
+            .arg("-p")
+            .arg("clg-cli")
+            .arg("--target-dir")
+            .arg(&run2_dir)
+            .current_dir(root),
+    )?;
+
+    let bin1 = clg_binary_path(&run1_dir);
+    let bin2 = clg_binary_path(&run2_dir);
+    let hash1 = file_sha256_hex(&bin1)?;
+    let hash2 = file_sha256_hex(&bin2)?;
+    let equal = hash1 == hash2;
+
+    let artifact = serde_json::json!({
+        "schema_version": 1,
+        "platform": current_platform_id(),
+        "binary_name": bin1.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "clg".to_string()),
+        "run1": {
+            "path": bin1.display().to_string(),
+            "sha256": hash1,
+        },
+        "run2": {
+            "path": bin2.display().to_string(),
+            "sha256": hash2,
+        },
+        "equal": equal,
+    });
+    write_json_pretty(&out_path, &artifact)?;
+    if !equal {
+        return Err(format!(
+            "binary reproducibility mismatch on {}: `{}` vs `{}`",
+            current_platform_id(),
+            bin1.display(),
+            bin2.display()
+        ));
+    }
+    println!("binary reproducibility witness written to {}", out_path.display());
+    Ok(())
+}
+
+fn parse_binary_repro_witness_args(raw_args: Vec<String>) -> Result<BinaryReproWitnessOpts, String> {
+    let mut out: Option<PathBuf> = None;
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--out" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--out`".to_string())?;
+                out = Some(PathBuf::from(value));
+            }
+            other => {
+                return Err(format!(
+                    "unknown binary-repro-witness arg `{other}` (supported: --out)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    Ok(BinaryReproWitnessOpts { out })
+}
+
+fn clg_binary_path(target_dir: &Path) -> PathBuf {
+    let file = if cfg!(windows) { "clg.exe" } else { "clg" };
+    target_dir.join("release").join(file)
+}
+
+fn file_sha256_hex(path: &Path) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|e| format!("read `{}`: {e}", path.display()))?;
+    Ok(hex::encode(Sha256::digest(&bytes)))
+}
+
+fn current_platform_id() -> &'static str {
+    match env::consts::OS {
+        "windows" => "windows",
+        "linux" => "linux",
+        "macos" => "macos",
+        _ => "unknown",
+    }
 }
 
 fn parse_manifest_lock_drift_args(raw_args: Vec<String>) -> Result<ManifestLockDriftOpts, String> {
@@ -615,4 +735,3 @@ fn validate_clg_test_report_schema(raw: &str) -> Result<(), String> {
 
     Ok(())
 }
-

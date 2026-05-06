@@ -136,6 +136,33 @@ fn release_help_exposes_gate_c_primary_shape() {
         !help.contains("--require-assurance"),
         "release command should not expose assurance downgrade controls"
     );
+    assert!(help.contains("--check-only"));
+}
+
+#[test]
+fn verify_bundle_help_exposes_minimal_bundle_contract() {
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["verify-bundle", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let help = String::from_utf8(output).expect("utf8");
+    assert!(help.contains("verify-bundle"));
+    assert!(help.contains("--bundle"));
+    assert!(help.contains("--pubkey"));
+    assert!(help.contains("--keyring"));
+    assert!(help.contains("--require-provenance"));
+    assert!(
+        !help.contains("--module"),
+        "verify-bundle should not require manual module wiring"
+    );
+    assert!(
+        !help.contains("--sig"),
+        "verify-bundle should not require manual signature wiring"
+    );
 }
 
 #[test]

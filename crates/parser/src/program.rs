@@ -15,7 +15,7 @@ mod heuristics;
 
 use self::heuristics::{
     find_capture_list_lambda, find_comma_grouped_number, find_export_import, find_theorem_keyword,
-    find_untyped_lambda, find_versioned_import, has_unclosed_paren, keyword_missing_brace,
+    find_prefixed_integer_issue, find_untyped_lambda, find_versioned_import, has_unclosed_paren, keyword_missing_brace,
     looks_like_missing_comma, strip_comments_preserve_layout,
 };
 
@@ -240,6 +240,9 @@ pub fn parse(src: &str) -> Result<Program, String> {
                 start, end
             ));
         }
+        if let Some((start, end, message)) = find_prefixed_integer_issue(normalized.as_str()) {
+            messages.push(format!("at {}..{}: error: {}", start, end, message));
+        }
         if let Some(start) = find_untyped_lambda(normalized.as_str()) {
             let end = start.saturating_add(1);
             messages.push(format!(
@@ -399,6 +402,14 @@ pub fn parse_errors(src: &str) -> Result<Program, Vec<ParserError>> {
                         "at {}..{}: error: comma separators are not allowed in numeric literals; use `_` (for example `1_000`)",
                         start, end
                     ),
+                    start,
+                    end,
+                });
+            }
+            if let Some((start, end, message)) = find_prefixed_integer_issue(normalized.as_str()) {
+                items.push(ParserError {
+                    code: "P001",
+                    message: format!("at {}..{}: error: {}", start, end, message),
                     start,
                     end,
                 });

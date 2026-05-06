@@ -334,6 +334,86 @@ fn labels_u64_rotate_and_byte_intrinsics_as_bitwise_assumptions() {
 }
 
 #[test]
+fn prefixed_literals_match_decimal_vc_outputs_for_u64_paths() {
+    let decimal_src = r#"
+        pure function mask(x: U64) -> U64
+            ensure { result == (x & 255) }
+        { x & 170 }
+    "#;
+    let prefixed_src = r#"
+        pure function mask(x: U64) -> U64
+            ensure { result == (x & 0xFF) }
+        { x & 0b1010_1010 }
+    "#;
+
+    let decimal_ast = parse(decimal_src).expect("decimal parse ok");
+    let prefixed_ast = parse(prefixed_src).expect("prefixed parse ok");
+    let decimal = check_with_vcs(&decimal_ast).expect("decimal type-check ok");
+    let prefixed = check_with_vcs(&prefixed_ast).expect("prefixed type-check ok");
+
+    assert_eq!(decimal.vcs.len(), prefixed.vcs.len());
+
+    let decimal_shapes: Vec<_> = decimal
+        .vcs
+        .iter()
+        .map(|vc| {
+            let assumptions: Vec<_> = vc
+                .assumptions
+                .iter()
+                .map(|a| {
+                    (
+                        a.id,
+                        a.category.as_str(),
+                        a.status,
+                        a.message,
+                        a.symbols.clone(),
+                    )
+                })
+                .collect();
+            (
+                vc.vc_id.clone(),
+                vc.pre.ast.clone(),
+                vc.post.ast.clone(),
+                vc.vc_smt2.clone(),
+                assumptions,
+            )
+        })
+        .collect();
+
+    let prefixed_shapes: Vec<_> = prefixed
+        .vcs
+        .iter()
+        .map(|vc| {
+            let assumptions: Vec<_> = vc
+                .assumptions
+                .iter()
+                .map(|a| {
+                    (
+                        a.id,
+                        a.category.as_str(),
+                        a.status,
+                        a.message,
+                        a.symbols.clone(),
+                    )
+                })
+                .collect();
+            (
+                vc.vc_id.clone(),
+                vc.pre.ast.clone(),
+                vc.post.ast.clone(),
+                vc.vc_smt2.clone(),
+                assumptions,
+            )
+        })
+        .collect();
+
+    assert_eq!(
+        decimal_shapes, prefixed_shapes,
+        "prefixed literals should preserve VC/assumption determinism vs decimal equivalents"
+    );
+}
+
+#[test]
 fn labels_external_dependencies_as_assumed_boundaries() {
     let src = r#"
         pure function rely(x: Int) -> Int

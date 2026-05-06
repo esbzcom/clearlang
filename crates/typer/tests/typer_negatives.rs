@@ -216,6 +216,17 @@ fn errors_on_unsigned_literal_out_of_range_u8_cast() {
 }
 
 #[test]
+fn errors_on_unsigned_prefixed_literal_out_of_range_u8_cast() {
+    let src = r#"
+        function main() -> U8 { U8(0x1FF) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on out-of-range prefixed U8 literal");
+    let s = format!("{err:#}");
+    assert!(s.contains("T112"), "unexpected error: {s}");
+}
+
+#[test]
 fn errors_on_unsigned_literal_out_of_range_u8_arg() {
     let src = r#"
         pure function id(x: U8) -> U8 { x }
@@ -223,6 +234,18 @@ fn errors_on_unsigned_literal_out_of_range_u8_arg() {
     "#;
     let ast = parse(src).expect("parsed");
     let err = check(&ast).expect_err("should fail on out-of-range U8 arg");
+    let s = format!("{err:#}");
+    assert!(s.contains("T112"), "unexpected error: {s}");
+}
+
+#[test]
+fn errors_on_unsigned_prefixed_literal_out_of_range_u8_arg() {
+    let src = r#"
+        pure function id(x: U8) -> U8 { x }
+        function main() -> U8 { id(0b1_0000_0000) }
+    "#;
+    let ast = parse(src).expect("parsed");
+    let err = check(&ast).expect_err("should fail on out-of-range prefixed U8 arg");
     let s = format!("{err:#}");
     assert!(s.contains("T112"), "unexpected error: {s}");
 }

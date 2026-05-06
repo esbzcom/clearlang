@@ -42,6 +42,14 @@ fn parses_integer_literals_with_underscore_separators() {
 }
 
 #[test]
+fn parses_hex_and_binary_literals_with_underscores() {
+    let src = r#"
+        function main() -> Int { 0x2A + 0b1010_0001 + 0XfF }
+    "#;
+    let _ = parse(src).expect("hex/binary literals should parse");
+}
+
+#[test]
 fn rejects_misplaced_underscore_separator() {
     let src = r#"
         function main() -> Int { 1__024 }
@@ -81,4 +89,57 @@ fn parse_error_code_stays_stable_with_comments_present() {
     let comment_errs = parse_errors(with_comments).expect_err("comment source should fail");
     assert_eq!(base_errs[0].code, "P001");
     assert_eq!(comment_errs[0].code, "P001");
+}
+
+#[test]
+fn parse_errors_on_missing_digits_after_prefixed_literals() {
+    for bad in ["0x", "0X", "0b", "0B"] {
+        let src = format!("function main() -> Int {{ {bad} }}");
+        let errs = parse_errors(&src).expect_err("missing prefixed literal digits should fail");
+        let joined = errs
+            .iter()
+            .map(|e| e.message.as_str())
+            .collect::<Vec<_>>()
+            .join(" | ");
+        assert!(
+            joined.contains("missing digits"),
+            "expected missing digits error for `{bad}`, got: {joined}"
+        );
+    }
+}
+
+#[test]
+fn parse_errors_on_invalid_prefixed_digits() {
+    let cases = [("0b102", "invalid binary digit"), ("0xFG", "invalid hex digit")];
+    for (bad, expected) in cases {
+        let src = format!("function main() -> Int {{ {bad} }}");
+        let errs = parse_errors(&src).expect_err("invalid prefixed digit should fail");
+        let joined = errs
+            .iter()
+            .map(|e| e.message.as_str())
+            .collect::<Vec<_>>()
+            .join(" | ");
+        assert!(
+            joined.contains(expected),
+            "expected `{expected}` for `{bad}`, got: {joined}"
+        );
+    }
+}
+
+#[test]
+fn parse_errors_on_invalid_prefixed_underscore_placement() {
+    let cases = ["0x_FF", "0b1010_", "0b10__10"];
+    for bad in cases {
+        let src = format!("function main() -> Int {{ {bad} }}");
+        let errs = parse_errors(&src).expect_err("invalid underscore placement should fail");
+        let joined = errs
+            .iter()
+            .map(|e| e.message.as_str())
+            .collect::<Vec<_>>()
+            .join(" | ");
+        assert!(
+            joined.contains("misplaced `_` separator"),
+            "expected misplaced separator for `{bad}`, got: {joined}"
+        );
+    }
 }

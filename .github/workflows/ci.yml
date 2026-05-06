@@ -49,6 +49,7 @@ jobs:
           cargo test -p clg-cli --test phase25_production_cutover_policy
           cargo test -p clg-cli --test phase25_gate_b_closure_metric
           cargo test -p clg-cli --test proof_artifact_replay
+          cargo test -p clg-cli --test prefixed_literal_parity
           cargo test -p clg-cli --test proof_coverage_matrix
           cargo test -p clg-cli --test verified_std_core_subset
           cargo test -p clg-cli --test profile_regression_gate

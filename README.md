@@ -478,15 +478,6 @@ ClearLang aims to be:
 
 
 
-## 5. Project Status
-
-- Current status: Phases `0` through `19` are complete in `docs/TODO.md` (including `19.5` assurance-manifest and release-policy gates).
-- Next focus: define the post-19 roadmap slice (Phase 20+ planning and acceptance gates).
-- Language scope note: several surfaces remain intentionally deferred/disallowed for v1 and are enforced with deterministic diagnostics (see `docs/TODO.md` and `docs/typing.md`).
-- Full roadmap and checklist: see `docs/TODO.md` and the resource overview in `docs/resource-guide.md`.
-
----
-
 ## 6. Current Capabilities (Subset)
 
 - Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, contract clauses, resource declarations with drop blocks, and consume params.

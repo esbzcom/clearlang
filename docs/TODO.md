@@ -1147,10 +1147,28 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.4.11 Clarify trust-policy UX contract (compile-time `trust-policy.json` vs strict package `clg.trust-policy.json`) and ensure manifest/docs/diagnostics use unambiguous naming. (`docs/design/phase-25.4.11-trust-policy-ux-clarification.md`)
   - [x] 25.4.12 Move release entrypoint into `clg.project.json` (`project.entry`) and remove positional `<FILE>` from `clg release`; release must fail closed when schema v1 entry metadata is missing. (`docs/design/phase-25.4.12-release-entrypoint-manifest-cutover.md`)
 
-- [ ] 25.5 Literal ergonomics for low-level/crypto code
-  - [ ] 25.5.1 Add integer literal support for `0x...` (hex) and `0b...` (binary) with deterministic parsing, underscore rules, and diagnostics.
-  - [ ] 25.5.2 Define typing/inference rules for new literals (`Int` default, unsigned expected-type coercion/casts) with deterministic diagnostics.
-  - [ ] 25.5.3 Add VC/proof regression coverage for hex/binary literals in bitwise/unsigned paths to ensure no proof determinism regressions.
+- [x] 25.5 Literal ergonomics for low-level/crypto code
+  - [x] 25.5.1 Add integer literal support for `0x...` (hex) and `0b...` (binary) with deterministic parsing, underscore rules, and diagnostics.
+    - [x] Lock lexical grammar in parser docs/tests:
+          `hex_literal := 0[xX] hexdigit (hexdigit|_)*`,
+          `bin_literal := 0[bB] bindigit (bindigit|_)*`.
+    - [x] Lock underscore policy (deterministic/fail-closed):
+          underscores allowed only between digits; reject underscore immediately after prefix, trailing underscore, and repeated adjacent underscores.
+    - [x] Lock sign-token policy:
+          `-` is not part of integer literal tokens; prefixed literals are parsed as non-negative literal tokens.
+    - [x] Add deterministic parse diagnostics for:
+          missing digits after base prefix, invalid digit for base, invalid underscore placement.
+    - [x] Add parser coverage matrix with stable pass/fail snapshots for valid/invalid examples (mixed case prefixes/digits included).
+  - [x] 25.5.2 Extend typing/inference rules to base-prefixed literals with deterministic diagnostics.
+    - [x] Preserve existing numeric policy: base-prefixed literals follow current literal typing rules (default `Int`, expected-type coercion for unsigned contexts, explicit cast paths).
+    - [x] Add deterministic range-fit checks for contextual unsigned typing (`U8`, `U64`, `U128`, `U256`) on base-prefixed literals, aligned with existing unsigned literal diagnostics.
+    - [x] Lock non-negative constraint behavior for unsigned contexts/casts with prefixed literals (prefixed literal tokens are non-negative, and unsigned cast/context checks remain deterministic).
+    - [x] Add typer regression tests covering:
+          `Int` default, contextual unsigned acceptance, overflow/range rejection, and deterministic error payload shape.
+  - [x] 25.5.3 Add VC/proof regression coverage for hex/binary literals in bitwise/unsigned paths to ensure no proof determinism regressions.
+    - [x] Add proof snapshots where equivalent decimal vs hex/binary sources produce the same VC status outcomes under identical strict inputs.
+    - [x] Add bitwise/shift regression cases using prefixed literals on covered unsigned paths (`U64`) and ensure no new assumption drift.
+    - [x] Add CI determinism checks for proof artifact/report stability (status + hash invariants) when using base-prefixed literals.
 
 - [ ] 25.6 First usable binary releases
   - [ ] 25.6.1 Lock GA target matrix and support policy (Windows/Linux/macOS baseline targets + preview targets).

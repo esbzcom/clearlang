@@ -1,3 +1,5 @@
+use crate::tokens::parse_int_literal_raw;
+
 pub(super) fn has_unclosed_paren(src: &str) -> bool {
     let mut depth = 0u32;
     let mut in_string = false;
@@ -602,5 +604,92 @@ pub(super) fn find_comma_grouped_number(src: &str) -> Option<(usize, usize)> {
         }
         i += 1;
     }
+    None
+}
+
+pub(super) fn find_prefixed_integer_issue(src: &str) -> Option<(usize, usize, String)> {
+    let bytes = src.as_bytes();
+    let mut i = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut in_line_comment = false;
+    let mut block_comment_depth = 0usize;
+
+    while i < bytes.len() {
+        if in_line_comment {
+            if bytes[i] == b'\n' {
+                in_line_comment = false;
+            }
+            i += 1;
+            continue;
+        }
+        if block_comment_depth > 0 {
+            if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+                block_comment_depth += 1;
+                i += 2;
+                continue;
+            }
+            if i + 1 < bytes.len() && bytes[i] == b'*' && bytes[i + 1] == b'/' {
+                block_comment_depth = block_comment_depth.saturating_sub(1);
+                i += 2;
+                continue;
+            }
+            i += 1;
+            continue;
+        }
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if bytes[i] == b'\\' {
+                escaped = true;
+            } else if bytes[i] == b'"' {
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'/' {
+            in_line_comment = true;
+            i += 2;
+            continue;
+        }
+        if i + 1 < bytes.len() && bytes[i] == b'/' && bytes[i + 1] == b'*' {
+            block_comment_depth = 1;
+            i += 2;
+            continue;
+        }
+        if bytes[i] == b'"' {
+            in_string = true;
+            i += 1;
+            continue;
+        }
+
+        if bytes[i] == b'0' && i + 1 < bytes.len() && matches!(bytes[i + 1], b'x' | b'X' | b'b' | b'B')
+        {
+            let prev_is_ident = i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
+            if prev_is_ident {
+                i += 1;
+                continue;
+            }
+
+            let start = i;
+            let mut end = i + 2;
+            while end < bytes.len() && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'_') {
+                end += 1;
+            }
+            let raw = &src[start..end];
+            if let Err(message) = parse_int_literal_raw(raw) {
+                if message.starts_with("invalid integer literal")
+                    || message.contains("out of range for `Int`")
+                {
+                    return Some((start, end, message));
+                }
+            }
+            i = end;
+            continue;
+        }
+        i += 1;
+    }
+
     None
 }

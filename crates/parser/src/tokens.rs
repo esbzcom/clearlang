@@ -11,12 +11,56 @@ pub(crate) fn ident_continue<'a>() -> impl Parser<'a, &'a str, char, ErrTy<'a>> 
 }
 
 fn parse_decimal_i64(raw: &str) -> Result<i64, String> {
-    if raw.ends_with('_') || raw.contains("__") {
+    parse_radix_i64(raw, 10, "decimal", |c| c.is_ascii_digit())
+}
+
+fn parse_prefixed_i64(
+    raw: &str,
+    prefix: &str,
+    radix: u32,
+    base_name: &str,
+) -> Result<i64, String> {
+    let digits = raw
+        .strip_prefix(prefix)
+        .expect("prefix validation should happen before parse_prefixed_i64");
+    if digits.is_empty() {
+        return Err(format!("invalid integer literal: missing digits after `{prefix}`"));
+    }
+    if radix == 16 {
+        parse_radix_i64(digits, radix, base_name, |c| c.is_ascii_hexdigit())
+    } else if radix == 2 {
+        parse_radix_i64(digits, radix, base_name, |c| matches!(c, '0' | '1'))
+    } else {
+        Err(format!("internal error: unsupported radix {radix}"))
+    }
+}
+
+pub(crate) fn parse_int_literal_raw(raw: &str) -> Result<i64, String> {
+    if raw.starts_with("0x") || raw.starts_with("0X") {
+        parse_prefixed_i64(raw, &raw[..2], 16, "hex")
+    } else if raw.starts_with("0b") || raw.starts_with("0B") {
+        parse_prefixed_i64(raw, &raw[..2], 2, "binary")
+    } else {
+        parse_decimal_i64(raw)
+    }
+}
+
+fn parse_radix_i64(
+    raw: &str,
+    radix: u32,
+    base_name: &str,
+    is_valid_digit: impl Fn(char) -> bool,
+) -> Result<i64, String> {
+    if raw.starts_with('_') || raw.ends_with('_') || raw.contains("__") {
         return Err("invalid integer literal: misplaced `_` separator".to_string());
     }
+    if let Some(c) = raw.chars().find(|c| *c != '_' && !is_valid_digit(*c)) {
+        return Err(format!(
+            "invalid integer literal: invalid {base_name} digit `{c}`"
+        ));
+    }
     let normalized = raw.replace('_', "");
-    normalized
-        .parse::<i64>()
+    i64::from_str_radix(&normalized, radix)
         .map_err(|_| "integer literal out of range for `Int`".to_string())
 }
 
@@ -24,7 +68,7 @@ pub(crate) fn int_literal_value_p<'a>() -> impl Parser<'a, &'a str, i64, ErrTy<'
     one_of("0123456789")
         .then(
             any()
-                .filter(|c: &char| c.is_ascii_digit() || *c == '_')
+                .filter(|c: &char| c.is_ascii_alphanumeric() || *c == '_')
                 .repeated()
                 .collect::<String>(),
         )
@@ -34,7 +78,7 @@ pub(crate) fn int_literal_value_p<'a>() -> impl Parser<'a, &'a str, i64, ErrTy<'
             s.push_str(&tail);
             s
         })
-        .try_map(|raw, span| match parse_decimal_i64(&raw) {
+        .try_map(|raw, span| match parse_int_literal_raw(&raw) {
             Ok(value) => Ok(value),
             Err(msg) => Err(Rich::custom(span, msg)),
         })

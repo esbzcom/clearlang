@@ -49,3 +49,20 @@ fn accepts_str_echo() {
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
 }
+
+#[test]
+fn accepts_prefixed_integer_literals() {
+    let src = r#"
+        function main() -> Int { 0x2A + 0b1_0101 }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("type-check ok");
+}
+
+#[test]
+fn accepts_contextual_unsigned_prefixed_literals() {
+    let src = r#"
+        pure function id(x: U64) -> U64 { x }
+        function main() -> U64 { id(0xFF) + 0b1 }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("type-check ok");
+}

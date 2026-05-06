@@ -17,7 +17,8 @@ Types
   - Policy: checked overflow by default for U64 arithmetic; U128/U256 arithmetic is not supported yet (T110).
   - Helper intrinsics: `std::u128::from_limbs`, `std::u128::{lo,hi}`, `std::u256::from_limbs`, `std::u256::limb0`/`limb1`/`limb2`/`limb3`.
   - Literal typing: bare literals can coerce to `U8`/`U64`/`U128`/`U256` when the expected type is unsigned; otherwise they remain `Int`. Use `U8(...)`, `U64(...)`, `U128(...)`, or `U256(...)` for explicit unsigned literals; only non-negative literals are accepted and range-checked (T112).
-  - Integer readability: `_` is allowed inside integer literals (`1_000`, `10_000_000`); `,` is not allowed in numeric literals (`1,000` is rejected with a diagnostic that suggests `_`).
+  - Integer forms: decimal (`42`), hex (`0x2A`/`0X2A`), and binary (`0b101010`/`0B101010`) literals are supported.
+  - Integer readability: `_` is allowed inside integer literals (`1_000`, `10_000_000`, `0b1010_0101`); separators are allowed only between digits (not after base prefixes, not repeated, not trailing). `,` is not allowed in numeric literals (`1,000` is rejected with a diagnostic that suggests `_`).
   - Rotation intrinsics: `std::u64::rotl`/`std::u64::rotr` rotate a U64 by a U64 shift amount.
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.

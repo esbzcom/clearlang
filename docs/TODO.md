@@ -1192,7 +1192,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.6.13 Lock binary publication/distribution policy (supported channels, metadata/signature/checksum parity requirements, and explicit defer list for unsupported channels) before GA. (`docs/design/phase-25.6.13-binary-publication-policy-lock.md`)
 
 - [ ] 25.7 Online testbed (if feasible)
-  - [ ] 25.7.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation.
+  - [x] 25.7.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation. (`docs/design/phase-25.7.1-online-testbed-go-no-go-gate.md`)
   - [ ] 25.7.2 If approved, implement a deterministic sandboxed compile/run path with resource/time limits and clear diagnostics.
   - [ ] 25.7.3 Add SLO/runbook/incident playbook and verify readiness before public rollout.
   - [ ] 25.7.4 If gates fail, publish a defer decision and keep local/CLI-first workflow as canonical path.

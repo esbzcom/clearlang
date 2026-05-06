@@ -14,6 +14,7 @@ Milestone 3 focuses on theorem-grade release assurance workflows and first usabl
 - Key rotation support: `verify-bundle --keyring` key-id resolution.
 - Provenance support: signed bundle provenance artifact, with fail-closed required mode (`--require-provenance`).
 - Deterministic release readiness preflight: `clg release --check-only`.
+- Signed binary bundle artifact: `xtask milestone3-binary-bundle` emits binary + checksums + signed metadata + SBOM/license evidence.
 
 ## Known Limitations
 - Channel-specific installers (MSI/deb/rpm/Homebrew) are deferred.

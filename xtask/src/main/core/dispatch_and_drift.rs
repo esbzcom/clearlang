@@ -12,6 +12,8 @@ use sha2::{Digest, Sha256};
 
 const SOLVER_VENDOR_SIGNING_KEY_ENV: &str = "CLG_SOLVER_VENDOR_SIGNING_KEY_HEX";
 const DEFAULT_SOLVER_VENDOR_KEY_ID: &str = "z3-vendor-k7-2026q2";
+const BINARY_RELEASE_SIGNING_KEY_ENV: &str = "CLG_BINARY_RELEASE_SIGNING_KEY_HEX";
+const DEFAULT_BINARY_RELEASE_KEY_ID: &str = "milestone3-binary-ed25519-2026q2";
 
 fn main() -> Result<(), String> {
     let mut args = env::args().skip(1);
@@ -43,6 +45,7 @@ fn main() -> Result<(), String> {
             emit_host_capability_policy_artifact(&root, args.collect())?
         }
         "binary-repro-witness" => run_binary_repro_witness(&root, args.collect())?,
+        "milestone3-binary-bundle" => emit_milestone3_binary_bundle(&root, args.collect())?,
         "milestone2-perf-gate" => run_milestone2_perf_gate(&root, args.collect())?,
         "milestone2-supply-chain-gate" => run_milestone2_supply_chain_gate(&root, args.collect())?,
         "ci" => {
@@ -129,26 +132,22 @@ fn run_binary_repro_witness(root: &Path, raw_args: Vec<String>) -> Result<(), St
             .map_err(|e| format!("cleanup `{}`: {e}", run2_dir.display()))?;
     }
 
-    run(
-        Command::new("cargo")
-            .arg("build")
-            .arg("--release")
-            .arg("-p")
-            .arg("clg-cli")
-            .arg("--target-dir")
-            .arg(&run1_dir)
-            .current_dir(root),
-    )?;
-    run(
-        Command::new("cargo")
-            .arg("build")
-            .arg("--release")
-            .arg("-p")
-            .arg("clg-cli")
-            .arg("--target-dir")
-            .arg(&run2_dir)
-            .current_dir(root),
-    )?;
+    run(Command::new("cargo")
+        .arg("build")
+        .arg("--release")
+        .arg("-p")
+        .arg("clg-cli")
+        .arg("--target-dir")
+        .arg(&run1_dir)
+        .current_dir(root))?;
+    run(Command::new("cargo")
+        .arg("build")
+        .arg("--release")
+        .arg("-p")
+        .arg("clg-cli")
+        .arg("--target-dir")
+        .arg(&run2_dir)
+        .current_dir(root))?;
 
     let bin1 = clg_binary_path(&run1_dir);
     let bin2 = clg_binary_path(&run2_dir);
@@ -179,11 +178,237 @@ fn run_binary_repro_witness(root: &Path, raw_args: Vec<String>) -> Result<(), St
             bin2.display()
         ));
     }
-    println!("binary reproducibility witness written to {}", out_path.display());
+    println!(
+        "binary reproducibility witness written to {}",
+        out_path.display()
+    );
     Ok(())
 }
 
-fn parse_binary_repro_witness_args(raw_args: Vec<String>) -> Result<BinaryReproWitnessOpts, String> {
+#[derive(Clone, Debug, Serialize)]
+struct Milestone3BundleArtifact {
+    path: String,
+    sha256: String,
+    size_bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct Milestone3BundlePayload {
+    schema_version: u32,
+    kind: String,
+    platform: String,
+    key_id: String,
+    binary: Milestone3BundleArtifact,
+    checksums_manifest: Milestone3BundleArtifact,
+    sbom_artifacts: Vec<Milestone3BundleArtifact>,
+    license_artifacts: Vec<Milestone3BundleArtifact>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct Milestone3BundleSignature {
+    key_id: String,
+    signature_format: String,
+    payload_hash: String,
+    signature: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct Milestone3SignedBundleMetadata {
+    schema_version: u32,
+    payload: Milestone3BundlePayload,
+    signature: Milestone3BundleSignature,
+}
+
+fn emit_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_milestone3_binary_bundle_args(raw_args)?;
+    let out_dir = opts.out_dir.clone().unwrap_or_else(|| {
+        root.join("tmp")
+            .join("milestone3-binary")
+            .join(opts.platform.as_str())
+    });
+    if out_dir.exists() {
+        fs::remove_dir_all(&out_dir).map_err(|e| {
+            format!(
+                "cleanup milestone3 binary bundle dir `{}`: {e}",
+                out_dir.display()
+            )
+        })?;
+    }
+    fs::create_dir_all(&out_dir).map_err(|e| {
+        format!(
+            "create milestone3 binary bundle dir `{}`: {e}",
+            out_dir.display()
+        )
+    })?;
+
+    let binary_source =
+        resolve_milestone3_binary_source(root, opts.binary.as_ref(), opts.platform.as_str())?;
+    let binary_name = binary_source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("clg")
+        .to_string();
+    let bin_dir = out_dir.join("bin").join(opts.platform.as_str());
+    let checksums_dir = out_dir.join("checksums");
+    let metadata_dir = out_dir.join("metadata");
+    let sbom_dir = out_dir.join("sbom");
+    let licenses_dir = out_dir.join("licenses");
+    for dir in [
+        &bin_dir,
+        &checksums_dir,
+        &metadata_dir,
+        &sbom_dir,
+        &licenses_dir,
+    ] {
+        fs::create_dir_all(dir).map_err(|e| format!("create `{}`: {e}", dir.display()))?;
+    }
+
+    let binary_dest = bin_dir.join(&binary_name);
+    fs::copy(&binary_source, &binary_dest).map_err(|e| {
+        format!(
+            "copy binary from `{}` to `{}`: {e}",
+            binary_source.display(),
+            binary_dest.display()
+        )
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&binary_dest)
+            .map_err(|e| format!("read `{}` metadata: {e}", binary_dest.display()))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&binary_dest, perms)
+            .map_err(|e| format!("set `{}` executable bit: {e}", binary_dest.display()))?;
+    }
+
+    let previous_supply_chain_out = env::var("CLG_SUPPLY_CHAIN_OUT_DIR").ok();
+    env::set_var("CLG_SUPPLY_CHAIN_OUT_DIR", sbom_dir.as_os_str());
+    let supply_chain_result = run_milestone2_supply_chain_gate(root, Vec::new());
+    match previous_supply_chain_out {
+        Some(value) => env::set_var("CLG_SUPPLY_CHAIN_OUT_DIR", value),
+        None => env::remove_var("CLG_SUPPLY_CHAIN_OUT_DIR"),
+    }
+    supply_chain_result?;
+
+    let root_license = root.join("LICENSE");
+    if !root_license.is_file() {
+        return Err(format!(
+            "missing repository LICENSE at `{}`",
+            root_license.display()
+        ));
+    }
+    let project_license_path = licenses_dir.join("clearlang-LICENSE.txt");
+    fs::copy(&root_license, &project_license_path).map_err(|e| {
+        format!(
+            "copy repository LICENSE from `{}` to `{}`: {e}",
+            root_license.display(),
+            project_license_path.display()
+        )
+    })?;
+
+    let third_party_summary = build_third_party_license_summary(sbom_dir.as_path())?;
+    let third_party_summary_path = licenses_dir.join("third-party-licenses.json");
+    write_json_pretty(&third_party_summary_path, &third_party_summary)?;
+
+    let release_notes_src = root.join("release_notes").join("milestone_3.md");
+    if release_notes_src.is_file() {
+        let release_notes_dir = out_dir.join("release_notes");
+        fs::create_dir_all(&release_notes_dir)
+            .map_err(|e| format!("create `{}`: {e}", release_notes_dir.display()))?;
+        fs::copy(&release_notes_src, release_notes_dir.join("milestone_3.md")).map_err(|e| {
+            format!(
+                "copy release notes from `{}`: {e}",
+                release_notes_src.display()
+            )
+        })?;
+    }
+
+    let mut checksum_entries = Vec::<(String, String)>::new();
+    let mut collect_entry = |path: &Path| -> Result<(), String> {
+        let rel = normalize_rel_path(&out_dir, path);
+        let sha = file_sha256_hex(path)?;
+        checksum_entries.push((rel, sha));
+        Ok(())
+    };
+    collect_entry(&binary_dest)?;
+    collect_entry(&project_license_path)?;
+    collect_entry(&third_party_summary_path)?;
+    let sbom_files = list_json_files(sbom_dir.as_path())?;
+    for sbom_file in &sbom_files {
+        collect_entry(sbom_file.as_path())?;
+    }
+
+    checksum_entries.sort_by(|a, b| a.0.cmp(&b.0));
+    let checksums_path = checksums_dir.join("SHA256SUMS");
+    let checksums_text = checksum_entries
+        .iter()
+        .map(|(path, sha)| format!("{sha}  {path}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&checksums_path, format!("{checksums_text}\n"))
+        .map_err(|e| format!("write `{}`: {e}", checksums_path.display()))?;
+
+    let binary_artifact = manifest_artifact(&out_dir, binary_dest.as_path())?;
+    let checksums_artifact = manifest_artifact(&out_dir, checksums_path.as_path())?;
+    let sbom_artifacts = list_json_files(sbom_dir.as_path())?
+        .into_iter()
+        .map(|path| manifest_artifact(&out_dir, path.as_path()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let license_artifacts = vec![
+        manifest_artifact(&out_dir, project_license_path.as_path())?,
+        manifest_artifact(&out_dir, third_party_summary_path.as_path())?,
+    ];
+    let payload = Milestone3BundlePayload {
+        schema_version: 1,
+        kind: "clearlang.milestone3_binary_bundle".to_string(),
+        platform: opts.platform.clone(),
+        key_id: opts.key_id.clone(),
+        binary: binary_artifact,
+        checksums_manifest: checksums_artifact,
+        sbom_artifacts,
+        license_artifacts,
+    };
+
+    let signing_key = load_binary_release_signing_key()?;
+    let payload_canonical =
+        serde_json::to_string(&payload).map_err(|e| format!("serialize bundle payload: {e}"))?;
+    let payload_hash = hex::encode(Sha256::digest(payload_canonical.as_bytes()));
+    let signature = hex::encode(signing_key.sign(payload_canonical.as_bytes()).to_bytes());
+    let signed = Milestone3SignedBundleMetadata {
+        schema_version: 1,
+        payload,
+        signature: Milestone3BundleSignature {
+            key_id: opts.key_id,
+            signature_format: "ed25519".to_string(),
+            payload_hash,
+            signature,
+        },
+    };
+    let signed_path = metadata_dir.join("milestone3-binary-bundle.signed.json");
+    write_json_pretty(&signed_path, &signed)?;
+
+    let pubkey_path = metadata_dir.join("milestone3-binary-bundle.pubkey.json");
+    let pubkey_payload = serde_json::json!({
+        "schema_version": 1,
+        "key_id": signed.signature.key_id,
+        "scheme": "ed25519",
+        "public_key": hex::encode(signing_key.verifying_key().to_bytes()),
+    });
+    write_json_pretty(&pubkey_path, &pubkey_payload)?;
+
+    println!(
+        "milestone3 binary bundle emitted: {} (platform={}, binary={})",
+        out_dir.display(),
+        opts.platform,
+        binary_name
+    );
+    Ok(())
+}
+
+fn parse_binary_repro_witness_args(
+    raw_args: Vec<String>,
+) -> Result<BinaryReproWitnessOpts, String> {
     let mut out: Option<PathBuf> = None;
     let mut idx = 0usize;
     while idx < raw_args.len() {
@@ -206,6 +431,68 @@ fn parse_binary_repro_witness_args(raw_args: Vec<String>) -> Result<BinaryReproW
     Ok(BinaryReproWitnessOpts { out })
 }
 
+fn parse_milestone3_binary_bundle_args(
+    raw_args: Vec<String>,
+) -> Result<Milestone3BinaryBundleOpts, String> {
+    let mut platform = current_platform_id().to_string();
+    let mut binary: Option<PathBuf> = None;
+    let mut out_dir: Option<PathBuf> = None;
+    let mut key_id = DEFAULT_BINARY_RELEASE_KEY_ID.to_string();
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--platform" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--platform`".to_string())?;
+                platform = value.trim().to_ascii_lowercase();
+            }
+            "--binary" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--binary`".to_string())?;
+                binary = Some(PathBuf::from(value));
+            }
+            "--out-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--out-dir`".to_string())?;
+                out_dir = Some(PathBuf::from(value));
+            }
+            "--key-id" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--key-id`".to_string())?;
+                if value.trim().is_empty() {
+                    return Err("`--key-id` cannot be empty".to_string());
+                }
+                key_id = value.trim().to_string();
+            }
+            other => {
+                return Err(format!(
+                    "unknown milestone3-binary-bundle arg `{other}` (supported: --platform, --binary, --out-dir, --key-id)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    if !matches!(platform.as_str(), "windows" | "linux" | "macos") {
+        return Err(format!(
+            "unsupported `--platform` value `{platform}` (expected windows|linux|macos)"
+        ));
+    }
+    Ok(Milestone3BinaryBundleOpts {
+        platform,
+        binary,
+        out_dir,
+        key_id,
+    })
+}
+
 fn clg_binary_path(target_dir: &Path) -> PathBuf {
     let file = if cfg!(windows) { "clg.exe" } else { "clg" };
     target_dir.join("release").join(file)
@@ -223,6 +510,118 @@ fn current_platform_id() -> &'static str {
         "macos" => "macos",
         _ => "unknown",
     }
+}
+
+fn resolve_milestone3_binary_source(
+    root: &Path,
+    binary: Option<&PathBuf>,
+    platform: &str,
+) -> Result<PathBuf, String> {
+    let binary_path = match binary {
+        Some(path) => path.clone(),
+        None => {
+            let file = if platform == "windows" {
+                "clg.exe"
+            } else {
+                "clg"
+            };
+            root.join("target").join("release").join(file)
+        }
+    };
+    if !binary_path.is_file() {
+        return Err(format!(
+            "missing binary `{}`; run `cargo build --release -p clg-cli` first or pass `--binary <FILE>`",
+            binary_path.display()
+        ));
+    }
+    Ok(binary_path)
+}
+
+fn manifest_artifact(root: &Path, path: &Path) -> Result<Milestone3BundleArtifact, String> {
+    let sha256 = file_sha256_hex(path)?;
+    let size_bytes = fs::metadata(path)
+        .map_err(|e| format!("read `{}` metadata: {e}", path.display()))?
+        .len();
+    Ok(Milestone3BundleArtifact {
+        path: normalize_rel_path(root, path),
+        sha256,
+        size_bytes,
+    })
+}
+
+fn list_json_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    let entries = fs::read_dir(dir).map_err(|e| format!("read dir `{}`: {e}", dir.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("read dir entry `{}`: {e}", dir.display()))?;
+        let path = entry.path();
+        if path.is_file()
+            && path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("json"))
+                .unwrap_or(false)
+        {
+            files.push(path);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+fn build_third_party_license_summary(sbom_dir: &Path) -> Result<serde_json::Value, String> {
+    let sbom_path = sbom_dir.join("milestone2-sbom.json");
+    let sbom_bytes =
+        fs::read(&sbom_path).map_err(|e| format!("read `{}`: {e}", sbom_path.display()))?;
+    let sbom: serde_json::Value = serde_json::from_slice(&sbom_bytes)
+        .map_err(|e| format!("parse `{}`: {e}", sbom_path.display()))?;
+    let packages = sbom
+        .get("packages")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("SBOM `{}` missing `packages[]` array", sbom_path.display()))?;
+    let mut entries = packages
+        .iter()
+        .map(|pkg| {
+            serde_json::json!({
+                "id": pkg.get("id").cloned().unwrap_or(serde_json::Value::Null),
+                "name": pkg.get("name").cloned().unwrap_or(serde_json::Value::Null),
+                "version": pkg.get("version").cloned().unwrap_or(serde_json::Value::Null),
+                "license": pkg.get("license").cloned().unwrap_or(serde_json::Value::Null),
+                "license_file": pkg.get("license_file").cloned().unwrap_or(serde_json::Value::Null),
+            })
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|a, b| {
+        let ak = (
+            a.get("name")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+            a.get("version")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+            a.get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+        );
+        let bk = (
+            b.get("name")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+            b.get("version")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+            b.get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+        );
+        ak.cmp(&bk)
+    });
+    Ok(serde_json::json!({
+        "schema_version": 1,
+        "kind": "cargo_third_party_license_summary",
+        "source_sbom": "sbom/milestone2-sbom.json",
+        "entries": entries
+    }))
 }
 
 fn parse_manifest_lock_drift_args(raw_args: Vec<String>) -> Result<ManifestLockDriftOpts, String> {
@@ -259,19 +658,13 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
     let graph_path = dir.join("clg.resolved-graph.json");
     let graph_hash_path = dir.join("clg.resolved-graph.sha256");
     if !manifest_path.is_file() {
-        return Err(format!(
-            "missing manifest `{}`",
-            manifest_path.display()
-        ));
+        return Err(format!("missing manifest `{}`", manifest_path.display()));
     }
     if !lock_path.is_file() {
         return Err(format!("missing lockfile `{}`", lock_path.display()));
     }
     if !graph_path.is_file() {
-        return Err(format!(
-            "missing resolved graph `{}`",
-            graph_path.display()
-        ));
+        return Err(format!("missing resolved graph `{}`", graph_path.display()));
     }
     if !graph_hash_path.is_file() {
         return Err(format!(
@@ -282,16 +675,24 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
 
     let manifest_raw = fs::read_to_string(&manifest_path)
         .map_err(|e| format!("read manifest `{}`: {e}", manifest_path.display()))?;
-    let lock_raw_bytes =
-        fs::read(&lock_path).map_err(|e| format!("read lockfile `{}`: {e}", lock_path.display()))?;
+    let lock_raw_bytes = fs::read(&lock_path)
+        .map_err(|e| format!("read lockfile `{}`: {e}", lock_path.display()))?;
     let lock_raw = std::str::from_utf8(&lock_raw_bytes)
         .map_err(|e| format!("lockfile `{}` is not valid utf-8: {e}", lock_path.display()))?;
-    let graph_raw_bytes =
-        fs::read(&graph_path).map_err(|e| format!("read resolved graph `{}`: {e}", graph_path.display()))?;
-    let graph_raw = std::str::from_utf8(&graph_raw_bytes)
-        .map_err(|e| format!("resolved graph `{}` is not valid utf-8: {e}", graph_path.display()))?;
-    let graph_hash_raw = fs::read_to_string(&graph_hash_path)
-        .map_err(|e| format!("read resolved graph hash `{}`: {e}", graph_hash_path.display()))?;
+    let graph_raw_bytes = fs::read(&graph_path)
+        .map_err(|e| format!("read resolved graph `{}`: {e}", graph_path.display()))?;
+    let graph_raw = std::str::from_utf8(&graph_raw_bytes).map_err(|e| {
+        format!(
+            "resolved graph `{}` is not valid utf-8: {e}",
+            graph_path.display()
+        )
+    })?;
+    let graph_hash_raw = fs::read_to_string(&graph_hash_path).map_err(|e| {
+        format!(
+            "read resolved graph hash `{}`: {e}",
+            graph_hash_path.display()
+        )
+    })?;
 
     let manifest: DriftManifestFile = serde_json::from_str(&manifest_raw)
         .map_err(|e| format!("parse manifest `{}`: {e}", manifest_path.display()))?;
@@ -342,10 +743,10 @@ fn check_manifest_lock_consistency_for_dir(dir: &Path) -> Result<(), String> {
     }
 
     if actual_roots != expected_roots {
-        let expected_json =
-            serde_json::to_string(&expected_roots).map_err(|e| format!("serialize expected roots: {e}"))?;
-        let actual_json =
-            serde_json::to_string(&actual_roots).map_err(|e| format!("serialize lock roots: {e}"))?;
+        let expected_json = serde_json::to_string(&expected_roots)
+            .map_err(|e| format!("serialize expected roots: {e}"))?;
+        let actual_json = serde_json::to_string(&actual_roots)
+            .map_err(|e| format!("serialize lock roots: {e}"))?;
         return Err(format!(
             "manifest/lock inconsistency (`{}` vs `{}`): expected roots {}, found {}",
             manifest_path.display(),
@@ -470,7 +871,9 @@ fn normalize_lock_roots(roots: Vec<DriftLockRoot>) -> Result<Vec<DriftLockRoot>,
     Ok(out)
 }
 
-fn normalize_lock_packages(packages: Vec<DriftLockPackage>) -> Result<Vec<DriftLockPackage>, String> {
+fn normalize_lock_packages(
+    packages: Vec<DriftLockPackage>,
+) -> Result<Vec<DriftLockPackage>, String> {
     let mut out = Vec::with_capacity(packages.len());
     let mut seen_ids = BTreeSet::new();
     for mut pkg in packages {
@@ -479,7 +882,12 @@ fn normalize_lock_packages(packages: Vec<DriftLockPackage>) -> Result<Vec<DriftL
         let version = pkg.version.trim().to_string();
         let digest = pkg.digest.trim().to_string();
         let abi_id = pkg.abi_id.trim().to_string();
-        if id.is_empty() || name.is_empty() || version.is_empty() || digest.is_empty() || abi_id.is_empty() {
+        if id.is_empty()
+            || name.is_empty()
+            || version.is_empty()
+            || digest.is_empty()
+            || abi_id.is_empty()
+        {
             return Err("lockfile package identity fields must be non-empty".to_string());
         }
         if id != format!("{name}@{version}") {
@@ -497,10 +905,7 @@ fn normalize_lock_packages(packages: Vec<DriftLockPackage>) -> Result<Vec<DriftL
         for dep in pkg.dependencies {
             let dep_id = dep.trim().to_string();
             if dep_id.is_empty() {
-                return Err(format!(
-                    "lockfile package `{}` has empty dependency id",
-                    id
-                ));
+                return Err(format!("lockfile package `{}` has empty dependency id", id));
             }
             if !seen_deps.insert(dep_id.clone()) {
                 return Err(format!(

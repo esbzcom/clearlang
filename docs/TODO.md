@@ -1173,7 +1173,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
 - [ ] 25.6 First usable binary releases
   - [x] 25.6.0 Lock Phase 25.6 artifact/provenance policy before implementation (GA artifact = distributable `clg` binaries; provenance required for GA release-train artifacts; local/dev may remain non-GA). (`docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`)
   - [x] 25.6.1 Lock GA target matrix and support policy (baseline required gates: Windows + Linux; macOS is preview/non-blocking in this phase). (`docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`)
-  - [ ] 25.6.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles.
+  - [x] 25.6.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles. (`xtask milestone3-binary-bundle`, `.github/workflows/ci.yml`, `docs/design/phase-25.6.2-signed-binary-bundle.md`)
   - [x] 25.6.3 Publish install/upgrade/uninstall/verify docs and add smoke coverage per GA target. (`docs/release/milestone_3-binary-operations.md`, `.github/workflows/ci.yml`)
   - [x] 25.6.4 Add release-train checklist plus rollback/incident runbook for binary distribution failures. (`docs/release/milestone_3-release-train-checklist.md`, `docs/release/milestone_3-binary-incident-runbook.md`)
   - [x] 25.6.5 Publish `release_notes/milestone_3.md` with compatibility matrix, known limitations, and upgrade notes. (`release_notes/milestone_3.md`)

@@ -16,6 +16,13 @@ macOS is preview in this phase and non-blocking for GA closure.
 clg verify-bundle --bundle out/generic.release-bundle.json --keyring keys/release-keyring.json --require-provenance
 ```
 
+Release artifact production command (CI/operator workflow):
+
+```powershell
+$env:CLG_BINARY_RELEASE_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
+cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux> --out-dir tmp/milestone3-binary/<platform>
+```
+
 ## Upgrade
 1. Download new binary + checksums + updated release bundle.
 2. Verify checksums.

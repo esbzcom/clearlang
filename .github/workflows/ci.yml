@@ -396,6 +396,15 @@ jobs:
           .\target\release\clg.exe --help
           .\target\release\clg.exe release --help
           .\target\release\clg.exe verify-bundle --help
+      - name: Emit signed binary bundle artifact (${{ matrix.platform }})
+        env:
+          CLG_BINARY_RELEASE_SIGNING_KEY_HEX: "1111111111111111111111111111111111111111111111111111111111111111"
+        run: cargo run -p xtask -- milestone3-binary-bundle --platform ${{ matrix.platform }} --out-dir tmp/milestone3-binary/${{ matrix.platform }}
+      - name: Upload milestone_3 signed binary bundle artifact (${{ matrix.platform }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone3-binary-bundle-${{ matrix.platform }}
+          path: tmp/milestone3-binary/${{ matrix.platform }}/*
 
   milestone3-binary-repro:
     strategy:

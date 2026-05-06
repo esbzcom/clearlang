@@ -86,6 +86,53 @@ mod tests {
     }
 
     #[test]
+    fn parse_milestone3_binary_bundle_args_accepts_defaults() {
+        let opts = parse_milestone3_binary_bundle_args(Vec::new()).expect("parse args");
+        assert!(matches!(
+            opts.platform.as_str(),
+            "windows" | "linux" | "macos"
+        ));
+        assert!(opts.binary.is_none());
+        assert!(opts.out_dir.is_none());
+        assert_eq!(opts.key_id, "milestone3-binary-ed25519-2026q2");
+    }
+
+    #[test]
+    fn parse_milestone3_binary_bundle_args_accepts_explicit_values() {
+        let opts = parse_milestone3_binary_bundle_args(vec![
+            "--platform".to_string(),
+            "linux".to_string(),
+            "--binary".to_string(),
+            "target/release/clg".to_string(),
+            "--out-dir".to_string(),
+            "tmp/m3-bundle".to_string(),
+            "--key-id".to_string(),
+            "release-2026q2".to_string(),
+        ])
+        .expect("parse args");
+        assert_eq!(opts.platform, "linux");
+        assert_eq!(opts.binary, Some(PathBuf::from("target/release/clg")));
+        assert_eq!(opts.out_dir, Some(PathBuf::from("tmp/m3-bundle")));
+        assert_eq!(opts.key_id, "release-2026q2");
+    }
+
+    #[test]
+    fn parse_milestone3_binary_bundle_args_rejects_invalid_input() {
+        let err =
+            parse_milestone3_binary_bundle_args(vec!["--platform".to_string(), "bsd".to_string()])
+                .expect_err("expected platform validation");
+        assert!(err.contains("unsupported `--platform`"));
+
+        let err = parse_milestone3_binary_bundle_args(vec!["--key-id".to_string(), "".to_string()])
+            .expect_err("expected empty key-id error");
+        assert!(err.contains("`--key-id` cannot be empty"));
+
+        let err = parse_milestone3_binary_bundle_args(vec!["--unknown".to_string()])
+            .expect_err("expected unknown arg error");
+        assert!(err.contains("unknown milestone3-binary-bundle arg"));
+    }
+
+    #[test]
     fn parse_std_surface_args_accepts_emit_and_refresh() {
         let opts = parse_std_surface_args(vec![
             "--emit-artifact".to_string(),
@@ -114,7 +161,9 @@ mod tests {
         let opts = parse_manifest_lock_drift_args(Vec::new()).expect("parse args");
         assert_eq!(
             opts.paths,
-            vec![PathBuf::from("docs/fixtures/phase-25.4/manifest-lock-consistency")]
+            vec![PathBuf::from(
+                "docs/fixtures/phase-25.4/manifest-lock-consistency"
+            )]
         );
     }
 
@@ -209,8 +258,8 @@ mod tests {
         )
         .expect("write resolved graph hash");
 
-        let err = check_manifest_lock_consistency_for_dir(dir.as_path())
-            .expect_err("expected mismatch");
+        let err =
+            check_manifest_lock_consistency_for_dir(dir.as_path()).expect_err("expected mismatch");
         cleanup_temp_dir(dir.as_path());
         assert!(err.contains("manifest/lock inconsistency"));
     }
@@ -253,7 +302,8 @@ mod tests {
             serde_json::to_vec_pretty(&lock_value).expect("serialize canonical lock");
         let mut graph_bytes = lock_canonical.clone();
         graph_bytes.push(b'\n');
-        std::fs::write(dir.join("clg.lock.json"), &lock_canonical).expect("write noncanonical lock");
+        std::fs::write(dir.join("clg.lock.json"), &lock_canonical)
+            .expect("write noncanonical lock");
         std::fs::write(dir.join("clg.resolved-graph.json"), &graph_bytes)
             .expect("write resolved graph");
         let graph_hash = hex::encode(Sha256::digest(&graph_bytes[..graph_bytes.len() - 1]));
@@ -537,10 +587,8 @@ locked surface:
             .duration_since(std::time::UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!(
-            "clg-xtask-{label}-{}-{nanos}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("clg-xtask-{label}-{}-{nanos}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         dir
     }

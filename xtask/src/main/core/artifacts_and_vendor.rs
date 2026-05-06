@@ -211,8 +211,8 @@ fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String>
         "signature": signature
     });
     let signature_path = sidecar_path(out.as_path(), "sig");
-    let mut signature_bytes =
-        serde_json::to_vec_pretty(&signature_payload).map_err(|e| format!("serialize signature sidecar: {e}"))?;
+    let mut signature_bytes = serde_json::to_vec_pretty(&signature_payload)
+        .map_err(|e| format!("serialize signature sidecar: {e}"))?;
     signature_bytes.push(b'\n');
     fs::write(&signature_path, signature_bytes)
         .map_err(|e| format!("write `{}`: {e}", signature_path.display()))?;
@@ -238,7 +238,10 @@ fn stage_solver_vendor(root: &Path, raw_args: Vec<String>) -> Result<(), String>
 }
 
 fn sidecar_path(solver_bin: &Path, suffix: &str) -> PathBuf {
-    let mut name = solver_bin.file_name().unwrap_or_else(|| OsStr::new("solver")).to_os_string();
+    let mut name = solver_bin
+        .file_name()
+        .unwrap_or_else(|| OsStr::new("solver"))
+        .to_os_string();
     name.push(format!(".{suffix}"));
     solver_bin
         .parent()
@@ -307,8 +310,25 @@ fn load_solver_vendor_signing_key() -> Result<SigningKey, String> {
     Ok(SigningKey::from_bytes(&bytes))
 }
 
+fn load_binary_release_signing_key() -> Result<SigningKey, String> {
+    let raw = env::var(BINARY_RELEASE_SIGNING_KEY_ENV).map_err(|_| {
+        format!(
+            "missing `{BINARY_RELEASE_SIGNING_KEY_ENV}` env var (expected 32-byte Ed25519 private key hex)"
+        )
+    })?;
+    let bytes = decode_fixed_hex32(raw.trim()).ok_or_else(|| {
+        format!(
+            "`{BINARY_RELEASE_SIGNING_KEY_ENV}` must be a lowercase 32-byte hex key (64 hex chars)"
+        )
+    })?;
+    Ok(SigningKey::from_bytes(&bytes))
+}
+
 fn decode_fixed_hex32(value: &str) -> Option<[u8; 32]> {
-    if value.len() != 64 || value.bytes().any(|b| !b.is_ascii_hexdigit() || b.is_ascii_uppercase())
+    if value.len() != 64
+        || value
+            .bytes()
+            .any(|b| !b.is_ascii_hexdigit() || b.is_ascii_uppercase())
     {
         return None;
     }
@@ -367,4 +387,3 @@ fn validate_semver(version: &str) -> Result<(), String> {
     }
     Ok(())
 }
-

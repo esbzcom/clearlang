@@ -10,6 +10,7 @@
 ## Artifact Checklist
 - GA baseline binaries are present for Windows and Linux.
 - Binary checksums are present.
+- Signed binary metadata (`milestone3-binary-bundle.signed.json`) is present.
 - Release bundle includes signed provenance artifact.
 - `clg verify-bundle --require-provenance` passes against release keyring.
 - SBOM/license evidence artifacts are present.

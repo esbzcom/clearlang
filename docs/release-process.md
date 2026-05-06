@@ -243,6 +243,15 @@ Publish these files together:
 - `out/generic.release-bundle.json`
 - checksums/SBOM/release notes as needed by your distribution process
 
+For milestone_3 binary distribution artifacts (Windows/Linux GA baseline), emit the signed binary bundle:
+
+```powershell
+$env:CLG_BINARY_RELEASE_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
+cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux> --out-dir tmp/milestone3-binary/<platform>
+```
+
+Bundle outputs include the platform binary, checksum manifest, signed metadata, and SBOM/license evidence.
+
 ## Notes
 - Milestone 3 policy lock: production release is `release == proved` (`proved_all` required). Non-proved outputs are dev/non-release only.
 - `--compiler-mode permissive|standard` are transitional dev/evidence workflows and are not accepted for production release artifacts.

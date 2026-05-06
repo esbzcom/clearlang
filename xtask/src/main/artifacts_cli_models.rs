@@ -123,6 +123,9 @@ fn print_help() {
     println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos] [--key-id ID]");
     println!("  binary-repro-witness [--out FILE] (phase 25.6 binary reproducibility witness)");
     println!(
+        "  milestone3-binary-bundle [--platform windows|linux|macos] [--binary FILE] [--out-dir DIR] [--key-id ID]"
+    );
+    println!(
         "  manifest-lock-drift-check [--path DIR] (phase 25.4 manifest/lock consistency gate)"
     );
     println!(
@@ -152,6 +155,14 @@ struct SolverVendorStageOpts {
 #[derive(Clone, Debug)]
 struct BinaryReproWitnessOpts {
     out: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug)]
+struct Milestone3BinaryBundleOpts {
+    platform: String,
+    binary: Option<PathBuf>,
+    out_dir: Option<PathBuf>,
+    key_id: String,
 }
 
 #[derive(Clone, Debug)]
@@ -347,4 +358,3 @@ struct DriftLockPackage {
     #[serde(default)]
     dependencies: Vec<String>,
 }
-

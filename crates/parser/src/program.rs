@@ -14,9 +14,10 @@ use clg_ast::{Program, Span};
 mod heuristics;
 
 use self::heuristics::{
-    find_capture_list_lambda, find_comma_grouped_number, find_export_import, find_theorem_keyword,
-    find_prefixed_integer_issue, find_untyped_lambda, find_versioned_import, has_unclosed_paren, keyword_missing_brace,
-    looks_like_missing_comma, strip_comments_preserve_layout,
+    find_capture_list_lambda, find_comma_grouped_number, find_export_import,
+    find_prefixed_integer_issue, find_theorem_keyword, find_untyped_lambda, find_versioned_import,
+    has_unclosed_paren, keyword_missing_brace, looks_like_missing_comma,
+    strip_comments_preserve_layout,
 };
 
 #[derive(Debug)]

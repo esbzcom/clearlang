@@ -110,7 +110,10 @@ fn parse_errors_on_missing_digits_after_prefixed_literals() {
 
 #[test]
 fn parse_errors_on_invalid_prefixed_digits() {
-    let cases = [("0b102", "invalid binary digit"), ("0xFG", "invalid hex digit")];
+    let cases = [
+        ("0b102", "invalid binary digit"),
+        ("0xFG", "invalid hex digit"),
+    ];
     for (bad, expected) in cases {
         let src = format!("function main() -> Int {{ {bad} }}");
         let errs = parse_errors(&src).expect_err("invalid prefixed digit should fail");

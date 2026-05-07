@@ -41,7 +41,6 @@ fn create_dir_link(link: &Path, target: &Path) {
     );
 }
 
-
 include!("test_command_contract/discovery_and_plan.rs");
 include!("test_command_contract/execution_and_reporting.rs");
 include!("test_command_contract/runtime_failures.rs");

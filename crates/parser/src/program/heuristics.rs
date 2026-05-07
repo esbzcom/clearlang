@@ -664,9 +664,12 @@ pub(super) fn find_prefixed_integer_issue(src: &str) -> Option<(usize, usize, St
             continue;
         }
 
-        if bytes[i] == b'0' && i + 1 < bytes.len() && matches!(bytes[i + 1], b'x' | b'X' | b'b' | b'B')
+        if bytes[i] == b'0'
+            && i + 1 < bytes.len()
+            && matches!(bytes[i + 1], b'x' | b'X' | b'b' | b'B')
         {
-            let prev_is_ident = i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
+            let prev_is_ident =
+                i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || bytes[i - 1] == b'_');
             if prev_is_ident {
                 i += 1;
                 continue;

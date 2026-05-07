@@ -490,12 +490,13 @@ pub(crate) fn enforce_project_clg_version_compatibility(
     let current_full = env!("CARGO_PKG_VERSION");
     let current_core = normalized_clg_core_version();
     let requirement = manifest.project.clg_version.as_str();
-    let is_match = semver_requirement_matches_version(requirement, current_core).map_err(|msg| {
-        ReleaseDefaultsError::new(format!(
-            "project manifest `{}` field `project.clg_version` compatibility check failed: {}",
-            STRICT_PROJECT_FILE, msg
-        ))
-    })?;
+    let is_match =
+        semver_requirement_matches_version(requirement, current_core).map_err(|msg| {
+            ReleaseDefaultsError::new(format!(
+                "project manifest `{}` field `project.clg_version` compatibility check failed: {}",
+                STRICT_PROJECT_FILE, msg
+            ))
+        })?;
     if !is_match {
         return Err(ReleaseDefaultsError::new(format!(
             "project manifest `{}` requires `project.clg_version = {}` but current `clg` version is `{}`",

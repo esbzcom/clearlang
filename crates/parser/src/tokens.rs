@@ -14,17 +14,14 @@ fn parse_decimal_i64(raw: &str) -> Result<i64, String> {
     parse_radix_i64(raw, 10, "decimal", |c| c.is_ascii_digit())
 }
 
-fn parse_prefixed_i64(
-    raw: &str,
-    prefix: &str,
-    radix: u32,
-    base_name: &str,
-) -> Result<i64, String> {
+fn parse_prefixed_i64(raw: &str, prefix: &str, radix: u32, base_name: &str) -> Result<i64, String> {
     let digits = raw
         .strip_prefix(prefix)
         .expect("prefix validation should happen before parse_prefixed_i64");
     if digits.is_empty() {
-        return Err(format!("invalid integer literal: missing digits after `{prefix}`"));
+        return Err(format!(
+            "invalid integer literal: missing digits after `{prefix}`"
+        ));
     }
     if radix == 16 {
         parse_radix_i64(digits, radix, base_name, |c| c.is_ascii_hexdigit())

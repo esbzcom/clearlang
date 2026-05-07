@@ -1133,7 +1133,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
   - [x] 25.3.32 Lock phased rollout/governance for `std::unit` API: Gate D ships minimal subset first (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`), remaining v1 methods are tracked as additive follow-ups only (no breaking signature/behavior changes). (`docs/design/phase-25.3.32-std-unit-rollout-governance-policy.md`, `docs/testing.md`)
   - [x] 25.3.33 Lock `assert_eq_bytes` activation policy: keep method reserved/conditional until `Bytes` is confirmed in std-core scope with deterministic typing/runtime support, and require deterministic unsupported-diagnostic behavior before activation. (`docs/design/phase-25.3.33-assert-eq-bytes-activation-policy.md`, `docs/testing.md`)
 
-- [ ] 25.4 Clear project manifests (`json`) [Gate E]
+- [x] 25.4 Clear project manifests (`json`) [Gate E]
   - [x] 25.4.1 Define `clg.project.json` as the user-authored project/dependency manifest (project name/description/version, `clg` compiler version range, website/contact metadata, declared package requirements). (`docs/design/phase-25.4.1-project-manifest-v1.md`)
   - [x] 25.4.2 Keep `clg.lock.json` as the tool-generated deterministic lockfile (exact versions, digests, and resolved graph identity). (`docs/design/phase-25.4.2-lockfile-tool-generated-contract.md`)
   - [x] 25.4.3 Add resolver flow: `clg pkg lock --generate|--update` reads `clg.project.json` (schema v1) and writes canonical lock outputs.
@@ -1170,7 +1170,7 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
     - [x] Add bitwise/shift regression cases using prefixed literals on covered unsigned paths (`U64`) and ensure no new assumption drift.
     - [x] Add CI determinism checks for proof artifact/report stability (status + hash invariants) when using base-prefixed literals.
 
-- [ ] 25.6 First usable binary releases
+- [x] 25.6 First usable binary releases
   - [x] 25.6.0 Lock Phase 25.6 artifact/provenance policy before implementation (GA artifact = distributable `clg` binaries; provenance required for GA release-train artifacts; local/dev may remain non-GA). (`docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`)
   - [x] 25.6.1 Lock GA target matrix and support policy (baseline required gates: Windows + Linux; macOS is preview/non-blocking in this phase). (`docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`)
   - [x] 25.6.2 Produce signed release binaries with reproducible metadata, checksums, and SBOM/license bundles. (`xtask milestone3-binary-bundle`, `.github/workflows/ci.yml`, `docs/design/phase-25.6.2-signed-binary-bundle.md`)
@@ -1190,14 +1190,6 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
     - [x] Unknown/revoked `key_id` flow (depends on 25.6.8 keyring-by-`key_id` workflow).
   - [x] 25.6.12 Add cross-runner reproducibility witness gate for GA binaries (independent clean builders produce identical bytes/hashes per supported target, or fail release-train gate). (`xtask binary-repro-witness`, `.github/workflows/ci.yml`)
   - [x] 25.6.13 Lock binary publication/distribution policy (supported channels, metadata/signature/checksum parity requirements, and explicit defer list for unsupported channels) before GA. (`docs/design/phase-25.6.13-binary-publication-policy-lock.md`)
-
-- [ ] 25.7 Online testbed (if feasible)
-  - [x] 25.7.1 Add a go/no-go gate (threat model, abuse controls, ops budget, and owner assignment) before implementation. (`docs/design/phase-25.7.1-online-testbed-go-no-go-gate.md`)
-  - [ ] 25.7.2 If approved, implement a deterministic sandboxed compile/run path with resource/time limits and clear diagnostics.
-  - [ ] 25.7.3 Add SLO/runbook/incident playbook and verify readiness before public rollout.
-  - [ ] 25.7.4 If gates fail, publish a defer decision and keep local/CLI-first workflow as canonical path.
-
-- [ ] 25.8 Standard library work is tracked in standalone Phase 26 (critical path).
 
 ### 26 Standalone Standard Library Phase (Critical)
 

@@ -232,6 +232,11 @@ fn todo_marks_gate_d_phase_completion_items_complete() {
         "25.3.28",
         "25.3.25",
         "25.3.26",
+        "25.3.29",
+        "25.3.30",
+        "25.3.31",
+        "25.3.32",
+        "25.3.33",
     ] {
         assert!(
             todo_has_checked_item(&todo, item),

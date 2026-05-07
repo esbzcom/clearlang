@@ -73,6 +73,37 @@ clg release --check-only --root examples/projects/generic
 - `release_defaults.trust_policy`
 `clg.project.json` schema v1 is also the user-authored project/dependency manifest for lock generation.
 
+Minimal `clg.project.json` syntax sample used by `clg release`/`clg pkg lock`:
+
+```json
+{
+  "schema_version": 1,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "0.1.0",
+    "clg_version": "^0.1.0",
+    "entry": "main.clear",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [
+    { "name": "std::core", "requirement": "^1.0.0" }
+  ],
+  "release_defaults": {
+    "advisory_as_of": "2026-03-26T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}
+```
+
+`project.clg_version` must be a valid semver requirement and must match the running `clg` version (fail-closed).
+
 `clg release` now executes one-command orchestration (`lock -> build/prove -> sign -> verify -> bundle`) and writes a deterministic release bundle manifest JSON (`<stem>.release-bundle.json`) containing artifact hashes and stage status.
 
 `clg verify-bundle` verifies the bundle manifest/artifact hashes and then runs compile-time signature/assurance verification from manifest wiring (no manual `--module/--sig/--assurance-manifest` flag set required):

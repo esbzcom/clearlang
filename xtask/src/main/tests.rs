@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    use std::sync::{Mutex, OnceLock};
 
     #[test]
     fn parse_std_core_args_uses_defaults() {
@@ -130,6 +132,173 @@ mod tests {
         let err = parse_milestone3_binary_bundle_args(vec!["--unknown".to_string()])
             .expect_err("expected unknown arg error");
         assert!(err.contains("unknown milestone3-binary-bundle arg"));
+    }
+
+    #[test]
+    fn parse_milestone3_binary_bundle_verify_args_accepts_and_rejects_inputs() {
+        let opts = parse_milestone3_binary_bundle_verify_args(vec![
+            "--bundle-dir".to_string(),
+            "tmp/milestone3/linux".to_string(),
+        ])
+        .expect("parse verify args");
+        assert_eq!(opts.bundle_dir, PathBuf::from("tmp/milestone3/linux"));
+
+        let err = parse_milestone3_binary_bundle_verify_args(Vec::new())
+            .expect_err("expected missing --bundle-dir");
+        assert!(err.contains("missing required `--bundle-dir`"));
+
+        let err = parse_milestone3_binary_bundle_verify_args(vec!["--bad".to_string()])
+            .expect_err("expected unknown arg");
+        assert!(err.contains("unknown milestone3-binary-bundle-verify arg"));
+    }
+
+    #[test]
+    fn milestone3_binary_bundle_emits_signed_artifacts_and_valid_checksums() {
+        let _env_lock = test_env_lock().lock().expect("lock env");
+        let root = unique_temp_dir("milestone3-binary-bundle");
+        let out_dir = root.join("out").join("bundle");
+        let binary = root.join("clg");
+        std::fs::create_dir_all(out_dir.parent().expect("bundle parent"))
+            .expect("create output dir");
+        std::fs::write(root.join("LICENSE"), "test license\n").expect("write LICENSE");
+        std::fs::write(&binary, b"fake-clg-binary").expect("write fake binary");
+
+        let _key_guard = scoped_env_set(
+            "CLG_BINARY_RELEASE_SIGNING_KEY_HEX",
+            Some("1111111111111111111111111111111111111111111111111111111111111111"),
+        );
+        let metadata_fixture = prepare_supply_chain_metadata_fixture(root.as_path());
+        let metadata_fixture_str = metadata_fixture.to_string_lossy().to_string();
+        let _metadata_guard =
+            scoped_env_set("CLG_SUPPLY_CHAIN_METADATA_JSON", Some(metadata_fixture_str.as_str()));
+        let (tracked_metadata, runtime_link) = prepare_supply_chain_runtime_fixtures(root.as_path());
+        let _tracked_metadata_guard = scoped_env_set(
+            "CLG_SUPPLY_CHAIN_TRACKED_METADATA",
+            Some(normalize_rel_path(root.as_path(), tracked_metadata.as_path()).as_str()),
+        );
+        let _runtime_guard = scoped_env_set(
+            "CLG_SUPPLY_CHAIN_RUNTIME_LINKS",
+            Some(normalize_rel_path(root.as_path(), runtime_link.as_path()).as_str()),
+        );
+        let _legacy_out_guard = scoped_env_set("CLG_SUPPLY_CHAIN_OUT_DIR", None);
+
+        emit_milestone3_binary_bundle(
+            root.as_path(),
+            vec![
+                "--platform".to_string(),
+                "linux".to_string(),
+                "--binary".to_string(),
+                binary.to_string_lossy().to_string(),
+                "--out-dir".to_string(),
+                out_dir.to_string_lossy().to_string(),
+                "--key-id".to_string(),
+                "release-test-2026q2".to_string(),
+            ],
+        )
+        .expect("emit milestone3 binary bundle");
+        verify_milestone3_binary_bundle(
+            root.as_path(),
+            vec![
+                "--bundle-dir".to_string(),
+                out_dir.to_string_lossy().to_string(),
+            ],
+        )
+        .expect("verify emitted milestone3 binary bundle");
+
+        let signed_path = out_dir
+            .join("metadata")
+            .join("milestone3-binary-bundle.signed.json");
+        let pubkey_path = out_dir
+            .join("metadata")
+            .join("milestone3-binary-bundle.pubkey.json");
+        let checksums_path = out_dir.join("checksums").join("SHA256SUMS");
+        assert!(signed_path.is_file(), "signed metadata should exist");
+        assert!(pubkey_path.is_file(), "pubkey metadata should exist");
+        assert!(checksums_path.is_file(), "checksums manifest should exist");
+
+        let signed: Milestone3SignedBundleMetadata = serde_json::from_slice(
+            &std::fs::read(&signed_path).expect("read signed metadata"),
+        )
+        .expect("parse signed metadata");
+        let payload_canonical = serde_json::to_string(&signed.payload).expect("serialize payload");
+        let payload_hash = hex::encode(Sha256::digest(payload_canonical.as_bytes()));
+        assert_eq!(
+            signed.signature.payload_hash.as_str(),
+            payload_hash.as_str(),
+            "signature payload hash should match canonical payload bytes"
+        );
+        assert_eq!(
+            signed.signature.key_id.as_str(),
+            "release-test-2026q2",
+            "signature key_id should match explicit --key-id"
+        );
+
+        let pubkey: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&pubkey_path).expect("read pubkey metadata"))
+                .expect("parse pubkey metadata");
+        let public_key_hex = pubkey
+            .get("public_key")
+            .and_then(|v| v.as_str())
+            .expect("pubkey.public_key");
+        let mut public_key_bytes = [0u8; 32];
+        let decoded_pubkey = hex::decode(public_key_hex).expect("decode pubkey hex");
+        public_key_bytes.copy_from_slice(&decoded_pubkey);
+        let verifying_key =
+            VerifyingKey::from_bytes(&public_key_bytes).expect("verifying key from bytes");
+        let signature_bytes =
+            hex::decode(signed.signature.signature.as_str()).expect("decode signature hex");
+        let signature = Signature::try_from(signature_bytes.as_slice()).expect("signature bytes");
+        verifying_key
+            .verify(payload_canonical.as_bytes(), &signature)
+            .expect("signature should verify");
+
+        let checksums = std::fs::read_to_string(&checksums_path).expect("read checksums");
+        let mut listed_paths = Vec::new();
+        for line in checksums.lines().filter(|line| !line.trim().is_empty()) {
+            let (expected_hash, rel_path) = line
+                .split_once("  ")
+                .unwrap_or_else(|| panic!("invalid checksum line: {line}"));
+            listed_paths.push(rel_path.to_string());
+            let normalized_rel = rel_path.replace('/', &std::path::MAIN_SEPARATOR.to_string());
+            let absolute = out_dir.join(normalized_rel);
+            let actual_hash = file_sha256_hex(absolute.as_path()).expect("hash checksum member");
+            assert_eq!(
+                actual_hash, expected_hash,
+                "checksum mismatch for `{}`",
+                rel_path
+            );
+        }
+        let mut sorted_copy = listed_paths.clone();
+        sorted_copy.sort();
+        assert_eq!(
+            listed_paths, sorted_copy,
+            "checksum manifest paths should be lexicographically sorted"
+        );
+        assert!(
+            listed_paths.iter().any(|path| path.starts_with("sbom/")),
+            "checksums should include SBOM artifacts"
+        );
+        assert!(
+            listed_paths
+                .iter()
+                .any(|path| path.starts_with("licenses/third-party-licenses.json")),
+            "checksums should include third-party license summary"
+        );
+
+        cleanup_temp_dir(root.as_path());
+    }
+
+    #[test]
+    fn load_binary_release_signing_key_fails_closed_for_missing_and_invalid_values() {
+        let _env_lock = test_env_lock().lock().expect("lock env");
+        let _missing_guard = scoped_env_set("CLG_BINARY_RELEASE_SIGNING_KEY_HEX", None);
+        let missing = load_binary_release_signing_key().expect_err("expected missing key error");
+        assert!(missing.contains("missing `CLG_BINARY_RELEASE_SIGNING_KEY_HEX`"));
+        drop(_missing_guard);
+
+        let _invalid_guard = scoped_env_set("CLG_BINARY_RELEASE_SIGNING_KEY_HEX", Some("ABCDEF"));
+        let invalid = load_binary_release_signing_key().expect_err("expected invalid key error");
+        assert!(invalid.contains("must be a lowercase 32-byte hex key"));
     }
 
     #[test]
@@ -597,5 +766,130 @@ locked surface:
         if path.exists() {
             std::fs::remove_dir_all(path).expect("cleanup temp dir");
         }
+    }
+
+    struct ScopedEnvVar {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    impl Drop for ScopedEnvVar {
+        fn drop(&mut self) {
+            match self.previous.as_ref() {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    fn scoped_env_set(key: &'static str, value: Option<&str>) -> ScopedEnvVar {
+        let previous = std::env::var(key).ok();
+        match value {
+            Some(raw) => std::env::set_var(key, raw),
+            None => std::env::remove_var(key),
+        }
+        ScopedEnvVar { key, previous }
+    }
+
+    fn test_env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn prepare_supply_chain_metadata_fixture(root: &Path) -> PathBuf {
+        let metadata_path = root.join("metadata.json");
+        write_json_pretty(
+            metadata_path.as_path(),
+            &serde_json::json!({
+                "packages": [{
+                    "id": "pkg_a 1.0.0 (path+file:///pkg_a)",
+                    "name": "pkg_a",
+                    "version": "1.0.0",
+                    "license": "MIT",
+                    "license_file": ""
+                }],
+                "workspace_members": ["pkg_a 1.0.0 (path+file:///pkg_a)"],
+                "resolve": { "nodes": [{ "id": "pkg_a 1.0.0 (path+file:///pkg_a)" }] }
+            }),
+        )
+        .expect("write metadata fixture");
+        metadata_path
+    }
+
+    fn prepare_supply_chain_runtime_fixtures(root: &Path) -> (PathBuf, PathBuf) {
+        let fixture_dir = root.join("fixtures");
+        let artifact_dir = fixture_dir.join("artifact");
+        std::fs::create_dir_all(&artifact_dir).expect("create fixture artifact dir");
+        std::fs::write(artifact_dir.join("pkg-a.wasm"), b"\0asm\x01\0\0\0")
+            .expect("write package artifact");
+
+        let package_metadata_path = fixture_dir.join("clg.package-metadata.json");
+        write_json_pretty(
+            package_metadata_path.as_path(),
+            &serde_json::json!({
+                "schema_version": 1,
+                "packages": [{
+                    "name": "pkg::a",
+                    "version": "1.0.0",
+                    "digest": "sha256:abc",
+                    "artifact": { "path": "artifact/pkg-a.wasm" }
+                }]
+            }),
+        )
+        .expect("write package metadata fixture");
+
+        let runtime_dir = fixture_dir.join("runtime");
+        std::fs::create_dir_all(runtime_dir.join("store")).expect("create runtime store");
+        std::fs::write(runtime_dir.join("store").join("pkg-a.wasm"), b"\0asm\x01\0\0\0")
+            .expect("write runtime artifact");
+        let digest = format!(
+            "sha256:{}",
+            file_sha256_hex(runtime_dir.join("store").join("pkg-a.wasm").as_path())
+                .expect("runtime digest"),
+        );
+
+        let runtime_link_path = runtime_dir.join("clg.runtime-link.json");
+        write_json_pretty(
+            runtime_link_path.as_path(),
+            &serde_json::json!({
+                "schema_version": 0,
+                "packages": [{
+                    "id": "pkg::a@1.0.0",
+                    "digest": digest,
+                    "artifact_path": "store/pkg-a.wasm"
+                }],
+                "bindings": [{
+                    "import_module": "pkg::a",
+                    "import_name": "add",
+                    "provider_package_id": "pkg::a@1.0.0"
+                }]
+            }),
+        )
+        .expect("write runtime-link fixture");
+        write_json_pretty(
+            runtime_dir.join("clg.lock.json").as_path(),
+            &serde_json::json!({
+                "schema_version": 1,
+                "packages": [{
+                    "id": "pkg::a@1.0.0",
+                    "digest": digest
+                }]
+            }),
+        )
+        .expect("write runtime lock fixture");
+        write_json_pretty(
+            runtime_dir.join("clg.package-store-index.json").as_path(),
+            &serde_json::json!({
+                "schema_version": 0,
+                "artifacts": [{
+                    "id": "pkg::a@1.0.0",
+                    "digest": digest,
+                    "path": "store/pkg-a.wasm"
+                }]
+            }),
+        )
+        .expect("write runtime store index fixture");
+
+        (package_metadata_path, runtime_link_path)
     }
 }

@@ -19,6 +19,22 @@ Types
   - Literal typing: bare literals can coerce to `U8`/`U64`/`U128`/`U256` when the expected type is unsigned; otherwise they remain `Int`. Use `U8(...)`, `U64(...)`, `U128(...)`, or `U256(...)` for explicit unsigned literals; only non-negative literals are accepted and range-checked (T112).
   - Integer forms: decimal (`42`), hex (`0x2A`/`0X2A`), and binary (`0b101010`/`0B101010`) literals are supported.
   - Integer readability: `_` is allowed inside integer literals (`1_000`, `10_000_000`, `0b1010_0101`); separators are allowed only between digits (not after base prefixes, not repeated, not trailing). `,` is not allowed in numeric literals (`1,000` is rejected with a diagnostic that suggests `_`).
+  - Syntax samples:
+
+    ```clearlang
+    // valid
+    function ok_decimal() -> Int { 1_000_000 }
+    function ok_hex() -> Int { 0xDEAD_BEEF }
+    function ok_binary() -> Int { 0b1010_0101 }
+
+    // invalid (parse fails)
+    // 0x            // missing digits after prefix
+    // 0b102         // invalid binary digit
+    // 0x_FF         // underscore directly after prefix
+    // 0b1010__0101  // repeated underscore
+    // 42_           // trailing underscore
+    // 1,000         // comma grouping is not allowed
+    ```
   - Rotation intrinsics: `std::u64::rotl`/`std::u64::rotr` rotate a U64 by a U64 shift amount.
 
 - Functions: `function name(params) -> Ret`; params are `(name: Type)` pairs.

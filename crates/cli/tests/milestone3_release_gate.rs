@@ -394,8 +394,10 @@ fn validate_ci_wiring(root: &Path) {
     assert!(
         needs.contains(&"checks")
             && needs.contains(&"milestone3-proof-parity")
-            && needs.contains(&"milestone3-test-parity-compare"),
-        "milestone_3 release gate must depend on checks + proof parity + test parity compare jobs"
+            && needs.contains(&"milestone3-test-parity-compare")
+            && needs.contains(&"milestone3-binary-repro-compare")
+            && needs.contains(&"milestone3-binary-smoke"),
+        "milestone_3 release gate must depend on checks + proof parity + test parity + binary reproducibility + binary smoke jobs"
     );
 
     let test_parity_compare_job = as_mapping(
@@ -477,8 +479,8 @@ fn milestone3_release_gate_requires_todo_completion_when_enforced() {
     let root = repo_root();
     let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
     for item in [
-        "25.0", "25.0.1", "25.0.2", "25.0.3", "25.0.4", "25.0.5", "25.0.6", "25.0.7", "25.0.8",
-        "25.0.9", "25.0.10", "25.0.11", "25.0.12", "25.0.13", "25.0.14", "25.0.15",
+        "25.6.0", "25.6.1", "25.6.2", "25.6.3", "25.6.4", "25.6.5", "25.6.6", "25.6.7", "25.6.8",
+        "25.6.9", "25.6.10", "25.6.11", "25.6.12", "25.6.13",
     ] {
         assert!(
             todo_has_checked_item(&todo, item),

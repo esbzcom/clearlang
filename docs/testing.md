@@ -177,6 +177,8 @@ Deterministic alternatives remain:
 
 - `cargo run -p xtask -- release-precheck` includes fail-closed manifest/lock drift validation plus `clg test examples/projects/testing --report json` schema validation.
 - Milestone parity gate runs `milestone3_test_parity` on Windows and Linux and compares emitted summaries byte-for-byte.
+- Milestone binary smoke gate emits `milestone3-binary-bundle` artifacts and runs `xtask milestone3-binary-bundle-verify` to cryptographically verify signature + checksum manifest contract.
+- Milestone binary reproducibility witness compare gate requires cross-runner hash parity per GA platform (Windows/Linux).
 - `milestone3-release-train-gate` depends on both proof parity and `clg test` parity compare jobs before milestone tag release gating.
 
 ## Coverage Matrix Contract (25.3.6)

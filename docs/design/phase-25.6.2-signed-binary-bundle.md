@@ -13,6 +13,11 @@ Implemented deterministic signed binary bundle generation for milestone_3 GA bas
 - `licenses/clearlang-LICENSE.txt`
 - `licenses/third-party-licenses.json`
 
+`cargo run -p xtask -- milestone3-binary-bundle-verify --bundle-dir <DIR>` verifies:
+- signed payload hash and Ed25519 signature (against emitted pubkey metadata),
+- checksum manifest formatting/order,
+- per-artifact SHA-256 integrity for all listed members.
+
 Signing policy:
 - Ed25519 key seed is provided via `CLG_BINARY_RELEASE_SIGNING_KEY_HEX`.
 - Empty/missing/invalid key material fails closed.

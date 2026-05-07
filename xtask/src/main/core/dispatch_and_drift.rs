@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -46,6 +46,9 @@ fn main() -> Result<(), String> {
         }
         "binary-repro-witness" => run_binary_repro_witness(&root, args.collect())?,
         "milestone3-binary-bundle" => emit_milestone3_binary_bundle(&root, args.collect())?,
+        "milestone3-binary-bundle-verify" => {
+            verify_milestone3_binary_bundle(&root, args.collect())?
+        }
         "milestone2-perf-gate" => run_milestone2_perf_gate(&root, args.collect())?,
         "milestone2-supply-chain-gate" => run_milestone2_supply_chain_gate(&root, args.collect())?,
         "ci" => {
@@ -185,14 +188,14 @@ fn run_binary_repro_witness(root: &Path, raw_args: Vec<String>) -> Result<(), St
     Ok(())
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Milestone3BundleArtifact {
     path: String,
     sha256: String,
     size_bytes: u64,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Milestone3BundlePayload {
     schema_version: u32,
     kind: String,
@@ -204,7 +207,7 @@ struct Milestone3BundlePayload {
     license_artifacts: Vec<Milestone3BundleArtifact>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Milestone3BundleSignature {
     key_id: String,
     signature_format: String,
@@ -212,11 +215,19 @@ struct Milestone3BundleSignature {
     signature: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 struct Milestone3SignedBundleMetadata {
     schema_version: u32,
     payload: Milestone3BundlePayload,
     signature: Milestone3BundleSignature,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct Milestone3BundlePubkeyMetadata {
+    schema_version: u32,
+    key_id: String,
+    scheme: String,
+    public_key: String,
 }
 
 fn emit_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
@@ -282,14 +293,13 @@ fn emit_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(
             .map_err(|e| format!("set `{}` executable bit: {e}", binary_dest.display()))?;
     }
 
-    let previous_supply_chain_out = env::var("CLG_SUPPLY_CHAIN_OUT_DIR").ok();
-    env::set_var("CLG_SUPPLY_CHAIN_OUT_DIR", sbom_dir.as_os_str());
-    let supply_chain_result = run_milestone2_supply_chain_gate(root, Vec::new());
-    match previous_supply_chain_out {
-        Some(value) => env::set_var("CLG_SUPPLY_CHAIN_OUT_DIR", value),
-        None => env::remove_var("CLG_SUPPLY_CHAIN_OUT_DIR"),
-    }
-    supply_chain_result?;
+    run_milestone2_supply_chain_gate(
+        root,
+        vec![
+            "--out-dir".to_string(),
+            sbom_dir.to_string_lossy().to_string(),
+        ],
+    )?;
 
     let root_license = root.join("LICENSE");
     if !root_license.is_file() {
@@ -351,8 +361,8 @@ fn emit_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(
 
     let binary_artifact = manifest_artifact(&out_dir, binary_dest.as_path())?;
     let checksums_artifact = manifest_artifact(&out_dir, checksums_path.as_path())?;
-    let sbom_artifacts = list_json_files(sbom_dir.as_path())?
-        .into_iter()
+    let sbom_artifacts = sbom_files
+        .iter()
         .map(|path| manifest_artifact(&out_dir, path.as_path()))
         .collect::<Result<Vec<_>, _>>()?;
     let license_artifacts = vec![
@@ -402,6 +412,147 @@ fn emit_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(
         out_dir.display(),
         opts.platform,
         binary_name
+    );
+    Ok(())
+}
+
+fn verify_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_milestone3_binary_bundle_verify_args(raw_args)?;
+    let bundle_dir = if opts.bundle_dir.is_absolute() {
+        opts.bundle_dir
+    } else {
+        root.join(opts.bundle_dir)
+    };
+    let metadata_dir = bundle_dir.join("metadata");
+    let signed_path = metadata_dir.join("milestone3-binary-bundle.signed.json");
+    let pubkey_path = metadata_dir.join("milestone3-binary-bundle.pubkey.json");
+    let checksums_path = bundle_dir.join("checksums").join("SHA256SUMS");
+
+    let signed: Milestone3SignedBundleMetadata = serde_json::from_slice(
+        &fs::read(&signed_path).map_err(|e| format!("read `{}`: {e}", signed_path.display()))?,
+    )
+    .map_err(|e| format!("parse `{}`: {e}", signed_path.display()))?;
+    if signed.schema_version != 1 {
+        return Err(format!(
+            "unsupported bundle metadata schema_version {} in `{}`",
+            signed.schema_version,
+            signed_path.display()
+        ));
+    }
+    if signed.payload.schema_version != 1 {
+        return Err(format!(
+            "unsupported bundle payload schema_version {} in `{}`",
+            signed.payload.schema_version,
+            signed_path.display()
+        ));
+    }
+
+    let pubkey: Milestone3BundlePubkeyMetadata = serde_json::from_slice(
+        &fs::read(&pubkey_path).map_err(|e| format!("read `{}`: {e}", pubkey_path.display()))?,
+    )
+    .map_err(|e| format!("parse `{}`: {e}", pubkey_path.display()))?;
+    if pubkey.schema_version != 1 {
+        return Err(format!(
+            "unsupported pubkey schema_version {} in `{}`",
+            pubkey.schema_version,
+            pubkey_path.display()
+        ));
+    }
+    if pubkey.scheme != "ed25519" {
+        return Err(format!(
+            "unsupported pubkey scheme `{}` in `{}`",
+            pubkey.scheme,
+            pubkey_path.display()
+        ));
+    }
+    if pubkey.key_id != signed.signature.key_id {
+        return Err(format!(
+            "pubkey key_id `{}` does not match signature key_id `{}`",
+            pubkey.key_id, signed.signature.key_id
+        ));
+    }
+
+    let payload_canonical = serde_json::to_string(&signed.payload)
+        .map_err(|e| format!("serialize bundle payload for verification: {e}"))?;
+    let payload_hash = hex::encode(Sha256::digest(payload_canonical.as_bytes()));
+    if payload_hash != signed.signature.payload_hash {
+        return Err(format!(
+            "payload hash mismatch in `{}`: expected {}, got {}",
+            signed_path.display(),
+            signed.signature.payload_hash,
+            payload_hash
+        ));
+    }
+
+    let pubkey_bytes_vec =
+        hex::decode(pubkey.public_key.as_str()).map_err(|e| format!("decode public_key hex: {e}"))?;
+    let pubkey_bytes: [u8; 32] = pubkey_bytes_vec
+        .as_slice()
+        .try_into()
+        .map_err(|_| "public_key must decode to 32 bytes".to_string())?;
+    let verifying_key = VerifyingKey::from_bytes(&pubkey_bytes)
+        .map_err(|e| format!("parse public key bytes: {e}"))?;
+    let signature_bytes_vec =
+        hex::decode(signed.signature.signature.as_str()).map_err(|e| format!("decode signature hex: {e}"))?;
+    let signature = Signature::try_from(signature_bytes_vec.as_slice())
+        .map_err(|e| format!("parse signature bytes: {e}"))?;
+    verifying_key
+        .verify(payload_canonical.as_bytes(), &signature)
+        .map_err(|e| format!("verify signature: {e}"))?;
+
+    let checksums_raw = fs::read_to_string(&checksums_path)
+        .map_err(|e| format!("read `{}`: {e}", checksums_path.display()))?;
+    let lines: Vec<&str> = checksums_raw
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect();
+    if lines.is_empty() {
+        return Err(format!(
+            "checksum manifest `{}` must contain at least one checksum line",
+            checksums_path.display()
+        ));
+    }
+    let mut entries = Vec::<(&str, &str)>::new();
+    for line in &lines {
+        let (expected_hash, rel_path) = line.split_once("  ").ok_or_else(|| {
+            format!(
+                "invalid checksum manifest line `{line}` in `{}`",
+                checksums_path.display()
+            )
+        })?;
+        entries.push((expected_hash, rel_path));
+    }
+    let mut sorted_paths = entries.iter().map(|(_, path)| *path).collect::<Vec<_>>();
+    sorted_paths.sort();
+    let listed_paths = entries.iter().map(|(_, path)| *path).collect::<Vec<_>>();
+    if listed_paths != sorted_paths {
+        return Err(format!(
+            "checksum manifest `{}` paths are not lexicographically sorted",
+            checksums_path.display()
+        ));
+    }
+    for (expected_hash, rel_path) in entries {
+        let absolute = bundle_dir.join(rel_path.replace('/', &std::path::MAIN_SEPARATOR.to_string()));
+        if !absolute.is_file() {
+            return Err(format!(
+                "checksum manifest member `{}` missing from `{}`",
+                rel_path,
+                bundle_dir.display()
+            ));
+        }
+        let actual_hash = file_sha256_hex(absolute.as_path())?;
+        if actual_hash != expected_hash {
+            return Err(format!(
+                "checksum mismatch for `{}`: expected {}, got {}",
+                rel_path, expected_hash, actual_hash
+            ));
+        }
+    }
+
+    println!(
+        "milestone3 binary bundle verified: {}",
+        bundle_dir.display()
     );
     Ok(())
 }
@@ -491,6 +642,33 @@ fn parse_milestone3_binary_bundle_args(
         out_dir,
         key_id,
     })
+}
+
+fn parse_milestone3_binary_bundle_verify_args(
+    raw_args: Vec<String>,
+) -> Result<Milestone3BinaryBundleVerifyOpts, String> {
+    let mut bundle_dir: Option<PathBuf> = None;
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--bundle-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--bundle-dir`".to_string())?;
+                bundle_dir = Some(PathBuf::from(value));
+            }
+            other => {
+                return Err(format!(
+                    "unknown milestone3-binary-bundle-verify arg `{other}` (supported: --bundle-dir)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    let bundle_dir =
+        bundle_dir.ok_or_else(|| "missing required `--bundle-dir`".to_string())?;
+    Ok(Milestone3BinaryBundleVerifyOpts { bundle_dir })
 }
 
 fn clg_binary_path(target_dir: &Path) -> PathBuf {

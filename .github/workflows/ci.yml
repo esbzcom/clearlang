@@ -398,8 +398,11 @@ jobs:
           .\target\release\clg.exe verify-bundle --help
       - name: Emit signed binary bundle artifact (${{ matrix.platform }})
         env:
+          # Test fixture key for CI smoke artifacts only (not production release signing material).
           CLG_BINARY_RELEASE_SIGNING_KEY_HEX: "1111111111111111111111111111111111111111111111111111111111111111"
         run: cargo run -p xtask -- milestone3-binary-bundle --platform ${{ matrix.platform }} --out-dir tmp/milestone3-binary/${{ matrix.platform }}
+      - name: Verify signed binary bundle contract (${{ matrix.platform }})
+        run: cargo run -p xtask -- milestone3-binary-bundle-verify --bundle-dir tmp/milestone3-binary/${{ matrix.platform }}
       - name: Upload milestone_3 signed binary bundle artifact (${{ matrix.platform }})
         uses: actions/upload-artifact@v4
         with:

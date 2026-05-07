@@ -1,16 +1,48 @@
 fn run_milestone2_supply_chain_gate(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
-    if raw_args.len() == 1 && raw_args[0] == "--self-test" {
+    let mut self_test = false;
+    let mut out_dir_override: Option<PathBuf> = None;
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--self-test" => {
+                if self_test {
+                    return Err(
+                        "usage: cargo run -p xtask -- milestone2-supply-chain-gate [--self-test] [--out-dir <DIR>]".into(),
+                    );
+                }
+                self_test = true;
+            }
+            "--out-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--out-dir`".to_string())?;
+                out_dir_override = Some(PathBuf::from(value));
+            }
+            _ => {
+                return Err(
+                    "usage: cargo run -p xtask -- milestone2-supply-chain-gate [--self-test] [--out-dir <DIR>]".into(),
+                );
+            }
+        }
+        idx += 1;
+    }
+
+    if self_test && out_dir_override.is_some() {
+        return Err(
+            "usage: cargo run -p xtask -- milestone2-supply-chain-gate [--self-test] [--out-dir <DIR>]".into(),
+        );
+    }
+
+    if self_test {
         run_supply_chain_self_test(root)?;
         println!("milestone_2 supply-chain gate self-test passed");
         return Ok(());
     }
-    if !raw_args.is_empty() {
-        return Err("usage: cargo run -p xtask -- milestone2-supply-chain-gate [--self-test]".into());
-    }
 
-    let out_dir = env::var("CLG_SUPPLY_CHAIN_OUT_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| root.join("tmp").join("sbom"));
+    let out_dir = out_dir_override
+        .or_else(|| env::var("CLG_SUPPLY_CHAIN_OUT_DIR").ok().map(PathBuf::from))
+        .unwrap_or_else(|| root.join("tmp").join("sbom"));
     fs::create_dir_all(&out_dir)
         .map_err(|e| format!("create supply-chain output dir `{}`: {e}", out_dir.display()))?;
 

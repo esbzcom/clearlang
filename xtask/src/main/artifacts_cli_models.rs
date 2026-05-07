@@ -125,6 +125,7 @@ fn print_help() {
     println!(
         "  milestone3-binary-bundle [--platform windows|linux|macos] [--binary FILE] [--out-dir DIR] [--key-id ID]"
     );
+    println!("  milestone3-binary-bundle-verify --bundle-dir DIR");
     println!(
         "  manifest-lock-drift-check [--path DIR] (phase 25.4 manifest/lock consistency gate)"
     );
@@ -135,7 +136,7 @@ fn print_help() {
         "  host-capability-policy-artifact [--emit-artifact DIR] [--refresh-lock] (phase 21 host policy gate)"
     );
     println!("  milestone2-perf-gate [--portability-smoke|--self-test]");
-    println!("  milestone2-supply-chain-gate [--self-test]");
+    println!("  milestone2-supply-chain-gate [--self-test] [--out-dir DIR]");
     println!("  ci         - release-precheck + build --release + validate");
 }
 
@@ -163,6 +164,11 @@ struct Milestone3BinaryBundleOpts {
     binary: Option<PathBuf>,
     out_dir: Option<PathBuf>,
     key_id: String,
+}
+
+#[derive(Clone, Debug)]
+struct Milestone3BinaryBundleVerifyOpts {
+    bundle_dir: PathBuf,
 }
 
 #[derive(Clone, Debug)]

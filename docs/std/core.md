@@ -16,7 +16,7 @@ Foundational language-level data and control abstractions used by all higher-lev
 Methods:
 - `is_some(self) -> Bool`
 - `is_none(self) -> Bool`
-- `contains(self, value: T) -> Bool`
+- `contains(self, value: T) -> Bool` (requires equality capability for `T`)
 - `map<U>(self, f: function(T) -> U) -> Option<U>`
 - `and_then<U>(self, f: function(T) -> Option<U>) -> Option<U>`
 - `filter(self, f: function(T) -> Bool) -> Option<T>`
@@ -36,8 +36,8 @@ Methods:
 Methods:
 - `is_ok(self) -> Bool`
 - `is_err(self) -> Bool`
-- `contains(self, value: T) -> Bool`
-- `contains_err(self, err: E) -> Bool`
+- `contains(self, value: T) -> Bool` (requires equality capability for `T`)
+- `contains_err(self, err: E) -> Bool` (requires equality capability for `E`)
 - `map<U>(self, f: function(T) -> U) -> Result<U, E>`
 - `map_err<F>(self, f: function(E) -> F) -> Result<T, F>`
 - `and_then<U>(self, f: function(T) -> Result<U, E>) -> Result<U, E>`
@@ -73,7 +73,7 @@ Methods:
 
 ### `Panic`
 Methods:
-- `fail(code: ErrorCode) -> Int`
+- `fail(code: ErrorCode) -> Int` (terminal fail path; does not return on success path)
 
 ## First-Production Cut (recommended)
 - Keep `Option<T>`: `is_*`, `map`, `and_then`, `filter`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `to_result`.
@@ -86,8 +86,10 @@ Methods:
 ## Notes
 - `Option<T>` and `Result<T, E>` are language-level built-ins in current ClearLang; `std::core` documents the helper method surface around them.
 - `Panic::fail` is intended as the single deterministic fail path for library helpers.
+- `Panic::fail` must always terminate execution with deterministic diagnostics; `Int` is a surface placeholder, not a recoverable value.
 - This draft avoids new keywords and new syntax; all additions are library-level APIs.
 - All methods above are deterministic by contract and intended to map to stable diagnostics and proof obligations.
+- `contains*` helpers are enabled only for equality-capable types; non-equatable usage must fail with deterministic diagnostics.
 
 ## Real-World Scenario Coverage
 - Validation pipeline: `Option::filter`, `Option::to_result`, `Result::map_err`.

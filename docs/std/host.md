@@ -15,14 +15,14 @@ Capability-gated host interfaces for runtime interaction in deterministic profil
 Methods:
 - `contains(key: Bytes) -> Result<Bool, HostError>`
 - `get(key: Bytes) -> Result<Option<Bytes>, HostError>`
-- `set(key: Bytes, value: Bytes) -> Result<Int, HostError>`
-- `delete(key: Bytes) -> Result<Int, HostError>`
+- `set(key: Bytes, value: Bytes) -> Result<Bool, HostError>` (`true` if value changed, `false` if already equal)
+- `delete(key: Bytes) -> Result<Bool, HostError>` (`true` if key existed and was removed, `false` if key absent)
 
 ### `Log`
 Methods:
-- `info(code: ErrorCode, message: String) -> Result<Int, HostError>`
-- `warn(code: ErrorCode, message: String) -> Result<Int, HostError>`
-- `error(code: ErrorCode, message: String) -> Result<Int, HostError>`
+- `info(code: ErrorCode, message: String) -> Result<Bool, HostError>` (on `Ok`, value must be `true`)
+- `warn(code: ErrorCode, message: String) -> Result<Bool, HostError>` (on `Ok`, value must be `true`)
+- `error(code: ErrorCode, message: String) -> Result<Bool, HostError>` (on `Ok`, value must be `true`)
 
 ### `Env`
 Methods:
@@ -41,11 +41,13 @@ Methods:
 - Keep `Storage`: `get`, `set`, `delete`, `contains`.
 - Keep `Env`: `chain_id`, `caller`, `block_height`, `timestamp`.
 - Keep deterministic `HostError`.
-- Defer richer telemetry/log levels and optional host metadata until after first launch.
+- Defer `Env::gas_left` plus richer telemetry/log levels and optional host metadata until after first launch.
 
 ## Notes
 - Host functions are capability-gated and must fail closed when unavailable.
 - Runtime profile must explicitly define available host capabilities.
+- Return semantics are deterministic and must not depend on host-specific logging/storage side effects beyond the documented booleans.
+- For `Log::*`, `Ok(false)` is invalid API behavior in production profiles and must fail conformance tests.
 
 ## Summary
 - Defines explicit IO/mutation boundaries for stateful host operations.

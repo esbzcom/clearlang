@@ -7,6 +7,7 @@ Cryptographic primitives for hashing, signature verification, and secure compari
 - `Hash256`
 - `Signature`
 - `PublicKey`
+- `CryptoAlgorithm`
 - `VerifyResult`
 - `CryptoError`
 
@@ -23,18 +24,26 @@ Methods:
 Methods:
 - `from_bytes(input: Bytes) -> Result<Signature, CryptoError>`
 - `to_bytes(self) -> Bytes`
-- `algorithm(self) -> Int`
+- `algorithm(self) -> CryptoAlgorithm`
 
 ### `PublicKey`
 Methods:
 - `from_bytes(input: Bytes) -> Result<PublicKey, CryptoError>`
 - `to_bytes(self) -> Bytes`
-- `algorithm(self) -> Int`
+- `algorithm(self) -> CryptoAlgorithm`
+
+### `CryptoAlgorithm`
+Methods:
+- `ed25519() -> CryptoAlgorithm`
+- `secp256k1() -> CryptoAlgorithm`
+- `equals(self, other: CryptoAlgorithm) -> Bool`
 
 ### `VerifyResult`
 Methods:
 - `is_valid(self) -> Bool`
-- `error(self) -> Option<CryptoError>`
+- `error_or_none(self) -> Option<CryptoError>`
+- `valid() -> VerifyResult`
+- `invalid(err: CryptoError) -> VerifyResult`
 
 ### `CryptoError`
 Methods:
@@ -53,6 +62,8 @@ Methods:
 ## Notes
 - All crypto APIs must remain deterministic and policy-gated for release claims.
 - Constant-time behavior requirements should be explicit in implementation notes/tests.
+- `VerifyResult` invariant: exactly one state is valid (`valid` with no error, or `invalid` with an error); mixed states are invalid API behavior.
+- Raw integer algorithm ids are not part of the public first-production API surface; use `CryptoAlgorithm`.
 
 ## Summary
 - Exposes deterministic crypto APIs with explicit assurance-boundary labeling.

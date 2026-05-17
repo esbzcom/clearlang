@@ -1198,17 +1198,32 @@ Linking policy for first production release: **embed std into target artifacts w
 Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up phase after first production release.
 
 - [ ] 26.0 Std scope and governance [Std Gate A]
-  - [ ] 26.0.1 Define and lock v1 std scope as `must-have` vs `stretch` symbols (`std::core`, `std::host`, package contracts).
-  - [ ] 26.0.2 Publish explicit defer list for unresolved `stretch` symbols with follow-up phase assignment.
-  - [ ] 26.0.3 Add std stability policy (compatibility guarantees, deprecation windows, and versioning policy) before public GA.
-  - [ ] 26.0.4 Lock first production std linking mode to embedded symbols only (no runtime dynamic std dependency in release profile).
-  - [ ] 26.0.5 Require dead-code elimination/tree-shaken std emission for release artifacts and lock size-regression guardrails.
-  - [ ] 26.0.6 Publish deferred dynamic std linking blueprint (post-first-production only) with explicit activation gates.
+  - [ ] 26.0.1 Lock v1 std scope as `must-have` vs `stretch` and publish explicit defer list for unresolved `stretch` symbols.
+  - [ ] 26.0.2 Lock first-production std policy: embedded linking only, deterministic dead-code elimination/tree-shaken emission, and size-regression guardrails.
+  - [ ] 26.0.3 Lock post-first-production roadmap: dynamic/shared std linking remains deferred with explicit activation gates, plus std stability/versioning policy before public GA.
 
 - [ ] 26.1 Std implementation and release gates [Std Gate B]
+  - [ ] 26.1.0 Lock `std::core` first-production API cut from `docs/std/core.md`.
+    - [ ] 26.1.0.1 Keep `Option<T>` baseline methods for first production: `is_some`, `is_none`, `map`, `and_then`, `filter`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `to_result`.
+    - [ ] 26.1.0.2 Keep `Result<T,E>` baseline methods for first production: `is_ok`, `is_err`, `map`, `map_err`, `and_then`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `expect_err`, `to_option`.
+    - [ ] 26.1.0.3 Keep `ErrorCode` baseline methods for first production: `new`, `value`, `equals`.
+    - [ ] 26.1.0.4 Keep `CoreError` + `Panic` baseline methods for first production: `CoreError::{new,with_message,code,message,equals}` and `Panic::fail`.
+    - [ ] 26.1.0.5 Defer advanced `std::core` helpers until post-first-production unless required by a concrete blocker (`flatten`, `contains*`, `map_or*`, `to_result_else`, `domain/cause` fields).
+    - [ ] 26.1.0.6 Add deterministic diagnostics + contract tests for `expect`/`expect_err`/`Panic::fail` failure paths.
   - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.
   - [ ] 26.1.2 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
   - [ ] 26.1.3 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
+  - [ ] 26.1.4 Add package-level execution slices so every `docs/std/README.md` package has an explicit Phase 26 owner task.
+    - [ ] 26.1.4.1 `std::str`: lock first-production API cut + deterministic UTF-8 diagnostics/contracts.
+    - [ ] 26.1.4.2 `std::bytes`: lock first-production API cut + constant-time compare contract/coverage.
+    - [ ] 26.1.4.3 `std::int`: lock first-production API cut + checked/wrapping/saturating semantics coverage.
+    - [ ] 26.1.4.4 `std::codec`: lock first-production canonical encoding/decoding API + deterministic error surface.
+    - [ ] 26.1.4.5 `std::crypto`: lock first-production API cut + proof/assurance boundary policy for enabled intrinsics, including `VerifyResult::{is_valid,error_or_none,valid,invalid}` invariant enforcement and explicit negative tests rejecting mixed/invalid states.
+    - [ ] 26.1.4.6 `std::host`: lock first-production capability surface + fail-closed host-profile conformance tests, including deterministic `Result<Bool, HostError>` semantics for `Storage::set/delete` and `Log::{info,warn,error}`.
+    - [ ] 26.1.4.7 `std::contract`: lock first-production chain-agnostic contract-domain API cut.
+    - [ ] 26.1.4.8 `std::unit`: align first-production API cut with Gate D baseline (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`) plus deterministic failure mapping, contract tests for method-name stability, and fail-closed rejection of non-baseline assertion names in production profile.
+    - [ ] 26.1.4.9 `std::chain::<target>`: keep deferred by default; add target-specific activation checklist for launches that require it.
+    - [ ] 26.1.4.10 `std::dynamic`: keep deferred post-first-production; require explicit activation gates before any runtime-link implementation.
 
 - [ ] 26.2 Finite-set proof roadmap (ordered execution) [Std Gate C]
   - [ ] 26.2.1 Add `std::set::subset(a, b) -> Bool` API with typing/lowering/runtime coverage and regression tests.

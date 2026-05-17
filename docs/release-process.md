@@ -317,3 +317,4 @@ Bundle outputs include the platform binary, checksum manifest, signed metadata, 
 - `clg fmt` (`25.2.13`) provides deterministic `.clear` formatting and supports `--check` fail-closed drift gating for release workflows.
 - `clg lint` (`25.2.14`) provides deterministic `.clear` quality/safety checks with `--deny-warnings` fail-closed mode.
 - `clg.trust-policy.json` (strict preflight schema v0) and `trust-policy.json` (compile-time verify schema v1 with trust anchors) are separate contracts.
+- Phase 26 first-production std policy is embedded-first with deterministic dead-code elimination; dynamic/shared std runtime linking is deferred until post-first-production gates (`docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`).

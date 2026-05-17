@@ -15,6 +15,7 @@ This directory is organized by role so operational docs stay easy to find.
 - IR overview: `docs/ir.md`
 - Diagnostics catalog: `docs/diagnostics.md`
 - Collections behavior: `docs/collections.md`
+- Standard library package catalog: `docs/std/README.md`
 - Resource ownership guide: `docs/resource-guide.md`
 - Unit testing contract guide (Gate D): `docs/testing.md`
 
@@ -31,30 +32,7 @@ This directory is organized by role so operational docs stay easy to find.
 - Proof coverage matrix: `docs/proofs/proof-coverage-matrix.md`
 
 ## Design Locks
-- Phase design docs are in `docs/design/`.
-- The Phase 20-24 milestone design root is:
-  - `docs/design/phase-20.0-std-packaging-runtime-linking.md`
-- Milestone 3 release-assurance design lock:
-  - `docs/design/phase-25.0.1-milestone-3-design-lock.md`
-  - `docs/design/phase-25.0.2-theorem-grade-certification-policy.md`
-  - `docs/design/phase-25.0.3-release-equals-proved-policy.md`
-  - `docs/design/phase-25.0.4-fail-closed-release-enforcement.md`
-  - `docs/design/phase-25.0.5-proof-status-emission.md`
-  - `docs/design/phase-25.0.6-verify-require-assurance-gate.md`
-  - `docs/design/phase-25.0.7-production-release-profile-gate.md`
-  - `docs/design/phase-25.0.8-ci-release-proof-matrix-gate.md`
-  - `docs/design/phase-25.0.9-zero-assumption-boundary-release-gate.md`
-  - `docs/design/phase-25.0.10-cross-platform-proof-parity-gate.md`
-  - `docs/design/phase-25.0.11-release-symbol-allowlist-gate.md`
-  - `docs/design/phase-25.0.12-strict-release-surface-policy.md`
-  - `docs/design/phase-25.0.13-crypto-proof-boundary-release-gate.md`
-  - `docs/design/phase-25.0.14-docs-assurance-profile-alignment.md`
-  - `docs/design/phase-25.0.15-defer-theorem-keyword.md`
-- Milestone 3 release UX lock:
-  - `docs/design/phase-25.2.1-gate-c-policy-lock.md`
-  - `docs/design/phase-25.2.2-release-ux-design-lock.md`
-  - `docs/design/phase-25.2.3-release-command-orchestration.md`
-  - `docs/design/phase-25.2.4-release-proved-only-default.md`
+- Design lock catalog: `docs/design-locks.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

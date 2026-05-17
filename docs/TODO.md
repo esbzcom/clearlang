@@ -1194,11 +1194,16 @@ Execution order for Milestone 3: **policy lock -> proof closure -> release UX ->
 ### 26 Standalone Standard Library Phase (Critical)
 
 Execution order for std proof coverage: **scope lock -> core coverage -> set subset -> set ops -> cardinality -> list/map completion**.
+Linking policy for first production release: **embed std into target artifacts with deterministic dead-code elimination**.
+Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up phase after first production release.
 
 - [ ] 26.0 Std scope and governance [Std Gate A]
   - [ ] 26.0.1 Define and lock v1 std scope as `must-have` vs `stretch` symbols (`std::core`, `std::host`, package contracts).
   - [ ] 26.0.2 Publish explicit defer list for unresolved `stretch` symbols with follow-up phase assignment.
   - [ ] 26.0.3 Add std stability policy (compatibility guarantees, deprecation windows, and versioning policy) before public GA.
+  - [ ] 26.0.4 Lock first production std linking mode to embedded symbols only (no runtime dynamic std dependency in release profile).
+  - [ ] 26.0.5 Require dead-code elimination/tree-shaken std emission for release artifacts and lock size-regression guardrails.
+  - [ ] 26.0.6 Publish deferred dynamic std linking blueprint (post-first-production only) with explicit activation gates.
 
 - [ ] 26.1 Std implementation and release gates [Std Gate B]
   - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.

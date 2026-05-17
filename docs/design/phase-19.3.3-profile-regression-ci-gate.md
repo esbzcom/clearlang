@@ -34,10 +34,10 @@ Add an explicit CI gate that fails when assurance level for existing verified-pr
 ## Exit Criteria for 19.3.3
 1. Existing verified-profile fixtures are enforced by CI with minimum tier checks.
 2. CI fails on assurance regressions for those fixtures.
-3. TODO/rollout focus advances to `19.4.1`.
+3. TODO focus advances to `19.4.1`.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/verified-std-core-subset.json`
 - `docs/proofs/verified-profile-fixtures.json`

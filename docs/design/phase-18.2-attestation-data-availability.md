@@ -98,5 +98,5 @@ Out of scope:
 
 ## References
 - `docs/TODO.md` (`18.2`, `18.0.2`)
-- `docs/rollout/attestation-production.md`
-- `docs/rollout/attestation-da-drill.md`
+- `docs/design/phase-18.1-attestation-hardening.md`
+- `docs/design/phase-18.2-attestation-data-availability.md`

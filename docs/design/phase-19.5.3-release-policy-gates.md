@@ -44,7 +44,7 @@ Add deterministic release-policy checks so pipelines reject signed assurance man
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/diagnostics.md`
 - `crates/cli/src/main.rs`
 - `crates/cli/src/commands/verify.rs`

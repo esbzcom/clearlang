@@ -54,7 +54,7 @@ Require explicit, pinned Lean/Coq checker versions for compile-time trust evalua
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/diagnostics.md`
 - `docs/proofs/proof-section.md`
 - `docs/design/phase-18.0-open-questions.md`

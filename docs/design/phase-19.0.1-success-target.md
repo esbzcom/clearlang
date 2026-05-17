@@ -59,6 +59,6 @@ Equivalent operational statement:
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-18.0-open-questions.md`
 - `README.md`

@@ -36,11 +36,11 @@ Fail closed in strict mode by rejecting unlabeled assumption boundaries before a
 ## Exit Criteria for 19.1.3
 1. Strict mode blocks unlabeled assumptions with deterministic diagnostics.
 2. Regression tests cover strict-mode acceptance for labeled assumptions.
-3. TODO/rollout/docs record completion and behavior.
+3. TODO/docs record completion and behavior.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/diagnostics.md`
 - `docs/proofs/vc-schema.md`
 - `docs/proofs/proof-section.md`

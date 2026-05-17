@@ -38,11 +38,11 @@ Add a deterministic human-readable explanation mode for verification that report
 ## Exit Criteria for 19.5.2
 1. `clg verify --explain` prints the required human summary fields.
 2. Regression tests cover checked-core and assumed-boundary summary paths.
-3. TODO/rollout focus advances to `19.5.3`.
+3. TODO focus advances to `19.5.3`.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `crates/cli/src/main.rs`
 - `crates/cli/src/commands/verify.rs`
 - `crates/cli/tests/signing.rs`

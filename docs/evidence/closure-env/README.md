@@ -1,6 +1,6 @@
 # Closure-Env Ops Evidence Index (Phase 18.0.4)
 
-This folder tracks evidence required by `docs/rollout/closure-env-ops-runbook.md`.
+This folder tracks evidence required by `docs/runtime/runtime-loader-resilience-runbook.md`.
 
 ## Required Artifacts
 - `host-policy.md`
@@ -17,5 +17,5 @@ This folder tracks evidence required by `docs/rollout/closure-env-ops-runbook.md
 - [ ] `design-principles-signoff-YYYY-MM-DD.md`: explicit sign-off against README principles (`simple for users`, `AI-friendly`, `provably correct`, `crypto-focused`).
 
 ## Link Back
-- Runbook: `docs/rollout/closure-env-ops-runbook.md`
+- Runbook: `docs/runtime/runtime-loader-resilience-runbook.md`
 - Roadmap: `docs/TODO.md` (`18.0.4`)

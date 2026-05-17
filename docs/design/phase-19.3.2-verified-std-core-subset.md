@@ -35,10 +35,10 @@ Publish a deterministic, machine-readable verified std/core subset profile that 
 ## Exit Criteria for 19.3.2
 1. Published subset artifacts exist in `docs/proofs/`.
 2. Subset regression test verifies profile consistency and obligation references.
-3. TODO/rollout docs move next execution to `19.3.3`.
+3. TODO docs move next execution to `19.3.3`.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/proof-coverage-matrix.md`
 - `docs/proofs/proof-coverage-matrix.json`

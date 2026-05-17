@@ -57,5 +57,5 @@ Make the README design principles an explicit, enforceable release gate for all 
 ## References
 - `README.md`
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-19.0.1-success-target.md`

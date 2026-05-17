@@ -156,7 +156,7 @@ Milestone 2 (final production target) must explicitly close the current package/
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-20.1.0-strict-lockfile-v0.md`
 - `docs/design/phase-20.1.0-trust-policy-v0.md`
 - `docs/design/phase-20.1.0-host-profile-v0.md`

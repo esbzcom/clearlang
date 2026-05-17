@@ -79,7 +79,7 @@ No soft-pass behavior:
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-19.5.3-release-policy-gates.md`
 - `docs/design/phase-23.0-runtime-loader-linker-design-lock.md`
 - `docs/proofs/proof-coverage-matrix.md`

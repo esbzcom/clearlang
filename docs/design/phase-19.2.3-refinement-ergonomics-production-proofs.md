@@ -43,11 +43,11 @@ Enable practical refinement authoring without alias-only friction by supporting:
 1. Inline param/return refinements parse and type-check in production flows.
 2. Generic refined aliases instantiate soundly and appear in VC refinement premises.
 3. Migration/CLI integration tests reflect lifted restrictions.
-4. TODO/rollout/docs are updated to the next execution focus.
+4. TODO/docs are updated to the next execution focus.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/typing.md`
 - `docs/diagnostics.md`
 - `clearlang-tests/migration/README.md`

@@ -43,6 +43,6 @@ Lock the Phase 22 production design before implementation:
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-20.0-std-packaging-runtime-linking.md`
 - `docs/design/phase-21.0-std-core-package-surface.md`

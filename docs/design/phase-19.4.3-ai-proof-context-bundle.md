@@ -34,7 +34,7 @@ Emit a deterministic machine-readable proof context bundle per VC containing the
 ## Exit Criteria for 19.4.3
 1. VC JSON includes `diagnostics.proof_context` with required bundle fields.
 2. CLI integration + snapshot tests pass with deterministic outputs.
-3. `docs/TODO.md`/`docs/rollout/DEVPLAN.md` advance focus to `19.5.1`.
+3. `docs/TODO.md`/`docs/TODO.md` advance focus to `19.5.1`.
 
 ## References
 - `docs/TODO.md`

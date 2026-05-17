@@ -37,11 +37,11 @@ Ensure no hidden unsigned/bitwise proof claims remain for the current supported 
 ## Exit Criteria for 19.2.1
 1. Bitwise-sensitive `std::u64` intrinsics are explicitly downgraded via `bitwise.uninterpreted`.
 2. Regression tests verify deterministic assumption emission and symbol labeling.
-3. TODO/rollout/proof-coverage docs reflect the updated downgrade model.
+3. TODO/proof-coverage docs reflect the updated downgrade model.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/vc-schema.md`
 - `docs/proofs/proof-coverage-matrix.md`
 - `docs/proofs/proof-coverage-matrix.json`

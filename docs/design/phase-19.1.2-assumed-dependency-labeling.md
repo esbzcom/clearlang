@@ -46,7 +46,7 @@ Guarantee no hidden dependency assumptions in emitted VC/proof artifacts by labe
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/vc-schema.md`
 - `docs/proofs/proof-section.md`
 - `docs/design/phase-19.1.1-assurance-tiers.md`

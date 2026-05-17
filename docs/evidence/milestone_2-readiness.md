@@ -17,9 +17,9 @@ This document is the evidence index for TODO item `24.2.8`.
 - Runtime loader rollout/canary/rollback runbook:
   - `docs/runtime/runtime-loader-rollout-gate.md`
 - Closure environment runtime-ops runbook:
-  - `docs/rollout/closure-env-ops-runbook.md`
+  - `docs/runtime/runtime-loader-resilience-runbook.md`
 - Data-availability drill runbook:
-  - `docs/rollout/attestation-da-drill.md`
+  - `docs/design/phase-18.2-attestation-data-availability.md`
 
 ## Signed Artifacts
 - Strict package-signature trust gate implementation:

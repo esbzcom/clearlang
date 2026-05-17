@@ -230,7 +230,7 @@ v1 restrictions
   - local `let`-bound lambdas and direct aliases preserve known effect.
 - Unknown closure-dispatch `code_id` traps at runtime with `R011`.
 - Closure environment lifetime is module-instance scope; dropping closure values does not reclaim memory.
-  - Operationally, long-running hosts should recycle module instances/workers to bound memory growth (runbook: `docs/rollout/closure-env-ops-runbook.md`).
+  - Operationally, long-running hosts should recycle module instances/workers to bound memory growth (runbook: `docs/runtime/runtime-loader-resilience-runbook.md`).
 
 Interfaces and Default Methods (Phase 17.8.1)
 

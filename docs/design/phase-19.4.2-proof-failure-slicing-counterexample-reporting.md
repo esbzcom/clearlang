@@ -35,7 +35,7 @@ Expose deterministic, machine-readable proof-failure slices and counterexample e
 ## Exit Criteria for 19.4.2
 1. VC JSON includes `diagnostics.failure_slice` and `diagnostics.counterexample`.
 2. CLI integration and fixture snapshot tests pass with deterministic outputs.
-3. `docs/TODO.md` and `docs/rollout/DEVPLAN.md` advance focus to `19.4.3`.
+3. `docs/TODO.md` and `docs/TODO.md` advance focus to `19.4.3`.
 
 ## References
 - `docs/TODO.md`

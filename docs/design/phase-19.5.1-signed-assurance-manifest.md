@@ -44,11 +44,11 @@ Emit a deterministic signed assurance manifest on signed builds so audit/release
 ## Exit Criteria for 19.5.1
 1. Signed builds emit signed assurance manifest artifact with deterministic schema.
 2. Integration tests cover manifest signature validity and `C034`.
-3. TODO/rollout focus advances to `19.5.2`.
+3. TODO focus advances to `19.5.2`.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/proof-section.md`
 - `docs/diagnostics.md`
 - `crates/cli/src/commands/build.rs`

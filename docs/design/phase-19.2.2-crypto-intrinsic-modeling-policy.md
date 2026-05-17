@@ -37,11 +37,11 @@ Emit deterministic per-intrinsic assurance metadata for crypto-model assumptions
 ## Exit Criteria for 19.2.2
 1. VC JSON/proof-section artifacts include deterministic per-intrinsic crypto assurance metadata.
 2. Regression tests/fixtures lock the new field shape.
-3. TODO/rollout/proof docs reflect completed policy.
+3. TODO/proof docs reflect completed policy.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/vc-schema.md`
 - `docs/proofs/proof-section.md`
 - `docs/proofs/crypto-limitations.md`

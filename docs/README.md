@@ -7,8 +7,6 @@ This directory is organized by role so operational docs stay easy to find.
 
 ## Canonical Project State
 - Roadmap/checklist: `docs/TODO.md`
-- Development plan snapshot: `docs/rollout/DEVPLAN.md`
-- Milestone 2 governance lock: `docs/rollout/milestone_2-governance.md`
 - Milestone 2 release notes: `release_notes/milestone_2.md`
 - Current release command flow: `docs/release-process.md`
 
@@ -65,4 +63,4 @@ This directory is organized by role so operational docs stay easy to find.
 - Milestone 3 proof/release gate: `docs/evidence/milestone_3-proof-gate.md`
 
 ## Historical Notes
-- Session-by-session implementation log: `docs/rollout/codex-session-history.md`
+- Rollout planning docs were deprecated and removed.

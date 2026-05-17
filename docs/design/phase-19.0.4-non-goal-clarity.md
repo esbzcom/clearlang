@@ -34,7 +34,7 @@ Document a clear non-goal:
 
 ## Evidence of Adoption
 1. `docs/TODO.md` marks `19.0.4` complete with this lock reference.
-2. `docs/rollout/DEVPLAN.md` records `19.0.4` completion and moves execution focus to `19.1`.
+2. `docs/TODO.md` records `19.0.4` completion and moves execution focus to `19.1`.
 
 ## Non-Goals (for this slice)
 1. No language/runtime/solver changes.
@@ -48,6 +48,6 @@ Document a clear non-goal:
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-19.0.1-success-target.md`
 - `docs/design/phase-18.0-open-questions.md`

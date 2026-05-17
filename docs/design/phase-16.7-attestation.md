@@ -1,4 +1,4 @@
-﻿# Phase 16.7 - On-Chain Attestation (Reference Design)
+# Phase 16.7 - On-Chain Attestation (Reference Design)
 
 This note defines the minimal on-chain attestation flow that ties ClearLang proof bundles to a chain registry. It is intentionally small and is *not* production-hardened.
 
@@ -96,4 +96,4 @@ The current registry validates this binding on-chain.
 ## Notes
 
 - This reference design is intended for Phase 16.7 only; production hardening is tracked in Phase 18.
-- See `docs/rollout/attestation-production.md` for the migration checklist.
+- See `docs/design/phase-18.1-attestation-hardening.md` for the migration checklist.

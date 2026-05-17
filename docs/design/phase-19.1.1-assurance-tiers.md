@@ -50,7 +50,7 @@ Make assurance levels explicit and machine-readable across core outputs:
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/proofs/vc-schema.md`
 - `docs/proofs/proof-section.md`
 - `docs/design/phase-18.0-open-questions.md`

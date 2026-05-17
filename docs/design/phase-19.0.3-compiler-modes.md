@@ -51,10 +51,10 @@ Expose a single explicit strictness selector for build workflows:
 ## Exit Criteria for 19.0.3
 1. `clg build` has explicit compiler modes with deterministic semantics.
 2. Invalid strict-mode combinations fail with stable diagnostics.
-3. TODO/rollout docs record completion and evidence.
+3. TODO docs record completion and evidence.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/design/phase-19.0.2-design-principles-gate.md`
 - `docs/design/phase-18.0-open-questions.md`

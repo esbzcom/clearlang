@@ -34,10 +34,10 @@ Define strict profile behavior for `clg build --compiler-mode strict` so product
 ## Exit Criteria for 19.3.1
 1. Strict-mode builds fail with deterministic `C033` when deferred/unchecked assumed boundaries are present.
 2. Strict-mode builds with zero assumptions remain valid.
-3. TODO/rollout/docs point next execution to `19.3.2`.
+3. TODO/docs point next execution to `19.3.2`.
 
 ## References
 - `docs/TODO.md`
-- `docs/rollout/DEVPLAN.md`
+- `docs/TODO.md`
 - `docs/diagnostics.md`
 - `docs/design/phase-19.0.3-compiler-modes.md`

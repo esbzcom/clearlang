@@ -668,7 +668,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
     - [x] 16.7.1 Draft design note: registry schema, payload format, and verification flow (`docs/design/phase-16.7-attestation.md`).
     - [x] 16.7.2 Minimal reference implementation (Solidity contract + sample payload).
     - [x] 16.7.3 Documentation and example workflow.
-    - [x] 16.7.4 Production migration checklist (see `docs/rollout/attestation-production.md`, Phase 18 hardening reminder).
+    - [x] 16.7.4 Production migration checklist (see `docs/design/phase-18.1-attestation-hardening.md`, Phase 18 hardening reminder).
 
 ### 17 Language gaps + collections
 - [x] 17.1 Implement user-defined structs/enums (beyond resource types) with pattern matching.
@@ -832,7 +832,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 18.0.2 P0 Reliability gate: complete 18.2 data availability/retention policy with backup + restore drills.
   - [x] 18.0.3 P1 Ecosystem gate: complete 18.4 compiled package/module imports for reusable libraries.
   - [x] 18.0.4 P1 Runtime-ops gate: publish host runbook for closure-env no-free policy (worker recycle, memory budgets, monitoring alerts).
-    - [x] 18.0.4.1 Publish runbook skeleton in `docs/rollout/closure-env-ops-runbook.md` (scope, required inputs, evidence artifacts).
+    - [x] 18.0.4.1 Publish runbook skeleton in `docs/runtime/runtime-loader-resilience-runbook.md` (scope, required inputs, evidence artifacts).
     - [x] 18.0.4.2 Define default worker recycle policy (time-based + memory-threshold triggers) and override knobs.
     - [x] 18.0.4.3 Define memory-budget tiers and per-tier action policy (warn, drain, recycle, incident).
     - [x] 18.0.4.4 Define monitoring + alerts for closure-env growth and recycle failures (signal list, thresholds, paging severity).
@@ -854,7 +854,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
 - [x] 18.2 Data availability policy (pinning/backup/retention) for attestation payloads.
   - [x] 18.2.1 Policy lock: storage topology, integrity invariants, backup cadence, and retention classes (`docs/design/phase-18.2-attestation-data-availability.md`).
   - [x] 18.2.2 Recovery objectives: explicit RPO/RTO thresholds and release evidence requirements.
-  - [x] 18.2.3 Operations drill runbook: monthly backup/restore drill with pass/fail criteria (`docs/rollout/attestation-da-drill.md`).
+  - [x] 18.2.3 Operations drill runbook: monthly backup/restore drill with pass/fail criteria (`docs/design/phase-18.2-attestation-data-availability.md`).
 - [x] 18.3 Security review + fuzzing for attestation contract and payload validation.
   - [x] 18.3.1 Contract fuzz/property tests for authorization, schema gating, ID mismatch, and revocation authorization.
   - [x] 18.3.2 Payload envelope validation checks with negative coverage (schema/version/address/hex/scope consistency).
@@ -1023,9 +1023,9 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 24.2.9 Production SLO/performance gates: package resolution/link latency, startup overhead, and memory/CPU budgets are measured and within defined thresholds. (`xtask/src/main/milestone2_gates.rs`, `.github/workflows/ci.yml`, `docs/evidence/milestone_2-performance.md`, `crates/cli/tests/milestone2_performance_evidence.rs`)
   - [x] 24.2.10 Supply-chain compliance gates: SBOM/license checks for shipped package artifacts and runtime dependencies are green. (`xtask/src/main/milestone2_gates.rs`, `.github/workflows/ci.yml`, `docs/evidence/milestone_2-supply-chain.md`, `crates/cli/tests/milestone2_supply_chain_evidence.rs`)
 - [x] 24.3 Milestone_2 delivery governance (execution risk controls).
-  - [x] 24.3.1 Assign an explicit owner/DRI for each Phase 20-24 parent task and record it in TODO/DEVPLAN. (`docs/rollout/milestone_2-governance.md`, `docs/rollout/DEVPLAN.md`)
-  - [x] 24.3.2 Add target dates (planned start/end) for each Phase 20-24 parent task and mark critical-path dependencies. (`docs/rollout/milestone_2-governance.md`)
-  - [x] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly. (`docs/rollout/milestone_2-governance.md`)
+  - [x] 24.3.1 Assign an explicit owner/DRI for each Phase 20-24 parent task and record it in TODO/planning artifacts.
+  - [x] 24.3.2 Add target dates (planned start/end) for each Phase 20-24 parent task and mark critical-path dependencies.
+  - [x] 24.3.3 Maintain a milestone_2 risk register (top risks, mitigations, rollback owners) and review weekly.
   - [x] 24.3.4 Add a release-train gate: do not tag milestone_2 unless 24.2.x is fully green and evidence links are attached. (`.github/workflows/ci.yml`, `crates/cli/tests/milestone2_release_train_gate.rs`, `crates/cli/tests/ci_workflow.rs`)
 
 ### 25 Milestone_3 Roadmap

@@ -57,4 +57,4 @@ Implementation:
 
 ## References
 - `docs/TODO.md` (`18.1`, `18.2`, `18.3`)
-- `docs/rollout/attestation-production.md`
+- `docs/design/phase-18.1-attestation-hardening.md`

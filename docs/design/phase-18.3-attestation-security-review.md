@@ -82,4 +82,4 @@ File: `crates/cli/src/signing.rs` unit tests.
 ## References
 - `docs/TODO.md` (`18.3`)
 - `docs/design/phase-18.1-attestation-hardening.md`
-- `docs/rollout/attestation-production.md`
+- `docs/design/phase-18.1-attestation-hardening.md`

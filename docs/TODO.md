@@ -1197,10 +1197,10 @@ Execution order for std proof coverage: **scope lock -> core coverage -> set sub
 Linking policy for first production release: **embed std into target artifacts with deterministic dead-code elimination**.
 Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up phase after first production release.
 
-- [ ] 26.0 Std scope and governance [Std Gate A]
-  - [ ] 26.0.1 Lock v1 std scope as `must-have` vs `stretch` and publish explicit defer list for unresolved `stretch` symbols.
-  - [ ] 26.0.2 Lock first-production std policy: embedded linking only, deterministic dead-code elimination/tree-shaken emission, and size-regression guardrails.
-  - [ ] 26.0.3 Lock post-first-production roadmap: dynamic/shared std linking remains deferred with explicit activation gates, plus std stability/versioning policy before public GA.
+- [x] 26.0 Std scope and governance [Std Gate A]
+  - [x] 26.0.1 Lock v1 std scope as `must-have` vs `stretch` and publish explicit defer list for unresolved `stretch` symbols. (`docs/design/phase-26.0.1-std-scope-and-governance-lock.md`, `docs/std/README.md`)
+  - [x] 26.0.2 Lock first-production std policy: embedded linking only, deterministic dead-code elimination/tree-shaken emission, and size-regression guardrails. (`docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`, `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`)
+  - [x] 26.0.3 Lock post-first-production roadmap: dynamic/shared std linking remains deferred with explicit activation gates, plus std stability/versioning policy before public GA. (`docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`, `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`)
 
 - [ ] 26.1 Std implementation and release gates [Std Gate B]
   - [ ] 26.1.0 Lock `std::core` first-production API cut from `docs/std/core.md`.

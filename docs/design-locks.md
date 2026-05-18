@@ -34,3 +34,4 @@ This document tracks the current design-lock references.
 ## Phase 26 Standard Library Productionization
 - `docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`
 - `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`
+- `docs/design/phase-26.1.0-std-core-first-production-api-lock.md`

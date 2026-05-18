@@ -13,7 +13,7 @@ Freeze a practical v1 standard-library scope for first production release and ma
 - `std::str`
 - `std::bytes`
 - `std::int`
-- `std::collections`
+- collections catalog (`std::list`, `std::set`, `std::map`)
 - `std::codec`
 - `std::crypto`
 - `std::host`

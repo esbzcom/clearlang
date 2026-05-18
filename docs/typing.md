@@ -104,27 +104,25 @@ Strings (String)
 
   - `pure function echo(s: String) -> String { s }`
 
-- Runtime: `std::str` built-ins (`len/concat/eq`) lower through the string allocator/runtime added in Phase 5.
+- Runtime: `std::str` built-ins (`len/concat/equals`) lower through the string allocator/runtime added in Phase 5.
 
 Bytes (Bytes)
 
 - Type: `Bytes` is a length-prefixed byte buffer (`[u32 len][u8 len]`) in linear memory.
-- Conversions: `std::bytes::from_string(String) -> Bytes` and `std::bytes::to_string(Bytes) -> String`.
+- Conversions: `std::bytes::from_hex(String) -> Result<Bytes, BytesError>` and `std::bytes::to_hex(Bytes) -> String`.
 - U64 conversions: `std::u64::to_bytes_le/to_bytes_be(U64) -> Bytes` and `std::u64::from_bytes_le/from_bytes_be(Bytes) -> U64`.
   Invalid byte buffers trap with the same runtime checks used by other `Bytes` intrinsics.
-- Runtime: `std::bytes` built-ins (`len/concat/eq`) share the same layout as `String` and do not require UTF-8.
-- Constant-time equality: `std::bytes::eq_ct(Bytes, Bytes) -> Bool` compares in constant time for secret inputs.
+- Runtime: `std::bytes` built-ins (`len/concat/equals`) share the same layout as `String` and do not require UTF-8.
+- Constant-time equality: `std::bytes::equals_ct(Bytes, Bytes) -> Bool` compares in constant time for secret inputs.
 
 Crypto intrinsics (Phase 16)
 
 - Module: `std::crypto`.
 - `io` only: crypto intrinsics call host imports and require `io` effect (see Effects).
-- Hash: `std::crypto::hash(alg: String, data: Bytes) -> Bytes`
-- HMAC: `std::crypto::hmac(alg: String, key: Bytes, data: Bytes) -> Bytes`
-- Verify: `std::crypto::verify(alg: String, msg: Bytes, sig: Bytes, pk: Bytes) -> Bool`
-- Supported `alg` values (lowercase):
-  - Hash/HMAC: `sha256`, `keccak256`, `blake2b256`, `blake2s256`
-  - Verify: `ed25519`, `secp256k1`
+- Hash: `std::crypto::sha256(input: Bytes) -> Hash256`
+- HMAC: `std::crypto::hmac_sha256(key: Bytes, message: Bytes) -> Hash256`
+- Verify: `std::crypto::verify(signature: Signature, message: Bytes, key: PublicKey) -> VerifyResult`
+- Verification helpers: `std::crypto::verify_result::{is_valid,error_or_none}`.
 - Error semantics:
   - Unsupported algorithm -> runtime error `R006`.
   - Invalid key/signature length -> runtime error `R007`.
@@ -139,7 +137,7 @@ Effects
 
 - `mut` functions may call other `mut` code and the mutable collection intrinsics; a `pure` caller triggers `T401`.
 
-- `io` functions may call host-facing intrinsics such as `std::wasi::print`, `std::env::{time,random}`, and `std::crypto::{hash,hmac,verify}`; a `pure`/`mut` caller triggers `T401`.
+- `io` functions may call host-facing intrinsics such as `std::wasi::print`, `std::env::{time,random}`, and `std::crypto::{sha256,hmac_sha256,verify}`; a `pure`/`mut` caller triggers `T401`.
 
 - Mutable collection intrinsics (`std::list/set/map::*_mut`) require a guard `require { std::<collection>::can_mut(var) }` in the same function. Missing guards raise `T402`; non-variable first arguments raise `T403`.
 
@@ -363,19 +361,19 @@ ADT Ergonomics (Phase 6.6)
 - **Enum layout**: enums reuse the canonical 16-byte variant layout (`{tag, payload_lo, payload_hi, reserved}`) with tag range `0..N-1` for `N` variants. Variants with multiple fields store a pointer to a tuple-layout payload in `payload_lo`; `payload_hi` is reserved/zero.
 - **Runtime traps**: invalid tags trigger `R003`, with the runtime detail reporting `"Enum"` for enum destructuring and match lowering.
 
-Collections (Runtime Summary, Phase 17.3) - see `docs/collections.md`
+Collections (Runtime Summary, Phase 17.3) - see `docs/std/collections.md`
 
 - Types: `List<T>`, `Set<T>`, `Map<K,V>`.
 
 - APIs (pure):
 
-  - List: `len(List<T>)->Int`, `get(List<T>,Int)->Option<T>`, `push(List<T>,T)->List<T>`, `insert(List<T>,T,Int)->List<T>`, `remove(List<T>,Int)->List<T>`, `remove_take(List<T>,Int)->(List<T>,Option<T>)`, `pop(List<T>)->Option<T>`, `new()` + T206.
+  - List: `len(List<T>)->Int`, `get(List<T>,Int)->Option<T>`, `push(List<T>,T)->List<T>`, `insert(List<T>,T,Int)->List<T>`, `insert_checked(List<T>,T,Int)->Result<List<T>,CollectionError>`, `remove(List<T>,Int)->List<T>`, `remove_checked(List<T>,Int)->Result<List<T>,CollectionError>`, `remove_take(List<T>,Int)->(List<T>,Option<T>)`, `pop(List<T>)->Option<T>`, `new()` + T206.
 
   - Set: `len(Set<T>)->Int`, `contains(Set<T>,T)->Bool`, `insert(Set<T>,T)->Set<T>`, `remove(Set<T>,T)->Set<T>`, `new()` + T206.
 
   - Map: `len(Map<K,V>)->Int`, `contains(Map<K,V>,K)->Bool`, `get(Map<K,V>,K)->Option<V>`, `insert(Map<K,V>,K,V)->Map<K,V>`, `insert_take(Map<K,V>,K,V)->(Map<K,V>,Option<V>)`, `remove(Map<K,V>,K)->Map<K,V>`, `remove_take(Map<K,V>,K)->(Map<K,V>,Option<V>)`, `new()` + T206.
 
-- Runtime: `get`/`pop` are total (`None` on out-of-bounds or empty); `insert`/`remove` trap on invalid indices (`R009`); `remove_take`/`insert_take` return `(updated_collection, Option<value>)`.
+- Runtime: `get`/`pop` are total (`None` on out-of-bounds or empty); `insert`/`remove` trap on invalid indices (`R009`); `insert_checked`/`remove_checked` return deterministic `CollectionError` failures instead of traps; `remove_take`/`insert_take` return `(updated_collection, Option<value>)`.
 - Key equality: `Map`/`Set` require equatable keys; non-equatable key types raise `T220`.
 - Mutable variants: `_mut` calls require `mut` effect and a `can_mut` guard (T401/T402/T403).
 - Diagnostics: T206 (cannot infer `new()`), T207 (expected collection kind), T208 (element/key/value mismatch), T220 (non-equatable key type); index must be Int for list ops (T005).

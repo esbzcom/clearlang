@@ -14,7 +14,7 @@ This directory is organized by role so operational docs stay easy to find.
 - Language typing/effects/refinements: `docs/typing.md`
 - IR overview: `docs/ir.md`
 - Diagnostics catalog: `docs/diagnostics.md`
-- Collections behavior: `docs/collections.md`
+- Collections behavior: `docs/std/collections.md`
 - Standard library package catalog: `docs/std/README.md`
 - Resource ownership guide: `docs/resource-guide.md`
 - Unit testing contract guide (Gate D): `docs/testing.md`

@@ -186,7 +186,7 @@ Current focus: Phase 19 complete - next roadmap slice pending.
 
   - [x] DX: Split typer - move rules to `check.rs` and IR lowering to `lower.rs`; keep `lib.rs` as public entry.
 
-  - [x] Add `docs/collections.md` and update `docs/diagnostics.md` and `docs/typing.md`.
+  - [x] Add `docs/std/collections.md` and update `docs/diagnostics.md` and `docs/typing.md`.
 
   - 4.8 Small Optimizations & DX
 
@@ -334,7 +334,7 @@ Docs & Proofs
 
 - [x] Add regression tests covering accepted mut functions, rejected pure callers, and JSON diagnostics to keep outputs AI-friendly.
 
-- [x] Update docs/typing.md and docs/collections.md with the effect table, soundness sketch, and SMT-friendly examples.
+- [x] Update docs/typing.md and docs/std/collections.md with the effect table, soundness sketch, and SMT-friendly examples.
 
 6.5 Proof Packaging & Signatures
 
@@ -693,7 +693,7 @@ Ordering: 15 Core types & arrays, 16 Crypto intrinsics + proofs, 17 Language gap
   - [x] 17.3.7 Allow `std::list::new`/`std::set::new`/`std::map::new` to infer from expected types (keep T206 when no expected context).
   - [x] 17.3.8 Implement structural equality for non-primitive `Map`/`Set` keys (Option/Result/structs/enums/tuples; arrays remain deferred) and add runtime coverage.
   - [x] 17.3.9 Add runtime tests for `list::get`/`list::pop`, `set::contains`, `map::contains`/`map::get`, and no-op remove cases.
-  - [x] 17.3.10 Docs refresh: update `docs/collections.md` + `docs/design/phase-17.3-collections-runtime.md` to reflect `new()` inference and current `can_mut` behavior.
+  - [x] 17.3.10 Docs refresh: update `docs/std/collections.md` + `docs/design/phase-17.3-collections-runtime.md` to reflect `new()` inference and current `can_mut` behavior.
   - [x] 17.3.11 Clarify invalid-handle behavior for collections and align trap code/docs (R002 vs new code) or add explicit pointer validation.
   - [x] 17.3.12 Use unsigned bounds checks in collection handle validation to avoid signed i32 overflow in pointer comparisons.
   - [x] 17.3.13 Close remaining collections runtime test gaps (invalid `data_ptr` cases + composite key equality coverage).
@@ -1203,27 +1203,28 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [x] 26.0.3 Lock post-first-production roadmap: dynamic/shared std linking remains deferred with explicit activation gates, plus std stability/versioning policy before public GA. (`docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`, `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`)
 
 - [ ] 26.1 Std implementation and release gates [Std Gate B]
-  - [ ] 26.1.0 Lock `std::core` first-production API cut from `docs/std/core.md`.
-    - [ ] 26.1.0.1 Keep `Option<T>` baseline methods for first production: `is_some`, `is_none`, `map`, `and_then`, `filter`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `to_result`.
-    - [ ] 26.1.0.2 Keep `Result<T,E>` baseline methods for first production: `is_ok`, `is_err`, `map`, `map_err`, `and_then`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `expect_err`, `to_option`.
-    - [ ] 26.1.0.3 Keep `ErrorCode` baseline methods for first production: `new`, `value`, `equals`.
-    - [ ] 26.1.0.4 Keep `CoreError` + `Panic` baseline methods for first production: `CoreError::{new,with_message,code,message,equals}` and `Panic::fail`.
-    - [ ] 26.1.0.5 Defer advanced `std::core` helpers until post-first-production unless required by a concrete blocker (`flatten`, `contains*`, `map_or*`, `to_result_else`, `domain/cause` fields).
-    - [ ] 26.1.0.6 Add deterministic diagnostics + contract tests for `expect`/`expect_err`/`Panic::fail` failure paths.
+  - [x] 26.1.0 Lock `std::core` first-production API cut from `docs/std/core.md`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`, `docs/std/core.md`)
+    - [x] 26.1.0.1 Keep `Option<T>` baseline methods for first production: `is_some`, `is_none`, `map`, `and_then`, `filter`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `to_result`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
+    - [x] 26.1.0.2 Keep `Result<T,E>` baseline methods for first production: `is_ok`, `is_err`, `map`, `map_err`, `and_then`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `expect_err`, `to_option`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
+    - [x] 26.1.0.3 Keep `ErrorCode` baseline methods for first production: `new`, `value`, `equals`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
+    - [x] 26.1.0.4 Keep `CoreError` + `Panic` baseline methods for first production: `CoreError::{new,with_message,code,message,equals}` and `Panic::fail`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
+    - [x] 26.1.0.5 Defer advanced `std::core` helpers until post-first-production unless required by a concrete blocker (`flatten`, `contains*`, `map_or*`, `to_result_else`, `domain/cause` fields). (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
+    - [x] 26.1.0.6 Add deterministic diagnostics + contract tests for `expect`/`expect_err`/`Panic::fail` failure paths. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
   - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.
   - [ ] 26.1.2 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
   - [ ] 26.1.3 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
   - [ ] 26.1.4 Add package-level execution slices so every `docs/std/README.md` package has an explicit Phase 26 owner task.
-    - [ ] 26.1.4.1 `std::str`: lock first-production API cut + deterministic UTF-8 diagnostics/contracts.
+    - [ ] 26.1.4.1 `std::str`: lock first-production API cut + deterministic UTF-8 diagnostics/contracts, including stable `StrPattern` matcher surface (`str_pattern::matches(pattern, input)`).
     - [ ] 26.1.4.2 `std::bytes`: lock first-production API cut + constant-time compare contract/coverage.
-    - [ ] 26.1.4.3 `std::int`: lock first-production API cut + checked/wrapping/saturating semantics coverage.
-    - [ ] 26.1.4.4 `std::codec`: lock first-production canonical encoding/decoding API + deterministic error surface.
+    - [ ] 26.1.4.3 `std::int`: lock first-production API cut + checked/wrapping/saturating semantics coverage, plus checked `div/mod`, bitwise (`and/or/xor/not`), and checked shift/rotate contracts for `U64/U128/U256`.
+    - [ ] 26.1.4.4 `std::codec`: lock first-production canonical encoding/decoding API + deterministic error surface, including decoder safety helpers (`position`, `remaining`, `read_fixed`).
     - [ ] 26.1.4.5 `std::crypto`: lock first-production API cut + proof/assurance boundary policy for enabled intrinsics, including `VerifyResult::{is_valid,error_or_none,valid,invalid}` invariant enforcement and explicit negative tests rejecting mixed/invalid states.
-    - [ ] 26.1.4.6 `std::host`: lock first-production capability surface + fail-closed host-profile conformance tests, including deterministic `Result<Bool, HostError>` semantics for `Storage::set/delete` and `Log::{info,warn,error}`.
+    - [ ] 26.1.4.6 `std::host`: lock first-production capability surface + fail-closed host-profile conformance tests, including deterministic `Result<Bool, HostError>` semantics for `storage::set/delete` and `log::{info,warn,error}` (success must be `Ok(true)`).
     - [ ] 26.1.4.7 `std::contract`: lock first-production chain-agnostic contract-domain API cut.
     - [ ] 26.1.4.8 `std::unit`: align first-production API cut with Gate D baseline (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`) plus deterministic failure mapping, contract tests for method-name stability, and fail-closed rejection of non-baseline assertion names in production profile.
     - [ ] 26.1.4.9 `std::chain::<target>`: keep deferred by default; add target-specific activation checklist for launches that require it.
     - [ ] 26.1.4.10 `std::dynamic`: keep deferred post-first-production; require explicit activation gates before any runtime-link implementation.
+    - [ ] 26.1.4.11 `std::list` (from collections catalog): lock deterministic out-of-range behavior for `insert/remove` and add non-terminating `insert_checked/remove_checked` conformance tests.
 
 - [ ] 26.2 Finite-set proof roadmap (ordered execution) [Std Gate C]
   - [ ] 26.2.1 Add `std::set::subset(a, b) -> Bool` API with typing/lowering/runtime coverage and regression tests.

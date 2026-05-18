@@ -198,7 +198,7 @@ Notes:
 - Typer: enforce visibility rules for imported names.
 - Build system: expand entry file to a module graph, detect cycles, and order
   modules for type checking/lowering.
-- Docs: update `docs/typing.md` and `docs/collections.md` with the new syntax.
+- Docs: update `docs/typing.md` and `docs/std/collections.md` with the new syntax.
 
 ## Open Questions
 None.

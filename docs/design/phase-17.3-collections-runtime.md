@@ -115,7 +115,7 @@ Diagnostics docs (`docs/diagnostics.md`) should be updated when these are wired.
 
 ## Doc Updates (when implementing)
 - `docs/runtime/arrays-tuples.md`: replace “runtime-defined” with the header layout.
-- `docs/collections.md`: update semantics and error behavior.
+- `docs/std/collections.md`: update semantics and error behavior.
 - `docs/typing.md`: document key-equatable restrictions and mut semantics.
 
 ## Open Questions

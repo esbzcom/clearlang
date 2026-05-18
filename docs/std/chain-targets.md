@@ -1,29 +1,33 @@
-# Package Family: `std::chain::<target>`
+# Namespace Family: `std::chain::<target>`
 
 ## Purpose
 Chain-specific wrappers and typed helpers layered on top of `std::host` capabilities.
 
-## Key Types (examples)
-- `std::eth::Address` (example)
-- `std::eth::io::*` (example host IO wrappers)
+## Sub-Namespaces (examples)
+- `address` (target-specific)
+- `io` (target-specific host IO wrappers)
+- `env` (target-specific environment wrappers)
+
+## Types (examples)
+- `Address`
 - Target-specific event/value helper types
 
-## Class/Method Draft (example shape)
+## Type/Function Draft (example shape)
 
-### `std::<target>::Address`
-Methods:
+### `std::<target>::address`
+Functions:
 - `from_bytes(input: Bytes) -> Result<Address, ContractError>`
-- `to_bytes(self) -> Bytes`
-- `equals(self, other: Address) -> Bool`
+- `to_bytes(addr: Address) -> Bytes`
+- `equals(lhs: Address, other: Address) -> Bool`
 
 ### `std::<target>::io`
-Methods:
+Functions:
 - `send(to: Address, amount: Amount) -> Result<Int, HostError>`
 - `call(to: Address, payload: Bytes) -> Result<Bytes, HostError>`
 - `emit(event: Event) -> Result<Int, HostError>`
 
-### `std::<target>::Env`
-Methods:
+### `std::<target>::env`
+Functions:
 - `network_id() -> Result<U64, HostError>`
 - `tx_hash() -> Result<Bytes, HostError>`
 
@@ -33,9 +37,16 @@ Methods:
 
 ## Notes
 - `std::chain::<target>` must remain additive and must not alter `std::core` semantics.
-- Capability and trust policy checks remain fail-closed.
+- Capability and trust policy checks MUST remain fail-closed.
+
+## Contract Conformance Checklist
+- Target wrappers MUST preserve core determinism guarantees.
+- Host capability checks MUST fail closed with stable diagnostics.
+- Chain-specific encoding/address semantics MUST be explicitly versioned before activation.
 
 ## Summary
 - Keeps chain specializations outside core std to preserve portability.
 - Allows chain ecosystems to evolve without destabilizing core language/runtime contracts.
 - Treated as stretch/deferred relative to first production `must-have` std surfaces.
+
+

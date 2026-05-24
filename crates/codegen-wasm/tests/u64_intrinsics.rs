@@ -67,6 +67,24 @@ fn u64_wrap_and_sat_intrinsics() {
             "#,
             expected: -1,
         },
+        Case {
+            name: "add_wrapping_alias",
+            src: r#"
+                pure function main() -> U64 {
+                    std::u64::add_wrapping(std::u64::sub_wrapping(0, 1), 1)
+                }
+            "#,
+            expected: 0,
+        },
+        Case {
+            name: "mul_saturating_alias",
+            src: r#"
+                pure function main() -> U64 {
+                    std::u64::mul_saturating(std::u64::sub_wrap(0, 1), 2)
+                }
+            "#,
+            expected: -1,
+        },
     ];
 
     for case in cases {

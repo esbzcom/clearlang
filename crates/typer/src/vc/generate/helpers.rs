@@ -269,7 +269,13 @@ fn bitwise_symbol(op: BinOp) -> Option<&'static str> {
 fn is_crypto_assumption_intrinsic(callee: &str) -> bool {
     matches!(
         callee,
-        "std::crypto::hash" | "std::crypto::hmac" | "std::crypto::verify" | "std::bytes::eq_ct"
+        "std::crypto::hash"
+            | "std::crypto::sha256"
+            | "std::crypto::hmac"
+            | "std::crypto::hmac_sha256"
+            | "std::crypto::verify"
+            | "std::bytes::eq_ct"
+            | "std::bytes::equals_ct"
     )
 }
 

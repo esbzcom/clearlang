@@ -1,5 +1,12 @@
 use super::*;
 
+fn collection_error_type() -> Type {
+    Type::Named {
+        name: "std::collection_error::CollectionError".to_string(),
+        args: Vec::new(),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn type_collection_call<'a>(
     callee: &str,
@@ -111,6 +118,18 @@ pub(crate) fn type_collection_call<'a>(
             if let Type::List(_) = lty {
                 *tracker = local_tracker;
                 Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("List", lty, span).into())
+            }
+        }
+        "std::list::is_empty" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let lty = arg_ty(0, false)?;
+            if let Type::List(_) = lty {
+                *tracker = local_tracker;
+                Ok(Some(Type::Bool))
             } else {
                 Err(TyperError::expected_collection("List", lty, span).into())
             }
@@ -267,6 +286,81 @@ pub(crate) fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("List", other, span).into()),
             }
         }
+        "std::list::insert_checked" => {
+            if args.len() != 3 {
+                return Err(TyperError::arity_mismatch(callee, 3, args.len(), span).into());
+            }
+            let lty = arg_ty(0, true)?;
+            match lty {
+                Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
+                    let elem_expected: Type = (*inner).clone();
+                    let aty_elem = arg_ty(1, true)?;
+                    if aty_elem != elem_expected {
+                        let sp = expr_span(&args[1]);
+                        return Err(
+                            TyperError::element_type_mismatch(elem_expected, aty_elem, sp).into(),
+                        );
+                    }
+                    let ity = arg_ty(2, false)?;
+                    let sp = expr_span(&args[2]);
+                    ensure_int(ity, aliases, "index", Some(sp))?;
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    if is_resource_type(&elem_expected, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[1] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    Ok(Some(Type::Result(
+                        Box::new(Type::List(Box::new(*inner))),
+                        Box::new(collection_error_type()),
+                    )))
+                }
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
+        "std::list::remove_checked" => {
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
+            let lty = arg_ty(0, true)?;
+            let ity = arg_ty(1, false)?;
+            let sp = expr_span(&args[1]);
+            ensure_int(ity, aliases, "index", Some(sp))?;
+            match lty {
+                Type::List(inner) => {
+                    let list_ty = Type::List(inner.clone());
+                    if is_resource_type(&list_ty, aliases, type_defs)? {
+                        if let Expr::Var(arg_name, arg_span) = &args[0] {
+                            local_tracker.consume_var_in_call(
+                                arg_name,
+                                *arg_span,
+                                normalized_callee,
+                            )?;
+                        }
+                    }
+                    *tracker = local_tracker;
+                    Ok(Some(Type::Result(
+                        Box::new(Type::List(inner)),
+                        Box::new(collection_error_type()),
+                    )))
+                }
+                other => Err(TyperError::expected_collection("List", other, span).into()),
+            }
+        }
         "std::list::remove_take" => {
             if args.len() != 2 {
                 return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
@@ -340,6 +434,18 @@ pub(crate) fn type_collection_call<'a>(
                 Err(TyperError::expected_collection("Set", sty, span).into())
             }
         }
+        "std::set::is_empty" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let sty = arg_ty(0, false)?;
+            if let Type::Set(_) = sty {
+                *tracker = local_tracker;
+                Ok(Some(Type::Bool))
+            } else {
+                Err(TyperError::expected_collection("Set", sty, span).into())
+            }
+        }
         "std::set::can_mut" => {
             if args.len() != 1 {
                 return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
@@ -396,6 +502,18 @@ pub(crate) fn type_collection_call<'a>(
             if let Type::Map(_, _) = mty {
                 *tracker = local_tracker;
                 Ok(Some(Type::Int))
+            } else {
+                Err(TyperError::expected_collection("Map", mty, span).into())
+            }
+        }
+        "std::map::is_empty" => {
+            if args.len() != 1 {
+                return Err(TyperError::arity_mismatch(callee, 1, args.len(), span).into());
+            }
+            let mty = arg_ty(0, false)?;
+            if let Type::Map(_, _) = mty {
+                *tracker = local_tracker;
+                Ok(Some(Type::Bool))
             } else {
                 Err(TyperError::expected_collection("Map", mty, span).into())
             }

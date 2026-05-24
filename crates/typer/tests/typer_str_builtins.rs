@@ -26,6 +26,24 @@ fn typer_accepts_std_str_eq() {
 }
 
 #[test]
+fn typer_accepts_std_str_search_helpers() {
+    let src = r#"
+        pure function ok(a: String, b: String) -> Bool {
+            std::str::starts_with(a, b) || std::str::ends_with(a, b) || std::str::contains(a, b)
+        }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("type-check ok");
+}
+
+#[test]
+fn typer_accepts_std_str_to_bytes() {
+    let src = r#"
+        pure function ok(a: String) -> Int { std::bytes::len(std::str::to_bytes(a)) }
+    "#;
+    check(&parse(src).expect("parse ok")).expect("type-check ok");
+}
+
+#[test]
 fn typer_rejects_std_str_len_wrong_arg_type() {
     let src = r#"
         pure function bad() -> Int { std::str::len(123) }

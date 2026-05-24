@@ -437,7 +437,9 @@ fn is_ownership_api(callee: &str) -> bool {
         normalized,
         "std::list::push"
             | "std::list::insert"
+            | "std::list::insert_checked"
             | "std::list::remove"
+            | "std::list::remove_checked"
             | "std::list::remove_take"
             | "std::list::pop"
             | "std::map::insert"

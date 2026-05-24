@@ -13,6 +13,16 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::bytes::is_empty".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "b".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::bytes::concat".to_string(),
             vec![
                 Param {
@@ -47,7 +57,41 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::bytes::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::bytes::eq_ct".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::bytes::equals_ct".to_string(),
             vec![
                 Param {
                     kind: ParamKind::Borrow,
@@ -149,6 +193,33 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Io,
         ),
         (
+            "std::crypto::sha256".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "data".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Bytes,
+            Effect::Io,
+        ),
+        (
+            "std::crypto::hmac_sha256".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "key".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "data".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Bytes,
+            Effect::Io,
+        ),
+        (
             "std::crypto::verify".to_string(),
             vec![
                 Param {
@@ -186,6 +257,16 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::str::is_empty".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "s".to_string(),
+                ty: Type::String,
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::str::concat".to_string(),
             vec![
                 Param {
@@ -203,6 +284,57 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::str::starts_with".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "prefix".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::str::ends_with".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "suffix".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::str::contains".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "needle".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::str::eq".to_string(),
             vec![
                 Param {
@@ -217,6 +349,33 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
                 },
             ],
             Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::str::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::str::to_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::String,
+            }],
+            Type::Bytes,
             Effect::Pure,
         ),
         (
@@ -308,7 +467,41 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::u64::add_wrapping".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
             "std::u64::sub_wrap".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::sub_wrapping".to_string(),
             vec![
                 Param {
                     kind: ParamKind::Borrow,
@@ -342,7 +535,41 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::u64::mul_wrapping".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
             "std::u64::add_sat".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::add_saturating".to_string(),
             vec![
                 Param {
                     kind: ParamKind::Borrow,
@@ -376,7 +603,41 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::u64::sub_saturating".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
             "std::u64::mul_sat".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::u64::mul_saturating".to_string(),
             vec![
                 Param {
                     kind: ParamKind::Borrow,

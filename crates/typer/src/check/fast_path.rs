@@ -220,6 +220,9 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
+        "std::str::starts_with",
+        "std::str::ends_with",
+        "std::str::contains",
         "std::u64::rotl",
         "std::u64::rotr",
         "std::u64::to_bytes_le",
@@ -280,6 +283,10 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
                 "std::str::concat" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
                     Some(clg_ir::IrType::Int),
+                ),
+                "std::str::starts_with" | "std::str::ends_with" | "std::str::contains" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
                 ),
                 "std::u64::rotl" | "std::u64::rotr" => (
                     vec![clg_ir::IrType::U64, clg_ir::IrType::U64],

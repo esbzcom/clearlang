@@ -41,6 +41,24 @@ pub(super) fn lower_call_expr<'a>(
         }
     }
     match callee {
+        "std::bytes::equals" => {
+            lower_intrinsic_alias_call(ctx, "std::bytes::eq", args, &[Type::Bytes, Type::Bytes])
+        }
+        "std::bytes::equals_ct" => {
+            lower_intrinsic_alias_call(ctx, "std::bytes::eq_ct", args, &[Type::Bytes, Type::Bytes])
+        }
+        "std::bytes::is_empty" => {
+            lower_len_is_empty_call(ctx, "std::bytes::len", args, Type::Bytes)
+        }
+        "std::str::equals" => {
+            lower_intrinsic_alias_call(ctx, "std::str::eq", args, &[Type::String, Type::String])
+        }
+        "std::str::is_empty" => lower_len_is_empty_call(ctx, "std::str::len", args, Type::String),
+        "std::str::to_bytes" => {
+            lower_intrinsic_alias_call(ctx, "std::bytes::from_string", args, &[Type::String])
+        }
+        "std::crypto::sha256" => lower_crypto_sha256_call(ctx, args),
+        "std::crypto::hmac_sha256" => lower_crypto_hmac_sha256_call(ctx, args),
         "U8" => {
             if args.len() != 1 {
                 anyhow::bail!("`U8` expects exactly one argument");
@@ -112,11 +130,17 @@ pub(super) fn lower_call_expr<'a>(
             Ok(dst)
         }
         "std::u64::add_wrap" => lower_u64_wrap(ctx, BinOp::Add, args),
+        "std::u64::add_wrapping" => lower_u64_wrap(ctx, BinOp::Add, args),
         "std::u64::sub_wrap" => lower_u64_wrap(ctx, BinOp::Sub, args),
+        "std::u64::sub_wrapping" => lower_u64_wrap(ctx, BinOp::Sub, args),
         "std::u64::mul_wrap" => lower_u64_wrap(ctx, BinOp::Mul, args),
+        "std::u64::mul_wrapping" => lower_u64_wrap(ctx, BinOp::Mul, args),
         "std::u64::add_sat" => lower_u64_sat(ctx, BinOp::Add, args),
+        "std::u64::add_saturating" => lower_u64_sat(ctx, BinOp::Add, args),
         "std::u64::sub_sat" => lower_u64_sat(ctx, BinOp::Sub, args),
+        "std::u64::sub_saturating" => lower_u64_sat(ctx, BinOp::Sub, args),
         "std::u64::mul_sat" => lower_u64_sat(ctx, BinOp::Mul, args),
+        "std::u64::mul_saturating" => lower_u64_sat(ctx, BinOp::Mul, args),
         "std::u128::from_limbs" => lower_u128_from_limbs(ctx, args),
         "std::u128::lo" => lower_u128_load(ctx, args, 0),
         "std::u128::hi" => lower_u128_load(ctx, args, 1),
@@ -324,6 +348,119 @@ pub(super) fn lower_call_expr<'a>(
             }
         }
     }
+}
+
+fn lower_intrinsic_alias_call<'a>(
+    ctx: &mut LowerCtx<'a>,
+    target: &str,
+    args: &'a [Expr],
+    expected_arg_types: &[Type],
+) -> Result<Value> {
+    if args.len() != expected_arg_types.len() {
+        anyhow::bail!(
+            "`{}` expects {} arguments",
+            target,
+            expected_arg_types.len()
+        );
+    }
+    let mut argv = Vec::with_capacity(args.len());
+    for (arg, expected_ty) in args.iter().zip(expected_arg_types.iter()) {
+        argv.push(lower_expr(ctx, arg, Some(expected_ty.clone()))?);
+    }
+    let callee_idx = ctx
+        .fn_indices
+        .get(target)
+        .copied()
+        .ok_or_else(|| anyhow::anyhow!("missing intrinsic `{}`", target))?;
+    let dst = fresh(ctx);
+    ctx.body.push(Instr::Call {
+        dst: Some(dst),
+        callee: callee_idx,
+        args: argv,
+    });
+    Ok(dst)
+}
+
+fn lower_len_is_empty_call<'a>(
+    ctx: &mut LowerCtx<'a>,
+    len_callee: &str,
+    args: &'a [Expr],
+    expected_arg_type: Type,
+) -> Result<Value> {
+    if args.len() != 1 {
+        anyhow::bail!("`{}` expects exactly one argument", len_callee);
+    }
+    let value = lower_expr(ctx, &args[0], Some(expected_arg_type))?;
+    let len_idx = ctx
+        .fn_indices
+        .get(len_callee)
+        .copied()
+        .ok_or_else(|| anyhow::anyhow!("missing intrinsic `{}`", len_callee))?;
+    let len_val = fresh(ctx);
+    ctx.body.push(Instr::Call {
+        dst: Some(len_val),
+        callee: len_idx,
+        args: vec![value],
+    });
+    let zero = emit_int_const(ctx, 0);
+    let out = fresh(ctx);
+    ctx.body.push(Instr::IBin {
+        dst: out,
+        op: BinOpIR::Eq,
+        ty: IrType::Int,
+        lhs: len_val,
+        rhs: zero,
+    });
+    Ok(out)
+}
+
+fn lower_crypto_sha256_call<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]) -> Result<Value> {
+    if args.len() != 1 {
+        anyhow::bail!("`std::crypto::sha256` expects exactly one argument");
+    }
+    let data = lower_expr(ctx, &args[0], Some(Type::Bytes))?;
+    let alg = fresh(ctx);
+    ctx.body.push(Instr::IStringConst {
+        dst: alg,
+        s: "sha256".to_string(),
+    });
+    let hash_idx = ctx
+        .fn_indices
+        .get("std::crypto::hash")
+        .copied()
+        .ok_or_else(|| anyhow::anyhow!("missing intrinsic `std::crypto::hash`"))?;
+    let out = fresh(ctx);
+    ctx.body.push(Instr::Call {
+        dst: Some(out),
+        callee: hash_idx,
+        args: vec![alg, data],
+    });
+    Ok(out)
+}
+
+fn lower_crypto_hmac_sha256_call<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]) -> Result<Value> {
+    if args.len() != 2 {
+        anyhow::bail!("`std::crypto::hmac_sha256` expects exactly two arguments");
+    }
+    let key = lower_expr(ctx, &args[0], Some(Type::Bytes))?;
+    let data = lower_expr(ctx, &args[1], Some(Type::Bytes))?;
+    let alg = fresh(ctx);
+    ctx.body.push(Instr::IStringConst {
+        dst: alg,
+        s: "sha256".to_string(),
+    });
+    let hmac_idx = ctx
+        .fn_indices
+        .get("std::crypto::hmac")
+        .copied()
+        .ok_or_else(|| anyhow::anyhow!("missing intrinsic `std::crypto::hmac`"))?;
+    let out = fresh(ctx);
+    ctx.body.push(Instr::Call {
+        dst: Some(out),
+        callee: hmac_idx,
+        args: vec![alg, key, data],
+    });
+    Ok(out)
 }
 
 fn lower_std_from_bytes<'a>(

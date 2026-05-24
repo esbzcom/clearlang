@@ -7,10 +7,19 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         "std::bytes::len" => {
             set.insert("std::bytes::len");
         }
+        "std::bytes::is_empty" => {
+            set.insert("std::bytes::len");
+        }
         "std::bytes::eq" => {
             set.insert("std::bytes::eq");
         }
+        "std::bytes::equals" => {
+            set.insert("std::bytes::eq");
+        }
         "std::bytes::eq_ct" => {
+            set.insert("std::bytes::eq_ct");
+        }
+        "std::bytes::equals_ct" => {
             set.insert("std::bytes::eq_ct");
         }
         "std::bytes::concat" => {
@@ -34,7 +43,13 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         "std::crypto::hash" => {
             set.insert("std::crypto::hash");
         }
+        "std::crypto::sha256" => {
+            set.insert("std::crypto::hash");
+        }
         "std::crypto::hmac" => {
+            set.insert("std::crypto::hmac");
+        }
+        "std::crypto::hmac_sha256" => {
             set.insert("std::crypto::hmac");
         }
         "std::crypto::verify" => {
@@ -43,11 +58,29 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         "std::str::len" => {
             set.insert("std::str::len");
         }
+        "std::str::is_empty" => {
+            set.insert("std::str::len");
+        }
         "std::str::eq" => {
+            set.insert("std::str::eq");
+        }
+        "std::str::equals" => {
             set.insert("std::str::eq");
         }
         "std::str::concat" => {
             set.insert("std::str::concat");
+        }
+        "std::str::starts_with" => {
+            set.insert("std::str::starts_with");
+        }
+        "std::str::ends_with" => {
+            set.insert("std::str::ends_with");
+        }
+        "std::str::contains" => {
+            set.insert("std::str::contains");
+        }
+        "std::str::to_bytes" => {
+            set.insert("std::bytes::from_string");
         }
         "std::u64::rotl" => {
             set.insert("std::u64::rotl");

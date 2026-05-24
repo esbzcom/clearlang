@@ -109,3 +109,59 @@ fn str_concat_edge_cases_len() {
     let wasm3 = emit_from_ir(&ir3).expect("codegen ok");
     assert_eq!(run_main_i32(&wasm3), 4);
 }
+
+#[test]
+fn str_starts_with_and_ends_with() {
+    let src_starts_true = r#" function main() -> Bool { std::str::starts_with("abcdef", "abc") } "#;
+    let ast_st = parse(src_starts_true).expect("parse ok");
+    let ir_st = check(&ast_st).expect("type-check+lower ok");
+    let wasm_st = emit_from_ir(&ir_st).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_st), 1);
+
+    let src_starts_false =
+        r#" function main() -> Bool { std::str::starts_with("abcdef", "abd") } "#;
+    let ast_sf = parse(src_starts_false).expect("parse ok");
+    let ir_sf = check(&ast_sf).expect("type-check+lower ok");
+    let wasm_sf = emit_from_ir(&ir_sf).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_sf), 0);
+
+    let src_ends_true = r#" function main() -> Bool { std::str::ends_with("abcdef", "def") } "#;
+    let ast_et = parse(src_ends_true).expect("parse ok");
+    let ir_et = check(&ast_et).expect("type-check+lower ok");
+    let wasm_et = emit_from_ir(&ir_et).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_et), 1);
+
+    let src_ends_false = r#" function main() -> Bool { std::str::ends_with("abcdef", "deg") } "#;
+    let ast_ef = parse(src_ends_false).expect("parse ok");
+    let ir_ef = check(&ast_ef).expect("type-check+lower ok");
+    let wasm_ef = emit_from_ir(&ir_ef).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_ef), 0);
+}
+
+#[test]
+fn str_contains_and_to_bytes() {
+    let src_contains_true = r#" function main() -> Bool { std::str::contains("abcdef", "cde") } "#;
+    let ast_ct = parse(src_contains_true).expect("parse ok");
+    let ir_ct = check(&ast_ct).expect("type-check+lower ok");
+    let wasm_ct = emit_from_ir(&ir_ct).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_ct), 1);
+
+    let src_contains_false = r#" function main() -> Bool { std::str::contains("abcdef", "cdx") } "#;
+    let ast_cf = parse(src_contains_false).expect("parse ok");
+    let ir_cf = check(&ast_cf).expect("type-check+lower ok");
+    let wasm_cf = emit_from_ir(&ir_cf).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_cf), 0);
+
+    let src_empty_needle = r#" function main() -> Bool { std::str::contains("abcdef", "") } "#;
+    let ast_en = parse(src_empty_needle).expect("parse ok");
+    let ir_en = check(&ast_en).expect("type-check+lower ok");
+    let wasm_en = emit_from_ir(&ir_en).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_en), 1);
+
+    let src_to_bytes_len =
+        r#" function main() -> Int { std::bytes::len(std::str::to_bytes("abc")) } "#;
+    let ast_tb = parse(src_to_bytes_len).expect("parse ok");
+    let ir_tb = check(&ast_tb).expect("type-check+lower ok");
+    let wasm_tb = emit_from_ir(&ir_tb).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_tb), 3);
+}

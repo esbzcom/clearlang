@@ -46,6 +46,23 @@ pub(super) fn lower_map_call<'a>(
             let map_val = lower_expr(ctx, &args[0], None)?;
             Ok(Some(emit_collection_len(ctx, map_val)))
         }
+        "std::map::is_empty" => {
+            if args.len() != 1 {
+                anyhow::bail!("`std::map::is_empty` expects one argument");
+            }
+            let map_val = lower_expr(ctx, &args[0], None)?;
+            let len = emit_collection_len(ctx, map_val);
+            let zero = emit_int_const(ctx, 0);
+            let out = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: out,
+                op: BinOpIR::Eq,
+                lhs: len,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            Ok(Some(out))
+        }
         "std::map::contains" => {
             if args.len() != 2 {
                 anyhow::bail!("`std::map::contains` expects two arguments");

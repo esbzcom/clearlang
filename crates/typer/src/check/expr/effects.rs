@@ -300,7 +300,9 @@ fn builtin_effect(callee: &str) -> Option<EffectLevel> {
         // reuses the same deterministic collection helpers.
         "std::list::push"
         | "std::list::insert"
+        | "std::list::insert_checked"
         | "std::list::remove_take"
+        | "std::list::remove_checked"
         | "std::map::insert_take"
         | "std::map::remove_take" => Some(EffectLevel::Pure),
         "std::wasi::print" | "std::env::time" | "std::env::random" => Some(EffectLevel::Io),

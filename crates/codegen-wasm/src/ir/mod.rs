@@ -15,8 +15,9 @@ use crate::intrinsics::{
     env::{encode_intrinsic_env_random, encode_intrinsic_env_time},
     runtime::encode_intrinsic_identity,
     strings::{
-        encode_intrinsic_bytes_eq_ct, encode_intrinsic_str_concat, encode_intrinsic_str_eq,
-        encode_intrinsic_str_len,
+        encode_intrinsic_bytes_eq_ct, encode_intrinsic_str_concat, encode_intrinsic_str_contains,
+        encode_intrinsic_str_ends_with, encode_intrinsic_str_eq, encode_intrinsic_str_len,
+        encode_intrinsic_str_starts_with,
     },
     u64::{
         encode_intrinsic_u64_from_bytes_be, encode_intrinsic_u64_from_bytes_le,
@@ -500,6 +501,9 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,
             "std::str::concat" => encode_intrinsic_str_concat(f)?,
+            "std::str::starts_with" => encode_intrinsic_str_starts_with(f)?,
+            "std::str::ends_with" => encode_intrinsic_str_ends_with(f)?,
+            "std::str::contains" => encode_intrinsic_str_contains(f)?,
             "std::u64::rotl" => encode_intrinsic_u64_rotl(f)?,
             "std::u64::rotr" => encode_intrinsic_u64_rotr(f)?,
             "std::u64::to_bytes_le" => encode_intrinsic_u64_to_bytes_le(f)?,

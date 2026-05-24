@@ -88,6 +88,23 @@ pub(super) fn lower_list_call<'a>(
             let list_val = lower_expr(ctx, &args[0], None)?;
             Ok(Some(emit_collection_len(ctx, list_val)))
         }
+        "std::list::is_empty" => {
+            if args.len() != 1 {
+                anyhow::bail!("`std::list::is_empty` expects one argument");
+            }
+            let list_val = lower_expr(ctx, &args[0], None)?;
+            let len = emit_collection_len(ctx, list_val);
+            let zero = emit_int_const(ctx, 0);
+            let out = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: out,
+                op: BinOpIR::Eq,
+                lhs: len,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            Ok(Some(out))
+        }
         "std::list::get" => {
             if args.len() != 2 {
                 anyhow::bail!("`std::list::get` expects two arguments");
@@ -324,6 +341,146 @@ pub(super) fn lower_list_call<'a>(
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
         }
+        "std::list::insert_checked" => {
+            if args.len() != 3 {
+                anyhow::bail!("`std::list::insert_checked` expects three arguments");
+            }
+            let elem_ty = list_elem_type(ctx, &args[0])?;
+            let list_val = lower_expr(ctx, &args[0], None)?;
+            let elem_val = lower_expr(ctx, &args[1], Some(elem_ty.clone()))?;
+            let idx = lower_expr(ctx, &args[2], Some(Type::Int))?;
+            let len = emit_collection_len(ctx, list_val);
+            let zero = emit_int_const(ctx, 0);
+            let idx_ge_zero = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_ge_zero,
+                op: BinOpIR::Ge,
+                lhs: idx,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            let idx_le_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_le_len,
+                op: BinOpIR::Le,
+                lhs: idx,
+                rhs: len,
+                ty: IrType::Int,
+            });
+            let ok = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: ok,
+                op: BinOpIR::And,
+                lhs: idx_ge_zero,
+                rhs: idx_le_len,
+                ty: IrType::Int,
+            });
+            let safe_idx = fresh(ctx);
+            ctx.body.push(Instr::ISelect {
+                dst: safe_idx,
+                cond: ok,
+                then_v: idx,
+                else_v: zero,
+            });
+
+            let one = emit_int_const(ctx, 1);
+            let new_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: new_len,
+                op: BinOpIR::Add,
+                lhs: len,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let new_cap = emit_cap_from_len(ctx, new_len);
+            let buf_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: buf_bytes,
+                op: BinOpIR::Mul,
+                lhs: new_cap,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
+            let old_data = emit_collection_data_ptr(ctx, list_val);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, old_data, len, cap, stride, align);
+            let bytes_before = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: bytes_before,
+                op: BinOpIR::Mul,
+                lhs: safe_idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            emit_memcpy_bytes(ctx, old_data, new_data, bytes_before)?;
+            let offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: offset,
+                op: BinOpIR::Mul,
+                lhs: safe_idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let elem_ptr = emit_ptr_add(ctx, new_data, offset);
+            store_value(ctx, &elem_ty, elem_ptr, 0, elem_val)?;
+            let idx_plus_one = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_plus_one,
+                op: BinOpIR::Add,
+                lhs: safe_idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            let remaining = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: remaining,
+                op: BinOpIR::Sub,
+                lhs: len,
+                rhs: safe_idx,
+                ty: IrType::Int,
+            });
+            let bytes_after = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: bytes_after,
+                op: BinOpIR::Mul,
+                lhs: remaining,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let src_ptr = emit_ptr_add(ctx, old_data, offset);
+            let dst_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: dst_offset,
+                op: BinOpIR::Mul,
+                lhs: idx_plus_one,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let dst_ptr = emit_ptr_add(ctx, new_data, dst_offset);
+            emit_memcpy_bytes(ctx, src_ptr, dst_ptr, bytes_after)?;
+            let inserted_list = emit_collection_header(ctx, new_len, new_cap, new_data);
+
+            let err_payload = emit_int_const(ctx, 1);
+            let payload = fresh(ctx);
+            ctx.body.push(Instr::ISelect {
+                dst: payload,
+                cond: ok,
+                then_v: inserted_list,
+                else_v: err_payload,
+            });
+            let tag = fresh(ctx);
+            ctx.body.push(Instr::ISelect {
+                dst: tag,
+                cond: ok,
+                then_v: one,
+                else_v: zero,
+            });
+            let zero_hi = emit_int_const(ctx, 0);
+            Ok(Some(ctx.variant_init(tag, payload, zero_hi)))
+        }
         "std::list::remove" => {
             if args.len() != 2 {
                 anyhow::bail!("`std::list::remove` expects two arguments");
@@ -436,6 +593,143 @@ pub(super) fn lower_list_call<'a>(
             emit_memcpy_bytes(ctx, src_ptr, dst_ptr, bytes_after)?;
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
+        }
+        "std::list::remove_checked" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::list::remove_checked` expects two arguments");
+            }
+            let elem_ty = list_elem_type(ctx, &args[0])?;
+            let list_val = lower_expr(ctx, &args[0], None)?;
+            let idx = lower_expr(ctx, &args[1], Some(Type::Int))?;
+            let len = emit_collection_len(ctx, list_val);
+            let zero = emit_int_const(ctx, 0);
+            let idx_ge_zero = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_ge_zero,
+                op: BinOpIR::Ge,
+                lhs: idx,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            let idx_lt_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_lt_len,
+                op: BinOpIR::Lt,
+                lhs: idx,
+                rhs: len,
+                ty: IrType::Int,
+            });
+            let ok = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: ok,
+                op: BinOpIR::And,
+                lhs: idx_ge_zero,
+                rhs: idx_lt_len,
+                ty: IrType::Int,
+            });
+            let safe_idx = fresh(ctx);
+            ctx.body.push(Instr::ISelect {
+                dst: safe_idx,
+                cond: ok,
+                then_v: idx,
+                else_v: zero,
+            });
+
+            let one = emit_int_const(ctx, 1);
+            let new_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: new_len,
+                op: BinOpIR::Sub,
+                lhs: len,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let new_cap = emit_cap_from_len(ctx, new_len);
+            let buf_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: buf_bytes,
+                op: BinOpIR::Mul,
+                lhs: new_cap,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let new_data = emit_alloc_dyn(ctx, buf_bytes, align);
+            let old_data = emit_collection_data_ptr(ctx, list_val);
+            let cap = emit_collection_cap(ctx, list_val);
+            emit_collection_payload_guard(ctx, old_data, len, cap, stride, align);
+            let bytes_before = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: bytes_before,
+                op: BinOpIR::Mul,
+                lhs: safe_idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            emit_memcpy_bytes(ctx, old_data, new_data, bytes_before)?;
+            let idx_plus_one = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: idx_plus_one,
+                op: BinOpIR::Add,
+                lhs: safe_idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            let remaining = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: remaining,
+                op: BinOpIR::Sub,
+                lhs: len,
+                rhs: idx_plus_one,
+                ty: IrType::Int,
+            });
+            let bytes_after = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: bytes_after,
+                op: BinOpIR::Mul,
+                lhs: remaining,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let src_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: src_offset,
+                op: BinOpIR::Mul,
+                lhs: idx_plus_one,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let src_ptr = emit_ptr_add(ctx, old_data, src_offset);
+            let dst_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: dst_offset,
+                op: BinOpIR::Mul,
+                lhs: safe_idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let dst_ptr = emit_ptr_add(ctx, new_data, dst_offset);
+            emit_memcpy_bytes(ctx, src_ptr, dst_ptr, bytes_after)?;
+            let removed_list = emit_collection_header(ctx, new_len, new_cap, new_data);
+
+            let err_payload = emit_int_const(ctx, 1);
+            let payload = fresh(ctx);
+            ctx.body.push(Instr::ISelect {
+                dst: payload,
+                cond: ok,
+                then_v: removed_list,
+                else_v: err_payload,
+            });
+            let tag = fresh(ctx);
+            ctx.body.push(Instr::ISelect {
+                dst: tag,
+                cond: ok,
+                then_v: one,
+                else_v: zero,
+            });
+            let zero_hi = emit_int_const(ctx, 0);
+            Ok(Some(ctx.variant_init(tag, payload, zero_hi)))
         }
         "std::list::remove_take" => {
             if args.len() != 2 {

@@ -104,6 +104,9 @@ fn set_len_and_insert_remove_types() {
         pure function s_ins(s: Set<Int>) -> Set<Int> { std::set::insert(s, 1) }
         pure function s_rm(s: Set<Int>) -> Set<Int> { std::set::remove(s, 1) }
         pure function s_subset(a: Set<Int>, b: Set<Int>) -> Bool { std::set::subset(a, b) }
+        pure function s_union(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::union(a, b) }
+        pure function s_intersect(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::intersect(a, b) }
+        pure function s_diff(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::diff(a, b) }
     "#;
     type_ok(src);
 }
@@ -207,21 +210,21 @@ fn set_subset_element_mismatch() {
 }
 
 #[test]
-fn set_algebra_ops_are_fail_closed_until_gate_c_enables_them() {
+fn set_algebra_element_mismatch() {
     let union_src = r#"
-        function bad(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::union(a, b) }
+        function bad(a: Set<Int>, b: Set<Bool>) -> Set<Int> { std::set::union(a, b) }
     "#;
-    type_err_code(union_src, "T001");
+    type_err_code(union_src, "T208");
 
     let intersect_src = r#"
-        function bad(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::intersect(a, b) }
+        function bad(a: Set<Int>, b: Set<Bool>) -> Set<Int> { std::set::intersect(a, b) }
     "#;
-    type_err_code(intersect_src, "T001");
+    type_err_code(intersect_src, "T208");
 
     let diff_src = r#"
-        function bad(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::diff(a, b) }
+        function bad(a: Set<Int>, b: Set<Bool>) -> Set<Int> { std::set::diff(a, b) }
     "#;
-    type_err_code(diff_src, "T001");
+    type_err_code(diff_src, "T208");
 }
 
 #[test]

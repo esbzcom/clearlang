@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "gate": "26.2.5",
+  "aggregation_mode": "pinned-baseline-regression",
+  "thresholds": {
+    "median_regression_pct_max": 10,
+    "p95_regression_pct_max": 20,
+    "timeout_count_max": 0
+  },
+  "fixtures": [
+    "set_subset_membership",
+    "set_algebra",
+    "set_cardinality"
+  ]
+}

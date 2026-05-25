@@ -195,3 +195,114 @@ fn set_subset_false_when_element_missing() {
     let ok = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
     assert_eq!(ok, 0, "expected subset to return false");
 }
+
+#[test]
+fn set_union_merges_without_duplicates() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::union(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[1, 2]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[2, 3]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let out_ptr = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+
+    let values = read_set_values(&memory, &mut store, out_ptr);
+    assert_eq!(values, vec![1, 2, 3]);
+}
+
+#[test]
+fn set_intersect_keeps_shared_elements() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::intersect(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[1, 2, 4]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[2, 3, 4]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let out_ptr = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+
+    let values = read_set_values(&memory, &mut store, out_ptr);
+    assert_eq!(values, vec![2, 4]);
+}
+
+#[test]
+fn set_diff_removes_rhs_elements() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::diff(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[1, 2, 3]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[2, 9]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let out_ptr = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+
+    let values = read_set_values(&memory, &mut store, out_ptr);
+    assert_eq!(values, vec![1, 3]);
+}
+
+fn read_set_values(
+    memory: &wasmtime::Memory,
+    store: &mut wasmtime::Store<()>,
+    set_ptr: i32,
+) -> Vec<i32> {
+    let len = read_i32(memory, store, set_ptr);
+    let data_ptr = read_i32(memory, store, set_ptr + 12);
+    let mut out = Vec::with_capacity(len as usize);
+    for i in 0..len {
+        out.push(read_i32(memory, store, data_ptr + (i * 4)));
+    }
+    out.sort_unstable();
+    out
+}

@@ -78,13 +78,13 @@ Functions:
 
 ## First-Production Cut (recommended)
 - Keep `List<T>`: `new`, `len`, `get`, `push`, `insert`, `insert_checked`, `remove`, `remove_checked`, `remove_take`, `pop`.
-- Keep `Set<T>`: `new`, `len`, `contains`, `insert`, `remove`.
+- Keep `Set<T>`: `new`, `len`, `contains`, `insert`, `remove`, `subset`, `union`, `intersect`, `diff`.
 - Keep `Map<K, V>`: `new`, `len`, `contains`, `get`, `insert`, `insert_take`, `remove`, `remove_take`.
 - Keep guarded mutable compatibility surfaces used by current code/tests:
   - `std::list::{can_mut,push_mut,insert_mut,remove_mut,pop_mut}`
   - `std::set::{can_mut,insert_mut,remove_mut}`
   - `std::map::{can_mut,insert_mut,remove_mut}`
-- Defer `std::set::subset` and all set algebra/cardinality proof features to Gate C (`26.2+`).
+- Keep cardinality-heavy proof work (`len`/size-relation reasoning) deferred to Gate C follow-up (`26.2.5+`).
 
 ## Notes
 - This file is an umbrella catalog for collection modules, not a direct import path.

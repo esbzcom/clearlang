@@ -375,6 +375,106 @@ fn build_set_subset_membership_vcs_have_zero_assumptions() {
 }
 
 #[test]
+fn build_set_algebra_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("set_algebra.clear");
+    let wasm_path = tmp.path().join("set_algebra.wasm");
+    let vcs_path = tmp.path().join("set_algebra.vc.json");
+    let src = r#"
+        pure function set_algebra(a: Set<Int>, b: Set<Int>) -> Bool
+            ensure { std::set::subset(std::set::intersect(a, b), std::set::union(a, b)) }
+            ensure { result == std::set::subset(std::set::diff(a, b), a) }
+        {
+            std::set::subset(std::set::diff(a, b), a)
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("set_algebra")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("set_algebra vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(assumptions.is_empty(), "set algebra VC must be assumption-free");
+}
+
+#[test]
+fn build_set_cardinality_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("set_cardinality.clear");
+    let wasm_path = tmp.path().join("set_cardinality.wasm");
+    let vcs_path = tmp.path().join("set_cardinality.vc.json");
+    let src = r#"
+        pure function set_cardinality(a: Set<Int>, b: Set<Int>) -> Bool
+            ensure { std::set::len(std::set::intersect(a, b)) <= std::set::len(a) }
+            ensure { std::set::len(std::set::union(a, b)) >= std::set::len(a) }
+            ensure { std::set::len(std::set::diff(a, b)) <= std::set::len(a) }
+        {
+            true
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("set_cardinality")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("set_cardinality vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "set cardinality VC must be assumption-free"
+    );
+}
+
+#[test]
 fn standard_compiler_mode_accepts_labeled_assumptions_for_l3_gate() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("strict_l3_gate.clear");

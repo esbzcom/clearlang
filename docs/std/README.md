@@ -42,7 +42,7 @@ First production release policy:
 - `std::str`: `draft` (API surface defined; UTF-8 canonicality and edge-case contracts pending)
 - `std::bytes`: `draft` (constant-time contract defined at API level; measurement/conformance policy pending)
 - `std::int`: `draft` (checked/wrapping/saturating model defined; full deterministic error-code map pending)
-- Collections catalog (`std::list`, `std::set`, `std::map`): `draft` (deterministic behavior defined; full set algebra proof contracts pending)
+- Collections catalog (`std::list`, `std::set`, `std::map`): `draft` (deterministic behavior and finite-set proof contracts defined; list/map proof-roadmap closure pending)
 - `std::codec`: `draft` (canonical encoding intent defined; full wire-format lock pending)
 - `std::crypto`: `draft` (typed crypto API defined; algorithm-specific canonical encoding rules pending)
 - `std::host`: `draft` (capability/fail-closed boundaries defined; strict conformance suites pending)

@@ -30,6 +30,7 @@ Current assumption boundaries:
 | `feature.refinement_premises` | proved | proved | proved | proved | proved |
 | `feature.loop_obligations` | proved | proved | proved | proved | proved |
 | `feature.linear_collection_control_flow` | proved | proved | proved | proved | proved |
+| `feature.finite_set_algebra_reasoning` | proved | proved | proved | proved | proved |
 | `feature.finite_set_membership_subset_reasoning` | proved | proved | proved | proved | proved |
 | `feature.unsigned_integer_model` | assumed (`unsigned.int_model`) | assumed | assumed | assumed | blocked |
 | `feature.bitwise_shift_operators` | assumed (`bitwise.uninterpreted`) | assumed | assumed | assumed | blocked |
@@ -40,11 +41,11 @@ Current assumption boundaries:
 Per-intrinsic rows live in `docs/proofs/proof-coverage-matrix.json` under ids:
 - `intrinsic.std::bytes::eq_ct`
 - `intrinsic.std::crypto::{hash,hmac,verify}`
-- `intrinsic.std::set::{contains,subset}`
+- `intrinsic.std::set::{len,contains,subset,union,intersect,diff}`
 - `intrinsic.std::u64::{add_wrap,sub_wrap,mul_wrap,add_sat,sub_sat,mul_sat,rotl,rotr,to_bytes_le,to_bytes_be,from_bytes_le,from_bytes_be}`
 - `intrinsic.std::u128::{from_limbs,lo,hi}`
 - `intrinsic.std::u256::{from_limbs,limb0,limb1,limb2,limb3}`
 
-`intrinsic.std::set::{contains,subset}` are currently `proved`.
+`intrinsic.std::set::{len,contains,subset,union,intersect,diff}` are currently `proved`.
 All other listed intrinsic entries are currently `assumed` and therefore `blocked` at `L3`.
 Bitwise-sensitive `std::u64` intrinsics (`rotl`, `rotr`, `to_bytes_*`, `from_bytes_*`) are explicitly downgraded under `bitwise.uninterpreted`.

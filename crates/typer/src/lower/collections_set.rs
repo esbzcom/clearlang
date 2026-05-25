@@ -394,6 +394,386 @@ pub(super) fn lower_set_call<'a>(
 
             Ok(Some(subset))
         }
+        "std::set::union" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::set::union` expects two arguments");
+            }
+            let elem_ty = set_elem_type(ctx, &args[0])?;
+            let lhs_set = lower_expr(ctx, &args[0], None)?;
+            let rhs_set = lower_expr(ctx, &args[1], None)?;
+
+            let lhs_len = emit_collection_len(ctx, lhs_set);
+            let lhs_data = emit_collection_data_ptr(ctx, lhs_set);
+            let lhs_cap = emit_collection_cap(ctx, lhs_set);
+
+            let rhs_len = emit_collection_len(ctx, rhs_set);
+            let rhs_data = emit_collection_data_ptr(ctx, rhs_set);
+            let rhs_cap = emit_collection_cap(ctx, rhs_set);
+
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            emit_collection_payload_guard(ctx, lhs_data, lhs_len, lhs_cap, stride, align);
+            emit_collection_payload_guard(ctx, rhs_data, rhs_len, rhs_cap, stride, align);
+
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let one = emit_int_const(ctx, 1);
+            let max_len = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: max_len,
+                op: BinOpIR::Add,
+                lhs: lhs_len,
+                rhs: rhs_len,
+                ty: IrType::Int,
+            });
+            let out_cap = emit_cap_from_len(ctx, max_len);
+            let buf_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: buf_bytes,
+                op: BinOpIR::Mul,
+                lhs: out_cap,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let out_data = emit_alloc_dyn(ctx, buf_bytes, align);
+
+            let copy_lhs_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: copy_lhs_bytes,
+                op: BinOpIR::Mul,
+                lhs: lhs_len,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            emit_memcpy_bytes(ctx, lhs_data, out_data, copy_lhs_bytes)?;
+
+            let out_len = fresh(ctx);
+            let zero = emit_int_const(ctx, 0);
+            ctx.body.push(Instr::IBin {
+                dst: out_len,
+                op: BinOpIR::Add,
+                lhs: lhs_len,
+                rhs: zero,
+                ty: IrType::Int,
+            });
+            let idx = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: idx,
+                ty: IrType::Int,
+                n: 0,
+            });
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::LoopBegin);
+            let cont = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: cont,
+                op: BinOpIR::Lt,
+                lhs: idx,
+                rhs: rhs_len,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: cont,
+                depth: 1,
+            });
+
+            let rhs_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: rhs_offset,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let rhs_elem_ptr = emit_ptr_add(ctx, rhs_data, rhs_offset);
+            let rhs_elem = load_value_borrow(ctx, &elem_ty, rhs_elem_ptr, 0)?;
+
+            let (found, _found_idx) = emit_find_index(
+                ctx,
+                out_data,
+                out_len,
+                stride,
+                rhs_elem,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::BrIf {
+                cond: found,
+                depth: 0,
+            });
+            let out_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: out_offset,
+                op: BinOpIR::Mul,
+                lhs: out_len,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let out_elem_ptr = emit_ptr_add(ctx, out_data, out_offset);
+            store_value(ctx, &elem_ty, out_elem_ptr, 0, rhs_elem)?;
+            ctx.body.push(Instr::IBin {
+                dst: out_len,
+                op: BinOpIR::Add,
+                lhs: out_len,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BlockEnd);
+
+            ctx.body.push(Instr::IBin {
+                dst: idx,
+                op: BinOpIR::Add,
+                lhs: idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Br { depth: 0 });
+            ctx.body.push(Instr::LoopEnd);
+            ctx.body.push(Instr::BlockEnd);
+
+            let header = emit_collection_header(ctx, out_len, out_cap, out_data);
+            Ok(Some(header))
+        }
+        "std::set::intersect" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::set::intersect` expects two arguments");
+            }
+            let elem_ty = set_elem_type(ctx, &args[0])?;
+            let lhs_set = lower_expr(ctx, &args[0], None)?;
+            let rhs_set = lower_expr(ctx, &args[1], None)?;
+
+            let lhs_len = emit_collection_len(ctx, lhs_set);
+            let lhs_data = emit_collection_data_ptr(ctx, lhs_set);
+            let lhs_cap = emit_collection_cap(ctx, lhs_set);
+
+            let rhs_len = emit_collection_len(ctx, rhs_set);
+            let rhs_data = emit_collection_data_ptr(ctx, rhs_set);
+            let rhs_cap = emit_collection_cap(ctx, rhs_set);
+
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            emit_collection_payload_guard(ctx, lhs_data, lhs_len, lhs_cap, stride, align);
+            emit_collection_payload_guard(ctx, rhs_data, rhs_len, rhs_cap, stride, align);
+
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let one = emit_int_const(ctx, 1);
+            let out_cap = emit_cap_from_len(ctx, lhs_len);
+            let buf_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: buf_bytes,
+                op: BinOpIR::Mul,
+                lhs: out_cap,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let out_data = emit_alloc_dyn(ctx, buf_bytes, align);
+            let out_len = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: out_len,
+                ty: IrType::Int,
+                n: 0,
+            });
+            let idx = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: idx,
+                ty: IrType::Int,
+                n: 0,
+            });
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::LoopBegin);
+            let cont = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: cont,
+                op: BinOpIR::Lt,
+                lhs: idx,
+                rhs: lhs_len,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: cont,
+                depth: 1,
+            });
+
+            let lhs_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: lhs_offset,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let lhs_elem_ptr = emit_ptr_add(ctx, lhs_data, lhs_offset);
+            let lhs_elem = load_value_borrow(ctx, &elem_ty, lhs_elem_ptr, 0)?;
+            let (found, _found_idx) = emit_find_index(
+                ctx,
+                rhs_data,
+                rhs_len,
+                stride,
+                lhs_elem,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::BrIfEqz {
+                cond: found,
+                depth: 0,
+            });
+            let out_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: out_offset,
+                op: BinOpIR::Mul,
+                lhs: out_len,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let out_elem_ptr = emit_ptr_add(ctx, out_data, out_offset);
+            store_value(ctx, &elem_ty, out_elem_ptr, 0, lhs_elem)?;
+            ctx.body.push(Instr::IBin {
+                dst: out_len,
+                op: BinOpIR::Add,
+                lhs: out_len,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BlockEnd);
+
+            ctx.body.push(Instr::IBin {
+                dst: idx,
+                op: BinOpIR::Add,
+                lhs: idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Br { depth: 0 });
+            ctx.body.push(Instr::LoopEnd);
+            ctx.body.push(Instr::BlockEnd);
+
+            let header = emit_collection_header(ctx, out_len, out_cap, out_data);
+            Ok(Some(header))
+        }
+        "std::set::diff" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::set::diff` expects two arguments");
+            }
+            let elem_ty = set_elem_type(ctx, &args[0])?;
+            let lhs_set = lower_expr(ctx, &args[0], None)?;
+            let rhs_set = lower_expr(ctx, &args[1], None)?;
+
+            let lhs_len = emit_collection_len(ctx, lhs_set);
+            let lhs_data = emit_collection_data_ptr(ctx, lhs_set);
+            let lhs_cap = emit_collection_cap(ctx, lhs_set);
+
+            let rhs_len = emit_collection_len(ctx, rhs_set);
+            let rhs_data = emit_collection_data_ptr(ctx, rhs_set);
+            let rhs_cap = emit_collection_cap(ctx, rhs_set);
+
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            emit_collection_payload_guard(ctx, lhs_data, lhs_len, lhs_cap, stride, align);
+            emit_collection_payload_guard(ctx, rhs_data, rhs_len, rhs_cap, stride, align);
+
+            let stride_val = emit_int_const(ctx, stride as i64);
+            let one = emit_int_const(ctx, 1);
+            let out_cap = emit_cap_from_len(ctx, lhs_len);
+            let buf_bytes = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: buf_bytes,
+                op: BinOpIR::Mul,
+                lhs: out_cap,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let out_data = emit_alloc_dyn(ctx, buf_bytes, align);
+            let out_len = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: out_len,
+                ty: IrType::Int,
+                n: 0,
+            });
+            let idx = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: idx,
+                ty: IrType::Int,
+                n: 0,
+            });
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::LoopBegin);
+            let cont = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: cont,
+                op: BinOpIR::Lt,
+                lhs: idx,
+                rhs: lhs_len,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: cont,
+                depth: 1,
+            });
+
+            let lhs_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: lhs_offset,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let lhs_elem_ptr = emit_ptr_add(ctx, lhs_data, lhs_offset);
+            let lhs_elem = load_value_borrow(ctx, &elem_ty, lhs_elem_ptr, 0)?;
+            let (found, _found_idx) = emit_find_index(
+                ctx,
+                rhs_data,
+                rhs_len,
+                stride,
+                lhs_elem,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::BrIf {
+                cond: found,
+                depth: 0,
+            });
+            let out_offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: out_offset,
+                op: BinOpIR::Mul,
+                lhs: out_len,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let out_elem_ptr = emit_ptr_add(ctx, out_data, out_offset);
+            store_value(ctx, &elem_ty, out_elem_ptr, 0, lhs_elem)?;
+            ctx.body.push(Instr::IBin {
+                dst: out_len,
+                op: BinOpIR::Add,
+                lhs: out_len,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BlockEnd);
+
+            ctx.body.push(Instr::IBin {
+                dst: idx,
+                op: BinOpIR::Add,
+                lhs: idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Br { depth: 0 });
+            ctx.body.push(Instr::LoopEnd);
+            ctx.body.push(Instr::BlockEnd);
+
+            let header = emit_collection_header(ctx, out_len, out_cap, out_data);
+            Ok(Some(header))
+        }
         _ => Ok(None),
     }
 }

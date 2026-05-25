@@ -480,3 +480,47 @@ fn set_subset_membership_vcs_carry_no_assumptions() {
     assert!(vc.vc_smt2.contains("|std::set::subset|"));
     assert!(vc.vc_smt2.contains("|std::set::contains|"));
 }
+
+#[test]
+fn set_algebra_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function set_algebra(a: Set<Int>, b: Set<Int>) -> Bool
+            ensure { std::set::subset(std::set::intersect(a, b), std::set::union(a, b)) }
+            ensure { result == std::set::subset(std::set::diff(a, b), a) }
+        {
+            std::set::subset(std::set::diff(a, b), a)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "set_algebra" && vc.vc_id == "vc:0")
+        .expect("set_algebra vc:0");
+    assert!(vc.assumptions.is_empty(), "set algebra VC should be assumption-free");
+}
+
+#[test]
+fn set_cardinality_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function set_cardinality(a: Set<Int>, b: Set<Int>) -> Bool
+            ensure { std::set::len(std::set::intersect(a, b)) <= std::set::len(a) }
+            ensure { std::set::len(std::set::union(a, b)) >= std::set::len(a) }
+            ensure { std::set::len(std::set::diff(a, b)) <= std::set::len(a) }
+        {
+            true
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "set_cardinality" && vc.vc_id == "vc:0")
+        .expect("set_cardinality vc:0");
+    assert!(
+        vc.assumptions.is_empty(),
+        "set cardinality VC should be assumption-free"
+    );
+}

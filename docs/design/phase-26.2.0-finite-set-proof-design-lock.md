@@ -51,7 +51,15 @@ Gate C is complete when:
   - `crates/typer/tests/vc/refinements_and_assumptions.rs` (`set_subset_membership_vcs_carry_no_assumptions`)
   - `crates/cli/tests/cli_it/vc_outputs/assumption_tests.rs` (`build_set_subset_membership_vcs_have_zero_assumptions`)
 - Ordered rollout fail-closed evidence:
-  - `crates/typer/tests/collections_typing.rs` (`set_algebra_ops_are_fail_closed_until_gate_c_enables_them`) keeps `std::set::{union,intersect,diff}` blocked with deterministic `T001` diagnostics until Gate C expansion.
+  - `crates/typer/tests/collections_typing.rs` previously enforced deterministic fail-closed blocking for `std::set::{union,intersect,diff}` until Gate C expansion, then transitioned to typed mismatch conformance once `26.2.4` landed.
+- `26.2.4` set-algebra closure evidence:
+  - `crates/typer/src/check/expr/calls/collections.rs` and `crates/typer/src/lower/collections_set.rs` implement `std::set::{union,intersect,diff}`.
+  - `crates/codegen-wasm/tests/collections_runtime/set_ops.rs` covers deterministic runtime behavior for each operator.
+  - `crates/typer/tests/vc/refinements_and_assumptions.rs` and `crates/cli/tests/cli_it/vc_outputs/assumption_tests.rs` assert assumption-free VC behavior.
+- `26.2.5` cardinality/perf closure evidence:
+  - `crates/typer/tests/vc/refinements_and_assumptions.rs` and `crates/cli/tests/cli_it/vc_outputs/assumption_tests.rs` add `std::set::len` cardinality VC coverage with zero assumptions.
+  - `docs/evidence/phase-26.2-finite-set-performance.{md,json}` publish deterministic guardrail thresholds and release-enabled fixture set.
+  - `crates/cli/tests/phase26_finite_set_performance_guardrails.rs` enforces guardrail contract drift checks.
 - Coverage updates:
   - `docs/proofs/proof-coverage-matrix.{md,json}` marks `feature.finite_set_membership_subset_reasoning` and `intrinsic.std::set::{contains,subset}` as `proved`.
   - `docs/std/coverage-matrix.md` marks `std::set::{contains,subset}` as `proved=yes`.

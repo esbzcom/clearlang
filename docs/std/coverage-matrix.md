@@ -189,11 +189,12 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::set::{new,len,is_empty,insert,remove}` | yes | yes | no | Release-enabled set baseline. |
+| `std::set::{new,is_empty,insert,remove}` | yes | yes | no | Release-enabled set baseline (non-cardinality). |
+| `std::set::len` | yes | yes | yes | Cardinality VC proof row closed in `26.2.5` with assumption-free evidence. |
 | `std::set::contains` | yes | yes | yes | Finite-set membership proof row closed in `26.2.2` with zero-assumption VC evidence. |
 | `std::set::subset` | yes | yes | yes | Finite-set subset proof row closed in `26.2.2` with zero-assumption VC evidence. |
 | `std::set::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Current guarded mutable compatibility surface. |
-| `std::set::{union,intersect,diff}` | no | no | deferred | Deferred from first-production baseline; owned by Gate C (`26.2`) ordered rollout. |
+| `std::set::{union,intersect,diff}` | yes | yes | yes | Implemented in Gate C step `26.2.4`; assumption-free VC evidence added for set algebra closure. |
 
 ## `std::map`
 

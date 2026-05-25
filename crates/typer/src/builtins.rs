@@ -379,6 +379,101 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::set::len".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "set".to_string(),
+                ty: Type::Set(Box::new(Type::Int)),
+            }],
+            Type::Int,
+            Effect::Pure,
+        ),
+        (
+            "std::set::contains".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "set".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::set::subset".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::set::union".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+            ],
+            Type::Set(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::set::intersect".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+            ],
+            Type::Set(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::set::diff".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Set(Box::new(Type::Int)),
+                },
+            ],
+            Type::Set(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
             "std::unit::assert_true".to_string(),
             vec![
                 Param {

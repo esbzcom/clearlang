@@ -42,6 +42,19 @@
       }
     },
     {
+      "id": "feature.finite_set_algebra_reasoning",
+      "kind": "feature",
+      "surface": "Finite-set algebra reasoning over std::set::union/std::set::intersect/std::set::diff",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
       "id": "feature.finite_set_membership_subset_reasoning",
       "kind": "feature",
       "surface": "Finite-set membership and subset reasoning over std::set::contains/std::set::subset",
@@ -172,9 +185,61 @@
       }
     },
     {
+      "id": "intrinsic.std::set::diff",
+      "kind": "intrinsic",
+      "surface": "std::set::diff",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::set::intersect",
+      "kind": "intrinsic",
+      "surface": "std::set::intersect",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::set::len",
+      "kind": "intrinsic",
+      "surface": "std::set::len",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
       "id": "intrinsic.std::set::subset",
       "kind": "intrinsic",
       "surface": "std::set::subset",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::set::union",
+      "kind": "intrinsic",
+      "surface": "std::set::union",
       "status": "proved",
       "assumption_boundary": null,
       "tiers": {

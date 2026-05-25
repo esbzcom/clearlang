@@ -133,6 +133,9 @@
         { "name": "insert", "kind": "value" },
         { "name": "remove", "kind": "value" },
         { "name": "subset", "kind": "value" },
+        { "name": "union", "kind": "value" },
+        { "name": "intersect", "kind": "value" },
+        { "name": "diff", "kind": "value" },
         { "name": "can_mut", "kind": "value" },
         { "name": "insert_mut", "kind": "value" },
         { "name": "remove_mut", "kind": "value" }

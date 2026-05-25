@@ -135,3 +135,63 @@ fn set_remove_existing() {
     assert_eq!(len, 1, "remove should decrease len");
     assert_eq!(only, 2, "remaining element should be preserved");
 }
+
+#[test]
+fn set_subset_true_when_all_elements_present() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Bool { std::set::subset(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[1, 2]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[1, 2, 3]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let ok = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+    assert_eq!(ok, 1, "expected subset to return true");
+}
+
+#[test]
+fn set_subset_false_when_element_missing() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Bool { std::set::subset(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[1, 4]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[1, 2, 3]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let ok = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+    assert_eq!(ok, 0, "expected subset to return false");
+}

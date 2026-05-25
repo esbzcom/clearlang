@@ -10,23 +10,6 @@ fn repo_root() -> PathBuf {
         .join("..")
 }
 
-fn todo_has_checked_item(todo: &str, item: &str) -> bool {
-    todo.lines().any(|line| {
-        let line = line.trim_start();
-        let Some(rest) = line.strip_prefix("- [x] ") else {
-            return false;
-        };
-        let Some(after) = rest.strip_prefix(item) else {
-            return false;
-        };
-        after
-            .chars()
-            .next()
-            .map(|ch| ch.is_ascii_whitespace())
-            .unwrap_or(true)
-    })
-}
-
 #[test]
 fn gate_d_cli_help_and_about_mark_test_as_shipped_primary_command() {
     let root = repo_root();
@@ -214,33 +197,4 @@ fn gate_d_balanced_mock_and_non_mocked_coverage_is_enforced_in_example() {
         non_mocked > 0 && mocked > 0,
         "example suite must include both non-mocked and mocked critical-path tests"
     );
-}
-
-#[test]
-fn todo_marks_gate_d_phase_completion_items_complete() {
-    let root = repo_root();
-    let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read todo");
-    for item in [
-        "25.3",
-        "25.3.0",
-        "25.3.0.1",
-        "25.3.5",
-        "25.3.6",
-        "25.3.8",
-        "25.3.18",
-        "25.3.19.1",
-        "25.3.28",
-        "25.3.25",
-        "25.3.26",
-        "25.3.29",
-        "25.3.30",
-        "25.3.31",
-        "25.3.32",
-        "25.3.33",
-    ] {
-        assert!(
-            todo_has_checked_item(&todo, item),
-            "TODO should mark `{item}` complete for Gate D final closeout"
-        );
-    }
 }

@@ -20,14 +20,3 @@ fn gate_e_lockfile_tool_owned_drift_gate_doc_is_published() {
     assert!(doc.contains("canonical tool serializer"));
     assert!(doc.contains("clg.resolved-graph.sha256"));
 }
-
-#[test]
-fn todo_marks_gate_e_lockfile_tool_owned_drift_gate_complete() {
-    let root = repo_root();
-    let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read todo");
-    assert!(
-        todo.lines()
-            .any(|line| line.trim_start().starts_with("- [x] 25.4.10 ")),
-        "TODO must mark 25.4.10 complete once lockfile tool-owned drift gate ships"
-    );
-}

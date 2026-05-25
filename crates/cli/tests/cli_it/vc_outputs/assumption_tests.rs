@@ -297,6 +297,84 @@ fn build_labels_external_dependencies_as_assumed_boundaries() {
 }
 
 #[test]
+fn build_set_subset_membership_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("set_subset.clear");
+    let wasm_path = tmp.path().join("set_subset.wasm");
+    let vcs_path = tmp.path().join("set_subset.vc.json");
+    let src = r#"
+        pure function subset_membership(a: Set<Int>, b: Set<Int>, x: Int) -> Bool
+            require { std::set::subset(a, b) && std::set::contains(a, x) }
+            ensure { result == std::set::contains(b, x) }
+        {
+            std::set::contains(b, x)
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("subset_membership")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("subset_membership vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "set subset/membership VC must be assumption-free"
+    );
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let mut proof_data = None;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                proof_data = Some(section.data().to_vec());
+                break;
+            }
+        }
+    }
+    let proof_data = proof_data.expect("proof section");
+    let section: ProofAssumptionsSection =
+        serde_cbor::from_slice(&proof_data).expect("decode proof");
+    let vc_assumptions = section
+        .functions
+        .iter()
+        .find(|f| f.name == "subset_membership")
+        .and_then(|f| f.vcs.iter().find(|vc| vc.vc_id == "vc:0"))
+        .and_then(|vc| vc.assumptions.as_ref());
+    assert!(
+        vc_assumptions
+            .map(|assumptions| assumptions.items.is_empty())
+            .unwrap_or(true),
+        "proof section must also keep set subset/membership VC assumption-free"
+    );
+}
+
+#[test]
 fn standard_compiler_mode_accepts_labeled_assumptions_for_l3_gate() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("strict_l3_gate.clear");

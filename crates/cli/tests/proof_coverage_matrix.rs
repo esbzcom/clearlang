@@ -81,6 +81,8 @@ fn proof_coverage_matrix_is_complete_and_stable() {
         "std::crypto::hash",
         "std::crypto::hmac",
         "std::crypto::verify",
+        "std::set::contains",
+        "std::set::subset",
         "std::u64::add_wrap",
         "std::u64::sub_wrap",
         "std::u64::mul_wrap",

@@ -11,7 +11,7 @@ use super::collections_helpers::{
 use super::layout::collection_layout;
 use super::{
     emit_alloc_dyn, emit_int_const, emit_memcpy_bytes, emit_ptr_add, fresh, lower_expr,
-    store_value, LowerCtx,
+    load_value_borrow, store_value, LowerCtx,
 };
 
 pub(super) fn lower_set_call<'a>(
@@ -300,6 +300,99 @@ pub(super) fn lower_set_call<'a>(
             ctx.body.push(Instr::BlockEnd);
             let header = emit_collection_header(ctx, new_len, new_cap, new_data);
             Ok(Some(header))
+        }
+        "std::set::subset" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::set::subset` expects two arguments");
+            }
+            let elem_ty = set_elem_type(ctx, &args[0])?;
+            let lhs_set = lower_expr(ctx, &args[0], None)?;
+            let rhs_set = lower_expr(ctx, &args[1], None)?;
+
+            let lhs_len = emit_collection_len(ctx, lhs_set);
+            let lhs_data = emit_collection_data_ptr(ctx, lhs_set);
+            let lhs_cap = emit_collection_cap(ctx, lhs_set);
+
+            let rhs_len = emit_collection_len(ctx, rhs_set);
+            let rhs_data = emit_collection_data_ptr(ctx, rhs_set);
+            let rhs_cap = emit_collection_cap(ctx, rhs_set);
+
+            let (_size, align, stride) = collection_layout(&elem_ty, ctx.aliases, ctx.std_types)?;
+            emit_collection_payload_guard(ctx, lhs_data, lhs_len, lhs_cap, stride, align);
+            emit_collection_payload_guard(ctx, rhs_data, rhs_len, rhs_cap, stride, align);
+
+            let subset = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: subset,
+                ty: IrType::Bool,
+                n: 1,
+            });
+            let idx = fresh(ctx);
+            ctx.body.push(Instr::IConst {
+                dst: idx,
+                ty: IrType::Int,
+                n: 0,
+            });
+
+            let one = emit_int_const(ctx, 1);
+            let stride_val = emit_int_const(ctx, stride as i64);
+
+            ctx.body.push(Instr::BlockBegin);
+            ctx.body.push(Instr::LoopBegin);
+
+            let cont = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: cont,
+                op: BinOpIR::Lt,
+                lhs: idx,
+                rhs: lhs_len,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::BrIfEqz {
+                cond: cont,
+                depth: 1,
+            });
+
+            let offset = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst: offset,
+                op: BinOpIR::Mul,
+                lhs: idx,
+                rhs: stride_val,
+                ty: IrType::Int,
+            });
+            let elem_ptr = emit_ptr_add(ctx, lhs_data, offset);
+            let elem_val = load_value_borrow(ctx, &elem_ty, elem_ptr, 0)?;
+            let (found, _found_idx) = emit_find_index(
+                ctx,
+                rhs_data,
+                rhs_len,
+                stride,
+                elem_val,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
+            ctx.body.push(Instr::IBin {
+                dst: subset,
+                op: BinOpIR::And,
+                lhs: subset,
+                rhs: found,
+                ty: IrType::Bool,
+            });
+
+            ctx.body.push(Instr::IBin {
+                dst: idx,
+                op: BinOpIR::Add,
+                lhs: idx,
+                rhs: one,
+                ty: IrType::Int,
+            });
+            ctx.body.push(Instr::Br { depth: 0 });
+            ctx.body.push(Instr::LoopEnd);
+            ctx.body.push(Instr::BlockEnd);
+
+            Ok(Some(subset))
         }
         _ => Ok(None),
     }

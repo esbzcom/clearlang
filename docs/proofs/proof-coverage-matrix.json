@@ -42,6 +42,19 @@
       }
     },
     {
+      "id": "feature.finite_set_membership_subset_reasoning",
+      "kind": "feature",
+      "surface": "Finite-set membership and subset reasoning over std::set::contains/std::set::subset",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
       "id": "feature.linear_collection_control_flow",
       "kind": "feature",
       "surface": "Linear collection branch/loop control-flow obligations",
@@ -143,6 +156,32 @@
         "L1": "assumed",
         "L2": "assumed",
         "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::set::contains",
+      "kind": "intrinsic",
+      "surface": "std::set::contains",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::set::subset",
+      "kind": "intrinsic",
+      "surface": "std::set::subset",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
       }
     },
     {

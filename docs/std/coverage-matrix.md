@@ -189,9 +189,11 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::set::{new,len,is_empty,contains,insert,remove}` | yes | yes | no | Release-enabled set baseline. |
+| `std::set::{new,len,is_empty,insert,remove}` | yes | yes | no | Release-enabled set baseline. |
+| `std::set::contains` | yes | yes | yes | Finite-set membership proof row closed in `26.2.2` with zero-assumption VC evidence. |
+| `std::set::subset` | yes | yes | yes | Finite-set subset proof row closed in `26.2.2` with zero-assumption VC evidence. |
 | `std::set::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Current guarded mutable compatibility surface. |
-| `std::set::{subset,union,intersect,diff}` | no | no | deferred | Deferred pending Gate C proof-ordered rollout. |
+| `std::set::{union,intersect,diff}` | no | no | deferred | Deferred from first-production baseline; owned by Gate C (`26.2`) ordered rollout. |
 
 ## `std::map`
 

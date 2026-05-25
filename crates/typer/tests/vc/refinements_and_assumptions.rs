@@ -452,3 +452,31 @@ fn labels_external_dependencies_as_assumed_boundaries() {
         "expected ext::dep symbol in external boundary"
     );
 }
+
+#[test]
+fn set_subset_membership_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function subset_membership(a: Set<Int>, b: Set<Int>, x: Int) -> Bool
+            require { std::set::subset(a, b) && std::set::contains(a, x) }
+            ensure { result == std::set::contains(b, x) }
+        {
+            std::set::contains(b, x)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "subset_membership" && vc.vc_id == "vc:0")
+        .expect("subset_membership vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "set membership/subset reasoning must not emit assumption boundaries"
+    );
+    assert!(vc.pre.ast.contains("std::set::subset(a, b)"));
+    assert!(vc.pre.ast.contains("std::set::contains(a, x)"));
+    assert!(vc.vc_smt2.contains("|std::set::subset|"));
+    assert!(vc.vc_smt2.contains("|std::set::contains|"));
+}

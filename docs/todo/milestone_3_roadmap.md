@@ -189,7 +189,7 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
     - [x] 26.1.0.4 Keep `CoreError` + `Panic` baseline methods for first production: `CoreError::{new,with_message,code,message,equals}` and `Panic::fail`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
     - [x] 26.1.0.5 Defer advanced `std::core` helpers until post-first-production unless required by a concrete blocker (`flatten`, `contains*`, `map_or*`, `to_result_else`, `domain/cause` fields). (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
     - [x] 26.1.0.6 Add deterministic diagnostics + contract tests for `expect`/`expect_err`/`Panic::fail` failure paths. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
-  - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior.
+  - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior (excluding explicitly deferred Gate C set-proof surfaces).
   - [ ] 26.1.2 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
   - [ ] 26.1.3 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
   - [x] 26.1.4 Add package-level execution slices so every `docs/std/README.md` package has an explicit Phase 26 owner task.
@@ -208,11 +208,12 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
     - [x] 26.1.4.13 `std::map` (from collections catalog): lock deterministic semantics for `contains/get/insert/remove` and take/mut variants with stable error behavior. (`docs/design/phase-26.1.4.13-std-map-first-production-lock.md`, `docs/std/coverage-matrix.md`) `DRI: std-map-owner`, `Target: 2026-07-06`.
 
 - [ ] 26.2 Finite-set proof roadmap (ordered execution) [Std Gate C]
-  - [ ] 26.2.1 Add `std::set::subset(a, b) -> Bool` API with typing/lowering/runtime coverage and regression tests.
-  - [ ] 26.2.2 Add finite-set VC/SMT reasoning for membership + subset and enforce strict no-assumption gate for theorem-grade claims over set properties.
-  - [ ] 26.2.3 Sequence rule: complete subset proof support first (API + VC/SMT + tests) before expanding other set operators.
-  - [ ] 26.2.4 Sequence rule: add proof support for `union`/`intersect`/`diff` after subset is complete and stable.
-  - [ ] 26.2.5 Sequence rule: add cardinality-heavy proofs last (`len`, bounds, set-size relations) with solver performance guardrails.
+  - [x] 26.2.0 Publish Gate C design lock with ordered execution, assumption-boundary policy, required evidence artifacts, and deterministic performance guardrails. (`docs/design/phase-26.2.0-finite-set-proof-design-lock.md`)
+  - [x] 26.2.1 Add `std::set::subset(a, b) -> Bool` API with typing/lowering/runtime coverage and deterministic regression tests; update coverage row from `deferred` to implemented state. (`crates/typer/src/check/expr/calls/collections.rs`, `crates/typer/src/lower/collections_set.rs`, `crates/codegen-wasm/tests/collections_runtime/set_ops.rs`, `docs/std/coverage-matrix.md`, `docs/design/phase-26.2.0-finite-set-proof-design-lock.md`)
+  - [x] 26.2.2 Add finite-set VC/SMT reasoning for membership + subset and enforce strict no-assumption gate for theorem-grade claims over set properties (`assumptions.items == []` on set VCs in strict release workflow). (`crates/typer/tests/vc/refinements_and_assumptions.rs`, `crates/cli/tests/cli_it/vc_outputs/assumption_tests.rs`, `docs/proofs/proof-coverage-matrix.{md,json}`, `docs/std/coverage-matrix.md`, `docs/design/phase-26.2.0-finite-set-proof-design-lock.md`)
+  - [x] 26.2.3 Sequence rule: complete subset proof support first (API + VC/SMT + tests) before expanding other set operators; fail closed if `union/intersect/diff` are enabled early. (`crates/typer/tests/collections_typing.rs`, `docs/std/coverage-matrix.md`)
+  - [ ] 26.2.4 Sequence rule: add proof support for `union`/`intersect`/`diff` after subset is complete and stable; update std/proof coverage matrices per operator.
+  - [ ] 26.2.5 Sequence rule: add cardinality-heavy proofs last (`len`, bounds, set-size relations) with deterministic solver performance guardrails (median `<= +10%`, p95 `<= +20%`, zero timeouts on release-enabled finite-set fixtures).
 
 - [ ] 26.3 List proof roadmap [Std Gate D]
   - [ ] 26.3.1 Define/lock list proof contracts for core APIs (`len`, `get`, `push`, `insert`, `remove`, `remove_take`, `pop`).
@@ -228,3 +229,13 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [ ] 26.5.1 Add expected-failure and trap/error assertion semantics for `clg test` only after baseline `std::unit` assertions are stable.
   - [ ] 26.5.2 Add deterministic assertion-mismatch diff shape and deterministic failure-id taxonomy for advanced assertion paths.
   - [ ] 26.5.3 Evaluate generic `assert_eq<T>` only with explicit equality-capability constraints and deterministic diagnostics policy.
+
+- [ ] 26.6 Std architecture debt cleanup (long-term) [Std Gate G]
+  - [ ] 26.6.0 Publish architecture lock for long-term std implementation model (single-source std definitions, generation pipeline, and compatibility strategy).
+  - [ ] 26.6.1 Introduce canonical std source-of-truth package layout (ClearLang-first where feasible) and classify symbols as `pure_std` vs `host_std`.
+  - [ ] 26.6.2 Generate `std-metadata`/builtin signatures from canonical source (no hand-maintained duplicate symbol tables across typer/codegen/cli).
+  - [ ] 26.6.3 Add per-symbol conformance harness enforcing doc/signature/lowering/runtime parity and fail CI on drift.
+  - [ ] 26.6.4 Migrate collection/string/bytes/int surfaces from stage-specific duplicated logic to shared generated contracts + thin adapters.
+  - [ ] 26.6.5 Lock host-capability boundary model (`std::host` ownership, import mapping, deterministic fail-closed behavior) and remove ambiguous overlaps (`std::env`/`std::wasi` compatibility paths only where explicitly approved).
+  - [ ] 26.6.6 Add deprecation/cutover plan for legacy intrinsic aliases and compatibility shims, with deterministic diagnostics and migration notes.
+  - [ ] 26.6.7 Add Gate G completion criteria: zero unmanaged std symbol definitions, green conformance matrix, and stable release-grade std architecture docs.

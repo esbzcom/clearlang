@@ -492,6 +492,32 @@ pub(crate) fn type_collection_call<'a>(
                 other => Err(TyperError::expected_collection("Set", other, span).into()),
             }
         }
+        "std::set::subset" => {
+            if args.len() != 2 {
+                return Err(TyperError::arity_mismatch(callee, 2, args.len(), span).into());
+            }
+            let lhs = arg_ty(0, false)?;
+            let rhs = arg_ty(1, false)?;
+            match lhs {
+                Type::Set(lhs_inner) => match rhs {
+                    Type::Set(rhs_inner) => {
+                        if *lhs_inner != *rhs_inner {
+                            let sp = expr_span(&args[1]);
+                            return Err(TyperError::element_type_mismatch(
+                                (*lhs_inner).clone(),
+                                (*rhs_inner).clone(),
+                                sp,
+                            )
+                            .into());
+                        }
+                        *tracker = local_tracker;
+                        Ok(Some(Type::Bool))
+                    }
+                    other => Err(TyperError::expected_collection("Set", other, span).into()),
+                },
+                other => Err(TyperError::expected_collection("Set", other, span).into()),
+            }
+        }
         "std::set::new" => Err(TyperError::cannot_infer_collection(span, "std::set").into()),
         // Map
         "std::map::len" => {

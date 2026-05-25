@@ -103,6 +103,7 @@ fn set_len_and_insert_remove_types() {
         pure function s_len(s: Set<Int>) -> Int { std::set::len(s) }
         pure function s_ins(s: Set<Int>) -> Set<Int> { std::set::insert(s, 1) }
         pure function s_rm(s: Set<Int>) -> Set<Int> { std::set::remove(s, 1) }
+        pure function s_subset(a: Set<Int>, b: Set<Int>) -> Bool { std::set::subset(a, b) }
     "#;
     type_ok(src);
 }
@@ -195,6 +196,32 @@ fn new_cannot_infer() {
         function bad() -> Int { std::list::len(std::list::new()) }
     "#;
     type_err_code(src, "T206");
+}
+
+#[test]
+fn set_subset_element_mismatch() {
+    let src = r#"
+        function bad(a: Set<Int>, b: Set<Bool>) -> Bool { std::set::subset(a, b) }
+    "#;
+    type_err_code(src, "T208");
+}
+
+#[test]
+fn set_algebra_ops_are_fail_closed_until_gate_c_enables_them() {
+    let union_src = r#"
+        function bad(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::union(a, b) }
+    "#;
+    type_err_code(union_src, "T001");
+
+    let intersect_src = r#"
+        function bad(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::intersect(a, b) }
+    "#;
+    type_err_code(intersect_src, "T001");
+
+    let diff_src = r#"
+        function bad(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::diff(a, b) }
+    "#;
+    type_err_code(diff_src, "T001");
 }
 
 #[test]

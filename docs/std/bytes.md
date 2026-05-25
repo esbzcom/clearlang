@@ -45,18 +45,31 @@ Functions:
 - Byte operations MUST preserve deterministic output and diagnostics.
 - `slice` bounds policy MUST be deterministic: reject negative `start/end`, reject `start > end`, reject `end > len(value)`, and map each failure class to stable `BytesError` codes.
 - `slice`/`to_string`/`from_hex` failures MUST map to deterministic `BytesError` codes with stable offsets when applicable.
+- Hex canonical policy MUST be locked:
+  - `to_hex` outputs lowercase ASCII (`0-9a-f`) with no prefix and no separators.
+  - `from_hex` accepts lowercase and uppercase ASCII hex digits only, with no prefix, whitespace, or separators.
+  - `from_hex` rejects odd-length inputs deterministically.
+- `to_string` UTF-8 policy MUST be canonical and deterministic:
+  - reject invalid UTF-8 byte sequences (including overlong encodings, surrogate code points, and out-of-range scalar encodings).
+  - return stable `BytesError` code/offset for decode failures.
 
 ## Security Considerations
 - Callers handling secrets SHOULD avoid `equals` and use `equals_ct`.
 - Hex decoding MUST reject non-canonical or malformed input deterministically.
 - `to_string` MUST reject non-UTF-8 byte sequences deterministically.
 - Implementations MUST document maximum supported `Bytes` length and deterministic failure behavior at limits.
+- `to_hex` output format MUST be canonical to prevent hash/signature mismatches caused by alternate textual encodings.
 
 ## Contract Conformance Checklist
-- `len`, `is_empty`, `concat`, `equals`, `equals_ct` MUST be deterministic for identical inputs across platforms.
+First-production required:
+- `len`, `is_empty`, `concat`, `equals`, `equals_ct`, `from_string` MUST be deterministic for identical inputs across platforms.
 - `equals_ct` MUST have constant-time behavior with respect to byte content.
 - `from_string` MUST preserve UTF-8 byte identity deterministically.
+
+Deferred-method conformance (activate when method is release-enabled):
 - `from_hex` MUST reject invalid alphabet/length/format with stable error codes.
+- `to_hex` MUST emit canonical lowercase format with no prefix/separators.
+- `to_string` MUST enforce canonical UTF-8 decoding and stable error offset mapping.
 - `BytesError::offset` MUST point to a deterministic failure location when available.
 
 ## Summary

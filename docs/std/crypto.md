@@ -22,50 +22,60 @@ Cryptographic primitives for hashing, signature verification, and secure compari
 ## Type/Function Draft
 
 ### `hash256`
-Functions:
+Core (first-production):
 - `sha256(input: Bytes) -> Hash256`
-- `blake2b_256(input: Bytes) -> Hash256`
 - `bytes(hash: Hash256) -> Bytes`
 - `equals(lhs: Hash256, other: Hash256) -> Bool`
 
+Deferred:
+- `blake2b_256(input: Bytes) -> Hash256`
+
 ### `signature`
-Functions:
+Core (first-production):
 - `from_bytes(input: Bytes) -> Result<Signature, CryptoError>`
 - `to_bytes(sig: Signature) -> Bytes`
 - `algorithm(sig: Signature) -> CryptoAlgorithm`
 
 ### `public_key`
-Functions:
+Core (first-production):
 - `from_bytes(input: Bytes) -> Result<PublicKey, CryptoError>`
 - `to_bytes(pk: PublicKey) -> Bytes`
 - `algorithm(pk: PublicKey) -> CryptoAlgorithm`
 
 ### `algorithm`
-Functions:
+Core (first-production):
 - `ed25519() -> CryptoAlgorithm`
-- `secp256k1() -> CryptoAlgorithm`
 - `equals(lhs: CryptoAlgorithm, other: CryptoAlgorithm) -> Bool`
 
+Deferred:
+- `secp256k1() -> CryptoAlgorithm`
+
 ### `verify_result`
-Functions:
+Core (first-production):
 - `is_valid(value: VerifyResult) -> Bool`
 - `error_or_none(value: VerifyResult) -> Option<CryptoError>`
 - `valid() -> VerifyResult`
 - `invalid(err: CryptoError) -> VerifyResult`
 
 ### `crypto_error`
-Functions:
+Core (first-production):
 - `code(err: CryptoError) -> ErrorCode`
 - `equals(a: CryptoError, other: CryptoError) -> Bool`
 
 ## Top-Level Functions
+Core (first-production):
+- `hash(algorithm: String, input: Bytes) -> Bytes` (compatibility path for current usage; fail-closed for unknown algorithms)
 - `verify(signature: Signature, message: Bytes, key: PublicKey) -> VerifyResult`
+- `hmac(algorithm: String, key: Bytes, message: Bytes) -> Bytes` (compatibility path for current usage; fail-closed for unknown algorithms)
 - `hmac_sha256(key: Bytes, message: Bytes) -> Hash256`
 
+Deferred:
+- additional algorithm-specific verify/hash entrypoints (for example, secp256k1/signature-family variants) only after policy/proof gates are green.
+
 ## First-Production Cut (recommended)
-- Keep `sha256`, `verify`, `hmac_sha256`, `bytes/to_bytes/from_bytes`.
+- Keep `sha256`, `verify`, `hmac_sha256`, compatibility `hash/hmac` (restricted algorithm set), typed byte conversions (`bytes`, `to_bytes`, `from_bytes`), and `verify_result` invariant helpers.
 - Keep deterministic `CryptoError` and `VerifyResult`.
-- Defer additional algorithms until proof status and policy gates are explicitly green.
+- Defer non-Ed25519 algorithm expansion and non-SHA256 hash expansion until proof status and policy gates are explicitly green.
 
 ## Notes
 - All crypto APIs MUST remain deterministic and policy-gated for release claims.
@@ -74,6 +84,8 @@ Functions:
 - Raw integer algorithm ids are not part of the public first-production API surface; callers MUST use `CryptoAlgorithm`.
 - `from_bytes` for `Signature`/`PublicKey` MUST enforce canonical encoding and algorithm-specific length constraints.
 - `verify(signature, message, key)` MUST NOT perform undocumented implicit transcoding or algorithm substitution.
+- Any future algorithm additions MUST be additive-only and MUST NOT change existing algorithm semantics.
+- Future algorithm families MUST declare canonical wire formats and deterministic normalization policy before release enablement.
 
 ## Security Considerations
 - Message interpretation for `verify` MUST be explicit (raw message bytes, no hidden pre-hash unless API name states it).
@@ -82,11 +94,21 @@ Functions:
 - Error surfaces MUST avoid leaking secret material; diagnostics SHOULD expose stable codes rather than secret-derived details.
 
 ## Contract Conformance Checklist
-- `sha256`/`blake2b_256` outputs MUST be deterministic and byte-stable across platforms.
+First-production required:
+- `sha256` outputs MUST be deterministic and byte-stable across platforms.
 - `hmac_sha256` MUST use canonical HMAC-SHA256 semantics with deterministic output for identical inputs.
 - `verify_result::valid`/`invalid` constructors MUST preserve invariant integrity.
 - `verify_result::is_valid` and `error_or_none` MUST be logically consistent with the invariant.
 - `CryptoError` code mapping MUST be stable and non-overlapping with other package domains.
+
+Deferred-method conformance (activate when method is release-enabled):
+- `blake2b_256` outputs MUST be deterministic and byte-stable across platforms.
+- `secp256k1` algorithm surface MUST provide deterministic canonical verification behavior and stable error mapping.
+
+## Future Expansion Lanes
+- Lane 1 (near-term): enable deferred algorithms already listed in this file (`blake2b_256`, `secp256k1`) after deterministic conformance + proof-boundary review.
+- Lane 2 (mid-term): add typed key/signature wrappers for additional curves/algorithms only with explicit canonical encoding and failure taxonomy.
+- Lane 3 (long-term): add advanced primitives (for example, KDF/AEAD/MAC families beyond HMAC-SHA256) behind explicit policy locks and coverage-matrix gates.
 
 ## Summary
 - Exposes deterministic crypto APIs with explicit assurance-boundary labeling.

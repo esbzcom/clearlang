@@ -18,38 +18,42 @@ Canonical encoding and decoding primitives for deterministic ABI and hashing wor
 ## Type/Function Draft
 
 ### `encoder`
-Functions:
+Core (first-production):
 - `new() -> Encoder`
 - `write_u64(enc: Encoder, value: U64) -> Result<Encoder, EncodeError>`
-- `write_u128(enc: Encoder, value: U128) -> Result<Encoder, EncodeError>`
-- `write_u256(enc: Encoder, value: U256) -> Result<Encoder, EncodeError>`
 - `write_bool(enc: Encoder, value: Bool) -> Result<Encoder, EncodeError>`
 - `write_bytes(enc: Encoder, value: Bytes) -> Result<Encoder, EncodeError>`
-- `write_string(enc: Encoder, value: String) -> Result<Encoder, EncodeError>`
 - `finish(enc: Encoder) -> Result<Bytes, EncodeError>`
 
+Deferred:
+- `write_u128(enc: Encoder, value: U128) -> Result<Encoder, EncodeError>`
+- `write_u256(enc: Encoder, value: U256) -> Result<Encoder, EncodeError>`
+- `write_string(enc: Encoder, value: String) -> Result<Encoder, EncodeError>`
+
 ### `decoder`
-Functions:
+Core (first-production):
 - `new(input: Bytes) -> Decoder`
 - `read_u64(dec: Decoder) -> Result<(Decoder, U64), DecodeError>`
-- `read_u128(dec: Decoder) -> Result<(Decoder, U128), DecodeError>`
-- `read_u256(dec: Decoder) -> Result<(Decoder, U256), DecodeError>`
 - `read_bool(dec: Decoder) -> Result<(Decoder, Bool), DecodeError>`
 - `read_bytes(dec: Decoder) -> Result<(Decoder, Bytes), DecodeError>`
-- `read_string(dec: Decoder) -> Result<(Decoder, String), DecodeError>`
 - `read_fixed(dec: Decoder, len: Int) -> Result<(Decoder, Bytes), DecodeError>`
 - `position(dec: Decoder) -> Int`
 - `remaining(dec: Decoder) -> Int`
 - `is_eof(dec: Decoder) -> Bool`
 
+Deferred:
+- `read_u128(dec: Decoder) -> Result<(Decoder, U128), DecodeError>`
+- `read_u256(dec: Decoder) -> Result<(Decoder, U256), DecodeError>`
+- `read_string(dec: Decoder) -> Result<(Decoder, String), DecodeError>`
+
 ### `decode_error`
-Functions:
+Core (first-production):
 - `code(err: DecodeError) -> ErrorCode`
 - `offset(err: DecodeError) -> Option<Int>`
 - `equals(a: DecodeError, other: DecodeError) -> Bool`
 
 ### `encode_error`
-Functions:
+Core (first-production):
 - `code(err: EncodeError) -> ErrorCode`
 - `equals(a: EncodeError, other: EncodeError) -> Bool`
 

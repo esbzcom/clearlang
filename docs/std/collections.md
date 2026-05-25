@@ -80,6 +80,10 @@ Functions:
 - Keep `List<T>`: `new`, `len`, `get`, `push`, `insert`, `insert_checked`, `remove`, `remove_checked`, `remove_take`, `pop`.
 - Keep `Set<T>`: `new`, `len`, `contains`, `insert`, `remove`, `subset`.
 - Keep `Map<K, V>`: `new`, `len`, `contains`, `get`, `insert`, `insert_take`, `remove`, `remove_take`.
+- Keep guarded mutable compatibility surfaces used by current code/tests:
+  - `std::list::{can_mut,push_mut,insert_mut,remove_mut,pop_mut}`
+  - `std::set::{can_mut,insert_mut,remove_mut}`
+  - `std::map::{can_mut,insert_mut,remove_mut}`
 - Defer heavy set algebra/cardinality proof features if they delay launch.
 
 ## Notes

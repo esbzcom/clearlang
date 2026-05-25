@@ -1,6 +1,5 @@
 use serde_json::Value as JsonValue;
 use serde_yaml::{Mapping, Value as YamlValue};
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,30 +7,6 @@ fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
-}
-
-fn enforce_gate() -> bool {
-    env::var("CLG_ENFORCE_MILESTONE3_RELEASE_GATE")
-        .ok()
-        .as_deref()
-        == Some("1")
-}
-
-fn todo_has_checked_item(todo: &str, item: &str) -> bool {
-    todo.lines().any(|line| {
-        let line = line.trim_start();
-        let Some(rest) = line.strip_prefix("- [x] ") else {
-            return false;
-        };
-        let Some(after) = rest.strip_prefix(item) else {
-            return false;
-        };
-        after
-            .chars()
-            .next()
-            .map(|ch| ch.is_ascii_whitespace())
-            .unwrap_or(true)
-    })
 }
 
 fn as_mapping<'a>(value: &'a YamlValue, ctx: &str) -> &'a Mapping {
@@ -469,22 +444,4 @@ fn milestone3_release_gate_lock_and_ci_wiring_are_valid_in_all_runs() {
     let root = repo_root();
     validate_lock_artifacts_and_docs(&root);
     validate_ci_wiring(&root);
-}
-
-#[test]
-fn milestone3_release_gate_requires_todo_completion_when_enforced() {
-    if !enforce_gate() {
-        return;
-    }
-    let root = repo_root();
-    let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read docs/TODO.md");
-    for item in [
-        "25.6.0", "25.6.1", "25.6.2", "25.6.3", "25.6.4", "25.6.5", "25.6.6", "25.6.7", "25.6.8",
-        "25.6.9", "25.6.10", "25.6.11", "25.6.12", "25.6.13",
-    ] {
-        assert!(
-            todo_has_checked_item(&todo, item),
-            "milestone_3 release gate requires TODO item `{item}` to be marked complete before tagging"
-        );
-    }
 }

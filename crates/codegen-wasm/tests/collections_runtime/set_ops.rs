@@ -292,6 +292,70 @@ fn set_diff_removes_rhs_elements() {
     assert_eq!(values, vec![1, 3]);
 }
 
+#[test]
+fn set_intersect_dedupes_noncanonical_lhs_payload() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::intersect(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[2, 2, 4]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[2, 5]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let out_ptr = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+
+    let values = read_set_values(&memory, &mut store, out_ptr);
+    assert_eq!(values, vec![2], "intersect output should stay canonical");
+}
+
+#[test]
+fn set_diff_dedupes_noncanonical_lhs_payload() {
+    let src = r#"
+        function main(a: Set<Int>, b: Set<Int>) -> Set<Int> { std::set::diff(a, b) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (a_ptr, heap_after_a) = alloc_list(&memory, &mut store, heap_ptr, &[1, 1, 3, 3]);
+    let (b_ptr, heap_after_b) = alloc_list(&memory, &mut store, heap_after_a, &[2]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", heap_after_b);
+
+    let main = instance
+        .get_typed_func::<(i32, i32), i32>(&mut store, "main")
+        .expect("get main");
+    let out_ptr = main.call(&mut store, (a_ptr, b_ptr)).expect("call main");
+
+    let values = read_set_values(&memory, &mut store, out_ptr);
+    assert_eq!(values, vec![1, 3], "diff output should stay canonical");
+}
+
 fn read_set_values(
     memory: &wasmtime::Memory,
     store: &mut wasmtime::Store<()>,

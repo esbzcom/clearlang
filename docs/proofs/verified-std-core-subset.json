@@ -1,11 +1,19 @@
 {
   "version": 1,
   "profile": "verified.std_core.v1",
-  "generated_on": "2026-02-25",
+  "generated_on": "2026-05-25",
   "entries": [
     {
       "coverage_id": "feature.contract_implication_core",
       "summary": "Contracts implication over Int/Bool arithmetic, comparisons, and logical operators."
+    },
+    {
+      "coverage_id": "feature.finite_set_algebra_reasoning",
+      "summary": "Finite-set algebra reasoning over std::set::union/std::set::intersect/std::set::diff."
+    },
+    {
+      "coverage_id": "feature.finite_set_membership_subset_reasoning",
+      "summary": "Finite-set membership and subset reasoning over std::set::contains/std::set::subset."
     },
     {
       "coverage_id": "feature.linear_collection_control_flow",
@@ -25,6 +33,16 @@
       "coverage_id": "feature.contract_implication_core",
       "test_file": "crates/typer/tests/vc.rs",
       "test_name": "generates_vc_for_contracts"
+    },
+    {
+      "coverage_id": "feature.finite_set_algebra_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "set_algebra_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.finite_set_membership_subset_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "set_subset_membership_vcs_carry_no_assumptions"
     },
     {
       "coverage_id": "feature.linear_collection_control_flow",

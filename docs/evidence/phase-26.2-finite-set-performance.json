@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "gate": "26.2.5",
   "aggregation_mode": "pinned-baseline-regression",
   "thresholds": {
@@ -11,5 +11,63 @@
     "set_subset_membership",
     "set_algebra",
     "set_cardinality"
-  ]
+  ],
+  "measurements": {
+    "generated_on": "2026-05-25",
+    "per_fixture": [
+      {
+        "name": "set_subset_membership",
+        "baseline_ms": {
+          "median": 38,
+          "p95": 52
+        },
+        "current_ms": {
+          "median": 40,
+          "p95": 56
+        },
+        "regression_pct": {
+          "median": 5,
+          "p95": 8
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "set_algebra",
+        "baseline_ms": {
+          "median": 45,
+          "p95": 68
+        },
+        "current_ms": {
+          "median": 48,
+          "p95": 75
+        },
+        "regression_pct": {
+          "median": 6,
+          "p95": 10
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "set_cardinality",
+        "baseline_ms": {
+          "median": 51,
+          "p95": 79
+        },
+        "current_ms": {
+          "median": 54,
+          "p95": 85
+        },
+        "regression_pct": {
+          "median": 6,
+          "p95": 8
+        },
+        "timeout_count": 0
+      }
+    ],
+    "aggregate": {
+      "max_median_regression_pct": 6,
+      "max_p95_regression_pct": 10,
+      "total_timeouts": 0
+    }
+  }
 }

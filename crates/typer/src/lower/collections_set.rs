@@ -622,6 +622,20 @@ pub(super) fn lower_set_call<'a>(
                 cond: found,
                 depth: 0,
             });
+            let (already_present, _out_idx) = emit_find_index(
+                ctx,
+                out_data,
+                out_len,
+                stride,
+                lhs_elem,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
+            ctx.body.push(Instr::BrIf {
+                cond: already_present,
+                depth: 0,
+            });
             let out_offset = fresh(ctx);
             ctx.body.push(Instr::IBin {
                 dst: out_offset,
@@ -739,6 +753,20 @@ pub(super) fn lower_set_call<'a>(
             ctx.body.push(Instr::BlockBegin);
             ctx.body.push(Instr::BrIf {
                 cond: found,
+                depth: 0,
+            });
+            let (already_present, _out_idx) = emit_find_index(
+                ctx,
+                out_data,
+                out_len,
+                stride,
+                lhs_elem,
+                &elem_ty,
+                0,
+                ctx.aliases,
+            )?;
+            ctx.body.push(Instr::BrIf {
+                cond: already_present,
                 depth: 0,
             });
             let out_offset = fresh(ctx);

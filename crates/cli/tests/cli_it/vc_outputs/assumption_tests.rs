@@ -345,6 +345,15 @@ fn build_set_subset_membership_vcs_have_zero_assumptions() {
         assumptions.is_empty(),
         "set subset/membership VC must be assumption-free"
     );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains("(forall ((a Int) (b Int)) (= (|std::set::subset| a b)"),
+        "subset VCs must include finite-set subset axiom"
+    );
 
     let wasm = fs::read(&wasm_path).expect("read wasm");
     let mut proof_data = None;
@@ -420,6 +429,17 @@ fn build_set_algebra_vcs_have_zero_assumptions() {
         .cloned()
         .unwrap_or_default();
     assert!(assumptions.is_empty(), "set algebra VC must be assumption-free");
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(forall ((a Int) (b Int) (x Int)) (= (|std::set::contains| (|std::set::union| a b) x)"
+        ),
+        "set algebra VCs must include union membership axiom"
+    );
 }
 
 #[test]
@@ -471,6 +491,17 @@ fn build_set_cardinality_vcs_have_zero_assumptions() {
     assert!(
         assumptions.is_empty(),
         "set cardinality VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(forall ((a Int) (b Int)) (<= (|std::set::len| (|std::set::intersect| a b)) (|std::set::len| a)))"
+        ),
+        "set cardinality VCs must include intersect cardinality axiom"
     );
 }
 

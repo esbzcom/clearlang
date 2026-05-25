@@ -8,6 +8,7 @@ enum SmtHelper {
     OptionCtor,
     ResultCtor,
     U64BitvectorBridge,
+    FiniteSetAxioms,
 }
 
 #[derive(Default)]
@@ -207,6 +208,9 @@ impl SmtEncoder {
                 }
             }
             _ => {
+                if is_finite_set_builtin(callee) {
+                    self.helpers.insert(SmtHelper::FiniteSetAxioms);
+                }
                 self.record_builtin_call(callee);
                 let parts: Vec<String> = args.iter().map(|a| self.encode_inner(a)).collect();
                 let smt_callee = smt_symbol(callee);
@@ -326,12 +330,21 @@ impl SmtEncoder {
             lines.push("; Builtin intrinsics are modeled as uninterpreted functions.".to_string());
             lines.extend(builtin_lines);
         }
+        if self.helpers.contains(&SmtHelper::FiniteSetAxioms) {
+            lines.push("; Finite-set axioms for std::set::* proof reasoning.".to_string());
+            lines.extend(self.finite_set_axioms());
+        }
         lines.join("\n")
     }
 
     fn record_builtin_call(&mut self, callee: &str) {
         if is_builtin_name(callee) {
             self.builtin_calls.insert(callee.to_string());
+            if is_finite_set_builtin(callee) {
+                for name in FINITE_SET_BUILTINS {
+                    self.builtin_calls.insert((*name).to_string());
+                }
+            }
         }
     }
 
@@ -358,6 +371,46 @@ impl SmtEncoder {
             ));
         }
         lines
+    }
+
+    fn finite_set_axioms(&self) -> Vec<String> {
+        let contains = smt_symbol("std::set::contains");
+        let subset = smt_symbol("std::set::subset");
+        let union = smt_symbol("std::set::union");
+        let intersect = smt_symbol("std::set::intersect");
+        let diff = smt_symbol("std::set::diff");
+        let len = smt_symbol("std::set::len");
+
+        vec![
+            format!(
+                "(assert (forall ((a Int) (b Int)) (= ({} a b) (forall ((x Int)) (=> ({} a x) ({} b x))))))",
+                subset, contains, contains
+            ),
+            format!(
+                "(assert (forall ((a Int) (b Int) (x Int)) (= ({} ({} a b) x) (or ({} a x) ({} b x)))))",
+                contains, union, contains, contains
+            ),
+            format!(
+                "(assert (forall ((a Int) (b Int) (x Int)) (= ({} ({} a b) x) (and ({} a x) ({} b x)))))",
+                contains, intersect, contains, contains
+            ),
+            format!(
+                "(assert (forall ((a Int) (b Int) (x Int)) (= ({} ({} a b) x) (and ({} a x) (not ({} b x))))))",
+                contains, diff, contains, contains
+            ),
+            format!(
+                "(assert (forall ((a Int) (b Int)) (<= ({} ({} a b)) ({} a))))",
+                len, intersect, len
+            ),
+            format!(
+                "(assert (forall ((a Int) (b Int)) (>= ({} ({} a b)) ({} a))))",
+                len, union, len
+            ),
+            format!(
+                "(assert (forall ((a Int) (b Int)) (<= ({} ({} a b)) ({} a))))",
+                len, diff, len
+            ),
+        ]
     }
 
     fn encode_u64_int_to_bv(&self, term: &str) -> String {
@@ -456,6 +509,27 @@ fn is_builtin_name(callee: &str) -> bool {
     builtin_sigs()
         .iter()
         .any(|(name, _params, _ret, _)| name == callee)
+}
+
+const FINITE_SET_BUILTINS: &[&str] = &[
+    "std::set::len",
+    "std::set::contains",
+    "std::set::subset",
+    "std::set::union",
+    "std::set::intersect",
+    "std::set::diff",
+];
+
+fn is_finite_set_builtin(callee: &str) -> bool {
+    matches!(
+        callee,
+        "std::set::len"
+            | "std::set::contains"
+            | "std::set::subset"
+            | "std::set::union"
+            | "std::set::intersect"
+            | "std::set::diff"
+    )
 }
 
 fn smt_sort_for_builtin(ty: &Type) -> &'static str {

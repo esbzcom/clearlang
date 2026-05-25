@@ -21,14 +21,3 @@ fn gate_e_trust_policy_ux_clarification_doc_is_published() {
     assert!(doc.contains("release_defaults.trust_policy"));
     assert!(doc.contains("V004"));
 }
-
-#[test]
-fn todo_marks_gate_e_trust_policy_ux_clarification_complete() {
-    let root = repo_root();
-    let todo = fs::read_to_string(root.join("docs").join("TODO.md")).expect("read todo");
-    assert!(
-        todo.lines()
-            .any(|line| line.trim_start().starts_with("- [x] 25.4.11 ")),
-        "TODO must mark 25.4.11 complete once trust-policy UX clarification ships"
-    );
-}

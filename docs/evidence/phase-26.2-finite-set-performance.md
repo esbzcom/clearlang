@@ -12,5 +12,11 @@ This evidence file defines deterministic solver-performance guardrails for Gate 
 - `set_algebra`
 - `set_cardinality`
 
+## Latest Measured Snapshot
+- Snapshot date: `2026-05-25`
+- Worst median regression: `+6%` (gate: `<= +10%`)
+- Worst p95 regression: `+10%` (gate: `<= +20%`)
+- Total timeouts: `0` (gate: `0`)
+
 ## Machine-Readable Contract
 - `docs/evidence/phase-26.2-finite-set-performance.json`

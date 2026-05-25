@@ -479,6 +479,11 @@ fn set_subset_membership_vcs_carry_no_assumptions() {
     assert!(vc.pre.ast.contains("std::set::contains(a, x)"));
     assert!(vc.vc_smt2.contains("|std::set::subset|"));
     assert!(vc.vc_smt2.contains("|std::set::contains|"));
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((a Int) (b Int)) (= (|std::set::subset| a b)"),
+        "subset VCs must include finite-set subset axiom"
+    );
 }
 
 #[test]
@@ -499,6 +504,24 @@ fn set_algebra_vcs_carry_no_assumptions() {
         .find(|vc| vc.function == "set_algebra" && vc.vc_id == "vc:0")
         .expect("set_algebra vc:0");
     assert!(vc.assumptions.is_empty(), "set algebra VC should be assumption-free");
+    assert!(
+        vc.vc_smt2.contains(
+            "(forall ((a Int) (b Int) (x Int)) (= (|std::set::contains| (|std::set::union| a b) x)"
+        ),
+        "set algebra VCs must include union membership axiom"
+    );
+    assert!(
+        vc.vc_smt2.contains(
+            "(forall ((a Int) (b Int) (x Int)) (= (|std::set::contains| (|std::set::intersect| a b) x)"
+        ),
+        "set algebra VCs must include intersect membership axiom"
+    );
+    assert!(
+        vc.vc_smt2.contains(
+            "(forall ((a Int) (b Int) (x Int)) (= (|std::set::contains| (|std::set::diff| a b) x)"
+        ),
+        "set algebra VCs must include diff membership axiom"
+    );
 }
 
 #[test]
@@ -522,5 +545,20 @@ fn set_cardinality_vcs_carry_no_assumptions() {
     assert!(
         vc.assumptions.is_empty(),
         "set cardinality VC should be assumption-free"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((a Int) (b Int)) (<= (|std::set::len| (|std::set::intersect| a b)) (|std::set::len| a)))"),
+        "set cardinality VCs must include intersect cardinality axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((a Int) (b Int)) (>= (|std::set::len| (|std::set::union| a b)) (|std::set::len| a)))"),
+        "set cardinality VCs must include union cardinality axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((a Int) (b Int)) (<= (|std::set::len| (|std::set::diff| a b)) (|std::set::len| a)))"),
+        "set cardinality VCs must include diff cardinality axiom"
     );
 }

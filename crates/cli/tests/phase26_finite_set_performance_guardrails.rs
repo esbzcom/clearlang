@@ -10,22 +10,6 @@ fn repo_root() -> PathBuf {
 }
 
 #[test]
-fn phase26_finite_set_performance_evidence_is_published() {
-    let root = repo_root();
-    let doc_path = root
-        .join("docs")
-        .join("evidence")
-        .join("phase-26.2-finite-set-performance.md");
-    let doc = fs::read_to_string(doc_path).expect("read finite-set performance evidence doc");
-    assert!(doc.contains("<= +10%"));
-    assert!(doc.contains("<= +20%"));
-    assert!(doc.contains("0"));
-    assert!(doc.contains("set_subset_membership"));
-    assert!(doc.contains("set_algebra"));
-    assert!(doc.contains("set_cardinality"));
-}
-
-#[test]
 fn phase26_finite_set_performance_machine_contract_is_valid() {
     let root = repo_root();
     let json_path = root

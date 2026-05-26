@@ -216,9 +216,14 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [x] 26.2.5 Sequence rule: add cardinality-heavy proofs last (`len`, bounds, set-size relations) with deterministic solver performance guardrails (median `<= +10%`, p95 `<= +20%`, zero timeouts on release-enabled finite-set fixtures). (`docs/std/coverage-matrix.md`, `docs/evidence/phase-26.2-finite-set-performance.{md,json}`)
 
 - [ ] 26.3 List proof roadmap [Std Gate D]
-  - [ ] 26.3.1 Define/lock list proof contracts for core APIs (`len`, `get`, `push`, `insert`, `remove`, `remove_take`, `pop`).
-  - [ ] 26.3.2 Add VC/SMT reasoning for list index bounds and shape-preservation invariants.
-  - [ ] 26.3.3 Add theorem-grade gates for list proofs (no assumption boundaries on release-enabled list surfaces).
+  - [ ] 26.3.0 Publish Gate D design lock with ordered execution, assumption-boundary policy, required evidence artifacts, and deterministic solver-performance guardrails.
+  - [ ] 26.3.1 Sequence rule: close read-only list proofs first (`new`, `len`, `is_empty`, `get`) with deterministic bounds diagnostics and regression coverage.
+  - [ ] 26.3.2 Add VC/SMT reasoning for index safety invariants (`0 <= i < len`) and `get` value-preservation under unchanged list state.
+  - [ ] 26.3.3 Sequence rule: close append/pop semantics next (`push`, `pop`) with length delta invariants (`push => len + 1`, `pop some => len - 1`, `pop none => len unchanged`).
+  - [ ] 26.3.4 Sequence rule: close indexed mutation semantics after 26.3.2/26.3.3 (`insert`, `remove`, `remove_take`) with shape/order preservation and deterministic out-of-range behavior.
+  - [ ] 26.3.5 Add theorem-grade no-assumption gate for release-enabled list proofs (`assumptions.items == []` on list VCs in strict release workflow); fail closed on any list proof regression.
+  - [ ] 26.3.6 Update proof/coverage evidence for each list symbol as it closes (`docs/std/coverage-matrix.md`, `docs/proofs/proof-coverage-matrix.{md,json}`), including compatibility rows (`insert_checked`, `remove_checked`) when enabled.
+  - [ ] 26.3.7 Add deterministic performance guardrails for list-proof fixtures (median `<= +10%`, p95 `<= +20%`, zero timeouts on release-enabled list fixtures) and publish evidence artifact (`docs/evidence/phase-26.3-list-performance.{md,json}`).
 
 - [ ] 26.4 Map proof roadmap [Std Gate E]
   - [ ] 26.4.1 Define/lock map proof contracts for core APIs (`len`, `contains`, `get`, `insert`, `insert_take`, `remove`, `remove_take`).

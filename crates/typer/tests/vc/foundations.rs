@@ -133,6 +133,27 @@ fn generates_mut_pre_vc_for_mut_calls() {
 }
 
 #[test]
+fn generates_mut_pre_vc_for_map_mut_alias_calls() {
+    let src = r#"
+        mut function put(m: Map<Int, Int>) -> Map<Int, Int>
+            require { std::map::can_mut(m) }
+        {
+            std::map::insert_mut(m, 1, 10)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert_eq!(vcs.len(), 1);
+    let vc = &vcs[0];
+    assert_eq!(vc.function, "put");
+    assert!(vc.vc_id.starts_with("mut_pre:std::map::insert_mut:"));
+    assert!(vc.pre.ast.contains("std::map::can_mut"));
+    assert!(vc.post.ast.contains("std::map::can_mut"));
+    assert!(vc.vc_smt2.contains("std::map::can_mut"));
+}
+
+#[test]
 fn generates_vcs_for_loop_invariant_and_variant() {
     let src = r#"
         pure function countdown(n: Int) -> Int {

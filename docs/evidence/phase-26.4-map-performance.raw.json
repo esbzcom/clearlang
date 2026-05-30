@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "gate": "26.4.6",
+  "generated_on": "2026-05-30",
+  "capture": {
+    "command": "cargo test -p clg-cli --test cli_it build_map_ && cargo test -p clg-typer --test vc map_",
+    "host": "windows-latest",
+    "notes": "Pinned-baseline replay on release-enabled map fixtures."
+  },
+  "fixtures": [
+    {
+      "name": "map_readonly",
+      "baseline_ms": {
+        "median": 37,
+        "p95": 50
+      },
+      "current_ms": {
+        "median": 39,
+        "p95": 54
+      },
+      "timeout_count": 0
+    },
+    {
+      "name": "map_membership_overwrite",
+      "baseline_ms": {
+        "median": 46,
+        "p95": 69
+      },
+      "current_ms": {
+        "median": 49,
+        "p95": 75
+      },
+      "timeout_count": 0
+    },
+    {
+      "name": "map_mutation_take",
+      "baseline_ms": {
+        "median": 54,
+        "p95": 82
+      },
+      "current_ms": {
+        "median": 57,
+        "p95": 91
+      },
+      "timeout_count": 0
+    }
+  ]
+}

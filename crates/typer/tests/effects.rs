@@ -46,6 +46,34 @@ fn mut_function_without_guard_fails() {
 }
 
 #[test]
+fn mut_map_function_requires_guard_for_mut_builtin() {
+    let src = r#"
+        mut function ok(m: Map<Int, Int>) -> Map<Int, Int>
+            require { std::map::can_mut(m) }
+        {
+            std::map::insert_mut(m, 1, 10)
+        }
+    "#;
+    type_check_only(&parse(src).expect("parse ok")).expect("mut map call should succeed");
+}
+
+#[test]
+fn mut_map_function_without_guard_fails() {
+    let src = r#"
+        mut function bad(m: Map<Int, Int>) -> Map<Int, Int> {
+            std::map::remove_mut(m, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("missing map mut guard must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `std::map::can_mut"),
+        "expected map guard error, got {msg}"
+    );
+}
+
+#[test]
 fn pure_function_cannot_call_mut_user_function() {
     let src = r#"
         mut function helper(l: List<Int>) -> List<Int>

@@ -20,3 +20,4 @@ This evidence file defines deterministic solver-performance guardrails for Gate 
 
 ## Machine-Readable Contract
 - `docs/evidence/phase-26.4-map-performance.json`
+- Hash-bound raw capture artifact: `docs/evidence/phase-26.4-map-performance.raw.json`

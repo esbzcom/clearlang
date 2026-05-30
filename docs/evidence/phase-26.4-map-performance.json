@@ -2,6 +2,11 @@
   "schema_version": 2,
   "gate": "26.4.6",
   "aggregation_mode": "pinned-baseline-regression",
+  "measurement_artifact": {
+    "path": "docs/evidence/phase-26.4-map-performance.raw.json",
+    "schema_version": 1,
+    "sha256": "f6cdd5caf2c48ab0ff5b2ecf03a9f92d00c74ae0490f7833634c2e9c37a37382"
+  },
   "thresholds": {
     "median_regression_pct_max": 10,
     "p95_regression_pct_max": 20,

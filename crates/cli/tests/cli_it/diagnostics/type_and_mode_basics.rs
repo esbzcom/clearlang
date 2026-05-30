@@ -677,18 +677,46 @@ fn strict_compiler_mode_accepts_map_proofs_with_zero_assumptions() {
     let file = tmp.path().join("production_release_map_zero_assumptions.clear");
     fs::write(&file, src).expect("write");
     write_minimal_strict_preflight_files(tmp.path());
+    let solver_path = if cfg!(windows) {
+        tmp.path().join("fake-z3.exe")
+    } else {
+        tmp.path().join("fake-z3")
+    };
+    let solver = write_fake_solver_to(
+        &solver_path,
+        r#"
+use std::io::{self, Read};
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-version") {
+        println!("Z3 version 4.16.0 - fake");
+        return;
+    }
+    let mut stdin = Vec::new();
+    let _ = io::stdin().read_to_end(&mut stdin);
+    println!("unsat");
+}
+"#,
+    );
+    write_solver_integrity_sidecars(&solver);
 
     let out = tmp.path().join("out.wasm");
     let vcs = tmp.path().join("out.vc.json");
+    let matrix_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/proofs/proof-coverage-matrix.json");
 
     let mut cmd = Command::cargo_bin("clg").unwrap();
-    cmd.args(["build"])
+    cmd.env("CLG_SOLVER_BIN", &solver)
+        .env("CLG_PROOF_MATRIX_PATH", matrix_path)
+        .args(["build"])
         .arg(&file)
         .args(["-o"])
         .arg(&out)
         .args(["--emit-vcs"])
         .arg(&vcs)
-        .args(["--compiler-mode", "strict"]);
+        .args(["--compiler-mode", "strict"])
+        .args(["--release-profile", "production"]);
     cmd
         .assert()
         .success();

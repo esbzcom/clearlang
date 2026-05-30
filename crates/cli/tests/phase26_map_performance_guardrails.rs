@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -25,6 +26,35 @@ fn phase26_map_performance_machine_contract_is_valid() {
         parsed.get("aggregation_mode").and_then(Value::as_str),
         Some("pinned-baseline-regression")
     );
+    let measurement_artifact = parsed
+        .get("measurement_artifact")
+        .and_then(Value::as_object)
+        .expect("measurement_artifact object");
+    assert_eq!(
+        measurement_artifact
+            .get("schema_version")
+            .and_then(Value::as_u64),
+        Some(1),
+        "raw measurement artifact schema version must be pinned"
+    );
+    let raw_path_rel = measurement_artifact
+        .get("path")
+        .and_then(Value::as_str)
+        .expect("measurement_artifact.path");
+    let expected_raw_sha = measurement_artifact
+        .get("sha256")
+        .and_then(Value::as_str)
+        .expect("measurement_artifact.sha256");
+    let raw_path = root.join(raw_path_rel);
+    let raw_bytes = fs::read(&raw_path).expect("read raw measurement artifact");
+    let actual_raw_sha = hex::encode(Sha256::digest(&raw_bytes));
+    assert_eq!(
+        actual_raw_sha, expected_raw_sha,
+        "raw measurement artifact hash mismatch"
+    );
+    let raw: Value = serde_json::from_slice(&raw_bytes).expect("parse raw measurement artifact");
+    assert_eq!(raw.get("schema_version").and_then(Value::as_u64), Some(1));
+    assert_eq!(raw.get("gate").and_then(Value::as_str), Some("26.4.6"));
 
     let thresholds = parsed
         .get("thresholds")
@@ -72,10 +102,19 @@ fn phase26_map_performance_machine_contract_is_valid() {
         .get("per_fixture")
         .and_then(Value::as_array)
         .expect("measurements.per_fixture array");
+    let raw_fixtures = raw
+        .get("fixtures")
+        .and_then(Value::as_array)
+        .expect("raw fixtures array");
     assert_eq!(
         per_fixture.len(),
         names.len(),
         "each fixture must have a measured record"
+    );
+    assert_eq!(
+        raw_fixtures.len(),
+        names.len(),
+        "raw fixture count must match fixture list"
     );
 
     let median_threshold = thresholds
@@ -121,6 +160,23 @@ fn phase26_map_performance_machine_contract_is_valid() {
             .get("timeout_count")
             .and_then(Value::as_u64)
             .expect("timeout_count");
+        let raw_fixture = raw_fixtures
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some(name))
+            .and_then(Value::as_object)
+            .expect("matching raw fixture entry");
+        let raw_baseline = raw_fixture
+            .get("baseline_ms")
+            .and_then(Value::as_object)
+            .expect("raw baseline_ms object");
+        let raw_current = raw_fixture
+            .get("current_ms")
+            .and_then(Value::as_object)
+            .expect("raw current_ms object");
+        let raw_timeout = raw_fixture
+            .get("timeout_count")
+            .and_then(Value::as_u64)
+            .expect("raw timeout_count");
 
         assert!(
             baseline.get("median").and_then(Value::as_u64).unwrap_or(0) > 0,
@@ -137,6 +193,30 @@ fn phase26_map_performance_machine_contract_is_valid() {
         assert!(
             current.get("p95").and_then(Value::as_u64).unwrap_or(0) > 0,
             "current p95 must be > 0"
+        );
+        assert_eq!(
+            raw_baseline.get("median").and_then(Value::as_u64),
+            baseline.get("median").and_then(Value::as_u64),
+            "summary baseline median must match raw capture"
+        );
+        assert_eq!(
+            raw_baseline.get("p95").and_then(Value::as_u64),
+            baseline.get("p95").and_then(Value::as_u64),
+            "summary baseline p95 must match raw capture"
+        );
+        assert_eq!(
+            raw_current.get("median").and_then(Value::as_u64),
+            current.get("median").and_then(Value::as_u64),
+            "summary current median must match raw capture"
+        );
+        assert_eq!(
+            raw_current.get("p95").and_then(Value::as_u64),
+            current.get("p95").and_then(Value::as_u64),
+            "summary current p95 must match raw capture"
+        );
+        assert_eq!(
+            raw_timeout, timeout_count,
+            "summary timeout count must match raw capture"
         );
 
         let median_reg = regression

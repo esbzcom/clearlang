@@ -215,7 +215,7 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [x] 26.2.4 Sequence rule: add proof support for `union`/`intersect`/`diff` after subset is complete and stable; update std/proof coverage matrices per operator. (`docs/std/coverage-matrix.md`, `docs/proofs/proof-coverage-matrix.{md,json}`)
   - [x] 26.2.5 Sequence rule: add cardinality-heavy proofs last (`len`, bounds, set-size relations) with deterministic solver performance guardrails (median `<= +10%`, p95 `<= +20%`, zero timeouts on release-enabled finite-set fixtures). (`docs/std/coverage-matrix.md`, `docs/evidence/phase-26.2-finite-set-performance.{md,json}`)
 
-- [ ] 26.3 List proof roadmap [Std Gate D]
+- [x] 26.3 List proof roadmap [Std Gate D]
   - [x] 26.3.0 Publish Gate D design lock with ordered execution, assumption-boundary policy, required evidence artifacts, and deterministic solver-performance guardrails. (`docs/design/phase-26.3.0-list-proof-design-lock.md`) `DRI: std-list-owner`, `Target: 2026-07-08`.
   - [x] 26.3.1 Sequence rule: close read-only list proofs first (`new`, `len`, `is_empty`, `get`) with deterministic bounds diagnostics and regression coverage; fail closed if `push/pop/insert/remove/remove_take` proofs are enabled before read-only closure is complete. (`docs/std/coverage-matrix.md`, `docs/design/phase-26.3.0-list-proof-design-lock.md`) `DRI: std-list-owner`, `Target: 2026-07-10`.
   - [x] 26.3.2 Add VC/SMT reasoning for index safety invariants (`0 <= i < len`) and `get` value-preservation under unchanged list state. (`docs/proofs/proof-coverage-matrix.{md,json}`, `docs/std/coverage-matrix.md`, `docs/design/phase-26.3.0-list-proof-design-lock.md`) `DRI: std-list-owner`, `Target: 2026-07-12`.

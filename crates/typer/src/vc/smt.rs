@@ -10,6 +10,7 @@ enum SmtHelper {
     U64BitvectorBridge,
     ListAxioms,
     FiniteSetAxioms,
+    MapAxioms,
 }
 
 #[derive(Default)]
@@ -217,6 +218,10 @@ impl SmtEncoder {
                     self.helpers.insert(SmtHelper::VariantAccessors);
                     self.helpers.insert(SmtHelper::OptionCtor);
                 }
+                if is_map_builtin(callee) {
+                    self.helpers.insert(SmtHelper::MapAxioms);
+                    self.helpers.insert(SmtHelper::VariantAccessors);
+                }
                 self.record_builtin_call(callee);
                 let parts: Vec<String> = args.iter().map(|a| self.encode_inner(a)).collect();
                 let smt_callee = smt_symbol(callee);
@@ -344,6 +349,10 @@ impl SmtEncoder {
             lines.push("; List axioms for std::list::* proof reasoning.".to_string());
             lines.extend(self.list_axioms());
         }
+        if self.helpers.contains(&SmtHelper::MapAxioms) {
+            lines.push("; Map axioms for std::map::* read-only proof reasoning.".to_string());
+            lines.extend(self.map_axioms());
+        }
         lines.join("\n")
     }
 
@@ -357,6 +366,11 @@ impl SmtEncoder {
             }
             if is_list_builtin(callee) {
                 for name in LIST_BUILTINS {
+                    self.builtin_calls.insert((*name).to_string());
+                }
+            }
+            if is_map_builtin(callee) {
+                for name in MAP_PROOF_BUILTINS {
                     self.builtin_calls.insert((*name).to_string());
                 }
             }
@@ -545,6 +559,125 @@ impl SmtEncoder {
         ]
     }
 
+    fn map_axioms(&self) -> Vec<String> {
+        let new_map = smt_symbol("std::map::new");
+        let len = smt_symbol("std::map::len");
+        let is_empty = smt_symbol("std::map::is_empty");
+        let contains = smt_symbol("std::map::contains");
+        let get = smt_symbol("std::map::get");
+        let insert = smt_symbol("std::map::insert");
+        let insert_take = smt_symbol("std::map::insert_take");
+        let insert_take_map = "cl.map.insert_take.map";
+        let insert_take_prev = "cl.map.insert_take.prev";
+        let remove = smt_symbol("std::map::remove");
+        let remove_take = smt_symbol("std::map::remove_take");
+        let remove_take_map = "cl.map.remove_take.map";
+        let remove_take_prev = "cl.map.remove_take.prev";
+
+        vec![
+            format!("(declare-fun {} (Int) Int)", insert_take_map),
+            format!("(declare-fun {} (Int) Int)", insert_take_prev),
+            format!("(declare-fun {} (Int) Int)", remove_take_map),
+            format!("(declare-fun {} (Int) Int)", remove_take_prev),
+            format!("(assert (forall ((m Int)) (>= ({} m) 0)))", len),
+            format!("(assert (forall ((m Int)) (= ({} m) (= ({} m) 0))))", is_empty, len),
+            format!("(assert (= ({} ({})) 0))", len, new_map),
+            format!("(assert ({} ({})))", is_empty, new_map),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (=> ({} m k) (= (cl.variant.tag ({} m k)) 1))))",
+                contains, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (=> (not ({} m k)) (= (cl.variant.tag ({} m k)) 0))))",
+                contains, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) ({} ({} m k v) k)))",
+                contains, insert
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int) (j Int)) (=> (not (= j k)) (= ({} ({} m k v) j) ({} m j)))))",
+                contains, insert, contains
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (= (cl.variant.tag ({} ({} m k v) k)) 1)))",
+                get, insert
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (= (cl.variant.payload_lo ({} ({} m k v) k)) v)))",
+                get, insert
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int) (j Int)) (=> (not (= j k)) (= (cl.variant.tag ({} ({} m k v) j)) (cl.variant.tag ({} m j))))))",
+                get, insert, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int) (j Int)) (=> (not (= j k)) (= (cl.variant.payload_lo ({} ({} m k v) j)) (cl.variant.payload_lo ({} m j))))))",
+                get, insert, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (= ({} ({} m k v)) (ite ({} m k) ({} m) (+ ({} m) 1)))))",
+                len, insert, contains, len, len
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (= ({} ({} m k v)) ({} m k v))))",
+                insert_take_map, insert_take, insert
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (=> ({} m k) (= (cl.variant.tag ({} ({} m k v))) 1))))",
+                contains, insert_take_prev, insert_take
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (=> (not ({} m k)) (= (cl.variant.tag ({} ({} m k v))) 0))))",
+                contains, insert_take_prev, insert_take
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (v Int)) (=> ({} m k) (= (cl.variant.payload_lo ({} ({} m k v))) (cl.variant.payload_lo ({} m k))))))",
+                contains, insert_take_prev, insert_take, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (not ({} ({} m k) k))))",
+                contains, remove
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (j Int)) (=> (not (= j k)) (= ({} ({} m k) j) ({} m j)))))",
+                contains, remove, contains
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (= (cl.variant.tag ({} ({} m k) k)) 0)))",
+                get, remove
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (j Int)) (=> (not (= j k)) (= (cl.variant.tag ({} ({} m k) j)) (cl.variant.tag ({} m j))))))",
+                get, remove, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int) (j Int)) (=> (not (= j k)) (= (cl.variant.payload_lo ({} ({} m k) j)) (cl.variant.payload_lo ({} m j))))))",
+                get, remove, get
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (= ({} ({} m k)) (ite ({} m k) (- ({} m) 1) ({} m)))))",
+                len, remove, contains, len, len
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (= ({} ({} m k)) ({} m k))))",
+                remove_take_map, remove_take, remove
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (=> ({} m k) (= (cl.variant.tag ({} ({} m k))) 1))))",
+                contains, remove_take_prev, remove_take
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (=> (not ({} m k)) (= (cl.variant.tag ({} ({} m k))) 0))))",
+                contains, remove_take_prev, remove_take
+            ),
+            format!(
+                "(assert (forall ((m Int) (k Int)) (=> ({} m k) (= (cl.variant.payload_lo ({} ({} m k))) (cl.variant.payload_lo ({} m k))))))",
+                contains, remove_take_prev, remove_take, get
+            ),
+        ]
+    }
+
     fn encode_u64_int_to_bv(&self, term: &str) -> String {
         format!("((_ int2bv 64) {})", term)
     }
@@ -666,6 +799,18 @@ const LIST_BUILTINS: &[&str] = &[
     "std::list::remove_take",
 ];
 
+const MAP_PROOF_BUILTINS: &[&str] = &[
+    "std::map::new",
+    "std::map::len",
+    "std::map::is_empty",
+    "std::map::contains",
+    "std::map::get",
+    "std::map::insert",
+    "std::map::insert_take",
+    "std::map::remove",
+    "std::map::remove_take",
+];
+
 fn is_finite_set_builtin(callee: &str) -> bool {
     matches!(
         callee,
@@ -692,6 +837,21 @@ fn is_list_builtin(callee: &str) -> bool {
             | "std::list::remove"
             | "std::list::remove_checked"
             | "std::list::remove_take"
+    )
+}
+
+fn is_map_builtin(callee: &str) -> bool {
+    matches!(
+        callee,
+        "std::map::new"
+            | "std::map::len"
+            | "std::map::is_empty"
+            | "std::map::contains"
+            | "std::map::get"
+            | "std::map::insert"
+            | "std::map::insert_take"
+            | "std::map::remove"
+            | "std::map::remove_take"
     )
 }
 

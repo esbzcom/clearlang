@@ -92,6 +92,15 @@ fn proof_coverage_matrix_is_complete_and_stable() {
         "std::list::remove",
         "std::list::remove_checked",
         "std::list::remove_take",
+        "std::map::contains",
+        "std::map::get",
+        "std::map::is_empty",
+        "std::map::insert",
+        "std::map::insert_take",
+        "std::map::len",
+        "std::map::new",
+        "std::map::remove",
+        "std::map::remove_take",
         "std::set::contains",
         "std::set::diff",
         "std::set::intersect",
@@ -122,6 +131,7 @@ fn proof_coverage_matrix_is_complete_and_stable() {
 
     let mut saw_feature = false;
     let mut saw_intrinsic = false;
+    let mut feature_status_by_id = std::collections::BTreeMap::<&str, &str>::new();
 
     for entry in &matrix.entries {
         assert!(
@@ -137,6 +147,7 @@ fn proof_coverage_matrix_is_complete_and_stable() {
         );
         if entry.kind == "feature" {
             saw_feature = true;
+            feature_status_by_id.insert(entry.id.as_str(), entry.status.as_str());
         }
         if entry.kind == "intrinsic" {
             saw_intrinsic = true;
@@ -198,6 +209,27 @@ fn proof_coverage_matrix_is_complete_and_stable() {
 
     assert!(saw_feature, "matrix must include feature rows");
     assert!(saw_intrinsic, "matrix must include intrinsic rows");
+    if feature_status_by_id.get("feature.map_membership_overwrite_reasoning") == Some(&"proved") {
+        assert_eq!(
+            feature_status_by_id.get("feature.map_readonly_reasoning"),
+            Some(&"proved"),
+            "map overwrite feature rows may not be proved before map_readonly_reasoning closes"
+        );
+    }
+    let map_reasoning_rows_proved = [
+        "feature.map_readonly_reasoning",
+        "feature.map_membership_overwrite_reasoning",
+        "feature.map_mutation_take_reasoning",
+    ]
+    .into_iter()
+    .any(|id| feature_status_by_id.get(id) == Some(&"proved"));
+    if map_reasoning_rows_proved {
+        assert_eq!(
+            feature_status_by_id.get("feature.map_strict_no_assumption_gate"),
+            Some(&"proved"),
+            "proved map reasoning rows require map_strict_no_assumption_gate to be proved"
+        );
+    }
     assert!(
         required_surfaces.is_empty(),
         "matrix missing required intrinsic surfaces: {:?}",

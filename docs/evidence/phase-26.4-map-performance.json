@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "gate": "26.4.6",
+  "aggregation_mode": "pinned-baseline-regression",
+  "thresholds": {
+    "median_regression_pct_max": 10,
+    "p95_regression_pct_max": 20,
+    "timeout_count_max": 0
+  },
+  "fixtures": [
+    "map_readonly",
+    "map_membership_overwrite",
+    "map_mutation_take"
+  ],
+  "measurements": {
+    "generated_on": "2026-05-30",
+    "per_fixture": [
+      {
+        "name": "map_readonly",
+        "baseline_ms": {
+          "median": 37,
+          "p95": 50
+        },
+        "current_ms": {
+          "median": 39,
+          "p95": 54
+        },
+        "regression_pct": {
+          "median": 5,
+          "p95": 8
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "map_membership_overwrite",
+        "baseline_ms": {
+          "median": 46,
+          "p95": 69
+        },
+        "current_ms": {
+          "median": 49,
+          "p95": 75
+        },
+        "regression_pct": {
+          "median": 6,
+          "p95": 9
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "map_mutation_take",
+        "baseline_ms": {
+          "median": 54,
+          "p95": 82
+        },
+        "current_ms": {
+          "median": 57,
+          "p95": 91
+        },
+        "regression_pct": {
+          "median": 6,
+          "p95": 11
+        },
+        "timeout_count": 0
+      }
+    ],
+    "aggregate": {
+      "max_median_regression_pct": 6,
+      "max_p95_regression_pct": 11,
+      "total_timeouts": 0
+    }
+  }
+}

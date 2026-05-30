@@ -13,6 +13,7 @@ This lock defines the first-production `std::map` surface for deterministic key 
 - `insert_take`/`remove_take` MUST preserve deterministic returned prior-value semantics.
 - `remove` MUST preserve deterministic no-op behavior for absent keys.
 - `*_mut` paths MUST enforce `can_mut` precondition behavior with deterministic diagnostics.
+- Current `can_mut` semantics are compatibility-oriented (guard predicate) rather than ownership/uniqueness proof; production claims MUST NOT imply stronger aliasing guarantees until the dedicated `can_mut` semantics lock lands.
 
 ## Evolution Contracts
 - Any future map iteration/ordering APIs MUST declare canonical ordering rules before release enablement.

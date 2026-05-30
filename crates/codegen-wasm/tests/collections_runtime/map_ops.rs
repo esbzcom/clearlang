@@ -145,6 +145,64 @@ fn map_contains_reports_membership() {
 }
 
 #[test]
+fn map_is_empty_true_for_empty_map() {
+    let src = r#"
+        function main(m: Map<Int, Int>) -> Bool { std::map::is_empty(m) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let out = main.call(&mut store, map_ptr).expect("call main");
+    assert_eq!(out, 1, "empty map should report true for is_empty");
+}
+
+#[test]
+fn map_is_empty_false_for_nonempty_map() {
+    let src = r#"
+        function main(m: Map<Int, Int>) -> Bool { std::map::is_empty(m) }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let ir = check(&ast).expect("type-check+lower ok");
+    let wasm = emit_from_ir(&ir).expect("codegen ok");
+
+    let engine = common::engine();
+    let module = wasmtime::Module::from_binary(engine, &wasm).expect("module");
+    let mut store = common::store(engine);
+    let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instantiate");
+
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .expect("memory export");
+
+    let heap_ptr = get_global_i32(&instance, &mut store, "__clg_heap_ptr");
+    let (map_ptr, new_heap) = alloc_map(&memory, &mut store, heap_ptr, &[(1, 10)]);
+    set_global_i32(&instance, &mut store, "__clg_heap_ptr", new_heap);
+
+    let main = instance
+        .get_typed_func::<i32, i32>(&mut store, "main")
+        .expect("get main");
+    let out = main.call(&mut store, map_ptr).expect("call main");
+    assert_eq!(out, 0, "non-empty map should report false for is_empty");
+}
+
+#[test]
 fn map_contains_misaligned_data_ptr_traps() {
     let src = r#"
         function main(m: Map<Int, Int>) -> Bool { std::map::contains(m, 1) }

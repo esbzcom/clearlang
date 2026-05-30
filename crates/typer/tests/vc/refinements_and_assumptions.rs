@@ -646,6 +646,169 @@ fn list_checked_mutation_vcs_carry_no_assumptions() {
 }
 
 #[test]
+fn map_readonly_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function empty_map() -> Map<Int, Int> {
+            std::map::new()
+        }
+
+        pure function map_readonly(m: Map<Int, Int>, k: Int) -> Bool
+            ensure { result == result }
+        {
+            if std::map::contains(m, k) {
+                match std::map::get(m, k) {
+                    Some(v) => v == v,
+                    None => false
+                }
+            } else {
+                match std::map::get(m, k) {
+                    Some(_) => false,
+                    None => std::map::len(m) >= 0 && (std::map::is_empty(empty_map()) || std::map::is_empty(empty_map()) == false)
+                }
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "map_readonly" && vc.vc_id == "vc:0")
+        .expect("map_readonly vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "read-only map reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (= (|std::map::len| (|std::map::new|)) 0))"),
+        "map read-only VC must encode new->len axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (|std::map::is_empty| (|std::map::new|)))"),
+        "map read-only VC must encode new->is_empty axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int)) (=> (|std::map::contains| m k) (= (cl.variant.tag (|std::map::get| m k)) 1))))"),
+        "map read-only VC must encode contains=>get(Some) axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int)) (=> (not (|std::map::contains| m k)) (= (cl.variant.tag (|std::map::get| m k)) 0))))"),
+        "map read-only VC must encode !contains=>get(None) axiom"
+    );
+}
+
+#[test]
+fn map_membership_overwrite_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function map_membership_overwrite(m: Map<Int, Int>, k: Int, j: Int, v: Int) -> Bool
+            ensure { result == result }
+        {
+            let after_insert = std::map::insert(m, k, v);
+            let after_take = std::map::insert_take(m, k, v);
+            let after_take_map = after_take[0];
+            if k == j {
+                match std::map::get(after_insert, j) {
+                    Some(got) => got == v,
+                    None => false
+                }
+            } else {
+                std::map::contains(after_insert, j) == std::map::contains(m, j)
+                    && std::map::contains(after_take_map, j) == std::map::contains(m, j)
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "map_membership_overwrite" && vc.vc_id == "vc:0")
+        .expect("map_membership_overwrite vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "map membership/overwrite reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int) (v Int)) (|std::map::contains| (|std::map::insert| m k v) k)))"),
+        "map overwrite VC must encode insert=>contains(new key) axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int) (v Int)) (= (|std::map::len| (|std::map::insert| m k v)) (ite (|std::map::contains| m k) (|std::map::len| m) (+ (|std::map::len| m) 1)))))"),
+        "map overwrite VC must encode insert length delta axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int) (v Int)) (= (cl.map.insert_take.map (|std::map::insert_take| m k v)) (|std::map::insert| m k v))))"),
+        "map overwrite VC must encode insert_take map projection axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int) (v Int)) (=> (|std::map::contains| m k) (= (cl.variant.tag (cl.map.insert_take.prev (|std::map::insert_take| m k v))) 1))))"),
+        "map overwrite VC must encode insert_take replaced-value Some-tag axiom"
+    );
+}
+
+#[test]
+fn map_mutation_take_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function map_mutation_take(m: Map<Int, Int>, k: Int, j: Int) -> Bool
+            ensure { result == result }
+        {
+            let after_remove = std::map::remove(m, k);
+            let after_take = std::map::remove_take(m, k);
+            let after_take_map = after_take[0];
+            if k == j {
+                std::map::contains(after_remove, j) == false
+                    && std::map::contains(after_take_map, j) == false
+            } else {
+                std::map::contains(after_remove, j) == std::map::contains(m, j)
+                    && std::map::contains(after_take_map, j) == std::map::contains(m, j)
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "map_mutation_take" && vc.vc_id == "vc:0")
+        .expect("map_mutation_take vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "map mutation/take reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int)) (not (|std::map::contains| (|std::map::remove| m k) k))))"),
+        "map mutation/take VC must encode remove clears-key membership axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int)) (= (|std::map::len| (|std::map::remove| m k)) (ite (|std::map::contains| m k) (- (|std::map::len| m) 1) (|std::map::len| m)))))"),
+        "map mutation/take VC must encode remove length axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int)) (= (cl.map.remove_take.map (|std::map::remove_take| m k)) (|std::map::remove| m k))))"),
+        "map mutation/take VC must encode remove_take map projection axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((m Int) (k Int)) (=> (|std::map::contains| m k) (= (cl.variant.tag (cl.map.remove_take.prev (|std::map::remove_take| m k))) 1))))"),
+        "map mutation/take VC must encode remove_take Some-tag axiom when key is present"
+    );
+}
+
+#[test]
 fn set_subset_membership_vcs_carry_no_assumptions() {
     let src = r#"
         pure function subset_membership(a: Set<Int>, b: Set<Int>, x: Int) -> Bool

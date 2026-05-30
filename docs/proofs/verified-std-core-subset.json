@@ -1,7 +1,7 @@
 {
   "version": 1,
   "profile": "verified.std_core.v1",
-  "generated_on": "2026-05-25",
+  "generated_on": "2026-05-30",
   "entries": [
     {
       "coverage_id": "feature.contract_implication_core",
@@ -44,6 +44,22 @@
       "summary": "Loop invariant and variant obligation emission."
     },
     {
+      "coverage_id": "feature.map_membership_overwrite_reasoning",
+      "summary": "Map membership/value-consistency and overwrite reasoning over std::map::insert/std::map::insert_take with unchanged-key invariants."
+    },
+    {
+      "coverage_id": "feature.map_mutation_take_reasoning",
+      "summary": "Map mutation/take reasoning over std::map::remove/std::map::remove_take with present/absent-key and projection consistency invariants."
+    },
+    {
+      "coverage_id": "feature.map_readonly_reasoning",
+      "summary": "Map read-only reasoning over std::map::new/std::map::len/std::map::is_empty/std::map::contains/std::map::get."
+    },
+    {
+      "coverage_id": "feature.map_strict_no_assumption_gate",
+      "summary": "Strict workflow gate requiring map-related VCs to emit zero assumptions for theorem-grade claims."
+    },
+    {
       "coverage_id": "feature.refinement_premises",
       "summary": "Refinement alias premise substitution and attachment traces."
     }
@@ -63,6 +79,11 @@
       "coverage_id": "feature.finite_set_membership_subset_reasoning",
       "test_file": "crates/typer/tests/vc.rs",
       "test_name": "set_subset_membership_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.map_readonly_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "map_readonly_vcs_carry_no_assumptions"
     },
     {
       "coverage_id": "feature.linear_collection_control_flow",
@@ -98,6 +119,21 @@
       "coverage_id": "feature.loop_obligations",
       "test_file": "crates/typer/tests/vc.rs",
       "test_name": "generates_vcs_for_loop_invariant_and_variant"
+    },
+    {
+      "coverage_id": "feature.map_membership_overwrite_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "map_membership_overwrite_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.map_mutation_take_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "map_mutation_take_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.map_strict_no_assumption_gate",
+      "test_file": "crates/cli/tests/cli_it/diagnostics/type_and_mode_basics.rs",
+      "test_name": "strict_compiler_mode_accepts_map_proofs_with_zero_assumptions"
     },
     {
       "coverage_id": "feature.refinement_premises",

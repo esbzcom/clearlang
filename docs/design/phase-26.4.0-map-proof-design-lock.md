@@ -8,6 +8,8 @@ Define the ordered execution and machine-checkable completion criteria for map p
 2. Mutating map proof surfaces (`insert`, `insert_take`, `remove`, `remove_take`) are release-disabled until their corresponding Gate E rows are implemented and gated.
 3. Theorem-grade claims over map properties require zero assumption boundaries on map-related VCs.
 4. Deterministic present/absent-key behavior and overwrite semantics remain part of the first-production compatibility contract and must be preserved while proofs are expanded.
+5. Guarded mutable compatibility APIs (`can_mut`, `insert_mut`, `remove_mut`) remain release-scoped compatibility rows and MUST stay conformance-locked while Gate E closes.
+6. Iteration/export map APIs (`keys`, `values`, `entries`, iterators) remain release-disabled in Gate E and require a follow-up canonical-ordering lock before enablement.
 
 ## Assumption-Boundary Policy
 - Gate E does not introduce a new permanent release assumption ID for map semantics.
@@ -20,14 +22,18 @@ Define the ordered execution and machine-checkable completion criteria for map p
 ## Ordered Execution (Must Follow)
 1. `26.4.1` close read-only map proofs (`new`, `len`, `is_empty`, `contains`, `get`) with deterministic diagnostics/tests.
 2. `26.4.2` add VC/SMT reasoning for key-membership/value-consistency invariants and overwrite semantics.
-3. `26.4.3` close mutating map proof semantics (`insert`, `insert_take`, `remove`, `remove_take`) after `26.4.2`.
+3. `26.4.3` close mutating map proof semantics (`insert`, `insert_take`, `remove`, `remove_take`) after `26.4.2`, plus alias-conformance checks for `insert_mut`/`remove_mut`.
 4. `26.4.4` enforce theorem-grade strict no-assumption gate for release-enabled map proof surfaces.
-5. `26.4.6` run deterministic performance guardrail checks last after semantic/proof closure.
+5. `26.4.5` update compatibility row evidence for `can_mut` + mut aliases and fail closed on drift.
+6. `26.4.6` run deterministic performance guardrail checks last after semantic/proof closure.
+7. `26.4.7` publish post-Gate-E iteration/ordering lock before enabling any map iteration/export API.
 
 ## Fail-Closed Sequencing Rules
 - If mutating map proof rows are enabled before read-only closure, Gate E fails closed.
 - If release enables mutating map proofs before `26.4.2` invariant closure, Gate E fails closed.
 - Any regression from `proved` to non-proved status for release-enabled map rows fails closed.
+- If `can_mut`/`insert_mut`/`remove_mut` compatibility rows drift from conformance evidence, Gate E fails closed.
+- If any map iteration/export API is release-enabled without the `26.4.7` canonical-ordering lock and conformance tests, Gate E fails closed.
 
 ## Deterministic Performance Guardrails (26.4.6)
 - Guardrail profile input is pinned and versioned (same solver profile as release proof gates).
@@ -42,10 +48,13 @@ Define the ordered execution and machine-checkable completion criteria for map p
   - `docs/std/coverage-matrix.md` (`typed|runtime|proved` rows for `std::map` symbols),
   - `docs/proofs/proof-coverage-matrix.{md,json}` (map-related proof surfaces).
 - Compatibility row maintenance when enabled:
+  - `can_mut`,
   - `insert_mut`,
   - `remove_mut`.
 - Deterministic regression tests for:
+  - empty/non-empty behavior for `is_empty`,
   - key-present/key-absent behavior for `contains/get`,
+  - deterministic `can_mut` guard diagnostics + mut-alias conformance behavior,
   - mutation and take-variant proof outcomes under strict mode,
   - performance guardrail checks for map fixtures.
 - Performance evidence publication:

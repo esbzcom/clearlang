@@ -203,6 +203,8 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::map::{new,len,is_empty,contains,get,insert,insert_take,remove,remove_take}` | yes | yes | no | Release-enabled map baseline. |
-| `std::map::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Current guarded mutable compatibility surface. |
-| `std::map` future additions | no | no | deferred | Additive-only after conformance lock. |
+| `std::map::{new,len,is_empty,contains,get}` | yes | yes | yes | Read-only map proof rows closed in `26.4.1` with zero-assumption VC evidence for key-presence and `get` tag consistency plus deterministic `is_empty` runtime conformance. |
+| `std::map::{insert,insert_take}` | yes | yes | yes | Overwrite/membership map proof rows closed in `26.4.2` with zero-assumption VC evidence for unchanged-key membership consistency, inserted-key value consistency, and deterministic overwrite length behavior. |
+| `std::map::{remove,remove_take}` | yes | yes | yes | Removal/take map proof rows closed in `26.4.3` with zero-assumption VC evidence for present/absent-key membership behavior, remove length delta, and `remove_take` map/value projection consistency. |
+| `std::map::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Current guarded mutable compatibility surface; `insert_mut/remove_mut` alias base operations, and `can_mut` remains compatibility-oriented until ownership/uniqueness model closure. |
+| `std::map::{keys,values,entries,iter,iter_keys,iter_values}` | no | no | deferred | Release-disabled until canonical ordering/conformance lock in `docs/design/phase-26.4.7-map-iteration-ordering-lock.md` plus runtime/coverage evidence lands. |

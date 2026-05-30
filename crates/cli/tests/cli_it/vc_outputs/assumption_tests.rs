@@ -651,6 +651,239 @@ fn build_list_checked_mutation_vcs_have_zero_assumptions() {
 }
 
 #[test]
+fn build_map_readonly_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("map_readonly.clear");
+    let wasm_path = tmp.path().join("map_readonly.wasm");
+    let vcs_path = tmp.path().join("map_readonly.vc.json");
+    let src = r#"
+        pure function empty_map() -> Map<Int, Int> {
+            std::map::new()
+        }
+
+        pure function map_readonly(m: Map<Int, Int>, k: Int) -> Bool
+            ensure { result == result }
+        {
+            if std::map::contains(m, k) {
+                match std::map::get(m, k) {
+                    Some(v) => v == v,
+                    None => false
+                }
+            } else {
+                match std::map::get(m, k) {
+                    Some(_) => false,
+                    None => std::map::len(m) >= 0 && (std::map::is_empty(empty_map()) || std::map::is_empty(empty_map()) == false)
+                }
+            }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("map_readonly")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("map_readonly vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "map read-only VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains("(assert (= (|std::map::len| (|std::map::new|)) 0))"),
+        "map read-only VC must include new->len axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((m Int) (k Int)) (=> (|std::map::contains| m k) (= (cl.variant.tag (|std::map::get| m k)) 1))))"
+        ),
+        "map read-only VC must include contains=>get(Some) axiom"
+    );
+}
+
+#[test]
+fn build_map_membership_overwrite_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("map_membership_overwrite.clear");
+    let wasm_path = tmp.path().join("map_membership_overwrite.wasm");
+    let vcs_path = tmp.path().join("map_membership_overwrite.vc.json");
+    let src = r#"
+        pure function map_membership_overwrite(m: Map<Int, Int>, k: Int, j: Int, v: Int) -> Bool
+            ensure { result == result }
+        {
+            let after_insert = std::map::insert(m, k, v);
+            let after_take = std::map::insert_take(m, k, v);
+            let after_take_map = after_take[0];
+            if k == j {
+                match std::map::get(after_insert, j) {
+                    Some(got) => got == v,
+                    None => false
+                }
+            } else {
+                std::map::contains(after_insert, j) == std::map::contains(m, j)
+                    && std::map::contains(after_take_map, j) == std::map::contains(m, j)
+            }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("map_membership_overwrite")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("map_membership_overwrite vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "map membership/overwrite VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(assert (forall ((m Int) (k Int) (v Int)) (|std::map::contains| (|std::map::insert| m k v) k)))"
+        ),
+        "map membership/overwrite VC must include insert=>contains axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((m Int) (k Int) (v Int)) (= (cl.map.insert_take.map (|std::map::insert_take| m k v)) (|std::map::insert| m k v))))"
+        ),
+        "map membership/overwrite VC must include insert_take map projection axiom"
+    );
+}
+
+#[test]
+fn build_map_mutation_take_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("map_mutation_take.clear");
+    let wasm_path = tmp.path().join("map_mutation_take.wasm");
+    let vcs_path = tmp.path().join("map_mutation_take.vc.json");
+    let src = r#"
+        pure function map_mutation_take(m: Map<Int, Int>, k: Int, j: Int) -> Bool
+            ensure { result == result }
+        {
+            let after_remove = std::map::remove(m, k);
+            let after_take = std::map::remove_take(m, k);
+            let after_take_map = after_take[0];
+            if k == j {
+                std::map::contains(after_remove, j) == false
+                    && std::map::contains(after_take_map, j) == false
+            } else {
+                std::map::contains(after_remove, j) == std::map::contains(m, j)
+                    && std::map::contains(after_take_map, j) == std::map::contains(m, j)
+            }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("map_mutation_take")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("map_mutation_take vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "map mutation/take VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(assert (forall ((m Int) (k Int)) (not (|std::map::contains| (|std::map::remove| m k) k))))"
+        ),
+        "map mutation/take VC must include remove clears-key axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((m Int) (k Int)) (= (cl.map.remove_take.map (|std::map::remove_take| m k)) (|std::map::remove| m k))))"
+        ),
+        "map mutation/take VC must include remove_take map projection axiom"
+    );
+}
+
+#[test]
 fn build_set_subset_membership_vcs_have_zero_assumptions() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("set_subset.clear");

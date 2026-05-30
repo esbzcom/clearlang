@@ -646,6 +646,81 @@ fn strict_compiler_mode_accepts_list_proofs_with_zero_assumptions() {
 }
 
 #[test]
+fn strict_compiler_mode_accepts_map_proofs_with_zero_assumptions() {
+    let src = r#"
+        pure function empty_map() -> Map<Int, Int> { std::map::new() }
+
+        pure function map_gate_demo(m: Map<Int, Int>, k: Int, v: Int) -> Bool
+            ensure { result == result }
+        {
+            let inserted = std::map::insert(m, k, v);
+            let inserted_take = std::map::insert_take(inserted, k, v + 1);
+            let inserted_map = inserted_take[0];
+            let removed = std::map::remove(inserted_map, k);
+            let removed_take = std::map::remove_take(removed, k);
+            let removed_map = removed_take[0];
+            if std::map::contains(inserted_map, k) {
+                match std::map::get(inserted_map, k) {
+                    Some(got) => got >= v && std::map::len(removed_map) >= 0,
+                    None => false
+                }
+            } else {
+                false
+            }
+        }
+
+        function main() -> Int {
+            if map_gate_demo(std::map::insert(empty_map(), 1, 7), 1, 9) { 1 } else { 0 }
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_release_map_zero_assumptions.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    cmd
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let map_vcs: Vec<&Value> = arr
+        .iter()
+        .filter(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("map_gate_demo")
+        })
+        .collect();
+    assert!(
+        !map_vcs.is_empty(),
+        "expected map_gate_demo VC rows in strict-mode vcs output"
+    );
+    for vc in map_vcs {
+        let assumptions = vc
+            .get("assumptions")
+            .and_then(|v| v.get("items"))
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            assumptions.is_empty(),
+            "strict production map VCs must remain assumption-free"
+        );
+    }
+}
+
+#[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
         function main() -> Int { std::str::len("abc") }

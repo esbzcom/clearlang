@@ -581,6 +581,71 @@ fn production_release_profile_rejects_crypto_assumption_boundary_with_c123() {
 }
 
 #[test]
+fn strict_compiler_mode_accepts_list_proofs_with_zero_assumptions() {
+    let src = r#"
+        pure function empty_list() -> List<Int> { std::list::new() }
+
+        pure function list_gate_demo(l: List<Int>, x: Int) -> Bool
+            ensure { result == result }
+        {
+            let pushed = std::list::push(l, x);
+            let inserted = std::list::insert(pushed, x, 0);
+            let removed = std::list::remove(inserted, 0);
+            std::list::len(std::list::remove_take(removed, 0)[0]) >= 0
+        }
+
+        function main() -> Int {
+            if list_gate_demo(std::list::push(empty_list(), 7), 9) { 1 } else { 0 }
+        }
+    "#;
+    let tmp = tempdir().unwrap();
+    let file = tmp.path().join("production_release_list_zero_assumptions.clear");
+    fs::write(&file, src).expect("write");
+    write_minimal_strict_preflight_files(tmp.path());
+
+    let out = tmp.path().join("out.wasm");
+    let vcs = tmp.path().join("out.vc.json");
+
+    let mut cmd = Command::cargo_bin("clg").unwrap();
+    cmd.args(["build"])
+        .arg(&file)
+        .args(["-o"])
+        .arg(&out)
+        .args(["--emit-vcs"])
+        .arg(&vcs)
+        .args(["--compiler-mode", "strict"]);
+    cmd
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let list_vcs: Vec<&Value> = arr
+        .iter()
+        .filter(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("list_gate_demo")
+        })
+        .collect();
+    assert!(
+        !list_vcs.is_empty(),
+        "expected list_gate_demo VC rows in strict-mode vcs output"
+    );
+    for vc in list_vcs {
+        let assumptions = vc
+            .get("assumptions")
+            .and_then(|v| v.get("items"))
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            assumptions.is_empty(),
+            "strict production list VCs must remain assumption-free"
+        );
+    }
+}
+
+#[test]
 fn strict_acceptance_positive_all_gates_pass_with_signed_fixture() {
     let src = r#"
         function main() -> Int { std::str::len("abc") }

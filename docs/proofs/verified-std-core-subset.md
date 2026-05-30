@@ -10,9 +10,16 @@ This profile captures the currently verified std/core surfaces that are eligible
 ## Included coverage IDs
 
 - `feature.contract_implication_core`
+- `feature.finite_set_algebra_reasoning`
+- `feature.finite_set_membership_subset_reasoning`
 - `feature.refinement_premises`
 - `feature.loop_obligations`
 - `feature.linear_collection_control_flow`
+- `feature.list_index_get_reasoning`
+- `feature.list_append_pop_reasoning`
+- `feature.list_indexed_mutation_reasoning`
+- `feature.list_checked_compat_reasoning`
+- `feature.list_strict_no_assumption_gate`
 
 ## Inclusion policy
 
@@ -24,9 +31,8 @@ An entry is eligible only if:
 
 ## Exclusions (current)
 
-All intrinsic rows remain excluded from this subset because they are currently `assumed`
-(`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted`) and therefore not part
-of the verified std/core baseline.
+Intrinsic rows remain excluded from this subset profile by policy. This profile currently tracks
+proved `feature.*` coverage IDs only, even when individual intrinsic rows are also `proved`.
 
 ## Regression obligations
 

@@ -8,6 +8,7 @@ enum SmtHelper {
     OptionCtor,
     ResultCtor,
     U64BitvectorBridge,
+    ListAxioms,
     FiniteSetAxioms,
 }
 
@@ -211,6 +212,11 @@ impl SmtEncoder {
                 if is_finite_set_builtin(callee) {
                     self.helpers.insert(SmtHelper::FiniteSetAxioms);
                 }
+                if is_list_builtin(callee) {
+                    self.helpers.insert(SmtHelper::ListAxioms);
+                    self.helpers.insert(SmtHelper::VariantAccessors);
+                    self.helpers.insert(SmtHelper::OptionCtor);
+                }
                 self.record_builtin_call(callee);
                 let parts: Vec<String> = args.iter().map(|a| self.encode_inner(a)).collect();
                 let smt_callee = smt_symbol(callee);
@@ -334,6 +340,10 @@ impl SmtEncoder {
             lines.push("; Finite-set axioms for std::set::* proof reasoning.".to_string());
             lines.extend(self.finite_set_axioms());
         }
+        if self.helpers.contains(&SmtHelper::ListAxioms) {
+            lines.push("; List axioms for std::list::* proof reasoning.".to_string());
+            lines.extend(self.list_axioms());
+        }
         lines.join("\n")
     }
 
@@ -342,6 +352,11 @@ impl SmtEncoder {
             self.builtin_calls.insert(callee.to_string());
             if is_finite_set_builtin(callee) {
                 for name in FINITE_SET_BUILTINS {
+                    self.builtin_calls.insert((*name).to_string());
+                }
+            }
+            if is_list_builtin(callee) {
+                for name in LIST_BUILTINS {
                     self.builtin_calls.insert((*name).to_string());
                 }
             }
@@ -409,6 +424,123 @@ impl SmtEncoder {
             format!(
                 "(assert (forall ((a Int) (b Int)) (<= ({} ({} a b)) ({} a))))",
                 len, diff, len
+            ),
+        ]
+    }
+
+    fn list_axioms(&self) -> Vec<String> {
+        let new_list = smt_symbol("std::list::new");
+        let len = smt_symbol("std::list::len");
+        let is_empty = smt_symbol("std::list::is_empty");
+        let get = smt_symbol("std::list::get");
+        let push = smt_symbol("std::list::push");
+        let pop = smt_symbol("std::list::pop");
+        let insert = smt_symbol("std::list::insert");
+        let insert_checked = smt_symbol("std::list::insert_checked");
+        let remove = smt_symbol("std::list::remove");
+        let remove_checked = smt_symbol("std::list::remove_checked");
+        let remove_take = smt_symbol("std::list::remove_take");
+        let remove_take_list = "cl.list.remove_take.list";
+        let remove_take_value = "cl.list.remove_take.value";
+
+        vec![
+            format!("(declare-fun {} (Int) Int)", remove_take_list),
+            format!("(declare-fun {} (Int) Int)", remove_take_value),
+            format!("(assert (forall ((l Int)) (>= ({} l) 0)))", len),
+            format!("(assert (forall ((l Int)) (= ({} l) (= ({} l) 0))))", is_empty, len),
+            format!("(assert (= ({} ({})) 0))", len, new_list),
+            format!("(assert ({} ({})))", is_empty, new_list),
+            format!(
+                "(assert (forall ((l Int) (x Int)) (= ({} ({} l x)) (+ ({} l) 1))))",
+                len, push, len
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i ({} l))) (= (cl.variant.tag ({} l i)) 1))))",
+                len, get
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (or (< i 0) (>= i ({} l))) (= (cl.variant.tag ({} l i)) 0))))",
+                len, get
+            ),
+            format!(
+                "(assert (forall ((l_before Int) (l_after Int) (i Int)) (=> (and (= l_before l_after) (<= 0 i) (< i ({} l_before))) (= ({} l_before i) ({} l_after i)))))",
+                len, get, get
+            ),
+            format!(
+                "(assert (forall ((l Int)) (=> (> ({} l) 0) (= (cl.variant.tag ({} l)) 1))))",
+                len, pop
+            ),
+            format!(
+                "(assert (forall ((l Int)) (=> (<= ({} l) 0) (= (cl.variant.tag ({} l)) 0))))",
+                len, pop
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i ({} l))) (= ({} ({} l x i)) (+ ({} l) 1)))))",
+                len, len, insert, len
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i ({} l))) (= ({} ({} l i)) (- ({} l) 1)))))",
+                len, len, remove, len
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int) (j Int)) (=> (and (<= 0 i) (<= i ({} l)) (<= 0 j) (< j i)) (= ({} ({} l x i) j) ({} l j)))))",
+                len, get, insert, get
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i ({} l))) (= ({} ({} l x i) i) (cl.option.mk 1 x 0)))))",
+                len, get, insert
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int) (j Int)) (=> (and (<= 0 i) (<= i ({} l)) (< i j) (< j ({} ({} l x i)))) (= ({} ({} l x i) j) ({} l (- j 1)))))))",
+                len, len, insert, get, insert, get
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int) (j Int)) (=> (and (<= 0 i) (< i ({} l)) (<= 0 j) (< j i)) (= ({} ({} l i) j) ({} l j)))))",
+                len, get, remove, get
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int) (j Int)) (=> (and (<= 0 i) (< i ({} l)) (<= i j) (< j ({} ({} l i)))) (= ({} ({} l i) j) ({} l (+ j 1)))))))",
+                len, len, remove, get, remove, get
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i ({} l))) (= (cl.variant.tag ({} l x i)) 1))))",
+                len, insert_checked
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int)) (=> (or (< i 0) (> i ({} l))) (= (cl.variant.tag ({} l x i)) 0))))",
+                len, insert_checked
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i ({} l))) (= (cl.variant.payload_lo ({} l x i)) ({} l x i)))))",
+                len, insert_checked, insert
+            ),
+            format!(
+                "(assert (forall ((l Int) (x Int) (i Int)) (=> (or (< i 0) (> i ({} l))) (= (cl.variant.payload_lo ({} l x i)) 1))))",
+                len, insert_checked
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i ({} l))) (= (cl.variant.tag ({} l i)) 1))))",
+                len, remove_checked
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (or (< i 0) (>= i ({} l))) (= (cl.variant.tag ({} l i)) 0))))",
+                len, remove_checked
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i ({} l))) (= (cl.variant.payload_lo ({} l i)) ({} l i)))))",
+                len, remove_checked, remove
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (or (< i 0) (>= i ({} l))) (= (cl.variant.payload_lo ({} l i)) 1))))",
+                len, remove_checked
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i ({} l))) (= ({} ({} ({} l i))) (- ({} l) 1)))))",
+                len, len, remove_take_list, remove_take, len
+            ),
+            format!(
+                "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i ({} l))) (= ({} ({} l i)) ({} l i)))))",
+                len, remove_take_value, remove_take, get
             ),
         ]
     }
@@ -520,6 +652,20 @@ const FINITE_SET_BUILTINS: &[&str] = &[
     "std::set::diff",
 ];
 
+const LIST_BUILTINS: &[&str] = &[
+    "std::list::new",
+    "std::list::len",
+    "std::list::is_empty",
+    "std::list::get",
+    "std::list::push",
+    "std::list::pop",
+    "std::list::insert",
+    "std::list::insert_checked",
+    "std::list::remove",
+    "std::list::remove_checked",
+    "std::list::remove_take",
+];
+
 fn is_finite_set_builtin(callee: &str) -> bool {
     matches!(
         callee,
@@ -529,6 +675,23 @@ fn is_finite_set_builtin(callee: &str) -> bool {
             | "std::set::union"
             | "std::set::intersect"
             | "std::set::diff"
+    )
+}
+
+fn is_list_builtin(callee: &str) -> bool {
+    matches!(
+        callee,
+        "std::list::new"
+            | "std::list::len"
+            | "std::list::is_empty"
+            | "std::list::get"
+            | "std::list::push"
+            | "std::list::pop"
+            | "std::list::insert"
+            | "std::list::insert_checked"
+            | "std::list::remove"
+            | "std::list::remove_checked"
+            | "std::list::remove_take"
     )
 }
 

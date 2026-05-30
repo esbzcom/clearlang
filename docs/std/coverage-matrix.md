@@ -181,7 +181,10 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::list::{new,len,is_empty,get,push,insert,insert_checked,remove,remove_checked,remove_take,pop}` | yes | yes | no | Release-enabled collection baseline. |
+| `std::list::{new,len,is_empty,get}` | yes | yes | yes | Read-only list proof rows closed in `26.3.1` and `26.3.2` with zero-assumption VC evidence plus index-safety/get-preservation SMT axioms. |
+| `std::list::{push,pop}` | yes | yes | yes | Append/pop proof rows closed in `26.3.3` with zero-assumption VC evidence (`push => len + 1`, `pop Some <=> len > 0`, `pop None <=> len == 0`). |
+| `std::list::{insert,remove,remove_take}` | yes | yes | yes | Indexed mutation proof rows closed in `26.3.4` with zero-assumption VC evidence plus SMT shape/order invariants and deterministic out-of-range runtime guard semantics. |
+| `std::list::{insert_checked,remove_checked}` | yes | yes | yes | Compatibility proof rows closed in `26.3.6` with zero-assumption VC evidence and deterministic `Result` tag/payload SMT compatibility axioms. |
 | `std::list::{can_mut,push_mut,insert_mut,remove_mut,pop_mut}` | yes | yes | no | Current guarded mutable compatibility surface. |
 | `std::list` future additions | no | no | deferred | Additive-only after conformance lock. |
 

@@ -20,6 +20,26 @@
       "summary": "Linear collection branch/loop control-flow obligations."
     },
     {
+      "coverage_id": "feature.list_append_pop_reasoning",
+      "summary": "List append/pop reasoning over std::list::push/std::list::pop with deterministic length and emptiness relations."
+    },
+    {
+      "coverage_id": "feature.list_checked_compat_reasoning",
+      "summary": "List checked compatibility reasoning over std::list::insert_checked/std::list::remove_checked Result tag/payload semantics."
+    },
+    {
+      "coverage_id": "feature.list_index_get_reasoning",
+      "summary": "List index-safety and get value-preservation reasoning over std::list::new/std::list::len/std::list::is_empty/std::list::get."
+    },
+    {
+      "coverage_id": "feature.list_indexed_mutation_reasoning",
+      "summary": "List indexed mutation reasoning over std::list::insert/std::list::remove/std::list::remove_take with shape/order and out-of-range semantics."
+    },
+    {
+      "coverage_id": "feature.list_strict_no_assumption_gate",
+      "summary": "Strict workflow gate requiring list-related VCs to emit zero assumptions for theorem-grade claims."
+    },
+    {
       "coverage_id": "feature.loop_obligations",
       "summary": "Loop invariant and variant obligation emission."
     },
@@ -48,6 +68,31 @@
       "coverage_id": "feature.linear_collection_control_flow",
       "test_file": "crates/typer/tests/vc.rs",
       "test_name": "generates_linear_branch_vc_for_resource_collection_flow"
+    },
+    {
+      "coverage_id": "feature.list_append_pop_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "list_append_pop_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.list_checked_compat_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "list_checked_mutation_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.list_index_get_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "list_readonly_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.list_indexed_mutation_reasoning",
+      "test_file": "crates/typer/tests/vc.rs",
+      "test_name": "list_indexed_mutation_vcs_carry_no_assumptions"
+    },
+    {
+      "coverage_id": "feature.list_strict_no_assumption_gate",
+      "test_file": "crates/cli/tests/cli_it/diagnostics/type_and_mode_basics.rs",
+      "test_name": "strict_compiler_mode_accepts_list_proofs_with_zero_assumptions"
     },
     {
       "coverage_id": "feature.loop_obligations",

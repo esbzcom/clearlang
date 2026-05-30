@@ -379,6 +379,186 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::list::new".to_string(),
+            vec![],
+            Type::List(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::list::len".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "list".to_string(),
+                ty: Type::List(Box::new(Type::Int)),
+            }],
+            Type::Int,
+            Effect::Pure,
+        ),
+        (
+            "std::list::is_empty".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "list".to_string(),
+                ty: Type::List(Box::new(Type::Int)),
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::list::get".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "index".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::Option(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::list::push".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::List(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::list::pop".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "list".to_string(),
+                ty: Type::List(Box::new(Type::Int)),
+            }],
+            Type::Option(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::list::insert".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Int,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "index".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::List(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::list::remove".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "index".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::List(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::list::insert_checked".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Int,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "index".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::List(Box::new(Type::Int))),
+                Box::new(Type::Named {
+                    name: "std::collection_error::CollectionError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::list::remove_checked".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "index".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::List(Box::new(Type::Int))),
+                Box::new(Type::Named {
+                    name: "std::collection_error::CollectionError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::list::remove_take".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "list".to_string(),
+                    ty: Type::List(Box::new(Type::Int)),
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "index".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::Tuple(vec![
+                Type::List(Box::new(Type::Int)),
+                Type::Option(Box::new(Type::Int)),
+            ]),
+            Effect::Pure,
+        ),
+        (
             "std::set::len".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

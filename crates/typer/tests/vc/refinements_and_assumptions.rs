@@ -454,6 +454,198 @@ fn labels_external_dependencies_as_assumed_boundaries() {
 }
 
 #[test]
+fn list_readonly_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function empty_list() -> List<Int> { std::list::new() }
+
+        pure function list_readonly(l: List<Int>) -> Bool
+            require { std::list::len(l) >= 0 }
+            ensure { std::list::is_empty(empty_list()) }
+        {
+            match std::list::get(l, 0) {
+                Some(_) => false,
+                None => std::list::is_empty(l)
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "list_readonly" && vc.vc_id == "vc:0")
+        .expect("list_readonly vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "read-only list reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.pre.ast.contains("std::list::len(l) >= 0"),
+        "VC precondition should retain deterministic list-length guard"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (cl.variant.tag (|std::list::get| l i)) 1)))"),
+        "list read-only VC must encode in-range index safety axiom for std::list::get"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((l Int) (i Int)) (=> (or (< i 0) (>= i (|std::list::len| l))) (= (cl.variant.tag (|std::list::get| l i)) 0)))"),
+        "list read-only VC must encode out-of-range index safety axiom for std::list::get"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(forall ((l_before Int) (l_after Int) (i Int)) (=> (and (= l_before l_after) (<= 0 i) (< i (|std::list::len| l_before))) (= (|std::list::get| l_before i) (|std::list::get| l_after i))))"),
+        "list read-only VC must encode unchanged-state get value-preservation axiom"
+    );
+}
+
+#[test]
+fn list_append_pop_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function list_append_pop(l: List<Int>, x: Int) -> Bool
+            ensure { std::list::len(std::list::push(l, x)) == std::list::len(l) + 1 }
+            ensure {
+                if std::list::len(l) > 0 {
+                    match std::list::pop(l) {
+                        Some(_) => true,
+                        None => false
+                    }
+                } else {
+                    match std::list::pop(l) {
+                        Some(_) => false,
+                        None => true
+                    }
+                }
+            }
+        {
+            true
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "list_append_pop" && vc.vc_id == "vc:0")
+        .expect("list_append_pop vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "append/pop list reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (x Int)) (= (|std::list::len| (|std::list::push| l x)) (+ (|std::list::len| l) 1))))"),
+        "list append/pop VC must encode push length-delta axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int)) (=> (> (|std::list::len| l) 0) (= (cl.variant.tag (|std::list::pop| l)) 1))))"),
+        "list append/pop VC must encode pop Some axiom for non-empty lists"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int)) (=> (<= (|std::list::len| l) 0) (= (cl.variant.tag (|std::list::pop| l)) 0))))"),
+        "list append/pop VC must encode pop None axiom for empty lists"
+    );
+}
+
+#[test]
+fn list_indexed_mutation_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function list_indexed_mutation(l: List<Int>, x: Int, i: Int) -> Bool
+            require { 0 <= i && i < std::list::len(l) }
+            ensure { std::list::len(std::list::insert(l, x, i)) == std::list::len(l) + 1 }
+            ensure { std::list::len(std::list::remove(l, i)) == std::list::len(l) - 1 }
+            ensure { std::list::len(std::list::remove_take(l, i)[0]) == std::list::len(l) - 1 }
+        {
+            match std::list::remove_take(l, i)[1] {
+                Some(v) => std::list::get(l, i) == Some(v),
+                None => false
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "list_indexed_mutation" && vc.vc_id == "vc:0")
+        .expect("list_indexed_mutation vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "indexed list mutation reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i (|std::list::len| l))) (= (|std::list::len| (|std::list::insert| l x i)) (+ (|std::list::len| l) 1)))))"),
+        "list indexed-mutation VC must encode insert length-delta axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (|std::list::len| (|std::list::remove| l i)) (- (|std::list::len| l) 1)))))"),
+        "list indexed-mutation VC must encode remove length-delta axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(declare-fun cl.list.remove_take.list (Int) Int)"),
+        "list indexed-mutation VC must declare remove_take list projection helper"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (|std::list::len| (cl.list.remove_take.list (|std::list::remove_take| l i))) (- (|std::list::len| l) 1)))))"),
+        "list indexed-mutation VC must encode in-range remove_take length axiom"
+    );
+}
+
+#[test]
+fn list_checked_mutation_vcs_carry_no_assumptions() {
+    let src = r#"
+        pure function list_checked_mutation(l: List<Int>, x: Int, i: Int) -> Bool
+            ensure { result == result }
+        {
+            match std::list::insert_checked(l, x, i) {
+                Ok(updated) => std::list::len(updated) >= std::list::len(l),
+                Err(_err_insert) => match std::list::remove_checked(l, i) {
+                    Ok(updated2) => std::list::len(updated2) <= std::list::len(l),
+                    Err(_err_remove) => true
+                }
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let output = check_with_vcs(&ast).expect("type-check ok");
+    let vc = output
+        .vcs
+        .iter()
+        .find(|vc| vc.function == "list_checked_mutation" && vc.vc_id == "vc:0")
+        .expect("list_checked_mutation vc:0");
+
+    assert!(
+        vc.assumptions.is_empty(),
+        "checked list mutation reasoning must not emit assumption boundaries"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i (|std::list::len| l))) (= (cl.variant.tag (|std::list::insert_checked| l x i)) 1))))"),
+        "list checked-mutation VC must encode insert_checked Ok-tag axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (cl.variant.tag (|std::list::remove_checked| l i)) 1))))"),
+        "list checked-mutation VC must encode remove_checked Ok-tag axiom"
+    );
+    assert!(
+        vc.vc_smt2
+            .contains("(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i (|std::list::len| l))) (= (cl.variant.payload_lo (|std::list::insert_checked| l x i)) (|std::list::insert| l x i)))))"),
+        "list checked-mutation VC must encode insert_checked payload-to-insert axiom"
+    );
+}
+
+#[test]
 fn set_subset_membership_vcs_carry_no_assumptions() {
     let src = r#"
         pure function subset_membership(a: Set<Int>, b: Set<Int>, x: Int) -> Bool

@@ -81,6 +81,71 @@
       }
     },
     {
+      "id": "feature.list_append_pop_reasoning",
+      "kind": "feature",
+      "surface": "List append/pop reasoning over std::list::push/std::list::pop with length and emptiness relations",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.list_checked_compat_reasoning",
+      "kind": "feature",
+      "surface": "List checked compatibility reasoning over std::list::insert_checked/std::list::remove_checked Result tag/payload semantics",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.list_index_get_reasoning",
+      "kind": "feature",
+      "surface": "List index-safety and get value-preservation reasoning over std::list::new/std::list::len/std::list::is_empty/std::list::get",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.list_indexed_mutation_reasoning",
+      "kind": "feature",
+      "surface": "List indexed mutation reasoning over std::list::insert/std::list::remove/std::list::remove_take with shape/order and out-of-range semantics",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "feature.list_strict_no_assumption_gate",
+      "kind": "feature",
+      "surface": "Strict release workflow gate requires assumptions.items == [] on list-related VCs for theorem-grade claims",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
       "id": "feature.loop_obligations",
       "kind": "feature",
       "surface": "Loop invariant and variant (non-negative/decrease) obligation emission",
@@ -169,6 +234,149 @@
         "L1": "assumed",
         "L2": "assumed",
         "L3": "blocked"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::get",
+      "kind": "intrinsic",
+      "surface": "std::list::get",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::insert",
+      "kind": "intrinsic",
+      "surface": "std::list::insert",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::insert_checked",
+      "kind": "intrinsic",
+      "surface": "std::list::insert_checked",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::is_empty",
+      "kind": "intrinsic",
+      "surface": "std::list::is_empty",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::len",
+      "kind": "intrinsic",
+      "surface": "std::list::len",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::new",
+      "kind": "intrinsic",
+      "surface": "std::list::new",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::pop",
+      "kind": "intrinsic",
+      "surface": "std::list::pop",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::push",
+      "kind": "intrinsic",
+      "surface": "std::list::push",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::remove",
+      "kind": "intrinsic",
+      "surface": "std::list::remove",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::remove_checked",
+      "kind": "intrinsic",
+      "surface": "std::list::remove_checked",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::list::remove_take",
+      "kind": "intrinsic",
+      "surface": "std::list::remove_take",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
       }
     },
     {

@@ -297,6 +297,360 @@ fn build_labels_external_dependencies_as_assumed_boundaries() {
 }
 
 #[test]
+fn build_list_readonly_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("list_readonly.clear");
+    let wasm_path = tmp.path().join("list_readonly.wasm");
+    let vcs_path = tmp.path().join("list_readonly.vc.json");
+    let src = r#"
+        pure function empty_list() -> List<Int> { std::list::new() }
+
+        pure function list_readonly(l: List<Int>) -> Bool
+            require { std::list::len(l) >= 0 }
+            ensure { std::list::is_empty(empty_list()) }
+        {
+            match std::list::get(l, 0) {
+                Some(_) => false,
+                None => std::list::is_empty(l)
+            }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("list_readonly")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("list_readonly vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "read-only list VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (cl.variant.tag (|std::list::get| l i)) 1)))"
+        ),
+        "list read-only VC must include in-range index safety axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(forall ((l Int) (i Int)) (=> (or (< i 0) (>= i (|std::list::len| l))) (= (cl.variant.tag (|std::list::get| l i)) 0)))"
+        ),
+        "list read-only VC must include out-of-range index safety axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(forall ((l_before Int) (l_after Int) (i Int)) (=> (and (= l_before l_after) (<= 0 i) (< i (|std::list::len| l_before))) (= (|std::list::get| l_before i) (|std::list::get| l_after i))))"
+        ),
+        "list read-only VC must include unchanged-state get value-preservation axiom"
+    );
+
+    let wasm = fs::read(&wasm_path).expect("read wasm");
+    let mut proof_data = None;
+    for payload in Parser::new(0).parse_all(&wasm) {
+        let payload = payload.expect("payload");
+        if let Payload::CustomSection(section) = payload {
+            if section.name() == "clearlang.proof" {
+                proof_data = Some(section.data().to_vec());
+                break;
+            }
+        }
+    }
+    let proof_data = proof_data.expect("proof section");
+    let section: ProofAssumptionsSection =
+        serde_cbor::from_slice(&proof_data).expect("decode proof");
+    let vc_assumptions = section
+        .functions
+        .iter()
+        .find(|f| f.name == "list_readonly")
+        .and_then(|f| f.vcs.iter().find(|vc| vc.vc_id == "vc:0"))
+        .and_then(|vc| vc.assumptions.as_ref());
+    assert!(
+        vc_assumptions
+            .map(|assumptions| assumptions.items.is_empty())
+            .unwrap_or(true),
+        "proof section must also keep read-only list VC assumption-free"
+    );
+}
+
+#[test]
+fn build_list_append_pop_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("list_append_pop.clear");
+    let wasm_path = tmp.path().join("list_append_pop.wasm");
+    let vcs_path = tmp.path().join("list_append_pop.vc.json");
+    let src = r#"
+        pure function list_append_pop(l: List<Int>, x: Int) -> Bool
+            ensure { std::list::len(std::list::push(l, x)) == std::list::len(l) + 1 }
+            ensure {
+                if std::list::len(l) > 0 {
+                    match std::list::pop(l) {
+                        Some(_) => true,
+                        None => false
+                    }
+                } else {
+                    match std::list::pop(l) {
+                        Some(_) => false,
+                        None => true
+                    }
+                }
+            }
+        {
+            true
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("list_append_pop")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("list_append_pop vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "append/pop list VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (x Int)) (= (|std::list::len| (|std::list::push| l x)) (+ (|std::list::len| l) 1))))"
+        ),
+        "append/pop list VC must include push length-delta axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int)) (=> (> (|std::list::len| l) 0) (= (cl.variant.tag (|std::list::pop| l)) 1))))"
+        ),
+        "append/pop list VC must include pop Some axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int)) (=> (<= (|std::list::len| l) 0) (= (cl.variant.tag (|std::list::pop| l)) 0))))"
+        ),
+        "append/pop list VC must include pop None axiom"
+    );
+}
+
+#[test]
+fn build_list_indexed_mutation_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("list_indexed_mutation.clear");
+    let wasm_path = tmp.path().join("list_indexed_mutation.wasm");
+    let vcs_path = tmp.path().join("list_indexed_mutation.vc.json");
+    let src = r#"
+        pure function list_indexed_mutation(l: List<Int>, x: Int, i: Int) -> Bool
+            require { 0 <= i && i < std::list::len(l) }
+            ensure { std::list::len(std::list::insert(l, x, i)) == std::list::len(l) + 1 }
+            ensure { std::list::len(std::list::remove(l, i)) == std::list::len(l) - 1 }
+            ensure { std::list::len(std::list::remove_take(l, i)[0]) == std::list::len(l) - 1 }
+        {
+            match std::list::remove_take(l, i)[1] {
+                Some(v) => std::list::get(l, i) == Some(v),
+                None => false
+            }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("list_indexed_mutation")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("list_indexed_mutation vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "indexed list mutation VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i (|std::list::len| l))) (= (|std::list::len| (|std::list::insert| l x i)) (+ (|std::list::len| l) 1)))))"
+        ),
+        "indexed list mutation VC must include insert length-delta axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (|std::list::len| (|std::list::remove| l i)) (- (|std::list::len| l) 1)))))"
+        ),
+        "indexed list mutation VC must include remove length-delta axiom"
+    );
+    assert!(
+        smt2.contains("(declare-fun cl.list.remove_take.list (Int) Int)"),
+        "indexed list mutation VC must include remove_take list projection helper"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (|std::list::len| (cl.list.remove_take.list (|std::list::remove_take| l i))) (- (|std::list::len| l) 1)))))"
+        ),
+        "indexed list mutation VC must include in-range remove_take length axiom"
+    );
+}
+
+#[test]
+fn build_list_checked_mutation_vcs_have_zero_assumptions() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("list_checked_mutation.clear");
+    let wasm_path = tmp.path().join("list_checked_mutation.wasm");
+    let vcs_path = tmp.path().join("list_checked_mutation.vc.json");
+    let src = r#"
+        pure function list_checked_mutation(l: List<Int>, x: Int, i: Int) -> Bool
+            ensure { result == result }
+        {
+            match std::list::insert_checked(l, x, i) {
+                Ok(updated) => std::list::len(updated) >= std::list::len(l),
+                Err(_err_insert) => match std::list::remove_checked(l, i) {
+                    Ok(updated2) => std::list::len(updated2) <= std::list::len(l),
+                    Err(_err_remove) => true
+                }
+            }
+        }
+
+        function main() -> Int { 0 }
+    "#;
+    fs::write(&src_path, src).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .arg("--emit-vcs")
+        .arg(&vcs_path)
+        .assert()
+        .success();
+
+    let data = fs::read_to_string(&vcs_path).expect("read vcs");
+    let items: Value = serde_json::from_str(&data).expect("json array");
+    let arr = items.as_array().expect("array");
+    let vc = arr
+        .iter()
+        .find(|entry| {
+            entry.get("function").and_then(|v| v.as_str()) == Some("list_checked_mutation")
+                && entry.get("vc_id").and_then(|v| v.as_str()) == Some("vc:0")
+        })
+        .expect("list_checked_mutation vc:0");
+    let assumptions = vc
+        .get("assumptions")
+        .and_then(|v| v.get("items"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        assumptions.is_empty(),
+        "checked list mutation VC must be assumption-free"
+    );
+    let smt2 = vc
+        .get("vc")
+        .and_then(|v| v.get("smt2"))
+        .and_then(|v| v.as_str())
+        .expect("vc smt2");
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i (|std::list::len| l))) (= (cl.variant.tag (|std::list::insert_checked| l x i)) 1))))"
+        ),
+        "checked list mutation VC must include insert_checked Ok-tag axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (i Int)) (=> (and (<= 0 i) (< i (|std::list::len| l))) (= (cl.variant.tag (|std::list::remove_checked| l i)) 1))))"
+        ),
+        "checked list mutation VC must include remove_checked Ok-tag axiom"
+    );
+    assert!(
+        smt2.contains(
+            "(assert (forall ((l Int) (x Int) (i Int)) (=> (and (<= 0 i) (<= i (|std::list::len| l))) (= (cl.variant.payload_lo (|std::list::insert_checked| l x i)) (|std::list::insert| l x i)))))"
+        ),
+        "checked list mutation VC must include insert_checked payload-to-insert axiom"
+    );
+}
+
+#[test]
 fn build_set_subset_membership_vcs_have_zero_assumptions() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("set_subset.clear");

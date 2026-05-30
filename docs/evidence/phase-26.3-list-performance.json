@@ -1,0 +1,90 @@
+{
+  "schema_version": 2,
+  "gate": "26.3.7",
+  "aggregation_mode": "pinned-baseline-regression",
+  "thresholds": {
+    "median_regression_pct_max": 10,
+    "p95_regression_pct_max": 20,
+    "timeout_count_max": 0
+  },
+  "fixtures": [
+    "list_readonly",
+    "list_append_pop",
+    "list_indexed_mutation",
+    "list_checked_mutation"
+  ],
+  "measurements": {
+    "generated_on": "2026-05-30",
+    "per_fixture": [
+      {
+        "name": "list_readonly",
+        "baseline_ms": {
+          "median": 36,
+          "p95": 48
+        },
+        "current_ms": {
+          "median": 38,
+          "p95": 52
+        },
+        "regression_pct": {
+          "median": 6,
+          "p95": 8
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "list_append_pop",
+        "baseline_ms": {
+          "median": 41,
+          "p95": 61
+        },
+        "current_ms": {
+          "median": 44,
+          "p95": 66
+        },
+        "regression_pct": {
+          "median": 7,
+          "p95": 8
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "list_indexed_mutation",
+        "baseline_ms": {
+          "median": 58,
+          "p95": 86
+        },
+        "current_ms": {
+          "median": 62,
+          "p95": 96
+        },
+        "regression_pct": {
+          "median": 7,
+          "p95": 12
+        },
+        "timeout_count": 0
+      },
+      {
+        "name": "list_checked_mutation",
+        "baseline_ms": {
+          "median": 52,
+          "p95": 78
+        },
+        "current_ms": {
+          "median": 55,
+          "p95": 86
+        },
+        "regression_pct": {
+          "median": 6,
+          "p95": 10
+        },
+        "timeout_count": 0
+      }
+    ],
+    "aggregate": {
+      "max_median_regression_pct": 7,
+      "max_p95_regression_pct": 12,
+      "total_timeouts": 0
+    }
+  }
+}

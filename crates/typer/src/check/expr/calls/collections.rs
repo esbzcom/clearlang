@@ -23,17 +23,7 @@ pub(crate) fn type_collection_call<'a>(
     span: Span,
 ) -> Result<Option<Type>> {
     let mut local_tracker = tracker.clone();
-    let normalized_callee = match callee {
-        "std::list::push_mut" => "std::list::push",
-        "std::list::insert_mut" => "std::list::insert",
-        "std::list::remove_mut" => "std::list::remove",
-        "std::list::pop_mut" => "std::list::pop",
-        "std::set::insert_mut" => "std::set::insert",
-        "std::set::remove_mut" => "std::set::remove",
-        "std::map::insert_mut" => "std::map::insert",
-        "std::map::remove_mut" => "std::map::remove",
-        other => other,
-    };
+    let normalized_callee = crate::guards::canonical_collection_alias_callee(callee);
     let var_binding = |i: usize| -> Option<(&str, Span, Type)> {
         match &args[i] {
             Expr::Var(name, var_span) => env

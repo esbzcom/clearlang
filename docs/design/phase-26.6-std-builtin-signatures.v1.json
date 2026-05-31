@@ -1,0 +1,792 @@
+{
+  "schema_version": 1,
+  "symbols": [
+    {
+      "symbol": "std::array::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::bytes::concat",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::eq",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::eq_ct",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::bytes::eq"
+    },
+    {
+      "symbol": "std::bytes::equals_ct",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::bytes::eq_ct"
+    },
+    {
+      "symbol": "std::bytes::from_string",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::is_empty",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::bytes::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::bytes::to_string",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::cosmos::from_array",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::cosmos::from_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::hash",
+      "module_class": "host_std",
+      "arity": 2,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::crypto::hash"
+    },
+    {
+      "symbol": "std::crypto::hmac",
+      "module_class": "host_std",
+      "arity": 3,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::crypto::hmac"
+    },
+    {
+      "symbol": "std::crypto::hmac_sha256",
+      "module_class": "host_std",
+      "arity": 2,
+      "effect": "io",
+      "route": "package_import",
+      "deprecated_alias_of": "std::crypto::hmac"
+    },
+    {
+      "symbol": "std::crypto::sha256",
+      "module_class": "host_std",
+      "arity": 1,
+      "effect": "io",
+      "route": "package_import",
+      "deprecated_alias_of": "std::crypto::hash"
+    },
+    {
+      "symbol": "std::crypto::verify",
+      "module_class": "host_std",
+      "arity": 4,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::crypto::verify"
+    },
+    {
+      "symbol": "std::env::random",
+      "module_class": "host_std",
+      "arity": 1,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::env::random"
+    },
+    {
+      "symbol": "std::env::time",
+      "module_class": "host_std",
+      "arity": 0,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::env::time"
+    },
+    {
+      "symbol": "std::eth::from_array",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::eth::from_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::can_mut",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::get",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::insert",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::insert_checked",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::insert_mut",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::is_empty",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::new",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::pop",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::pop_mut",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::push",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::push_mut",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove_checked",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove_mut",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::list::remove_take",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::can_mut",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::contains",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::get",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::insert",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::insert_mut",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::insert_take",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::is_empty",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::new",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::remove",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::remove_mut",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::map::remove_take",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::can_mut",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::contains",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::diff",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::insert",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::insert_mut",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::intersect",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::is_empty",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::new",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::remove",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::remove_mut",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "mut",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::subset",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::set::union",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::slice::get",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::slice::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::slice::subslice",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::solana::from_array",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::solana::from_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::str::concat",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::contains",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::ends_with",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::eq",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::str::eq"
+    },
+    {
+      "symbol": "std::str::is_empty",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::str::len",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::starts_with",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::str::to_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::str_pattern::matches",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u128::from_limbs",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u128::hi",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u128::lo",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::from_limbs",
+      "module_class": "pure_std",
+      "arity": 4,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb0",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb1",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb2",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u256::limb3",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::add_sat",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::u64::add_saturating"
+    },
+    {
+      "symbol": "std::u64::add_saturating",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::add_wrap",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::u64::add_wrapping"
+    },
+    {
+      "symbol": "std::u64::add_wrapping",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::from_bytes_be",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::from_bytes_le",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::mul_sat",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::u64::mul_saturating"
+    },
+    {
+      "symbol": "std::u64::mul_saturating",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::mul_wrap",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::u64::mul_wrapping"
+    },
+    {
+      "symbol": "std::u64::mul_wrapping",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::rotl",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::rotr",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::sub_sat",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::u64::sub_saturating"
+    },
+    {
+      "symbol": "std::u64::sub_saturating",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::sub_wrap",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import",
+      "deprecated_alias_of": "std::u64::sub_wrapping"
+    },
+    {
+      "symbol": "std::u64::sub_wrapping",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::u64::to_bytes_be",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::u64::to_bytes_le",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "intrinsic"
+    },
+    {
+      "symbol": "std::unit::assert_eq_bool",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::assert_eq_int",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::assert_eq_u64",
+      "module_class": "pure_std",
+      "arity": 3,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::assert_false",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::assert_true",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::unit::fail",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::wasi::print",
+      "module_class": "host_std",
+      "arity": 1,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::wasi::print"
+    }
+  ]
+}

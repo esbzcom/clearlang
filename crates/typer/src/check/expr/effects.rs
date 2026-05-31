@@ -285,16 +285,11 @@ fn call_effect(
 }
 
 fn builtin_effect(callee: &str) -> Option<EffectLevel> {
+    if crate::guards::mut_collection_kind(callee).is_some() {
+        return Some(EffectLevel::Mut);
+    }
     match callee {
         "Some" | "None" | "Ok" | "Err" | "U8" | "U64" | "U128" | "U256" => Some(EffectLevel::Pure),
-        "std::list::push_mut"
-        | "std::list::insert_mut"
-        | "std::list::remove_mut"
-        | "std::list::pop_mut"
-        | "std::set::insert_mut"
-        | "std::set::remove_mut"
-        | "std::map::insert_mut"
-        | "std::map::remove_mut" => Some(EffectLevel::Mut),
         // Ownership-transfer APIs stay pure-by-construction: linearity is enforced by
         // the type checker/resource tracker and VC obligations, while runtime behavior
         // reuses the same deterministic collection helpers.

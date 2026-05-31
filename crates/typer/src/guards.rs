@@ -223,6 +223,20 @@ pub fn mut_collection_kind(callee: &str) -> Option<MutCollectionKind> {
     }
 }
 
+pub fn canonical_collection_alias_callee(callee: &str) -> &str {
+    match callee {
+        "std::list::push_mut" => "std::list::push",
+        "std::list::insert_mut" => "std::list::insert",
+        "std::list::remove_mut" => "std::list::remove",
+        "std::list::pop_mut" => "std::list::pop",
+        "std::set::insert_mut" => "std::set::insert",
+        "std::set::remove_mut" => "std::set::remove",
+        "std::map::insert_mut" => "std::map::insert",
+        "std::map::remove_mut" => "std::map::remove",
+        _ => callee,
+    }
+}
+
 pub fn guard_kind_for_callee(callee: &str) -> Option<MutCollectionKind> {
     guard_collection_kind(callee)
 }

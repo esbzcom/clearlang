@@ -215,11 +215,13 @@ fn import_std_unit_module_and_items_work() {
 
     let main_src = r#"
         import std::unit as unit
-        import std::unit::{assert_true, assert_eq_int, assert_eq_bool, fail}
+        import std::unit::{assert_true, assert_false, assert_eq_int, assert_eq_u64, assert_eq_bool, fail}
 
         function main() -> Int {
             if assert_true(true, "assert_true should pass")
+                && assert_false(false, "assert_false should pass")
                 && assert_eq_int(2 + 2, 4, "assert_eq_int should pass")
+                && assert_eq_u64(U64(7), U64(7), "assert_eq_u64 should pass")
                 && assert_eq_bool(unit::assert_true(true, "alias call should pass"), true, "assert_eq_bool should pass")
                 && assert_eq_bool(fail("fail should return false"), false, "fail should be false")
             {

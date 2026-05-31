@@ -83,14 +83,16 @@ jobs:
           cmp --silent tmp/std-core/run1/std-core-1.0.0.package-abi.json tmp/std-core/run2/std-core-1.0.0.package-abi.json
           cmp --silent tmp/std-core/run1/std-core-1.0.0.manifest.json tmp/std-core/run2/std-core-1.0.0.manifest.json
           cmp --silent tmp/std-core/run1/std-core-1.0.0.sha256 tmp/std-core/run2/std-core-1.0.0.sha256
-      - name: Std surface drift + binding-map determinism
+      - name: Std architecture catalog sync + conformance determinism
         run: |
           set -euo pipefail
-          rm -rf tmp/std-surface
-          cargo run -p xtask -- std-surface-drift-check --emit-artifact tmp/std-surface/run1
-          cargo run -p xtask -- std-surface-drift-check --emit-artifact tmp/std-surface/run2
-          cmp --silent tmp/std-surface/run1/std-binding-map-v1.json tmp/std-surface/run2/std-binding-map-v1.json
-          cmp --silent tmp/std-surface/run1/std-binding-map-v1.sha256 tmp/std-surface/run2/std-binding-map-v1.sha256
+          rm -rf tmp/std-arch
+          cargo run -p xtask -- std-arch-sync --emit-artifact tmp/std-arch/run1
+          cargo run -p xtask -- std-arch-sync --emit-artifact tmp/std-arch/run2
+          cmp --silent tmp/std-arch/run1/std-metadata-v2.json tmp/std-arch/run2/std-metadata-v2.json
+          cmp --silent tmp/std-arch/run1/std-builtin-signatures-v1.json tmp/std-arch/run2/std-builtin-signatures-v1.json
+          cmp --silent tmp/std-arch/run1/std-arch-artifacts.sha256 tmp/std-arch/run2/std-arch-artifacts.sha256
+          cargo run -p xtask -- std-arch-conformance-check
       - name: Host capability policy determinism
         run: |
           set -euo pipefail
@@ -113,16 +115,16 @@ jobs:
         with:
           name: std-core-1.0.0
           path: tmp/std-core/run1/*
-      - name: Upload std binding-map artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: std-binding-map-v1
-          path: tmp/std-surface/run1/*
       - name: Upload host capability policy artifact
         uses: actions/upload-artifact@v4
         with:
           name: host-capability-policy-v1
           path: tmp/host-policy/run1/*
+      - name: Upload std architecture artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: std-architecture-v1
+          path: tmp/std-arch/run1/*
       - name: Upload milestone_2 performance artifact
         uses: actions/upload-artifact@v4
         with:

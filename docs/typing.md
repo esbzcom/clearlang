@@ -143,7 +143,7 @@ Effects
 
 - Linear ownership-transfer APIs (`std::list::{push,insert,remove_take}` and `std::map::{insert_take,remove_take}`) are `pure` by construction.
 
-- Guard predicates are pure Bool-valued builtins that document aliasing requirements. They surface in VC generation as `mut_pre` obligations so proofs can reference the same guard expression.
+- Guard predicates are pure Bool-valued policy gates. `can_mut` is intentionally compatibility-scoped and does not provide ownership/uniqueness guarantees. Guard predicates surface in VC generation as `mut_pre` obligations so proofs can reference the same guard expression.
 
 - Totality + loops (Phase 9)
   - `while cond invariant { inv } variant { m } { body }` requires `cond: Bool`, `inv: Bool`, and `m: Int`.
@@ -347,7 +347,7 @@ ADT Ergonomics (Phase 6.6)
   - `linear:branch:N` captures symbolic branch-state agreement for tracked linear collection owners.
   - `linear:loop:N` captures symbolic loop-state preservation for tracked linear collection owners.
 - **Effect/proof/runtime split (17.6.3.2)**:
-  - `_mut` collection calls remain `mut`-gated and produce `mut_pre:*` VC obligations tied to `can_mut` guards.
+  - `_mut` collection calls remain `mut`-gated and produce `mut_pre:*` VC obligations tied to `can_mut` policy guards.
   - Linear ownership APIs (`remove_take`/`insert_take` families) remain `pure`; they rely on linear typing + `linear:*` VCs for ownership correctness while runtime keeps deterministic defensive traps (`R009`/`R010`).
 - **SMT modeling limits**: `U64` paths now emit a deterministic bitvector bridge model in VC SMT; uncovered unsigned paths still use integer modeling and can emit `unsigned.int_model`. Uncovered bitwise/shift and crypto/bytes surfaces continue to be surfaced under assumption boundaries (`bitwise.uninterpreted`, `crypto.uninterpreted`) until their dedicated closure tasks land. See `docs/proofs/crypto-limitations.md` for migration options.
 - **Coverage matrix**: per-feature/per-intrinsic `proved` vs `assumed` status and `L0`-`L3` mapping is published in `docs/proofs/proof-coverage-matrix.md` (`.json` is the machine-readable source used by CI checks).
@@ -375,7 +375,7 @@ Collections (Runtime Summary, Phase 17.3) - see `docs/std/collections.md`
 
 - Runtime: `get`/`pop` are total (`None` on out-of-bounds or empty); `insert`/`remove` trap on invalid indices (`R009`); `insert_checked`/`remove_checked` return deterministic `CollectionError` failures instead of traps; `remove_take`/`insert_take` return `(updated_collection, Option<value>)`.
 - Key equality: `Map`/`Set` require equatable keys; non-equatable key types raise `T220`.
-- Mutable variants: `_mut` calls require `mut` effect and a `can_mut` guard (T401/T402/T403).
+- Mutable variants: `_mut` calls require `mut` effect and a `can_mut` guard (T401/T402/T403). The guard is a locked policy predicate rather than an ownership proof primitive.
 - Diagnostics: T206 (cannot infer `new()`), T207 (expected collection kind), T208 (element/key/value mismatch), T220 (non-equatable key type); index must be Int for list ops (T005).
 
 

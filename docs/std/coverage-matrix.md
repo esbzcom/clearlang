@@ -129,6 +129,14 @@ Allowed values:
 | `std::crypto::hash256::blake2b_256` | no | no | deferred | Deferred algorithm expansion. |
 | `std::crypto::algorithm::secp256k1` | no | no | deferred | Deferred algorithm expansion. |
 
+## `std::env` / `std::wasi`
+
+| Symbol | typed | runtime | proved | Notes |
+|---|---|---|---|---|
+| `std::env::time` | yes | yes | no | Host-backed deterministic/stubbed runtime path in local run; strict host capability gate applies. |
+| `std::env::random` | yes | yes | no | Host-backed deterministic/stubbed runtime path in local run; strict host capability gate applies. |
+| `std::wasi::print` | yes | yes | no | Host-backed output path; strict host capability gate applies. |
+
 ## `std::host`
 
 | Symbol | typed | runtime | proved | Notes |
@@ -179,6 +187,15 @@ Allowed values:
 | `std::dynamic::{resolve,verify}` | no | no | deferred | Deferred post-first-production. |
 | `std::dynamic::link_error::{code,equals}` | no | no | deferred | Deferred post-first-production. |
 
+## `std::array` / `std::slice`
+
+| Symbol | typed | runtime | proved | Notes |
+|---|---|---|---|---|
+| `std::array::len` | yes | yes | no | Compatibility helper; typed through collection call adapters and lowered as deterministic intrinsic behavior. |
+| `std::slice::len` | yes | yes | no | Compatibility helper; typed through collection call adapters and lowered as deterministic intrinsic behavior. |
+| `std::slice::get` | yes | yes | no | Compatibility helper; returns `Option<T>` on out-of-range (non-trapping read). |
+| `std::slice::subslice` | yes | yes | no | Compatibility helper; deterministic bounds semantics aligned with runtime adapter behavior. |
+
 ## `std::list`
 
 | Symbol | typed | runtime | proved | Notes |
@@ -187,7 +204,7 @@ Allowed values:
 | `std::list::{push,pop}` | yes | yes | yes | Append/pop proof rows closed in `26.3.3` with zero-assumption VC evidence (`push => len + 1`, `pop Some <=> len > 0`, `pop None <=> len == 0`). |
 | `std::list::{insert,remove,remove_take}` | yes | yes | yes | Indexed mutation proof rows closed in `26.3.4` with zero-assumption VC evidence plus SMT shape/order invariants and deterministic out-of-range runtime guard semantics. |
 | `std::list::{insert_checked,remove_checked}` | yes | yes | yes | Compatibility rows closed in `26.3.6` with zero-assumption VC evidence (`Result` tag/payload SMT compatibility axioms) plus runtime conformance tests for in-range `Ok` and out-of-range `Err` non-trapping behavior. |
-| `std::list::{can_mut,push_mut,insert_mut,remove_mut,pop_mut}` | yes | yes | no | Current guarded mutable compatibility surface. |
+| `std::list::{can_mut,push_mut,insert_mut,remove_mut,pop_mut}` | yes | yes | no | Locked guarded mutable compatibility surface (`can_mut` is policy-only, not ownership/uniqueness proof). |
 | `std::list` future additions | no | no | deferred | Additive-only after conformance lock. |
 
 ## `std::set`
@@ -198,7 +215,7 @@ Allowed values:
 | `std::set::len` | yes | yes | yes | Cardinality VC proof row closed in `26.2.5` with assumption-free evidence. |
 | `std::set::contains` | yes | yes | yes | Finite-set membership proof row closed in `26.2.2` with zero-assumption VC evidence. |
 | `std::set::subset` | yes | yes | yes | Finite-set subset proof row closed in `26.2.2` with zero-assumption VC evidence. |
-| `std::set::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Current guarded mutable compatibility surface. |
+| `std::set::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Locked guarded mutable compatibility surface (`can_mut` is policy-only, not ownership/uniqueness proof). |
 | `std::set::{union,intersect,diff}` | yes | yes | yes | Implemented in Gate C step `26.2.4`; assumption-free VC evidence added for set algebra closure. |
 
 ## `std::map`
@@ -208,5 +225,5 @@ Allowed values:
 | `std::map::{new,len,is_empty,contains,get}` | yes | yes | yes | Read-only map proof rows closed in `26.4.1` with zero-assumption VC evidence for key-presence and `get` tag consistency plus deterministic `is_empty` runtime conformance. |
 | `std::map::{insert,insert_take}` | yes | yes | yes | Overwrite/membership map proof rows closed in `26.4.2` with zero-assumption VC evidence for unchanged-key membership consistency, inserted-key value consistency, and deterministic overwrite length behavior. |
 | `std::map::{remove,remove_take}` | yes | yes | yes | Removal/take map proof rows closed in `26.4.3` with zero-assumption VC evidence for present/absent-key membership behavior, remove length delta, and `remove_take` map/value projection consistency. |
-| `std::map::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Current guarded mutable compatibility surface; `insert_mut/remove_mut` alias base operations, and `can_mut` remains compatibility-oriented until ownership/uniqueness model closure. |
+| `std::map::{can_mut,insert_mut,remove_mut}` | yes | yes | no | Locked guarded mutable compatibility surface; `insert_mut/remove_mut` alias base operations, and `can_mut` is policy-only (no ownership/uniqueness guarantee). |
 | `std::map::{keys,values,entries,iter,iter_keys,iter_values}` | no | no | deferred | Release-disabled until canonical ordering/conformance lock in `docs/design/phase-26.4.7-map-iteration-ordering-lock.md` plus runtime/coverage evidence lands. |

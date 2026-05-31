@@ -85,10 +85,12 @@ Functions:
   - `std::set::{can_mut,insert_mut,remove_mut}`
   - `std::map::{can_mut,insert_mut,remove_mut}`
 - Keep cardinality-heavy proof work (`len`/size-relation reasoning) deferred to Gate C follow-up (`26.2.5+`).
+- `can_mut` guards are permanently locked as policy/compatibility predicates for `_mut` aliases; they are not ownership/uniqueness guarantees.
 
 ## Notes
 - This file is an umbrella catalog for collection modules, not a direct import path.
 - Collection APIs are immutable-return style in first production cut.
+- `_mut` compatibility aliases (`*_mut`) stay effect/guard-gated (`T401`/`T402`/`T403`) with deterministic diagnostics.
 - Proof roadmap order remains `subset -> set ops -> cardinality-heavy reasoning`.
 - `insert` and `remove` are fail-closed convenience APIs; out-of-range indices MUST terminate deterministically via the standard panic/failure path.
 - `insert_checked` and `remove_checked` are the preferred non-terminating APIs for user-facing/business workflows.

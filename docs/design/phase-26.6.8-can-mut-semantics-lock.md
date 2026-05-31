@@ -3,15 +3,12 @@
 ## Scope
 Resolve long-term `can_mut` semantics for collection mut-guard APIs across `std::list`, `std::set`, and `std::map`.
 
-## Current State
-- `can_mut` is currently a compatibility-oriented guard predicate.
+## Locked Model
+Permanent policy model is selected and locked.
+- `can_mut` is a compatibility/policy guard predicate only.
 - `_mut` APIs are guarded by typing/effect policy and deterministic diagnostics.
-- Current behavior does not prove ownership/uniqueness semantics.
-
-## Decision Requirement
-Choose one explicit model and lock it:
-1. Ownership/uniqueness model: implement and enforce uniqueness-aware mutability semantics.
-2. Permanent policy model: keep `can_mut` as a policy guard and explicitly disallow stronger aliasing claims.
+- `can_mut` does not imply ownership, uniqueness, alias-freedom, or borrow-style exclusivity.
+- Runtime/lowering keeps guard calls deterministic and non-owning; ownership reasoning remains in linear ownership-transfer APIs (`remove_take`/`insert_take` families) and linear VC flows.
 
 ## Required Deliverables
 - Normative semantics doc update in `docs/typing.md`.
@@ -29,6 +26,11 @@ Choose one explicit model and lock it:
 - If release claims imply ownership guarantees without proof/evidence, fail closed.
 
 ## Exit Criteria
-1. One model is locked with no ambiguity.
+1. One model is locked with no ambiguity. (`permanent policy model`)
 2. Conformance evidence is green for list/set/map guarded mut APIs.
 3. Documentation, diagnostics, and runtime behavior are consistent.
+
+## Evidence Snapshot
+- Typing/effect diagnostics remain deterministic (`T401`/`T402`/`T403`) and enforce guard presence + variable-target guards.
+- Guarded mut API VC obligations are emitted for list/set/map `_mut` surfaces.
+- CLI std import metadata includes full `std::unit` assert surface, reducing cross-stage drift risk while Gate G cleanup continues.

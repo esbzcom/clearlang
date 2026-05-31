@@ -74,6 +74,80 @@ fn mut_map_function_without_guard_fails() {
 }
 
 #[test]
+fn mut_list_insert_remove_and_pop_aliases_require_list_guard() {
+    let src = r#"
+        mut function insert_ok(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::insert_mut(l, 1, 0)
+        }
+        mut function remove_ok(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::remove_mut(l, 0)
+        }
+        mut function pop_ok(l: List<Int>) -> Option<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::pop_mut(l)
+        }
+    "#;
+    type_check_only(&parse(src).expect("parse ok"))
+        .expect("list mut aliases should succeed when guard is present");
+}
+
+#[test]
+fn mut_set_function_requires_guard_for_mut_builtins() {
+    let src = r#"
+        mut function insert_ok(s: Set<Int>) -> Set<Int>
+            require { std::set::can_mut(s) }
+        {
+            std::set::insert_mut(s, 1)
+        }
+        mut function remove_ok(s: Set<Int>) -> Set<Int>
+            require { std::set::can_mut(s) }
+        {
+            std::set::remove_mut(s, 1)
+        }
+    "#;
+    type_check_only(&parse(src).expect("parse ok")).expect("mut set call should succeed");
+}
+
+#[test]
+fn mut_set_function_without_guard_fails() {
+    let src = r#"
+        mut function bad(s: Set<Int>) -> Set<Int> {
+            std::set::insert_mut(s, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("missing set mut guard must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires `std::set::can_mut"),
+        "expected set guard error, got {msg}"
+    );
+}
+
+#[test]
+fn mut_guard_requires_variable_target() {
+    let src = r#"
+        mut function bad(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::push_mut(std::list::push(l, 1), 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = type_check_only(&ast).expect_err("non-variable guard target must fail");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("requires its first argument to be a variable"),
+        "expected T403 variable-target guard error, got {msg}"
+    );
+}
+
+#[test]
 fn pure_function_cannot_call_mut_user_function() {
     let src = r#"
         mut function helper(l: List<Int>) -> List<Int>

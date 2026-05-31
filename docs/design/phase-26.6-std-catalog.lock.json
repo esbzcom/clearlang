@@ -1,0 +1,938 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "path": "std::array",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::bytes",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "concat",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "eq",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "eq_ct",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::bytes::eq"
+        },
+        {
+          "name": "equals_ct",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::bytes::eq_ct"
+        },
+        {
+          "name": "from_string",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "is_empty",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "to_string",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        }
+      ]
+    },
+    {
+      "path": "std::collection_error",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "CollectionError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        }
+      ]
+    },
+    {
+      "path": "std::cosmos",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "Addr",
+          "kind": "type",
+          "layout": {
+            "align": 1,
+            "bytes": 20
+          }
+        },
+        {
+          "name": "from_array",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "from_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::crypto",
+      "module_class": "host_std",
+      "exports": [
+        {
+          "name": "hash",
+          "kind": "value",
+          "arity": 2,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::crypto::hash"
+        },
+        {
+          "name": "hmac",
+          "kind": "value",
+          "arity": 3,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::crypto::hmac"
+        },
+        {
+          "name": "hmac_sha256",
+          "kind": "value",
+          "arity": 2,
+          "effect": "io",
+          "route": "package_import",
+          "deprecated_alias_of": "std::crypto::hmac"
+        },
+        {
+          "name": "sha256",
+          "kind": "value",
+          "arity": 1,
+          "effect": "io",
+          "route": "package_import",
+          "deprecated_alias_of": "std::crypto::hash"
+        },
+        {
+          "name": "verify",
+          "kind": "value",
+          "arity": 4,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::crypto::verify"
+        }
+      ]
+    },
+    {
+      "path": "std::env",
+      "module_class": "host_std",
+      "exports": [
+        {
+          "name": "random",
+          "kind": "value",
+          "arity": 1,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::env::random"
+        },
+        {
+          "name": "time",
+          "kind": "value",
+          "arity": 0,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::env::time"
+        }
+      ]
+    },
+    {
+      "path": "std::eth",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "Address",
+          "kind": "type",
+          "layout": {
+            "align": 1,
+            "bytes": 20
+          }
+        },
+        {
+          "name": "from_array",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "from_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::list",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "can_mut",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "get",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert_checked",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert_mut",
+          "kind": "value",
+          "arity": 3,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "is_empty",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "new",
+          "kind": "value",
+          "arity": 0,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "pop",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "pop_mut",
+          "kind": "value",
+          "arity": 1,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "push",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "push_mut",
+          "kind": "value",
+          "arity": 2,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "remove",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remove_checked",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remove_mut",
+          "kind": "value",
+          "arity": 2,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "remove_take",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::map",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "can_mut",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "contains",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "get",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert_mut",
+          "kind": "value",
+          "arity": 3,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "insert_take",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "is_empty",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "new",
+          "kind": "value",
+          "arity": 0,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remove",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remove_mut",
+          "kind": "value",
+          "arity": 2,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "remove_take",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::set",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "can_mut",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "contains",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "diff",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "insert_mut",
+          "kind": "value",
+          "arity": 2,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "intersect",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "is_empty",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "new",
+          "kind": "value",
+          "arity": 0,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remove",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remove_mut",
+          "kind": "value",
+          "arity": 2,
+          "effect": "mut",
+          "route": "package_import"
+        },
+        {
+          "name": "subset",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "union",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::slice",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "get",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "subslice",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::solana",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "Pubkey",
+          "kind": "type",
+          "layout": {
+            "align": 1,
+            "bytes": 32
+          }
+        },
+        {
+          "name": "from_array",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "from_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::str",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "concat",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "contains",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "ends_with",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "eq",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::str::eq"
+        },
+        {
+          "name": "is_empty",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "len",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "starts_with",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "to_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::str_pattern",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "matches",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::u128",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "from_limbs",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "hi",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "lo",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::u256",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "from_limbs",
+          "kind": "value",
+          "arity": 4,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "limb0",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "limb1",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "limb2",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "limb3",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::u64",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "add_sat",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::u64::add_saturating"
+        },
+        {
+          "name": "add_saturating",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "add_wrap",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::u64::add_wrapping"
+        },
+        {
+          "name": "add_wrapping",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "from_bytes_be",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "from_bytes_le",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "mul_sat",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::u64::mul_saturating"
+        },
+        {
+          "name": "mul_saturating",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "mul_wrap",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::u64::mul_wrapping"
+        },
+        {
+          "name": "mul_wrapping",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "rotl",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "rotr",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "sub_sat",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::u64::sub_saturating"
+        },
+        {
+          "name": "sub_saturating",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "sub_wrap",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import",
+          "deprecated_alias_of": "std::u64::sub_wrapping"
+        },
+        {
+          "name": "sub_wrapping",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "to_bytes_be",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        },
+        {
+          "name": "to_bytes_le",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "intrinsic"
+        }
+      ]
+    },
+    {
+      "path": "std::unit",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "assert_eq_bool",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "assert_eq_int",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "assert_eq_u64",
+          "kind": "value",
+          "arity": 3,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "assert_false",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "assert_true",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "fail",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::wasi",
+      "module_class": "host_std",
+      "exports": [
+        {
+          "name": "print",
+          "kind": "value",
+          "arity": 1,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::wasi::print"
+        }
+      ]
+    }
+  ]
+}

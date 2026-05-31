@@ -1,6 +1,6 @@
 use clg_ast::{Effect, Param, ParamKind, Type};
 
-pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
+pub fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
     vec![
         (
             "std::bytes::len".to_string(),

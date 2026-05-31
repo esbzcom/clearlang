@@ -423,15 +423,7 @@ fn ownership_target<'a>(
 }
 
 fn is_ownership_api(callee: &str) -> bool {
-    let normalized = match callee {
-        "std::list::push_mut" => "std::list::push",
-        "std::list::insert_mut" => "std::list::insert",
-        "std::list::remove_mut" => "std::list::remove",
-        "std::list::pop_mut" => "std::list::pop",
-        "std::map::insert_mut" => "std::map::insert",
-        "std::map::remove_mut" => "std::map::remove",
-        other => other,
-    };
+    let normalized = crate::guards::canonical_collection_alias_callee(callee);
 
     matches!(
         normalized,

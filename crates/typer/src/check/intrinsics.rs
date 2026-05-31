@@ -3,7 +3,9 @@ use std::collections::HashSet;
 
 pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
     let mut set: HashSet<&'static str> = HashSet::with_capacity(8);
-    walk_calls(ast, &mut |callee| match callee {
+    walk_calls(ast, &mut |callee| {
+        let normalized = crate::guards::canonical_collection_alias_callee(callee);
+        match normalized {
         "std::bytes::len" => {
             set.insert("std::bytes::len");
         }
@@ -108,14 +110,12 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         | "std::map::insert"
         | "std::map::remove"
         | "std::map::insert_take"
-        | "std::map::remove_take"
-        | "std::map::insert_mut"
-        | "std::map::remove_mut" => {
+        | "std::map::remove_take" => {
             set.insert("std::str::eq");
             set.insert("std::bytes::eq");
         }
         _ => {}
-    });
+    }});
     set
 }
 

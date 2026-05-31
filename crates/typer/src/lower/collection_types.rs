@@ -5,17 +5,7 @@ use clg_ast::{Expr, Type};
 use super::LowerCtx;
 
 pub(super) fn normalize_collection_callee(callee: &str) -> &str {
-    match callee {
-        "std::list::push_mut" => "std::list::push",
-        "std::list::insert_mut" => "std::list::insert",
-        "std::list::remove_mut" => "std::list::remove",
-        "std::list::pop_mut" => "std::list::pop",
-        "std::set::insert_mut" => "std::set::insert",
-        "std::set::remove_mut" => "std::set::remove",
-        "std::map::insert_mut" => "std::map::insert",
-        "std::map::remove_mut" => "std::map::remove",
-        _ => callee,
-    }
+    crate::guards::canonical_collection_alias_callee(callee)
 }
 
 pub(super) fn list_elem_type(ctx: &LowerCtx<'_>, arg: &Expr) -> Result<Type> {

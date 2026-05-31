@@ -138,6 +138,8 @@ pub(super) fn std_type_info() -> Result<HashMap<String, StdTypeInfo>> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::StdMetadataIndex;
 
     #[test]
@@ -201,5 +203,26 @@ mod tests {
         let module = index.module("std::foo").expect("std::foo module present");
         assert!(module.values.contains("make"));
         assert!(module.types.contains("Bar"));
+    }
+
+    #[test]
+    fn std_unit_exports_match_supported_assert_surface() {
+        let index = StdMetadataIndex::load().expect("bundled std metadata must load");
+        let module = index.module("std::unit").expect("std::unit module present");
+        let expected: BTreeSet<&str> = [
+            "assert_true",
+            "assert_false",
+            "assert_eq_int",
+            "assert_eq_u64",
+            "assert_eq_bool",
+            "fail",
+        ]
+        .into_iter()
+        .collect();
+        let actual: BTreeSet<&str> = module.values.iter().map(|v| v.as_str()).collect();
+        assert_eq!(
+            actual, expected,
+            "std::unit metadata exports must stay in sync with supported assert/fail surface"
+        );
     }
 }

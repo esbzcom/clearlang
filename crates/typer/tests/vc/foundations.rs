@@ -175,6 +175,74 @@ fn generates_mut_pre_vc_for_map_remove_mut_alias_calls() {
 }
 
 #[test]
+fn generates_mut_pre_vc_for_list_insert_remove_and_pop_alias_calls() {
+    let src = r#"
+        mut function insert_at(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::insert_mut(l, 1, 0)
+        }
+        mut function remove_at(l: List<Int>) -> List<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::remove_mut(l, 0)
+        }
+        mut function pop_last(l: List<Int>) -> Option<Int>
+            require { std::list::can_mut(l) }
+        {
+            std::list::pop_mut(l)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert!(
+        vcs.iter()
+            .any(|vc| vc.vc_id.starts_with("mut_pre:std::list::insert_mut:")),
+        "expected list insert_mut mut_pre VC"
+    );
+    assert!(
+        vcs.iter()
+            .any(|vc| vc.vc_id.starts_with("mut_pre:std::list::remove_mut:")),
+        "expected list remove_mut mut_pre VC"
+    );
+    assert!(
+        vcs.iter()
+            .any(|vc| vc.vc_id.starts_with("mut_pre:std::list::pop_mut:")),
+        "expected list pop_mut mut_pre VC"
+    );
+}
+
+#[test]
+fn generates_mut_pre_vc_for_set_mut_alias_calls() {
+    let src = r#"
+        mut function put(s: Set<Int>) -> Set<Int>
+            require { std::set::can_mut(s) }
+        {
+            std::set::insert_mut(s, 1)
+        }
+        mut function dropv(s: Set<Int>) -> Set<Int>
+            require { std::set::can_mut(s) }
+        {
+            std::set::remove_mut(s, 1)
+        }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    type_check_only(&ast).expect("type-check ok");
+    let vcs = generate_vcs(&ast);
+    assert!(
+        vcs.iter()
+            .any(|vc| vc.vc_id.starts_with("mut_pre:std::set::insert_mut:")),
+        "expected set insert_mut mut_pre VC"
+    );
+    assert!(
+        vcs.iter()
+            .any(|vc| vc.vc_id.starts_with("mut_pre:std::set::remove_mut:")),
+        "expected set remove_mut mut_pre VC"
+    );
+}
+
+#[test]
 fn generates_vcs_for_loop_invariant_and_variant() {
     let src = r#"
         pure function countdown(n: Int) -> Int {

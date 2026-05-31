@@ -202,9 +202,14 @@ fn execute_selected_tests(
                 ("test_id", case.id.clone()),
                 ("timeout_ms", config.timeout_ms.to_string()),
                 ("mock_sets", format_mock_sets(config.mock_sets.as_slice())),
+                (
+                    "expected_outcome",
+                    expected_outcome_label(config.expected_outcome.as_ref()).to_string(),
+                ),
             ],
         );
-        let outcome = execute_single_test_safely(engine, module, case, config.timeout_ms);
+        let actual = execute_single_test_safely(engine, module, case, config.timeout_ms);
+        let outcome = enforce_expected_outcome(actual, config.expected_outcome.as_ref());
         logger.event(
             LogLevel::Info,
             "finish",
@@ -228,7 +233,10 @@ fn execute_selected_tests(
             status: outcome.status,
             failure_kind: outcome.failure_kind,
             failure_code: outcome.failure_code,
+            failure_id: outcome.failure_id,
             reason: outcome.reason,
+            expected_outcome: config.expected_outcome.clone(),
+            assertion_diff: outcome.assertion_diff,
             captured_stdout: outcome.captured_stdout,
             captured_stderr: outcome.captured_stderr,
             replay: replay_contract(case.id.as_str()),
@@ -243,7 +251,9 @@ struct TestExecutionOutcome {
     status: &'static str,
     failure_kind: Option<&'static str>,
     failure_code: Option<&'static str>,
+    failure_id: Option<String>,
     reason: Option<String>,
+    assertion_diff: Option<AssertionDiff>,
     captured_stdout: String,
     captured_stderr: String,
 }
@@ -327,7 +337,9 @@ fn execute_single_test(
                     status: "passed",
                     failure_kind: None,
                     failure_code: None,
+                    failure_id: None,
                     reason: None,
+                    assertion_diff: None,
                     captured_stdout: String::new(),
                     captured_stderr: String::new(),
                 }
@@ -336,9 +348,20 @@ fn execute_single_test(
                     status: "failed",
                     failure_kind: Some("assertion_false"),
                     failure_code: Some(TEST_ASSERTION_FAILURE_CODE),
+                    failure_id: Some("assertion.bool_false".to_string()),
                     reason: Some(format!(
                         "assertion returned false (expected 1/true, got {value})"
                     )),
+                    assertion_diff: Some(AssertionDiff {
+                        schema_version: 1,
+                        kind: "bool_return",
+                        expected: "1".to_string(),
+                        actual: value.to_string(),
+                        expected_failure_code: Some(TEST_ASSERTION_FAILURE_CODE.to_string()),
+                        actual_failure_code: Some(TEST_ASSERTION_FAILURE_CODE.to_string()),
+                        reason_contains: None,
+                        actual_reason: Some(format!("bool return value was {value}")),
+                    }),
                     captured_stdout: String::new(),
                     captured_stderr: String::new(),
                 }
@@ -358,20 +381,145 @@ fn timeout_failure_outcome(timeout_ms: u64) -> TestExecutionOutcome {
         status: "failed",
         failure_kind: Some("timeout"),
         failure_code: Some(TEST_TIMEOUT_FAILURE_CODE),
+        failure_id: Some("timeout.elapsed".to_string()),
         reason: Some(format!("timeout after {}ms", timeout_ms)),
+        assertion_diff: None,
         captured_stdout: String::new(),
         captured_stderr: String::new(),
     }
 }
 
 fn fail_runtime_outcome(reason: String) -> TestExecutionOutcome {
+    let failure_id = runtime_failure_id(reason.as_str());
     TestExecutionOutcome {
         status: "failed",
         failure_kind: Some("runtime"),
         failure_code: Some(TEST_RUNTIME_FAILURE_CODE),
+        failure_id: Some(failure_id.to_string()),
         reason: Some(reason),
+        assertion_diff: None,
         captured_stdout: String::new(),
         captured_stderr: String::new(),
+    }
+}
+
+fn runtime_failure_id(reason: &str) -> &'static str {
+    if reason.starts_with("fuel_exhausted:") {
+        return "runtime.fuel_exhausted";
+    }
+    if reason.starts_with("memory_limit:") {
+        return "runtime.memory_limit";
+    }
+    if reason.starts_with("worker_crash:") {
+        return "runtime.worker_crash";
+    }
+    "runtime.trap"
+}
+
+fn expected_outcome_label(expected: Option<&TestExpectedOutcomeSpec>) -> &'static str {
+    match expected
+        .map(|spec| spec.kind)
+        .unwrap_or(TestExpectedOutcomeKind::Pass)
+    {
+        TestExpectedOutcomeKind::Pass => "pass",
+        TestExpectedOutcomeKind::AssertionFalse => "assertion_false",
+        TestExpectedOutcomeKind::Runtime => "runtime",
+        TestExpectedOutcomeKind::Timeout => "timeout",
+    }
+}
+
+fn enforce_expected_outcome(
+    actual: TestExecutionOutcome,
+    expected: Option<&TestExpectedOutcomeSpec>,
+) -> TestExecutionOutcome {
+    let Some(expected) = expected else {
+        return actual;
+    };
+    let expected_kind = expected_outcome_label(Some(expected));
+    let actual_kind = if actual.status == "passed" {
+        "pass"
+    } else {
+        actual.failure_kind.unwrap_or("runtime")
+    };
+
+    if expected_kind != actual_kind {
+        return expectation_mismatch_outcome(
+            actual,
+            expected,
+            "expectation.kind_mismatch",
+            format!("expected outcome `{expected_kind}`, observed `{actual_kind}`"),
+        );
+    }
+
+    if let Some(expected_code) = expected.failure_code.as_deref() {
+        let actual_code = actual.failure_code.unwrap_or("<none>");
+        if expected_code != actual_code {
+            return expectation_mismatch_outcome(
+                actual,
+                expected,
+                "expectation.code_mismatch",
+                format!(
+                    "expected failure_code `{expected_code}`, observed `{actual_code}`"
+                ),
+            );
+        }
+    }
+
+    if let Some(needle) = expected.reason_contains.as_deref() {
+        let reason = actual.reason.clone().unwrap_or_default();
+        if !reason.contains(needle) {
+            return expectation_mismatch_outcome(
+                actual,
+                expected,
+                "expectation.reason_mismatch",
+                format!("expected reason to contain `{needle}`, observed `{reason}`"),
+            );
+        }
+    }
+
+    TestExecutionOutcome {
+        status: "passed",
+        failure_kind: None,
+        failure_code: None,
+        failure_id: None,
+        reason: None,
+        assertion_diff: None,
+        captured_stdout: actual.captured_stdout,
+        captured_stderr: actual.captured_stderr,
+    }
+}
+
+fn expectation_mismatch_outcome(
+    actual: TestExecutionOutcome,
+    expected: &TestExpectedOutcomeSpec,
+    failure_id: &'static str,
+    reason: String,
+) -> TestExecutionOutcome {
+    let expected_kind = expected_outcome_label(Some(expected)).to_string();
+    let actual_kind = if actual.status == "passed" {
+        "pass".to_string()
+    } else {
+        actual.failure_kind.unwrap_or("runtime").to_string()
+    };
+
+    TestExecutionOutcome {
+        status: "failed",
+        failure_kind: Some("assertion_mismatch"),
+        failure_code: Some(TEST_EXPECTATION_FAILURE_CODE),
+        failure_id: Some(failure_id.to_string()),
+        reason: Some(reason),
+        assertion_diff: Some(AssertionDiff {
+            schema_version: 1,
+            kind: "expected_outcome",
+            expected: expected_kind,
+            actual: actual_kind,
+            expected_failure_code: expected.failure_code.clone(),
+            actual_failure_code: actual.failure_code.map(|code| code.to_string()),
+            reason_contains: expected.reason_contains.clone(),
+            actual_reason: actual.reason,
+        }),
+        captured_stdout: actual.captured_stdout,
+        captured_stderr: actual.captured_stderr,
     }
 }
 

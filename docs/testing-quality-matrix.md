@@ -14,7 +14,7 @@ Policy:
 | Parser + discovery contract | deterministic discovery of `test_*` in canonical `tests/unit` layout | invalid layout/signature/duplicate-id fails with deterministic `C134` |
 | Test-plan governance | canonical sorted `tests/test-plan.json` with stable bindings | malformed schema/unsorted/duplicate/unknown IDs fail with deterministic `C135` |
 | Mock binding + safety | explicit per-test mock-set execution with deterministic override order | missing/unknown/unsafe mock path or binding-policy breach fails with deterministic `C136` |
-| Runtime execution + assertion semantics | passing tests return stable `ok` report with replay fields | assertion false/runtime/timeout failures map to deterministic `C139/C138/C137` |
+| Runtime execution + assertion semantics | passing tests return stable `ok` report with replay fields; expected-outcome policy can deterministically classify known negative paths as pass | assertion false/runtime/timeout failures map to deterministic `C139/C138/C137`; expected-outcome mismatch maps to deterministic `C141` |
 | Runtime worker safety limits | deterministic fuel + memory limits and crash handling policy under test runner | `clg test` integration covers fail-closed `C138` runtime mapping; fuel/memory reason prefixes are enforced by deterministic unit contracts |
 | Report/event contracts | stable `human|json|junit` reports and NDJSON event stages | schema drift or missing required fields fails Gate D CI/precheck checks |
 | Release isolation/tamper safety | release graph and artifacts include production modules only | any test/mock reference or substitution fails deterministic `C128/C129/V003` gates |

@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_runtime_failure, escape_xml, merge_mock_sets, normalize_relpath,
+        classify_runtime_failure, escape_xml, expected_outcome_label, merge_mock_sets,
+        normalize_relpath, runtime_failure_id,
         panic_payload_message, render_replay_command, replay_contract, timeout_failure_outcome,
-        TestPlan, TestPlanCase, DEFAULT_TEST_TIMEOUT_MS,
+        TestExpectedOutcomeKind, TestExpectedOutcomeSpec, TestPlan, TestPlanCase,
+        DEFAULT_TEST_TIMEOUT_MS, TEST_EXPECTATION_FAILURE_CODE,
         DEFAULT_TEST_WORKER_FUEL_LIMIT, DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES,
         TEST_ASSERTION_FAILURE_CODE, TEST_RUNTIME_FAILURE_CODE, TEST_TIMEOUT_FAILURE_CODE,
     };
@@ -31,11 +33,13 @@ mod tests {
                     test_id: "tests/unit/b.clear::test_b".to_string(),
                     mock_sets: vec!["common".to_string()],
                     timeout_ms: None,
+                    expected_outcome: None,
                 },
                 TestPlanCase {
                     test_id: "tests/unit/a.clear::test_a".to_string(),
                     mock_sets: vec!["common".to_string()],
                     timeout_ms: Some(120_000),
+                    expected_outcome: None,
                 },
             ],
         };
@@ -98,6 +102,7 @@ mod tests {
         assert_eq!(TEST_TIMEOUT_FAILURE_CODE, "C137");
         assert_eq!(TEST_RUNTIME_FAILURE_CODE, "C138");
         assert_eq!(TEST_ASSERTION_FAILURE_CODE, "C139");
+        assert_eq!(TEST_EXPECTATION_FAILURE_CODE, "C141");
     }
 
     #[test]
@@ -135,6 +140,36 @@ mod tests {
         assert_eq!(
             classify_runtime_failure("unexpected host trap"),
             "runtime_trap: unexpected host trap"
+        );
+    }
+
+    #[test]
+    fn runtime_failure_id_is_deterministic_by_reason_prefix() {
+        assert_eq!(
+            runtime_failure_id("fuel_exhausted: out of fuel"),
+            "runtime.fuel_exhausted"
+        );
+        assert_eq!(
+            runtime_failure_id("memory_limit: cannot grow memory"),
+            "runtime.memory_limit"
+        );
+        assert_eq!(
+            runtime_failure_id("worker_crash: panic payload"),
+            "runtime.worker_crash"
+        );
+        assert_eq!(runtime_failure_id("runtime_trap: trap"), "runtime.trap");
+    }
+
+    #[test]
+    fn expected_outcome_label_defaults_to_pass() {
+        assert_eq!(expected_outcome_label(None), "pass");
+        assert_eq!(
+            expected_outcome_label(Some(&TestExpectedOutcomeSpec {
+                kind: TestExpectedOutcomeKind::Runtime,
+                failure_code: None,
+                reason_contains: None,
+            })),
+            "runtime"
         );
     }
 

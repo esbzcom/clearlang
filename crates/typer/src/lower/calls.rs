@@ -158,6 +158,23 @@ pub(super) fn lower_call_expr<'a>(
             let _msg = lower_expr(ctx, &args[1], Some(Type::String))?;
             Ok(cond)
         }
+        "std::unit::assert_false" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::unit::assert_false` expects exactly two arguments");
+            }
+            let cond = lower_expr(ctx, &args[0], Some(Type::Bool))?;
+            let _msg = lower_expr(ctx, &args[1], Some(Type::String))?;
+            let falsy = emit_bool_const(ctx, false);
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst,
+                op: BinOpIR::Eq,
+                ty: IrType::Bool,
+                lhs: cond,
+                rhs: falsy,
+            });
+            Ok(dst)
+        }
         "std::unit::assert_eq_int" => {
             if args.len() != 3 {
                 anyhow::bail!("`std::unit::assert_eq_int` expects exactly three arguments");
@@ -170,6 +187,23 @@ pub(super) fn lower_call_expr<'a>(
                 dst,
                 op: BinOpIR::Eq,
                 ty: IrType::Int,
+                lhs: actual,
+                rhs: expected,
+            });
+            Ok(dst)
+        }
+        "std::unit::assert_eq_u64" => {
+            if args.len() != 3 {
+                anyhow::bail!("`std::unit::assert_eq_u64` expects exactly three arguments");
+            }
+            let actual = lower_expr(ctx, &args[0], Some(Type::U64))?;
+            let expected = lower_expr(ctx, &args[1], Some(Type::U64))?;
+            let _msg = lower_expr(ctx, &args[2], Some(Type::String))?;
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::IBin {
+                dst,
+                op: BinOpIR::Eq,
+                ty: IrType::U64,
                 lhs: actual,
                 rhs: expected,
             });

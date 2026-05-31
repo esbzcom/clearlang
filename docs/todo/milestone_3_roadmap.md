@@ -235,10 +235,10 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [x] 26.4.6 Add deterministic performance guardrails for map-proof fixtures (median `<= +10%`, p95 `<= +20%`, zero timeouts on release-enabled map fixtures) and publish evidence artifact (`docs/evidence/phase-26.4-map-performance.{md,json}`). (`docs/evidence/phase-26.4-map-performance.{md,json}`, `docs/design/phase-26.4.0-map-proof-design-lock.md`) `DRI: std-map-owner`, `Target: 2026-08-02`.
   - [x] 26.4.7 Publish post-Gate-E map iteration/ordering expansion lock (`keys`, `values`, `entries` and/or iterators) with canonical ordering and deterministic serialization constraints; keep these APIs release-disabled until that lock + conformance tests + coverage rows land. (`docs/design/phase-26.4.7-map-iteration-ordering-lock.md`, `docs/std/coverage-matrix.md`) `DRI: std-map-owner`, `Target: 2026-08-05`.
 
-- [ ] 26.5 Deferred test assertion extensions [Std Gate F]
-  - [ ] 26.5.1 Add expected-failure and trap/error assertion semantics for `clg test` only after baseline `std::unit` assertions are stable.
-  - [ ] 26.5.2 Add deterministic assertion-mismatch diff shape and deterministic failure-id taxonomy for advanced assertion paths.
-  - [ ] 26.5.3 Evaluate generic `assert_eq<T>` only with explicit equality-capability constraints and deterministic diagnostics policy.
+- [x] 26.5 Deferred test assertion extensions [Std Gate F]
+  - [x] 26.5.1 Add expected-failure and trap/error assertion semantics for `clg test` only after baseline `std::unit` assertions are stable. (`docs/design/phase-26.5-test-assertion-extensions-lock.md`, `docs/testing.md`, `crates/cli/src/commands/test/{plan.rs,execution.rs,report.rs}`)
+  - [x] 26.5.2 Add deterministic assertion-mismatch diff shape and deterministic failure-id taxonomy for advanced assertion paths. (`docs/design/phase-26.5-test-assertion-extensions-lock.md`, `docs/testing.md`, `crates/cli/src/commands/test/{prelude.rs,execution.rs,report.rs}`)
+  - [x] 26.5.3 Evaluate generic `assert_eq<T>` only with explicit equality-capability constraints and deterministic diagnostics policy. (`docs/design/phase-26.5-test-assertion-extensions-lock.md`, `docs/std/unit.md`)
 
 - [ ] 26.6 Std architecture debt cleanup (long-term) [Std Gate G]
   - [ ] 26.6.0 Publish architecture lock for long-term std implementation model (single-source std definitions, generation pipeline, and compatibility strategy).

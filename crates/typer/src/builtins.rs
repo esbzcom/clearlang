@@ -688,6 +688,23 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::unit::assert_false".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "cond".to_string(),
+                    ty: Type::Bool,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "msg".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::unit::assert_eq_int".to_string(),
             vec![
                 Param {
@@ -699,6 +716,28 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
                     kind: ParamKind::Borrow,
                     name: "expected".to_string(),
                     ty: Type::Int,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "msg".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::unit::assert_eq_u64".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "actual".to_string(),
+                    ty: Type::U64,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "expected".to_string(),
+                    ty: Type::U64,
                 },
                 Param {
                     kind: ParamKind::Borrow,

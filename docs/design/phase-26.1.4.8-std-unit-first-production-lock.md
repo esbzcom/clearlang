@@ -4,10 +4,14 @@
 This lock aligns `std::unit` with the Gate D baseline assertion surface.
 
 ## First-Production API (Release-Enabled)
-- `std::unit::assert_true(value: Bool) -> Bool`
-- `std::unit::assert_eq_int(left: Int, right: Int) -> Bool`
-- `std::unit::assert_eq_bool(left: Bool, right: Bool) -> Bool`
-- `std::unit::fail(code: ErrorCode) -> Bool`
+- `std::unit::assert_true(cond: Bool, msg: String) -> Bool`
+- `std::unit::assert_eq_int(actual: Int, expected: Int, msg: String) -> Bool`
+- `std::unit::assert_eq_bool(actual: Bool, expected: Bool, msg: String) -> Bool`
+- `std::unit::fail(msg: String) -> Bool`
+
+## Phase 26.5 Additive Extensions
+- `std::unit::assert_false(cond: Bool, msg: String) -> Bool`
+- `std::unit::assert_eq_u64(actual: U64, expected: U64, msg: String) -> Bool`
 
 ## Determinism and Failure-Mapping Contracts
 - Assertion failure mapping MUST remain deterministic and reproducible across runs.
@@ -15,7 +19,6 @@ This lock aligns `std::unit` with the Gate D baseline assertion surface.
 - Production profile MUST fail closed for non-baseline assertion names.
 
 ## Deferred (Non-Release) Symbols
-- `assert_false`
 - `assert_eq_bytes` and constant-time bytes assertion variants
 - Generic/assertion-shape extensions and expected-failure assertions
 - `assert_error::*` typed-return paths

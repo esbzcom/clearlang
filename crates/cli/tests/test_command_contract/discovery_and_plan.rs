@@ -372,3 +372,114 @@ fn test_command_plan_timeout_zero_reports_c135() {
     );
 }
 
+#[test]
+fn test_command_plan_expected_outcome_pass_cannot_set_failure_fields() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let tests_root = root.join("tests");
+    let unit = tests_root.join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("expected_plan.clear"),
+        "function test_expected_plan() -> Bool { true }\n",
+    );
+    fs::write(
+        tests_root.join("test-plan.json"),
+        r#"{
+  "schema_version": 1,
+  "default_mock_sets": [],
+  "cases": [
+    {
+      "test_id": "tests/unit/expected_plan.clear::test_expected_plan",
+      "mock_sets": [],
+      "expected_outcome": {
+        "kind": "pass",
+        "failure_code": "C138"
+      }
+    }
+  ]
+}"#,
+    )
+    .expect("write test-plan");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C135"));
+    assert!(
+        errors[0]
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("invalid expected_outcome"),
+        "expected deterministic expected_outcome governance error"
+    );
+}
+
+#[test]
+fn test_command_plan_expected_outcome_failure_code_format_is_validated() {
+    let tmp = tempdir().expect("tempdir");
+    let root = tmp.path().join("project");
+    let tests_root = root.join("tests");
+    let unit = tests_root.join("unit");
+    fs::create_dir_all(&unit).expect("create tests/unit");
+    write_test_file(
+        &unit.join("expected_code_format.clear"),
+        "function test_expected_code_format() -> Bool { true }\n",
+    );
+    fs::write(
+        tests_root.join("test-plan.json"),
+        r#"{
+  "schema_version": 1,
+  "default_mock_sets": [],
+  "cases": [
+    {
+      "test_id": "tests/unit/expected_code_format.clear::test_expected_code_format",
+      "mock_sets": [],
+      "expected_outcome": {
+        "kind": "runtime",
+        "failure_code": "BAD"
+      }
+    }
+  ]
+}"#,
+    )
+    .expect("write test-plan");
+
+    let output = Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["--json-errors", "test"])
+        .arg(&root)
+        .output()
+        .expect("run clg test");
+    assert_eq!(output.status.code(), Some(1));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    let payload: Value = serde_json::from_str(stdout.trim()).expect("json errors");
+    let errors = payload
+        .get("errors")
+        .and_then(|v| v.as_array())
+        .expect("errors array");
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].get("code").and_then(|v| v.as_str()), Some("C135"));
+    assert!(
+        errors[0]
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .contains("expected_outcome.failure_code"),
+        "expected deterministic expected_outcome failure_code format error"
+    );
+}

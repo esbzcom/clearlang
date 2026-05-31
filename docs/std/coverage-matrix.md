@@ -153,10 +153,12 @@ Allowed values:
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
 | `std::unit::assert_true` | yes | yes | no | Gate D baseline assertion API. |
+| `std::unit::assert_false` | yes | yes | no | Gate F deterministic assertion extension. |
 | `std::unit::assert_eq_int` | yes | yes | no | Gate D baseline assertion API. |
 | `std::unit::assert_eq_bool` | yes | yes | no | Gate D baseline assertion API. |
+| `std::unit::assert_eq_u64` | yes | yes | no | Gate F deterministic assertion extension. |
 | `std::unit::fail` | yes | yes | no | Gate D baseline assertion API. |
-| `std::unit::{assert_false,assert_eq_bytes,assert_eq_bytes_ct,assert_not_zero_u64}` | no | no | deferred | Deferred assertion expansion. |
+| `std::unit::{assert_eq_bytes,assert_eq_bytes_ct,assert_not_zero_u64}` | no | no | deferred | Deferred assertion expansion. |
 | `std::unit::assert_error::{code,equals}` | no | no | deferred | Deferred typed assertion-error surface. |
 
 ## `std::chain::<target>`

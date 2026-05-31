@@ -46,7 +46,7 @@ Rules:
 
 ## Deterministic Mock Binding
 
-`tests/test-plan.json` (schema v1) maps tests to mock sets:
+`tests/test-plan.json` (schema v1) maps tests to mock sets and optional expected outcomes:
 
 ```json
 {
@@ -61,6 +61,15 @@ Rules:
       "test_id": "tests/unit/discount_tests.clear::test_discount_uses_promo_rate",
       "mock_sets": ["common", "promo"],
       "timeout_ms": 120000
+    },
+    {
+      "test_id": "tests/unit/runtime_tests.clear::test_rejects_invalid_input",
+      "mock_sets": ["common"],
+      "expected_outcome": {
+        "kind": "runtime",
+        "failure_code": "C138",
+        "reason_contains": "runtime_trap:"
+      }
     }
   ]
 }
@@ -72,6 +81,7 @@ Binding policy:
 - Later sets override earlier sets deterministically.
 - Effective mock-set execution is per-test and isolated (fresh compile + fresh runtime context per case).
 - Signature/effect mismatch is a deterministic failure.
+- Expected-outcome validation is deterministic and fail-closed (`C135`) for invalid shape/constraints.
 
 ## CLI Shape (Minimal, Shipped)
 
@@ -125,10 +135,15 @@ Gate D implementation subset (initial ship target):
 - `assert_eq_bool(actual: Bool, expected: Bool, msg: String) -> Bool`
 - `fail(msg: String) -> Bool`
 
+Gate F extension subset (26.5 additive ship target):
+- `assert_false(cond: Bool, msg: String) -> Bool`
+- `assert_eq_u64(actual: U64, expected: U64, msg: String) -> Bool`
+
 Semantics:
 - Assertion success returns `true`.
 - Assertion mismatch returns `false` (deterministic `C139` mapping in `clg test`).
 - Assertion helpers are deterministic and test-quality focused; they do not change production proof policy (`release == proved` remains enforced by release gates).
+- Optional expected-outcome policy can treat deterministic runtime/timeout/assertion failures as expected pass conditions.
 
 Phased rollout governance (25.3.32):
 - Gate D ships only the minimal subset (`assert_true`, `assert_eq_int`, `assert_eq_bool`, `fail`).
@@ -224,9 +239,13 @@ JSON report (`--report json`) has pinned `schema_version: 1` and stable core fie
 - summary: `status`, `discovered`, `selected`, `executed`, `passed`, `failed`
 - per-case: `id`, `file`, `function`, `timeout_ms`, `mock_sets`, `status`
 - per-case failure metadata:
-  - `failure_kind` (`timeout|runtime|assertion_false`)
-  - `failure_code` (`C137|C138|C139`)
+  - `failure_kind` (`timeout|runtime|assertion_false|assertion_mismatch`)
+  - `failure_code` (`C137|C138|C139|C141`)
+  - `failure_id` (deterministic taxonomy string)
   - `reason`
+- optional per-case expectation/diff metadata:
+  - `expected_outcome`
+  - `assertion_diff`
 - per-case replay/capture contract:
   - `captured_stdout`, `captured_stderr` (currently empty-string by default)
   - `replay.argv` (single-test replay flow, canonical tokenized command)
@@ -241,6 +260,7 @@ Code-to-failure mapping (test stage):
 - timeout execution failure: `C137`
 - runtime/harness execution failure: `C138`
 - assertion false (`Bool` false) execution failure: `C139`
+- expected-outcome mismatch execution failure: `C141`
 
 ## JSON Events Contract
 

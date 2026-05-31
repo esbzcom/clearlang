@@ -30,6 +30,7 @@ const TEST_MOCK_ERROR_CODE: &str = "C136";
 const TEST_TIMEOUT_FAILURE_CODE: &str = "C137";
 const TEST_RUNTIME_FAILURE_CODE: &str = "C138";
 const TEST_ASSERTION_FAILURE_CODE: &str = "C139";
+const TEST_EXPECTATION_FAILURE_CODE: &str = "C141";
 const DEFAULT_TEST_TIMEOUT_MS: u64 = 120_000;
 const DEFAULT_TEST_WORKER_FUEL_LIMIT: u64 = 50_000_000;
 const DEFAULT_TEST_WORKER_MEMORY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
@@ -69,6 +70,7 @@ struct TestCase {
 struct TestExecutionConfig {
     timeout_ms: u64,
     mock_sets: Vec<String>,
+    expected_outcome: Option<TestExpectedOutcomeSpec>,
 }
 
 #[derive(Debug)]
@@ -91,6 +93,27 @@ struct TestPlanCase {
     #[serde(default)]
     mock_sets: Vec<String>,
     timeout_ms: Option<u64>,
+    #[serde(default)]
+    expected_outcome: Option<TestExpectedOutcomeSpec>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TestExpectedOutcomeKind {
+    Pass,
+    AssertionFalse,
+    Runtime,
+    Timeout,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct TestExpectedOutcomeSpec {
+    kind: TestExpectedOutcomeKind,
+    #[serde(default)]
+    failure_code: Option<String>,
+    #[serde(default)]
+    reason_contains: Option<String>,
 }
 
 #[derive(Debug)]
@@ -109,7 +132,10 @@ struct ExecutedTestCase {
     status: &'static str,
     failure_kind: Option<&'static str>,
     failure_code: Option<&'static str>,
+    failure_id: Option<String>,
     reason: Option<String>,
+    expected_outcome: Option<TestExpectedOutcomeSpec>,
+    assertion_diff: Option<AssertionDiff>,
     captured_stdout: String,
     captured_stderr: String,
     replay: ReplayContract,
@@ -152,10 +178,32 @@ struct JsonTestCase {
     #[serde(skip_serializing_if = "Option::is_none")]
     failure_code: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    failure_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expected_outcome: Option<TestExpectedOutcomeSpec>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    assertion_diff: Option<AssertionDiff>,
     captured_stdout: String,
     captured_stderr: String,
     replay: ReplayContract,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AssertionDiff {
+    schema_version: u64,
+    kind: &'static str,
+    expected: String,
+    actual: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expected_failure_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actual_failure_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason_contains: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actual_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

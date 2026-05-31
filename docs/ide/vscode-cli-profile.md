@@ -73,7 +73,9 @@ Stability rules:
 `clg test` report contract:
 - pass/fail summaries are emitted by `--report` (`human|json|junit`) on `stdout`.
 - JSON report (`--report json`) keeps `schema_version: 1` and stable per-test fields, including:
-  - `failure_kind` / `failure_code` (`C137|C138|C139`)
+  - `failure_kind` / `failure_code` (`C137|C138|C139|C141`)
+  - `failure_id` deterministic taxonomy string
+  - optional `expected_outcome` and `assertion_diff` for advanced assertion/expectation flows
   - `captured_stdout` / `captured_stderr`
   - `replay.argv` for single-test replay flow.
   - runtime safety reasons for `C138` (`fuel_exhausted`, `memory_limit`, `worker_crash`) when applicable.

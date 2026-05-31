@@ -194,6 +194,18 @@ fn test_command_fails_with_nonzero_exit_when_any_test_returns_false() {
         failed_case.get("failure_code").and_then(|v| v.as_str()),
         Some("C139")
     );
+    assert_eq!(
+        failed_case.get("failure_id").and_then(|v| v.as_str()),
+        Some("assertion.bool_false")
+    );
+    let diff = failed_case
+        .get("assertion_diff")
+        .and_then(|v| v.as_object())
+        .expect("assertion_diff object");
+    assert_eq!(diff.get("schema_version").and_then(|v| v.as_u64()), Some(1));
+    assert_eq!(diff.get("kind").and_then(|v| v.as_str()), Some("bool_return"));
+    assert_eq!(diff.get("expected").and_then(|v| v.as_str()), Some("1"));
+    assert_eq!(diff.get("actual").and_then(|v| v.as_str()), Some("0"));
     assert!(
         failed_case
             .get("reason")
@@ -236,7 +248,7 @@ fn test_command_std_unit_assertions_map_to_bool_contract_deterministically() {
     fs::create_dir_all(&unit).expect("create tests/unit");
     write_test_file(
         &unit.join("unit_assertions.clear"),
-        "import std::unit as unit\n\nfunction test_pass() -> Bool {\n    unit::assert_true(true, \"assert_true pass\")\n        && unit::assert_eq_int(2 + 3, 5, \"assert_eq_int pass\")\n        && unit::assert_eq_bool(true, unit::assert_true(true, \"nested\"), \"assert_eq_bool pass\")\n}\n\nfunction test_fail() -> Bool {\n    unit::fail(\"forced failure\")\n}\n",
+        "import std::unit as unit\n\nfunction test_pass() -> Bool {\n    unit::assert_true(true, \"assert_true pass\")\n        && unit::assert_false(false, \"assert_false pass\")\n        && unit::assert_eq_int(2 + 3, 5, \"assert_eq_int pass\")\n        && unit::assert_eq_u64(U64(7), U64(7), \"assert_eq_u64 pass\")\n        && unit::assert_eq_bool(true, unit::assert_true(true, \"nested\"), \"assert_eq_bool pass\")\n}\n\nfunction test_fail() -> Bool {\n    unit::fail(\"forced failure\")\n}\n",
     );
 
     let output = Command::cargo_bin("clg")
@@ -292,6 +304,10 @@ fn test_command_std_unit_assertions_map_to_bool_contract_deterministically() {
     assert_eq!(
         fail_case.get("failure_code").and_then(|v| v.as_str()),
         Some("C139")
+    );
+    assert_eq!(
+        fail_case.get("failure_id").and_then(|v| v.as_str()),
+        Some("assertion.bool_false")
     );
 }
 
@@ -361,4 +377,3 @@ fn test_command_json_events_stream_includes_test_case_stage() {
             && event.get("event").and_then(|v| v.as_str()) == Some("finish")
     }));
 }
-

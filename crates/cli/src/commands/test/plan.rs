@@ -93,6 +93,9 @@ fn validate_test_plan(roots: &Roots, discovered: &[TestCase], json_errors: bool)
                 .into());
             }
         }
+        if let Some(expected) = case.expected_outcome.as_ref() {
+            validate_expected_outcome_spec(&plan_path, case.test_id.as_str(), expected, json_errors)?;
+        }
     }
 
     let discovered_ids: HashSet<&str> = discovered.iter().map(|case| case.id.as_str()).collect();
@@ -179,7 +182,7 @@ fn build_execution_config(
 ) -> Result<Vec<TestExecutionConfig>> {
     let mut out = Vec::with_capacity(selected.len());
     for case in selected {
-        let (timeout_ms, mock_sets) = if let Some(plan) = plan {
+        let (timeout_ms, mock_sets, expected_outcome) = if let Some(plan) = plan {
             let case_plan = plan.cases_by_id.get(case.id.as_str());
             if !plan.default_mock_sets.is_empty() && case_plan.is_none() {
                 return Err(test_error(
@@ -204,14 +207,16 @@ fn build_execution_config(
                     .map(|entry| entry.mock_sets.as_slice())
                     .unwrap_or(&[]),
             );
-            (timeout_ms, mock_sets)
+            let expected_outcome = case_plan.and_then(|entry| entry.expected_outcome.clone());
+            (timeout_ms, mock_sets, expected_outcome)
         } else {
-            (DEFAULT_TEST_TIMEOUT_MS, Vec::new())
+            (DEFAULT_TEST_TIMEOUT_MS, Vec::new(), None)
         };
 
         out.push(TestExecutionConfig {
             timeout_ms,
             mock_sets,
+            expected_outcome,
         });
     }
     Ok(out)
@@ -366,5 +371,75 @@ fn validate_mock_sets(
         }
     }
     Ok(())
+}
+
+fn validate_expected_outcome_spec(
+    plan_path: &Path,
+    test_id: &str,
+    expected: &TestExpectedOutcomeSpec,
+    json_errors: bool,
+) -> Result<()> {
+    if expected.kind == TestExpectedOutcomeKind::Pass
+        && (expected.failure_code.is_some() || expected.reason_contains.is_some())
+    {
+        return Err(test_error(
+            TEST_PLAN_ERROR_CODE,
+            format!(
+                "`{}` case `{}` has invalid expected_outcome: `pass` must not set `failure_code` or `reason_contains`",
+                plan_path.display(),
+                test_id
+            ),
+            plan_path,
+            0,
+            0,
+            json_errors,
+        )
+        .into());
+    }
+    if let Some(code) = expected.failure_code.as_deref() {
+        if !is_valid_failure_code_token(code) {
+            return Err(test_error(
+                TEST_PLAN_ERROR_CODE,
+                format!(
+                    "`{}` case `{}` has invalid expected_outcome.failure_code `{}`",
+                    plan_path.display(),
+                    test_id,
+                    code
+                ),
+                plan_path,
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+    }
+    if let Some(needle) = expected.reason_contains.as_deref() {
+        if needle.trim().is_empty() || needle.contains('\n') || needle.contains('\r') {
+            return Err(test_error(
+                TEST_PLAN_ERROR_CODE,
+                format!(
+                    "`{}` case `{}` has invalid expected_outcome.reason_contains; expected single-line non-empty substring",
+                    plan_path.display(),
+                    test_id
+                ),
+                plan_path,
+                0,
+                0,
+                json_errors,
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
+fn is_valid_failure_code_token(code: &str) -> bool {
+    let bytes = code.as_bytes();
+    bytes.len() == 4
+        && bytes[0] == b'C'
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+        && bytes[3].is_ascii_digit()
 }
 

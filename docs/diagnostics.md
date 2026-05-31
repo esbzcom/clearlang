@@ -234,6 +234,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | C138 | test | Per-test runtime/harness failure in runner execution (instantiate/signature/runtime trap, deterministic fuel/memory worker-limit trap, or captured worker crash; reported as case failure with `failure_kind=runtime`). |
 | C139 | test | Per-test assertion failure (`test_*` returned false/0); reported as case failure with `failure_kind=assertion_false`. |
 | C140 | verify | Release-bundle verification contract failure (invalid/tampered bundle manifest, missing bundle members, missing artifacts, artifact-hash mismatch, keyring key-selection failure such as unknown/revoked `key_id`, or required provenance missing/invalid). |
+| C141 | test | Expected-outcome mismatch in test policy (`tests/test-plan.json` `expected_outcome` did not match observed case status/code/reason); reported as case failure with `failure_kind=assertion_mismatch`. |
 | V001 | verify | Signature failure (invalid key/signature or malformed signature file). |
 | V002 | verify | `clearlang.proof` section missing from module. |
 | V003 | verify | Module/proofs hash mismatch. |

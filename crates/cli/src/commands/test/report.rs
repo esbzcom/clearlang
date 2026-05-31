@@ -61,8 +61,15 @@ fn emit_human_report(summary: &TestRunSummary, results: &[ExecutedTestCase]) {
     );
     for case in results.iter().filter(|case| case.status == "failed") {
         let failure_code = case.failure_code.unwrap_or(TEST_RUNTIME_FAILURE_CODE);
+        let failure_id = case.failure_id.as_deref().unwrap_or("runtime.unknown");
         let reason = case.reason.as_deref().unwrap_or("unknown failure");
-        println!(" - [{}] {}: {}", failure_code, case.id, reason);
+        println!(" - [{}:{}] {}: {}", failure_code, failure_id, case.id, reason);
+        if let Some(diff) = case.assertion_diff.as_ref() {
+            println!(
+                "   diff({}): expected={}, actual={}",
+                diff.kind, diff.expected, diff.actual
+            );
+        }
         println!(
             "   replay: {}",
             render_replay_command(case.replay.argv.as_slice())
@@ -84,7 +91,7 @@ fn emit_json_report(
         executed: summary.executed,
         passed: summary.passed,
         failed: summary.failed,
-        note: "Gate D machine-readable contract v1: serial execution, deterministic failure codes, per-test capture fields, replay argv, deterministic mock-set execution, and runtime safety limits (fuel+memory)",
+        note: "Gate D/F machine-readable contract v1: serial execution, deterministic failure codes and failure_id taxonomy, optional expected_outcome/assertion_diff fields, per-test capture fields, replay argv, deterministic mock-set execution, and runtime safety limits (fuel+memory)",
         tests: results
             .iter()
             .map(|case| JsonTestCase {
@@ -96,7 +103,10 @@ fn emit_json_report(
                 status: case.status,
                 failure_kind: case.failure_kind,
                 failure_code: case.failure_code,
+                failure_id: case.failure_id.clone(),
                 reason: case.reason.clone(),
+                expected_outcome: case.expected_outcome.clone(),
+                assertion_diff: case.assertion_diff.clone(),
                 captured_stdout: case.captured_stdout.clone(),
                 captured_stderr: case.captured_stderr.clone(),
                 replay: case.replay.clone(),

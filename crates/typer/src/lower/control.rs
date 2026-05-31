@@ -2,7 +2,7 @@ use anyhow::Result;
 use clg_ast::{Expr, Type};
 use clg_ir::{BinOpIR, Instr, IrType, Value, VariantKind};
 
-use super::{emit_int_const, fresh, lower_expr, LowerCtx};
+use super::{emit_int_const, fresh, lower_expr, unpack_variant_payload, LowerCtx};
 
 pub(super) fn lower_try_expr<'a>(ctx: &mut LowerCtx<'a>, expr: &'a Expr) -> Result<Value> {
     let kind = match &ctx.ret_ty {
@@ -27,7 +27,12 @@ pub(super) fn lower_try_expr<'a>(ctx: &mut LowerCtx<'a>, expr: &'a Expr) -> Resu
         ty: IrType::Int,
     });
     ctx.body.push(Instr::ReturnIf { cond, ret: variant });
-    Ok(parts.payload_lo)
+    let payload_ty = match &ctx.ret_ty {
+        Type::Option(inner) => inner.as_ref().clone(),
+        Type::Result(ok, _) => ok.as_ref().clone(),
+        _ => unreachable!(),
+    };
+    unpack_variant_payload(ctx, &payload_ty, parts.payload_lo)
 }
 
 pub(super) fn lower_if_expr<'a>(

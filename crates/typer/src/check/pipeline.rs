@@ -204,6 +204,17 @@ pub(super) fn check_with_vcs_with_std_and_external_impl(
         "std::crypto::hash",
         "std::crypto::hmac",
         "std::crypto::verify",
+        "std::host::__storage_contains_raw",
+        "std::host::__storage_get_raw",
+        "std::host::__storage_set_raw",
+        "std::host::__storage_delete_raw",
+        "std::host::__log_info_raw",
+        "std::host::__log_warn_raw",
+        "std::host::__log_error_raw",
+        "std::host::__env_chain_id_raw",
+        "std::host::__env_caller_raw",
+        "std::host::__env_block_height_raw",
+        "std::host::__env_timestamp_raw",
         "std::str::len",
         "std::str::eq",
         "std::str::concat",
@@ -264,6 +275,29 @@ pub(super) fn check_with_vcs_with_std_and_external_impl(
                     ],
                     Some(clg_ir::IrType::Bool),
                 ),
+                "std::host::__storage_contains_raw" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Bool))
+                }
+                "std::host::__storage_get_raw" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int))
+                }
+                "std::host::__storage_set_raw" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
+                "std::host::__storage_delete_raw" => {
+                    (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Bool))
+                }
+                "std::host::__log_info_raw"
+                | "std::host::__log_warn_raw"
+                | "std::host::__log_error_raw" => (
+                    vec![clg_ir::IrType::Int, clg_ir::IrType::Int],
+                    Some(clg_ir::IrType::Bool),
+                ),
+                "std::host::__env_chain_id_raw"
+                | "std::host::__env_block_height_raw"
+                | "std::host::__env_timestamp_raw" => (vec![], Some(clg_ir::IrType::U64)),
+                "std::host::__env_caller_raw" => (vec![], Some(clg_ir::IrType::Int)),
                 "std::str::len" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::str::eq" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],

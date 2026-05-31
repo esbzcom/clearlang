@@ -16,6 +16,7 @@ mod binops;
 mod block;
 mod calls;
 mod closures;
+mod codec;
 mod collection_types;
 mod collections;
 mod collections_helpers;
@@ -23,10 +24,13 @@ mod collections_list;
 mod collections_map;
 mod collections_set;
 mod collections_slice;
+mod contract;
 mod control;
+mod crypto;
 mod emit;
 mod eq;
 mod eq_primitives;
+mod host;
 mod index;
 mod intrinsics;
 mod layout;
@@ -372,6 +376,48 @@ fn zero_value_for_type(ctx: &mut LowerCtx<'_>, ty: &Type) -> Result<Value> {
     }
     let mem_ty = mem_ir_type(ty, ctx.aliases)?;
     Ok(emit_zero_for_mem_ty(ctx, mem_ty))
+}
+
+pub(super) fn pack_variant_payload(
+    ctx: &mut LowerCtx<'_>,
+    ty: &Type,
+    value: Value,
+) -> Result<Value> {
+    let resolved = base_type(ty, ctx.aliases)?;
+    match resolved {
+        Type::U64 => {
+            let ptr = emit_alloc(ctx, 8, 8);
+            ctx.body.push(Instr::Store {
+                ptr,
+                src: value,
+                offset: 0,
+                ty: IrType::U64,
+            });
+            Ok(ptr)
+        }
+        _ => Ok(value),
+    }
+}
+
+pub(super) fn unpack_variant_payload(
+    ctx: &mut LowerCtx<'_>,
+    ty: &Type,
+    payload_lo: Value,
+) -> Result<Value> {
+    let resolved = base_type(ty, ctx.aliases)?;
+    match resolved {
+        Type::U64 => {
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::Load {
+                dst,
+                ptr: payload_lo,
+                offset: 0,
+                ty: IrType::U64,
+            });
+            Ok(dst)
+        }
+        _ => Ok(payload_lo),
+    }
 }
 
 pub(crate) struct LowerCtx<'a> {

@@ -253,6 +253,943 @@ pub fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Io,
         ),
         (
+            "std::host::storage::contains".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "key".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Result(
+                Box::new(Type::Bool),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::storage::get".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "key".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Result(
+                Box::new(Type::Option(Box::new(Type::Bytes))),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::storage::set".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "key".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Bool),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::storage::delete".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "key".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Result(
+                Box::new(Type::Bool),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::log::info".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "code".to_string(),
+                    ty: Type::Named {
+                        name: "std::core::ErrorCode".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "message".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Bool),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::log::warn".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "code".to_string(),
+                    ty: Type::Named {
+                        name: "std::core::ErrorCode".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "message".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Bool),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::log::error".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "code".to_string(),
+                    ty: Type::Named {
+                        name: "std::core::ErrorCode".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "message".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Bool),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::env::chain_id".to_string(),
+            Vec::new(),
+            Type::Result(
+                Box::new(Type::U64),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::env::caller".to_string(),
+            Vec::new(),
+            Type::Result(
+                Box::new(Type::Bytes),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::env::block_height".to_string(),
+            Vec::new(),
+            Type::Result(
+                Box::new(Type::U64),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::env::timestamp".to_string(),
+            Vec::new(),
+            Type::Result(
+                Box::new(Type::U64),
+                Box::new(Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Io,
+        ),
+        (
+            "std::host::host_error::code".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::host::HostError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Named {
+                name: "std::core::ErrorCode".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::host::host_error::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::host::HostError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::host::HostError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::address::from_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "input".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Result(
+                Box::new(Type::Named {
+                    name: "std::contract::Address".to_string(),
+                    args: Vec::new(),
+                }),
+                Box::new(Type::Named {
+                    name: "std::contract::ContractError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::contract::address::to_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "addr".to_string(),
+                ty: Type::Named {
+                    name: "std::contract::Address".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::address::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::Address".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::Address".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::amount::from_u64".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::U64,
+            }],
+            Type::Named {
+                name: "std::contract::Amount".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::contract::amount::value".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "amount".to_string(),
+                ty: Type::Named {
+                    name: "std::contract::Amount".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::U64,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::amount::add_checked".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::Amount".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::Amount".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Named {
+                    name: "std::contract::Amount".to_string(),
+                    args: Vec::new(),
+                }),
+                Box::new(Type::Named {
+                    name: "std::contract::ContractError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::contract::amount::sub_checked".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::Amount".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::Amount".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Named {
+                    name: "std::contract::Amount".to_string(),
+                    args: Vec::new(),
+                }),
+                Box::new(Type::Named {
+                    name: "std::contract::ContractError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::contract::amount::is_zero".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "amount".to_string(),
+                ty: Type::Named {
+                    name: "std::contract::Amount".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::event::new".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "topic".to_string(),
+                    ty: Type::Bytes,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "payload".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Named {
+                name: "std::contract::Event".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::contract::event::topic".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "event".to_string(),
+                ty: Type::Named {
+                    name: "std::contract::Event".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::event::payload".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "event".to_string(),
+                ty: Type::Named {
+                    name: "std::contract::Event".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Bytes,
+            Effect::Pure,
+        ),
+        (
+            "std::contract::contract_error::code".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::contract::ContractError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Named {
+                name: "std::core::ErrorCode".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::contract::contract_error::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::ContractError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::contract::ContractError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::crypto::verify_result::is_valid".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::Named {
+                    name: "std::crypto::VerifyResult".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::crypto::verify_result::error_or_none".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "value".to_string(),
+                ty: Type::Named {
+                    name: "std::crypto::VerifyResult".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Option(Box::new(Type::Named {
+                name: "std::crypto::CryptoError".to_string(),
+                args: Vec::new(),
+            })),
+            Effect::Pure,
+        ),
+        (
+            "std::crypto::verify_result::valid".to_string(),
+            Vec::new(),
+            Type::Named {
+                name: "std::crypto::VerifyResult".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::crypto::verify_result::invalid".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::crypto::CryptoError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Named {
+                name: "std::crypto::VerifyResult".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::crypto::crypto_error::code".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::crypto::CryptoError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Named {
+                name: "std::core::ErrorCode".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::crypto::crypto_error::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::crypto::CryptoError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::crypto::CryptoError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::encoder::new".to_string(),
+            Vec::new(),
+            Type::Named {
+                name: "std::encoder::Encoder".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::encoder::write_u64".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "enc".to_string(),
+                    ty: Type::Named {
+                        name: "std::encoder::Encoder".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::U64,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Named {
+                    name: "std::encoder::Encoder".to_string(),
+                    args: Vec::new(),
+                }),
+                Box::new(Type::Named {
+                    name: "std::encode_error::EncodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::encoder::write_bool".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "enc".to_string(),
+                    ty: Type::Named {
+                        name: "std::encoder::Encoder".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Bool,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Named {
+                    name: "std::encoder::Encoder".to_string(),
+                    args: Vec::new(),
+                }),
+                Box::new(Type::Named {
+                    name: "std::encode_error::EncodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::encoder::write_bytes".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "enc".to_string(),
+                    ty: Type::Named {
+                        name: "std::encoder::Encoder".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "value".to_string(),
+                    ty: Type::Bytes,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Named {
+                    name: "std::encoder::Encoder".to_string(),
+                    args: Vec::new(),
+                }),
+                Box::new(Type::Named {
+                    name: "std::encode_error::EncodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::encoder::finish".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "enc".to_string(),
+                ty: Type::Named {
+                    name: "std::encoder::Encoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Result(
+                Box::new(Type::Bytes),
+                Box::new(Type::Named {
+                    name: "std::encode_error::EncodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::new".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "input".to_string(),
+                ty: Type::Bytes,
+            }],
+            Type::Named {
+                name: "std::decoder::Decoder".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::read_u64".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "dec".to_string(),
+                ty: Type::Named {
+                    name: "std::decoder::Decoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Result(
+                Box::new(Type::Tuple(vec![
+                    Type::Named {
+                        name: "std::decoder::Decoder".to_string(),
+                        args: Vec::new(),
+                    },
+                    Type::U64,
+                ])),
+                Box::new(Type::Named {
+                    name: "std::decode_error::DecodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::read_bool".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "dec".to_string(),
+                ty: Type::Named {
+                    name: "std::decoder::Decoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Result(
+                Box::new(Type::Tuple(vec![
+                    Type::Named {
+                        name: "std::decoder::Decoder".to_string(),
+                        args: Vec::new(),
+                    },
+                    Type::Bool,
+                ])),
+                Box::new(Type::Named {
+                    name: "std::decode_error::DecodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::read_bytes".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "dec".to_string(),
+                ty: Type::Named {
+                    name: "std::decoder::Decoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Result(
+                Box::new(Type::Tuple(vec![
+                    Type::Named {
+                        name: "std::decoder::Decoder".to_string(),
+                        args: Vec::new(),
+                    },
+                    Type::Bytes,
+                ])),
+                Box::new(Type::Named {
+                    name: "std::decode_error::DecodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::read_fixed".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "dec".to_string(),
+                    ty: Type::Named {
+                        name: "std::decoder::Decoder".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "len".to_string(),
+                    ty: Type::Int,
+                },
+            ],
+            Type::Result(
+                Box::new(Type::Tuple(vec![
+                    Type::Named {
+                        name: "std::decoder::Decoder".to_string(),
+                        args: Vec::new(),
+                    },
+                    Type::Bytes,
+                ])),
+                Box::new(Type::Named {
+                    name: "std::decode_error::DecodeError".to_string(),
+                    args: Vec::new(),
+                }),
+            ),
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::position".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "dec".to_string(),
+                ty: Type::Named {
+                    name: "std::decoder::Decoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Int,
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::remaining".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "dec".to_string(),
+                ty: Type::Named {
+                    name: "std::decoder::Decoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Int,
+            Effect::Pure,
+        ),
+        (
+            "std::decoder::is_eof".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "dec".to_string(),
+                ty: Type::Named {
+                    name: "std::decoder::Decoder".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::decode_error::code".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::decode_error::DecodeError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Named {
+                name: "std::core::ErrorCode".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::decode_error::offset".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::decode_error::DecodeError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Option(Box::new(Type::Int)),
+            Effect::Pure,
+        ),
+        (
+            "std::decode_error::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Named {
+                        name: "std::decode_error::DecodeError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Named {
+                        name: "std::decode_error::DecodeError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
+            "std::encode_error::code".to_string(),
+            vec![Param {
+                kind: ParamKind::Borrow,
+                name: "err".to_string(),
+                ty: Type::Named {
+                    name: "std::encode_error::EncodeError".to_string(),
+                    args: Vec::new(),
+                },
+            }],
+            Type::Named {
+                name: "std::core::ErrorCode".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::encode_error::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "a".to_string(),
+                    ty: Type::Named {
+                        name: "std::encode_error::EncodeError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Named {
+                        name: "std::encode_error::EncodeError".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::str::len".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

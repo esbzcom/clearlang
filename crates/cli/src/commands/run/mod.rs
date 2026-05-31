@@ -19,6 +19,7 @@ use crate::logging::{Logger, StageTimings};
 
 mod crypto;
 mod env;
+mod host;
 mod package_loader;
 mod runtime_error;
 mod wasm_state;
@@ -68,6 +69,7 @@ pub fn run(file: PathBuf, invoke: String, json_errors: bool, logger: Logger) -> 
         wasmtime_wasi::add_to_linker(&mut linker, |cx| cx).context("linking WASI")?;
         env::add_env_stubs(&mut linker).context("linking env stubs")?;
         crypto::add_crypto_stubs(&mut linker).context("linking crypto stubs")?;
+        host::add_host_stubs(&mut linker).context("linking host stubs")?;
         if let Some(runtime_packages) = runtime_packages.as_ref() {
             link_runtime_packages(&engine, &module, &mut store, &mut linker, runtime_packages)
                 .map_err(|err| runtime_loader_diag_to_error(Path::new(&file), json_errors, err))?;

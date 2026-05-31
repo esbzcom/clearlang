@@ -60,6 +60,39 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
             "std::crypto::verify" => {
                 set.insert("std::crypto::verify");
             }
+            "std::host::storage::contains" => {
+                set.insert("std::host::__storage_contains_raw");
+            }
+            "std::host::storage::get" => {
+                set.insert("std::host::__storage_get_raw");
+            }
+            "std::host::storage::set" => {
+                set.insert("std::host::__storage_set_raw");
+            }
+            "std::host::storage::delete" => {
+                set.insert("std::host::__storage_delete_raw");
+            }
+            "std::host::log::info" => {
+                set.insert("std::host::__log_info_raw");
+            }
+            "std::host::log::warn" => {
+                set.insert("std::host::__log_warn_raw");
+            }
+            "std::host::log::error" => {
+                set.insert("std::host::__log_error_raw");
+            }
+            "std::host::env::chain_id" => {
+                set.insert("std::host::__env_chain_id_raw");
+            }
+            "std::host::env::caller" => {
+                set.insert("std::host::__env_caller_raw");
+            }
+            "std::host::env::block_height" => {
+                set.insert("std::host::__env_block_height_raw");
+            }
+            "std::host::env::timestamp" => {
+                set.insert("std::host::__env_timestamp_raw");
+            }
             "std::str::len" => {
                 set.insert("std::str::len");
             }
@@ -99,10 +132,16 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
             "std::u64::to_bytes_le" => {
                 set.insert("std::u64::to_bytes_le");
             }
+            "std::encoder::write_u64" => {
+                set.insert("std::u64::to_bytes_le");
+            }
             "std::u64::to_bytes_be" => {
                 set.insert("std::u64::to_bytes_be");
             }
             "std::u64::from_bytes_le" => {
+                set.insert("std::u64::from_bytes_le");
+            }
+            "std::decoder::read_u64" => {
                 set.insert("std::u64::from_bytes_le");
             }
             "std::u64::from_bytes_be" => {

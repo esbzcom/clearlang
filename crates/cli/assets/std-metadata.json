@@ -65,6 +65,128 @@
       ]
     },
     {
+      "path": "std::core",
+      "exports": [
+        {
+          "name": "ErrorCode",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        }
+      ]
+    },
+    {
+      "path": "std::contract",
+      "exports": [
+        {
+          "name": "Address",
+          "kind": "type",
+          "layout": {
+            "align": 1,
+            "bytes": 20
+          }
+        },
+        {
+          "name": "Amount",
+          "kind": "type",
+          "layout": {
+            "align": 8,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "ContractError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "Event",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        }
+      ]
+    },
+    {
+      "path": "std::contract::address",
+      "exports": [
+        {
+          "name": "equals",
+          "kind": "value"
+        },
+        {
+          "name": "from_bytes",
+          "kind": "value"
+        },
+        {
+          "name": "to_bytes",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::contract::amount",
+      "exports": [
+        {
+          "name": "add_checked",
+          "kind": "value"
+        },
+        {
+          "name": "from_u64",
+          "kind": "value"
+        },
+        {
+          "name": "is_zero",
+          "kind": "value"
+        },
+        {
+          "name": "sub_checked",
+          "kind": "value"
+        },
+        {
+          "name": "value",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::contract::contract_error",
+      "exports": [
+        {
+          "name": "code",
+          "kind": "value"
+        },
+        {
+          "name": "equals",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::contract::event",
+      "exports": [
+        {
+          "name": "new",
+          "kind": "value"
+        },
+        {
+          "name": "payload",
+          "kind": "value"
+        },
+        {
+          "name": "topic",
+          "kind": "value"
+        }
+      ]
+    },
+    {
       "path": "std::cosmos",
       "exports": [
         {
@@ -89,6 +211,22 @@
       "path": "std::crypto",
       "exports": [
         {
+          "name": "CryptoError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "VerifyResult",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
+        {
           "name": "hash",
           "kind": "value"
         },
@@ -111,6 +249,164 @@
       ]
     },
     {
+      "path": "std::crypto::crypto_error",
+      "exports": [
+        {
+          "name": "code",
+          "kind": "value"
+        },
+        {
+          "name": "equals",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::crypto::verify_result",
+      "exports": [
+        {
+          "name": "error_or_none",
+          "kind": "value"
+        },
+        {
+          "name": "invalid",
+          "kind": "value"
+        },
+        {
+          "name": "is_valid",
+          "kind": "value"
+        },
+        {
+          "name": "valid",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::decoder",
+      "exports": [
+        {
+          "name": "Decoder",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "is_eof",
+          "kind": "value"
+        },
+        {
+          "name": "new",
+          "kind": "value"
+        },
+        {
+          "name": "position",
+          "kind": "value"
+        },
+        {
+          "name": "read_bool",
+          "kind": "value"
+        },
+        {
+          "name": "read_bytes",
+          "kind": "value"
+        },
+        {
+          "name": "read_fixed",
+          "kind": "value"
+        },
+        {
+          "name": "read_u64",
+          "kind": "value"
+        },
+        {
+          "name": "remaining",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::decode_error",
+      "exports": [
+        {
+          "name": "DecodeError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "code",
+          "kind": "value"
+        },
+        {
+          "name": "equals",
+          "kind": "value"
+        },
+        {
+          "name": "offset",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::encode_error",
+      "exports": [
+        {
+          "name": "EncodeError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "code",
+          "kind": "value"
+        },
+        {
+          "name": "equals",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::encoder",
+      "exports": [
+        {
+          "name": "Encoder",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "finish",
+          "kind": "value"
+        },
+        {
+          "name": "new",
+          "kind": "value"
+        },
+        {
+          "name": "write_bool",
+          "kind": "value"
+        },
+        {
+          "name": "write_bytes",
+          "kind": "value"
+        },
+        {
+          "name": "write_u64",
+          "kind": "value"
+        }
+      ]
+    },
+    {
       "path": "std::env",
       "exports": [
         {
@@ -123,6 +419,91 @@
         },
         {
           "name": "time",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::host",
+      "exports": [
+        {
+          "name": "HostError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        }
+      ]
+    },
+    {
+      "path": "std::host::env",
+      "exports": [
+        {
+          "name": "block_height",
+          "kind": "value"
+        },
+        {
+          "name": "caller",
+          "kind": "value"
+        },
+        {
+          "name": "chain_id",
+          "kind": "value"
+        },
+        {
+          "name": "timestamp",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::host::host_error",
+      "exports": [
+        {
+          "name": "code",
+          "kind": "value"
+        },
+        {
+          "name": "equals",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::host::log",
+      "exports": [
+        {
+          "name": "error",
+          "kind": "value"
+        },
+        {
+          "name": "info",
+          "kind": "value"
+        },
+        {
+          "name": "warn",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::host::storage",
+      "exports": [
+        {
+          "name": "contains",
+          "kind": "value"
+        },
+        {
+          "name": "delete",
+          "kind": "value"
+        },
+        {
+          "name": "get",
+          "kind": "value"
+        },
+        {
+          "name": "set",
           "kind": "value"
         }
       ]

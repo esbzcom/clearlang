@@ -100,6 +100,17 @@ struct IntrinsicPresence {
     has_crypto_hash: bool,
     has_crypto_hmac: bool,
     has_crypto_verify: bool,
+    has_host_storage_contains_raw: bool,
+    has_host_storage_get_raw: bool,
+    has_host_storage_set_raw: bool,
+    has_host_storage_delete_raw: bool,
+    has_host_log_info_raw: bool,
+    has_host_log_warn_raw: bool,
+    has_host_log_error_raw: bool,
+    has_host_env_chain_id_raw: bool,
+    has_host_env_caller_raw: bool,
+    has_host_env_block_height_raw: bool,
+    has_host_env_timestamp_raw: bool,
 }
 
 impl IntrinsicPresence {
@@ -112,6 +123,17 @@ impl IntrinsicPresence {
             "std::crypto::hash" => self.has_crypto_hash = true,
             "std::crypto::hmac" => self.has_crypto_hmac = true,
             "std::crypto::verify" => self.has_crypto_verify = true,
+            "std::host::__storage_contains_raw" => self.has_host_storage_contains_raw = true,
+            "std::host::__storage_get_raw" => self.has_host_storage_get_raw = true,
+            "std::host::__storage_set_raw" => self.has_host_storage_set_raw = true,
+            "std::host::__storage_delete_raw" => self.has_host_storage_delete_raw = true,
+            "std::host::__log_info_raw" => self.has_host_log_info_raw = true,
+            "std::host::__log_warn_raw" => self.has_host_log_warn_raw = true,
+            "std::host::__log_error_raw" => self.has_host_log_error_raw = true,
+            "std::host::__env_chain_id_raw" => self.has_host_env_chain_id_raw = true,
+            "std::host::__env_caller_raw" => self.has_host_env_caller_raw = true,
+            "std::host::__env_block_height_raw" => self.has_host_env_block_height_raw = true,
+            "std::host::__env_timestamp_raw" => self.has_host_env_timestamp_raw = true,
             _ => {}
         }
     }
@@ -162,6 +184,17 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let has_crypto_hash = intrinsic_presence.has_crypto_hash;
     let has_crypto_hmac = intrinsic_presence.has_crypto_hmac;
     let has_crypto_verify = intrinsic_presence.has_crypto_verify;
+    let has_host_storage_contains_raw = intrinsic_presence.has_host_storage_contains_raw;
+    let has_host_storage_get_raw = intrinsic_presence.has_host_storage_get_raw;
+    let has_host_storage_set_raw = intrinsic_presence.has_host_storage_set_raw;
+    let has_host_storage_delete_raw = intrinsic_presence.has_host_storage_delete_raw;
+    let has_host_log_info_raw = intrinsic_presence.has_host_log_info_raw;
+    let has_host_log_warn_raw = intrinsic_presence.has_host_log_warn_raw;
+    let has_host_log_error_raw = intrinsic_presence.has_host_log_error_raw;
+    let has_host_env_chain_id_raw = intrinsic_presence.has_host_env_chain_id_raw;
+    let has_host_env_caller_raw = intrinsic_presence.has_host_env_caller_raw;
+    let has_host_env_block_height_raw = intrinsic_presence.has_host_env_block_height_raw;
+    let has_host_env_timestamp_raw = intrinsic_presence.has_host_env_timestamp_raw;
 
     // Build function types with deduplication, and record each function's type index
     #[derive(Hash, Eq, PartialEq, Clone)]
@@ -239,6 +272,50 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     } else {
         None
     };
+    let host_storage_contains_raw_ty = if has_host_storage_contains_raw {
+        Some(type_index_for(vec![ValType::I32], vec![ValType::I32]))
+    } else {
+        None
+    };
+    let host_storage_get_raw_ty = if has_host_storage_get_raw {
+        Some(type_index_for(vec![ValType::I32], vec![ValType::I32]))
+    } else {
+        None
+    };
+    let host_storage_set_raw_ty = if has_host_storage_set_raw {
+        Some(type_index_for(
+            vec![ValType::I32, ValType::I32],
+            vec![ValType::I32],
+        ))
+    } else {
+        None
+    };
+    let host_storage_delete_raw_ty = if has_host_storage_delete_raw {
+        Some(type_index_for(vec![ValType::I32], vec![ValType::I32]))
+    } else {
+        None
+    };
+    let host_log_raw_ty =
+        if has_host_log_info_raw || has_host_log_warn_raw || has_host_log_error_raw {
+            Some(type_index_for(
+                vec![ValType::I32, ValType::I32],
+                vec![ValType::I32],
+            ))
+        } else {
+            None
+        };
+    let host_env_u64_ty =
+        if has_host_env_chain_id_raw || has_host_env_block_height_raw || has_host_env_timestamp_raw
+        {
+            Some(type_index_for(Vec::new(), vec![ValType::I64]))
+        } else {
+            None
+        };
+    let host_env_caller_raw_ty = if has_host_env_caller_raw {
+        Some(type_index_for(Vec::new(), vec![ValType::I32]))
+    } else {
+        None
+    };
     let mut used_external_imports: Vec<(&ExternalImport, u32)> = Vec::new();
     let mut seen_external_functions: HashSet<&str> = HashSet::new();
     for (i, f) in ir.funcs.iter().enumerate() {
@@ -258,6 +335,17 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut crypto_hash_index: Option<u32> = None;
     let mut crypto_hmac_index: Option<u32> = None;
     let mut crypto_verify_index: Option<u32> = None;
+    let mut host_storage_contains_raw_index: Option<u32> = None;
+    let mut host_storage_get_raw_index: Option<u32> = None;
+    let mut host_storage_set_raw_index: Option<u32> = None;
+    let mut host_storage_delete_raw_index: Option<u32> = None;
+    let mut host_log_info_raw_index: Option<u32> = None;
+    let mut host_log_warn_raw_index: Option<u32> = None;
+    let mut host_log_error_raw_index: Option<u32> = None;
+    let mut host_env_chain_id_raw_index: Option<u32> = None;
+    let mut host_env_caller_raw_index: Option<u32> = None;
+    let mut host_env_block_height_raw_index: Option<u32> = None;
+    let mut host_env_timestamp_raw_index: Option<u32> = None;
     let mut external_import_indices: HashMap<String, u32> =
         HashMap::with_capacity(used_external_imports.len());
     let mut imports = ImportSection::new();
@@ -322,6 +410,97 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             EntityType::Function(crypto_verify_ty),
         );
         crypto_verify_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(ty) = host_storage_contains_raw_ty {
+        imports.import(
+            "clearlang_host",
+            "host_storage_contains",
+            EntityType::Function(ty),
+        );
+        host_storage_contains_raw_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(ty) = host_storage_get_raw_ty {
+        imports.import(
+            "clearlang_host",
+            "host_storage_get",
+            EntityType::Function(ty),
+        );
+        host_storage_get_raw_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(ty) = host_storage_set_raw_ty {
+        imports.import(
+            "clearlang_host",
+            "host_storage_set",
+            EntityType::Function(ty),
+        );
+        host_storage_set_raw_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(ty) = host_storage_delete_raw_ty {
+        imports.import(
+            "clearlang_host",
+            "host_storage_delete",
+            EntityType::Function(ty),
+        );
+        host_storage_delete_raw_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(ty) = host_log_raw_ty {
+        if has_host_log_info_raw {
+            imports.import("clearlang_host", "host_log_info", EntityType::Function(ty));
+            host_log_info_raw_index = Some(import_count);
+            import_count += 1;
+        }
+        if has_host_log_warn_raw {
+            imports.import("clearlang_host", "host_log_warn", EntityType::Function(ty));
+            host_log_warn_raw_index = Some(import_count);
+            import_count += 1;
+        }
+        if has_host_log_error_raw {
+            imports.import("clearlang_host", "host_log_error", EntityType::Function(ty));
+            host_log_error_raw_index = Some(import_count);
+            import_count += 1;
+        }
+    }
+    if let Some(ty) = host_env_u64_ty {
+        if has_host_env_chain_id_raw {
+            imports.import(
+                "clearlang_host",
+                "host_env_chain_id",
+                EntityType::Function(ty),
+            );
+            host_env_chain_id_raw_index = Some(import_count);
+            import_count += 1;
+        }
+        if has_host_env_block_height_raw {
+            imports.import(
+                "clearlang_host",
+                "host_env_block_height",
+                EntityType::Function(ty),
+            );
+            host_env_block_height_raw_index = Some(import_count);
+            import_count += 1;
+        }
+        if has_host_env_timestamp_raw {
+            imports.import(
+                "clearlang_host",
+                "host_env_timestamp",
+                EntityType::Function(ty),
+            );
+            host_env_timestamp_raw_index = Some(import_count);
+            import_count += 1;
+        }
+    }
+    if let Some(ty) = host_env_caller_raw_ty {
+        imports.import(
+            "clearlang_host",
+            "host_env_caller",
+            EntityType::Function(ty),
+        );
+        host_env_caller_raw_index = Some(import_count);
         import_count += 1;
     }
     for (binding, ty_idx) in &used_external_imports {
@@ -520,6 +699,50 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 let idx = crypto_verify_index.expect("crypto_verify import expected");
                 encode_intrinsic_crypto_verify(f, idx)?
             }
+            "std::host::__storage_contains_raw" => encode_external_import_forwarder(
+                f,
+                host_storage_contains_raw_index.expect("host_storage_contains import expected"),
+            )?,
+            "std::host::__storage_get_raw" => encode_external_import_forwarder(
+                f,
+                host_storage_get_raw_index.expect("host_storage_get import expected"),
+            )?,
+            "std::host::__storage_set_raw" => encode_external_import_forwarder(
+                f,
+                host_storage_set_raw_index.expect("host_storage_set import expected"),
+            )?,
+            "std::host::__storage_delete_raw" => encode_external_import_forwarder(
+                f,
+                host_storage_delete_raw_index.expect("host_storage_delete import expected"),
+            )?,
+            "std::host::__log_info_raw" => encode_external_import_forwarder(
+                f,
+                host_log_info_raw_index.expect("host_log_info import expected"),
+            )?,
+            "std::host::__log_warn_raw" => encode_external_import_forwarder(
+                f,
+                host_log_warn_raw_index.expect("host_log_warn import expected"),
+            )?,
+            "std::host::__log_error_raw" => encode_external_import_forwarder(
+                f,
+                host_log_error_raw_index.expect("host_log_error import expected"),
+            )?,
+            "std::host::__env_chain_id_raw" => encode_external_import_forwarder(
+                f,
+                host_env_chain_id_raw_index.expect("host_env_chain_id import expected"),
+            )?,
+            "std::host::__env_caller_raw" => encode_external_import_forwarder(
+                f,
+                host_env_caller_raw_index.expect("host_env_caller import expected"),
+            )?,
+            "std::host::__env_block_height_raw" => encode_external_import_forwarder(
+                f,
+                host_env_block_height_raw_index.expect("host_env_block_height import expected"),
+            )?,
+            "std::host::__env_timestamp_raw" => encode_external_import_forwarder(
+                f,
+                host_env_timestamp_raw_index.expect("host_env_timestamp import expected"),
+            )?,
             "std::str::len" => encode_intrinsic_str_len(f)?,
             "std::str::eq" => encode_intrinsic_str_eq(f)?,
             "std::str::concat" => encode_intrinsic_str_concat(f)?,

@@ -7,7 +7,8 @@ use super::block::{restore_scope, ScopeEntry};
 use super::layout::{enum_variant_info, tuple_layout};
 use super::{
     emit_alloc, emit_int_const, fresh, load_value_borrow, lower_expr, mem_ir_type,
-    mem_layout_for_ir, std_type_info_for, store_value, LowerCtx,
+    mem_layout_for_ir, pack_variant_payload, std_type_info_for, store_value,
+    unpack_variant_payload, LowerCtx,
 };
 
 pub(super) fn lower_match_expr<'a>(
@@ -94,7 +95,8 @@ pub(super) fn lower_match_sugar<'a>(
     };
 
     let (binder_name_opt, previous) = if let Some(name) = binder_name {
-        let prev = ctx.env.insert(name, parts.payload_lo);
+        let binder_value = unpack_variant_payload(ctx, &binder_ty, parts.payload_lo)?;
+        let prev = ctx.env.insert(name, binder_value);
         let prev_ty = ctx.type_env.insert(
             name,
             LocalBinding {
@@ -158,7 +160,10 @@ pub(super) fn lower_enum_constructor<'a>(
     let zero = emit_int_const(ctx, 0);
     let payload_lo = match fields.len() {
         0 => zero,
-        1 => lower_expr(ctx, &args[0], Some(fields[0].clone()))?,
+        1 => {
+            let value = lower_expr(ctx, &args[0], Some(fields[0].clone()))?;
+            pack_variant_payload(ctx, &fields[0], value)?
+        }
         _ => {
             let mut field_bases = Vec::with_capacity(fields.len());
             for ty in &fields {
@@ -254,7 +259,9 @@ pub(super) fn lower_enum_match<'a>(
                     1 => {
                         if let Some(name) = binders.first() {
                             let key = name.as_str();
-                            let prev = ctx.env.insert(key, parts.payload_lo);
+                            let binder_value =
+                                unpack_variant_payload(ctx, &field_types[0], parts.payload_lo)?;
+                            let prev = ctx.env.insert(key, binder_value);
                             let prev_ty = ctx.type_env.insert(
                                 key,
                                 LocalBinding {

@@ -48,24 +48,24 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::encoder::new` | no | no | no | First-production target; implementation pending. |
-| `std::encoder::write_u64` | no | no | no | First-production target; implementation pending. |
-| `std::encoder::write_bool` | no | no | no | First-production target; implementation pending. |
-| `std::encoder::write_bytes` | no | no | no | First-production target; implementation pending. |
-| `std::encoder::finish` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::new` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::read_u64` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::read_bool` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::read_bytes` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::read_fixed` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::position` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::remaining` | no | no | no | First-production target; implementation pending. |
-| `std::decoder::is_eof` | no | no | no | First-production target; implementation pending. |
-| `std::decode_error::code` | no | no | no | First-production target; implementation pending. |
-| `std::decode_error::offset` | no | no | no | First-production target; implementation pending. |
-| `std::decode_error::equals` | no | no | no | First-production target; implementation pending. |
-| `std::encode_error::code` | no | no | no | First-production target; implementation pending. |
-| `std::encode_error::equals` | no | no | no | First-production target; implementation pending. |
+| `std::encoder::new` | yes | yes | no | First-production encoder constructor over deterministic byte accumulation. |
+| `std::encoder::write_u64` | yes | yes | no | Encodes canonical little-endian `U64` bytes via the locked v1 wire format. |
+| `std::encoder::write_bool` | yes | yes | no | Encodes `Bool` as a single canonical byte (`0` or `1`). |
+| `std::encoder::write_bytes` | yes | yes | no | Encodes `Bytes` with a deterministic 4-byte little-endian length prefix. |
+| `std::encoder::finish` | yes | yes | no | Finalizes the accumulated byte buffer without host dependencies. |
+| `std::decoder::new` | yes | yes | no | Initializes deterministic decoder state over an immutable `Bytes` input. |
+| `std::decoder::read_u64` | yes | yes | no | Decodes canonical little-endian `U64` payloads and fails closed on truncation. |
+| `std::decoder::read_bool` | yes | yes | no | Accepts only canonical boolean bytes (`0` or `1`) and rejects all other encodings. |
+| `std::decoder::read_bytes` | yes | yes | no | Decodes length-prefixed `Bytes` payloads with deterministic truncation and negative-length rejection. |
+| `std::decoder::read_fixed` | yes | yes | no | Extracts exact-length byte slices and fails closed on truncation or negative requested lengths. |
+| `std::decoder::position` | yes | yes | no | Exposes deterministic decoder cursor position for safe incremental parsing. |
+| `std::decoder::remaining` | yes | yes | no | Reports remaining unread bytes without mutating decoder state. |
+| `std::decoder::is_eof` | yes | yes | no | Canonical end-of-input helper over decoder state. |
+| `std::decode_error::code` | yes | yes | no | Deterministic error-code projection for codec decode failures. |
+| `std::decode_error::offset` | yes | yes | no | Stable optional offset for decode failures, pinned to the failing cursor position. |
+| `std::decode_error::equals` | yes | yes | no | Structural equality over decode error code and offset. |
+| `std::encode_error::code` | yes | yes | no | Deterministic error-code projection for codec encode failures. |
+| `std::encode_error::equals` | yes | yes | no | Structural equality over encode error codes. |
 | `std::encoder::write_u128` | no | no | deferred | Deferred from first-production cut. |
 | `std::encoder::write_u256` | no | no | deferred | Deferred from first-production cut. |
 | `std::encoder::write_string` | no | no | deferred | Deferred from first-production cut. |
@@ -124,8 +124,8 @@ Allowed values:
 | `std::crypto::hmac` | yes | yes | no | Current host-backed compatibility API. |
 | `std::crypto::hmac_sha256` | yes | yes | no | Canonical typed first-production HMAC API. |
 | `std::crypto::verify` | yes | yes | no | Current host-backed verify API; proof boundary still open. |
-| `std::crypto::verify_result::{is_valid,error_or_none,valid,invalid}` | no | no | no | Locked in 26.1.4.5; implementation pending. |
-| `std::crypto::crypto_error::{code,equals}` | no | no | no | Locked in 26.1.4.5; implementation pending. |
+| `std::crypto::verify_result::{is_valid,error_or_none,valid,invalid}` | yes | yes | no | Deterministic typed helper surface for representing host-backed verify outcomes without widening the current compatibility import path. |
+| `std::crypto::crypto_error::{code,equals}` | yes | yes | no | Stable crypto-domain error code projection and equality helpers. |
 | `std::crypto::hash256::blake2b_256` | no | no | deferred | Deferred algorithm expansion. |
 | `std::crypto::algorithm::secp256k1` | no | no | deferred | Deferred algorithm expansion. |
 
@@ -142,20 +142,20 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::host::storage::{contains,get,set,delete}` | no | no | no | Locked in 26.1.4.6; implementation pending. |
-| `std::host::log::{info,warn,error}` | no | no | no | Locked in 26.1.4.6; implementation pending. |
-| `std::host::env::{chain_id,caller,block_height,timestamp}` | no | no | no | Locked in 26.1.4.6; implementation pending. |
+| `std::host::storage::{contains,get,set,delete}` | yes | yes | no | Host-backed storage wrappers over the raw runtime host ABI with deterministic boolean and optional-value semantics. |
+| `std::host::log::{info,warn,error}` | yes | yes | no | Host-backed log wrappers preserving the locked `Ok(true)` success contract in the local runtime stub. |
+| `std::host::env::{chain_id,caller,block_height,timestamp}` | yes | yes | no | Host-backed environment wrappers with deterministic boxed-result lowering for `U64` payloads. |
 | `std::host::env::gas_left` | no | no | deferred | Deferred from first-production cut. |
-| `std::host::host_error::{code,equals}` | no | no | no | Locked in 26.1.4.6; implementation pending. |
+| `std::host::host_error::{code,equals}` | yes | yes | no | Stable host-domain error-code projection and equality helpers. |
 
 ## `std::contract`
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::contract::address::{from_bytes,to_bytes,equals}` | no | no | no | Locked in 26.1.4.7; implementation pending. |
-| `std::contract::amount::{from_u64,value,add_checked,sub_checked,is_zero}` | no | no | no | Locked in 26.1.4.7; implementation pending. |
-| `std::contract::event::{new,topic,payload}` | no | no | no | Locked in 26.1.4.7; implementation pending. |
-| `std::contract::contract_error::{code,equals}` | no | no | no | Locked in 26.1.4.7; implementation pending. |
+| `std::contract::address::{from_bytes,to_bytes,equals}` | yes | yes | no | Canonical 20-byte contract address wrapper with deterministic round-trip and equality semantics. |
+| `std::contract::amount::{from_u64,value,add_checked,sub_checked,is_zero}` | yes | yes | no | Pure checked-amount helpers over canonical `U64` storage with stable overflow/underflow errors. |
+| `std::contract::event::{new,topic,payload}` | yes | yes | no | Deterministic event wrapper preserving topic/payload bytes exactly. |
+| `std::contract::contract_error::{code,equals}` | yes | yes | no | Stable contract-domain error code projection and equality helpers. |
 
 ## `std::unit`
 

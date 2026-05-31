@@ -7,7 +7,11 @@ use clg_ir::{BinOpIR, Instr, IrType, Value};
 use super::array::{
     emit_array_data_ptr, emit_array_len_guard, emit_bytes_data_ptr, emit_bytes_len_guard,
 };
+use super::codec::lower_codec_call;
 use super::collections::lower_collection_call;
+use super::contract::lower_contract_call;
+use super::crypto::lower_crypto_helper_call;
+use super::host::lower_host_call;
 use super::intrinsics::{
     lower_u128_from_limbs, lower_u128_load, lower_u256_from_limbs, lower_u256_load, lower_u64_sat,
     lower_u64_wrap,
@@ -16,8 +20,8 @@ use super::layout::std_type_info_for_module;
 use super::r#match::lower_enum_constructor;
 use super::{
     emit_alloc, emit_bool_const, emit_int_const, emit_load_i32, emit_memcpy_bytes, emit_u64_const,
-    fresh, lower_expr, DispatcherCallPatch, DispatcherSignature, LowerCtx, CLOSURE_CODE_ID_OFFSET,
-    CLOSURE_ENV_PTR_OFFSET,
+    fresh, lower_expr, pack_variant_payload, DispatcherCallPatch, DispatcherSignature, LowerCtx,
+    CLOSURE_CODE_ID_OFFSET, CLOSURE_ENV_PTR_OFFSET,
 };
 
 pub(super) fn lower_call_expr<'a>(
@@ -28,6 +32,18 @@ pub(super) fn lower_call_expr<'a>(
     expected: Option<&Type>,
 ) -> Result<Value> {
     if let Some(val) = lower_collection_call(ctx, call_expr, callee, args, expected)? {
+        return Ok(val);
+    }
+    if let Some(val) = lower_host_call(ctx, callee, args)? {
+        return Ok(val);
+    }
+    if let Some(val) = lower_crypto_helper_call(ctx, callee, args)? {
+        return Ok(val);
+    }
+    if let Some(val) = lower_contract_call(ctx, callee, args)? {
+        return Ok(val);
+    }
+    if let Some(val) = lower_codec_call(ctx, callee, args)? {
         return Ok(val);
     }
     if let Some(module) = callee.strip_suffix("::from_bytes") {
@@ -237,7 +253,18 @@ pub(super) fn lower_call_expr<'a>(
             if args.len() != 1 {
                 anyhow::bail!("`Some` expects exactly one argument");
             }
-            let payload = lower_expr(ctx, &args[0], None)?;
+            let payload_ty = infer_expr_type(
+                &args[0],
+                &ctx.type_env,
+                &ctx.fns,
+                ctx.trait_env,
+                ctx.aliases,
+                ctx.type_defs,
+                &ctx.type_params,
+                &ctx.bounds,
+            )?;
+            let payload = lower_expr(ctx, &args[0], Some(payload_ty.clone()))?;
+            let payload = pack_variant_payload(ctx, &payload_ty, payload)?;
             let tag = emit_int_const(ctx, 1);
             let zero = emit_int_const(ctx, 0);
             Ok(ctx.variant_init(tag, payload, zero))
@@ -255,7 +282,18 @@ pub(super) fn lower_call_expr<'a>(
                 anyhow::bail!("`Ok` expects at most one argument");
             }
             let payload = if let Some(arg) = args.first() {
-                lower_expr(ctx, arg, None)?
+                let payload_ty = infer_expr_type(
+                    arg,
+                    &ctx.type_env,
+                    &ctx.fns,
+                    ctx.trait_env,
+                    ctx.aliases,
+                    ctx.type_defs,
+                    &ctx.type_params,
+                    &ctx.bounds,
+                )?;
+                let value = lower_expr(ctx, arg, Some(payload_ty.clone()))?;
+                pack_variant_payload(ctx, &payload_ty, value)?
             } else {
                 emit_int_const(ctx, 0)
             };
@@ -268,7 +306,18 @@ pub(super) fn lower_call_expr<'a>(
                 anyhow::bail!("`Err` expects at most one argument");
             }
             let payload = if let Some(arg) = args.first() {
-                lower_expr(ctx, arg, None)?
+                let payload_ty = infer_expr_type(
+                    arg,
+                    &ctx.type_env,
+                    &ctx.fns,
+                    ctx.trait_env,
+                    ctx.aliases,
+                    ctx.type_defs,
+                    &ctx.type_params,
+                    &ctx.bounds,
+                )?;
+                let value = lower_expr(ctx, arg, Some(payload_ty.clone()))?;
+                pack_variant_payload(ctx, &payload_ty, value)?
             } else {
                 emit_int_const(ctx, 0)
             };

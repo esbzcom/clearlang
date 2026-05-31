@@ -79,6 +79,9 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         "std::str::contains" => {
             set.insert("std::str::contains");
         }
+        "std::str_pattern::matches" => {
+            set.insert("std::str::contains");
+        }
         "std::str::to_bytes" => {
             set.insert("std::bytes::from_string");
         }

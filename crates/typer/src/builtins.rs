@@ -335,6 +335,23 @@ pub(crate) fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::str_pattern::matches".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "pattern".to_string(),
+                    ty: Type::String,
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "input".to_string(),
+                    ty: Type::String,
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::str::eq".to_string(),
             vec![
                 Param {

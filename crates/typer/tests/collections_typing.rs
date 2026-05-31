@@ -13,6 +13,16 @@ fn type_err_code(src: &str, code: &str) {
     assert_eq!(te.code, code);
 }
 
+fn type_err_contains(src: &str, needle: &str) {
+    let ast = parse(src).expect("parse");
+    let err = type_check_only(&ast).expect_err("expected type error");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains(needle),
+        "expected error containing `{needle}`, got {msg}"
+    );
+}
+
 #[test]
 fn list_len_types() {
     let src = r#"
@@ -280,4 +290,35 @@ fn map_rejects_array_key_until_array_equality_lands() {
         function bad(m: Map<Array<Int>, String>) -> Int { std::map::len(m) }
     "#;
     type_err_code(src, "T220");
+}
+
+#[test]
+fn map_iteration_exports_remain_fail_closed_until_enabled() {
+    let deferred_calls = [
+        ("std::map::keys", r#"function bad(m: Map<Int, String>) -> Int { std::map::keys(m) }"#),
+        (
+            "std::map::values",
+            r#"function bad(m: Map<Int, String>) -> Int { std::map::values(m) }"#,
+        ),
+        (
+            "std::map::entries",
+            r#"function bad(m: Map<Int, String>) -> Int { std::map::entries(m) }"#,
+        ),
+        (
+            "std::map::iter",
+            r#"function bad(m: Map<Int, String>) -> Int { std::map::iter(m) }"#,
+        ),
+        (
+            "std::map::iter_keys",
+            r#"function bad(m: Map<Int, String>) -> Int { std::map::iter_keys(m) }"#,
+        ),
+        (
+            "std::map::iter_values",
+            r#"function bad(m: Map<Int, String>) -> Int { std::map::iter_values(m) }"#,
+        ),
+    ];
+    for (symbol, src) in deferred_calls {
+        type_err_contains(src, "unknown function");
+        type_err_contains(src, symbol);
+    }
 }

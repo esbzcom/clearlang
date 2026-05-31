@@ -29,7 +29,10 @@ fn typer_accepts_std_str_eq() {
 fn typer_accepts_std_str_search_helpers() {
     let src = r#"
         pure function ok(a: String, b: String) -> Bool {
-            std::str::starts_with(a, b) || std::str::ends_with(a, b) || std::str::contains(a, b)
+            std::str::starts_with(a, b)
+                || std::str::ends_with(a, b)
+                || std::str::contains(a, b)
+                || std::str_pattern::matches(b, a)
         }
     "#;
     check(&parse(src).expect("parse ok")).expect("type-check ok");
@@ -62,5 +65,27 @@ fn typer_rejects_std_str_concat_arity() {
     "#;
     let ast = parse(src).expect("parse ok");
     let err = check(&ast).expect_err("should fail arity mismatch for concat");
+    assert!(format!("{err:#}").contains("arity mismatch"));
+}
+
+#[test]
+fn typer_rejects_std_str_pattern_matches_wrong_arg_type() {
+    let src = r#"
+        pure function bad() -> Bool { std::str_pattern::matches(123, "abc") }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = check(&ast).expect_err("should fail type mismatch for str_pattern::matches");
+    let s = format!("{err:#}");
+    assert!(s.contains("type mismatch"));
+    assert!(s.contains("String"));
+}
+
+#[test]
+fn typer_rejects_std_str_pattern_matches_arity() {
+    let src = r#"
+        pure function bad() -> Bool { std::str_pattern::matches("abc") }
+    "#;
+    let ast = parse(src).expect("parse ok");
+    let err = check(&ast).expect_err("should fail arity mismatch for str_pattern::matches");
     assert!(format!("{err:#}").contains("arity mismatch"));
 }

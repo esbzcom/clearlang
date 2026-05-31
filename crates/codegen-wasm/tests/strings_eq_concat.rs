@@ -165,3 +165,24 @@ fn str_contains_and_to_bytes() {
     let wasm_tb = emit_from_ir(&ir_tb).expect("codegen ok");
     assert_eq!(run_main_i32(&wasm_tb), 3);
 }
+
+#[test]
+fn str_pattern_matches_contract() {
+    let src_true = r#" function main() -> Bool { std::str_pattern::matches("cde", "abcdef") } "#;
+    let ast_t = parse(src_true).expect("parse ok");
+    let ir_t = check(&ast_t).expect("type-check+lower ok");
+    let wasm_t = emit_from_ir(&ir_t).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_t), 1);
+
+    let src_false = r#" function main() -> Bool { std::str_pattern::matches("cdx", "abcdef") } "#;
+    let ast_f = parse(src_false).expect("parse ok");
+    let ir_f = check(&ast_f).expect("type-check+lower ok");
+    let wasm_f = emit_from_ir(&ir_f).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_f), 0);
+
+    let src_empty = r#" function main() -> Bool { std::str_pattern::matches("", "abcdef") } "#;
+    let ast_e = parse(src_empty).expect("parse ok");
+    let ir_e = check(&ast_e).expect("type-check+lower ok");
+    let wasm_e = emit_from_ir(&ir_e).expect("codegen ok");
+    assert_eq!(run_main_i32(&wasm_e), 1);
+}

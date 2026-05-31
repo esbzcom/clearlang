@@ -53,6 +53,7 @@ pub(super) fn lower_call_expr<'a>(
         "std::str::equals" => {
             lower_intrinsic_alias_call(ctx, "std::str::eq", args, &[Type::String, Type::String])
         }
+        "std::str_pattern::matches" => lower_str_pattern_matches_call(ctx, args),
         "std::str::is_empty" => lower_len_is_empty_call(ctx, "std::str::len", args, Type::String),
         "std::str::to_bytes" => {
             lower_intrinsic_alias_call(ctx, "std::bytes::from_string", args, &[Type::String])
@@ -410,6 +411,27 @@ fn lower_len_is_empty_call<'a>(
         ty: IrType::Int,
         lhs: len_val,
         rhs: zero,
+    });
+    Ok(out)
+}
+
+fn lower_str_pattern_matches_call<'a>(ctx: &mut LowerCtx<'a>, args: &'a [Expr]) -> Result<Value> {
+    if args.len() != 2 {
+        anyhow::bail!("`std::str_pattern::matches` expects exactly two arguments");
+    }
+    // API contract is matches(pattern, input). Runtime primitive is contains(input, pattern).
+    let pattern = lower_expr(ctx, &args[0], Some(Type::String))?;
+    let input = lower_expr(ctx, &args[1], Some(Type::String))?;
+    let contains_idx = ctx
+        .fn_indices
+        .get("std::str::contains")
+        .copied()
+        .ok_or_else(|| anyhow::anyhow!("missing intrinsic `std::str::contains`"))?;
+    let out = fresh(ctx);
+    ctx.body.push(Instr::Call {
+        dst: Some(out),
+        callee: contains_idx,
+        args: vec![input, pattern],
     });
     Ok(out)
 }

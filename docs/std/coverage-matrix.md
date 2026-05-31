@@ -24,7 +24,7 @@ Allowed values:
 | `std::str::to_bytes` | yes | yes | no | Lowered to `std::bytes::from_string`; proof closure pending. |
 | `std::str::slice` | no | no | deferred | Deferred from first-production release cut. |
 | `std::str::trim` | no | no | deferred | Deferred from first-production release cut. |
-| `std::str_pattern::matches` | no | no | no | Locked as first-production API target; implementation pending. |
+| `std::str_pattern::matches` | yes | yes | no | Stable `matches(pattern, input)` contract lowered to deterministic `std::str::contains(input, pattern)` runtime behavior. |
 
 ## `std::bytes`
 

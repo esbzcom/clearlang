@@ -10,7 +10,7 @@ Deterministic UTF-8 string handling for language/runtime safe operations.
 ## Types
 - `String` (built-in)
 - `Utf8Error`
-- `StrPattern`
+- `StrPattern` (deferred for first production; constructor not release-enabled)
 
 ## Type/Function Draft
 
@@ -35,12 +35,14 @@ Functions:
 
 ### `str_pattern`
 Functions:
+- `matches(pattern: String, input: String) -> Bool`
+
+Deferred in first-production cut:
 - `new(literal: String) -> StrPattern`
-- `matches(pattern: StrPattern, input: String) -> Bool`
 
 ## First-Production Cut (recommended)
 - Keep `std::str`: `len`, `is_empty`, `equals`, `concat`, `starts_with`, `ends_with`, `contains`, `to_bytes`.
-- Keep `str_pattern`: stable `matches` contract for first-production API planning.
+- Keep `str_pattern`: stable `matches(pattern: String, input: String)` contract for first-production API planning.
 - Keep `Utf8Error`: `code`, `offset`, `equals`.
 - Defer slicing/trim and `str_pattern::new` if they slow initial release.
 

@@ -118,15 +118,26 @@ pub fn run(
         external_codegen_imports,
     ) = if compiler_mode == CompilerMode::Strict {
         if let Some(bindings) = strict_external_bindings_for_link.as_ref() {
-            let typecheck_sigs = if std_core_link_mode == StdCoreLinkMode::Precompiled {
-                filter_precompiled_std_core_typer_overrides(bindings.external_typer_sigs.as_slice())
+            let (typecheck_sigs, codegen_imports) = if std_core_link_mode == StdCoreLinkMode::Precompiled
+            {
+                (
+                    filter_precompiled_std_core_typer_overrides(
+                        bindings.external_typer_sigs.as_slice(),
+                    ),
+                    filter_precompiled_std_core_codegen_overrides(
+                        bindings.external_codegen_imports.as_slice(),
+                    ),
+                )
             } else {
-                bindings.external_typer_sigs.clone()
+                (
+                    bindings.external_typer_sigs.clone(),
+                    bindings.external_codegen_imports.clone(),
+                )
             };
             (
                 typecheck_sigs,
                 bindings.external_typer_sigs.clone(),
-                bindings.external_codegen_imports.clone(),
+                codegen_imports,
             )
         } else {
             (Vec::new(), Vec::new(), Vec::new())

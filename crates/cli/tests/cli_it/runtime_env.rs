@@ -64,6 +64,37 @@ fn run_env_time_and_random_stubs() {
 }
 
 #[test]
+fn run_env_chain_id_stub_from_std_source() {
+    let tmp = tempdir().unwrap();
+    let src_path = tmp.path().join("env_chain_id.clear");
+    let wasm_path = tmp.path().join("env_chain_id.wasm");
+
+    let src = r#"
+        io function main() -> Int {
+            std::str::len(std::env::chain_id())
+        }
+    "#;
+    fs::write(&src_path, src.trim()).expect("write source");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&src_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["run"])
+        .arg(&wasm_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("9"));
+}
+
+#[test]
 fn run_env_random_negative_length_reports_r002() {
     let tmp = tempdir().unwrap();
     let src_path = tmp.path().join("env_random_neg.clear");

@@ -300,7 +300,9 @@ fn builtin_effect(callee: &str) -> Option<EffectLevel> {
         | "std::list::remove_checked"
         | "std::map::insert_take"
         | "std::map::remove_take" => Some(EffectLevel::Pure),
-        "std::wasi::print" | "std::env::time" | "std::env::random" => Some(EffectLevel::Io),
+        "std::wasi::print" | "std::env::time" | "std::env::chain_id" | "std::env::random" => {
+            Some(EffectLevel::Io)
+        }
         _ => None,
     }
 }

@@ -33,8 +33,8 @@ Lock a long-term std architecture that removes unmanaged symbol drift across doc
 
 ## Host Boundary Lock
 - `host_std` ownership is explicitly locked to `std::crypto`, `std::env`, and `std::wasi`.
-- `std::env::chain_id` remains an approved compatibility-only host-policy capability path while typed std metadata remains centered on `std::env::{time,random}`.
-- Any new compatibility-only host capability path must be explicitly allowlisted and documented.
+- Host capability-bearing std symbols (including `std::env::chain_id`) must be present in the canonical std catalog and the canonical host capability policy.
+- Any new host capability path must be explicitly documented and validated by `std-arch-conformance-check`.
 
 ## Deprecation/Cutover Policy
 - Compatibility aliases remain callable but are catalog-declared through `deprecated_alias_of`.
@@ -48,4 +48,4 @@ Gate G is considered closed when all are true:
 1. No unmanaged std value symbol exists outside catalog/governed generators.
 2. `std-arch-conformance-check` is green in CI.
 3. `std-metadata` + builtin-signature artifact are generated from canonical catalog and deterministic across repeated runs.
-4. Host boundary lock and compatibility-only exceptions are explicit and versioned.
+4. Host boundary lock and host capability mappings are explicit and versioned.

@@ -178,6 +178,14 @@
       "module_class": "host_std",
       "exports": [
         {
+          "name": "chain_id",
+          "kind": "value",
+          "arity": 0,
+          "effect": "io",
+          "route": "intrinsic",
+          "capability": "std::env::chain_id"
+        },
+        {
           "name": "random",
           "kind": "value",
           "arity": 1,

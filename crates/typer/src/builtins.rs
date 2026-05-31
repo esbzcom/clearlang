@@ -144,6 +144,12 @@ pub fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Io,
         ),
         (
+            "std::env::chain_id".to_string(),
+            Vec::new(),
+            Type::String,
+            Effect::Io,
+        ),
+        (
             "std::env::random".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

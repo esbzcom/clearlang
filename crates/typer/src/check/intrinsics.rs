@@ -39,6 +39,9 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
         "std::env::time" => {
             set.insert("std::env::time");
         }
+        "std::env::chain_id" => {
+            set.insert("std::env::chain_id");
+        }
         "std::env::random" => {
             set.insert("std::env::random");
         }

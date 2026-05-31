@@ -128,6 +128,14 @@
       "capability": "std::crypto::verify"
     },
     {
+      "symbol": "std::env::chain_id",
+      "module_class": "host_std",
+      "arity": 0,
+      "effect": "io",
+      "route": "intrinsic",
+      "capability": "std::env::chain_id"
+    },
+    {
       "symbol": "std::env::random",
       "module_class": "host_std",
       "arity": 1,

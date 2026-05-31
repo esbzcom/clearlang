@@ -88,6 +88,7 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
         .map_err(|e| format!("read `{}`: {e}", paths.codegen_ir_path.display()))?;
     let codegen_symbols = extract_std_symbols_from_source(&codegen_ir_source)?;
     let expected_signatures = std_builtin_signatures_from_catalog(&catalog)?;
+    let canonical_host_capabilities = canonical_host_capability_set();
     let actual_signatures = normalize_std_builtin_signature_file(StdBuiltinSignatureFile {
         schema_version: 1,
         symbols: collect_typed_signature_entries()
@@ -102,7 +103,7 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
                 } else {
                     "package_import".to_string()
                 },
-                capability: if canonical_host_capability_set().contains(entry.symbol.as_str()) {
+                capability: if canonical_host_capabilities.contains(entry.symbol.as_str()) {
                     Some(entry.symbol.clone())
                 } else {
                     None
@@ -111,7 +112,6 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
             })
             .collect(),
     })?;
-    let canonical_host_capabilities = canonical_host_capability_set();
     let catalog_host_capabilities = catalog_host_capability_set(&catalog)?;
 
     let mut errors = Vec::new();
@@ -156,16 +156,11 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
     let policy_only_caps = canonical_host_capabilities
         .difference(&catalog_host_capabilities)
         .cloned()
-        .collect::<BTreeSet<_>>();
-    let allowed_policy_only = host_capability_compat_only_set();
-    let unexpected_policy_only = policy_only_caps
-        .difference(&allowed_policy_only)
-        .cloned()
         .collect::<Vec<_>>();
-    if !unexpected_policy_only.is_empty() {
+    if !policy_only_caps.is_empty() {
         errors.push(format!(
-            "host-policy capabilities not present in canonical std catalog and not allowlisted compatibility paths [{}]",
-            preview_symbols(&unexpected_policy_only)
+            "host-policy capabilities not present in canonical std catalog [{}]",
+            preview_symbols(&policy_only_caps)
         ));
     }
 
@@ -576,10 +571,13 @@ fn normalize_std_builtin_signature_file(
 
 fn extract_std_symbols_from_coverage_matrix(path: &Path) -> Result<BTreeSet<String>, String> {
     let raw = fs::read_to_string(path).map_err(|e| format!("read `{}`: {e}", path.display()))?;
-    let brace_pattern = Regex::new(r"std::([a-z0-9_]+)::\{([^}]*)\}")
-        .map_err(|e| format!("compile coverage regex: {e}"))?;
-    let leaf_pattern = Regex::new(r"(std::[a-z0-9_]+::[A-Za-z0-9_]+)")
-        .map_err(|e| format!("compile coverage leaf regex: {e}"))?;
+    static COVERAGE_BRACE_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    static COVERAGE_LEAF_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let brace_pattern = COVERAGE_BRACE_PATTERN
+        .get_or_init(|| Regex::new(r"std::([a-z0-9_]+)::\{([^}]*)\}").expect("valid coverage regex"));
+    let leaf_pattern = COVERAGE_LEAF_PATTERN.get_or_init(|| {
+        Regex::new(r"(std::[a-z0-9_]+::[A-Za-z0-9_]+)").expect("valid coverage leaf regex")
+    });
     let mut symbols = BTreeSet::new();
     for capture in brace_pattern.captures_iter(&raw) {
         let module = capture
@@ -643,10 +641,6 @@ fn canonical_host_capability_set() -> BTreeSet<String> {
         .iter()
         .flat_map(|profile| profile.capabilities.iter().map(|rule| rule.capability.clone()))
         .collect()
-}
-
-fn host_capability_compat_only_set() -> BTreeSet<String> {
-    ["std::env::chain_id".to_string()].into_iter().collect()
 }
 
 fn classify_std_module(module: &str) -> &'static str {

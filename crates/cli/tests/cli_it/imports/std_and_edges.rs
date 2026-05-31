@@ -310,6 +310,32 @@ fn import_std_map_take_items_work() {
 }
 
 #[test]
+fn import_std_env_chain_id_item_works() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let src = r#"
+        import std::env::{chain_id}
+
+        io function main() -> Int {
+            std::str::len(chain_id())
+        }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    Command::cargo_bin("clg")
+        .unwrap()
+        .args(["build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+}
+
+#[test]
 fn import_unknown_std_module_reports_c020() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();
@@ -449,6 +475,7 @@ fn host_backed_std_surfaces_emit_expected_runtime_import_modules() {
             std::wasi::print(std::bytes::from_string("x"));
             std::bytes::len(std::env::random(1))
                 + std::env::time()
+                + std::str::len(std::env::chain_id())
                 + std::bytes::len(std::crypto::hash("sha256", std::bytes::from_string("x")))
         }
     "#;
@@ -484,6 +511,12 @@ fn host_backed_std_surfaces_emit_expected_runtime_import_modules() {
             .iter()
             .any(|(module, name)| module == "clearlang_env" && name == "env_random"),
         "expected std::env::random to stay host-backed via clearlang_env"
+    );
+    assert!(
+        imports
+            .iter()
+            .any(|(module, name)| module == "clearlang_env" && name == "env_chain_id"),
+        "expected std::env::chain_id to stay host-backed via clearlang_env"
     );
     assert!(
         imports

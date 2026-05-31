@@ -12,7 +12,7 @@ use crate::intrinsics::{
     crypto::{
         encode_intrinsic_crypto_hash, encode_intrinsic_crypto_hmac, encode_intrinsic_crypto_verify,
     },
-    env::{encode_intrinsic_env_random, encode_intrinsic_env_time},
+    env::{encode_intrinsic_env_chain_id, encode_intrinsic_env_random, encode_intrinsic_env_time},
     runtime::encode_intrinsic_identity,
     strings::{
         encode_intrinsic_bytes_eq_ct, encode_intrinsic_str_concat, encode_intrinsic_str_contains,
@@ -95,6 +95,7 @@ pub struct ExternalImport {
 struct IntrinsicPresence {
     has_wasi_print: bool,
     has_env_time: bool,
+    has_env_chain_id: bool,
     has_env_random: bool,
     has_crypto_hash: bool,
     has_crypto_hmac: bool,
@@ -106,6 +107,7 @@ impl IntrinsicPresence {
         match name {
             "std::wasi::print" => self.has_wasi_print = true,
             "std::env::time" => self.has_env_time = true,
+            "std::env::chain_id" => self.has_env_chain_id = true,
             "std::env::random" => self.has_env_random = true,
             "std::crypto::hash" => self.has_crypto_hash = true,
             "std::crypto::hmac" => self.has_crypto_hmac = true,
@@ -155,6 +157,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
 
     let has_wasi_print = intrinsic_presence.has_wasi_print;
     let has_env_time = intrinsic_presence.has_env_time;
+    let has_env_chain_id = intrinsic_presence.has_env_chain_id;
     let has_env_random = intrinsic_presence.has_env_random;
     let has_crypto_hash = intrinsic_presence.has_crypto_hash;
     let has_crypto_hmac = intrinsic_presence.has_crypto_hmac;
@@ -202,6 +205,11 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     } else {
         None
     };
+    let env_chain_id_ty = if has_env_chain_id {
+        Some(type_index_for(Vec::new(), vec![ValType::I32]))
+    } else {
+        None
+    };
     let env_random_ty = if has_env_random {
         Some(type_index_for(vec![ValType::I32], vec![ValType::I32]))
     } else {
@@ -245,6 +253,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut import_count = 0u32;
     let mut fd_write_index: Option<u32> = None;
     let mut env_time_index: Option<u32> = None;
+    let mut env_chain_id_index: Option<u32> = None;
     let mut env_random_index: Option<u32> = None;
     let mut crypto_hash_index: Option<u32> = None;
     let mut crypto_hmac_index: Option<u32> = None;
@@ -268,6 +277,15 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             EntityType::Function(env_time_ty),
         );
         env_time_index = Some(import_count);
+        import_count += 1;
+    }
+    if let Some(env_chain_id_ty) = env_chain_id_ty {
+        imports.import(
+            "clearlang_env",
+            "env_chain_id",
+            EntityType::Function(env_chain_id_ty),
+        );
+        env_chain_id_index = Some(import_count);
         import_count += 1;
     }
     if let Some(env_random_ty) = env_random_ty {
@@ -481,6 +499,10 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "std::env::time" => {
                 let idx = env_time_index.expect("env_time import expected");
                 encode_intrinsic_env_time(f, idx)?
+            }
+            "std::env::chain_id" => {
+                let idx = env_chain_id_index.expect("env_chain_id import expected");
+                encode_intrinsic_env_chain_id(f, idx)?
             }
             "std::env::random" => {
                 let idx = env_random_index.expect("env_random import expected");

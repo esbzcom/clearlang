@@ -314,6 +314,55 @@ mod tests {
     }
 
     #[test]
+    fn parse_std_arch_sync_args_accepts_write_refresh_and_emit() {
+        let opts = parse_std_arch_sync_args(vec![
+            "--write".to_string(),
+            "--refresh-lock".to_string(),
+            "--emit-artifact".to_string(),
+            "tmp/std-arch".to_string(),
+        ])
+        .expect("parse args");
+        assert!(opts.write);
+        assert!(opts.refresh_lock);
+        assert_eq!(opts.emit_artifact, Some(PathBuf::from("tmp/std-arch")));
+    }
+
+    #[test]
+    fn parse_std_arch_sync_args_rejects_invalid_input() {
+        let err =
+            parse_std_arch_sync_args(vec!["--emit-artifact".to_string()]).expect_err("expected missing value");
+        assert!(err.contains("missing value for `--emit-artifact`"));
+
+        let err =
+            parse_std_arch_sync_args(vec!["--unknown".to_string()]).expect_err("expected unknown arg");
+        assert!(err.contains("unknown std-arch-sync arg"));
+    }
+
+    #[test]
+    fn extract_std_symbols_from_coverage_matrix_parses_compact_and_explicit_forms() {
+        let dir = unique_temp_dir("std-arch-coverage");
+        let coverage_path = dir.join("coverage.md");
+        std::fs::write(
+            &coverage_path,
+            r#"
+| `std::list::{len,push}` | yes | yes | yes |
+| `std::env::chain_id` | yes | yes | no |
+"#,
+        )
+        .expect("write coverage fixture");
+        let symbols =
+            extract_std_symbols_from_coverage_matrix(coverage_path.as_path()).expect("extract symbols");
+        cleanup_temp_dir(dir.as_path());
+
+        let expected = BTreeSet::from([
+            "std::list::len".to_string(),
+            "std::list::push".to_string(),
+            "std::env::chain_id".to_string(),
+        ]);
+        assert_eq!(symbols, expected);
+    }
+
+    #[test]
     fn parse_host_capability_policy_args_accepts_emit_and_refresh() {
         let opts = parse_host_capability_policy_args(vec![
             "--emit-artifact".to_string(),

@@ -18,3 +18,11 @@ pub fn encode_intrinsic_env_random(_f: &IrFunction, env_random_index: u32) -> Re
     insts.end();
     Ok(fenc)
 }
+
+pub fn encode_intrinsic_env_chain_id(_f: &IrFunction, env_chain_id_index: u32) -> Result<Function> {
+    let mut fenc = Function::new(Vec::new());
+    let mut insts = fenc.instructions();
+    insts.call(env_chain_id_index);
+    insts.end();
+    Ok(fenc)
+}

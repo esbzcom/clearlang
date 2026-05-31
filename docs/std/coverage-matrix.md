@@ -134,6 +134,7 @@ Allowed values:
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
 | `std::env::time` | yes | yes | no | Host-backed deterministic/stubbed runtime path in local run; strict host capability gate applies. |
+| `std::env::chain_id` | yes | yes | no | Host-backed deterministic/stubbed runtime path in local run; strict host capability gate applies. |
 | `std::env::random` | yes | yes | no | Host-backed deterministic/stubbed runtime path in local run; strict host capability gate applies. |
 | `std::wasi::print` | yes | yes | no | Host-backed output path; strict host capability gate applies. |
 

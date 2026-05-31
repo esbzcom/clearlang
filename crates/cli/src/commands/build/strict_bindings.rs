@@ -154,13 +154,39 @@ fn filter_precompiled_std_core_typer_overrides(
 ) -> Vec<ExternalBuiltinSig> {
     external_typer_sigs
         .iter()
-        .filter(|sig| !is_phase21_precompiled_std_core_locked_symbol(sig.name.as_str()))
+        .filter(|sig| !is_typer_builtin_symbol(sig.name.as_str()))
+        .cloned()
+        .collect()
+}
+
+fn filter_precompiled_std_core_codegen_overrides(
+    external_codegen_imports: &[ExternalImport],
+) -> Vec<ExternalImport> {
+    external_codegen_imports
+        .iter()
+        .filter(|import| {
+            !is_typer_builtin_symbol(import.function.as_str())
+                || is_phase21_precompiled_std_core_locked_symbol(import.function.as_str())
+        })
         .cloned()
         .collect()
 }
 
 fn is_phase21_precompiled_std_core_locked_symbol(symbol: &str) -> bool {
     matches!(symbol, "std::str::len" | "std::bytes::len")
+}
+
+fn is_typer_builtin_symbol(symbol: &str) -> bool {
+    static TYPER_BUILTINS: std::sync::OnceLock<std::collections::BTreeSet<String>> =
+        std::sync::OnceLock::new();
+    TYPER_BUILTINS
+        .get_or_init(|| {
+            clg_typer::builtin_sigs()
+                .into_iter()
+                .map(|(name, _, _, _)| name)
+                .collect()
+        })
+        .contains(symbol)
 }
 
 fn precompiled_std_core_intrinsic_fallback_violations(

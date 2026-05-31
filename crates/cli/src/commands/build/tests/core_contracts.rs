@@ -287,6 +287,7 @@
     fn precompiled_typer_filter_removes_locked_std_core_overrides() {
         let sigs = vec![
             external_sig("std::str::len", vec![Type::String], Type::Int, Effect::Pure),
+            external_sig("std::env::chain_id", vec![], Type::String, Effect::Io),
             external_sig(
                 "std::core::math::add",
                 vec![Type::Int, Type::Int],
@@ -297,6 +298,31 @@
         let filtered = filter_precompiled_std_core_typer_overrides(sigs.as_slice());
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].name, "std::core::math::add");
+    }
+
+    #[test]
+    fn precompiled_codegen_filter_keeps_locked_symbols_and_drops_builtin_overrides() {
+        let imports = vec![
+            ExternalImport {
+                function: "std::str::len".to_string(),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+            },
+            ExternalImport {
+                function: "std::env::chain_id".to_string(),
+                import_module: "std::env".to_string(),
+                import_name: "chain_id".to_string(),
+            },
+            ExternalImport {
+                function: "std::core::math::add".to_string(),
+                import_module: "std::core::math".to_string(),
+                import_name: "add".to_string(),
+            },
+        ];
+        let filtered = filter_precompiled_std_core_codegen_overrides(imports.as_slice());
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].function, "std::str::len");
+        assert_eq!(filtered[1].function, "std::core::math::add");
     }
 
     #[test]

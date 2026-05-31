@@ -213,6 +213,7 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
         "std::bytes::to_string",
         "std::wasi::print",
         "std::env::time",
+        "std::env::chain_id",
         "std::env::random",
         "std::crypto::hash",
         "std::crypto::hmac",
@@ -253,6 +254,7 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
                 "std::bytes::to_string" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::wasi::print" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::env::time" => (vec![], Some(clg_ir::IrType::Int)),
+                "std::env::chain_id" => (vec![], Some(clg_ir::IrType::Int)),
                 "std::env::random" => (vec![clg_ir::IrType::Int], Some(clg_ir::IrType::Int)),
                 "std::crypto::hash" => (
                     vec![clg_ir::IrType::Int, clg_ir::IrType::Int],

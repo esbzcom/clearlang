@@ -114,6 +114,10 @@
       "path": "std::env",
       "exports": [
         {
+          "name": "chain_id",
+          "kind": "value"
+        },
+        {
           "name": "random",
           "kind": "value"
         },

@@ -6,119 +6,120 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
     walk_calls(ast, &mut |callee| {
         let normalized = crate::guards::canonical_collection_alias_callee(callee);
         match normalized {
-        "std::bytes::len" => {
-            set.insert("std::bytes::len");
+            "std::bytes::len" => {
+                set.insert("std::bytes::len");
+            }
+            "std::bytes::is_empty" => {
+                set.insert("std::bytes::len");
+            }
+            "std::bytes::eq" => {
+                set.insert("std::bytes::eq");
+            }
+            "std::bytes::equals" => {
+                set.insert("std::bytes::eq");
+            }
+            "std::bytes::eq_ct" => {
+                set.insert("std::bytes::eq_ct");
+            }
+            "std::bytes::equals_ct" => {
+                set.insert("std::bytes::eq_ct");
+            }
+            "std::bytes::concat" => {
+                set.insert("std::bytes::concat");
+            }
+            "std::bytes::from_string" => {
+                set.insert("std::bytes::from_string");
+            }
+            "std::bytes::to_string" => {
+                set.insert("std::bytes::to_string");
+            }
+            "std::wasi::print" => {
+                set.insert("std::wasi::print");
+            }
+            "std::env::time" => {
+                set.insert("std::env::time");
+            }
+            "std::env::chain_id" => {
+                set.insert("std::env::chain_id");
+            }
+            "std::env::random" => {
+                set.insert("std::env::random");
+            }
+            "std::crypto::hash" => {
+                set.insert("std::crypto::hash");
+            }
+            "std::crypto::sha256" => {
+                set.insert("std::crypto::hash");
+            }
+            "std::crypto::hmac" => {
+                set.insert("std::crypto::hmac");
+            }
+            "std::crypto::hmac_sha256" => {
+                set.insert("std::crypto::hmac");
+            }
+            "std::crypto::verify" => {
+                set.insert("std::crypto::verify");
+            }
+            "std::str::len" => {
+                set.insert("std::str::len");
+            }
+            "std::str::is_empty" => {
+                set.insert("std::str::len");
+            }
+            "std::str::eq" => {
+                set.insert("std::str::eq");
+            }
+            "std::str::equals" => {
+                set.insert("std::str::eq");
+            }
+            "std::str::concat" => {
+                set.insert("std::str::concat");
+            }
+            "std::str::starts_with" => {
+                set.insert("std::str::starts_with");
+            }
+            "std::str::ends_with" => {
+                set.insert("std::str::ends_with");
+            }
+            "std::str::contains" => {
+                set.insert("std::str::contains");
+            }
+            "std::str_pattern::matches" => {
+                set.insert("std::str::contains");
+            }
+            "std::str::to_bytes" => {
+                set.insert("std::bytes::from_string");
+            }
+            "std::u64::rotl" => {
+                set.insert("std::u64::rotl");
+            }
+            "std::u64::rotr" => {
+                set.insert("std::u64::rotr");
+            }
+            "std::u64::to_bytes_le" => {
+                set.insert("std::u64::to_bytes_le");
+            }
+            "std::u64::to_bytes_be" => {
+                set.insert("std::u64::to_bytes_be");
+            }
+            "std::u64::from_bytes_le" => {
+                set.insert("std::u64::from_bytes_le");
+            }
+            "std::u64::from_bytes_be" => {
+                set.insert("std::u64::from_bytes_be");
+            }
+            "std::map::contains"
+            | "std::map::get"
+            | "std::map::insert"
+            | "std::map::remove"
+            | "std::map::insert_take"
+            | "std::map::remove_take" => {
+                set.insert("std::str::eq");
+                set.insert("std::bytes::eq");
+            }
+            _ => {}
         }
-        "std::bytes::is_empty" => {
-            set.insert("std::bytes::len");
-        }
-        "std::bytes::eq" => {
-            set.insert("std::bytes::eq");
-        }
-        "std::bytes::equals" => {
-            set.insert("std::bytes::eq");
-        }
-        "std::bytes::eq_ct" => {
-            set.insert("std::bytes::eq_ct");
-        }
-        "std::bytes::equals_ct" => {
-            set.insert("std::bytes::eq_ct");
-        }
-        "std::bytes::concat" => {
-            set.insert("std::bytes::concat");
-        }
-        "std::bytes::from_string" => {
-            set.insert("std::bytes::from_string");
-        }
-        "std::bytes::to_string" => {
-            set.insert("std::bytes::to_string");
-        }
-        "std::wasi::print" => {
-            set.insert("std::wasi::print");
-        }
-        "std::env::time" => {
-            set.insert("std::env::time");
-        }
-        "std::env::chain_id" => {
-            set.insert("std::env::chain_id");
-        }
-        "std::env::random" => {
-            set.insert("std::env::random");
-        }
-        "std::crypto::hash" => {
-            set.insert("std::crypto::hash");
-        }
-        "std::crypto::sha256" => {
-            set.insert("std::crypto::hash");
-        }
-        "std::crypto::hmac" => {
-            set.insert("std::crypto::hmac");
-        }
-        "std::crypto::hmac_sha256" => {
-            set.insert("std::crypto::hmac");
-        }
-        "std::crypto::verify" => {
-            set.insert("std::crypto::verify");
-        }
-        "std::str::len" => {
-            set.insert("std::str::len");
-        }
-        "std::str::is_empty" => {
-            set.insert("std::str::len");
-        }
-        "std::str::eq" => {
-            set.insert("std::str::eq");
-        }
-        "std::str::equals" => {
-            set.insert("std::str::eq");
-        }
-        "std::str::concat" => {
-            set.insert("std::str::concat");
-        }
-        "std::str::starts_with" => {
-            set.insert("std::str::starts_with");
-        }
-        "std::str::ends_with" => {
-            set.insert("std::str::ends_with");
-        }
-        "std::str::contains" => {
-            set.insert("std::str::contains");
-        }
-        "std::str_pattern::matches" => {
-            set.insert("std::str::contains");
-        }
-        "std::str::to_bytes" => {
-            set.insert("std::bytes::from_string");
-        }
-        "std::u64::rotl" => {
-            set.insert("std::u64::rotl");
-        }
-        "std::u64::rotr" => {
-            set.insert("std::u64::rotr");
-        }
-        "std::u64::to_bytes_le" => {
-            set.insert("std::u64::to_bytes_le");
-        }
-        "std::u64::to_bytes_be" => {
-            set.insert("std::u64::to_bytes_be");
-        }
-        "std::u64::from_bytes_le" => {
-            set.insert("std::u64::from_bytes_le");
-        }
-        "std::u64::from_bytes_be" => {
-            set.insert("std::u64::from_bytes_be");
-        }
-        "std::map::contains"
-        | "std::map::get"
-        | "std::map::insert"
-        | "std::map::remove"
-        | "std::map::insert_take"
-        | "std::map::remove_take" => {
-            set.insert("std::str::eq");
-            set.insert("std::bytes::eq");
-        }
-        _ => {}
-    }});
+    });
     set
 }
 

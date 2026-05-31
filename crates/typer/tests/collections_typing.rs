@@ -295,7 +295,10 @@ fn map_rejects_array_key_until_array_equality_lands() {
 #[test]
 fn map_iteration_exports_remain_fail_closed_until_enabled() {
     let deferred_calls = [
-        ("std::map::keys", r#"function bad(m: Map<Int, String>) -> Int { std::map::keys(m) }"#),
+        (
+            "std::map::keys",
+            r#"function bad(m: Map<Int, String>) -> Int { std::map::keys(m) }"#,
+        ),
         (
             "std::map::values",
             r#"function bad(m: Map<Int, String>) -> Int { std::map::values(m) }"#,

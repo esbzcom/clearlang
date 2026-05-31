@@ -20,7 +20,10 @@ fn phase26_map_performance_machine_contract_is_valid() {
     let raw = fs::read_to_string(json_path).expect("read map performance json");
     let parsed: Value = serde_json::from_str(&raw).expect("parse map performance json");
 
-    assert_eq!(parsed.get("schema_version").and_then(Value::as_u64), Some(2));
+    assert_eq!(
+        parsed.get("schema_version").and_then(Value::as_u64),
+        Some(2)
+    );
     assert_eq!(parsed.get("gate").and_then(Value::as_str), Some("26.4.6"));
     assert_eq!(
         parsed.get("aggregation_mode").and_then(Value::as_str),

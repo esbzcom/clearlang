@@ -19,7 +19,10 @@ fn phase26_finite_set_performance_machine_contract_is_valid() {
     let raw = fs::read_to_string(json_path).expect("read finite-set performance json");
     let parsed: Value = serde_json::from_str(&raw).expect("parse finite-set performance json");
 
-    assert_eq!(parsed.get("schema_version").and_then(Value::as_u64), Some(2));
+    assert_eq!(
+        parsed.get("schema_version").and_then(Value::as_u64),
+        Some(2)
+    );
     assert_eq!(parsed.get("gate").and_then(Value::as_str), Some("26.2.5"));
     assert_eq!(
         parsed.get("aggregation_mode").and_then(Value::as_str),
@@ -51,10 +54,7 @@ fn phase26_finite_set_performance_machine_contract_is_valid() {
         .get("fixtures")
         .and_then(Value::as_array)
         .expect("fixtures array");
-    let names: Vec<&str> = fixtures
-        .iter()
-        .filter_map(Value::as_str)
-        .collect();
+    let names: Vec<&str> = fixtures.iter().filter_map(Value::as_str).collect();
     assert!(names.contains(&"set_subset_membership"));
     assert!(names.contains(&"set_algebra"));
     assert!(names.contains(&"set_cardinality"));

@@ -5,11 +5,11 @@ mod guards;
 mod lower;
 mod vc;
 
+pub use builtins::builtin_sigs;
 pub use check::{
     check, check_with_vcs, check_with_vcs_with_std, check_with_vcs_with_std_and_external,
     ExternalBuiltinSig, StdTypeInfo, StdTypeMap, TypecheckOutput,
 };
-pub use builtins::builtin_sigs;
 pub use errors::TyperError;
 pub use vc::{
     generate_vcs, generate_vcs_with_dependencies, AssumptionBoundary, AssumptionCategory,

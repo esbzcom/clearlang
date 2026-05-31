@@ -10,8 +10,8 @@ use super::collections_helpers::{
 };
 use super::layout::collection_layout;
 use super::{
-    emit_alloc_dyn, emit_int_const, emit_memcpy_bytes, emit_ptr_add, fresh, lower_expr,
-    load_value_borrow, store_value, LowerCtx,
+    emit_alloc_dyn, emit_int_const, emit_memcpy_bytes, emit_ptr_add, fresh, load_value_borrow,
+    lower_expr, store_value, LowerCtx,
 };
 
 pub(super) fn lower_set_call<'a>(

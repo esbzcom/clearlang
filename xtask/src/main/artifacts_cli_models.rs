@@ -139,6 +139,9 @@ fn print_help() {
         "  std-arch-conformance-check (phase 26.6 doc/signature/lowering/runtime parity gate)"
     );
     println!(
+        "  std-first-production-readiness-check (phase 26 must-have std closure audit)"
+    );
+    println!(
         "  host-capability-policy-artifact [--emit-artifact DIR] [--refresh-lock] (phase 21 host policy gate)"
     );
     println!("  milestone2-perf-gate [--portability-smoke|--self-test]");

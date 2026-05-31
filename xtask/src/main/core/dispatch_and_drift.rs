@@ -43,6 +43,9 @@ fn main() -> Result<(), String> {
         "std-surface-drift-check" => check_std_surface_drift(&root, args.collect())?,
         "std-arch-sync" => run_std_arch_sync(&root, args.collect())?,
         "std-arch-conformance-check" => run_std_arch_conformance_check(&root, args.collect())?,
+        "std-first-production-readiness-check" => {
+            run_std_first_production_readiness_check(&root, args.collect())?
+        }
         "host-capability-policy-artifact" => {
             emit_host_capability_policy_artifact(&root, args.collect())?
         }

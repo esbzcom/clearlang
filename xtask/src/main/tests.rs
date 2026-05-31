@@ -363,6 +363,133 @@ mod tests {
     }
 
     #[test]
+    fn parse_std_coverage_entries_expands_grouped_rows_with_statuses() {
+        let entries = parse_std_coverage_entries(
+            r#"
+| Symbol | typed | runtime | proved | Notes |
+|---|---|---|---|---|
+| `std::host::env::{chain_id,caller}` | no | no | no | pending |
+| `std::str::len` | yes | yes | no | ready |
+"#,
+        )
+        .expect("parse coverage entries");
+
+        assert_eq!(
+            entries,
+            vec![
+                StdCoverageEntry {
+                    symbol: "std::host::env::chain_id".to_string(),
+                    module_path: "std::host::env".to_string(),
+                    typed: "no".to_string(),
+                    runtime: "no".to_string(),
+                    proved: "no".to_string(),
+                },
+                StdCoverageEntry {
+                    symbol: "std::host::env::caller".to_string(),
+                    module_path: "std::host::env".to_string(),
+                    typed: "no".to_string(),
+                    runtime: "no".to_string(),
+                    proved: "no".to_string(),
+                },
+                StdCoverageEntry {
+                    symbol: "std::str::len".to_string(),
+                    module_path: "std::str".to_string(),
+                    typed: "yes".to_string(),
+                    runtime: "yes".to_string(),
+                    proved: "no".to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_std_contract_maturity_matrix_normalizes_labels() {
+        let maturity = parse_std_contract_maturity_matrix(
+            r#"
+- `std::core`: `draft` (pending)
+- Collections catalog (`std::list`, `std::set`, `std::map`): `ready`
+"#,
+        )
+        .expect("parse maturity matrix");
+
+        assert_eq!(maturity.get("std::core"), Some(&"draft".to_string()));
+        assert_eq!(
+            maturity.get("Collections catalog (std::list, std::set, std::map)"),
+            Some(&"ready".to_string())
+        );
+    }
+
+    #[test]
+    fn evaluate_std_first_production_readiness_flags_pending_rows_missing_metadata_and_draft_core() {
+        let coverage = parse_std_coverage_entries(
+            r#"
+| Symbol | typed | runtime | proved | Notes |
+|---|---|---|---|---|
+| `std::encoder::new` | no | no | no | pending |
+| `std::encoder::finish` | no | no | no | pending |
+| `std::str::len` | yes | yes | no | ready |
+"#,
+        )
+        .expect("parse coverage");
+        let metadata = StdMetadataRoot {
+            schema_version: 2,
+            modules: vec![StdMetadataModule {
+                path: "std::str".to_string(),
+                exports: vec![StdMetadataExport {
+                    name: "len".to_string(),
+                    kind: "value".to_string(),
+                    layout: None,
+                }],
+            }],
+        };
+        let maturity = BTreeMap::from([("std::core".to_string(), "draft".to_string())]);
+        let specs = vec![
+            FirstProductionStdSpec {
+                package: "std::core",
+                maturity_key: "std::core",
+                coverage_prefixes: Vec::new(),
+                logical_surface: true,
+            },
+            FirstProductionStdSpec {
+                package: "std::codec",
+                maturity_key: "std::codec",
+                coverage_prefixes: vec!["std::encoder"],
+                logical_surface: false,
+            },
+            FirstProductionStdSpec {
+                package: "std::str",
+                maturity_key: "std::str",
+                coverage_prefixes: vec!["std::str"],
+                logical_surface: false,
+            },
+        ];
+
+        let blockers = evaluate_std_first_production_readiness_for_specs(
+            &specs,
+            &coverage,
+            &metadata,
+            &maturity,
+        );
+
+        assert!(
+            blockers.iter().any(|line| line.contains("std::core maturity is `draft`")),
+            "expected draft std::core blocker, got {blockers:?}"
+        );
+        assert!(
+            blockers
+                .iter()
+                .any(|line| line.contains("std::codec has first-production rows without implementation")),
+            "expected codec implementation blocker, got {blockers:?}"
+        );
+        assert!(
+            blockers
+                .iter()
+                .any(|line| line.contains("std::codec metadata is missing required modules")),
+            "expected codec metadata blocker, got {blockers:?}"
+        );
+    }
+
+    #[test]
     fn parse_host_capability_policy_args_accepts_emit_and_refresh() {
         let opts = parse_host_capability_policy_args(vec![
             "--emit-artifact".to_string(),

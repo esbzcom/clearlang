@@ -189,6 +189,39 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
     }
 }
 
+fn run_std_first_production_readiness_check(
+    root: &Path,
+    raw_args: Vec<String>,
+) -> Result<(), String> {
+    if !raw_args.is_empty() {
+        return Err(
+            "std-first-production-readiness-check does not accept args".to_string(),
+        );
+    }
+    let paths = std_arch_paths(root);
+    let coverage_raw = fs::read_to_string(&paths.std_coverage_matrix_path)
+        .map_err(|e| format!("read `{}`: {e}", paths.std_coverage_matrix_path.display()))?;
+    let coverage_entries = parse_std_coverage_entries(&coverage_raw)?;
+    let metadata = load_std_metadata_root(&paths.std_metadata_path)?;
+    let readme_raw = fs::read_to_string(&paths.std_readme_path)
+        .map_err(|e| format!("read `{}`: {e}", paths.std_readme_path.display()))?;
+    let maturity = parse_std_contract_maturity_matrix(&readme_raw)?;
+    let blockers = evaluate_std_first_production_readiness_for_specs(
+        &first_production_std_specs(),
+        &coverage_entries,
+        &metadata,
+        &maturity,
+    );
+    if blockers.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "std first-production readiness blockers:\n - {}",
+            blockers.join("\n - ")
+        ))
+    }
+}
+
 fn parse_std_arch_sync_args(raw_args: Vec<String>) -> Result<StdArchSyncOpts, String> {
     let mut write = false;
     let mut refresh_lock = false;
@@ -239,6 +272,7 @@ fn std_arch_paths(root: &Path) -> StdArchPaths {
             .join("docs")
             .join("std")
             .join("coverage-matrix.md"),
+        std_readme_path: root.join("docs").join("std").join("README.md"),
         codegen_ir_path: root
             .join("crates")
             .join("codegen-wasm")
@@ -604,6 +638,246 @@ fn extract_std_symbols_from_coverage_matrix(path: &Path) -> Result<BTreeSet<Stri
     Ok(symbols)
 }
 
+fn parse_std_coverage_entries(raw: &str) -> Result<Vec<StdCoverageEntry>, String> {
+    let mut entries = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with('|') {
+            continue;
+        }
+        let columns = trimmed
+            .split('|')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        if columns.len() < 6 {
+            continue;
+        }
+        let symbol_cell = columns[1];
+        if symbol_cell.is_empty() || symbol_cell == "Symbol" || symbol_cell == "---" {
+            continue;
+        }
+        for symbol in expand_coverage_symbol_cell(symbol_cell) {
+            let Some((module_path, _leaf)) = symbol.rsplit_once("::") else {
+                continue;
+            };
+            let module_path = module_path.to_string();
+            entries.push(StdCoverageEntry {
+                symbol,
+                module_path,
+                typed: columns[2].to_string(),
+                runtime: columns[3].to_string(),
+                proved: columns[4].to_string(),
+            });
+        }
+    }
+    Ok(entries)
+}
+
+fn expand_coverage_symbol_cell(cell: &str) -> Vec<String> {
+    static COVERAGE_GROUP_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    static COVERAGE_SYMBOL_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let normalized = cell.replace('`', "").trim().to_string();
+    let group_pattern = COVERAGE_GROUP_PATTERN.get_or_init(|| {
+        Regex::new(r"^(std::[A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)*)::\{([^}]*)\}$")
+            .expect("valid grouped coverage regex")
+    });
+    if let Some(captures) = group_pattern.captures(normalized.as_str()) {
+        let module = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
+        let leaves = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
+        return leaves
+            .split(',')
+            .map(str::trim)
+            .filter(|leaf| !leaf.is_empty())
+            .map(|leaf| format!("{module}::{leaf}"))
+            .collect();
+    }
+
+    let symbol_pattern = COVERAGE_SYMBOL_PATTERN.get_or_init(|| {
+        Regex::new(r"^(std::[A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)*)$")
+            .expect("valid explicit coverage regex")
+    });
+    if symbol_pattern.is_match(normalized.as_str()) {
+        return vec![normalized];
+    }
+    Vec::new()
+}
+
+fn parse_std_contract_maturity_matrix(raw: &str) -> Result<BTreeMap<String, String>, String> {
+    static MATURITY_LINE_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+    let line_pattern = MATURITY_LINE_PATTERN.get_or_init(|| {
+        Regex::new(r"^- (.+): `([^`]+)`").expect("valid maturity matrix regex")
+    });
+    let mut out = BTreeMap::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        let Some(captures) = line_pattern.captures(trimmed) else {
+            continue;
+        };
+        let label = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
+        let status = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
+        out.insert(
+            label.replace('`', "").trim().to_string(),
+            status.trim().to_string(),
+        );
+    }
+    if out.is_empty() {
+        return Err("std contract maturity matrix yielded zero entries".to_string());
+    }
+    Ok(out)
+}
+
+fn evaluate_std_first_production_readiness_for_specs(
+    specs: &[FirstProductionStdSpec],
+    coverage_entries: &[StdCoverageEntry],
+    metadata: &StdMetadataRoot,
+    maturity: &BTreeMap<String, String>,
+) -> Vec<String> {
+    let metadata_modules = metadata
+        .modules
+        .iter()
+        .map(|module| module.path.clone())
+        .collect::<BTreeSet<_>>();
+    let mut blockers = Vec::new();
+
+    for spec in specs {
+        if spec.logical_surface {
+            match maturity.get(spec.maturity_key) {
+                Some(status) if status == "ready" => {}
+                Some(status) => blockers.push(format!(
+                    "{} maturity is `{}` in docs/std/README.md; logical built-in surface is not first-production ready",
+                    spec.package, status
+                )),
+                None => blockers.push(format!(
+                    "docs/std/README.md contract maturity matrix missing `{}` entry",
+                    spec.maturity_key
+                )),
+            }
+            continue;
+        }
+
+        let family_entries = coverage_entries
+            .iter()
+            .filter(|entry| {
+                spec.coverage_prefixes.iter().any(|prefix| {
+                    entry.symbol == *prefix || entry.symbol.starts_with(&format!("{prefix}::"))
+                })
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if family_entries.is_empty() {
+            blockers.push(format!(
+                "{} coverage is missing concrete rows in docs/std/coverage-matrix.md",
+                spec.package
+            ));
+            continue;
+        }
+
+        let pending = family_entries
+            .iter()
+            .filter(|entry| {
+                entry.proved != "deferred" && (entry.typed != "yes" || entry.runtime != "yes")
+            })
+            .map(|entry| {
+                format!(
+                    "{} (typed={}, runtime={}, proved={})",
+                    entry.symbol, entry.typed, entry.runtime, entry.proved
+                )
+            })
+            .collect::<Vec<_>>();
+        if !pending.is_empty() {
+            blockers.push(format!(
+                "{} has first-production rows without implementation [{}]",
+                spec.package,
+                preview_symbols(&pending)
+            ));
+        }
+
+        let required_modules = family_entries
+            .iter()
+            .filter(|entry| entry.proved != "deferred")
+            .map(|entry| entry.module_path.clone())
+            .collect::<BTreeSet<_>>();
+        let missing_modules = required_modules
+            .difference(&metadata_modules)
+            .cloned()
+            .collect::<Vec<_>>();
+        if !missing_modules.is_empty() {
+            blockers.push(format!(
+                "{} metadata is missing required modules [{}]",
+                spec.package,
+                preview_symbols(&missing_modules)
+            ));
+        }
+    }
+
+    blockers
+}
+
+fn first_production_std_specs() -> Vec<FirstProductionStdSpec> {
+    vec![
+        FirstProductionStdSpec {
+            package: "std::core",
+            maturity_key: "std::core",
+            coverage_prefixes: Vec::new(),
+            logical_surface: true,
+        },
+        FirstProductionStdSpec {
+            package: "std::str",
+            maturity_key: "std::str",
+            coverage_prefixes: vec!["std::str", "std::str_pattern"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::bytes",
+            maturity_key: "std::bytes",
+            coverage_prefixes: vec!["std::bytes", "std::bytes_error"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::int",
+            maturity_key: "std::int",
+            coverage_prefixes: vec!["std::u64", "std::u128", "std::u256", "std::checked", "std::int_error"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "collections",
+            maturity_key: "Collections catalog (std::list, std::set, std::map)",
+            coverage_prefixes: vec!["std::list", "std::set", "std::map"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::codec",
+            maturity_key: "std::codec",
+            coverage_prefixes: vec!["std::encoder", "std::decoder", "std::decode_error", "std::encode_error"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::crypto",
+            maturity_key: "std::crypto",
+            coverage_prefixes: vec!["std::crypto"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::host",
+            maturity_key: "std::host",
+            coverage_prefixes: vec!["std::host"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::unit",
+            maturity_key: "std::unit",
+            coverage_prefixes: vec!["std::unit"],
+            logical_surface: false,
+        },
+        FirstProductionStdSpec {
+            package: "std::contract",
+            maturity_key: "std::contract",
+            coverage_prefixes: vec!["std::contract"],
+            logical_surface: false,
+        },
+    ]
+}
+
 fn catalog_value_symbol_set(catalog: &StdCatalogLockFile) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     for module in &catalog.modules {
@@ -680,6 +954,7 @@ struct StdArchPaths {
     std_metadata_path: PathBuf,
     std_signature_artifact_path: PathBuf,
     std_coverage_matrix_path: PathBuf,
+    std_readme_path: PathBuf,
     codegen_ir_path: PathBuf,
 }
 
@@ -689,6 +964,23 @@ struct BuiltinEntry26 {
     module: String,
     arity: u32,
     effect: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct StdCoverageEntry {
+    symbol: String,
+    module_path: String,
+    typed: String,
+    runtime: String,
+    proved: String,
+}
+
+#[derive(Clone, Debug)]
+struct FirstProductionStdSpec {
+    package: &'static str,
+    maturity_key: &'static str,
+    coverage_prefixes: Vec<&'static str>,
+    logical_surface: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

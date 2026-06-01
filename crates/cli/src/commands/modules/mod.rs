@@ -13,6 +13,7 @@ mod imports;
 mod package_metadata;
 mod resolve;
 mod std_metadata;
+mod verified_std_abi;
 
 #[derive(Clone)]
 pub struct ExternalImportBinding {
@@ -38,6 +39,8 @@ pub fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoad> {
 pub fn std_type_info() -> Result<HashMap<String, StdTypeInfo>> {
     std_metadata::std_type_info()
 }
+
+pub(crate) use verified_std_abi::verified_std_abi_value_symbols;
 
 struct Exports {
     values: HashSet<String>,

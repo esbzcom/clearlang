@@ -181,7 +181,7 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [x] 26.0.2 Lock first-production std policy: embedded linking only, deterministic dead-code elimination/tree-shaken emission, and size-regression guardrails. (`docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`, `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`)
   - [x] 26.0.3 Lock post-first-production roadmap: dynamic/shared std linking remains deferred with explicit activation gates, plus std stability/versioning policy before public GA. (`docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`, `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`)
 
-- [ ] 26.1 Std implementation and release gates [Std Gate B]
+- [x] 26.1 Std implementation and release gates [Std Gate B]
   - [x] 26.1.0 Lock `std::core` first-production API cut from `docs/std/core.md`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`, `docs/std/core.md`)
     - [x] 26.1.0.1 Keep `Option<T>` baseline methods for first production: `is_some`, `is_none`, `map`, `and_then`, `filter`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `to_result`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
     - [x] 26.1.0.2 Keep `Result<T,E>` baseline methods for first production: `is_ok`, `is_err`, `map`, `map_err`, `and_then`, `or_else`, `unwrap_or`, `unwrap_or_else`, `expect`, `expect_err`, `to_option`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
@@ -189,9 +189,9 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
     - [x] 26.1.0.4 Keep `CoreError` + `Panic` baseline methods for first production: `CoreError::{new,with_message,code,message,equals}` and `Panic::fail`. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
     - [x] 26.1.0.5 Defer advanced `std::core` helpers until post-first-production unless required by a concrete blocker (`flatten`, `contains*`, `map_or*`, `to_result_else`, `domain/cause` fields). (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
     - [x] 26.1.0.6 Add deterministic diagnostics + contract tests for `expect`/`expect_err`/`Panic::fail` failure paths. (`docs/design/phase-26.1.0-std-core-first-production-api-lock.md`)
-  - [ ] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior (excluding explicitly deferred Gate C set-proof surfaces).
-  - [ ] 26.1.2 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
-  - [ ] 26.1.3 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
+  - [x] 26.1.1 Implement all `must-have` std functions/types with deterministic typing/lowering/runtime behavior (excluding explicitly deferred Gate C set-proof surfaces).
+  - [x] 26.1.2 Add full std coverage matrix (`typed|runtime|proved` per symbol) with CI drift gates.
+  - [x] 26.1.3 Keep strict package metadata/ABI/import-pruning/trust gates green for expanded std surface.
   - [x] 26.1.4 Add package-level execution slices so every `docs/std/README.md` package has an explicit Phase 26 owner task.
     - [x] 26.1.4.1 `std::str`: lock first-production API cut + deterministic UTF-8 diagnostics/contracts, including stable `str_pattern::matches(pattern, input)`. (`docs/design/phase-26.1.4.1-std-str-first-production-lock.md`, `docs/std/coverage-matrix.md`) `DRI: std-str-owner`, `Target: 2026-06-05`.
     - [x] 26.1.4.2 `std::bytes`: lock first-production API cut + constant-time compare contract/coverage. (`docs/design/phase-26.1.4.2-std-bytes-first-production-lock.md`, `docs/std/coverage-matrix.md`) `DRI: std-bytes-owner`, `Target: 2026-06-10`.

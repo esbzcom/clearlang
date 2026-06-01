@@ -16,6 +16,7 @@ Allowed values:
 |---|---|---|---|---|
 | `std::str::len` | yes | yes | no | Release-enabled API; proof coverage pending Gate B/C integration. |
 | `std::str::is_empty` | yes | yes | no | Lowered via `len == 0`; proof status follows `len`. |
+| `std::str::eq` | yes | yes | no | Canonical release-enabled equality API; theorem-grade closure pending. |
 | `std::str::equals` | yes | yes | no | Alias of `std::str::eq`; theorem-grade closure pending. |
 | `std::str::concat` | yes | yes | no | Runtime string model coverage exists; proof closure pending. |
 | `std::str::starts_with` | yes | yes | no | Implemented intrinsic; proof modeling pending. |
@@ -33,7 +34,9 @@ Allowed values:
 | `std::bytes::len` | yes | yes | no | Release-enabled API; proof closure pending. |
 | `std::bytes::is_empty` | yes | yes | no | Lowered via `len == 0`; proof status follows `len`. |
 | `std::bytes::concat` | yes | yes | no | Release-enabled API; deterministic runtime behavior required. |
+| `std::bytes::eq` | yes | yes | no | Canonical release-enabled byte equality API. |
 | `std::bytes::equals` | yes | yes | no | Alias of `std::bytes::eq`; release-enabled equality. |
+| `std::bytes::eq_ct` | yes | yes | no | Canonical release-enabled constant-time byte equality API. |
 | `std::bytes::equals_ct` | yes | yes | no | Alias of `std::bytes::eq_ct`; constant-time contract pending proof closure. |
 | `std::bytes::from_string` | yes | yes | no | Release-enabled UTF-8 byte-identity conversion. |
 | `std::bytes::slice` | no | no | deferred | Deferred from first-production release cut. |
@@ -124,8 +127,12 @@ Allowed values:
 | `std::crypto::hmac` | yes | yes | no | Current host-backed compatibility API. |
 | `std::crypto::hmac_sha256` | yes | yes | no | Canonical typed first-production HMAC API. |
 | `std::crypto::verify` | yes | yes | no | Current host-backed verify API; proof boundary still open. |
-| `std::crypto::verify_result::{is_valid,error_or_none,valid,invalid}` | yes | yes | no | Deterministic typed helper surface for representing host-backed verify outcomes without widening the current compatibility import path. |
-| `std::crypto::crypto_error::{code,equals}` | yes | yes | no | Stable crypto-domain error code projection and equality helpers. |
+| `std::crypto::verify_result::is_valid` | yes | yes | no | Deterministic typed helper surface for representing host-backed verify outcomes without widening the current compatibility import path. |
+| `std::crypto::verify_result::error_or_none` | yes | yes | no | Deterministic typed helper surface for representing host-backed verify outcomes without widening the current compatibility import path. |
+| `std::crypto::verify_result::valid` | yes | yes | no | Deterministic typed helper surface for representing host-backed verify outcomes without widening the current compatibility import path. |
+| `std::crypto::verify_result::invalid` | yes | yes | no | Deterministic typed helper surface for representing host-backed verify outcomes without widening the current compatibility import path. |
+| `std::crypto::crypto_error::code` | yes | yes | no | Stable crypto-domain error code projection and equality helpers. |
+| `std::crypto::crypto_error::equals` | yes | yes | no | Stable crypto-domain error code projection and equality helpers. |
 | `std::crypto::hash256::blake2b_256` | no | no | deferred | Deferred algorithm expansion. |
 | `std::crypto::algorithm::secp256k1` | no | no | deferred | Deferred algorithm expansion. |
 
@@ -142,20 +149,38 @@ Allowed values:
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::host::storage::{contains,get,set,delete}` | yes | yes | no | Host-backed storage wrappers over the raw runtime host ABI with deterministic boolean and optional-value semantics. |
-| `std::host::log::{info,warn,error}` | yes | yes | no | Host-backed log wrappers preserving the locked `Ok(true)` success contract in the local runtime stub. |
-| `std::host::env::{chain_id,caller,block_height,timestamp}` | yes | yes | no | Host-backed environment wrappers with deterministic boxed-result lowering for `U64` payloads. |
+| `std::host::storage::contains` | yes | yes | no | Host-backed storage wrapper over the raw runtime host ABI with deterministic boolean semantics. |
+| `std::host::storage::get` | yes | yes | no | Host-backed storage wrapper over the raw runtime host ABI with deterministic optional-value semantics. |
+| `std::host::storage::set` | yes | yes | no | Host-backed storage wrapper over the raw runtime host ABI with deterministic `Ok(true)` success semantics. |
+| `std::host::storage::delete` | yes | yes | no | Host-backed storage wrapper over the raw runtime host ABI with deterministic `Ok(true)` success semantics. |
+| `std::host::log::info` | yes | yes | no | Host-backed log wrapper preserving the locked `Ok(true)` success contract in the local runtime stub. |
+| `std::host::log::warn` | yes | yes | no | Host-backed log wrapper preserving the locked `Ok(true)` success contract in the local runtime stub. |
+| `std::host::log::error` | yes | yes | no | Host-backed log wrapper preserving the locked `Ok(true)` success contract in the local runtime stub. |
+| `std::host::env::chain_id` | yes | yes | no | Host-backed environment wrapper with deterministic boxed-result lowering for `U64` payloads. |
+| `std::host::env::caller` | yes | yes | no | Host-backed environment wrapper with deterministic optional-bytes caller semantics. |
+| `std::host::env::block_height` | yes | yes | no | Host-backed environment wrapper with deterministic boxed-result lowering for `U64` payloads. |
+| `std::host::env::timestamp` | yes | yes | no | Host-backed environment wrapper with deterministic boxed-result lowering for `U64` payloads. |
 | `std::host::env::gas_left` | no | no | deferred | Deferred from first-production cut. |
-| `std::host::host_error::{code,equals}` | yes | yes | no | Stable host-domain error-code projection and equality helpers. |
+| `std::host::host_error::code` | yes | yes | no | Stable host-domain error-code projection and equality helpers. |
+| `std::host::host_error::equals` | yes | yes | no | Stable host-domain error-code projection and equality helpers. |
 
 ## `std::contract`
 
 | Symbol | typed | runtime | proved | Notes |
 |---|---|---|---|---|
-| `std::contract::address::{from_bytes,to_bytes,equals}` | yes | yes | no | Canonical 20-byte contract address wrapper with deterministic round-trip and equality semantics. |
-| `std::contract::amount::{from_u64,value,add_checked,sub_checked,is_zero}` | yes | yes | no | Pure checked-amount helpers over canonical `U64` storage with stable overflow/underflow errors. |
-| `std::contract::event::{new,topic,payload}` | yes | yes | no | Deterministic event wrapper preserving topic/payload bytes exactly. |
-| `std::contract::contract_error::{code,equals}` | yes | yes | no | Stable contract-domain error code projection and equality helpers. |
+| `std::contract::address::from_bytes` | yes | yes | no | Canonical 20-byte contract address wrapper with deterministic round-trip semantics from raw bytes. |
+| `std::contract::address::to_bytes` | yes | yes | no | Canonical 20-byte contract address wrapper with deterministic round-trip semantics to raw bytes. |
+| `std::contract::address::equals` | yes | yes | no | Canonical 20-byte contract address structural equality helper. |
+| `std::contract::amount::from_u64` | yes | yes | no | Pure checked-amount helper over canonical `U64` storage. |
+| `std::contract::amount::value` | yes | yes | no | Pure checked-amount projection back to canonical `U64` storage. |
+| `std::contract::amount::add_checked` | yes | yes | no | Pure checked-amount addition with stable overflow errors. |
+| `std::contract::amount::sub_checked` | yes | yes | no | Pure checked-amount subtraction with stable underflow errors. |
+| `std::contract::amount::is_zero` | yes | yes | no | Pure checked-amount zero predicate over canonical `U64` storage. |
+| `std::contract::event::new` | yes | yes | no | Deterministic event wrapper constructor preserving topic and payload bytes exactly. |
+| `std::contract::event::topic` | yes | yes | no | Deterministic event wrapper topic projection preserving bytes exactly. |
+| `std::contract::event::payload` | yes | yes | no | Deterministic event wrapper payload projection preserving bytes exactly. |
+| `std::contract::contract_error::code` | yes | yes | no | Stable contract-domain error code projection helper. |
+| `std::contract::contract_error::equals` | yes | yes | no | Stable contract-domain error equality helper. |
 
 ## `std::unit`
 

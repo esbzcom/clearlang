@@ -605,37 +605,8 @@ fn normalize_std_builtin_signature_file(
 
 fn extract_std_symbols_from_coverage_matrix(path: &Path) -> Result<BTreeSet<String>, String> {
     let raw = fs::read_to_string(path).map_err(|e| format!("read `{}`: {e}", path.display()))?;
-    static COVERAGE_BRACE_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
-    static COVERAGE_LEAF_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
-    let brace_pattern = COVERAGE_BRACE_PATTERN
-        .get_or_init(|| Regex::new(r"std::([a-z0-9_]+)::\{([^}]*)\}").expect("valid coverage regex"));
-    let leaf_pattern = COVERAGE_LEAF_PATTERN.get_or_init(|| {
-        Regex::new(r"(std::[a-z0-9_]+::[A-Za-z0-9_]+)").expect("valid coverage leaf regex")
-    });
-    let mut symbols = BTreeSet::new();
-    for capture in brace_pattern.captures_iter(&raw) {
-        let module = capture
-            .get(1)
-            .map(|m| m.as_str())
-            .ok_or_else(|| "coverage capture missing module".to_string())?;
-        let entries = capture
-            .get(2)
-            .map(|m| m.as_str())
-            .ok_or_else(|| "coverage capture missing entries".to_string())?;
-        for item in entries.split(',') {
-            let leaf = item.trim();
-            if leaf.is_empty() {
-                continue;
-            }
-            symbols.insert(format!("std::{module}::{leaf}"));
-        }
-    }
-    for capture in leaf_pattern.captures_iter(&raw) {
-        if let Some(symbol) = capture.get(1) {
-            symbols.insert(symbol.as_str().to_string());
-        }
-    }
-    Ok(symbols)
+    let entries = parse_std_coverage_entries(&raw)?;
+    Ok(entries.into_iter().map(|entry| entry.symbol).collect())
 }
 
 fn parse_std_coverage_entries(raw: &str) -> Result<Vec<StdCoverageEntry>, String> {

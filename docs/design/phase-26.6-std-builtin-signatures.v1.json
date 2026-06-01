@@ -74,6 +74,97 @@
       "route": "intrinsic"
     },
     {
+      "symbol": "std::contract::address::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::address::from_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::address::to_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::amount::add_checked",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::amount::from_u64",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::amount::is_zero",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::amount::sub_checked",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::amount::value",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::contract_error::code",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::contract_error::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::event::new",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::event::payload",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::contract::event::topic",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
       "symbol": "std::cosmos::from_array",
       "module_class": "pure_std",
       "arity": 1,
@@ -84,6 +175,20 @@
       "symbol": "std::cosmos::from_bytes",
       "module_class": "pure_std",
       "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::crypto_error::code",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::crypto_error::equals",
+      "module_class": "pure_std",
+      "arity": 2,
       "effect": "pure",
       "route": "package_import"
     },
@@ -128,6 +233,160 @@
       "capability": "std::crypto::verify"
     },
     {
+      "symbol": "std::crypto::verify_result::error_or_none",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::verify_result::invalid",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::verify_result::is_valid",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::crypto::verify_result::valid",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decode_error::code",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decode_error::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decode_error::offset",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::is_eof",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::new",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::position",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::read_bool",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::read_bytes",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::read_fixed",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::read_u64",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::decoder::remaining",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encode_error::code",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encode_error::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encoder::finish",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encoder::new",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encoder::write_bool",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encoder::write_bytes",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::encoder::write_u64",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
       "symbol": "std::env::chain_id",
       "module_class": "host_std",
       "arity": 0,
@@ -163,6 +422,97 @@
       "module_class": "pure_std",
       "arity": 1,
       "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::env::block_height",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::env::caller",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::env::chain_id",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::env::timestamp",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::host_error::code",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::host_error::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::log::error",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::log::info",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::log::warn",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::storage::contains",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::storage::delete",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::storage::get",
+      "module_class": "pure_std",
+      "arity": 1,
+      "effect": "io",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::host::storage::set",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "io",
       "route": "package_import"
     },
     {

@@ -347,6 +347,7 @@ mod tests {
             r#"
 | `std::list::{len,push}` | yes | yes | yes |
 | `std::env::chain_id` | yes | yes | no |
+| `std::contract::address::from_bytes` | yes | yes | no |
 "#,
         )
         .expect("write coverage fixture");
@@ -358,6 +359,7 @@ mod tests {
             "std::list::len".to_string(),
             "std::list::push".to_string(),
             "std::env::chain_id".to_string(),
+            "std::contract::address::from_bytes".to_string(),
         ]);
         assert_eq!(symbols, expected);
     }

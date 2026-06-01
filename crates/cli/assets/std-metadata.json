@@ -65,19 +65,6 @@
       ]
     },
     {
-      "path": "std::core",
-      "exports": [
-        {
-          "name": "ErrorCode",
-          "kind": "type",
-          "layout": {
-            "align": 4,
-            "bytes": 4
-          }
-        }
-      ]
-    },
-    {
       "path": "std::contract",
       "exports": [
         {
@@ -187,6 +174,19 @@
       ]
     },
     {
+      "path": "std::core",
+      "exports": [
+        {
+          "name": "ErrorCode",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        }
+      ]
+    },
+    {
       "path": "std::cosmos",
       "exports": [
         {
@@ -283,6 +283,31 @@
       ]
     },
     {
+      "path": "std::decode_error",
+      "exports": [
+        {
+          "name": "DecodeError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "code",
+          "kind": "value"
+        },
+        {
+          "name": "equals",
+          "kind": "value"
+        },
+        {
+          "name": "offset",
+          "kind": "value"
+        }
+      ]
+    },
+    {
       "path": "std::decoder",
       "exports": [
         {
@@ -323,31 +348,6 @@
         },
         {
           "name": "remaining",
-          "kind": "value"
-        }
-      ]
-    },
-    {
-      "path": "std::decode_error",
-      "exports": [
-        {
-          "name": "DecodeError",
-          "kind": "type",
-          "layout": {
-            "align": 4,
-            "bytes": 8
-          }
-        },
-        {
-          "name": "code",
-          "kind": "value"
-        },
-        {
-          "name": "equals",
-          "kind": "value"
-        },
-        {
-          "name": "offset",
           "kind": "value"
         }
       ]
@@ -419,6 +419,27 @@
         },
         {
           "name": "time",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::eth",
+      "exports": [
+        {
+          "name": "Address",
+          "kind": "type",
+          "layout": {
+            "align": 1,
+            "bytes": 20
+          }
+        },
+        {
+          "name": "from_array",
+          "kind": "value"
+        },
+        {
+          "name": "from_bytes",
           "kind": "value"
         }
       ]
@@ -504,27 +525,6 @@
         },
         {
           "name": "set",
-          "kind": "value"
-        }
-      ]
-    },
-    {
-      "path": "std::eth",
-      "exports": [
-        {
-          "name": "Address",
-          "kind": "type",
-          "layout": {
-            "align": 1,
-            "bytes": 20
-          }
-        },
-        {
-          "name": "from_array",
-          "kind": "value"
-        },
-        {
-          "name": "from_bytes",
           "kind": "value"
         }
       ]

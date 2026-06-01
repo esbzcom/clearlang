@@ -100,6 +100,173 @@
       ]
     },
     {
+      "path": "std::contract",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "Address",
+          "kind": "type",
+          "layout": {
+            "align": 1,
+            "bytes": 20
+          }
+        },
+        {
+          "name": "Amount",
+          "kind": "type",
+          "layout": {
+            "align": 8,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "ContractError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "Event",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        }
+      ]
+    },
+    {
+      "path": "std::contract::address",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "from_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "to_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::contract::amount",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "add_checked",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "from_u64",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "is_zero",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "sub_checked",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "value",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::contract::contract_error",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "code",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::contract::event",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "new",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "payload",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "topic",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::core",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "ErrorCode",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        }
+      ]
+    },
+    {
       "path": "std::cosmos",
       "module_class": "pure_std",
       "exports": [
@@ -131,6 +298,22 @@
       "path": "std::crypto",
       "module_class": "host_std",
       "exports": [
+        {
+          "name": "CryptoError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "VerifyResult",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
         {
           "name": "hash",
           "kind": "value",
@@ -170,6 +353,242 @@
           "effect": "io",
           "route": "intrinsic",
           "capability": "std::crypto::verify"
+        }
+      ]
+    },
+    {
+      "path": "std::crypto::crypto_error",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "code",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::crypto::verify_result",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "error_or_none",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "invalid",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "is_valid",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "valid",
+          "kind": "value",
+          "arity": 0,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::decode_error",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "DecodeError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "code",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "offset",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::decoder",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "Decoder",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 8
+          }
+        },
+        {
+          "name": "is_eof",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "new",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "position",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "read_bool",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "read_bytes",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "read_fixed",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "read_u64",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "remaining",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::encode_error",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "EncodeError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "code",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::encoder",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "Encoder",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        },
+        {
+          "name": "finish",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "new",
+          "kind": "value",
+          "arity": 0,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "write_bool",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "write_bytes",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "write_u64",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
         }
       ]
     },
@@ -227,6 +646,135 @@
           "kind": "value",
           "arity": 1,
           "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::host",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "HostError",
+          "kind": "type",
+          "layout": {
+            "align": 4,
+            "bytes": 4
+          }
+        }
+      ]
+    },
+    {
+      "path": "std::host::env",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "block_height",
+          "kind": "value",
+          "arity": 0,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "caller",
+          "kind": "value",
+          "arity": 0,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "chain_id",
+          "kind": "value",
+          "arity": 0,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "timestamp",
+          "kind": "value",
+          "arity": 0,
+          "effect": "io",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::host::host_error",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "code",
+          "kind": "value",
+          "arity": 1,
+          "effect": "pure",
+          "route": "package_import"
+        },
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::host::log",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "error",
+          "kind": "value",
+          "arity": 2,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "info",
+          "kind": "value",
+          "arity": 2,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "warn",
+          "kind": "value",
+          "arity": 2,
+          "effect": "io",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::host::storage",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "contains",
+          "kind": "value",
+          "arity": 1,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "delete",
+          "kind": "value",
+          "arity": 1,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "get",
+          "kind": "value",
+          "arity": 1,
+          "effect": "io",
+          "route": "package_import"
+        },
+        {
+          "name": "set",
+          "kind": "value",
+          "arity": 2,
+          "effect": "io",
           "route": "package_import"
         }
       ]

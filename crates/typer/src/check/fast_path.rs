@@ -19,7 +19,7 @@ use super::{
     ensure_user_function_name_allowed, validate_struct_enum_resources, ExternalBuiltinSig, FnSig,
     StdTypeMap, TypecheckOutput,
 };
-use crate::builtins::builtin_sigs;
+use crate::builtins::{builtin_sigs, BuiltinRoute};
 use crate::errors::TyperError;
 use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
 use crate::vc::{generate_vcs_with_dependencies, AssumptionDependencies};
@@ -194,7 +194,10 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
             .collect(),
         external_dependencies: external_builtins
             .iter()
-            .filter(|sig| called_functions.contains(sig.name.as_str()))
+            .filter(|sig| {
+                sig.route == BuiltinRoute::PackageImport
+                    && called_functions.contains(sig.name.as_str())
+            })
             .map(|sig| sig.name.clone())
             .collect(),
     };
@@ -346,6 +349,12 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
     }
     let mut external_defs: Vec<clg_ir::Function> = Vec::new();
     for sig in external_builtins {
+        if sig.route == BuiltinRoute::Intrinsic {
+            continue;
+        }
+        if sig.name.starts_with("std::") {
+            continue;
+        }
         if !called_functions.contains(sig.name.as_str()) {
             continue;
         }

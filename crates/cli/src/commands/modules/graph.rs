@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use clg_ast::{Program, Span};
 use clg_parser::{parse as parse_src, parse_errors as parse_src_errs};
+use clg_typer::{builtin_route, non_abi_builtin_sigs};
 
 use crate::commands::helpers::{make_parse_json_error, CommandError};
 
@@ -239,12 +240,36 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
     source_files.sort_by(|lhs, rhs| lhs.as_os_str().cmp(rhs.as_os_str()));
     source_files.dedup();
 
+    let mut external_imports = package_index.external_imports().to_vec();
+    external_imports.extend(bundled_std_external_imports());
+
     Ok(ProgramLoad {
         program: resolved,
         std_types,
-        external_imports: package_index.external_imports().to_vec(),
+        external_imports,
         source_files,
     })
+}
+
+fn bundled_std_external_imports() -> Vec<super::ExternalImportBinding> {
+    non_abi_builtin_sigs()
+        .into_iter()
+        .map(|(function, params, ret, effect)| {
+            let (import_module, import_name) = function
+                .rsplit_once("::")
+                .map(|(module, name)| (module.to_string(), name.to_string()))
+                .expect("std builtin symbol must contain module and name");
+            super::ExternalImportBinding {
+                function: function.clone(),
+                import_module,
+                import_name,
+                params,
+                ret,
+                effect,
+                route: builtin_route(function.as_str()),
+            }
+        })
+        .collect()
 }
 
 fn parse_file(path: &Path, json_errors: bool) -> Result<Program> {

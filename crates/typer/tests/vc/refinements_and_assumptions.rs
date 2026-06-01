@@ -431,6 +431,7 @@ fn labels_external_dependencies_as_assumed_boundaries() {
         }],
         ret: Type::Int,
         effect: Effect::Pure,
+        route: clg_typer::BuiltinRoute::PackageImport,
     }];
     let output = check_with_vcs_with_std_and_external(&ast, &std_types, &external)
         .expect("type-check with external dependency");

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clg_ir::{Instr as IrInstr, IrType, Module as IrModule};
+use clg_typer::{builtin_route, verified_std_abi_value_symbols, BuiltinRoute};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use wasm_encoder::{
@@ -91,6 +92,88 @@ pub struct ExternalImport {
     pub import_name: String,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CompilerRoutedStdFn {
+    BytesLen,
+    BytesEq,
+    BytesEqCt,
+    BytesConcat,
+    BytesFromString,
+    BytesToString,
+    WasiPrint,
+    EnvTime,
+    EnvChainId,
+    EnvRandom,
+    CryptoHash,
+    CryptoHmac,
+    CryptoVerify,
+    HostStorageContainsRaw,
+    HostStorageGetRaw,
+    HostStorageSetRaw,
+    HostStorageDeleteRaw,
+    HostLogInfoRaw,
+    HostLogWarnRaw,
+    HostLogErrorRaw,
+    HostEnvChainIdRaw,
+    HostEnvCallerRaw,
+    HostEnvBlockHeightRaw,
+    HostEnvTimestampRaw,
+    StrLen,
+    StrEq,
+    StrConcat,
+    StrStartsWith,
+    StrEndsWith,
+    StrContains,
+    U64Rotl,
+    U64Rotr,
+    U64ToBytesLe,
+    U64ToBytesBe,
+    U64FromBytesLe,
+    U64FromBytesBe,
+}
+
+fn compiler_routed_std_fn(name: &str) -> Option<CompilerRoutedStdFn> {
+    match name {
+        "std::bytes::len" => Some(CompilerRoutedStdFn::BytesLen),
+        "std::bytes::eq" => Some(CompilerRoutedStdFn::BytesEq),
+        "std::bytes::eq_ct" => Some(CompilerRoutedStdFn::BytesEqCt),
+        "std::bytes::concat" => Some(CompilerRoutedStdFn::BytesConcat),
+        "std::bytes::from_string" => Some(CompilerRoutedStdFn::BytesFromString),
+        "std::bytes::to_string" => Some(CompilerRoutedStdFn::BytesToString),
+        "std::wasi::print" => Some(CompilerRoutedStdFn::WasiPrint),
+        "std::env::time" => Some(CompilerRoutedStdFn::EnvTime),
+        "std::env::chain_id" => Some(CompilerRoutedStdFn::EnvChainId),
+        "std::env::random" => Some(CompilerRoutedStdFn::EnvRandom),
+        "std::crypto::hash" => Some(CompilerRoutedStdFn::CryptoHash),
+        "std::crypto::hmac" => Some(CompilerRoutedStdFn::CryptoHmac),
+        "std::crypto::verify" => Some(CompilerRoutedStdFn::CryptoVerify),
+        "std::host::__storage_contains_raw" => Some(CompilerRoutedStdFn::HostStorageContainsRaw),
+        "std::host::__storage_get_raw" => Some(CompilerRoutedStdFn::HostStorageGetRaw),
+        "std::host::__storage_set_raw" => Some(CompilerRoutedStdFn::HostStorageSetRaw),
+        "std::host::__storage_delete_raw" => Some(CompilerRoutedStdFn::HostStorageDeleteRaw),
+        "std::host::__log_info_raw" => Some(CompilerRoutedStdFn::HostLogInfoRaw),
+        "std::host::__log_warn_raw" => Some(CompilerRoutedStdFn::HostLogWarnRaw),
+        "std::host::__log_error_raw" => Some(CompilerRoutedStdFn::HostLogErrorRaw),
+        "std::host::__env_chain_id_raw" => Some(CompilerRoutedStdFn::HostEnvChainIdRaw),
+        "std::host::__env_caller_raw" => Some(CompilerRoutedStdFn::HostEnvCallerRaw),
+        "std::host::__env_block_height_raw" => Some(CompilerRoutedStdFn::HostEnvBlockHeightRaw),
+        "std::host::__env_timestamp_raw" => Some(CompilerRoutedStdFn::HostEnvTimestampRaw),
+        "std::str::len" => Some(CompilerRoutedStdFn::StrLen),
+        "std::str::eq" => Some(CompilerRoutedStdFn::StrEq),
+        "std::str::concat" => Some(CompilerRoutedStdFn::StrConcat),
+        "std::str::starts_with" => Some(CompilerRoutedStdFn::StrStartsWith),
+        "std::str::ends_with" => Some(CompilerRoutedStdFn::StrEndsWith),
+        "std::str::contains" => Some(CompilerRoutedStdFn::StrContains),
+        "std::u64::rotl" => Some(CompilerRoutedStdFn::U64Rotl),
+        "std::u64::rotr" => Some(CompilerRoutedStdFn::U64Rotr),
+        "std::u64::to_bytes_le" => Some(CompilerRoutedStdFn::U64ToBytesLe),
+        "std::u64::to_bytes_be" => Some(CompilerRoutedStdFn::U64ToBytesBe),
+        "std::u64::from_bytes_le" => Some(CompilerRoutedStdFn::U64FromBytesLe),
+        "std::u64::from_bytes_be" => Some(CompilerRoutedStdFn::U64FromBytesBe),
+        _ => None,
+    }
+}
+
 #[derive(Default)]
 struct IntrinsicPresence {
     has_wasi_print: bool,
@@ -115,27 +198,179 @@ struct IntrinsicPresence {
 
 impl IntrinsicPresence {
     fn observe(&mut self, name: &str) {
-        match name {
-            "std::wasi::print" => self.has_wasi_print = true,
-            "std::env::time" => self.has_env_time = true,
-            "std::env::chain_id" => self.has_env_chain_id = true,
-            "std::env::random" => self.has_env_random = true,
-            "std::crypto::hash" => self.has_crypto_hash = true,
-            "std::crypto::hmac" => self.has_crypto_hmac = true,
-            "std::crypto::verify" => self.has_crypto_verify = true,
-            "std::host::__storage_contains_raw" => self.has_host_storage_contains_raw = true,
-            "std::host::__storage_get_raw" => self.has_host_storage_get_raw = true,
-            "std::host::__storage_set_raw" => self.has_host_storage_set_raw = true,
-            "std::host::__storage_delete_raw" => self.has_host_storage_delete_raw = true,
-            "std::host::__log_info_raw" => self.has_host_log_info_raw = true,
-            "std::host::__log_warn_raw" => self.has_host_log_warn_raw = true,
-            "std::host::__log_error_raw" => self.has_host_log_error_raw = true,
-            "std::host::__env_chain_id_raw" => self.has_host_env_chain_id_raw = true,
-            "std::host::__env_caller_raw" => self.has_host_env_caller_raw = true,
-            "std::host::__env_block_height_raw" => self.has_host_env_block_height_raw = true,
-            "std::host::__env_timestamp_raw" => self.has_host_env_timestamp_raw = true,
+        match compiler_routed_std_fn(name) {
+            Some(CompilerRoutedStdFn::WasiPrint) => self.has_wasi_print = true,
+            Some(CompilerRoutedStdFn::EnvTime) => self.has_env_time = true,
+            Some(CompilerRoutedStdFn::EnvChainId) => self.has_env_chain_id = true,
+            Some(CompilerRoutedStdFn::EnvRandom) => self.has_env_random = true,
+            Some(CompilerRoutedStdFn::CryptoHash) => self.has_crypto_hash = true,
+            Some(CompilerRoutedStdFn::CryptoHmac) => self.has_crypto_hmac = true,
+            Some(CompilerRoutedStdFn::CryptoVerify) => self.has_crypto_verify = true,
+            Some(CompilerRoutedStdFn::HostStorageContainsRaw) => {
+                self.has_host_storage_contains_raw = true
+            }
+            Some(CompilerRoutedStdFn::HostStorageGetRaw) => self.has_host_storage_get_raw = true,
+            Some(CompilerRoutedStdFn::HostStorageSetRaw) => self.has_host_storage_set_raw = true,
+            Some(CompilerRoutedStdFn::HostStorageDeleteRaw) => {
+                self.has_host_storage_delete_raw = true
+            }
+            Some(CompilerRoutedStdFn::HostLogInfoRaw) => self.has_host_log_info_raw = true,
+            Some(CompilerRoutedStdFn::HostLogWarnRaw) => self.has_host_log_warn_raw = true,
+            Some(CompilerRoutedStdFn::HostLogErrorRaw) => self.has_host_log_error_raw = true,
+            Some(CompilerRoutedStdFn::HostEnvChainIdRaw) => self.has_host_env_chain_id_raw = true,
+            Some(CompilerRoutedStdFn::HostEnvCallerRaw) => self.has_host_env_caller_raw = true,
+            Some(CompilerRoutedStdFn::HostEnvBlockHeightRaw) => {
+                self.has_host_env_block_height_raw = true
+            }
+            Some(CompilerRoutedStdFn::HostEnvTimestampRaw) => {
+                self.has_host_env_timestamp_raw = true
+            }
             _ => {}
         }
+    }
+}
+
+fn validate_external_import_binding(
+    binding: &ExternalImport,
+    std_core_link_mode: StdCoreLinkMode,
+) -> Result<()> {
+    let symbol = binding.function.as_str();
+    if !symbol.starts_with("std::") {
+        return Ok(());
+    }
+    if std_core_link_mode == StdCoreLinkMode::Precompiled
+        && is_precompiled_std_core_locked_symbol(symbol)
+    {
+        return Ok(());
+    }
+    if builtin_route(symbol) == BuiltinRoute::Intrinsic {
+        anyhow::bail!(
+            "intrinsic-routed std symbol `{}` must not be linked as a package import in codegen",
+            symbol
+        );
+    }
+    if verified_std_abi_value_symbols().contains(symbol) {
+        anyhow::bail!(
+            "verified std abi symbol `{}` must not be linked as an external package import in codegen",
+            symbol
+        );
+    }
+    Ok(())
+}
+
+fn encode_compiler_routed_std_function(
+    f: &clg_ir::Function,
+    std_fn: CompilerRoutedStdFn,
+    fd_write_index: Option<u32>,
+    env_time_index: Option<u32>,
+    env_chain_id_index: Option<u32>,
+    env_random_index: Option<u32>,
+    crypto_hash_index: Option<u32>,
+    crypto_hmac_index: Option<u32>,
+    crypto_verify_index: Option<u32>,
+    host_storage_contains_raw_index: Option<u32>,
+    host_storage_get_raw_index: Option<u32>,
+    host_storage_set_raw_index: Option<u32>,
+    host_storage_delete_raw_index: Option<u32>,
+    host_log_info_raw_index: Option<u32>,
+    host_log_warn_raw_index: Option<u32>,
+    host_log_error_raw_index: Option<u32>,
+    host_env_chain_id_raw_index: Option<u32>,
+    host_env_caller_raw_index: Option<u32>,
+    host_env_block_height_raw_index: Option<u32>,
+    host_env_timestamp_raw_index: Option<u32>,
+) -> Result<wasm_encoder::Function> {
+    match std_fn {
+        CompilerRoutedStdFn::BytesLen | CompilerRoutedStdFn::StrLen => encode_intrinsic_str_len(f),
+        CompilerRoutedStdFn::BytesEq | CompilerRoutedStdFn::StrEq => encode_intrinsic_str_eq(f),
+        CompilerRoutedStdFn::BytesEqCt => encode_intrinsic_bytes_eq_ct(f),
+        CompilerRoutedStdFn::BytesConcat | CompilerRoutedStdFn::StrConcat => {
+            encode_intrinsic_str_concat(f)
+        }
+        CompilerRoutedStdFn::BytesFromString | CompilerRoutedStdFn::BytesToString => {
+            encode_intrinsic_identity(f)
+        }
+        CompilerRoutedStdFn::WasiPrint => {
+            let fd_write = fd_write_index.expect("fd_write import expected");
+            encode_intrinsic_wasi_print(f, fd_write)
+        }
+        CompilerRoutedStdFn::EnvTime => {
+            let idx = env_time_index.expect("env_time import expected");
+            encode_intrinsic_env_time(f, idx)
+        }
+        CompilerRoutedStdFn::EnvChainId => {
+            let idx = env_chain_id_index.expect("env_chain_id import expected");
+            encode_intrinsic_env_chain_id(f, idx)
+        }
+        CompilerRoutedStdFn::EnvRandom => {
+            let idx = env_random_index.expect("env_random import expected");
+            encode_intrinsic_env_random(f, idx)
+        }
+        CompilerRoutedStdFn::CryptoHash => {
+            let idx = crypto_hash_index.expect("crypto_hash import expected");
+            encode_intrinsic_crypto_hash(f, idx)
+        }
+        CompilerRoutedStdFn::CryptoHmac => {
+            let idx = crypto_hmac_index.expect("crypto_hmac import expected");
+            encode_intrinsic_crypto_hmac(f, idx)
+        }
+        CompilerRoutedStdFn::CryptoVerify => {
+            let idx = crypto_verify_index.expect("crypto_verify import expected");
+            encode_intrinsic_crypto_verify(f, idx)
+        }
+        CompilerRoutedStdFn::HostStorageContainsRaw => encode_external_import_forwarder(
+            f,
+            host_storage_contains_raw_index.expect("host_storage_contains import expected"),
+        ),
+        CompilerRoutedStdFn::HostStorageGetRaw => encode_external_import_forwarder(
+            f,
+            host_storage_get_raw_index.expect("host_storage_get import expected"),
+        ),
+        CompilerRoutedStdFn::HostStorageSetRaw => encode_external_import_forwarder(
+            f,
+            host_storage_set_raw_index.expect("host_storage_set import expected"),
+        ),
+        CompilerRoutedStdFn::HostStorageDeleteRaw => encode_external_import_forwarder(
+            f,
+            host_storage_delete_raw_index.expect("host_storage_delete import expected"),
+        ),
+        CompilerRoutedStdFn::HostLogInfoRaw => encode_external_import_forwarder(
+            f,
+            host_log_info_raw_index.expect("host_log_info import expected"),
+        ),
+        CompilerRoutedStdFn::HostLogWarnRaw => encode_external_import_forwarder(
+            f,
+            host_log_warn_raw_index.expect("host_log_warn import expected"),
+        ),
+        CompilerRoutedStdFn::HostLogErrorRaw => encode_external_import_forwarder(
+            f,
+            host_log_error_raw_index.expect("host_log_error import expected"),
+        ),
+        CompilerRoutedStdFn::HostEnvChainIdRaw => encode_external_import_forwarder(
+            f,
+            host_env_chain_id_raw_index.expect("host_env_chain_id import expected"),
+        ),
+        CompilerRoutedStdFn::HostEnvCallerRaw => encode_external_import_forwarder(
+            f,
+            host_env_caller_raw_index.expect("host_env_caller import expected"),
+        ),
+        CompilerRoutedStdFn::HostEnvBlockHeightRaw => encode_external_import_forwarder(
+            f,
+            host_env_block_height_raw_index.expect("host_env_block_height import expected"),
+        ),
+        CompilerRoutedStdFn::HostEnvTimestampRaw => encode_external_import_forwarder(
+            f,
+            host_env_timestamp_raw_index.expect("host_env_timestamp import expected"),
+        ),
+        CompilerRoutedStdFn::StrStartsWith => encode_intrinsic_str_starts_with(f),
+        CompilerRoutedStdFn::StrEndsWith => encode_intrinsic_str_ends_with(f),
+        CompilerRoutedStdFn::StrContains => encode_intrinsic_str_contains(f),
+        CompilerRoutedStdFn::U64Rotl => encode_intrinsic_u64_rotl(f),
+        CompilerRoutedStdFn::U64Rotr => encode_intrinsic_u64_rotr(f),
+        CompilerRoutedStdFn::U64ToBytesLe => encode_intrinsic_u64_to_bytes_le(f),
+        CompilerRoutedStdFn::U64ToBytesBe => encode_intrinsic_u64_to_bytes_be(f),
+        CompilerRoutedStdFn::U64FromBytesLe => encode_intrinsic_u64_from_bytes_le(f),
+        CompilerRoutedStdFn::U64FromBytesBe => encode_intrinsic_u64_from_bytes_be(f),
     }
 }
 
@@ -144,6 +379,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     let mut external_by_function: HashMap<&str, &ExternalImport> =
         HashMap::with_capacity(opts.external_imports.len());
     for binding in &opts.external_imports {
+        validate_external_import_binding(binding, opts.std_core_link_mode)?;
         if external_by_function
             .insert(binding.function.as_str(), binding)
             .is_some()
@@ -663,105 +899,48 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 continue;
             }
         }
-        // Encode intrinsics with custom bodies; other functions from IR
-        let func = match f.name.as_str() {
-            "std::bytes::len" => encode_intrinsic_str_len(f)?,
-            "std::bytes::eq" => encode_intrinsic_str_eq(f)?,
-            "std::bytes::eq_ct" => encode_intrinsic_bytes_eq_ct(f)?,
-            "std::bytes::concat" => encode_intrinsic_str_concat(f)?,
-            "std::bytes::from_string" => encode_intrinsic_identity(f)?,
-            "std::bytes::to_string" => encode_intrinsic_identity(f)?,
-            "std::wasi::print" => {
-                let fd_write = fd_write_index.expect("fd_write import expected");
-                encode_intrinsic_wasi_print(f, fd_write)?
+        // Route compiler-owned std shims explicitly; non-ABI std helpers continue through IR or package imports.
+        let func = if let Some(std_fn) = compiler_routed_std_fn(f.name.as_str()) {
+            encode_compiler_routed_std_function(
+                f,
+                std_fn,
+                fd_write_index,
+                env_time_index,
+                env_chain_id_index,
+                env_random_index,
+                crypto_hash_index,
+                crypto_hmac_index,
+                crypto_verify_index,
+                host_storage_contains_raw_index,
+                host_storage_get_raw_index,
+                host_storage_set_raw_index,
+                host_storage_delete_raw_index,
+                host_log_info_raw_index,
+                host_log_warn_raw_index,
+                host_log_error_raw_index,
+                host_env_chain_id_raw_index,
+                host_env_caller_raw_index,
+                host_env_block_height_raw_index,
+                host_env_timestamp_raw_index,
+            )?
+        } else {
+            if f.name.starts_with("std::")
+                && builtin_route(f.name.as_str()) == BuiltinRoute::Intrinsic
+            {
+                anyhow::bail!(
+                    "missing codegen compiler-routed std handler for intrinsic std symbol `{}`",
+                    f.name
+                );
             }
-            "std::env::time" => {
-                let idx = env_time_index.expect("env_time import expected");
-                encode_intrinsic_env_time(f, idx)?
+            match f.name.as_str() {
+                name if external_import_indices.contains_key(name) => {
+                    let idx = *external_import_indices
+                        .get(name)
+                        .expect("external import index expected");
+                    encode_external_import_forwarder(f, idx)?
+                }
+                _ => encode_ir_function(f, &ir.funcs, &str_pool, func_index_offset)?,
             }
-            "std::env::chain_id" => {
-                let idx = env_chain_id_index.expect("env_chain_id import expected");
-                encode_intrinsic_env_chain_id(f, idx)?
-            }
-            "std::env::random" => {
-                let idx = env_random_index.expect("env_random import expected");
-                encode_intrinsic_env_random(f, idx)?
-            }
-            "std::crypto::hash" => {
-                let idx = crypto_hash_index.expect("crypto_hash import expected");
-                encode_intrinsic_crypto_hash(f, idx)?
-            }
-            "std::crypto::hmac" => {
-                let idx = crypto_hmac_index.expect("crypto_hmac import expected");
-                encode_intrinsic_crypto_hmac(f, idx)?
-            }
-            "std::crypto::verify" => {
-                let idx = crypto_verify_index.expect("crypto_verify import expected");
-                encode_intrinsic_crypto_verify(f, idx)?
-            }
-            "std::host::__storage_contains_raw" => encode_external_import_forwarder(
-                f,
-                host_storage_contains_raw_index.expect("host_storage_contains import expected"),
-            )?,
-            "std::host::__storage_get_raw" => encode_external_import_forwarder(
-                f,
-                host_storage_get_raw_index.expect("host_storage_get import expected"),
-            )?,
-            "std::host::__storage_set_raw" => encode_external_import_forwarder(
-                f,
-                host_storage_set_raw_index.expect("host_storage_set import expected"),
-            )?,
-            "std::host::__storage_delete_raw" => encode_external_import_forwarder(
-                f,
-                host_storage_delete_raw_index.expect("host_storage_delete import expected"),
-            )?,
-            "std::host::__log_info_raw" => encode_external_import_forwarder(
-                f,
-                host_log_info_raw_index.expect("host_log_info import expected"),
-            )?,
-            "std::host::__log_warn_raw" => encode_external_import_forwarder(
-                f,
-                host_log_warn_raw_index.expect("host_log_warn import expected"),
-            )?,
-            "std::host::__log_error_raw" => encode_external_import_forwarder(
-                f,
-                host_log_error_raw_index.expect("host_log_error import expected"),
-            )?,
-            "std::host::__env_chain_id_raw" => encode_external_import_forwarder(
-                f,
-                host_env_chain_id_raw_index.expect("host_env_chain_id import expected"),
-            )?,
-            "std::host::__env_caller_raw" => encode_external_import_forwarder(
-                f,
-                host_env_caller_raw_index.expect("host_env_caller import expected"),
-            )?,
-            "std::host::__env_block_height_raw" => encode_external_import_forwarder(
-                f,
-                host_env_block_height_raw_index.expect("host_env_block_height import expected"),
-            )?,
-            "std::host::__env_timestamp_raw" => encode_external_import_forwarder(
-                f,
-                host_env_timestamp_raw_index.expect("host_env_timestamp import expected"),
-            )?,
-            "std::str::len" => encode_intrinsic_str_len(f)?,
-            "std::str::eq" => encode_intrinsic_str_eq(f)?,
-            "std::str::concat" => encode_intrinsic_str_concat(f)?,
-            "std::str::starts_with" => encode_intrinsic_str_starts_with(f)?,
-            "std::str::ends_with" => encode_intrinsic_str_ends_with(f)?,
-            "std::str::contains" => encode_intrinsic_str_contains(f)?,
-            "std::u64::rotl" => encode_intrinsic_u64_rotl(f)?,
-            "std::u64::rotr" => encode_intrinsic_u64_rotr(f)?,
-            "std::u64::to_bytes_le" => encode_intrinsic_u64_to_bytes_le(f)?,
-            "std::u64::to_bytes_be" => encode_intrinsic_u64_to_bytes_be(f)?,
-            "std::u64::from_bytes_le" => encode_intrinsic_u64_from_bytes_le(f)?,
-            "std::u64::from_bytes_be" => encode_intrinsic_u64_from_bytes_be(f)?,
-            name if external_import_indices.contains_key(name) => {
-                let idx = *external_import_indices
-                    .get(name)
-                    .expect("external import index expected");
-                encode_external_import_forwarder(f, idx)?
-            }
-            _ => encode_ir_function(f, &ir.funcs, &str_pool, func_index_offset)?,
         };
         codes.function(&func);
     }

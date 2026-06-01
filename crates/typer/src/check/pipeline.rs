@@ -1,4 +1,5 @@
 use super::*;
+use crate::builtins::BuiltinRoute;
 
 pub(super) fn check_with_vcs_with_std_and_external_impl(
     ast: &Program,
@@ -177,7 +178,10 @@ pub(super) fn check_with_vcs_with_std_and_external_impl(
             .collect(),
         external_dependencies: external_builtins
             .iter()
-            .filter(|sig| called_functions.contains(sig.name.as_str()))
+            .filter(|sig| {
+                sig.route == BuiltinRoute::PackageImport
+                    && called_functions.contains(sig.name.as_str())
+            })
             .map(|sig| sig.name.clone())
             .collect(),
     };
@@ -333,6 +337,12 @@ pub(super) fn check_with_vcs_with_std_and_external_impl(
     }
     let mut external_defs: Vec<clg_ir::Function> = Vec::new();
     for sig in external_builtins {
+        if sig.route == BuiltinRoute::Intrinsic {
+            continue;
+        }
+        if sig.name.starts_with("std::") {
+            continue;
+        }
         if !called_functions.contains(sig.name.as_str()) {
             continue;
         }

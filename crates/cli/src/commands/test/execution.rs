@@ -15,11 +15,13 @@ fn compile_test_module(
             params: binding.params.clone(),
             ret: binding.ret.clone(),
             effect: binding.effect,
+            route: binding.route,
         })
         .collect();
     let external_codegen_imports: Vec<ExternalImport> = loaded
         .external_imports
         .iter()
+        .filter(|binding| binding.route == clg_typer::BuiltinRoute::PackageImport)
         .map(|binding| ExternalImport {
             function: binding.function.clone(),
             import_module: binding.import_module.clone(),
@@ -458,9 +460,7 @@ fn enforce_expected_outcome(
                 actual,
                 expected,
                 "expectation.code_mismatch",
-                format!(
-                    "expected failure_code `{expected_code}`, observed `{actual_code}`"
-                ),
+                format!("expected failure_code `{expected_code}`, observed `{actual_code}`"),
             );
         }
     }
@@ -571,4 +571,3 @@ fn spawn_timeout_watchdog(
         }
     })
 }
-

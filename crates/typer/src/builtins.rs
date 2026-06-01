@@ -1,6 +1,16 @@
-use clg_ast::{Effect, Param, ParamKind, Type};
+use std::collections::BTreeSet;
+use std::sync::OnceLock;
 
-pub fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
+use clg_ast::{Effect, Param, ParamKind, Type};
+use serde::Deserialize;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BuiltinRoute {
+    Intrinsic,
+    PackageImport,
+}
+
+pub fn all_builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
     vec![
         (
             "std::bytes::len".to_string(),
@@ -2184,4 +2194,108 @@ pub fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
     ]
+}
+
+pub fn builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
+    all_builtin_sigs()
+        .into_iter()
+        .filter(|(name, _, _, _)| verified_std_abi_value_symbols().contains(name))
+        .collect()
+}
+
+pub fn non_abi_builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
+    all_builtin_sigs()
+        .into_iter()
+        .filter(|(name, _, _, _)| !verified_std_abi_value_symbols().contains(name))
+        .collect()
+}
+
+pub fn builtin_route(symbol: &str) -> BuiltinRoute {
+    match symbol {
+        "std::bytes::len"
+        | "std::bytes::eq"
+        | "std::bytes::eq_ct"
+        | "std::bytes::concat"
+        | "std::bytes::from_string"
+        | "std::bytes::to_string"
+        | "std::wasi::print"
+        | "std::env::time"
+        | "std::env::chain_id"
+        | "std::env::random"
+        | "std::crypto::hash"
+        | "std::crypto::hmac"
+        | "std::crypto::verify"
+        | "std::host::__storage_contains_raw"
+        | "std::host::__storage_get_raw"
+        | "std::host::__storage_set_raw"
+        | "std::host::__storage_delete_raw"
+        | "std::host::__log_info_raw"
+        | "std::host::__log_warn_raw"
+        | "std::host::__log_error_raw"
+        | "std::host::__env_chain_id_raw"
+        | "std::host::__env_caller_raw"
+        | "std::host::__env_block_height_raw"
+        | "std::host::__env_timestamp_raw"
+        | "std::str::len"
+        | "std::str::eq"
+        | "std::str::concat"
+        | "std::str::starts_with"
+        | "std::str::ends_with"
+        | "std::str::contains"
+        | "std::u64::rotl"
+        | "std::u64::rotr"
+        | "std::u64::to_bytes_le"
+        | "std::u64::to_bytes_be"
+        | "std::u64::from_bytes_le"
+        | "std::u64::from_bytes_be" => BuiltinRoute::Intrinsic,
+        _ => BuiltinRoute::PackageImport,
+    }
+}
+
+pub fn verified_std_abi_value_symbols() -> &'static BTreeSet<String> {
+    static VERIFIED_STD_ABI_VALUE_SYMBOLS: OnceLock<BTreeSet<String>> = OnceLock::new();
+    VERIFIED_STD_ABI_VALUE_SYMBOLS.get_or_init(|| {
+        let raw: VerifiedStdAbiManifest = serde_json::from_str(include_str!(
+            "../../../docs/design/phase-27.1-verified-std-abi.manifest.v1.json"
+        ))
+        .expect("bundled verified std abi manifest must parse");
+        assert_eq!(
+            raw.schema_version, 1,
+            "bundled verified std abi manifest schema must stay at v1"
+        );
+        let mut out = BTreeSet::new();
+        for module in raw.modules {
+            for export in module.exports {
+                if export.kind == VerifiedStdAbiExportKind::Value {
+                    out.insert(format!("{}::{}", module.path, export.name));
+                }
+            }
+        }
+        out
+    })
+}
+
+#[derive(Deserialize)]
+struct VerifiedStdAbiManifest {
+    schema_version: u32,
+    modules: Vec<VerifiedStdAbiModule>,
+}
+
+#[derive(Deserialize)]
+struct VerifiedStdAbiModule {
+    path: String,
+    exports: Vec<VerifiedStdAbiExport>,
+}
+
+#[derive(Deserialize)]
+struct VerifiedStdAbiExport {
+    name: String,
+    kind: VerifiedStdAbiExportKind,
+}
+
+#[derive(Deserialize, Clone, Copy, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum VerifiedStdAbiExportKind {
+    Type,
+    Value,
 }

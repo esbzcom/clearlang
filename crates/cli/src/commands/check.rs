@@ -73,6 +73,7 @@ pub fn run(file: PathBuf, root: Option<PathBuf>, json_errors: bool, logger: Logg
                 params: binding.params.clone(),
                 ret: binding.ret.clone(),
                 effect: binding.effect,
+                route: binding.route,
             })
             .collect();
         if let Err(err) = check_with_vcs_with_std_and_external(

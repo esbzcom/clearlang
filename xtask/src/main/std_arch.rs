@@ -42,7 +42,12 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
             &paths.std_signature_artifact_path,
             pretty_json_bytes(&generated_signatures)?,
         )
-        .map_err(|e| format!("write `{}`: {e}", paths.std_signature_artifact_path.display()))?;
+        .map_err(|e| {
+            format!(
+                "write `{}`: {e}",
+                paths.std_signature_artifact_path.display()
+            )
+        })?;
         fs::write(
             &paths.std_symbol_classification_artifact_path,
             pretty_json_bytes(&generated_classification)?,
@@ -57,7 +62,12 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
             &paths.verified_std_abi_manifest_path,
             pretty_json_bytes(&generated_verified_abi_manifest)?,
         )
-        .map_err(|e| format!("write `{}`: {e}", paths.verified_std_abi_manifest_path.display()))?;
+        .map_err(|e| {
+            format!(
+                "write `{}`: {e}",
+                paths.verified_std_abi_manifest_path.display()
+            )
+        })?;
     }
 
     if let Some(out_dir) = opts.emit_artifact.as_ref() {
@@ -81,8 +91,10 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
             .map_err(|e| format!("write `{}`: {e}", verified_abi_manifest_path.display()))?;
         let metadata_sha = format!("sha256:{}", hex::encode(Sha256::digest(&metadata_bytes)));
         let signatures_sha = format!("sha256:{}", hex::encode(Sha256::digest(&signatures_bytes)));
-        let classification_sha =
-            format!("sha256:{}", hex::encode(Sha256::digest(&classification_bytes)));
+        let classification_sha = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&classification_bytes))
+        );
         let verified_abi_manifest_sha = format!(
             "sha256:{}",
             hex::encode(Sha256::digest(&verified_abi_manifest_bytes))
@@ -90,9 +102,15 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
         let digest_lines = format!(
             "{}  {}\n{}  {}\n{}  {}\n{}  {}\n",
             metadata_sha,
-            metadata_path.file_name().unwrap_or_default().to_string_lossy(),
+            metadata_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
             signatures_sha,
-            signatures_path.file_name().unwrap_or_default().to_string_lossy(),
+            signatures_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
             classification_sha,
             classification_path
                 .file_name()
@@ -153,7 +171,8 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
             )
         })?;
 
-    let coverage_symbols = extract_std_symbols_from_coverage_matrix(&paths.std_coverage_matrix_path)?;
+    let coverage_symbols =
+        extract_std_symbols_from_coverage_matrix(&paths.std_coverage_matrix_path)?;
     let catalog_value_symbols = catalog_value_symbol_set(&catalog);
     let codegen_ir_source = fs::read_to_string(&paths.codegen_ir_path)
         .map_err(|e| format!("read `{}`: {e}", paths.codegen_ir_path.display()))?;
@@ -184,10 +203,15 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
             .collect(),
     })?;
     let catalog_host_capabilities = catalog_host_capability_set(&catalog)?;
+    let external_package_candidate_symbols =
+        external_package_candidate_symbol_set(&expected_classification);
+    let external_intrinsic_symbols =
+        external_intrinsic_symbol_set(&expected_signatures, &external_package_candidate_symbols);
+    let compiler_symbol_refs = collect_compiler_std_symbol_refs(root)?;
 
     let mut errors = Vec::new();
-    let expected_metadata_json =
-        serde_json::to_string(&expected_metadata).map_err(|e| format!("serialize metadata: {e}"))?;
+    let expected_metadata_json = serde_json::to_string(&expected_metadata)
+        .map_err(|e| format!("serialize metadata: {e}"))?;
     let actual_metadata_json =
         serde_json::to_string(&actual_metadata).map_err(|e| format!("serialize metadata: {e}"))?;
     if expected_metadata_json != actual_metadata_json {
@@ -263,6 +287,26 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
             ));
         }
     }
+    for (path, symbols) in compiler_symbol_refs {
+        let unauthorized = symbols
+            .into_iter()
+            .filter(|symbol| {
+                external_package_candidate_symbols.contains(symbol)
+                    && !is_authorized_external_package_compiler_reference(
+                        path.as_str(),
+                        symbol.as_str(),
+                        &external_intrinsic_symbols,
+                    )
+            })
+            .collect::<Vec<_>>();
+        if !unauthorized.is_empty() {
+            errors.push(format!(
+                "unauthorized compiler references to external-package-only std symbols in `{}` [{}]",
+                path,
+                preview_symbols(&unauthorized)
+            ));
+        }
+    }
 
     if errors.is_empty() {
         Ok(())
@@ -279,9 +323,7 @@ fn run_std_first_production_readiness_check(
     raw_args: Vec<String>,
 ) -> Result<(), String> {
     if !raw_args.is_empty() {
-        return Err(
-            "std-first-production-readiness-check does not accept args".to_string(),
-        );
+        return Err("std-first-production-readiness-check does not accept args".to_string());
     }
     let paths = std_arch_paths(root);
     let coverage_raw = fs::read_to_string(&paths.std_coverage_matrix_path)
@@ -361,10 +403,7 @@ fn std_arch_paths(root: &Path) -> StdArchPaths {
             .join("docs")
             .join("design")
             .join("phase-27.1-verified-std-abi.manifest.v1.json"),
-        std_coverage_matrix_path: root
-            .join("docs")
-            .join("std")
-            .join("coverage-matrix.md"),
+        std_coverage_matrix_path: root.join("docs").join("std").join("coverage-matrix.md"),
         std_readme_path: root.join("docs").join("std").join("README.md"),
         codegen_ir_path: root
             .join("crates")
@@ -377,7 +416,7 @@ fn std_arch_paths(root: &Path) -> StdArchPaths {
 
 fn collect_typed_signature_entries() -> BTreeMap<String, BuiltinEntry26> {
     let mut out = BTreeMap::new();
-    for (symbol, params, _ret, effect) in clg_typer::builtin_sigs() {
+    for (symbol, params, _ret, effect) in clg_typer::all_builtin_sigs() {
         let Some((module, _leaf)) = symbol.rsplit_once("::") else {
             continue;
         };
@@ -621,15 +660,22 @@ fn std_builtin_signatures_from_catalog(
     })
 }
 
-fn std_symbol_classification_from_catalog(catalog: &StdCatalogLockFile) -> StdSymbolClassificationFile {
+fn std_symbol_classification_from_catalog(
+    catalog: &StdCatalogLockFile,
+) -> StdSymbolClassificationFile {
     let mut verified_std_abi = 0u32;
     let mut external_std_package_candidate = 0u32;
     let modules = catalog
         .modules
         .iter()
         .map(|module| {
-            let (classification, rationale) = phase27_std_symbol_classification(module.path.as_str());
-            let exports = module.exports.iter().map(|export| export.name.clone()).collect::<Vec<_>>();
+            let (classification, rationale) =
+                phase27_std_symbol_classification(module.path.as_str());
+            let exports = module
+                .exports
+                .iter()
+                .map(|export| export.name.clone())
+                .collect::<Vec<_>>();
             StdModuleClassificationEntry {
                 module: module.path.clone(),
                 classification: classification.to_string(),
@@ -681,7 +727,9 @@ fn verified_std_abi_manifest_from_catalog(
     let modules = catalog
         .modules
         .iter()
-        .filter(|module| phase27_std_symbol_classification(module.path.as_str()).0 == "verified_std_abi")
+        .filter(|module| {
+            phase27_std_symbol_classification(module.path.as_str()).0 == "verified_std_abi"
+        })
         .cloned()
         .collect::<Vec<_>>();
     VerifiedStdAbiManifestFile {
@@ -724,7 +772,10 @@ fn normalize_std_catalog_lock(mut lock: StdCatalogLockFile) -> Result<StdCatalog
                 return Err(format!("duplicate std catalog export `{key}`"));
             }
             if export.kind != "value" && export.kind != "type" {
-                return Err(format!("invalid export kind `{}` for `{}`", export.kind, key));
+                return Err(format!(
+                    "invalid export kind `{}` for `{}`",
+                    export.kind, key
+                ));
             }
             if export.kind == "value" {
                 let symbol = format!("{}::{}", module.path, export.name);
@@ -764,7 +815,10 @@ fn normalize_std_builtin_signature_file(
     let mut seen = BTreeSet::new();
     for entry in &file.symbols {
         if !seen.insert(entry.symbol.clone()) {
-            return Err(format!("duplicate std builtin signature `{}`", entry.symbol));
+            return Err(format!(
+                "duplicate std builtin signature `{}`",
+                entry.symbol
+            ));
         }
     }
     Ok(file)
@@ -783,10 +837,7 @@ fn parse_std_coverage_entries(raw: &str) -> Result<Vec<StdCoverageEntry>, String
         if !trimmed.starts_with('|') {
             continue;
         }
-        let columns = trimmed
-            .split('|')
-            .map(str::trim)
-            .collect::<Vec<_>>();
+        let columns = trimmed.split('|').map(str::trim).collect::<Vec<_>>();
         if columns.len() < 6 {
             continue;
         }
@@ -842,9 +893,8 @@ fn expand_coverage_symbol_cell(cell: &str) -> Vec<String> {
 
 fn parse_std_contract_maturity_matrix(raw: &str) -> Result<BTreeMap<String, String>, String> {
     static MATURITY_LINE_PATTERN: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
-    let line_pattern = MATURITY_LINE_PATTERN.get_or_init(|| {
-        Regex::new(r"^- (.+): `([^`]+)`").expect("valid maturity matrix regex")
-    });
+    let line_pattern = MATURITY_LINE_PATTERN
+        .get_or_init(|| Regex::new(r"^- (.+): `([^`]+)`").expect("valid maturity matrix regex"));
     let mut out = BTreeMap::new();
     for line in raw.lines() {
         let trimmed = line.trim();
@@ -974,7 +1024,13 @@ fn first_production_std_specs() -> Vec<FirstProductionStdSpec> {
         FirstProductionStdSpec {
             package: "std::int",
             maturity_key: "std::int",
-            coverage_prefixes: vec!["std::u64", "std::u128", "std::u256", "std::checked", "std::int_error"],
+            coverage_prefixes: vec![
+                "std::u64",
+                "std::u128",
+                "std::u256",
+                "std::checked",
+                "std::int_error",
+            ],
             logical_surface: false,
         },
         FirstProductionStdSpec {
@@ -986,7 +1042,12 @@ fn first_production_std_specs() -> Vec<FirstProductionStdSpec> {
         FirstProductionStdSpec {
             package: "std::codec",
             maturity_key: "std::codec",
-            coverage_prefixes: vec!["std::encoder", "std::decoder", "std::decode_error", "std::encode_error"],
+            coverage_prefixes: vec![
+                "std::encoder",
+                "std::decoder",
+                "std::decode_error",
+                "std::encode_error",
+            ],
             logical_surface: false,
         },
         FirstProductionStdSpec {
@@ -1051,8 +1112,155 @@ fn canonical_host_capability_set() -> BTreeSet<String> {
     policy
         .profiles
         .iter()
-        .flat_map(|profile| profile.capabilities.iter().map(|rule| rule.capability.clone()))
+        .flat_map(|profile| {
+            profile
+                .capabilities
+                .iter()
+                .map(|rule| rule.capability.clone())
+        })
         .collect()
+}
+
+fn external_package_candidate_symbol_set(
+    classification: &StdSymbolClassificationFile,
+) -> BTreeSet<String> {
+    classification
+        .symbols
+        .iter()
+        .filter(|entry| entry.classification == "external_std_package_candidate")
+        .map(|entry| entry.symbol.clone())
+        .collect()
+}
+
+fn external_intrinsic_symbol_set(
+    signatures: &StdBuiltinSignatureFile,
+    external_package_candidate_symbols: &BTreeSet<String>,
+) -> BTreeSet<String> {
+    signatures
+        .symbols
+        .iter()
+        .filter(|entry| {
+            entry.route == "intrinsic" && external_package_candidate_symbols.contains(&entry.symbol)
+        })
+        .map(|entry| entry.symbol.clone())
+        .collect()
+}
+
+fn collect_compiler_std_symbol_refs(
+    root: &Path,
+) -> Result<BTreeMap<String, BTreeSet<String>>, String> {
+    let mut out = BTreeMap::new();
+    for relative_dir in [
+        "crates/typer/src",
+        "crates/codegen-wasm/src",
+        "crates/cli/src",
+    ] {
+        collect_compiler_std_symbol_refs_in_dir(root, &root.join(relative_dir), &mut out)?;
+    }
+    Ok(out)
+}
+
+fn collect_compiler_std_symbol_refs_in_dir(
+    root: &Path,
+    dir: &Path,
+    out: &mut BTreeMap<String, BTreeSet<String>>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("read dir `{}`: {e}", dir.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("read dir entry `{}`: {e}", dir.display()))?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_compiler_std_symbol_refs_in_dir(root, &path, out)?;
+            continue;
+        }
+        if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+            continue;
+        }
+        let raw =
+            fs::read_to_string(&path).map_err(|e| format!("read `{}`: {e}", path.display()))?;
+        let symbols = extract_std_symbols_from_source(&raw)?;
+        if symbols.is_empty() {
+            continue;
+        }
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|e| format!("strip prefix `{}` from `{}`: {e}", root.display(), path.display()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        out.insert(relative, symbols);
+    }
+    Ok(())
+}
+
+fn is_authorized_external_package_compiler_reference(
+    path: &str,
+    symbol: &str,
+    external_intrinsic_symbols: &BTreeSet<String>,
+) -> bool {
+    match path {
+        "crates/typer/src/builtins.rs" => true,
+        "crates/typer/src/check/intrinsics.rs" => {
+            symbol.starts_with("std::bytes::")
+                || symbol.starts_with("std::str::")
+                || symbol.starts_with("std::str_pattern::")
+                || symbol.starts_with("std::u64::")
+                || symbol == "std::encoder::write_u64"
+                || symbol == "std::decoder::read_u64"
+        }
+        "crates/typer/src/check/fast_path.rs"
+        | "crates/typer/src/check/pipeline.rs"
+        | "crates/codegen-wasm/src/ir/mod.rs"
+        | "crates/typer/src/vc/smt.rs"
+        | "crates/typer/src/vc/generate/helpers.rs"
+        | "crates/cli/src/commands/build/strict.rs"
+        | "crates/cli/src/proofs/section_and_tests.rs" => {
+            is_authorized_external_intrinsic_reference(symbol, external_intrinsic_symbols)
+        }
+        "crates/typer/src/check/expr/calls/collections.rs"
+        | "crates/typer/src/lower/collections_slice.rs" => {
+            symbol.starts_with("std::array::") || symbol.starts_with("std::slice::")
+        }
+        "crates/typer/src/lower/calls.rs" => {
+            symbol.starts_with("std::bytes::")
+                || symbol.starts_with("std::str::")
+                || symbol.starts_with("std::str_pattern::")
+                || symbol.starts_with("std::u64::")
+                || symbol.starts_with("std::u128::")
+                || symbol.starts_with("std::u256::")
+        }
+        "crates/typer/src/lower/codec.rs" => {
+            symbol.starts_with("std::encoder::")
+                || symbol.starts_with("std::decoder::")
+                || symbol.starts_with("std::encode_error::")
+                || symbol.starts_with("std::decode_error::")
+                || matches!(symbol, "std::u64::to_bytes_le" | "std::u64::from_bytes_le")
+        }
+        "crates/typer/src/lower/contract.rs" => symbol.starts_with("std::contract::"),
+        "crates/typer/src/lower/eq.rs" => {
+            matches!(symbol, "std::bytes::eq" | "std::str::eq")
+        }
+        "crates/cli/src/commands/build/strict_bindings.rs" => matches!(
+            symbol,
+            "std::bytes::len" | "std::str::len" | "std::contract::address::from_bytes"
+        ),
+        "crates/cli/src/commands/build/tests/core_contracts.rs" => {
+            matches!(symbol, "std::bytes::len" | "std::str::len")
+        }
+        "crates/cli/src/commands/modules/verified_std_abi.rs" => {
+            symbol == "std::contract::address::from_bytes"
+        }
+        _ => false,
+    }
+}
+
+fn is_authorized_external_intrinsic_reference(
+    symbol: &str,
+    external_intrinsic_symbols: &BTreeSet<String>,
+) -> bool {
+    external_intrinsic_symbols.contains(symbol)
+        || legacy_alias_target(symbol)
+            .map(|target| external_intrinsic_symbols.contains(target))
+            .unwrap_or(false)
 }
 
 fn classify_std_module(module: &str) -> &'static str {

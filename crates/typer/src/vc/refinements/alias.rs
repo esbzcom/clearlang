@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use clg_ast::{Expr, Program, Span, Type};
 
-use crate::builtins::builtin_sigs;
+use crate::builtins::all_builtin_sigs;
 
 #[derive(Clone)]
 pub(crate) struct AliasView<'a> {
@@ -118,7 +118,7 @@ pub(crate) fn build_fn_sigs<'a>(
         );
     }
 
-    for (name, params, ret, _) in builtin_sigs() {
+    for (name, params, ret, _) in all_builtin_sigs() {
         map.entry(name.clone()).or_insert_with(|| FnSigView {
             param_aliases: params
                 .iter()

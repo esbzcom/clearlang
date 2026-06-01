@@ -438,6 +438,7 @@ impl PackageMetadataIndex {
                     params,
                     ret,
                     effect,
+                    route: clg_typer::BuiltinRoute::PackageImport,
                 });
             }
         }

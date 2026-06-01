@@ -5,7 +5,10 @@ mod guards;
 mod lower;
 mod vc;
 
-pub use builtins::builtin_sigs;
+pub use builtins::{
+    all_builtin_sigs, builtin_route, builtin_sigs, non_abi_builtin_sigs,
+    verified_std_abi_value_symbols, BuiltinRoute,
+};
 pub use check::{
     check, check_with_vcs, check_with_vcs_with_std, check_with_vcs_with_std_and_external,
     ExternalBuiltinSig, StdTypeInfo, StdTypeMap, TypecheckOutput,

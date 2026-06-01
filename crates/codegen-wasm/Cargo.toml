@@ -8,6 +8,7 @@ license = "MIT"
 wasm-encoder = "0.238"
 anyhow = "1"
 clg-ir = { path = "../ir" }
+clg-typer = { path = "../typer" }
 
 [dev-dependencies]
 wasmtime = "15"

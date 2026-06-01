@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use clg_ast::Program;
 use clg_ast::{Effect, Param, Type};
-use clg_typer::StdTypeInfo;
+use clg_typer::{BuiltinRoute, StdTypeInfo};
 
 mod error;
 mod graph;
@@ -23,6 +23,7 @@ pub struct ExternalImportBinding {
     pub params: Vec<Param>,
     pub ret: Type,
     pub effect: Effect,
+    pub route: BuiltinRoute,
 }
 
 pub struct ProgramLoad {

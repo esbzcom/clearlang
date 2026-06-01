@@ -519,11 +519,13 @@ fn load_module_for_run(
             params: binding.params.clone(),
             ret: binding.ret.clone(),
             effect: binding.effect,
+            route: binding.route,
         })
         .collect();
     let external_codegen_imports: Vec<ExternalImport> = loaded
         .external_imports
         .iter()
+        .filter(|binding| binding.route == clg_typer::BuiltinRoute::PackageImport)
         .map(|binding| ExternalImport {
             function: binding.function.clone(),
             import_module: binding.import_module.clone(),

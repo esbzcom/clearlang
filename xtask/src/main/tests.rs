@@ -405,6 +405,63 @@ mod tests {
     }
 
     #[test]
+    fn extract_std_symbols_from_source_captures_deep_std_paths() {
+        let symbols = extract_std_symbols_from_source(
+            r#"
+fn demo() {
+    let _ = "std::bytes::len";
+    let _ = "std::contract::address::from_bytes";
+    let _ = "std::host::env::chain_id";
+}
+"#,
+        )
+        .expect("extract source symbols");
+
+        let expected = BTreeSet::from([
+            "std::bytes::len".to_string(),
+            "std::contract::address::from_bytes".to_string(),
+            "std::host::env::chain_id".to_string(),
+        ]);
+        assert_eq!(symbols, expected);
+    }
+
+    #[test]
+    fn external_package_reference_policy_allows_documented_transition_sites_only() {
+        let external_intrinsic_symbols = BTreeSet::from([
+            "std::bytes::len".to_string(),
+            "std::bytes::eq_ct".to_string(),
+            "std::str::len".to_string(),
+            "std::u64::rotl".to_string(),
+        ]);
+
+        assert!(is_authorized_external_package_compiler_reference(
+            "crates/codegen-wasm/src/ir/mod.rs",
+            "std::bytes::len",
+            &external_intrinsic_symbols,
+        ));
+        assert!(is_authorized_external_package_compiler_reference(
+            "crates/typer/src/lower/contract.rs",
+            "std::contract::address::from_bytes",
+            &external_intrinsic_symbols,
+        ));
+        assert!(is_authorized_external_package_compiler_reference(
+            "crates/typer/src/vc/generate/helpers.rs",
+            "std::bytes::equals_ct",
+            &external_intrinsic_symbols,
+        ));
+        assert!(!is_authorized_external_package_compiler_reference(
+            "crates/codegen-wasm/src/ir/mod.rs",
+            "std::contract::address::from_bytes",
+            &external_intrinsic_symbols,
+        ));
+        assert!(!is_authorized_external_package_compiler_reference(
+            "crates/cli/src/commands/modules/verified_std_abi.rs",
+            "std::str::len",
+            &external_intrinsic_symbols,
+        ));
+    }
+
+    #[test]
     fn parse_std_contract_maturity_matrix_normalizes_labels() {
         let maturity = parse_std_contract_maturity_matrix(
             r#"

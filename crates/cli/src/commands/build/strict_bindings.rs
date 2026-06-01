@@ -119,6 +119,7 @@ fn strict_external_bindings_from_contract(
             params,
             ret: binding.ret_typed,
             effect,
+            route: clg_typer::builtin_route(symbol.as_str()),
         });
         external_codegen_imports.push(ExternalImport {
             function: symbol,
@@ -357,18 +358,14 @@ fn resolved_external_import_profiles(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::is_verified_std_abi_symbol;
-
-    #[test]
-    fn verified_std_abi_filter_matches_phase27_manifest_split() {
-        assert!(
-            is_verified_std_abi_symbol("std::host::env::chain_id"),
-            "verified std abi symbols should remain compiler-owned"
-        );
-        assert!(
-            !is_verified_std_abi_symbol("std::contract::address::from_bytes"),
-            "external std package candidates should not be treated as compiler-owned"
-        );
-    }
+#[test]
+fn verified_std_abi_filter_matches_phase27_manifest_split() {
+    assert!(
+        is_verified_std_abi_symbol("std::host::env::chain_id"),
+        "verified std abi symbols should remain compiler-owned"
+    );
+    assert!(
+        !is_verified_std_abi_symbol("std::contract::address::from_bytes"),
+        "external std package candidates should not be treated as compiler-owned"
+    );
 }

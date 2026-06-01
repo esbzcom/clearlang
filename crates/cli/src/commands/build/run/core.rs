@@ -118,22 +118,22 @@ pub fn run(
         external_codegen_imports,
     ) = if compiler_mode == CompilerMode::Strict {
         if let Some(bindings) = strict_external_bindings_for_link.as_ref() {
-            let (typecheck_sigs, codegen_imports) = if std_core_link_mode == StdCoreLinkMode::Precompiled
-            {
-                (
-                    filter_precompiled_std_core_typer_overrides(
-                        bindings.external_typer_sigs.as_slice(),
-                    ),
-                    filter_precompiled_std_core_codegen_overrides(
-                        bindings.external_codegen_imports.as_slice(),
-                    ),
-                )
-            } else {
-                (
-                    bindings.external_typer_sigs.clone(),
-                    bindings.external_codegen_imports.clone(),
-                )
-            };
+            let (typecheck_sigs, codegen_imports) =
+                if std_core_link_mode == StdCoreLinkMode::Precompiled {
+                    (
+                        filter_precompiled_std_core_typer_overrides(
+                            bindings.external_typer_sigs.as_slice(),
+                        ),
+                        filter_precompiled_std_core_codegen_overrides(
+                            bindings.external_codegen_imports.as_slice(),
+                        ),
+                    )
+                } else {
+                    (
+                        bindings.external_typer_sigs.clone(),
+                        bindings.external_codegen_imports.clone(),
+                    )
+                };
             (
                 typecheck_sigs,
                 bindings.external_typer_sigs.clone(),
@@ -151,11 +151,13 @@ pub fn run(
                 params: binding.params.clone(),
                 ret: binding.ret.clone(),
                 effect: binding.effect,
+                route: binding.route,
             })
             .collect();
         let codegen_imports = loaded
             .external_imports
             .iter()
+            .filter(|binding| binding.route == clg_typer::BuiltinRoute::PackageImport)
             .map(|binding| ExternalImport {
                 function: binding.function.clone(),
                 import_module: binding.import_module.clone(),

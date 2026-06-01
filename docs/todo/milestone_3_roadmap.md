@@ -262,10 +262,10 @@ Release policy during migration: **keep embedded linking deterministic and fail 
   - [x] 27.0.2 Lock ABI versioning and package compatibility rules, including compiler-declared accepted ABI ranges and fail-closed package resolution on mismatch. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`) `Completed: 2026-05-31`.
   - [x] 27.0.3 Lock migration diagnostics/deprecation policy for symbols that move out of compiler-governed std. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-26.6-std-architecture-lock.md`) `Completed: 2026-05-31`.
 
-- [ ] 27.1 Verified std ABI extraction [Decoupling Gate B]
+- [x] 27.1 Verified std ABI extraction [Decoupling Gate B] `Completed: 2026-05-31`.
   - [x] 27.1.0 Introduce a dedicated verified std ABI manifest consumed by typer/codegen/cli, separate from the full std package catalog. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.1-verified-std-abi.manifest.v1.json`, `xtask std-arch-sync`) `Completed: 2026-05-31`.
-  - [ ] 27.1.1 Make compiler-owned symbol tables derive only from the verified std ABI manifest, not from the full external std package surface. (`crates/typer`, `crates/codegen-wasm`, `crates/cli`)
-  - [ ] 27.1.2 Extend conformance tooling to fail closed on unauthorized compiler references to external-package-only symbols. (`xtask std-arch-conformance-check`, `xtask release-precheck`)
+  - [x] 27.1.1 Make compiler-owned symbol tables derive only from the verified std ABI manifest, not from the full external std package surface. (`crates/typer`, `crates/codegen-wasm`, `crates/cli`) `Completed: 2026-05-31`.
+  - [x] 27.1.2 Extend conformance tooling to fail closed on unauthorized compiler references to external-package-only symbols. (`xtask std-arch-conformance-check`, `xtask release-precheck`) `Completed: 2026-05-31`.
 
 - [ ] 27.2 External std packageization [Decoupling Gate C]
   - [ ] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)

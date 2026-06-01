@@ -1,4 +1,4 @@
-use crate::builtins::builtin_sigs;
+use crate::builtins::all_builtin_sigs;
 use clg_ast::{BinOp, Block, Expr, MatchArm, MatchPat, Stmt, Type, UnaryOp};
 use std::collections::HashSet;
 
@@ -382,7 +382,7 @@ impl SmtEncoder {
             return Vec::new();
         }
         let mut lines = Vec::new();
-        for (name, params, ret, _) in builtin_sigs() {
+        for (name, params, ret, _) in all_builtin_sigs() {
             if !self.builtin_calls.contains(&name) {
                 continue;
             }
@@ -771,7 +771,7 @@ fn is_smt_symbol_char(c: char) -> bool {
 }
 
 fn is_builtin_name(callee: &str) -> bool {
-    builtin_sigs()
+    all_builtin_sigs()
         .iter()
         .any(|(name, _params, _ret, _)| name == callee)
 }

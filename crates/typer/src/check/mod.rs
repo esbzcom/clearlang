@@ -29,7 +29,7 @@ use self::type_validation::{
     contains_named_resource, validate_equatable_collections, validate_known_types,
     validate_no_resource_collections, validate_supported_types,
 };
-use crate::builtins::builtin_sigs;
+use crate::builtins::{builtin_route, builtin_sigs, non_abi_builtin_sigs, BuiltinRoute};
 use crate::errors::TyperError;
 use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
 use crate::vc::{generate_vcs_with_dependencies, AssumptionDependencies, VerificationCondition};
@@ -39,7 +39,7 @@ use clg_ast::{
     StructDecl, StructField, TraitBound, TraitDecl, TraitMethod, Type,
 };
 use clg_ir::{Instr, Module};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 const RETURN_KEY: &str = "$return";
 
@@ -190,6 +190,7 @@ pub struct ExternalBuiltinSig {
     pub params: Vec<Param>,
     pub ret: Type,
     pub effect: Effect,
+    pub route: BuiltinRoute,
 }
 
 #[derive(Clone)]
@@ -227,7 +228,8 @@ pub fn check_with_vcs_with_std_and_external(
     std_types: &StdTypeMap,
     external_builtins: &[ExternalBuiltinSig],
 ) -> Result<TypecheckOutput> {
-    check_with_vcs_with_std_and_external_impl(ast, std_types, external_builtins)
+    let merged = merged_external_builtin_sigs(external_builtins)?;
+    check_with_vcs_with_std_and_external_impl(ast, std_types, merged.as_slice())
 }
 
 pub fn check(ast: &Program) -> Result<Module> {
@@ -240,8 +242,14 @@ pub fn type_check_only(ast: &Program) -> Result<()> {
 }
 
 pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result<()> {
+    let external_builtins = bundled_non_abi_external_builtin_sigs();
     if std::env::var("CLG_DISABLE_TOTALITY").is_ok() {
-        return fast_path_without_totality_with_std_and_external(ast, std_types, &[]).map(|_| ());
+        return fast_path_without_totality_with_std_and_external(
+            ast,
+            std_types,
+            external_builtins.as_slice(),
+        )
+        .map(|_| ());
     }
     let type_defs = build_type_defs(ast)?;
     let alias_map = build_alias_map(ast, &type_defs)?;
@@ -258,7 +266,8 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
     let builtins = builtin_sigs();
-    let mut fns: HashMap<&str, FnSig> = HashMap::with_capacity(builtins.len() + ast.funcs.len());
+    let mut fns: HashMap<&str, FnSig> =
+        HashMap::with_capacity(builtins.len() + external_builtins.len() + ast.funcs.len());
     for (name, params, ret, eff) in &builtins {
         fns.insert(
             name.as_str(),
@@ -270,6 +279,23 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
                 bounds: Vec::new(),
             },
         );
+    }
+    for sig in &external_builtins {
+        if fns
+            .insert(
+                sig.name.as_str(),
+                FnSig {
+                    params: sig.params.clone(),
+                    ret: sig.ret.clone(),
+                    effect: level_from_effect(sig.effect),
+                    type_params: Vec::new(),
+                    bounds: Vec::new(),
+                },
+            )
+            .is_some()
+        {
+            anyhow::bail!("duplicate external function `{}`", sig.name);
+        }
     }
 
     for f in &ast.funcs {
@@ -336,4 +362,49 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
         enforce_totality(f)?;
     }
     Ok(())
+}
+
+fn bundled_non_abi_external_builtin_sigs() -> Vec<ExternalBuiltinSig> {
+    non_abi_builtin_sigs()
+        .into_iter()
+        .map(|(name, params, ret, effect)| ExternalBuiltinSig {
+            route: builtin_route(name.as_str()),
+            name,
+            params,
+            ret,
+            effect,
+        })
+        .collect()
+}
+
+fn merged_external_builtin_sigs(
+    external_builtins: &[ExternalBuiltinSig],
+) -> Result<Vec<ExternalBuiltinSig>> {
+    let mut merged: BTreeMap<String, ExternalBuiltinSig> = BTreeMap::new();
+    for sig in bundled_non_abi_external_builtin_sigs()
+        .into_iter()
+        .chain(external_builtins.iter().cloned())
+    {
+        if let Some(existing) = merged.get(sig.name.as_str()) {
+            if !external_builtin_sigs_match(existing, &sig) {
+                anyhow::bail!("conflicting external function `{}`", sig.name);
+            }
+            continue;
+        }
+        merged.insert(sig.name.clone(), sig);
+    }
+    Ok(merged.into_values().collect())
+}
+
+fn external_builtin_sigs_match(lhs: &ExternalBuiltinSig, rhs: &ExternalBuiltinSig) -> bool {
+    lhs.name == rhs.name
+        && lhs.ret == rhs.ret
+        && lhs.effect == rhs.effect
+        && lhs.route == rhs.route
+        && lhs.params.len() == rhs.params.len()
+        && lhs
+            .params
+            .iter()
+            .zip(rhs.params.iter())
+            .all(|(l, r)| l.kind == r.kind && l.ty == r.ty)
 }

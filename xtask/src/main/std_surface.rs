@@ -350,7 +350,7 @@ fn load_std_metadata_value_symbols(path: &Path) -> Result<BTreeSet<String>, Stri
 }
 
 fn extract_std_symbols_from_source(source: &str) -> Result<BTreeSet<String>, String> {
-    let pattern = Regex::new(r#""(std::[a-z0-9_]+::[A-Za-z0-9_]+)""#)
+    let pattern = Regex::new(r#""(std::[A-Za-z0-9_]+(?:::[A-Za-z0-9_]+)+)""#)
         .map_err(|e| format!("compile std symbol regex: {e}"))?;
     let mut out = BTreeSet::new();
     for capture in pattern.captures_iter(source) {

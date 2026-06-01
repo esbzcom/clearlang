@@ -60,6 +60,7 @@
                 .collect(),
             ret,
             effect,
+            route: clg_typer::BuiltinRoute::PackageImport,
         }
     }
 
@@ -296,8 +297,9 @@
             ),
         ];
         let filtered = filter_precompiled_std_core_typer_overrides(sigs.as_slice());
-        assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].name, "std::core::math::add");
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].name, "std::str::len");
+        assert_eq!(filtered[1].name, "std::core::math::add");
     }
 
     #[test]

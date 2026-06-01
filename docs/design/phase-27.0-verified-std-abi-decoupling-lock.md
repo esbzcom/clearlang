@@ -167,3 +167,11 @@ That artifact is generated from the locked Phase 26 catalog and is the source of
 - `external_std_package_candidate`: 97 symbols
 
 This classification is intentionally conservative. It keeps host boundaries, proof-critical collections, core runtime contracts, and test-harness-assumed surfaces inside the verified ABI while marking pure/helper, codec, contract-domain, and chain-target adapters as early externalization candidates.
+
+## Initial Externalization Plan Artifact
+
+The first packageization scaffold for external std candidates is recorded in:
+
+- `docs/design/phase-27.2-external-std-package-plan.v1.json`
+
+That artifact is generated from the locked catalog and Phase 27 classification. It groups external-package candidates into deterministic first-wave and follow-up package targets so `27.2.0` can proceed from a canonical plan instead of ad hoc manual lists.

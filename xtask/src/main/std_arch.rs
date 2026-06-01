@@ -31,6 +31,7 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
     let generated_signatures = std_builtin_signatures_from_catalog(&catalog)?;
     let generated_classification = std_symbol_classification_from_catalog(&catalog);
     let generated_verified_abi_manifest = verified_std_abi_manifest_from_catalog(&catalog);
+    let generated_external_package_plan = external_std_package_plan_from_catalog(&catalog);
 
     if opts.write {
         fs::write(
@@ -68,6 +69,16 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
                 paths.verified_std_abi_manifest_path.display()
             )
         })?;
+        fs::write(
+            &paths.external_std_package_plan_path,
+            pretty_json_bytes(&generated_external_package_plan)?,
+        )
+        .map_err(|e| {
+            format!(
+                "write `{}`: {e}",
+                paths.external_std_package_plan_path.display()
+            )
+        })?;
     }
 
     if let Some(out_dir) = opts.emit_artifact.as_ref() {
@@ -76,11 +87,13 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
         let signatures_path = out_dir.join("std-builtin-signatures-v1.json");
         let classification_path = out_dir.join("std-symbol-classification-v1.json");
         let verified_abi_manifest_path = out_dir.join("verified-std-abi-manifest-v1.json");
+        let external_package_plan_path = out_dir.join("external-std-package-plan-v1.json");
         let sha_path = out_dir.join("std-arch-artifacts.sha256");
         let metadata_bytes = pretty_json_bytes(&generated_metadata)?;
         let signatures_bytes = pretty_json_bytes(&generated_signatures)?;
         let classification_bytes = pretty_json_bytes(&generated_classification)?;
         let verified_abi_manifest_bytes = pretty_json_bytes(&generated_verified_abi_manifest)?;
+        let external_package_plan_bytes = pretty_json_bytes(&generated_external_package_plan)?;
         fs::write(&metadata_path, &metadata_bytes)
             .map_err(|e| format!("write `{}`: {e}", metadata_path.display()))?;
         fs::write(&signatures_path, &signatures_bytes)
@@ -89,6 +102,8 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
             .map_err(|e| format!("write `{}`: {e}", classification_path.display()))?;
         fs::write(&verified_abi_manifest_path, &verified_abi_manifest_bytes)
             .map_err(|e| format!("write `{}`: {e}", verified_abi_manifest_path.display()))?;
+        fs::write(&external_package_plan_path, &external_package_plan_bytes)
+            .map_err(|e| format!("write `{}`: {e}", external_package_plan_path.display()))?;
         let metadata_sha = format!("sha256:{}", hex::encode(Sha256::digest(&metadata_bytes)));
         let signatures_sha = format!("sha256:{}", hex::encode(Sha256::digest(&signatures_bytes)));
         let classification_sha = format!(
@@ -99,8 +114,12 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
             "sha256:{}",
             hex::encode(Sha256::digest(&verified_abi_manifest_bytes))
         );
+        let external_package_plan_sha = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&external_package_plan_bytes))
+        );
         let digest_lines = format!(
-            "{}  {}\n{}  {}\n{}  {}\n{}  {}\n",
+            "{}  {}\n{}  {}\n{}  {}\n{}  {}\n{}  {}\n",
             metadata_sha,
             metadata_path
                 .file_name()
@@ -118,6 +137,11 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
                 .to_string_lossy(),
             verified_abi_manifest_sha,
             verified_abi_manifest_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
+            external_package_plan_sha,
+            external_package_plan_path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -168,6 +192,21 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
             format!(
                 "parse `{}`: {e}",
                 paths.verified_std_abi_manifest_path.display()
+            )
+        })?;
+    let expected_external_package_plan = external_std_package_plan_from_catalog(&catalog);
+    let actual_external_package_plan_raw =
+        fs::read_to_string(&paths.external_std_package_plan_path).map_err(|e| {
+            format!(
+                "read `{}`: {e}",
+                paths.external_std_package_plan_path.display()
+            )
+        })?;
+    let actual_external_package_plan: ExternalStdPackagePlanFile =
+        serde_json::from_str(&actual_external_package_plan_raw).map_err(|e| {
+            format!(
+                "parse `{}`: {e}",
+                paths.external_std_package_plan_path.display()
             )
         })?;
 
@@ -238,6 +277,13 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
         errors.push(format!(
             "verified std abi manifest drift: `{}` is not generated from `{}`",
             paths.verified_std_abi_manifest_path.display(),
+            paths.catalog_lock_path.display()
+        ));
+    }
+    if expected_external_package_plan != actual_external_package_plan {
+        errors.push(format!(
+            "external std package plan drift: `{}` is not generated from `{}`",
+            paths.external_std_package_plan_path.display(),
             paths.catalog_lock_path.display()
         ));
     }
@@ -403,6 +449,10 @@ fn std_arch_paths(root: &Path) -> StdArchPaths {
             .join("docs")
             .join("design")
             .join("phase-27.1-verified-std-abi.manifest.v1.json"),
+        external_std_package_plan_path: root
+            .join("docs")
+            .join("design")
+            .join("phase-27.2-external-std-package-plan.v1.json"),
         std_coverage_matrix_path: root.join("docs").join("std").join("coverage-matrix.md"),
         std_readme_path: root.join("docs").join("std").join("README.md"),
         codegen_ir_path: root
@@ -1356,6 +1406,127 @@ fn legacy_alias_target(symbol: &str) -> Option<&'static str> {
     }
 }
 
+fn external_std_package_plan_from_catalog(
+    catalog: &StdCatalogLockFile,
+) -> ExternalStdPackagePlanFile {
+    let mut grouped: BTreeMap<String, ExternalStdPackagePlanEntry> = BTreeMap::new();
+    for module in &catalog.modules {
+        let (classification, _) = phase27_std_symbol_classification(module.path.as_str());
+        if classification != "external_std_package_candidate" {
+            continue;
+        }
+        let plan = phase27_external_package_plan_entry(module.path.as_str());
+        let entry = grouped
+            .entry(plan.package_id.to_string())
+            .or_insert_with(|| ExternalStdPackagePlanEntry {
+                package_id: plan.package_id.to_string(),
+                package_class: plan.package_class.to_string(),
+                wave: plan.wave.to_string(),
+                rationale: plan.rationale.to_string(),
+                modules: Vec::new(),
+                symbols: Vec::new(),
+            });
+        entry.modules.push(module.path.clone());
+        for export in &module.exports {
+            if export.kind == "value" {
+                entry
+                    .symbols
+                    .push(format!("{}::{}", module.path, export.name));
+            }
+        }
+    }
+
+    let packages = grouped
+        .into_values()
+        .map(normalize_external_std_package_plan_entry)
+        .collect();
+    ExternalStdPackagePlanFile {
+        schema_version: 1,
+        generated_from_catalog: "docs/design/phase-26.6-std-catalog.lock.json".to_string(),
+        generated_from_classification: "docs/design/phase-27.0-std-symbol-classification.v1.json"
+            .to_string(),
+        packages,
+    }
+}
+
+fn normalize_external_std_package_plan_entry(
+    mut entry: ExternalStdPackagePlanEntry,
+) -> ExternalStdPackagePlanEntry {
+    entry.modules.sort();
+    entry.modules.dedup();
+    entry.symbols.sort();
+    entry.symbols.dedup();
+    entry
+}
+
+fn phase27_external_package_plan_entry(module: &str) -> ExternalStdPackagePlanShape {
+    match module {
+        "std::bytes" | "std::str" | "std::str_pattern" => ExternalStdPackagePlanShape {
+            package_id: "std::text",
+            package_class: "helper_surface",
+            wave: "wave1",
+            rationale:
+                "String/bytes convenience helpers are early packageization targets because their behavior can sit on top of the verified ABI without host or proof-critical hidden compiler contracts.",
+        },
+        "std::u64" | "std::u128" | "std::u256" => ExternalStdPackagePlanShape {
+            package_id: "std::int",
+            package_class: "helper_surface",
+            wave: "wave1",
+            rationale:
+                "Integer convenience helpers are deterministic library functionality and should move out of compiler-owned std once compatibility shims are explicit.",
+        },
+        "std::array" | "std::slice" => ExternalStdPackagePlanShape {
+            package_id: "std::sequence",
+            package_class: "helper_surface",
+            wave: "wave1",
+            rationale:
+                "Array/slice helpers are deterministic container conveniences that should packageize alongside other pure helper surfaces.",
+        },
+        "std::encoder" | "std::decoder" | "std::encode_error" | "std::decode_error" => {
+            ExternalStdPackagePlanShape {
+                package_id: "std::codec",
+                package_class: "codec_surface",
+                wave: "wave1",
+                rationale:
+                    "Higher-level codec helpers should externalize early while continuing to target the verified ABI for deterministic wire semantics.",
+            }
+        }
+        "std::contract"
+        | "std::contract::address"
+        | "std::contract::amount"
+        | "std::contract::contract_error"
+        | "std::contract::event" => ExternalStdPackagePlanShape {
+            package_id: "std::contract",
+            package_class: "domain_surface",
+            wave: "wave2",
+            rationale:
+                "Contract-domain helpers belong outside the compiler, but follow the pure helper wave because migration touches domain semantics and package naming more broadly.",
+        },
+        "std::eth" => ExternalStdPackagePlanShape {
+            package_id: "std::eth",
+            package_class: "chain_adapter",
+            wave: "wave2",
+            rationale:
+                "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
+        },
+        "std::solana" => ExternalStdPackagePlanShape {
+            package_id: "std::solana",
+            package_class: "chain_adapter",
+            wave: "wave2",
+            rationale:
+                "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
+        },
+        "std::cosmos" => ExternalStdPackagePlanShape {
+            package_id: "std::cosmos",
+            package_class: "chain_adapter",
+            wave: "wave2",
+            rationale:
+                "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
+        },
+        other => panic!("unplanned external std package module `{other}`"),
+    }
+}
+
 #[derive(Clone, Debug)]
 struct StdArchSyncOpts {
     write: bool,
@@ -1370,6 +1541,7 @@ struct StdArchPaths {
     std_signature_artifact_path: PathBuf,
     std_symbol_classification_artifact_path: PathBuf,
     verified_std_abi_manifest_path: PathBuf,
+    external_std_package_plan_path: PathBuf,
     std_coverage_matrix_path: PathBuf,
     std_readme_path: PathBuf,
     codegen_ir_path: PathBuf,
@@ -1502,4 +1674,30 @@ struct VerifiedStdAbiManifestFile {
     generated_from_catalog: String,
     generated_from_classification: String,
     modules: Vec<StdCatalogModule>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct ExternalStdPackagePlanFile {
+    schema_version: u32,
+    generated_from_catalog: String,
+    generated_from_classification: String,
+    packages: Vec<ExternalStdPackagePlanEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct ExternalStdPackagePlanEntry {
+    package_id: String,
+    package_class: String,
+    wave: String,
+    rationale: String,
+    modules: Vec<String>,
+    symbols: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ExternalStdPackagePlanShape {
+    package_id: &'static str,
+    package_class: &'static str,
+    wave: &'static str,
+    rationale: &'static str,
 }

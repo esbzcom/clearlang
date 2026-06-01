@@ -268,7 +268,7 @@ Release policy during migration: **keep embedded linking deterministic and fail 
   - [x] 27.1.2 Extend conformance tooling to fail closed on unauthorized compiler references to external-package-only symbols. (`xtask std-arch-conformance-check`, `xtask release-precheck`) `Completed: 2026-05-31`.
 
 - [ ] 27.2 External std packageization [Decoupling Gate C]
-  - [ ] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [ ] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.2-external-std-package-plan.v1.json`)
   - [ ] 27.2.1 Keep host-capability boundaries, proof-critical semantics, and strict-release contracts inside the verified std ABI until equivalent explicit ABI contracts exist. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
   - [ ] 27.2.2 Add migration shims and deterministic diagnostics for moved symbols, then remove compiler/package duplication once cutover is complete. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
 

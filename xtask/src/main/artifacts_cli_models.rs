@@ -133,7 +133,7 @@ fn print_help() {
         "  std-surface-drift-check [--emit-artifact DIR] [--refresh-lock] (phase 21 drift gate)"
     );
     println!(
-        "  std-arch-sync [--write] [--refresh-lock] [--emit-artifact DIR] (phase 26.6/27.1 canonical std catalog, classification, and verified ABI sync)"
+        "  std-arch-sync [--write] [--refresh-lock] [--emit-artifact DIR] (phase 26.6/27.2 canonical std catalog, classification, verified ABI, and external-package plan sync)"
     );
     println!(
         "  std-arch-conformance-check (phase 26.6 doc/signature/lowering/runtime parity gate)"

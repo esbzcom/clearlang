@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "generated_from_catalog": "docs/design/phase-26.6-std-catalog.lock.json",
+  "generated_from_classification": "docs/design/phase-27.0-std-symbol-classification.v1.json",
+  "packages": [
+    {
+      "package_id": "std::codec",
+      "package_class": "codec_surface",
+      "wave": "wave1",
+      "rationale": "Higher-level codec helpers should externalize early while continuing to target the verified ABI for deterministic wire semantics.",
+      "modules": [
+        "std::decode_error",
+        "std::decoder",
+        "std::encode_error",
+        "std::encoder"
+      ],
+      "symbols": [
+        "std::decode_error::code",
+        "std::decode_error::equals",
+        "std::decode_error::offset",
+        "std::decoder::is_eof",
+        "std::decoder::new",
+        "std::decoder::position",
+        "std::decoder::read_bool",
+        "std::decoder::read_bytes",
+        "std::decoder::read_fixed",
+        "std::decoder::read_u64",
+        "std::decoder::remaining",
+        "std::encode_error::code",
+        "std::encode_error::equals",
+        "std::encoder::finish",
+        "std::encoder::new",
+        "std::encoder::write_bool",
+        "std::encoder::write_bytes",
+        "std::encoder::write_u64"
+      ]
+    },
+    {
+      "package_id": "std::contract",
+      "package_class": "domain_surface",
+      "wave": "wave2",
+      "rationale": "Contract-domain helpers belong outside the compiler, but follow the pure helper wave because migration touches domain semantics and package naming more broadly.",
+      "modules": [
+        "std::contract",
+        "std::contract::address",
+        "std::contract::amount",
+        "std::contract::contract_error",
+        "std::contract::event"
+      ],
+      "symbols": [
+        "std::contract::address::equals",
+        "std::contract::address::from_bytes",
+        "std::contract::address::to_bytes",
+        "std::contract::amount::add_checked",
+        "std::contract::amount::from_u64",
+        "std::contract::amount::is_zero",
+        "std::contract::amount::sub_checked",
+        "std::contract::amount::value",
+        "std::contract::contract_error::code",
+        "std::contract::contract_error::equals",
+        "std::contract::event::new",
+        "std::contract::event::payload",
+        "std::contract::event::topic"
+      ]
+    },
+    {
+      "package_id": "std::cosmos",
+      "package_class": "chain_adapter",
+      "wave": "wave2",
+      "rationale": "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
+      "modules": [
+        "std::cosmos"
+      ],
+      "symbols": [
+        "std::cosmos::from_array",
+        "std::cosmos::from_bytes"
+      ]
+    },
+    {
+      "package_id": "std::eth",
+      "package_class": "chain_adapter",
+      "wave": "wave2",
+      "rationale": "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
+      "modules": [
+        "std::eth"
+      ],
+      "symbols": [
+        "std::eth::from_array",
+        "std::eth::from_bytes"
+      ]
+    },
+    {
+      "package_id": "std::int",
+      "package_class": "helper_surface",
+      "wave": "wave1",
+      "rationale": "Integer convenience helpers are deterministic library functionality and should move out of compiler-owned std once compatibility shims are explicit.",
+      "modules": [
+        "std::u128",
+        "std::u256",
+        "std::u64"
+      ],
+      "symbols": [
+        "std::u128::from_limbs",
+        "std::u128::hi",
+        "std::u128::lo",
+        "std::u256::from_limbs",
+        "std::u256::limb0",
+        "std::u256::limb1",
+        "std::u256::limb2",
+        "std::u256::limb3",
+        "std::u64::add_sat",
+        "std::u64::add_saturating",
+        "std::u64::add_wrap",
+        "std::u64::add_wrapping",
+        "std::u64::from_bytes_be",
+        "std::u64::from_bytes_le",
+        "std::u64::mul_sat",
+        "std::u64::mul_saturating",
+        "std::u64::mul_wrap",
+        "std::u64::mul_wrapping",
+        "std::u64::rotl",
+        "std::u64::rotr",
+        "std::u64::sub_sat",
+        "std::u64::sub_saturating",
+        "std::u64::sub_wrap",
+        "std::u64::sub_wrapping",
+        "std::u64::to_bytes_be",
+        "std::u64::to_bytes_le"
+      ]
+    },
+    {
+      "package_id": "std::sequence",
+      "package_class": "helper_surface",
+      "wave": "wave1",
+      "rationale": "Array/slice helpers are deterministic container conveniences that should packageize alongside other pure helper surfaces.",
+      "modules": [
+        "std::array",
+        "std::slice"
+      ],
+      "symbols": [
+        "std::array::len",
+        "std::slice::get",
+        "std::slice::len",
+        "std::slice::subslice"
+      ]
+    },
+    {
+      "package_id": "std::solana",
+      "package_class": "chain_adapter",
+      "wave": "wave2",
+      "rationale": "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
+      "modules": [
+        "std::solana"
+      ],
+      "symbols": [
+        "std::solana::from_array",
+        "std::solana::from_bytes"
+      ]
+    },
+    {
+      "package_id": "std::text",
+      "package_class": "helper_surface",
+      "wave": "wave1",
+      "rationale": "String/bytes convenience helpers are early packageization targets because their behavior can sit on top of the verified ABI without host or proof-critical hidden compiler contracts.",
+      "modules": [
+        "std::bytes",
+        "std::str",
+        "std::str_pattern"
+      ],
+      "symbols": [
+        "std::bytes::concat",
+        "std::bytes::eq",
+        "std::bytes::eq_ct",
+        "std::bytes::equals",
+        "std::bytes::equals_ct",
+        "std::bytes::from_string",
+        "std::bytes::is_empty",
+        "std::bytes::len",
+        "std::bytes::to_string",
+        "std::str::concat",
+        "std::str::contains",
+        "std::str::ends_with",
+        "std::str::eq",
+        "std::str::equals",
+        "std::str::is_empty",
+        "std::str::len",
+        "std::str::starts_with",
+        "std::str::to_bytes",
+        "std::str_pattern::matches"
+      ]
+    }
+  ]
+}

@@ -549,6 +549,122 @@ fn demo() {
     }
 
     #[test]
+    fn external_std_package_plan_groups_first_wave_modules_deterministically() {
+        let catalog = StdCatalogLockFile {
+            schema_version: 1,
+            modules: vec![
+                StdCatalogModule {
+                    path: "std::bytes".to_string(),
+                    module_class: "pure_std".to_string(),
+                    exports: vec![StdCatalogExport {
+                        name: "len".to_string(),
+                        kind: "value".to_string(),
+                        arity: Some(1),
+                        effect: Some("pure".to_string()),
+                        route: Some("intrinsic".to_string()),
+                        capability: None,
+                        deprecated_alias_of: None,
+                        layout: None,
+                    }],
+                },
+                StdCatalogModule {
+                    path: "std::str".to_string(),
+                    module_class: "pure_std".to_string(),
+                    exports: vec![StdCatalogExport {
+                        name: "len".to_string(),
+                        kind: "value".to_string(),
+                        arity: Some(1),
+                        effect: Some("pure".to_string()),
+                        route: Some("intrinsic".to_string()),
+                        capability: None,
+                        deprecated_alias_of: None,
+                        layout: None,
+                    }],
+                },
+                StdCatalogModule {
+                    path: "std::u64".to_string(),
+                    module_class: "pure_std".to_string(),
+                    exports: vec![StdCatalogExport {
+                        name: "rotl".to_string(),
+                        kind: "value".to_string(),
+                        arity: Some(2),
+                        effect: Some("pure".to_string()),
+                        route: Some("intrinsic".to_string()),
+                        capability: None,
+                        deprecated_alias_of: None,
+                        layout: None,
+                    }],
+                },
+                StdCatalogModule {
+                    path: "std::encoder".to_string(),
+                    module_class: "pure_std".to_string(),
+                    exports: vec![StdCatalogExport {
+                        name: "new".to_string(),
+                        kind: "value".to_string(),
+                        arity: Some(0),
+                        effect: Some("pure".to_string()),
+                        route: Some("package_import".to_string()),
+                        capability: None,
+                        deprecated_alias_of: None,
+                        layout: None,
+                    }],
+                },
+                StdCatalogModule {
+                    path: "std::host".to_string(),
+                    module_class: "pure_std".to_string(),
+                    exports: vec![StdCatalogExport {
+                        name: "ignored".to_string(),
+                        kind: "value".to_string(),
+                        arity: Some(0),
+                        effect: Some("io".to_string()),
+                        route: Some("intrinsic".to_string()),
+                        capability: Some("std::host::ignored".to_string()),
+                        deprecated_alias_of: None,
+                        layout: None,
+                    }],
+                },
+            ],
+        };
+
+        let plan = external_std_package_plan_from_catalog(&catalog);
+        assert_eq!(plan.schema_version, 1);
+        assert_eq!(plan.packages.len(), 3);
+
+        let text = plan
+            .packages
+            .iter()
+            .find(|entry| entry.package_id == "std::text")
+            .expect("std::text package plan");
+        assert_eq!(text.wave, "wave1");
+        assert_eq!(
+            text.modules,
+            vec!["std::bytes".to_string(), "std::str".to_string()]
+        );
+        assert_eq!(
+            text.symbols,
+            vec!["std::bytes::len".to_string(), "std::str::len".to_string()]
+        );
+
+        let int = plan
+            .packages
+            .iter()
+            .find(|entry| entry.package_id == "std::int")
+            .expect("std::int package plan");
+        assert_eq!(int.wave, "wave1");
+        assert_eq!(int.modules, vec!["std::u64".to_string()]);
+        assert_eq!(int.symbols, vec!["std::u64::rotl".to_string()]);
+
+        let codec = plan
+            .packages
+            .iter()
+            .find(|entry| entry.package_id == "std::codec")
+            .expect("std::codec package plan");
+        assert_eq!(codec.wave, "wave1");
+        assert_eq!(codec.modules, vec!["std::encoder".to_string()]);
+        assert_eq!(codec.symbols, vec!["std::encoder::new".to_string()]);
+    }
+
+    #[test]
     fn parse_host_capability_policy_args_accepts_emit_and_refresh() {
         let opts = parse_host_capability_policy_args(vec![
             "--emit-artifact".to_string(),

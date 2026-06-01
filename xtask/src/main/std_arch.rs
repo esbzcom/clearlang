@@ -29,6 +29,8 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
 
     let generated_metadata = std_metadata_from_catalog(&catalog);
     let generated_signatures = std_builtin_signatures_from_catalog(&catalog)?;
+    let generated_classification = std_symbol_classification_from_catalog(&catalog);
+    let generated_verified_abi_manifest = verified_std_abi_manifest_from_catalog(&catalog);
 
     if opts.write {
         fs::write(
@@ -41,27 +43,66 @@ fn run_std_arch_sync(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
             pretty_json_bytes(&generated_signatures)?,
         )
         .map_err(|e| format!("write `{}`: {e}", paths.std_signature_artifact_path.display()))?;
+        fs::write(
+            &paths.std_symbol_classification_artifact_path,
+            pretty_json_bytes(&generated_classification)?,
+        )
+        .map_err(|e| {
+            format!(
+                "write `{}`: {e}",
+                paths.std_symbol_classification_artifact_path.display()
+            )
+        })?;
+        fs::write(
+            &paths.verified_std_abi_manifest_path,
+            pretty_json_bytes(&generated_verified_abi_manifest)?,
+        )
+        .map_err(|e| format!("write `{}`: {e}", paths.verified_std_abi_manifest_path.display()))?;
     }
 
     if let Some(out_dir) = opts.emit_artifact.as_ref() {
         fs::create_dir_all(out_dir).map_err(|e| format!("create `{}`: {e}", out_dir.display()))?;
         let metadata_path = out_dir.join("std-metadata-v2.json");
         let signatures_path = out_dir.join("std-builtin-signatures-v1.json");
+        let classification_path = out_dir.join("std-symbol-classification-v1.json");
+        let verified_abi_manifest_path = out_dir.join("verified-std-abi-manifest-v1.json");
         let sha_path = out_dir.join("std-arch-artifacts.sha256");
         let metadata_bytes = pretty_json_bytes(&generated_metadata)?;
         let signatures_bytes = pretty_json_bytes(&generated_signatures)?;
+        let classification_bytes = pretty_json_bytes(&generated_classification)?;
+        let verified_abi_manifest_bytes = pretty_json_bytes(&generated_verified_abi_manifest)?;
         fs::write(&metadata_path, &metadata_bytes)
             .map_err(|e| format!("write `{}`: {e}", metadata_path.display()))?;
         fs::write(&signatures_path, &signatures_bytes)
             .map_err(|e| format!("write `{}`: {e}", signatures_path.display()))?;
+        fs::write(&classification_path, &classification_bytes)
+            .map_err(|e| format!("write `{}`: {e}", classification_path.display()))?;
+        fs::write(&verified_abi_manifest_path, &verified_abi_manifest_bytes)
+            .map_err(|e| format!("write `{}`: {e}", verified_abi_manifest_path.display()))?;
         let metadata_sha = format!("sha256:{}", hex::encode(Sha256::digest(&metadata_bytes)));
         let signatures_sha = format!("sha256:{}", hex::encode(Sha256::digest(&signatures_bytes)));
+        let classification_sha =
+            format!("sha256:{}", hex::encode(Sha256::digest(&classification_bytes)));
+        let verified_abi_manifest_sha = format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(&verified_abi_manifest_bytes))
+        );
         let digest_lines = format!(
-            "{}  {}\n{}  {}\n",
+            "{}  {}\n{}  {}\n{}  {}\n{}  {}\n",
             metadata_sha,
             metadata_path.file_name().unwrap_or_default().to_string_lossy(),
             signatures_sha,
-            signatures_path.file_name().unwrap_or_default().to_string_lossy()
+            signatures_path.file_name().unwrap_or_default().to_string_lossy(),
+            classification_sha,
+            classification_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy(),
+            verified_abi_manifest_sha,
+            verified_abi_manifest_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
         );
         fs::write(&sha_path, digest_lines)
             .map_err(|e| format!("write `{}`: {e}", sha_path.display()))?;
@@ -81,6 +122,36 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
     let expected_metadata = normalize_std_metadata_root(std_metadata_from_catalog(&catalog))?;
     let actual_metadata = load_std_metadata_root(&paths.std_metadata_path)?;
     let actual_metadata = normalize_std_metadata_root(actual_metadata)?;
+    let expected_classification = std_symbol_classification_from_catalog(&catalog);
+    let actual_classification_raw =
+        fs::read_to_string(&paths.std_symbol_classification_artifact_path).map_err(|e| {
+            format!(
+                "read `{}`: {e}",
+                paths.std_symbol_classification_artifact_path.display()
+            )
+        })?;
+    let actual_classification: StdSymbolClassificationFile =
+        serde_json::from_str(&actual_classification_raw).map_err(|e| {
+            format!(
+                "parse `{}`: {e}",
+                paths.std_symbol_classification_artifact_path.display()
+            )
+        })?;
+    let expected_verified_abi_manifest = verified_std_abi_manifest_from_catalog(&catalog);
+    let actual_verified_abi_manifest_raw =
+        fs::read_to_string(&paths.verified_std_abi_manifest_path).map_err(|e| {
+            format!(
+                "read `{}`: {e}",
+                paths.verified_std_abi_manifest_path.display()
+            )
+        })?;
+    let actual_verified_abi_manifest: VerifiedStdAbiManifestFile =
+        serde_json::from_str(&actual_verified_abi_manifest_raw).map_err(|e| {
+            format!(
+                "parse `{}`: {e}",
+                paths.verified_std_abi_manifest_path.display()
+            )
+        })?;
 
     let coverage_symbols = extract_std_symbols_from_coverage_matrix(&paths.std_coverage_matrix_path)?;
     let catalog_value_symbols = catalog_value_symbol_set(&catalog);
@@ -129,6 +200,20 @@ fn run_std_arch_conformance_check(root: &Path, _raw_args: Vec<String>) -> Result
     if expected_signatures != actual_signatures {
         errors.push(format!(
             "builtin signature drift: typer builtin surface does not match canonical catalog `{}`",
+            paths.catalog_lock_path.display()
+        ));
+    }
+    if expected_classification != actual_classification {
+        errors.push(format!(
+            "std symbol classification drift: `{}` is not generated from `{}`",
+            paths.std_symbol_classification_artifact_path.display(),
+            paths.catalog_lock_path.display()
+        ));
+    }
+    if expected_verified_abi_manifest != actual_verified_abi_manifest {
+        errors.push(format!(
+            "verified std abi manifest drift: `{}` is not generated from `{}`",
+            paths.verified_std_abi_manifest_path.display(),
             paths.catalog_lock_path.display()
         ));
     }
@@ -268,6 +353,14 @@ fn std_arch_paths(root: &Path) -> StdArchPaths {
             .join("docs")
             .join("design")
             .join("phase-26.6-std-builtin-signatures.v1.json"),
+        std_symbol_classification_artifact_path: root
+            .join("docs")
+            .join("design")
+            .join("phase-27.0-std-symbol-classification.v1.json"),
+        verified_std_abi_manifest_path: root
+            .join("docs")
+            .join("design")
+            .join("phase-27.1-verified-std-abi.manifest.v1.json"),
         std_coverage_matrix_path: root
             .join("docs")
             .join("std")
@@ -526,6 +619,80 @@ fn std_builtin_signatures_from_catalog(
         schema_version: 1,
         symbols,
     })
+}
+
+fn std_symbol_classification_from_catalog(catalog: &StdCatalogLockFile) -> StdSymbolClassificationFile {
+    let mut verified_std_abi = 0u32;
+    let mut external_std_package_candidate = 0u32;
+    let modules = catalog
+        .modules
+        .iter()
+        .map(|module| {
+            let (classification, rationale) = phase27_std_symbol_classification(module.path.as_str());
+            let exports = module.exports.iter().map(|export| export.name.clone()).collect::<Vec<_>>();
+            StdModuleClassificationEntry {
+                module: module.path.clone(),
+                classification: classification.to_string(),
+                rationale: rationale.to_string(),
+                exports,
+            }
+        })
+        .collect::<Vec<_>>();
+    let mut symbols = Vec::new();
+    for module in &catalog.modules {
+        let (classification, rationale) = phase27_std_symbol_classification(module.path.as_str());
+        for export in &module.exports {
+            match classification {
+                "verified_std_abi" => verified_std_abi += 1,
+                "external_std_package_candidate" => external_std_package_candidate += 1,
+                other => panic!("unknown phase 27 std classification `{other}`"),
+            }
+            symbols.push(StdSymbolClassificationEntry {
+                symbol: format!("{}::{}", module.path, export.name),
+                module: module.path.clone(),
+                export: export.name.clone(),
+                kind: export.kind.clone(),
+                route: export.route.clone(),
+                effect: export.effect.clone(),
+                classification: classification.to_string(),
+                rationale: rationale.to_string(),
+                capability: export.capability.clone(),
+                deprecated_alias_of: export.deprecated_alias_of.clone(),
+                layout: export.layout.clone(),
+            });
+        }
+    }
+    StdSymbolClassificationFile {
+        schema_version: 1,
+        generated_from: "docs/design/phase-26.6-std-catalog.lock.json".to_string(),
+        generated_at: "2026-05-31".to_string(),
+        summary: StdSymbolClassificationSummary {
+            verified_std_abi,
+            external_std_package_candidate,
+        },
+        modules,
+        symbols,
+    }
+}
+
+fn verified_std_abi_manifest_from_catalog(
+    catalog: &StdCatalogLockFile,
+) -> VerifiedStdAbiManifestFile {
+    let modules = catalog
+        .modules
+        .iter()
+        .filter(|module| phase27_std_symbol_classification(module.path.as_str()).0 == "verified_std_abi")
+        .cloned()
+        .collect::<Vec<_>>();
+    VerifiedStdAbiManifestFile {
+        schema_version: 1,
+        abi_version_major: 1,
+        abi_version_minor: 0,
+        generated_from_catalog: "docs/design/phase-26.6-std-catalog.lock.json".to_string(),
+        generated_from_classification: "docs/design/phase-27.0-std-symbol-classification.v1.json"
+            .to_string(),
+        modules,
+    }
 }
 
 fn normalize_std_catalog_lock(mut lock: StdCatalogLockFile) -> Result<StdCatalogLockFile, String> {
@@ -895,6 +1062,75 @@ fn classify_std_module(module: &str) -> &'static str {
     }
 }
 
+fn phase27_std_symbol_classification(module: &str) -> (&'static str, &'static str) {
+    match module {
+        "std::core" => (
+            "verified_std_abi",
+            "Compiler/runtime contracts for option/result/error/panic are assumed directly by typing, lowering, diagnostics, and strict release behavior.",
+        ),
+        "std::env" => (
+            "verified_std_abi",
+            "Host-backed environment access remains compiler-known because capability policy and deterministic local-runtime stubs must fail closed.",
+        ),
+        "std::wasi" => (
+            "verified_std_abi",
+            "Host-backed output/import boundary remains compiler-known until the verified ABI owns all capability and import mapping rules.",
+        ),
+        "std::host"
+        | "std::host::env"
+        | "std::host::host_error"
+        | "std::host::log"
+        | "std::host::storage" => (
+            "verified_std_abi",
+            "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+        ),
+        "std::crypto" | "std::crypto::crypto_error" | "std::crypto::verify_result" => (
+            "verified_std_abi",
+            "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+        ),
+        "std::list" | "std::map" | "std::set" => (
+            "verified_std_abi",
+            "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists.",
+        ),
+        "std::collection_error" => (
+            "verified_std_abi",
+            "Collection error semantics stay aligned with proof-critical list/map/set behavior and therefore remain inside the verified ABI boundary for now.",
+        ),
+        "std::unit" => (
+            "verified_std_abi",
+            "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly.",
+        ),
+        "std::contract"
+        | "std::contract::address"
+        | "std::contract::amount"
+        | "std::contract::contract_error"
+        | "std::contract::event" => (
+            "external_std_package_candidate",
+            "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+        ),
+        "std::decoder" | "std::encoder" | "std::decode_error" | "std::encode_error" => (
+            "external_std_package_candidate",
+            "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+        ),
+        "std::bytes"
+        | "std::str"
+        | "std::str_pattern"
+        | "std::u64"
+        | "std::u128"
+        | "std::u256"
+        | "std::array"
+        | "std::slice" => (
+            "external_std_package_candidate",
+            "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+        ),
+        "std::cosmos" | "std::eth" | "std::solana" => (
+            "external_std_package_candidate",
+            "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+        ),
+        other => panic!("unclassified phase 27 std module `{other}`"),
+    }
+}
+
 fn legacy_alias_target(symbol: &str) -> Option<&'static str> {
     match symbol {
         "std::bytes::equals" => Some("std::bytes::eq"),
@@ -924,6 +1160,8 @@ struct StdArchPaths {
     catalog_lock_path: PathBuf,
     std_metadata_path: PathBuf,
     std_signature_artifact_path: PathBuf,
+    std_symbol_classification_artifact_path: PathBuf,
+    verified_std_abi_manifest_path: PathBuf,
     std_coverage_matrix_path: PathBuf,
     std_readme_path: PathBuf,
     codegen_ir_path: PathBuf,
@@ -954,20 +1192,20 @@ struct FirstProductionStdSpec {
     logical_surface: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 struct StdCatalogLockFile {
     schema_version: u32,
     modules: Vec<StdCatalogModule>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 struct StdCatalogModule {
     path: String,
     module_class: String,
     exports: Vec<StdCatalogExport>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 struct StdCatalogExport {
     name: String,
     kind: String,
@@ -1002,4 +1240,58 @@ struct StdBuiltinSignatureEntry {
     capability: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     deprecated_alias_of: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct StdSymbolClassificationFile {
+    schema_version: u32,
+    generated_from: String,
+    generated_at: String,
+    summary: StdSymbolClassificationSummary,
+    modules: Vec<StdModuleClassificationEntry>,
+    symbols: Vec<StdSymbolClassificationEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct StdSymbolClassificationSummary {
+    verified_std_abi: u32,
+    external_std_package_candidate: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct StdModuleClassificationEntry {
+    module: String,
+    classification: String,
+    rationale: String,
+    exports: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct StdSymbolClassificationEntry {
+    symbol: String,
+    module: String,
+    export: String,
+    kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    route: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    effect: Option<String>,
+    classification: String,
+    rationale: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    capability: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    deprecated_alias_of: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    layout: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+struct VerifiedStdAbiManifestFile {
+    schema_version: u32,
+    abi_version_major: u32,
+    abi_version_minor: u32,
+    generated_from_catalog: String,
+    generated_from_classification: String,
+    modules: Vec<StdCatalogModule>,
 }

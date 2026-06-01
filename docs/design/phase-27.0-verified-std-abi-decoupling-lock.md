@@ -82,6 +82,24 @@ The compatibility model is locked as follows:
 4. Package resolution must fail closed when an external std package requires an unsupported ABI version.
 5. Alias/deprecation handling must remain explicit, cataloged, and diagnosable.
 
+The concrete Phase 27 versioning policy is:
+
+1. The verified std ABI uses `major.minor` compatibility semantics.
+2. A compiler release must declare an accepted ABI range as:
+   - exact major match required
+   - minimum supported minor
+   - maximum supported minor
+3. External std packages must declare the verified std ABI range they require.
+4. Resolution fails closed when:
+   - no ABI declaration is present
+   - majors do not match
+   - the package requires a minor newer than the compiler accepts
+   - the package requires a minor older than the compiler still supports only through removed/deprecated compatibility shims
+5. ABI-major changes are never silently tolerated and require an explicit compiler upgrade path.
+6. External std package version numbers are independent from compiler versions and must not be interpreted as ABI compatibility by themselves.
+
+The Phase 27 compatibility decision is therefore based on ABI declarations first, package versions second.
+
 ## Migration Rule
 
 A symbol may move from compiler-governed std to external package space only when all of the following are true:
@@ -90,6 +108,31 @@ A symbol may move from compiler-governed std to external package space only when
 2. No proof or strict-release rule depends on hidden compiler knowledge of that symbol.
 3. Metadata, import resolution, conformance, and trust checks can validate it without hard-coded duplicate symbol logic.
 4. Migration diagnostics and compatibility shims are documented and fail closed on unsupported usage.
+
+## Migration Diagnostics and Deprecation Policy
+
+When a symbol moves from compiler-governed std to external package space, migration behavior is locked as follows:
+
+1. The old compiler-known symbol path must either:
+   - resolve through an explicit cataloged compatibility shim, or
+   - fail with a deterministic migration diagnostic
+2. Diagnostics must name:
+   - the moved symbol
+   - the replacement package or symbol path
+   - the ABI/package requirement needed to restore compatibility
+3. Silent fallback from compiler-known semantics to package-provided semantics is forbidden.
+4. Compatibility shims must be:
+   - explicitly cataloged
+   - version-bounded
+   - removable on a documented schedule
+5. Once a symbol is classified as external-package-only, compiler conformance tooling must fail closed on any new direct compiler dependency on that symbol.
+6. Release-precheck must reject builds that rely on expired shims or unresolved moved-symbol dependencies.
+
+Deprecation policy for moved symbols is:
+
+1. Introduce deprecation with deterministic warnings and migration guidance.
+2. Keep the shim only for the locked compatibility window.
+3. Remove the shim once the cutover window closes and upgrade diagnostics are in place.
 
 ## Execution Order
 
@@ -110,3 +153,17 @@ Phase 27 is complete only when all of the following are true:
 3. Conformance gates fail closed on ABI drift, package drift, and unauthorized compiler/package coupling.
 4. Release workflows remain deterministic under embedded linking while mixed ABI/package mode exists.
 5. Migration and deprecation paths for moved symbols are documented and testable.
+
+## Initial Classification Artifact
+
+The initial symbol-by-symbol Phase 27 classification is recorded in:
+
+- `docs/design/phase-27.0-std-symbol-classification.v1.json`
+- `docs/design/phase-27.1-verified-std-abi.manifest.v1.json`
+
+That artifact is generated from the locked Phase 26 catalog and is the source of truth for the first decoupling split:
+
+- `verified_std_abi`: 80 symbols
+- `external_std_package_candidate`: 97 symbols
+
+This classification is intentionally conservative. It keeps host boundaries, proof-critical collections, core runtime contracts, and test-harness-assumed surfaces inside the verified ABI while marking pure/helper, codec, contract-domain, and chain-target adapters as early externalization candidates.

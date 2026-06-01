@@ -1,0 +1,2262 @@
+{
+  "schema_version": 1,
+  "generated_from": "docs/design/phase-26.6-std-catalog.lock.json",
+  "generated_at": "2026-05-31",
+  "summary": {
+    "verified_std_abi": 80,
+    "external_std_package_candidate": 97
+  },
+  "modules": [
+    {
+      "module": "std::array",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "len"
+      ]
+    },
+    {
+      "module": "std::bytes",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "concat",
+        "eq",
+        "eq_ct",
+        "equals",
+        "equals_ct",
+        "from_string",
+        "is_empty",
+        "len",
+        "to_string"
+      ]
+    },
+    {
+      "module": "std::collection_error",
+      "classification": "verified_std_abi",
+      "rationale": "Collection error semantics stay aligned with proof-critical list/map/set behavior and therefore remain inside the verified ABI boundary for now.",
+      "exports": [
+        "CollectionError"
+      ]
+    },
+    {
+      "module": "std::contract",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "exports": [
+        "Address",
+        "Amount",
+        "ContractError",
+        "Event"
+      ]
+    },
+    {
+      "module": "std::contract::address",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "exports": [
+        "equals",
+        "from_bytes",
+        "to_bytes"
+      ]
+    },
+    {
+      "module": "std::contract::amount",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "exports": [
+        "add_checked",
+        "from_u64",
+        "is_zero",
+        "sub_checked",
+        "value"
+      ]
+    },
+    {
+      "module": "std::contract::contract_error",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "exports": [
+        "code",
+        "equals"
+      ]
+    },
+    {
+      "module": "std::contract::event",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "exports": [
+        "new",
+        "payload",
+        "topic"
+      ]
+    },
+    {
+      "module": "std::core",
+      "classification": "verified_std_abi",
+      "rationale": "Compiler/runtime contracts for option/result/error/panic are assumed directly by typing, lowering, diagnostics, and strict release behavior.",
+      "exports": [
+        "ErrorCode"
+      ]
+    },
+    {
+      "module": "std::cosmos",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "exports": [
+        "Addr",
+        "from_array",
+        "from_bytes"
+      ]
+    },
+    {
+      "module": "std::crypto",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "exports": [
+        "CryptoError",
+        "VerifyResult",
+        "hash",
+        "hmac",
+        "hmac_sha256",
+        "sha256",
+        "verify"
+      ]
+    },
+    {
+      "module": "std::crypto::crypto_error",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "exports": [
+        "code",
+        "equals"
+      ]
+    },
+    {
+      "module": "std::crypto::verify_result",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "exports": [
+        "error_or_none",
+        "invalid",
+        "is_valid",
+        "valid"
+      ]
+    },
+    {
+      "module": "std::decode_error",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "exports": [
+        "DecodeError",
+        "code",
+        "equals",
+        "offset"
+      ]
+    },
+    {
+      "module": "std::decoder",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "exports": [
+        "Decoder",
+        "is_eof",
+        "new",
+        "position",
+        "read_bool",
+        "read_bytes",
+        "read_fixed",
+        "read_u64",
+        "remaining"
+      ]
+    },
+    {
+      "module": "std::encode_error",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "exports": [
+        "EncodeError",
+        "code",
+        "equals"
+      ]
+    },
+    {
+      "module": "std::encoder",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "exports": [
+        "Encoder",
+        "finish",
+        "new",
+        "write_bool",
+        "write_bytes",
+        "write_u64"
+      ]
+    },
+    {
+      "module": "std::env",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed environment access remains compiler-known because capability policy and deterministic local-runtime stubs must fail closed.",
+      "exports": [
+        "chain_id",
+        "random",
+        "time"
+      ]
+    },
+    {
+      "module": "std::eth",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "exports": [
+        "Address",
+        "from_array",
+        "from_bytes"
+      ]
+    },
+    {
+      "module": "std::host",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+      "exports": [
+        "HostError"
+      ]
+    },
+    {
+      "module": "std::host::env",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+      "exports": [
+        "block_height",
+        "caller",
+        "chain_id",
+        "timestamp"
+      ]
+    },
+    {
+      "module": "std::host::host_error",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+      "exports": [
+        "code",
+        "equals"
+      ]
+    },
+    {
+      "module": "std::host::log",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+      "exports": [
+        "error",
+        "info",
+        "warn"
+      ]
+    },
+    {
+      "module": "std::host::storage",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+      "exports": [
+        "contains",
+        "delete",
+        "get",
+        "set"
+      ]
+    },
+    {
+      "module": "std::list",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists.",
+      "exports": [
+        "can_mut",
+        "get",
+        "insert",
+        "insert_checked",
+        "insert_mut",
+        "is_empty",
+        "len",
+        "new",
+        "pop",
+        "pop_mut",
+        "push",
+        "push_mut",
+        "remove",
+        "remove_checked",
+        "remove_mut",
+        "remove_take"
+      ]
+    },
+    {
+      "module": "std::map",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists.",
+      "exports": [
+        "can_mut",
+        "contains",
+        "get",
+        "insert",
+        "insert_mut",
+        "insert_take",
+        "is_empty",
+        "len",
+        "new",
+        "remove",
+        "remove_mut",
+        "remove_take"
+      ]
+    },
+    {
+      "module": "std::set",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists.",
+      "exports": [
+        "can_mut",
+        "contains",
+        "diff",
+        "insert",
+        "insert_mut",
+        "intersect",
+        "is_empty",
+        "len",
+        "new",
+        "remove",
+        "remove_mut",
+        "subset",
+        "union"
+      ]
+    },
+    {
+      "module": "std::slice",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "get",
+        "len",
+        "subslice"
+      ]
+    },
+    {
+      "module": "std::solana",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "exports": [
+        "Pubkey",
+        "from_array",
+        "from_bytes"
+      ]
+    },
+    {
+      "module": "std::str",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "concat",
+        "contains",
+        "ends_with",
+        "eq",
+        "equals",
+        "is_empty",
+        "len",
+        "starts_with",
+        "to_bytes"
+      ]
+    },
+    {
+      "module": "std::str_pattern",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "matches"
+      ]
+    },
+    {
+      "module": "std::u128",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "from_limbs",
+        "hi",
+        "lo"
+      ]
+    },
+    {
+      "module": "std::u256",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "from_limbs",
+        "limb0",
+        "limb1",
+        "limb2",
+        "limb3"
+      ]
+    },
+    {
+      "module": "std::u64",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "exports": [
+        "add_sat",
+        "add_saturating",
+        "add_wrap",
+        "add_wrapping",
+        "from_bytes_be",
+        "from_bytes_le",
+        "mul_sat",
+        "mul_saturating",
+        "mul_wrap",
+        "mul_wrapping",
+        "rotl",
+        "rotr",
+        "sub_sat",
+        "sub_saturating",
+        "sub_wrap",
+        "sub_wrapping",
+        "to_bytes_be",
+        "to_bytes_le"
+      ]
+    },
+    {
+      "module": "std::unit",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly.",
+      "exports": [
+        "assert_eq_bool",
+        "assert_eq_int",
+        "assert_eq_u64",
+        "assert_false",
+        "assert_true",
+        "fail"
+      ]
+    },
+    {
+      "module": "std::wasi",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed output/import boundary remains compiler-known until the verified ABI owns all capability and import mapping rules.",
+      "exports": [
+        "print"
+      ]
+    }
+  ],
+  "symbols": [
+    {
+      "symbol": "std::array::len",
+      "module": "std::array",
+      "export": "len",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::concat",
+      "module": "std::bytes",
+      "export": "concat",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::eq",
+      "module": "std::bytes",
+      "export": "eq",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::eq_ct",
+      "module": "std::bytes",
+      "export": "eq_ct",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::equals",
+      "module": "std::bytes",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::bytes::eq"
+    },
+    {
+      "symbol": "std::bytes::equals_ct",
+      "module": "std::bytes",
+      "export": "equals_ct",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::bytes::eq_ct"
+    },
+    {
+      "symbol": "std::bytes::from_string",
+      "module": "std::bytes",
+      "export": "from_string",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::is_empty",
+      "module": "std::bytes",
+      "export": "is_empty",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::len",
+      "module": "std::bytes",
+      "export": "len",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::bytes::to_string",
+      "module": "std::bytes",
+      "export": "to_string",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::collection_error::CollectionError",
+      "module": "std::collection_error",
+      "export": "CollectionError",
+      "kind": "type",
+      "classification": "verified_std_abi",
+      "rationale": "Collection error semantics stay aligned with proof-critical list/map/set behavior and therefore remain inside the verified ABI boundary for now.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::contract::Address",
+      "module": "std::contract",
+      "export": "Address",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "layout": {
+        "align": 1,
+        "bytes": 20
+      }
+    },
+    {
+      "symbol": "std::contract::Amount",
+      "module": "std::contract",
+      "export": "Amount",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "layout": {
+        "align": 8,
+        "bytes": 8
+      }
+    },
+    {
+      "symbol": "std::contract::ContractError",
+      "module": "std::contract",
+      "export": "ContractError",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::contract::Event",
+      "module": "std::contract",
+      "export": "Event",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages.",
+      "layout": {
+        "align": 4,
+        "bytes": 8
+      }
+    },
+    {
+      "symbol": "std::contract::address::equals",
+      "module": "std::contract::address",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::address::from_bytes",
+      "module": "std::contract::address",
+      "export": "from_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::address::to_bytes",
+      "module": "std::contract::address",
+      "export": "to_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::amount::add_checked",
+      "module": "std::contract::amount",
+      "export": "add_checked",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::amount::from_u64",
+      "module": "std::contract::amount",
+      "export": "from_u64",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::amount::is_zero",
+      "module": "std::contract::amount",
+      "export": "is_zero",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::amount::sub_checked",
+      "module": "std::contract::amount",
+      "export": "sub_checked",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::amount::value",
+      "module": "std::contract::amount",
+      "export": "value",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::contract_error::code",
+      "module": "std::contract::contract_error",
+      "export": "code",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::contract_error::equals",
+      "module": "std::contract::contract_error",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::event::new",
+      "module": "std::contract::event",
+      "export": "new",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::event::payload",
+      "module": "std::contract::event",
+      "export": "payload",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::contract::event::topic",
+      "module": "std::contract::event",
+      "export": "topic",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Contract-domain wrappers are domain library surfaces above the trusted host/runtime boundary and should evolve as separately versioned packages."
+    },
+    {
+      "symbol": "std::core::ErrorCode",
+      "module": "std::core",
+      "export": "ErrorCode",
+      "kind": "type",
+      "classification": "verified_std_abi",
+      "rationale": "Compiler/runtime contracts for option/result/error/panic are assumed directly by typing, lowering, diagnostics, and strict release behavior.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::cosmos::Addr",
+      "module": "std::cosmos",
+      "export": "Addr",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "layout": {
+        "align": 1,
+        "bytes": 20
+      }
+    },
+    {
+      "symbol": "std::cosmos::from_array",
+      "module": "std::cosmos",
+      "export": "from_array",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::cosmos::from_bytes",
+      "module": "std::cosmos",
+      "export": "from_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::crypto::CryptoError",
+      "module": "std::crypto",
+      "export": "CryptoError",
+      "kind": "type",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::crypto::VerifyResult",
+      "module": "std::crypto",
+      "export": "VerifyResult",
+      "kind": "type",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "layout": {
+        "align": 4,
+        "bytes": 8
+      }
+    },
+    {
+      "symbol": "std::crypto::hash",
+      "module": "std::crypto",
+      "export": "hash",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "capability": "std::crypto::hash"
+    },
+    {
+      "symbol": "std::crypto::hmac",
+      "module": "std::crypto",
+      "export": "hmac",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "capability": "std::crypto::hmac"
+    },
+    {
+      "symbol": "std::crypto::hmac_sha256",
+      "module": "std::crypto",
+      "export": "hmac_sha256",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "deprecated_alias_of": "std::crypto::hmac"
+    },
+    {
+      "symbol": "std::crypto::sha256",
+      "module": "std::crypto",
+      "export": "sha256",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "deprecated_alias_of": "std::crypto::hash"
+    },
+    {
+      "symbol": "std::crypto::verify",
+      "module": "std::crypto",
+      "export": "verify",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement.",
+      "capability": "std::crypto::verify"
+    },
+    {
+      "symbol": "std::crypto::crypto_error::code",
+      "module": "std::crypto::crypto_error",
+      "export": "code",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement."
+    },
+    {
+      "symbol": "std::crypto::crypto_error::equals",
+      "module": "std::crypto::crypto_error",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement."
+    },
+    {
+      "symbol": "std::crypto::verify_result::error_or_none",
+      "module": "std::crypto::verify_result",
+      "export": "error_or_none",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement."
+    },
+    {
+      "symbol": "std::crypto::verify_result::invalid",
+      "module": "std::crypto::verify_result",
+      "export": "invalid",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement."
+    },
+    {
+      "symbol": "std::crypto::verify_result::is_valid",
+      "module": "std::crypto::verify_result",
+      "export": "is_valid",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement."
+    },
+    {
+      "symbol": "std::crypto::verify_result::valid",
+      "module": "std::crypto::verify_result",
+      "export": "valid",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed crypto operations and typed verify-result semantics participate in the trusted host boundary and strict policy enforcement."
+    },
+    {
+      "symbol": "std::decode_error::DecodeError",
+      "module": "std::decode_error",
+      "export": "DecodeError",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "layout": {
+        "align": 4,
+        "bytes": 8
+      }
+    },
+    {
+      "symbol": "std::decode_error::code",
+      "module": "std::decode_error",
+      "export": "code",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decode_error::equals",
+      "module": "std::decode_error",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decode_error::offset",
+      "module": "std::decode_error",
+      "export": "offset",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::Decoder",
+      "module": "std::decoder",
+      "export": "Decoder",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "layout": {
+        "align": 4,
+        "bytes": 8
+      }
+    },
+    {
+      "symbol": "std::decoder::is_eof",
+      "module": "std::decoder",
+      "export": "is_eof",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::new",
+      "module": "std::decoder",
+      "export": "new",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::position",
+      "module": "std::decoder",
+      "export": "position",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::read_bool",
+      "module": "std::decoder",
+      "export": "read_bool",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::read_bytes",
+      "module": "std::decoder",
+      "export": "read_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::read_fixed",
+      "module": "std::decoder",
+      "export": "read_fixed",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::read_u64",
+      "module": "std::decoder",
+      "export": "read_u64",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::decoder::remaining",
+      "module": "std::decoder",
+      "export": "remaining",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encode_error::EncodeError",
+      "module": "std::encode_error",
+      "export": "EncodeError",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::encode_error::code",
+      "module": "std::encode_error",
+      "export": "code",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encode_error::equals",
+      "module": "std::encode_error",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encoder::Encoder",
+      "module": "std::encoder",
+      "export": "Encoder",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::encoder::finish",
+      "module": "std::encoder",
+      "export": "finish",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encoder::new",
+      "module": "std::encoder",
+      "export": "new",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encoder::write_bool",
+      "module": "std::encoder",
+      "export": "write_bool",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encoder::write_bytes",
+      "module": "std::encoder",
+      "export": "write_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::encoder::write_u64",
+      "module": "std::encoder",
+      "export": "write_u64",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Deterministic codec APIs are package-level functionality whose behavior can be expressed through public contracts once the minimal verified ABI is extracted."
+    },
+    {
+      "symbol": "std::env::chain_id",
+      "module": "std::env",
+      "export": "chain_id",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed environment access remains compiler-known because capability policy and deterministic local-runtime stubs must fail closed.",
+      "capability": "std::env::chain_id"
+    },
+    {
+      "symbol": "std::env::random",
+      "module": "std::env",
+      "export": "random",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed environment access remains compiler-known because capability policy and deterministic local-runtime stubs must fail closed.",
+      "capability": "std::env::random"
+    },
+    {
+      "symbol": "std::env::time",
+      "module": "std::env",
+      "export": "time",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed environment access remains compiler-known because capability policy and deterministic local-runtime stubs must fail closed.",
+      "capability": "std::env::time"
+    },
+    {
+      "symbol": "std::eth::Address",
+      "module": "std::eth",
+      "export": "Address",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "layout": {
+        "align": 1,
+        "bytes": 20
+      }
+    },
+    {
+      "symbol": "std::eth::from_array",
+      "module": "std::eth",
+      "export": "from_array",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::eth::from_bytes",
+      "module": "std::eth",
+      "export": "from_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::host::HostError",
+      "module": "std::host",
+      "export": "HostError",
+      "kind": "type",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction.",
+      "layout": {
+        "align": 4,
+        "bytes": 4
+      }
+    },
+    {
+      "symbol": "std::host::env::block_height",
+      "module": "std::host::env",
+      "export": "block_height",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::env::caller",
+      "module": "std::host::env",
+      "export": "caller",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::env::chain_id",
+      "module": "std::host::env",
+      "export": "chain_id",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::env::timestamp",
+      "module": "std::host::env",
+      "export": "timestamp",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::host_error::code",
+      "module": "std::host::host_error",
+      "export": "code",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::host_error::equals",
+      "module": "std::host::host_error",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::log::error",
+      "module": "std::host::log",
+      "export": "error",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::log::info",
+      "module": "std::host::log",
+      "export": "info",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::log::warn",
+      "module": "std::host::log",
+      "export": "warn",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::storage::contains",
+      "module": "std::host::storage",
+      "export": "contains",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::storage::delete",
+      "module": "std::host::storage",
+      "export": "delete",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::storage::get",
+      "module": "std::host::storage",
+      "export": "get",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::host::storage::set",
+      "module": "std::host::storage",
+      "export": "set",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host capability wrappers and host-domain errors define the trusted runtime boundary and cannot move out before ABI extraction."
+    },
+    {
+      "symbol": "std::list::can_mut",
+      "module": "std::list",
+      "export": "can_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::get",
+      "module": "std::list",
+      "export": "get",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::insert",
+      "module": "std::list",
+      "export": "insert",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::insert_checked",
+      "module": "std::list",
+      "export": "insert_checked",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::insert_mut",
+      "module": "std::list",
+      "export": "insert_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::is_empty",
+      "module": "std::list",
+      "export": "is_empty",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::len",
+      "module": "std::list",
+      "export": "len",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::new",
+      "module": "std::list",
+      "export": "new",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::pop",
+      "module": "std::list",
+      "export": "pop",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::pop_mut",
+      "module": "std::list",
+      "export": "pop_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::push",
+      "module": "std::list",
+      "export": "push",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::push_mut",
+      "module": "std::list",
+      "export": "push_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::remove",
+      "module": "std::list",
+      "export": "remove",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::remove_checked",
+      "module": "std::list",
+      "export": "remove_checked",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::remove_mut",
+      "module": "std::list",
+      "export": "remove_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::list::remove_take",
+      "module": "std::list",
+      "export": "remove_take",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::can_mut",
+      "module": "std::map",
+      "export": "can_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::contains",
+      "module": "std::map",
+      "export": "contains",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::get",
+      "module": "std::map",
+      "export": "get",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::insert",
+      "module": "std::map",
+      "export": "insert",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::insert_mut",
+      "module": "std::map",
+      "export": "insert_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::insert_take",
+      "module": "std::map",
+      "export": "insert_take",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::is_empty",
+      "module": "std::map",
+      "export": "is_empty",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::len",
+      "module": "std::map",
+      "export": "len",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::new",
+      "module": "std::map",
+      "export": "new",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::remove",
+      "module": "std::map",
+      "export": "remove",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::remove_mut",
+      "module": "std::map",
+      "export": "remove_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::map::remove_take",
+      "module": "std::map",
+      "export": "remove_take",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::can_mut",
+      "module": "std::set",
+      "export": "can_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::contains",
+      "module": "std::set",
+      "export": "contains",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::diff",
+      "module": "std::set",
+      "export": "diff",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::insert",
+      "module": "std::set",
+      "export": "insert",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::insert_mut",
+      "module": "std::set",
+      "export": "insert_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::intersect",
+      "module": "std::set",
+      "export": "intersect",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::is_empty",
+      "module": "std::set",
+      "export": "is_empty",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::len",
+      "module": "std::set",
+      "export": "len",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::new",
+      "module": "std::set",
+      "export": "new",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::remove",
+      "module": "std::set",
+      "export": "remove",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::remove_mut",
+      "module": "std::set",
+      "export": "remove_mut",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "mut",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::subset",
+      "module": "std::set",
+      "export": "subset",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::set::union",
+      "module": "std::set",
+      "export": "union",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Release-enabled proof semantics and strict no-assumption gates depend on these collection contracts remaining compiler-known until a dedicated verified ABI exists."
+    },
+    {
+      "symbol": "std::slice::get",
+      "module": "std::slice",
+      "export": "get",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::slice::len",
+      "module": "std::slice",
+      "export": "len",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::slice::subslice",
+      "module": "std::slice",
+      "export": "subslice",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::solana::Pubkey",
+      "module": "std::solana",
+      "export": "Pubkey",
+      "kind": "type",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "layout": {
+        "align": 1,
+        "bytes": 32
+      }
+    },
+    {
+      "symbol": "std::solana::from_array",
+      "module": "std::solana",
+      "export": "from_array",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::solana::from_bytes",
+      "module": "std::solana",
+      "export": "from_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::str::concat",
+      "module": "std::str",
+      "export": "concat",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::contains",
+      "module": "std::str",
+      "export": "contains",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::ends_with",
+      "module": "std::str",
+      "export": "ends_with",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::eq",
+      "module": "std::str",
+      "export": "eq",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::equals",
+      "module": "std::str",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::str::eq"
+    },
+    {
+      "symbol": "std::str::is_empty",
+      "module": "std::str",
+      "export": "is_empty",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::len",
+      "module": "std::str",
+      "export": "len",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::starts_with",
+      "module": "std::str",
+      "export": "starts_with",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str::to_bytes",
+      "module": "std::str",
+      "export": "to_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::str_pattern::matches",
+      "module": "std::str_pattern",
+      "export": "matches",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u128::from_limbs",
+      "module": "std::u128",
+      "export": "from_limbs",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u128::hi",
+      "module": "std::u128",
+      "export": "hi",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u128::lo",
+      "module": "std::u128",
+      "export": "lo",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u256::from_limbs",
+      "module": "std::u256",
+      "export": "from_limbs",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u256::limb0",
+      "module": "std::u256",
+      "export": "limb0",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u256::limb1",
+      "module": "std::u256",
+      "export": "limb1",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u256::limb2",
+      "module": "std::u256",
+      "export": "limb2",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u256::limb3",
+      "module": "std::u256",
+      "export": "limb3",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::add_sat",
+      "module": "std::u64",
+      "export": "add_sat",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::u64::add_saturating"
+    },
+    {
+      "symbol": "std::u64::add_saturating",
+      "module": "std::u64",
+      "export": "add_saturating",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::add_wrap",
+      "module": "std::u64",
+      "export": "add_wrap",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::u64::add_wrapping"
+    },
+    {
+      "symbol": "std::u64::add_wrapping",
+      "module": "std::u64",
+      "export": "add_wrapping",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::from_bytes_be",
+      "module": "std::u64",
+      "export": "from_bytes_be",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::from_bytes_le",
+      "module": "std::u64",
+      "export": "from_bytes_le",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::mul_sat",
+      "module": "std::u64",
+      "export": "mul_sat",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::u64::mul_saturating"
+    },
+    {
+      "symbol": "std::u64::mul_saturating",
+      "module": "std::u64",
+      "export": "mul_saturating",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::mul_wrap",
+      "module": "std::u64",
+      "export": "mul_wrap",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::u64::mul_wrapping"
+    },
+    {
+      "symbol": "std::u64::mul_wrapping",
+      "module": "std::u64",
+      "export": "mul_wrapping",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::rotl",
+      "module": "std::u64",
+      "export": "rotl",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::rotr",
+      "module": "std::u64",
+      "export": "rotr",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::sub_sat",
+      "module": "std::u64",
+      "export": "sub_sat",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::u64::sub_saturating"
+    },
+    {
+      "symbol": "std::u64::sub_saturating",
+      "module": "std::u64",
+      "export": "sub_saturating",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::sub_wrap",
+      "module": "std::u64",
+      "export": "sub_wrap",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
+      "deprecated_alias_of": "std::u64::sub_wrapping"
+    },
+    {
+      "symbol": "std::u64::sub_wrapping",
+      "module": "std::u64",
+      "export": "sub_wrapping",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::to_bytes_be",
+      "module": "std::u64",
+      "export": "to_bytes_be",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::u64::to_bytes_le",
+      "module": "std::u64",
+      "export": "to_bytes_le",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary."
+    },
+    {
+      "symbol": "std::unit::assert_eq_bool",
+      "module": "std::unit",
+      "export": "assert_eq_bool",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly."
+    },
+    {
+      "symbol": "std::unit::assert_eq_int",
+      "module": "std::unit",
+      "export": "assert_eq_int",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly."
+    },
+    {
+      "symbol": "std::unit::assert_eq_u64",
+      "module": "std::unit",
+      "export": "assert_eq_u64",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly."
+    },
+    {
+      "symbol": "std::unit::assert_false",
+      "module": "std::unit",
+      "export": "assert_false",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly."
+    },
+    {
+      "symbol": "std::unit::assert_true",
+      "module": "std::unit",
+      "export": "assert_true",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly."
+    },
+    {
+      "symbol": "std::unit::fail",
+      "module": "std::unit",
+      "export": "fail",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "verified_std_abi",
+      "rationale": "Baseline assertion names and failure mapping are test-harness-assumed contracts and remain compiler-known until the testing ABI is split explicitly."
+    },
+    {
+      "symbol": "std::wasi::print",
+      "module": "std::wasi",
+      "export": "print",
+      "kind": "value",
+      "route": "intrinsic",
+      "effect": "io",
+      "classification": "verified_std_abi",
+      "rationale": "Host-backed output/import boundary remains compiler-known until the verified ABI owns all capability and import mapping rules.",
+      "capability": "std::wasi::print"
+    }
+  ]
+}

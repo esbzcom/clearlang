@@ -250,3 +250,28 @@ Dynamic/shared std runtime linking is explicitly **deferred** to a follow-up pha
   - [x] 26.6.6 Add deprecation/cutover plan for legacy intrinsic aliases and compatibility shims, with deterministic diagnostics and migration notes. (`deprecated_alias_of` catalog contract in `docs/design/phase-26.6-std-catalog.lock.json`, migration policy in `docs/design/phase-26.6-std-architecture-lock.md`) `Completed: 2026-05-31`.
   - [x] 26.6.7 Add Gate G completion criteria: zero unmanaged std symbol definitions, green conformance matrix, and stable release-grade std architecture docs. (`docs/design/phase-26.6-std-architecture-lock.md`) `Completed: 2026-05-31`.
   - [x] 26.6.8 Replace placeholder `can_mut` semantics (`true` predicate) with explicit ownership/uniqueness model or lock a permanent policy rationale; include deterministic diagnostics, migration notes, and conformance evidence for list/set/map mut guards. (`docs/design/phase-26.6.8-can-mut-semantics-lock.md`, `docs/typing.md`, `docs/std/coverage-matrix.md`) `DRI: std-arch-owner`, `Completed: 2026-05-30`.
+
+# Milestone 27 - Verified Std ABI Decoupling Phase
+
+Execution order for std decoupling: **lock layering -> extract verified ABI -> split compiler-known vs package-governed surfaces -> externalize helper modules -> revisit shared/precompiled linking later**.
+Release policy during migration: **keep embedded linking deterministic and fail closed on ABI/package drift**.
+
+- [ ] 27.0 Std layering and lifecycle lock [Decoupling Gate A]
+  - [x] 27.0.0 Publish the target layering model for `language kernel -> verified std ABI -> external std packages`, plus migration criteria and fail-closed compatibility policy. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`) `Completed: 2026-05-31`.
+  - [ ] 27.0.1 Classify every current std catalog symbol as `verified_std_abi` vs `external_std_package_candidate`, with explicit rationale for symbols that remain compiler-known. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-26.6-std-catalog.lock.json`)
+  - [ ] 27.0.2 Lock ABI versioning and package compatibility rules, including compiler-declared accepted ABI ranges and fail-closed package resolution on mismatch. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [ ] 27.0.3 Lock migration diagnostics/deprecation policy for symbols that move out of compiler-governed std. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-26.6-std-architecture-lock.md`)
+
+- [ ] 27.1 Verified std ABI extraction [Decoupling Gate B]
+  - [ ] 27.1.0 Introduce a dedicated verified std ABI manifest consumed by typer/codegen/cli, separate from the full std package catalog. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `xtask std-arch-sync`)
+  - [ ] 27.1.1 Make compiler-owned symbol tables derive only from the verified std ABI manifest, not from the full external std package surface. (`crates/typer`, `crates/codegen-wasm`, `crates/cli`)
+  - [ ] 27.1.2 Extend conformance tooling to fail closed on unauthorized compiler references to external-package-only symbols. (`xtask std-arch-conformance-check`, `xtask release-precheck`)
+
+- [ ] 27.2 External std packageization [Decoupling Gate C]
+  - [ ] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [ ] 27.2.1 Keep host-capability boundaries, proof-critical semantics, and strict-release contracts inside the verified std ABI until equivalent explicit ABI contracts exist. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [ ] 27.2.2 Add migration shims and deterministic diagnostics for moved symbols, then remove compiler/package duplication once cutover is complete. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+
+- [ ] 27.3 Post-split linking and distribution gates [Decoupling Gate D]
+  - [ ] 27.3.0 Re-evaluate precompiled/shared std delivery only after ABI extraction and external packageization are stable, audited, and release-precheck gated. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [ ] 27.3.1 Lock trust/signing/provenance policy for separately versioned std packages before enabling any non-embedded distribution mode. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)

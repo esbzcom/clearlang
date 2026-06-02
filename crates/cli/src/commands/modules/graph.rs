@@ -10,7 +10,9 @@ use clg_typer::{builtin_route, non_abi_builtin_sigs};
 
 use crate::commands::helpers::{make_parse_json_error, CommandError};
 
-use super::bundled_std_packages::{bundled_std_text_external_imports, is_bundled_std_text_module};
+use super::bundled_std_packages::{
+    bundled_std_package_external_imports, is_bundled_std_package_module,
+};
 use super::error::module_error;
 use super::imports::build_import_env;
 use super::package_metadata::{PackageMetadataIndex, PACKAGE_METADATA_FILE};
@@ -32,7 +34,7 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
         )
     })?;
     package_index
-        .extend_external_imports(bundled_std_text_external_imports())
+        .extend_external_imports(bundled_std_package_external_imports())
         .map_err(|err| {
             module_error(
                 "C027",
@@ -269,7 +271,7 @@ fn bundled_non_packageized_std_external_imports() -> Vec<super::ExternalImportBi
         .filter(|(function, _, _, _)| {
             function
                 .rsplit_once("::")
-                .map(|(module, _)| !is_bundled_std_text_module(module))
+                .map(|(module, _)| !is_bundled_std_package_module(module))
                 .unwrap_or(true)
         })
         .map(|(function, params, ret, effect)| {

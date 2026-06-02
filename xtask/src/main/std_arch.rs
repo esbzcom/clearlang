@@ -1300,6 +1300,9 @@ fn is_authorized_external_package_compiler_reference(
             symbol.starts_with("std::bytes::")
                 || symbol.starts_with("std::str::")
                 || symbol.starts_with("std::str_pattern::")
+                || symbol.starts_with("std::u64::")
+                || symbol.starts_with("std::u128::")
+                || symbol.starts_with("std::u256::")
         }
         "crates/cli/src/commands/modules/package_metadata.rs" => {
             matches!(symbol, "std::str::len")

@@ -176,4 +176,4 @@ The first packageization scaffold for external std candidates is recorded in:
 
 That artifact is generated from the locked catalog and Phase 27 classification. It groups external-package candidates into deterministic first-wave and follow-up package targets so `27.2.0` can proceed from a canonical plan instead of ad hoc manual lists.
 
-The first live Gate C cut routes `std::text` module imports (`std::bytes`, `std::str`, `std::str_pattern`) through a bundled package overlay at the CLI module-loader boundary. This intentionally changes ownership at import/module resolution first while keeping runtime/codegen compatibility shims in place until the remaining Wave 1 cutover work is complete.
+The first live Gate C cut routes `std::text` module imports (`std::bytes`, `std::str`, `std::str_pattern`) and `std::int` module imports (`std::u64`, `std::u128`, `std::u256`) through a bundled package overlay at the CLI module-loader boundary. This intentionally changes ownership at import/module resolution first while keeping runtime/codegen compatibility shims in place until the remaining Wave 1 cutover work is complete.

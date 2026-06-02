@@ -1298,6 +1298,10 @@ fn is_authorized_external_package_compiler_reference(
         }
         "crates/cli/src/commands/modules/bundled_std_packages.rs" => {
             symbol.starts_with("std::bytes::")
+                || symbol.starts_with("std::decode_error::")
+                || symbol.starts_with("std::decoder::")
+                || symbol.starts_with("std::encode_error::")
+                || symbol.starts_with("std::encoder::")
                 || symbol.starts_with("std::str::")
                 || symbol.starts_with("std::str_pattern::")
                 || symbol.starts_with("std::u64::")

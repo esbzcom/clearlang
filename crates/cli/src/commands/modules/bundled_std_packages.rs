@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use super::ExternalImportBinding;
 
-const BUNDLED_STD_PACKAGE_IDS: &[&str] = &["std::text", "std::int"];
+const BUNDLED_STD_PACKAGE_IDS: &[&str] = &["std::text", "std::int", "std::codec"];
 
 #[derive(Deserialize)]
 struct ExternalStdPackagePlanFile {
@@ -121,12 +121,25 @@ pub(super) fn bundled_std_package_external_imports() -> Vec<ExternalImportBindin
 }
 
 #[cfg(test)]
+pub(super) fn bundled_std_codec_modules() -> &'static BTreeSet<String> {
+    static BUNDLED_STD_CODEC_MODULES: OnceLock<BTreeSet<String>> = OnceLock::new();
+    BUNDLED_STD_CODEC_MODULES.get_or_init(|| {
+        load_bundled_std_package_modules_from_str(
+            include_str!("../../../../../docs/design/phase-27.2-external-std-package-plan.v1.json"),
+            "std::codec",
+        )
+        .expect("bundled std package plan must expose std::codec")
+    })
+}
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        bundled_std_int_modules, bundled_std_package_external_imports, bundled_std_package_modules,
-        bundled_std_text_modules, load_bundled_std_package_modules_from_str,
+        bundled_std_codec_modules, bundled_std_int_modules, bundled_std_package_external_imports,
+        bundled_std_package_modules, bundled_std_text_modules,
+        load_bundled_std_package_modules_from_str,
     };
 
     #[test]
@@ -175,6 +188,10 @@ mod tests {
     fn bundled_std_package_modules_cover_current_wave1_cut() {
         let expected: BTreeSet<String> = [
             "std::bytes",
+            "std::decode_error",
+            "std::decoder",
+            "std::encode_error",
+            "std::encoder",
             "std::str",
             "std::str_pattern",
             "std::u64",
@@ -192,7 +209,25 @@ mod tests {
     }
 
     #[test]
-    fn bundled_std_package_external_imports_cover_text_and_int_surface() {
+    fn bundled_std_codec_modules_follow_phase27_plan() {
+        let expected: BTreeSet<String> = [
+            "std::decode_error",
+            "std::decoder",
+            "std::encode_error",
+            "std::encoder",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        assert_eq!(
+            bundled_std_codec_modules(),
+            &expected,
+            "std::codec bundled module set must stay aligned with the phase 27 plan"
+        );
+    }
+
+    #[test]
+    fn bundled_std_package_external_imports_cover_text_int_and_codec_surface() {
         let symbols: BTreeSet<String> = bundled_std_package_external_imports()
             .iter()
             .map(|binding| binding.function.clone())
@@ -203,5 +238,8 @@ mod tests {
         assert!(symbols.contains("std::u64::rotl"));
         assert!(symbols.contains("std::u128::from_limbs"));
         assert!(symbols.contains("std::u256::limb3"));
+        assert!(symbols.contains("std::encoder::new"));
+        assert!(symbols.contains("std::decoder::read_bool"));
+        assert!(symbols.contains("std::decode_error::equals"));
     }
 }

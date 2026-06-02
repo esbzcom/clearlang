@@ -7,6 +7,7 @@ use clg_ast::{Effect, Param, ParamKind, Type};
 use clg_typer::StdTypeInfo;
 use serde::Deserialize;
 
+use super::std_metadata::std_metadata;
 use super::ExternalImportBinding;
 
 pub(super) const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
@@ -533,6 +534,49 @@ impl PackageMetadataIndex {
 
         Ok(())
     }
+
+    pub(super) fn extend_std_modules(
+        &mut self,
+        modules: impl IntoIterator<Item = String>,
+    ) -> Result<()> {
+        let std_index = std_metadata()?;
+        for module_path in modules {
+            let std_module = std_index
+                .module(module_path.as_str())
+                .ok_or_else(|| anyhow!("bundled std metadata is missing module `{module_path}`"))?;
+            let entry =
+                self.modules
+                    .entry(module_path.clone())
+                    .or_insert_with(|| PackageModuleIndex {
+                        values: HashSet::new(),
+                        types: HashSet::new(),
+                    });
+            entry.values.extend(std_module.values.iter().cloned());
+            for ty in &std_module.types {
+                entry.types.insert(ty.clone());
+                let qualified = format!("{}::{}", module_path, ty);
+                let Some(layout) = std_index.type_layout(qualified.as_str()) else {
+                    return Err(anyhow!(
+                        "bundled std metadata is missing layout for type `{qualified}`"
+                    ));
+                };
+                match self.type_layouts.get(qualified.as_str()) {
+                    Some(existing)
+                        if existing.byte_len == layout.byte_len
+                            && existing.align == layout.align => {}
+                    Some(_) => {
+                        return Err(anyhow!(
+                            "bundled std type `{qualified}` conflicts with an existing type layout"
+                        ));
+                    }
+                    None => {
+                        self.type_layouts.insert(qualified, layout.clone());
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 fn external_import_bindings_match(
@@ -752,6 +796,31 @@ mod tests {
                 .contains("duplicate value export `std::str::len`"),
             "expected duplicate symbol rejection, got: {err}"
         );
+    }
+
+    #[test]
+    fn extend_std_modules_indexes_types_and_layouts() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_std_modules(["std::encoder".to_string()])
+            .expect("bundled std module should index cleanly");
+
+        let module = index
+            .module("std::encoder")
+            .expect("std::encoder module should exist");
+        assert!(module.values.contains("new"));
+        assert!(module.values.contains("finish"));
+        assert!(module.types.contains("Encoder"));
+
+        let mut layouts = std::collections::HashMap::new();
+        index
+            .merge_type_layouts(&mut layouts)
+            .expect("type layouts should merge cleanly");
+        let layout = layouts
+            .get("std::encoder::Encoder")
+            .expect("encoder layout should exist");
+        assert_eq!(layout.byte_len, 4);
+        assert_eq!(layout.align, 4);
     }
 }
 

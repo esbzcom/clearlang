@@ -34,6 +34,21 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
         )
     })?;
     package_index
+        .extend_std_modules(
+            super::bundled_std_packages::bundled_std_package_modules()
+                .iter()
+                .cloned(),
+        )
+        .map_err(|err| {
+            module_error(
+                "C027",
+                format!("invalid bundled std package metadata: {err:#}"),
+                &entry_abs,
+                Span { start: 0, end: 0 },
+                json_errors,
+            )
+        })?;
+    package_index
         .extend_external_imports(bundled_std_package_external_imports())
         .map_err(|err| {
             module_error(

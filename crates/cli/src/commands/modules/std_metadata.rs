@@ -122,6 +122,10 @@ impl StdMetadataIndex {
     pub(super) fn module(&self, path: &str) -> Option<&StdModuleIndex> {
         self.modules.get(path)
     }
+
+    pub(super) fn type_layout(&self, qualified_name: &str) -> Option<&StdTypeInfo> {
+        self.types.get(qualified_name)
+    }
 }
 
 pub(super) fn std_metadata() -> Result<&'static StdMetadataIndex> {

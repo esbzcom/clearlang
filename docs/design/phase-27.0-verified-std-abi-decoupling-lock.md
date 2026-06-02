@@ -72,6 +72,14 @@ Phase 27 does not authorize the following by default:
 
 Dynamic/shared linking remains a later activation path, not the first deliverable of Phase 27.
 
+The first post-split re-evaluation of that deferred path is recorded in:
+
+- `docs/design/phase-27.3.0-post-split-linking-reevaluation.md`
+
+The trust/signing/provenance policy required before any future activation is recorded in:
+
+- `docs/design/phase-27.3.1-shared-std-trust-and-provenance-lock.md`
+
 ## Versioning and Compatibility Policy
 
 The compatibility model is locked as follows:

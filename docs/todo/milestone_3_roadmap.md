@@ -275,3 +275,32 @@ Release policy during migration: **keep embedded linking deterministic and fail 
 - [x] 27.3 Post-split linking and distribution gates [Decoupling Gate D] `Completed: 2026-06-02`.
   - [x] 27.3.0 Re-evaluate precompiled/shared std delivery only after ABI extraction and external packageization are stable, audited, and release-precheck gated. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.3.0-post-split-linking-reevaluation.md`) `Completed: 2026-06-02`.
   - [x] 27.3.1 Lock trust/signing/provenance policy for separately versioned std packages before enabling any non-embedded distribution mode. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.3.1-shared-std-trust-and-provenance-lock.md`) `Completed: 2026-06-02`.
+
+# Milestone 28 - Shared Std Distribution Phase
+
+Execution order for shared std activation: **lock artifact contract -> integrate signed std packages into manifests/lockfiles -> implement loader/ABI verification -> wire release provenance -> decide activation policy**.
+Release policy during activation: **embedded std remains the safe default until shared std evidence and replay gates are fully green**.
+
+- [ ] 28.0 Shared std distribution architecture lock [Distribution Gate A]
+  - [x] 28.0.0 Publish the Phase 28 execution order, safety invariants, and non-goals for separately versioned std distribution. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
+  - [ ] 28.0.1 Lock canonical shared std artifact/manifest shape (package identity, ABI range, digest, signature envelope, provenance fields, and runtime-loader inputs). (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`)
+  - [ ] 28.0.2 Lock embedded-vs-shared activation semantics: explicit mode selection, fallback policy, and fail-closed diagnostics when the requested delivery mode cannot be satisfied. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`)
+
+- [ ] 28.1 Shared std package metadata and lock integration [Distribution Gate B]
+  - [ ] 28.1.0 Extend canonical package metadata/lockfile inputs to represent separately versioned std package artifacts and verified-ABI requirements without overloading user package semantics.
+  - [ ] 28.1.1 Add deterministic resolver/lock validation for shared std package identities, ABI ranges, signer requirements, and digest pinning.
+  - [ ] 28.1.2 Add fail-closed migration/coexistence diagnostics for projects that mix embedded-only assumptions with shared std package inputs.
+
+- [ ] 28.2 Shared std loader and ABI verification [Distribution Gate C]
+  - [ ] 28.2.0 Implement runtime/link-time shared std artifact discovery and exact-identity selection from locked inputs only.
+  - [ ] 28.2.1 Implement fail-closed verified std ABI compatibility validation before loading/link activation.
+  - [ ] 28.2.2 Implement deterministic runtime diagnostics for missing artifact, digest mismatch, trust failure, ABI mismatch, and loader replay mismatch using the locked runtime error family.
+
+- [ ] 28.3 Release evidence and provenance parity [Distribution Gate D]
+  - [ ] 28.3.0 Extend release manifest / strict import-map / verify-bundle evidence to include selected shared std package identities, digests, signer ids, and ABI claims.
+  - [ ] 28.3.1 Add verify/verify-bundle enforcement for shared std provenance parity with embedded release artifacts.
+  - [ ] 28.3.2 Add deterministic negative test matrix for tampered/missing/incompatible shared std evidence paths.
+
+- [ ] 28.4 Activation and rollout decision [Distribution Gate E]
+  - [ ] 28.4.0 Wire shared std distribution checks into `xtask release-precheck` and CI so the full evidence chain is gated before any activation decision.
+  - [ ] 28.4.1 Publish rollout decision: remain experimental, enable for selected profiles, or defer again; record explicit rationale and default behavior.

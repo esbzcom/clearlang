@@ -478,11 +478,18 @@ impl PackageMetadataIndex {
 
     pub(super) fn merge_type_layouts(&self, out: &mut HashMap<String, StdTypeInfo>) -> Result<()> {
         for (name, info) in &self.type_layouts {
-            if out.insert(name.clone(), info.clone()).is_some() {
-                return Err(anyhow!(
-                    "compiled package type `{}` conflicts with an existing type layout",
-                    name
-                ));
+            match out.get(name) {
+                Some(existing)
+                    if existing.byte_len == info.byte_len && existing.align == info.align => {}
+                Some(_) => {
+                    return Err(anyhow!(
+                        "compiled package type `{}` conflicts with an existing type layout",
+                        name
+                    ));
+                }
+                None => {
+                    out.insert(name.clone(), info.clone());
+                }
             }
         }
         Ok(())
@@ -514,19 +521,6 @@ impl PackageMetadataIndex {
                     values: HashSet::new(),
                     types: HashSet::new(),
                 });
-            if module.values.contains(binding.import_name.as_str())
-                && !self.external_imports.iter().any(|existing| {
-                    existing.import_module == binding.import_module
-                        && existing.import_name == binding.import_name
-                        && existing.function == binding.function
-                })
-            {
-                return Err(anyhow!(
-                    "duplicate value export `{}` in module `{}`",
-                    binding.import_name,
-                    binding.import_module
-                ));
-            }
             module.values.insert(binding.import_name.clone());
 
             self.external_imports.push(binding);
@@ -821,6 +815,51 @@ mod tests {
             .expect("encoder layout should exist");
         assert_eq!(layout.byte_len, 4);
         assert_eq!(layout.align, 4);
+    }
+
+    #[test]
+    fn extend_external_imports_accepts_preloaded_bundled_std_values() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_std_modules(["std::bytes".to_string()])
+            .expect("bundled std module should preload cleanly");
+        index
+            .extend_external_imports([ExternalImportBinding {
+                function: "std::bytes::len".to_string(),
+                import_module: "std::bytes".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect("preloaded bundled std value should accept external binding attachment");
+        assert_eq!(index.external_imports().len(), 1);
+    }
+
+    #[test]
+    fn merge_type_layouts_accepts_identical_preloaded_std_layouts() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_std_modules(["std::encoder".to_string()])
+            .expect("bundled std module should preload cleanly");
+
+        let mut layouts = std::collections::HashMap::new();
+        layouts.insert(
+            "std::encoder::Encoder".to_string(),
+            clg_typer::StdTypeInfo {
+                byte_len: 4,
+                align: 4,
+            },
+        );
+        index
+            .merge_type_layouts(&mut layouts)
+            .expect("identical preloaded layout should merge idempotently");
+        assert_eq!(layouts.len(), 1);
     }
 }
 

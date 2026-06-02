@@ -7,8 +7,8 @@ mod vc;
 
 pub use builtins::{
     all_builtin_sigs, builtin_compat_alias_target, builtin_route, builtin_sigs,
-    non_abi_builtin_sigs, std_text_compat_builtin, verified_std_abi_value_symbols, BuiltinRoute,
-    StdTextCompatBuiltin,
+    non_abi_builtin_sigs, std_int_compat_builtin, std_text_compat_builtin,
+    verified_std_abi_value_symbols, BuiltinRoute, StdIntCompatBuiltin, StdTextCompatBuiltin,
 };
 pub use check::{
     check, check_with_vcs, check_with_vcs_with_std, check_with_vcs_with_std_and_external,

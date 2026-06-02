@@ -2221,6 +2221,16 @@ pub enum StdTextCompatBuiltin {
     StrPatternMatches,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StdIntCompatBuiltin {
+    U64AddWrapping,
+    U64SubWrapping,
+    U64MulWrapping,
+    U64AddSaturating,
+    U64SubSaturating,
+    U64MulSaturating,
+}
+
 pub fn std_text_compat_builtin(symbol: &str) -> Option<StdTextCompatBuiltin> {
     match symbol {
         "std::bytes::equals" => Some(StdTextCompatBuiltin::BytesEquals),
@@ -2230,6 +2240,30 @@ pub fn std_text_compat_builtin(symbol: &str) -> Option<StdTextCompatBuiltin> {
         "std::str::is_empty" => Some(StdTextCompatBuiltin::StrIsEmpty),
         "std::str::to_bytes" => Some(StdTextCompatBuiltin::StrToBytes),
         "std::str_pattern::matches" => Some(StdTextCompatBuiltin::StrPatternMatches),
+        _ => None,
+    }
+}
+
+pub fn std_int_compat_builtin(symbol: &str) -> Option<StdIntCompatBuiltin> {
+    match symbol {
+        "std::u64::add_wrap" | "std::u64::add_wrapping" => {
+            Some(StdIntCompatBuiltin::U64AddWrapping)
+        }
+        "std::u64::sub_wrap" | "std::u64::sub_wrapping" => {
+            Some(StdIntCompatBuiltin::U64SubWrapping)
+        }
+        "std::u64::mul_wrap" | "std::u64::mul_wrapping" => {
+            Some(StdIntCompatBuiltin::U64MulWrapping)
+        }
+        "std::u64::add_sat" | "std::u64::add_saturating" => {
+            Some(StdIntCompatBuiltin::U64AddSaturating)
+        }
+        "std::u64::sub_sat" | "std::u64::sub_saturating" => {
+            Some(StdIntCompatBuiltin::U64SubSaturating)
+        }
+        "std::u64::mul_sat" | "std::u64::mul_saturating" => {
+            Some(StdIntCompatBuiltin::U64MulSaturating)
+        }
         _ => None,
     }
 }
@@ -2343,7 +2377,10 @@ enum VerifiedStdAbiExportKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{builtin_compat_alias_target, std_text_compat_builtin, StdTextCompatBuiltin};
+    use super::{
+        builtin_compat_alias_target, std_int_compat_builtin, std_text_compat_builtin,
+        StdIntCompatBuiltin, StdTextCompatBuiltin,
+    };
 
     #[test]
     fn std_text_compat_builtins_stay_classified() {
@@ -2369,5 +2406,18 @@ mod tests {
             Some("std::u64::add_wrapping")
         );
         assert_eq!(builtin_compat_alias_target("std::str::is_empty"), None);
+    }
+
+    #[test]
+    fn std_int_compat_builtins_stay_classified() {
+        assert_eq!(
+            std_int_compat_builtin("std::u64::add_wrap"),
+            Some(StdIntCompatBuiltin::U64AddWrapping)
+        );
+        assert_eq!(
+            std_int_compat_builtin("std::u64::mul_saturating"),
+            Some(StdIntCompatBuiltin::U64MulSaturating)
+        );
+        assert_eq!(std_int_compat_builtin("std::u64::rotl"), None);
     }
 }

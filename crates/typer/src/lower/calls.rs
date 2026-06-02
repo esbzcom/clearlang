@@ -49,6 +49,9 @@ pub(super) fn lower_call_expr<'a>(
     if let Some(val) = lower_std_text_compat_call(ctx, callee, args)? {
         return Ok(val);
     }
+    if let Some(val) = lower_std_int_compat_call(ctx, callee, args)? {
+        return Ok(val);
+    }
     if let Some(module) = callee.strip_suffix("::from_bytes") {
         if module.starts_with("std::") {
             return lower_std_from_bytes(ctx, module, callee, args);
@@ -132,18 +135,6 @@ pub(super) fn lower_call_expr<'a>(
             });
             Ok(dst)
         }
-        "std::u64::add_wrap" => lower_u64_wrap(ctx, BinOp::Add, args),
-        "std::u64::add_wrapping" => lower_u64_wrap(ctx, BinOp::Add, args),
-        "std::u64::sub_wrap" => lower_u64_wrap(ctx, BinOp::Sub, args),
-        "std::u64::sub_wrapping" => lower_u64_wrap(ctx, BinOp::Sub, args),
-        "std::u64::mul_wrap" => lower_u64_wrap(ctx, BinOp::Mul, args),
-        "std::u64::mul_wrapping" => lower_u64_wrap(ctx, BinOp::Mul, args),
-        "std::u64::add_sat" => lower_u64_sat(ctx, BinOp::Add, args),
-        "std::u64::add_saturating" => lower_u64_sat(ctx, BinOp::Add, args),
-        "std::u64::sub_sat" => lower_u64_sat(ctx, BinOp::Sub, args),
-        "std::u64::sub_saturating" => lower_u64_sat(ctx, BinOp::Sub, args),
-        "std::u64::mul_sat" => lower_u64_sat(ctx, BinOp::Mul, args),
-        "std::u64::mul_saturating" => lower_u64_sat(ctx, BinOp::Mul, args),
         "std::u128::from_limbs" => lower_u128_from_limbs(ctx, args),
         "std::u128::lo" => lower_u128_load(ctx, args, 0),
         "std::u128::hi" => lower_u128_load(ctx, args, 1),
@@ -449,6 +440,37 @@ fn lower_std_text_compat_call<'a>(
         }
         crate::builtins::StdTextCompatBuiltin::StrPatternMatches => {
             lower_str_pattern_matches_call(ctx, args)?
+        }
+    };
+    Ok(Some(value))
+}
+
+fn lower_std_int_compat_call<'a>(
+    ctx: &mut LowerCtx<'a>,
+    callee: &str,
+    args: &'a [Expr],
+) -> Result<Option<Value>> {
+    let Some(shim) = crate::builtins::std_int_compat_builtin(callee) else {
+        return Ok(None);
+    };
+    let value = match shim {
+        crate::builtins::StdIntCompatBuiltin::U64AddWrapping => {
+            lower_u64_wrap(ctx, BinOp::Add, args)?
+        }
+        crate::builtins::StdIntCompatBuiltin::U64SubWrapping => {
+            lower_u64_wrap(ctx, BinOp::Sub, args)?
+        }
+        crate::builtins::StdIntCompatBuiltin::U64MulWrapping => {
+            lower_u64_wrap(ctx, BinOp::Mul, args)?
+        }
+        crate::builtins::StdIntCompatBuiltin::U64AddSaturating => {
+            lower_u64_sat(ctx, BinOp::Add, args)?
+        }
+        crate::builtins::StdIntCompatBuiltin::U64SubSaturating => {
+            lower_u64_sat(ctx, BinOp::Sub, args)?
+        }
+        crate::builtins::StdIntCompatBuiltin::U64MulSaturating => {
+            lower_u64_sat(ctx, BinOp::Mul, args)?
         }
     };
     Ok(Some(value))

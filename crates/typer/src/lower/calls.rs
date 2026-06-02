@@ -46,6 +46,9 @@ pub(super) fn lower_call_expr<'a>(
     if let Some(val) = lower_codec_call(ctx, callee, args)? {
         return Ok(val);
     }
+    if let Some(val) = lower_std_text_compat_call(ctx, callee, args)? {
+        return Ok(val);
+    }
     if let Some(module) = callee.strip_suffix("::from_bytes") {
         if module.starts_with("std::") {
             return lower_std_from_bytes(ctx, module, callee, args);
@@ -57,23 +60,6 @@ pub(super) fn lower_call_expr<'a>(
         }
     }
     match callee {
-        "std::bytes::equals" => {
-            lower_intrinsic_alias_call(ctx, "std::bytes::eq", args, &[Type::Bytes, Type::Bytes])
-        }
-        "std::bytes::equals_ct" => {
-            lower_intrinsic_alias_call(ctx, "std::bytes::eq_ct", args, &[Type::Bytes, Type::Bytes])
-        }
-        "std::bytes::is_empty" => {
-            lower_len_is_empty_call(ctx, "std::bytes::len", args, Type::Bytes)
-        }
-        "std::str::equals" => {
-            lower_intrinsic_alias_call(ctx, "std::str::eq", args, &[Type::String, Type::String])
-        }
-        "std::str_pattern::matches" => lower_str_pattern_matches_call(ctx, args),
-        "std::str::is_empty" => lower_len_is_empty_call(ctx, "std::str::len", args, Type::String),
-        "std::str::to_bytes" => {
-            lower_intrinsic_alias_call(ctx, "std::bytes::from_string", args, &[Type::String])
-        }
         "std::crypto::sha256" => lower_crypto_sha256_call(ctx, args),
         "std::crypto::hmac_sha256" => lower_crypto_hmac_sha256_call(ctx, args),
         "U8" => {
@@ -432,6 +418,40 @@ pub(super) fn lower_call_expr<'a>(
             }
         }
     }
+}
+
+fn lower_std_text_compat_call<'a>(
+    ctx: &mut LowerCtx<'a>,
+    callee: &str,
+    args: &'a [Expr],
+) -> Result<Option<Value>> {
+    let Some(shim) = crate::builtins::std_text_compat_builtin(callee) else {
+        return Ok(None);
+    };
+    let value = match shim {
+        crate::builtins::StdTextCompatBuiltin::BytesEquals => {
+            lower_intrinsic_alias_call(ctx, "std::bytes::eq", args, &[Type::Bytes, Type::Bytes])?
+        }
+        crate::builtins::StdTextCompatBuiltin::BytesEqualsCt => {
+            lower_intrinsic_alias_call(ctx, "std::bytes::eq_ct", args, &[Type::Bytes, Type::Bytes])?
+        }
+        crate::builtins::StdTextCompatBuiltin::BytesIsEmpty => {
+            lower_len_is_empty_call(ctx, "std::bytes::len", args, Type::Bytes)?
+        }
+        crate::builtins::StdTextCompatBuiltin::StrEquals => {
+            lower_intrinsic_alias_call(ctx, "std::str::eq", args, &[Type::String, Type::String])?
+        }
+        crate::builtins::StdTextCompatBuiltin::StrIsEmpty => {
+            lower_len_is_empty_call(ctx, "std::str::len", args, Type::String)?
+        }
+        crate::builtins::StdTextCompatBuiltin::StrToBytes => {
+            lower_intrinsic_alias_call(ctx, "std::bytes::from_string", args, &[Type::String])?
+        }
+        crate::builtins::StdTextCompatBuiltin::StrPatternMatches => {
+            lower_str_pattern_matches_call(ctx, args)?
+        }
+    };
+    Ok(Some(value))
 }
 
 fn lower_intrinsic_alias_call<'a>(

@@ -2210,6 +2210,47 @@ pub fn non_abi_builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
         .collect()
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StdTextCompatBuiltin {
+    BytesEquals,
+    BytesEqualsCt,
+    BytesIsEmpty,
+    StrEquals,
+    StrIsEmpty,
+    StrToBytes,
+    StrPatternMatches,
+}
+
+pub fn std_text_compat_builtin(symbol: &str) -> Option<StdTextCompatBuiltin> {
+    match symbol {
+        "std::bytes::equals" => Some(StdTextCompatBuiltin::BytesEquals),
+        "std::bytes::equals_ct" => Some(StdTextCompatBuiltin::BytesEqualsCt),
+        "std::bytes::is_empty" => Some(StdTextCompatBuiltin::BytesIsEmpty),
+        "std::str::equals" => Some(StdTextCompatBuiltin::StrEquals),
+        "std::str::is_empty" => Some(StdTextCompatBuiltin::StrIsEmpty),
+        "std::str::to_bytes" => Some(StdTextCompatBuiltin::StrToBytes),
+        "std::str_pattern::matches" => Some(StdTextCompatBuiltin::StrPatternMatches),
+        _ => None,
+    }
+}
+
+pub fn builtin_compat_alias_target(symbol: &str) -> Option<&'static str> {
+    match symbol {
+        "std::bytes::equals" => Some("std::bytes::eq"),
+        "std::bytes::equals_ct" => Some("std::bytes::eq_ct"),
+        "std::str::equals" => Some("std::str::eq"),
+        "std::u64::add_wrap" => Some("std::u64::add_wrapping"),
+        "std::u64::sub_wrap" => Some("std::u64::sub_wrapping"),
+        "std::u64::mul_wrap" => Some("std::u64::mul_wrapping"),
+        "std::u64::add_sat" => Some("std::u64::add_saturating"),
+        "std::u64::sub_sat" => Some("std::u64::sub_saturating"),
+        "std::u64::mul_sat" => Some("std::u64::mul_saturating"),
+        "std::crypto::sha256" => Some("std::crypto::hash"),
+        "std::crypto::hmac_sha256" => Some("std::crypto::hmac"),
+        _ => None,
+    }
+}
+
 pub fn builtin_route(symbol: &str) -> BuiltinRoute {
     match symbol {
         "std::bytes::len"
@@ -2298,4 +2339,35 @@ struct VerifiedStdAbiExport {
 enum VerifiedStdAbiExportKind {
     Type,
     Value,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{builtin_compat_alias_target, std_text_compat_builtin, StdTextCompatBuiltin};
+
+    #[test]
+    fn std_text_compat_builtins_stay_classified() {
+        assert_eq!(
+            std_text_compat_builtin("std::bytes::equals"),
+            Some(StdTextCompatBuiltin::BytesEquals)
+        );
+        assert_eq!(
+            std_text_compat_builtin("std::str_pattern::matches"),
+            Some(StdTextCompatBuiltin::StrPatternMatches)
+        );
+        assert_eq!(std_text_compat_builtin("std::str::len"), None);
+    }
+
+    #[test]
+    fn builtin_compat_alias_target_covers_text_and_legacy_aliases() {
+        assert_eq!(
+            builtin_compat_alias_target("std::bytes::equals_ct"),
+            Some("std::bytes::eq_ct")
+        );
+        assert_eq!(
+            builtin_compat_alias_target("std::u64::add_wrap"),
+            Some("std::u64::add_wrapping")
+        );
+        assert_eq!(builtin_compat_alias_target("std::str::is_empty"), None);
+    }
 }

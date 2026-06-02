@@ -5,23 +5,40 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
     let mut set: HashSet<&'static str> = HashSet::with_capacity(8);
     walk_calls(ast, &mut |callee| {
         let normalized = crate::guards::canonical_collection_alias_callee(callee);
+        if let Some(shim) = crate::builtins::std_text_compat_builtin(normalized) {
+            match shim {
+                crate::builtins::StdTextCompatBuiltin::BytesEquals => {
+                    set.insert("std::bytes::eq");
+                }
+                crate::builtins::StdTextCompatBuiltin::BytesEqualsCt => {
+                    set.insert("std::bytes::eq_ct");
+                }
+                crate::builtins::StdTextCompatBuiltin::BytesIsEmpty => {
+                    set.insert("std::bytes::len");
+                }
+                crate::builtins::StdTextCompatBuiltin::StrEquals => {
+                    set.insert("std::str::eq");
+                }
+                crate::builtins::StdTextCompatBuiltin::StrIsEmpty => {
+                    set.insert("std::str::len");
+                }
+                crate::builtins::StdTextCompatBuiltin::StrToBytes => {
+                    set.insert("std::bytes::from_string");
+                }
+                crate::builtins::StdTextCompatBuiltin::StrPatternMatches => {
+                    set.insert("std::str::contains");
+                }
+            }
+            return;
+        }
         match normalized {
             "std::bytes::len" => {
-                set.insert("std::bytes::len");
-            }
-            "std::bytes::is_empty" => {
                 set.insert("std::bytes::len");
             }
             "std::bytes::eq" => {
                 set.insert("std::bytes::eq");
             }
-            "std::bytes::equals" => {
-                set.insert("std::bytes::eq");
-            }
             "std::bytes::eq_ct" => {
-                set.insert("std::bytes::eq_ct");
-            }
-            "std::bytes::equals_ct" => {
                 set.insert("std::bytes::eq_ct");
             }
             "std::bytes::concat" => {
@@ -96,13 +113,7 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
             "std::str::len" => {
                 set.insert("std::str::len");
             }
-            "std::str::is_empty" => {
-                set.insert("std::str::len");
-            }
             "std::str::eq" => {
-                set.insert("std::str::eq");
-            }
-            "std::str::equals" => {
                 set.insert("std::str::eq");
             }
             "std::str::concat" => {
@@ -116,12 +127,6 @@ pub(super) fn collect_used_intrinsics(ast: &Program) -> HashSet<&'static str> {
             }
             "std::str::contains" => {
                 set.insert("std::str::contains");
-            }
-            "std::str_pattern::matches" => {
-                set.insert("std::str::contains");
-            }
-            "std::str::to_bytes" => {
-                set.insert("std::bytes::from_string");
             }
             "std::u64::rotl" => {
                 set.insert("std::u64::rotl");

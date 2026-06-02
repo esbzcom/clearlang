@@ -1398,20 +1398,7 @@ fn phase27_std_symbol_classification(module: &str) -> (&'static str, &'static st
 }
 
 fn legacy_alias_target(symbol: &str) -> Option<&'static str> {
-    match symbol {
-        "std::bytes::equals" => Some("std::bytes::eq"),
-        "std::bytes::equals_ct" => Some("std::bytes::eq_ct"),
-        "std::str::equals" => Some("std::str::eq"),
-        "std::u64::add_wrap" => Some("std::u64::add_wrapping"),
-        "std::u64::sub_wrap" => Some("std::u64::sub_wrapping"),
-        "std::u64::mul_wrap" => Some("std::u64::mul_wrapping"),
-        "std::u64::add_sat" => Some("std::u64::add_saturating"),
-        "std::u64::sub_sat" => Some("std::u64::sub_saturating"),
-        "std::u64::mul_sat" => Some("std::u64::mul_saturating"),
-        "std::crypto::sha256" => Some("std::crypto::hash"),
-        "std::crypto::hmac_sha256" => Some("std::crypto::hmac"),
-        _ => None,
-    }
+    clg_typer::builtin_compat_alias_target(symbol)
 }
 
 fn external_std_package_plan_from_catalog(

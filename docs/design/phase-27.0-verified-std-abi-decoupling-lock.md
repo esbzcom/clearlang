@@ -179,3 +179,9 @@ That artifact is generated from the locked catalog and Phase 27 classification. 
 The first live Gate C cut routes `std::text` module imports (`std::bytes`, `std::str`, `std::str_pattern`), `std::int` module imports (`std::u64`, `std::u128`, `std::u256`), and `std::codec` module imports (`std::encoder`, `std::decoder`, `std::encode_error`, `std::decode_error`) through a bundled package overlay at the CLI module-loader boundary. This intentionally changes ownership at import/module resolution first while keeping runtime/codegen compatibility shims in place until the remaining Wave 1 cutover work is complete.
 
 That bundled overlay is intentionally restricted to external-package-candidate Wave 1 modules. Verified-ABI boundaries such as `std::core`, `std::env`, `std::wasi`, `std::host`, `std::crypto`, and proof-critical collection modules remain excluded from the bundled package overlay and stay compiler-governed until an equivalent explicit ABI contract exists.
+
+The active `27.2.2` migration contract is therefore:
+
+1. The bundled package overlay itself is the explicit compatibility shim for moved Wave 1 module paths.
+2. Loader/import diagnostics for moved Wave 1 symbols stay on stable existing build codes (`C021`, `C027`) but must name the bundled replacement package deterministically.
+3. Legacy helper alias handling for moved Wave 1 text/int surfaces is centralized in one compiler shim catalog rather than duplicated across typer and conformance code paths.

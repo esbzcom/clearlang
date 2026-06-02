@@ -2231,58 +2231,158 @@ pub enum StdIntCompatBuiltin {
     U64MulSaturating,
 }
 
+struct BuiltinCompatShim {
+    symbol: &'static str,
+    alias_target: Option<&'static str>,
+    text: Option<StdTextCompatBuiltin>,
+    int: Option<StdIntCompatBuiltin>,
+}
+
+const BUILTIN_COMPAT_SHIMS: &[BuiltinCompatShim] = &[
+    BuiltinCompatShim {
+        symbol: "std::bytes::equals",
+        alias_target: Some("std::bytes::eq"),
+        text: Some(StdTextCompatBuiltin::BytesEquals),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::bytes::equals_ct",
+        alias_target: Some("std::bytes::eq_ct"),
+        text: Some(StdTextCompatBuiltin::BytesEqualsCt),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::bytes::is_empty",
+        alias_target: None,
+        text: Some(StdTextCompatBuiltin::BytesIsEmpty),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::str::equals",
+        alias_target: Some("std::str::eq"),
+        text: Some(StdTextCompatBuiltin::StrEquals),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::str::is_empty",
+        alias_target: None,
+        text: Some(StdTextCompatBuiltin::StrIsEmpty),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::str::to_bytes",
+        alias_target: None,
+        text: Some(StdTextCompatBuiltin::StrToBytes),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::str_pattern::matches",
+        alias_target: None,
+        text: Some(StdTextCompatBuiltin::StrPatternMatches),
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::add_wrap",
+        alias_target: Some("std::u64::add_wrapping"),
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64AddWrapping),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::add_wrapping",
+        alias_target: None,
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64AddWrapping),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::sub_wrap",
+        alias_target: Some("std::u64::sub_wrapping"),
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64SubWrapping),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::sub_wrapping",
+        alias_target: None,
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64SubWrapping),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::mul_wrap",
+        alias_target: Some("std::u64::mul_wrapping"),
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64MulWrapping),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::mul_wrapping",
+        alias_target: None,
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64MulWrapping),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::add_sat",
+        alias_target: Some("std::u64::add_saturating"),
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64AddSaturating),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::add_saturating",
+        alias_target: None,
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64AddSaturating),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::sub_sat",
+        alias_target: Some("std::u64::sub_saturating"),
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64SubSaturating),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::sub_saturating",
+        alias_target: None,
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64SubSaturating),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::mul_sat",
+        alias_target: Some("std::u64::mul_saturating"),
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64MulSaturating),
+    },
+    BuiltinCompatShim {
+        symbol: "std::u64::mul_saturating",
+        alias_target: None,
+        text: None,
+        int: Some(StdIntCompatBuiltin::U64MulSaturating),
+    },
+    BuiltinCompatShim {
+        symbol: "std::crypto::sha256",
+        alias_target: Some("std::crypto::hash"),
+        text: None,
+        int: None,
+    },
+    BuiltinCompatShim {
+        symbol: "std::crypto::hmac_sha256",
+        alias_target: Some("std::crypto::hmac"),
+        text: None,
+        int: None,
+    },
+];
+
+fn builtin_compat_shim(symbol: &str) -> Option<&'static BuiltinCompatShim> {
+    BUILTIN_COMPAT_SHIMS
+        .iter()
+        .find(|shim| shim.symbol == symbol)
+}
+
 pub fn std_text_compat_builtin(symbol: &str) -> Option<StdTextCompatBuiltin> {
-    match symbol {
-        "std::bytes::equals" => Some(StdTextCompatBuiltin::BytesEquals),
-        "std::bytes::equals_ct" => Some(StdTextCompatBuiltin::BytesEqualsCt),
-        "std::bytes::is_empty" => Some(StdTextCompatBuiltin::BytesIsEmpty),
-        "std::str::equals" => Some(StdTextCompatBuiltin::StrEquals),
-        "std::str::is_empty" => Some(StdTextCompatBuiltin::StrIsEmpty),
-        "std::str::to_bytes" => Some(StdTextCompatBuiltin::StrToBytes),
-        "std::str_pattern::matches" => Some(StdTextCompatBuiltin::StrPatternMatches),
-        _ => None,
-    }
+    builtin_compat_shim(symbol).and_then(|shim| shim.text)
 }
 
 pub fn std_int_compat_builtin(symbol: &str) -> Option<StdIntCompatBuiltin> {
-    match symbol {
-        "std::u64::add_wrap" | "std::u64::add_wrapping" => {
-            Some(StdIntCompatBuiltin::U64AddWrapping)
-        }
-        "std::u64::sub_wrap" | "std::u64::sub_wrapping" => {
-            Some(StdIntCompatBuiltin::U64SubWrapping)
-        }
-        "std::u64::mul_wrap" | "std::u64::mul_wrapping" => {
-            Some(StdIntCompatBuiltin::U64MulWrapping)
-        }
-        "std::u64::add_sat" | "std::u64::add_saturating" => {
-            Some(StdIntCompatBuiltin::U64AddSaturating)
-        }
-        "std::u64::sub_sat" | "std::u64::sub_saturating" => {
-            Some(StdIntCompatBuiltin::U64SubSaturating)
-        }
-        "std::u64::mul_sat" | "std::u64::mul_saturating" => {
-            Some(StdIntCompatBuiltin::U64MulSaturating)
-        }
-        _ => None,
-    }
+    builtin_compat_shim(symbol).and_then(|shim| shim.int)
 }
 
 pub fn builtin_compat_alias_target(symbol: &str) -> Option<&'static str> {
-    match symbol {
-        "std::bytes::equals" => Some("std::bytes::eq"),
-        "std::bytes::equals_ct" => Some("std::bytes::eq_ct"),
-        "std::str::equals" => Some("std::str::eq"),
-        "std::u64::add_wrap" => Some("std::u64::add_wrapping"),
-        "std::u64::sub_wrap" => Some("std::u64::sub_wrapping"),
-        "std::u64::mul_wrap" => Some("std::u64::mul_wrapping"),
-        "std::u64::add_sat" => Some("std::u64::add_saturating"),
-        "std::u64::sub_sat" => Some("std::u64::sub_saturating"),
-        "std::u64::mul_sat" => Some("std::u64::mul_saturating"),
-        "std::crypto::sha256" => Some("std::crypto::hash"),
-        "std::crypto::hmac_sha256" => Some("std::crypto::hmac"),
-        _ => None,
-    }
+    builtin_compat_shim(symbol).and_then(|shim| shim.alias_target)
 }
 
 pub fn builtin_route(symbol: &str) -> BuiltinRoute {

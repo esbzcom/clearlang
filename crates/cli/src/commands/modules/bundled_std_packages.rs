@@ -18,6 +18,12 @@ struct ExternalStdPackagePlanFile {
 struct ExternalStdPackagePlanEntry {
     package_id: String,
     modules: Vec<String>,
+    #[allow(dead_code)]
+    symbols: Vec<String>,
+}
+
+struct BundledStdPackageCatalog {
+    modules_by_package: Vec<(&'static str, BTreeSet<String>)>,
 }
 
 fn parse_bundled_std_package_plan(raw: &str) -> Result<ExternalStdPackagePlanFile, String> {
@@ -53,6 +59,37 @@ fn load_all_bundled_std_package_modules_from_str(raw: &str) -> Result<BTreeSet<S
         out.extend(load_bundled_std_package_modules_from_str(raw, package_id)?);
     }
     Ok(out)
+}
+
+fn load_bundled_std_package_catalog_from_str(
+    raw: &str,
+) -> Result<BundledStdPackageCatalog, String> {
+    let raw = parse_bundled_std_package_plan(raw)?;
+    let mut modules_by_package = Vec::with_capacity(BUNDLED_STD_PACKAGE_IDS.len());
+    for package_id in BUNDLED_STD_PACKAGE_IDS {
+        let Some(entry) = raw
+            .packages
+            .iter()
+            .find(|entry| entry.package_id == *package_id)
+        else {
+            return Err(format!("std package plan is missing `{package_id}`"));
+        };
+        modules_by_package.push((
+            *package_id,
+            entry.modules.iter().cloned().collect::<BTreeSet<_>>(),
+        ));
+    }
+    Ok(BundledStdPackageCatalog { modules_by_package })
+}
+
+fn bundled_std_package_catalog() -> &'static BundledStdPackageCatalog {
+    static BUNDLED_STD_PACKAGE_CATALOG: OnceLock<BundledStdPackageCatalog> = OnceLock::new();
+    BUNDLED_STD_PACKAGE_CATALOG.get_or_init(|| {
+        load_bundled_std_package_catalog_from_str(include_str!(
+            "../../../../../docs/design/phase-27.2-external-std-package-plan.v1.json"
+        ))
+        .expect("bundled std package plan must expose configured wave1 packages")
+    })
 }
 
 #[cfg(test)]
@@ -91,6 +128,35 @@ pub(super) fn bundled_std_package_modules() -> &'static BTreeSet<String> {
 
 pub(super) fn is_bundled_std_package_module(path: &str) -> bool {
     bundled_std_package_modules().contains(path)
+}
+
+pub(super) fn bundled_std_package_id_for_module(path: &str) -> Option<&'static str> {
+    bundled_std_package_catalog()
+        .modules_by_package
+        .iter()
+        .find_map(|(package_id, modules)| modules.contains(path).then_some(*package_id))
+}
+
+pub(super) fn bundled_std_module_migration_message(module_path: &str, detail: &str) -> String {
+    match bundled_std_package_id_for_module(module_path) {
+        Some(package_id) => {
+            format!("module `{module_path}` moved to bundled std package `{package_id}`; {detail}")
+        }
+        None => detail.to_string(),
+    }
+}
+
+pub(super) fn bundled_std_item_migration_message(
+    module_path: &str,
+    item: &str,
+    detail: &str,
+) -> String {
+    match bundled_std_package_id_for_module(module_path) {
+        Some(package_id) => format!(
+            "symbol `{module_path}::{item}` moved to bundled std package `{package_id}`; {detail}"
+        ),
+        None => detail.to_string(),
+    }
 }
 
 pub(super) fn bundled_std_package_external_imports() -> Vec<ExternalImportBinding> {
@@ -137,8 +203,9 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        bundled_std_codec_modules, bundled_std_int_modules, bundled_std_package_external_imports,
-        bundled_std_package_modules, bundled_std_text_modules,
+        bundled_std_codec_modules, bundled_std_int_modules, bundled_std_item_migration_message,
+        bundled_std_module_migration_message, bundled_std_package_external_imports,
+        bundled_std_package_id_for_module, bundled_std_package_modules, bundled_std_text_modules,
         load_bundled_std_package_modules_from_str,
     };
 
@@ -262,5 +329,41 @@ mod tests {
                 "bundled std package overlay must not include verified-abi/protected module `{protected}`"
             );
         }
+    }
+
+    #[test]
+    fn bundled_std_package_ids_follow_phase27_plan() {
+        assert_eq!(
+            bundled_std_package_id_for_module("std::str"),
+            Some("std::text")
+        );
+        assert_eq!(
+            bundled_std_package_id_for_module("std::u64"),
+            Some("std::int")
+        );
+        assert_eq!(
+            bundled_std_package_id_for_module("std::encoder"),
+            Some("std::codec")
+        );
+        assert_eq!(bundled_std_package_id_for_module("std::env"), None);
+    }
+
+    #[test]
+    fn bundled_std_migration_messages_name_package_boundary() {
+        assert_eq!(
+            bundled_std_module_migration_message(
+                "std::str",
+                "bundled std package metadata is missing module `std::str`"
+            ),
+            "module `std::str` moved to bundled std package `std::text`; bundled std package metadata is missing module `std::str`"
+        );
+        assert_eq!(
+            bundled_std_item_migration_message(
+                "std::u64",
+                "unknown_helper",
+                "module does not export item `unknown_helper`"
+            ),
+            "symbol `std::u64::unknown_helper` moved to bundled std package `std::int`; module does not export item `unknown_helper`"
+        );
     }
 }

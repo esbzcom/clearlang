@@ -439,6 +439,53 @@ fn import_unknown_std_item_reports_c021() {
     let e0 = &errs[0];
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C021"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
+    let message = e0.get("message").and_then(|s| s.as_str()).unwrap_or("");
+    assert!(
+        message.contains("symbol `std::bytes::missing` moved to bundled std package `std::text`"),
+        "expected bundled std migration guidance, got: {message}"
+    );
+    assert!(
+        message.contains("module does not export item `missing`"),
+        "expected deterministic missing-item detail, got: {message}"
+    );
+}
+
+#[test]
+fn import_unknown_std_codec_item_reports_c021_with_package_guidance() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        import std::encoder::{missing}
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C021"));
+    let message = e0.get("message").and_then(|s| s.as_str()).unwrap_or("");
+    assert!(
+        message
+            .contains("symbol `std::encoder::missing` moved to bundled std package `std::codec`"),
+        "expected bundled std codec migration guidance, got: {message}"
+    );
 }
 
 #[test]

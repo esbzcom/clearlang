@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use clg_ast::{ImportKind, Span};
 
-use super::bundled_std_packages::is_bundled_std_package_module;
+use super::bundled_std_packages::{
+    bundled_std_item_migration_message, bundled_std_module_migration_message,
+    is_bundled_std_package_module,
+};
 use super::error::module_error;
 use super::package_metadata::{PackageMetadataIndex, PackageModuleIndex};
 use super::std_metadata::{std_metadata, StdModuleIndex};
@@ -51,9 +54,13 @@ pub(super) fn build_import_env(
                     if packages.module(&target_path).is_none() {
                         return Err(module_error(
                             "C027",
-                            format!(
-                                "bundled std package metadata is missing module `{}`",
-                                target_path
+                            bundled_std_module_migration_message(
+                                &target_path,
+                                format!(
+                                    "bundled std package metadata is missing module `{}`",
+                                    target_path
+                                )
+                                .as_str(),
                             ),
                             &module.file,
                             import.path_span,
@@ -112,16 +119,20 @@ pub(super) fn build_import_env(
                     let Some(package_module) = packages.module(&target_path) else {
                         return Err(module_error(
                             "C027",
-                            format!(
-                                "bundled std package metadata is missing module `{}`",
-                                target_path
+                            bundled_std_module_migration_message(
+                                &target_path,
+                                format!(
+                                    "bundled std package metadata is missing module `{}`",
+                                    target_path
+                                )
+                                .as_str(),
                             ),
                             &module.file,
                             import.path_span,
                             json_errors,
                         ));
                     };
-                    let source = ExportSource::Package(package_module);
+                    let source = ExportSource::BundledPackage(package_module);
                     for item in items {
                         import_item(
                             module,
@@ -246,6 +257,7 @@ enum ExportSource<'a> {
     Std(&'a StdModuleIndex),
     Local(&'a Exports),
     Package(&'a PackageModuleIndex),
+    BundledPackage(&'a PackageModuleIndex),
 }
 
 impl ExportSource<'_> {
@@ -254,6 +266,7 @@ impl ExportSource<'_> {
             ExportSource::Std(module) => module.values.contains(name),
             ExportSource::Local(exports) => exports.values.contains(name),
             ExportSource::Package(module) => module.values.contains(name),
+            ExportSource::BundledPackage(module) => module.values.contains(name),
         }
     }
 
@@ -262,6 +275,7 @@ impl ExportSource<'_> {
             ExportSource::Std(module) => module.types.contains(name),
             ExportSource::Local(exports) => exports.types.contains(name),
             ExportSource::Package(module) => module.types.contains(name),
+            ExportSource::BundledPackage(module) => module.types.contains(name),
         }
     }
 
@@ -270,6 +284,7 @@ impl ExportSource<'_> {
             ExportSource::Std(_) => format!("{}::{}", module_path_or_prefix, name),
             ExportSource::Local(_) => qualify_name(module_path_or_prefix, name),
             ExportSource::Package(_) => format!("{}::{}", module_path_or_prefix, name),
+            ExportSource::BundledPackage(_) => format!("{}::{}", module_path_or_prefix, name),
         }
     }
 }
@@ -291,9 +306,17 @@ fn import_item(
     let is_type = source.has_type(name);
 
     if !is_value && !is_type {
+        let message = match source {
+            ExportSource::BundledPackage(_) => bundled_std_item_migration_message(
+                module_path,
+                name,
+                format!("module does not export item `{name}`").as_str(),
+            ),
+            _ => format!("module `{}` does not export item `{}`", module_path, name),
+        };
         return Err(module_error(
             "C021",
-            format!("module `{}` does not export item `{}`", module_path, name),
+            message,
             &module.file,
             span,
             json_errors,

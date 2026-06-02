@@ -267,10 +267,10 @@ Release policy during migration: **keep embedded linking deterministic and fail 
   - [x] 27.1.1 Make compiler-owned symbol tables derive only from the verified std ABI manifest, not from the full external std package surface. (`crates/typer`, `crates/codegen-wasm`, `crates/cli`) `Completed: 2026-05-31`.
   - [x] 27.1.2 Extend conformance tooling to fail closed on unauthorized compiler references to external-package-only symbols. (`xtask std-arch-conformance-check`, `xtask release-precheck`) `Completed: 2026-05-31`.
 
-- [ ] 27.2 External std packageization [Decoupling Gate C]
+- [x] 27.2 External std packageization [Decoupling Gate C] `Completed: 2026-06-02`.
   - [x] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.2-external-std-package-plan.v1.json`) `Completed: 2026-06-02`.
   - [x] 27.2.1 Keep host-capability boundaries, proof-critical semantics, and strict-release contracts inside the verified std ABI until equivalent explicit ABI contracts exist. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`) `Completed: 2026-06-02`.
-  - [ ] 27.2.2 Add migration shims and deterministic diagnostics for moved symbols, then remove compiler/package duplication once cutover is complete. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [x] 27.2.2 Add migration shims and deterministic diagnostics for moved symbols, then remove compiler/package duplication once cutover is complete. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`) `Completed: 2026-06-02`.
 
 - [ ] 27.3 Post-split linking and distribution gates [Decoupling Gate D]
   - [ ] 27.3.0 Re-evaluate precompiled/shared std delivery only after ABI extraction and external packageization are stable, audited, and release-precheck gated. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)

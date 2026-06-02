@@ -281,10 +281,10 @@ Release policy during migration: **keep embedded linking deterministic and fail 
 Execution order for shared std activation: **lock artifact contract -> integrate signed std packages into manifests/lockfiles -> implement loader/ABI verification -> wire release provenance -> decide activation policy**.
 Release policy during activation: **embedded std remains the safe default until shared std evidence and replay gates are fully green**.
 
-- [ ] 28.0 Shared std distribution architecture lock [Distribution Gate A]
+- [x] 28.0 Shared std distribution architecture lock [Distribution Gate A] `Completed: 2026-06-02`.
   - [x] 28.0.0 Publish the Phase 28 execution order, safety invariants, and non-goals for separately versioned std distribution. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
-  - [ ] 28.0.1 Lock canonical shared std artifact/manifest shape (package identity, ABI range, digest, signature envelope, provenance fields, and runtime-loader inputs). (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`)
-  - [ ] 28.0.2 Lock embedded-vs-shared activation semantics: explicit mode selection, fallback policy, and fail-closed diagnostics when the requested delivery mode cannot be satisfied. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`)
+  - [x] 28.0.1 Lock canonical shared std artifact/manifest shape (package identity, ABI range, digest, signature envelope, provenance fields, and runtime-loader inputs). (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
+  - [x] 28.0.2 Lock embedded-vs-shared activation semantics: explicit mode selection, fallback policy, and fail-closed diagnostics when the requested delivery mode cannot be satisfied. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
 
 - [ ] 28.1 Shared std package metadata and lock integration [Distribution Gate B]
   - [ ] 28.1.0 Extend canonical package metadata/lockfile inputs to represent separately versioned std package artifacts and verified-ABI requirements without overloading user package semantics.

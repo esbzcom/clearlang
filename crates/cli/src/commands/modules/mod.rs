@@ -6,6 +6,7 @@ use clg_ast::Program;
 use clg_ast::{Effect, Param, Type};
 use clg_typer::{BuiltinRoute, StdTypeInfo};
 
+mod bundled_std_packages;
 mod error;
 mod graph;
 pub(crate) mod host_capability_policy;

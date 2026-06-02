@@ -486,6 +486,70 @@ impl PackageMetadataIndex {
         }
         Ok(())
     }
+
+    pub(super) fn extend_external_imports(
+        &mut self,
+        imports: impl IntoIterator<Item = ExternalImportBinding>,
+    ) -> Result<()> {
+        for binding in imports {
+            if let Some(existing) = self
+                .external_imports
+                .iter()
+                .find(|existing| existing.function == binding.function)
+            {
+                if external_import_bindings_match(existing, &binding) {
+                    continue;
+                }
+                return Err(anyhow!(
+                    "duplicate value export `{}` in package ABI contracts",
+                    binding.function
+                ));
+            }
+
+            let module = self
+                .modules
+                .entry(binding.import_module.clone())
+                .or_insert_with(|| PackageModuleIndex {
+                    values: HashSet::new(),
+                    types: HashSet::new(),
+                });
+            if module.values.contains(binding.import_name.as_str())
+                && !self.external_imports.iter().any(|existing| {
+                    existing.import_module == binding.import_module
+                        && existing.import_name == binding.import_name
+                        && existing.function == binding.function
+                })
+            {
+                return Err(anyhow!(
+                    "duplicate value export `{}` in module `{}`",
+                    binding.import_name,
+                    binding.import_module
+                ));
+            }
+            module.values.insert(binding.import_name.clone());
+
+            self.external_imports.push(binding);
+        }
+
+        Ok(())
+    }
+}
+
+fn external_import_bindings_match(
+    left: &ExternalImportBinding,
+    right: &ExternalImportBinding,
+) -> bool {
+    left.function == right.function
+        && left.import_module == right.import_module
+        && left.import_name == right.import_name
+        && left.params.len() == right.params.len()
+        && left
+            .params
+            .iter()
+            .zip(right.params.iter())
+            .all(|(lhs, rhs)| lhs.kind == rhs.kind && lhs.ty == rhs.ty)
+        && left.ret == right.ret
+        && left.effect == right.effect
 }
 
 fn split_symbol(symbol: &str) -> Result<(&str, &str)> {
@@ -590,6 +654,105 @@ fn validate_artifact(name: &str, artifact: &RawPackageArtifact, _root: &Path) ->
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use clg_ast::{Effect, Param, ParamKind, Type};
+    use clg_typer::BuiltinRoute;
+
+    use super::{ExternalImportBinding, PackageMetadataIndex};
+
+    #[test]
+    fn extend_external_imports_indexes_modules_and_bindings() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_external_imports([ExternalImportBinding {
+                function: "std::str::len".to_string(),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "s".to_string(),
+                    ty: Type::String,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect("bundled external import should index cleanly");
+
+        let module = index
+            .module("std::str")
+            .expect("std::str module should exist");
+        assert!(module.values.contains("len"));
+        assert_eq!(index.external_imports().len(), 1);
+    }
+
+    #[test]
+    fn extend_external_imports_accepts_identical_duplicate_symbols() {
+        let mut index = PackageMetadataIndex::default();
+        let binding = ExternalImportBinding {
+            function: "std::str::len".to_string(),
+            import_module: "std::str".to_string(),
+            import_name: "len".to_string(),
+            params: vec![Param {
+                kind: ParamKind::Borrow,
+                name: "s".to_string(),
+                ty: Type::String,
+            }],
+            ret: Type::Int,
+            effect: Effect::Pure,
+            route: BuiltinRoute::Intrinsic,
+        };
+        index
+            .extend_external_imports([binding.clone()])
+            .expect("first import should succeed");
+        index
+            .extend_external_imports([binding])
+            .expect("identical duplicate import should be treated as idempotent");
+        assert_eq!(index.external_imports().len(), 1);
+    }
+
+    #[test]
+    fn extend_external_imports_rejects_conflicting_duplicate_symbols() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_external_imports([ExternalImportBinding {
+                function: "std::str::len".to_string(),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "s".to_string(),
+                    ty: Type::String,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect("first import should succeed");
+        let err = index
+            .extend_external_imports([ExternalImportBinding {
+                function: "std::str::len".to_string(),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "s".to_string(),
+                    ty: Type::Bytes,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect_err("conflicting duplicate import should fail");
+        assert!(
+            err.to_string()
+                .contains("duplicate value export `std::str::len`"),
+            "expected duplicate symbol rejection, got: {err}"
+        );
+    }
 }
 
 fn parse_effect(value: Option<&str>) -> Result<Effect> {

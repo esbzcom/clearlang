@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use clg_ast::{ImportKind, Span};
 
+use super::bundled_std_packages::is_bundled_std_text_module;
 use super::error::module_error;
 use super::package_metadata::{PackageMetadataIndex, PackageModuleIndex};
 use super::std_metadata::{std_metadata, StdModuleIndex};
@@ -46,7 +47,20 @@ pub(super) fn build_import_env(
                     json_errors,
                 )?;
 
-                if is_std {
+                if is_std && is_bundled_std_text_module(&target_path) {
+                    if packages.module(&target_path).is_none() {
+                        return Err(module_error(
+                            "C027",
+                            format!(
+                                "bundled std package metadata is missing module `{}`",
+                                target_path
+                            ),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        ));
+                    }
+                } else if is_std {
                     let std_index = std_metadata().map_err(|err| {
                         module_error(
                             "C027",
@@ -94,7 +108,35 @@ pub(super) fn build_import_env(
                 module_aliases.insert(alias_name, target_path.clone());
             }
             ImportKind::Items { items } => {
-                if is_std {
+                if is_std && is_bundled_std_text_module(&target_path) {
+                    let Some(package_module) = packages.module(&target_path) else {
+                        return Err(module_error(
+                            "C027",
+                            format!(
+                                "bundled std package metadata is missing module `{}`",
+                                target_path
+                            ),
+                            &module.file,
+                            import.path_span,
+                            json_errors,
+                        ));
+                    };
+                    let source = ExportSource::Package(package_module);
+                    for item in items {
+                        import_item(
+                            module,
+                            &module_aliases,
+                            &mut imported_values,
+                            &mut imported_types,
+                            &source,
+                            &target_path,
+                            &target_path,
+                            &item.name,
+                            item.span,
+                            json_errors,
+                        )?;
+                    }
+                } else if is_std {
                     let std_index = std_metadata().map_err(|err| {
                         module_error(
                             "C027",

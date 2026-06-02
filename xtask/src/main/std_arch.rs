@@ -1296,6 +1296,14 @@ fn is_authorized_external_package_compiler_reference(
         "crates/cli/src/commands/build/tests/core_contracts.rs" => {
             matches!(symbol, "std::bytes::len" | "std::str::len")
         }
+        "crates/cli/src/commands/modules/bundled_std_packages.rs" => {
+            symbol.starts_with("std::bytes::")
+                || symbol.starts_with("std::str::")
+                || symbol.starts_with("std::str_pattern::")
+        }
+        "crates/cli/src/commands/modules/package_metadata.rs" => {
+            matches!(symbol, "std::str::len")
+        }
         "crates/cli/src/commands/modules/verified_std_abi.rs" => {
             symbol == "std::contract::address::from_bytes"
         }

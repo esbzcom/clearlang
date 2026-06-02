@@ -10,6 +10,7 @@ use clg_typer::{builtin_route, non_abi_builtin_sigs};
 
 use crate::commands::helpers::{make_parse_json_error, CommandError};
 
+use super::bundled_std_packages::{bundled_std_text_external_imports, is_bundled_std_text_module};
 use super::error::module_error;
 use super::imports::build_import_env;
 use super::package_metadata::{PackageMetadataIndex, PACKAGE_METADATA_FILE};
@@ -21,7 +22,7 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
     let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let entry_abs = entry.canonicalize().unwrap_or_else(|_| entry.to_path_buf());
     let metadata_path = root.join(PACKAGE_METADATA_FILE);
-    let package_index = PackageMetadataIndex::load(&root).map_err(|err| {
+    let mut package_index = PackageMetadataIndex::load(&root).map_err(|err| {
         module_error(
             "C027",
             format!("invalid package metadata: {err:#}"),
@@ -30,6 +31,17 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
             json_errors,
         )
     })?;
+    package_index
+        .extend_external_imports(bundled_std_text_external_imports())
+        .map_err(|err| {
+            module_error(
+                "C027",
+                format!("invalid bundled std package metadata: {err:#}"),
+                &entry_abs,
+                Span { start: 0, end: 0 },
+                json_errors,
+            )
+        })?;
 
     let mut modules: Vec<ModuleUnit> = Vec::new();
     let mut by_path: HashMap<String, usize> = HashMap::new();
@@ -241,7 +253,7 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
     source_files.dedup();
 
     let mut external_imports = package_index.external_imports().to_vec();
-    external_imports.extend(bundled_std_external_imports());
+    external_imports.extend(bundled_non_packageized_std_external_imports());
 
     Ok(ProgramLoad {
         program: resolved,
@@ -251,9 +263,15 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
     })
 }
 
-fn bundled_std_external_imports() -> Vec<super::ExternalImportBinding> {
+fn bundled_non_packageized_std_external_imports() -> Vec<super::ExternalImportBinding> {
     non_abi_builtin_sigs()
         .into_iter()
+        .filter(|(function, _, _, _)| {
+            function
+                .rsplit_once("::")
+                .map(|(module, _)| !is_bundled_std_text_module(module))
+                .unwrap_or(true)
+        })
         .map(|(function, params, ret, effect)| {
             let (import_module, import_name) = function
                 .rsplit_once("::")

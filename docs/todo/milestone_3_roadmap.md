@@ -268,9 +268,8 @@ Release policy during migration: **keep embedded linking deterministic and fail 
   - [x] 27.1.2 Extend conformance tooling to fail closed on unauthorized compiler references to external-package-only symbols. (`xtask std-arch-conformance-check`, `xtask release-precheck`) `Completed: 2026-05-31`.
 
 - [ ] 27.2 External std packageization [Decoupling Gate C]
-  - [ ] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.2-external-std-package-plan.v1.json`)
-    - In progress: `std::text`, `std::int`, and `std::codec` imports now resolve through a bundled package overlay at the CLI module-loader boundary instead of resolving only through core std metadata. Remaining work is to reduce the compiler-side compatibility shims and complete the remaining Wave 1 cutover/de-duplication work.
-  - [ ] 27.2.1 Keep host-capability boundaries, proof-critical semantics, and strict-release contracts inside the verified std ABI until equivalent explicit ABI contracts exist. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
+  - [x] 27.2.0 Externalize pure/helper-first std modules that do not require hidden compiler knowledge, starting with convenience helpers over `std::bytes`, `std::str`, `std::int`, and higher-level codec helpers. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`, `docs/design/phase-27.2-external-std-package-plan.v1.json`) `Completed: 2026-06-02`.
+  - [x] 27.2.1 Keep host-capability boundaries, proof-critical semantics, and strict-release contracts inside the verified std ABI until equivalent explicit ABI contracts exist. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`) `Completed: 2026-06-02`.
   - [ ] 27.2.2 Add migration shims and deterministic diagnostics for moved symbols, then remove compiler/package duplication once cutover is complete. (`docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`)
 
 - [ ] 27.3 Post-split linking and distribution gates [Decoupling Gate D]

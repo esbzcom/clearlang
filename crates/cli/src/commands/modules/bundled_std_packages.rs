@@ -242,4 +242,25 @@ mod tests {
         assert!(symbols.contains("std::decoder::read_bool"));
         assert!(symbols.contains("std::decode_error::equals"));
     }
+
+    #[test]
+    fn bundled_std_package_modules_exclude_verified_abi_boundaries() {
+        let bundled = bundled_std_package_modules();
+        for protected in [
+            "std::core",
+            "std::crypto",
+            "std::env",
+            "std::host",
+            "std::list",
+            "std::map",
+            "std::set",
+            "std::unit",
+            "std::wasi",
+        ] {
+            assert!(
+                !bundled.contains(protected),
+                "bundled std package overlay must not include verified-abi/protected module `{protected}`"
+            );
+        }
+    }
 }

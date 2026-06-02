@@ -1310,6 +1310,10 @@ fn is_authorized_external_package_compiler_reference(
         }
         "crates/cli/src/commands/modules/package_metadata.rs" => {
             matches!(symbol, "std::str::len")
+                || symbol.starts_with("std::encoder::")
+                || symbol.starts_with("std::decoder::")
+                || symbol.starts_with("std::encode_error::")
+                || symbol.starts_with("std::decode_error::")
         }
         "crates/cli/src/commands/modules/verified_std_abi.rs" => {
             symbol == "std::contract::address::from_bytes"

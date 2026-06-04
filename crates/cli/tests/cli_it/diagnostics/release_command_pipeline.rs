@@ -1122,3 +1122,304 @@ fn verify_bundle_fails_closed_when_provenance_signature_payload_is_tampered() {
         "expected provenance signature failure detail, got: {text}"
     );
 }
+
+#[test]
+fn verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let out_dir = root.join("out").join("release");
+    let strict_import_map = out_dir.join("main.strict-import-map.json");
+    let mut strict_import_map_json: Value =
+        serde_json::from_slice(&fs::read(&strict_import_map).expect("read strict import-map"))
+            .expect("parse strict import-map");
+    let shared_std = strict_import_map_json
+        .get_mut("shared_std")
+        .and_then(Value::as_array_mut)
+        .expect("shared_std array");
+    shared_std.push(serde_json::json!({
+        "package_id": "std::text",
+        "version": "1.2.0",
+        "verified_std_abi": {
+            "major": 1,
+            "minor_min": 0,
+            "minor_max": 0
+        },
+        "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "signature_key_id": "std-publisher-ed25519-2026q2",
+        "provenance_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }));
+    fs::write(
+        &strict_import_map,
+        serde_json::to_vec_pretty(&strict_import_map_json).expect("serialize strict import-map"),
+    )
+    .expect("write strict import-map");
+
+    let bundle = out_dir.join("main.release-bundle.json");
+    let mut bundle_json: Value =
+        serde_json::from_slice(&fs::read(&bundle).expect("read bundle")).expect("parse bundle");
+    let strict_import_map_hash = hex::encode(Sha256::digest(
+        fs::read(&strict_import_map).expect("read strict import-map"),
+    ));
+    if let Some(artifacts) = bundle_json.get_mut("artifacts").and_then(Value::as_object_mut) {
+        if let Some(entry) = artifacts
+            .get_mut("strict_import_map")
+            .and_then(Value::as_object_mut)
+        {
+            entry.insert("sha256".to_string(), Value::String(strict_import_map_hash));
+        }
+    }
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&bundle_json).expect("serialize bundle"),
+    )
+    .expect("write bundle");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for tampered strict import-map shared_std evidence, got: {text}"
+    );
+    assert!(
+        text.contains("strict import-map shared std evidence mismatch"),
+        "expected shared std parity detail, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let out_dir = root.join("out").join("release");
+    let bundle = out_dir.join("main.release-bundle.json");
+    let mut bundle_json: Value =
+        serde_json::from_slice(&fs::read(&bundle).expect("read bundle")).expect("parse bundle");
+    bundle_json
+        .get_mut("shared_std")
+        .and_then(Value::as_array_mut)
+        .expect("shared_std array")
+        .push(serde_json::json!({
+            "package_id": "std::text",
+            "version": "1.2.0",
+            "verified_std_abi": {
+                "major": 1,
+                "minor_min": 0,
+                "minor_max": 0
+            },
+            "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "signature_key_id": "std-publisher-ed25519-2026q2",
+            "provenance_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }));
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&bundle_json).expect("serialize bundle"),
+    )
+    .expect("write bundle");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for tampered bundle shared_std evidence, got: {text}"
+    );
+    assert!(
+        text.contains("shared std provenance mismatch"),
+        "expected shared std parity detail, got: {text}"
+    );
+}
+
+#[test]
+fn verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let out_dir = root.join("out").join("release");
+    let provenance = out_dir.join("main.provenance.json");
+    let mut provenance_json: Value =
+        serde_json::from_slice(&fs::read(&provenance).expect("read provenance"))
+            .expect("parse provenance");
+    let payload = provenance_json
+        .get_mut("payload")
+        .and_then(Value::as_object_mut)
+        .expect("payload object");
+    payload.insert(
+        "shared_std".to_string(),
+        serde_json::json!([{
+            "package_id": "std::text",
+            "version": "1.2.0",
+            "verified_std_abi": {
+                "major": 1,
+                "minor_min": 0,
+                "minor_max": 0
+            },
+            "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "signature_key_id": "std-publisher-ed25519-2026q2",
+            "provenance_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }]),
+    );
+    let payload_value = provenance_json
+        .get("payload")
+        .cloned()
+        .expect("payload clone for resign");
+    clg_cli::signing::sign_assurance_manifest(
+        payload_value,
+        &key_path,
+        "release-2026q2",
+        &provenance,
+    )
+    .expect("re-sign provenance");
+
+    let bundle = out_dir.join("main.release-bundle.json");
+    let mut bundle_json: Value =
+        serde_json::from_slice(&fs::read(&bundle).expect("read bundle")).expect("parse bundle");
+    let prov_hash = hex::encode(Sha256::digest(fs::read(&provenance).expect("read provenance")));
+    if let Some(artifacts) = bundle_json.get_mut("artifacts").and_then(Value::as_object_mut) {
+        if let Some(entry) = artifacts.get_mut("provenance").and_then(Value::as_object_mut) {
+            entry.insert("sha256".to_string(), Value::String(prov_hash));
+        }
+    }
+    fs::write(
+        &bundle,
+        serde_json::to_vec_pretty(&bundle_json).expect("serialize bundle"),
+    )
+    .expect("write bundle");
+
+    let out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "verify-bundle", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).expect("utf8");
+    assert!(
+        text.contains("\"code\": \"C140\""),
+        "expected C140 for tampered provenance shared_std evidence, got: {text}"
+    );
+    assert!(
+        text.contains("shared std provenance mismatch"),
+        "expected shared std parity detail, got: {text}"
+    );
+}

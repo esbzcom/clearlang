@@ -143,6 +143,7 @@ struct StrictImportMapSharedStdEvidence {
     verified_std_abi: StrictImportMapSharedStdAbiClaim,
     artifact_digest: String,
     signature_key_id: String,
+    provenance_digest: String,
 }
 
 #[derive(Clone, Debug, serde::Serialize, Eq, PartialEq, Ord, PartialOrd)]
@@ -216,6 +217,13 @@ fn strict_import_map_shared_std_evidence(
             .ok_or_else(|| {
                 format!("shared std package `{package_id}@{version}` is missing `signature.key_id`")
             })?;
+        let provenance_digest = package
+            .get("provenance")
+            .and_then(|value| value.get("statement_digest"))
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `provenance.statement_digest`")
+            })?;
         let major = verified_std_abi
             .get("major")
             .and_then(serde_json::Value::as_u64)
@@ -244,6 +252,7 @@ fn strict_import_map_shared_std_evidence(
             },
             artifact_digest: artifact_digest.to_string(),
             signature_key_id: signature_key_id.to_string(),
+            provenance_digest: provenance_digest.to_string(),
         });
     }
     out.sort();

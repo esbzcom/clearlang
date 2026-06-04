@@ -512,6 +512,15 @@ pub fn run_verify_bundle(
             json_errors,
         )?;
     }
+    {
+        let _stage = timings.start(logger, "verify_bundle_shared_std");
+        verify_bundle_strict_import_map_shared_std_parity(
+            &manifest,
+            bundle_dir.as_path(),
+            bundle.as_path(),
+            json_errors,
+        )?;
+    }
 
     {
         let _stage = timings.start(logger, "verify_bundle_signature");
@@ -1128,6 +1137,67 @@ fn verify_bundle_provenance(
         return Err(release_error(
             VERIFY_BUNDLE_ERROR_CODE,
             message,
+            bundle_path,
+            json_errors,
+        ));
+    }
+    Ok(())
+}
+
+fn verify_bundle_strict_import_map_shared_std_parity(
+    manifest: &ReleaseBundleManifestV1,
+    bundle_dir: &Path,
+    bundle_path: &Path,
+    json_errors: bool,
+) -> Result<()> {
+    const VERIFY_BUNDLE_ERROR_CODE: &str = "C140";
+    let strict_import_map_path =
+        resolve_manifest_path(manifest.artifacts.strict_import_map.path.as_str(), bundle_dir);
+    let bytes = fs::read(strict_import_map_path.as_path()).map_err(|err| {
+        release_error(
+            VERIFY_BUNDLE_ERROR_CODE,
+            format!(
+                "reading strict import-map `{}` for shared std parity: {err}",
+                strict_import_map_path.display()
+            ),
+            bundle_path,
+            json_errors,
+        )
+    })?;
+    let import_map: JsonValue = serde_json::from_slice(bytes.as_slice()).map_err(|err| {
+        release_error(
+            VERIFY_BUNDLE_ERROR_CODE,
+            format!(
+                "parsing strict import-map `{}` for shared std parity: {err}",
+                strict_import_map_path.display()
+            ),
+            bundle_path,
+            json_errors,
+        )
+    })?;
+    let import_map_shared_std =
+        parse_release_shared_std_package_evidence_value(import_map.get("shared_std")).map_err(
+            |err| {
+                release_error(
+                    VERIFY_BUNDLE_ERROR_CODE,
+                    format!(
+                        "strict import-map `{}` has invalid `shared_std` evidence: {err}",
+                        strict_import_map_path.display()
+                    ),
+                    bundle_path,
+                    json_errors,
+                )
+            },
+        )?;
+    if let Some(message) =
+        release_shared_std_parity_violation(manifest.shared_std.as_slice(), &import_map_shared_std)
+    {
+        return Err(release_error(
+            VERIFY_BUNDLE_ERROR_CODE,
+            format!(
+                "strict import-map shared std evidence mismatch for `{}`: {message}",
+                strict_import_map_path.display()
+            ),
             bundle_path,
             json_errors,
         ));

@@ -1243,4 +1243,58 @@ locked surface:
 
         (package_metadata_path, runtime_link_path)
     }
+
+    #[test]
+    fn shared_std_distribution_gate_accepts_completed_markers_and_required_evidence_hooks() {
+        let roadmap = r#"
+- [x] 28.0.1
+- [x] 28.0.2
+- [x] 28.1.0
+- [x] 28.1.1
+- [x] 28.1.2
+- [x] 28.2.0
+- [x] 28.2.1
+- [x] 28.2.2
+- [x] 28.3.0
+- [x] 28.3.1
+- [x] 28.3.2
+"#;
+        let release = r#"
+fn collect_release_shared_std_package_evidence() {}
+fn verify_bundle_strict_import_map_shared_std_parity() {}
+let _stage = timings.start(logger, "verify_bundle_shared_std");
+let marker = "shared_std";
+"#;
+        let strict_artifact = r#"let marker = "shared_std";"#;
+        let tests = r#"
+fn verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered() {}
+fn verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered() {}
+fn verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered() {}
+"#;
+
+        let blockers = evaluate_shared_std_distribution_gate(
+            roadmap,
+            release,
+            strict_artifact,
+            tests,
+        );
+        assert!(blockers.is_empty(), "expected no blockers, got {blockers:?}");
+    }
+
+    #[test]
+    fn shared_std_distribution_gate_reports_missing_roadmap_and_test_coverage() {
+        let blockers = evaluate_shared_std_distribution_gate("", "", "", "");
+        assert!(
+            blockers.iter().any(|line| line.contains("28.3.2")),
+            "expected roadmap blocker, got {blockers:?}"
+        );
+        assert!(
+            blockers
+                .iter()
+                .any(|line| line.contains(
+                    "verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered"
+                )),
+            "expected shared std test blocker, got {blockers:?}"
+        );
+    }
 }

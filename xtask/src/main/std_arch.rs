@@ -395,6 +395,113 @@ fn run_std_first_production_readiness_check(
     }
 }
 
+fn run_shared_std_distribution_check(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    if !raw_args.is_empty() {
+        return Err("shared-std-distribution-check does not accept args".to_string());
+    }
+    let roadmap_path = root.join("docs").join("todo").join("milestone_3_roadmap.md");
+    let release_path = root.join("crates").join("cli").join("src").join("commands").join("release.rs");
+    let strict_artifact_path = root
+        .join("crates")
+        .join("cli")
+        .join("src")
+        .join("commands")
+        .join("build")
+        .join("strict_artifact.rs");
+    let release_tests_path = root
+        .join("crates")
+        .join("cli")
+        .join("tests")
+        .join("cli_it")
+        .join("diagnostics")
+        .join("release_command_pipeline.rs");
+
+    let roadmap_raw =
+        fs::read_to_string(&roadmap_path).map_err(|e| format!("read `{}`: {e}", roadmap_path.display()))?;
+    let release_raw =
+        fs::read_to_string(&release_path).map_err(|e| format!("read `{}`: {e}", release_path.display()))?;
+    let strict_artifact_raw = fs::read_to_string(&strict_artifact_path)
+        .map_err(|e| format!("read `{}`: {e}", strict_artifact_path.display()))?;
+    let release_tests_raw = fs::read_to_string(&release_tests_path)
+        .map_err(|e| format!("read `{}`: {e}", release_tests_path.display()))?;
+
+    let blockers = evaluate_shared_std_distribution_gate(
+        &roadmap_raw,
+        &release_raw,
+        &strict_artifact_raw,
+        &release_tests_raw,
+    );
+    if blockers.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "shared std distribution gate blockers:\n - {}",
+            blockers.join("\n - ")
+        ))
+    }
+}
+
+fn evaluate_shared_std_distribution_gate(
+    roadmap_raw: &str,
+    release_raw: &str,
+    strict_artifact_raw: &str,
+    release_tests_raw: &str,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    for marker in [
+        "- [x] 28.0.1",
+        "- [x] 28.0.2",
+        "- [x] 28.1.0",
+        "- [x] 28.1.1",
+        "- [x] 28.1.2",
+        "- [x] 28.2.0",
+        "- [x] 28.2.1",
+        "- [x] 28.2.2",
+        "- [x] 28.3.0",
+        "- [x] 28.3.1",
+        "- [x] 28.3.2",
+    ] {
+        if !roadmap_raw.contains(marker) {
+            blockers.push(format!(
+                "roadmap gate missing required completed task marker `{marker}`"
+            ));
+        }
+    }
+
+    for needle in [
+        "collect_release_shared_std_package_evidence",
+        "verify_bundle_shared_std",
+        "verify_bundle_strict_import_map_shared_std_parity",
+        "\"shared_std\"",
+    ] {
+        if !release_raw.contains(needle) {
+            blockers.push(format!(
+                "release evidence path is missing required shared std marker `{needle}`"
+            ));
+        }
+    }
+
+    if !strict_artifact_raw.contains("\"shared_std\"") {
+        blockers.push(
+            "strict import-map artifact is missing `shared_std` evidence projection".to_string(),
+        );
+    }
+
+    for test_name in [
+        "verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered",
+        "verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered",
+        "verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered",
+    ] {
+        if !release_tests_raw.contains(test_name) {
+            blockers.push(format!(
+                "release pipeline shared std parity test is missing `{test_name}`"
+            ));
+        }
+    }
+
+    blockers
+}
+
 fn parse_std_arch_sync_args(raw_args: Vec<String>) -> Result<StdArchSyncOpts, String> {
     let mut write = false;
     let mut refresh_lock = false;

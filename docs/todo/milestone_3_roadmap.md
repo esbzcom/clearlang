@@ -301,6 +301,6 @@ Release policy during activation: **embedded std remains the safe default until 
   - [x] 28.3.1 Add verify/verify-bundle enforcement for shared std provenance parity with embedded release artifacts.
   - [x] 28.3.2 Add deterministic negative test matrix for tampered/missing/incompatible shared std evidence paths.
 
-- [ ] 28.4 Activation and rollout decision [Distribution Gate E]
-  - [ ] 28.4.0 Wire shared std distribution checks into `xtask release-precheck` and CI so the full evidence chain is gated before any activation decision.
-  - [ ] 28.4.1 Publish rollout decision: remain experimental, enable for selected profiles, or defer again; record explicit rationale and default behavior.
+- [x] 28.4 Activation and rollout decision [Distribution Gate E]
+  - [x] 28.4.0 Wire shared std distribution checks into `xtask release-precheck` and CI so the full evidence chain is gated before any activation decision.
+  - [x] 28.4.1 Publish rollout decision: remain experimental, enable for selected profiles, or defer again; record explicit rationale and default behavior.

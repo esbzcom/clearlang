@@ -46,6 +46,9 @@ fn main() -> Result<(), String> {
         "std-first-production-readiness-check" => {
             run_std_first_production_readiness_check(&root, args.collect())?
         }
+        "shared-std-distribution-check" => {
+            run_shared_std_distribution_check(&root, args.collect())?
+        }
         "host-capability-policy-artifact" => {
             emit_host_capability_policy_artifact(&root, args.collect())?
         }
@@ -97,6 +100,7 @@ fn run_release_precheck(root: &Path) -> Result<(), String> {
     cargo_cmd(root, &["test", "--workspace"])?;
     run_manifest_lock_drift_gate(root, Vec::new())?;
     run_std_arch_conformance_check(root, Vec::new())?;
+    run_shared_std_distribution_check(root, Vec::new())?;
     run_clg_test_schema_gate(root)?;
     Ok(())
 }

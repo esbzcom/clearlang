@@ -142,6 +142,9 @@ fn print_help() {
         "  std-first-production-readiness-check (phase 26 must-have std closure audit)"
     );
     println!(
+        "  shared-std-distribution-check (phase 28 shared std release/provenance/verify-bundle activation gate)"
+    );
+    println!(
         "  host-capability-policy-artifact [--emit-artifact DIR] [--refresh-lock] (phase 21 host policy gate)"
     );
     println!("  milestone2-perf-gate [--portability-smoke|--self-test]");

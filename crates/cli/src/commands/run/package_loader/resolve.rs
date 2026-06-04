@@ -11,6 +11,8 @@ fn resolve_runtime_link_packages(
     store_by_id_digest: &HashMap<(String, String), PackageStoreArtifactV0>,
     availability_policy: &RuntimeAvailabilityPolicy,
 ) -> Result<Vec<LoadedRuntimePackage>, RuntimePackageLoaderError> {
+    let selected_runtime_package_ids: std::collections::HashSet<&str> =
+        packages.iter().map(|pkg| pkg.id.as_str()).collect();
     let mut loaded_packages = Vec::with_capacity(packages.len());
     for pkg in packages {
         let locked_shared_std = lockfile.shared_std_by_id.get(pkg.id.as_str());
@@ -118,6 +120,26 @@ fn resolve_runtime_link_packages(
                         supported_minor_max
                     ),
                 ));
+            }
+            for dependency_id in &shared_std.dependencies {
+                if !lockfile.shared_std_by_id.contains_key(dependency_id.as_str()) {
+                    return Err(RuntimePackageLoaderError::new(
+                        "R015",
+                        format!(
+                            "runtime shared std ABI mismatch for `{}`: shared std dependency `{}` is unresolved outside the locked shared std package set",
+                            pkg.id, dependency_id
+                        ),
+                    ));
+                }
+                if !selected_runtime_package_ids.contains(dependency_id.as_str()) {
+                    return Err(RuntimePackageLoaderError::new(
+                        "R015",
+                        format!(
+                            "runtime shared std ABI mismatch for `{}`: required shared std dependency `{}` is missing from runtime-link package selection",
+                            pkg.id, dependency_id
+                        ),
+                    ));
+                }
             }
         }
 

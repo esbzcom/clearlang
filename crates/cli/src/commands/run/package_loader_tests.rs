@@ -582,6 +582,173 @@ fn rejects_shared_std_runtime_link_with_unsupported_verified_abi_minor_range() {
 }
 
 #[test]
+fn rejects_shared_std_runtime_link_with_unresolved_shared_std_dependency() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    let digest = format!("sha256:{}", sha256_hex("artifact".as_bytes()));
+    let lockfile = serde_json::json!({
+        "schema_version": 2,
+        "resolver_version": 1,
+        "roots": [],
+        "packages": [],
+        "std": {
+            "delivery": "shared",
+            "packages": [
+                {
+                    "package_id": "std::text",
+                    "version": "1.2.0",
+                    "verified_std_abi": {
+                        "major": 1,
+                        "minor_min": 0,
+                        "minor_max": 0
+                    },
+                    "artifact": {
+                        "format": "wasm",
+                        "path": "std-packages/std-text-1.2.0.wasm",
+                        "digest": digest,
+                        "size_bytes": 8
+                    },
+                    "signature": {
+                        "key_id": "k1",
+                        "algorithm": "ed25519",
+                        "signed_at": "2026-06-01T00:00:00Z",
+                        "signature": "placeholder"
+                    },
+                    "provenance": {
+                        "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "statement_format": "in-toto-v1"
+                    },
+                    "symbols": ["std::bytes", "std::str", "std::str_pattern"],
+                    "dependencies": ["std::codec@1.2.0"]
+                }
+            ]
+        }
+    });
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        serde_json::to_string_pretty(&lockfile)
+            .expect("serialize shared std lockfile")
+            .as_str(),
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("unresolved shared std dependency should fail");
+    assert_eq!(err.code(), "R015");
+    assert!(
+        err.message()
+            .contains("unresolved outside the locked shared std package set"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+#[test]
+fn rejects_shared_std_runtime_link_lockfile_digest_mismatch_with_r013() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        r#"{
+  "schema_version": 2,
+  "resolver_version": 1,
+  "roots": [],
+  "packages": [],
+  "std": {
+    "delivery": "shared",
+    "packages": [
+      {
+        "package_id": "std::text",
+        "version": "1.2.0",
+        "verified_std_abi": {
+          "major": 1,
+          "minor_min": 0,
+          "minor_max": 0
+        },
+        "artifact": {
+          "format": "wasm",
+          "path": "std-packages/std-text-1.2.0.wasm",
+          "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_bytes": 8
+        },
+        "signature": {
+          "key_id": "k1",
+          "algorithm": "ed25519",
+          "signed_at": "2026-06-01T00:00:00Z",
+          "signature": "placeholder"
+        },
+        "provenance": {
+          "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "statement_format": "in-toto-v1"
+        },
+        "symbols": ["std::bytes", "std::str", "std::str_pattern"],
+        "dependencies": []
+      }
+    ]
+  }
+}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("shared std digest mismatch should fail");
+    assert_eq!(err.code(), "R013");
+    assert!(
+        err.message().contains("lockfile std digest"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+#[test]
+fn rejects_shared_std_runtime_link_missing_store_artifact_with_r012() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(PACKAGE_STORE_INDEX_FILE).as_path(),
+        r#"{"schema_version":0,"artifacts":[]}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("missing shared std artifact should fail");
+    assert_eq!(err.code(), "R012");
+    assert!(
+        err.message().contains("missing from trusted local store/index"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+#[test]
+fn rejects_shared_std_runtime_link_missing_signature_entry_with_r014() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(STRICT_PACKAGE_SIGNATURES_FILE).as_path(),
+        r#"{"schema_version":0,"signatures":[]}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("missing shared std signature should fail");
+    assert_eq!(err.code(), "R014");
+    assert!(
+        err.message().contains("missing signature entry"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+#[test]
 fn rejects_runtime_link_hash_mismatch_with_r017() {
     let tmp = tempfile::tempdir().expect("tempdir");
     write_baseline_runtime_artifacts(tmp.path(), "artifact");

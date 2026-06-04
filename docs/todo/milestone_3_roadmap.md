@@ -291,10 +291,10 @@ Release policy during activation: **embedded std remains the safe default until 
   - [x] 28.1.1 Add deterministic resolver/lock validation for shared std package identities, ABI ranges, signer requirements, and digest pinning. (`docs/design/phase-28.1.1-shared-std-resolver-lock-validation.md`) `Completed: 2026-06-04`.
   - [x] 28.1.2 Add fail-closed migration/coexistence diagnostics for projects that mix embedded-only assumptions with shared std package inputs. (`docs/design/phase-28.1.2-shared-std-migration-coexistence-diagnostics.md`) `Completed: 2026-06-04`.
 
-- [ ] 28.2 Shared std loader and ABI verification [Distribution Gate C]
+- [x] 28.2 Shared std loader and ABI verification [Distribution Gate C] `Completed: 2026-06-04`.
   - [x] 28.2.0 Implement runtime/link-time shared std artifact discovery and exact-identity selection from locked inputs only. (`crates/cli/src/commands/run/package_loader/{prelude.rs,lockfile.rs,resolve.rs}`, `crates/cli/src/commands/run/package_loader_tests.rs`) `Completed: 2026-06-04`.
-  - [ ] 28.2.1 Implement fail-closed verified std ABI compatibility validation before loading/link activation.
-  - [ ] 28.2.2 Implement deterministic runtime diagnostics for missing artifact, digest mismatch, trust failure, ABI mismatch, and loader replay mismatch using the locked runtime error family.
+  - [x] 28.2.1 Implement fail-closed verified std ABI compatibility validation before loading/link activation. (`crates/cli/src/commands/modules/verified_std_abi.rs`, `crates/cli/src/commands/run/package_loader/{prelude.rs,lockfile.rs,resolve.rs}`, `crates/cli/src/commands/run/package_loader_tests.rs`) `Completed: 2026-06-04`.
+  - [x] 28.2.2 Implement deterministic runtime diagnostics for missing artifact, digest mismatch, trust failure, ABI mismatch, and loader replay mismatch using the locked runtime error family. (`crates/cli/src/commands/run/package_loader_tests.rs`, `crates/cli/src/commands/run/package_loader/{entry.rs,resolve.rs}`) `Completed: 2026-06-04`.
 
 - [ ] 28.3 Release evidence and provenance parity [Distribution Gate D]
   - [ ] 28.3.0 Extend release manifest / strict import-map / verify-bundle evidence to include selected shared std package identities, digests, signer ids, and ABI claims.

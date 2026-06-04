@@ -852,6 +852,7 @@ fn load_runtime_lockfile_evidence(
                         abi_major: shared_pkg.verified_std_abi.major,
                         abi_minor_min: shared_pkg.verified_std_abi.minor_min,
                         abi_minor_max: shared_pkg.verified_std_abi.minor_max,
+                        dependencies: shared_pkg.dependencies,
                     },
                 ) {
                     return Err(RuntimePackageLoaderError::new(

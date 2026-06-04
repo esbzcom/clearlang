@@ -278,6 +278,7 @@ struct RuntimeSharedStdLockEntry {
     abi_major: u32,
     abi_minor_min: u32,
     abi_minor_max: u32,
+    dependencies: Vec<String>,
 }
 
 #[derive(Clone, Debug)]

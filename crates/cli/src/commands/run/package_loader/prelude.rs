@@ -275,6 +275,9 @@ struct RuntimeLockfileEvidence {
 struct RuntimeSharedStdLockEntry {
     artifact_path: String,
     digest: String,
+    abi_major: u32,
+    abi_minor_min: u32,
+    abi_minor_max: u32,
 }
 
 #[derive(Clone, Debug)]

@@ -1,3 +1,5 @@
+use crate::commands::modules::verified_std_abi_supported_minor_range;
+
 #[allow(clippy::too_many_arguments)]
 fn resolve_runtime_link_packages(
     root: &Path,
@@ -90,6 +92,34 @@ fn resolve_runtime_link_packages(
         let selected_artifact_path = locked_shared_std
             .map(|entry| entry.artifact_path.as_str())
             .unwrap_or(pkg.artifact_path.as_str());
+        if let Some(shared_std) = locked_shared_std {
+            let (supported_major, supported_minor_min, supported_minor_max) =
+                verified_std_abi_supported_minor_range();
+            if shared_std.abi_major != supported_major {
+                return Err(RuntimePackageLoaderError::new(
+                    "R015",
+                    format!(
+                        "runtime shared std ABI mismatch for `{}`: package requires verified std ABI major `{}`, but compiler supports major `{}`",
+                        pkg.id, shared_std.abi_major, supported_major
+                    ),
+                ));
+            }
+            if shared_std.abi_minor_min < supported_minor_min
+                || shared_std.abi_minor_max > supported_minor_max
+            {
+                return Err(RuntimePackageLoaderError::new(
+                    "R015",
+                    format!(
+                        "runtime shared std ABI mismatch for `{}`: package requires verified std ABI minor range `{}..={}`, but compiler supports `{}..={}`",
+                        pkg.id,
+                        shared_std.abi_minor_min,
+                        shared_std.abi_minor_max,
+                        supported_minor_min,
+                        supported_minor_max
+                    ),
+                ));
+            }
+        }
 
         let signature = signatures.get(pkg.id.as_str()).ok_or_else(|| {
             RuntimePackageLoaderError::new(

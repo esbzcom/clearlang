@@ -193,8 +193,8 @@ fn write_shared_std_runtime_artifacts_v2(root: &Path, artifact_text: &str) {
                         "version": "1.2.0",
                         "verified_std_abi": {
                             "major": 1,
-                            "minor_min": 3,
-                            "minor_max": 3
+                            "minor_min": 0,
+                            "minor_max": 0
                         },
                         "artifact": {
                             "format": "wasm",
@@ -516,6 +516,69 @@ fn rejects_shared_std_runtime_link_artifact_path_mismatch_with_r017() {
     .expect_err("artifact path mismatch should fail");
     assert_eq!(err.code(), "R017");
     assert!(err.message().contains("lockfile std artifact path"));
+}
+
+#[test]
+fn rejects_shared_std_runtime_link_with_unsupported_verified_abi_minor_range() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    let digest = format!("sha256:{}", sha256_hex("artifact".as_bytes()));
+    let lockfile = serde_json::json!({
+        "schema_version": 2,
+        "resolver_version": 1,
+        "roots": [],
+        "packages": [],
+        "std": {
+            "delivery": "shared",
+            "packages": [
+                {
+                    "package_id": "std::text",
+                    "version": "1.2.0",
+                    "verified_std_abi": {
+                        "major": 1,
+                        "minor_min": 9,
+                        "minor_max": 9
+                    },
+                    "artifact": {
+                        "format": "wasm",
+                        "path": "std-packages/std-text-1.2.0.wasm",
+                        "digest": digest,
+                        "size_bytes": 8
+                    },
+                    "signature": {
+                        "key_id": "k1",
+                        "algorithm": "ed25519",
+                        "signed_at": "2026-06-01T00:00:00Z",
+                        "signature": "placeholder"
+                    },
+                    "provenance": {
+                        "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "statement_format": "in-toto-v1"
+                    },
+                    "symbols": ["std::bytes", "std::str", "std::str_pattern"],
+                    "dependencies": []
+                }
+            ]
+        }
+    });
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        serde_json::to_string_pretty(&lockfile)
+            .expect("serialize shared std lockfile")
+            .as_str(),
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("unsupported verified abi minor range should fail");
+    assert_eq!(err.code(), "R015");
+    assert!(
+        err.message().contains("runtime shared std ABI mismatch"),
+        "unexpected message: {}",
+        err.message()
+    );
 }
 
 #[test]

@@ -42,7 +42,9 @@ pub fn std_type_info() -> Result<HashMap<String, StdTypeInfo>> {
     std_metadata::std_type_info()
 }
 
-pub(crate) use verified_std_abi::verified_std_abi_value_symbols;
+pub(crate) use verified_std_abi::{
+    verified_std_abi_supported_minor_range, verified_std_abi_value_symbols,
+};
 
 struct Exports {
     values: HashSet<String>,

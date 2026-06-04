@@ -849,6 +849,9 @@ fn load_runtime_lockfile_evidence(
                     RuntimeSharedStdLockEntry {
                         artifact_path: new_artifact_path,
                         digest: new_digest.clone(),
+                        abi_major: shared_pkg.verified_std_abi.major,
+                        abi_minor_min: shared_pkg.verified_std_abi.minor_min,
+                        abi_minor_max: shared_pkg.verified_std_abi.minor_max,
                     },
                 ) {
                     return Err(RuntimePackageLoaderError::new(

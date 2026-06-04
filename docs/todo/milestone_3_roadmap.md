@@ -287,7 +287,7 @@ Release policy during activation: **embedded std remains the safe default until 
   - [x] 28.0.2 Lock embedded-vs-shared activation semantics: explicit mode selection, fallback policy, and fail-closed diagnostics when the requested delivery mode cannot be satisfied. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
 
 - [ ] 28.1 Shared std package metadata and lock integration [Distribution Gate B]
-  - [ ] 28.1.0 Extend canonical package metadata/lockfile inputs to represent separately versioned std package artifacts and verified-ABI requirements without overloading user package semantics.
+  - [x] 28.1.0 Extend canonical package metadata/lockfile inputs to represent separately versioned std package artifacts and verified-ABI requirements without overloading user package semantics. (`docs/design/phase-28.1.0-shared-std-manifest-lock-extension.md`) `Completed: 2026-06-04`.
   - [ ] 28.1.1 Add deterministic resolver/lock validation for shared std package identities, ABI ranges, signer requirements, and digest pinning.
   - [ ] 28.1.2 Add fail-closed migration/coexistence diagnostics for projects that mix embedded-only assumptions with shared std package inputs.
 

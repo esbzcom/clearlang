@@ -42,6 +42,8 @@ struct ReleaseBundleManifestV1 {
     advisory_as_of: String,
     key_id: String,
     trust_policy: String,
+    #[serde(default)]
+    shared_std: Vec<ReleaseSharedStdPackageEvidence>,
     artifacts: ReleaseArtifacts,
     orchestration: Vec<ReleaseStageStatus>,
 }
@@ -69,6 +71,67 @@ struct ReleaseArtifactFile {
 struct ReleaseStageStatus {
     stage: String,
     status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
+struct ReleaseSharedStdPackageEvidence {
+    package_id: String,
+    version: String,
+    verified_std_abi: ReleaseSharedStdAbiClaim,
+    artifact_digest: String,
+    signature_key_id: String,
+    provenance_digest: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
+struct ReleaseSharedStdAbiClaim {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdLockfileV2 {
+    schema_version: u32,
+    std: RawReleaseSharedStdSectionV2,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdSectionV2 {
+    delivery: String,
+    packages: Vec<RawReleaseSharedStdPackageV2>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdPackageV2 {
+    package_id: String,
+    version: String,
+    verified_std_abi: RawReleaseSharedStdAbiClaimV2,
+    artifact: RawReleaseSharedStdArtifactV2,
+    signature: RawReleaseSharedStdSignatureV2,
+    provenance: RawReleaseSharedStdProvenanceV2,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdAbiClaimV2 {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdArtifactV2 {
+    digest: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdSignatureV2 {
+    key_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawReleaseSharedStdProvenanceV2 {
+    statement_digest: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -308,6 +371,14 @@ pub fn run(
             logger,
         )?;
     }
+    let shared_std = collect_release_shared_std_package_evidence(root.as_path()).map_err(|err| {
+        release_error(
+            "C130",
+            format!("loading shared std release evidence: {err:#}"),
+            file.as_path(),
+            json_errors,
+        )
+    })?;
     {
         let _stage = timings.start(logger, "release_provenance");
         write_release_provenance(
@@ -318,6 +389,7 @@ pub fn run(
             file.as_path(),
             root.as_path(),
             &paths,
+            shared_std.as_slice(),
         )?;
     }
     let bundle_manifest = {
@@ -330,6 +402,7 @@ pub fn run(
             key_id.as_str(),
             verify_trust_policy.as_path(),
             &paths,
+            shared_std.as_slice(),
         )?
     };
 
@@ -601,6 +674,7 @@ fn write_release_bundle_manifest(
     key_id: &str,
     trust_policy: &Path,
     paths: &ReleasePaths,
+    shared_std: &[ReleaseSharedStdPackageEvidence],
 ) -> Result<ReleaseBundleManifestV1> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -622,6 +696,7 @@ fn write_release_bundle_manifest(
         advisory_as_of: advisory_as_of.to_string(),
         key_id: key_id.to_string(),
         trust_policy: trust_policy.display().to_string(),
+        shared_std: shared_std.to_vec(),
         artifacts: ReleaseArtifacts {
             module: artifact_file(paths.module.as_path())?,
             strict_import_map: artifact_file(paths.strict_import_map.as_path())?,
@@ -682,6 +757,7 @@ fn write_release_provenance(
     entry: &Path,
     root: &Path,
     paths: &ReleasePaths,
+    shared_std: &[ReleaseSharedStdPackageEvidence],
 ) -> Result<()> {
     let payload = serde_json::json!({
         "kind": "clearlang.release_provenance",
@@ -698,9 +774,80 @@ fn write_release_provenance(
             "proof_sha256": sha256_hex(&fs::read(paths.proof.as_path()).with_context(|| format!("reading {}", paths.proof.display()))?),
             "signature_sha256": sha256_hex(&fs::read(paths.signature.as_path()).with_context(|| format!("reading {}", paths.signature.display()))?),
             "assurance_manifest_sha256": sha256_hex(&fs::read(paths.assurance_manifest.as_path()).with_context(|| format!("reading {}", paths.assurance_manifest.display()))?),
-        }
+        },
+        "shared_std": shared_std,
     });
     signing::sign_assurance_manifest(payload, signing_key, key_id, path)
+}
+
+fn collect_release_shared_std_package_evidence(
+    root: &Path,
+) -> Result<Vec<ReleaseSharedStdPackageEvidence>> {
+    let lock_path = root.join("clg.lock.json");
+    if !lock_path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = fs::read(&lock_path).with_context(|| format!("reading {}", lock_path.display()))?;
+    let value: JsonValue = serde_json::from_slice(bytes.as_slice())
+        .with_context(|| format!("parsing {}", lock_path.display()))?;
+    let schema_version = value
+        .get("schema_version")
+        .and_then(JsonValue::as_u64)
+        .unwrap_or(0);
+    if schema_version != 2 {
+        return Ok(Vec::new());
+    }
+    let raw: RawReleaseSharedStdLockfileV2 = serde_json::from_value(value)
+        .with_context(|| format!("decoding shared std schema v2 from {}", lock_path.display()))?;
+    debug_assert_eq!(raw.schema_version, 2);
+    if raw.std.delivery != "shared" {
+        return Ok(Vec::new());
+    }
+
+    let mut out = raw
+        .std
+        .packages
+        .into_iter()
+        .map(|package| ReleaseSharedStdPackageEvidence {
+            package_id: package.package_id,
+            version: package.version,
+            verified_std_abi: ReleaseSharedStdAbiClaim {
+                major: package.verified_std_abi.major,
+                minor_min: package.verified_std_abi.minor_min,
+                minor_max: package.verified_std_abi.minor_max,
+            },
+            artifact_digest: package.artifact.digest,
+            signature_key_id: package.signature.key_id,
+            provenance_digest: package.provenance.statement_digest,
+        })
+        .collect::<Vec<_>>();
+    out.sort();
+    Ok(out)
+}
+
+fn parse_release_shared_std_package_evidence_value(
+    value: Option<&JsonValue>,
+) -> std::result::Result<Vec<ReleaseSharedStdPackageEvidence>, String> {
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    let mut entries: Vec<ReleaseSharedStdPackageEvidence> =
+        serde_json::from_value(value.clone()).map_err(|err| err.to_string())?;
+    entries.sort();
+    Ok(entries)
+}
+
+fn release_shared_std_parity_violation(
+    expected: &[ReleaseSharedStdPackageEvidence],
+    actual: &[ReleaseSharedStdPackageEvidence],
+) -> Option<String> {
+    (expected != actual).then(|| {
+        format!(
+            "shared std provenance mismatch: bundle manifest records {} entries but provenance payload records {} entries",
+            expected.len(),
+            actual.len()
+        )
+    })
 }
 
 fn resolve_release_artifact_paths(
@@ -957,6 +1104,30 @@ fn verify_bundle_provenance(
                 "provenance `release_signature_key_id` ({}) does not match release signature key_id ({})",
                 signature_key_id, release_signature.key_id
             ),
+            bundle_path,
+            json_errors,
+        ));
+    }
+    let provenance_shared_std =
+        parse_release_shared_std_package_evidence_value(payload.get("shared_std")).map_err(
+            |err| {
+                release_error(
+                    VERIFY_BUNDLE_ERROR_CODE,
+                    format!(
+                        "provenance payload in `{}` has invalid `shared_std` evidence: {err}",
+                        provenance_path.display()
+                    ),
+                    bundle_path,
+                    json_errors,
+                )
+            },
+        )?;
+    if let Some(message) =
+        release_shared_std_parity_violation(manifest.shared_std.as_slice(), &provenance_shared_std)
+    {
+        return Err(release_error(
+            VERIFY_BUNDLE_ERROR_CODE,
+            message,
             bundle_path,
             json_errors,
         ));
@@ -1256,8 +1427,11 @@ fn release_error(
 #[cfg(test)]
 mod tests {
     use super::{
-        discover_manifest_roots, is_release_discovery_ignored_dir, path_has_tests_or_mocks,
+        collect_release_shared_std_package_evidence, discover_manifest_roots,
+        is_release_discovery_ignored_dir, path_has_tests_or_mocks,
+        parse_release_shared_std_package_evidence_value, release_shared_std_parity_violation,
         validate_release_import_map_has_no_test_paths, ReleasePaths,
+        ReleaseSharedStdAbiClaim, ReleaseSharedStdPackageEvidence,
     };
     use crate::commands::release_defaults::STRICT_PROJECT_FILE;
     use serde_json::json;
@@ -1357,5 +1531,98 @@ mod tests {
         let roots = discover_manifest_roots(tmp.path().join("workspace").as_path())
             .expect("discover manifest roots");
         assert_eq!(roots, vec![project]);
+    }
+
+    #[test]
+    fn collect_release_shared_std_package_evidence_reads_schema_v2_lockfile() {
+        let tmp = tempdir().expect("tempdir");
+        let lockfile = json!({
+            "schema_version": 2,
+            "std": {
+                "delivery": "shared",
+                "packages": [
+                    {
+                        "package_id": "std::text",
+                        "version": "1.2.0",
+                        "verified_std_abi": {
+                            "major": 1,
+                            "minor_min": 0,
+                            "minor_max": 0
+                        },
+                        "artifact": {
+                            "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        },
+                        "signature": {
+                            "key_id": "std-publisher-ed25519-2026q2"
+                        },
+                        "provenance": {
+                            "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                        }
+                    }
+                ]
+            }
+        });
+        fs::write(
+            tmp.path().join("clg.lock.json"),
+            serde_json::to_vec_pretty(&lockfile).expect("serialize lockfile"),
+        )
+        .expect("write lockfile");
+
+        let shared_std =
+            collect_release_shared_std_package_evidence(tmp.path()).expect("shared std evidence");
+        assert_eq!(
+            shared_std,
+            vec![ReleaseSharedStdPackageEvidence {
+                package_id: "std::text".to_string(),
+                version: "1.2.0".to_string(),
+                verified_std_abi: ReleaseSharedStdAbiClaim {
+                    major: 1,
+                    minor_min: 0,
+                    minor_max: 0,
+                },
+                artifact_digest:
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        .to_string(),
+                signature_key_id: "std-publisher-ed25519-2026q2".to_string(),
+                provenance_digest:
+                    "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                        .to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn release_shared_std_parity_violation_detects_manifest_provenance_mismatch() {
+        let manifest = vec![ReleaseSharedStdPackageEvidence {
+            package_id: "std::text".to_string(),
+            version: "1.2.0".to_string(),
+            verified_std_abi: ReleaseSharedStdAbiClaim {
+                major: 1,
+                minor_min: 0,
+                minor_max: 0,
+            },
+            artifact_digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_string(),
+            signature_key_id: "std-publisher-ed25519-2026q2".to_string(),
+            provenance_digest:
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                    .to_string(),
+        }];
+        let provenance = parse_release_shared_std_package_evidence_value(Some(&json!([{
+            "package_id": "std::text",
+            "version": "1.2.0",
+            "verified_std_abi": {
+                "major": 1,
+                "minor_min": 0,
+                "minor_max": 1
+            },
+            "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "signature_key_id": "std-publisher-ed25519-2026q2",
+            "provenance_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }])))
+        .expect("parse provenance shared std");
+        let message = release_shared_std_parity_violation(manifest.as_slice(), provenance.as_slice())
+            .expect("parity mismatch");
+        assert!(message.contains("shared std provenance mismatch"));
     }
 }

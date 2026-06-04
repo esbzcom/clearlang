@@ -106,6 +106,10 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
             "artifact hash should be lowercase sha256 hex"
         );
     }
+    assert!(
+        bundle.get("shared_std").and_then(|v| v.as_array()).is_some(),
+        "bundle manifest should include shared_std[] evidence"
+    );
     let strict_import_map_path = bundle
         .get("artifacts")
         .and_then(|v| v.get("strict_import_map"))
@@ -125,6 +129,33 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
             .map(|files| !files.is_empty())
             .unwrap_or(false),
         "strict import-map artifact should include source_files[] evidence"
+    );
+    assert!(
+        strict_import_map
+            .get("shared_std")
+            .and_then(|v| v.as_array())
+            .is_some(),
+        "strict import-map artifact should include shared_std[] evidence"
+    );
+    let provenance_path = bundle
+        .get("artifacts")
+        .and_then(|v| v.get("provenance"))
+        .and_then(|v| v.get("path"))
+        .and_then(|v| v.as_str())
+        .expect("provenance artifact path");
+    let provenance: Value = serde_json::from_slice(
+        fs::read(provenance_path)
+            .expect("read provenance artifact")
+            .as_slice(),
+    )
+    .expect("parse provenance artifact");
+    assert!(
+        provenance
+            .get("payload")
+            .and_then(|v| v.get("shared_std"))
+            .and_then(|v| v.as_array())
+            .is_some(),
+        "provenance payload should include shared_std[] evidence"
     );
 }
 

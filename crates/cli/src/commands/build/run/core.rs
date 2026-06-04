@@ -99,8 +99,8 @@ pub fn run(
         let _stage = timings.start(logger, "parse");
         load_program(&file, json_errors)?
     };
+    let module_root = file.parent().unwrap_or_else(|| Path::new("."));
     if release_profile == ReleaseProfile::Production {
-        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
         if let Some(message) =
             release_module_graph_test_path_violation(module_root, loaded.source_files.as_slice())
         {
@@ -108,10 +108,8 @@ pub fn run(
         }
     }
     let ast = &loaded.program;
-    let strict_import_map_source_files = {
-        let module_root = file.parent().unwrap_or_else(|| Path::new("."));
-        strict_import_map_source_files(module_root, loaded.source_files.as_slice())
-    };
+    let strict_import_map_source_files =
+        strict_import_map_source_files(module_root, loaded.source_files.as_slice());
     let (
         external_typer_sigs_for_typecheck,
         external_typer_sigs_for_link_resolution,
@@ -306,10 +304,24 @@ pub fn run(
                 sort_strict_gate_violations(replay_outcome.violations.as_mut_slice());
             }
             let mut violations = baseline_outcome.violations.clone();
+            let strict_import_map_shared_std = match strict_import_map_shared_std_evidence(module_root)
+            {
+                Ok(entries) => entries,
+                Err(message) => {
+                    violations.push(StrictGateViolation {
+                        code: "C108",
+                        package: "_".to_string(),
+                        symbol: "_".to_string(),
+                        message: format!("strict import-map shared std evidence load failed: {message}"),
+                    });
+                    Vec::new()
+                }
+            };
             let strict_import_map_artifact = match strict_import_map_artifact_with_determinism_check(
                 &bindings.expected_profiles,
                 host_profile,
                 strict_import_map_source_files.as_slice(),
+                strict_import_map_shared_std.as_slice(),
                 &baseline_outcome,
                 &replay_outcome,
             ) {

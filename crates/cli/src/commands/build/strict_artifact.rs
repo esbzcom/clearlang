@@ -33,6 +33,7 @@ fn strict_import_map_artifact_with_determinism_check(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
     source_files: &[String],
+    shared_std: &[StrictImportMapSharedStdEvidence],
     baseline_outcome: &StrictGateOutcome,
     replay_outcome: &StrictGateOutcome,
 ) -> std::result::Result<StrictImportMapArtifact, String> {
@@ -40,6 +41,7 @@ fn strict_import_map_artifact_with_determinism_check(
         expected_profiles,
         host_profile,
         source_files,
+        shared_std,
         baseline_outcome.linked_imports.as_slice(),
         baseline_outcome.violations.as_slice(),
     );
@@ -50,6 +52,7 @@ fn strict_import_map_artifact_with_determinism_check(
         expected_profiles,
         host_profile,
         source_files,
+        shared_std,
         replay_outcome.linked_imports.as_slice(),
         replay_outcome.violations.as_slice(),
     );
@@ -76,6 +79,7 @@ fn strict_import_map_artifact_json(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
     source_files: &[String],
+    shared_std: &[StrictImportMapSharedStdEvidence],
     linked_imports: &[(String, AbiLinkProfile)],
     diagnostics: &[StrictGateViolation],
 ) -> serde_json::Value {
@@ -126,9 +130,124 @@ fn strict_import_map_artifact_json(
         "kind": "clg.strict_direct_dependency_import_map.v0",
         "host_profile": host_profile.profile,
         "source_files": source_files,
+        "shared_std": shared_std,
         "imports": imports,
         "diagnostics": diagnostics_json,
     })
+}
+
+#[derive(Clone, Debug, serde::Serialize, Eq, PartialEq, Ord, PartialOrd)]
+struct StrictImportMapSharedStdEvidence {
+    package_id: String,
+    version: String,
+    verified_std_abi: StrictImportMapSharedStdAbiClaim,
+    artifact_digest: String,
+    signature_key_id: String,
+}
+
+#[derive(Clone, Debug, serde::Serialize, Eq, PartialEq, Ord, PartialOrd)]
+struct StrictImportMapSharedStdAbiClaim {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+fn strict_import_map_shared_std_evidence(
+    module_root: &Path,
+) -> std::result::Result<Vec<StrictImportMapSharedStdEvidence>, String> {
+    let lock_path = module_root.join("clg.lock.json");
+    if !lock_path.exists() {
+        return Ok(Vec::new());
+    }
+    let bytes = fs::read(&lock_path)
+        .map_err(|err| format!("reading shared std lockfile `{}`: {err}", lock_path.display()))?;
+    let value: serde_json::Value = serde_json::from_slice(bytes.as_slice())
+        .map_err(|err| format!("parsing shared std lockfile `{}`: {err}", lock_path.display()))?;
+    let schema_version = value
+        .get("schema_version")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    if schema_version != 2 {
+        return Ok(Vec::new());
+    }
+    let delivery = value
+        .get("std")
+        .and_then(|value| value.get("delivery"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("embedded");
+    if delivery != "shared" {
+        return Ok(Vec::new());
+    }
+    let Some(packages) = value
+        .get("std")
+        .and_then(|value| value.get("packages"))
+        .and_then(serde_json::Value::as_array)
+    else {
+        return Ok(Vec::new());
+    };
+
+    let mut out = Vec::with_capacity(packages.len());
+    for package in packages {
+        let package_id = package
+            .get("package_id")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "shared std package is missing `package_id`".to_string())?;
+        let version = package
+            .get("version")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| format!("shared std package `{package_id}` is missing `version`"))?;
+        let verified_std_abi = package
+            .get("verified_std_abi")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi`")
+            })?;
+        let artifact_digest = package
+            .get("artifact")
+            .and_then(|value| value.get("digest"))
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `artifact.digest`")
+            })?;
+        let signature_key_id = package
+            .get("signature")
+            .and_then(|value| value.get("key_id"))
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `signature.key_id`")
+            })?;
+        let major = verified_std_abi
+            .get("major")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi.major`")
+            })?;
+        let minor_min = verified_std_abi
+            .get("minor_min")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi.minor_min`")
+            })?;
+        let minor_max = verified_std_abi
+            .get("minor_max")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi.minor_max`")
+            })?;
+        out.push(StrictImportMapSharedStdEvidence {
+            package_id: package_id.to_string(),
+            version: version.to_string(),
+            verified_std_abi: StrictImportMapSharedStdAbiClaim {
+                major: major as u32,
+                minor_min: minor_min as u32,
+                minor_max: minor_max as u32,
+            },
+            artifact_digest: artifact_digest.to_string(),
+            signature_key_id: signature_key_id.to_string(),
+        });
+    }
+    out.sort();
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -136,6 +255,7 @@ fn strict_determinism_violation(
     expected_profiles: &std::collections::BTreeMap<String, AbiLinkProfile>,
     host_profile: &StrictHostProfileV0,
     source_files: &[String],
+    shared_std: &[StrictImportMapSharedStdEvidence],
     linked_imports: &[(String, AbiLinkProfile)],
     baseline_diagnostics: &[StrictGateViolation],
 ) -> Option<String> {
@@ -157,6 +277,7 @@ fn strict_determinism_violation(
         expected_profiles,
         host_profile,
         source_files,
+        shared_std,
         &baseline_outcome,
         &replay_outcome,
     )

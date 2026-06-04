@@ -33,6 +33,7 @@
             &bindings.expected_profiles,
             &host_profile,
             &[],
+            &[],
             linked.as_slice(),
             diagnostics.as_slice(),
         )
@@ -91,6 +92,7 @@
             &bindings.expected_profiles,
             &host_profile,
             &[],
+            &[],
             linked.as_slice(),
             diagnostics.as_slice(),
         )
@@ -120,6 +122,7 @@
         let artifact = strict_import_map_artifact_with_determinism_check(
             &expected_profiles,
             &host_profile,
+            &[],
             &[],
             &baseline_outcome,
             &replay_outcome,

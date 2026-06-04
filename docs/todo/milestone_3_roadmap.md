@@ -286,13 +286,13 @@ Release policy during activation: **embedded std remains the safe default until 
   - [x] 28.0.1 Lock canonical shared std artifact/manifest shape (package identity, ABI range, digest, signature envelope, provenance fields, and runtime-loader inputs). (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
   - [x] 28.0.2 Lock embedded-vs-shared activation semantics: explicit mode selection, fallback policy, and fail-closed diagnostics when the requested delivery mode cannot be satisfied. (`docs/design/phase-28.0-shared-std-distribution-design-lock.md`) `Completed: 2026-06-02`.
 
-- [ ] 28.1 Shared std package metadata and lock integration [Distribution Gate B]
+- [x] 28.1 Shared std package metadata and lock integration [Distribution Gate B] `Completed: 2026-06-04`.
   - [x] 28.1.0 Extend canonical package metadata/lockfile inputs to represent separately versioned std package artifacts and verified-ABI requirements without overloading user package semantics. (`docs/design/phase-28.1.0-shared-std-manifest-lock-extension.md`) `Completed: 2026-06-04`.
-  - [ ] 28.1.1 Add deterministic resolver/lock validation for shared std package identities, ABI ranges, signer requirements, and digest pinning.
-  - [ ] 28.1.2 Add fail-closed migration/coexistence diagnostics for projects that mix embedded-only assumptions with shared std package inputs.
+  - [x] 28.1.1 Add deterministic resolver/lock validation for shared std package identities, ABI ranges, signer requirements, and digest pinning. (`docs/design/phase-28.1.1-shared-std-resolver-lock-validation.md`) `Completed: 2026-06-04`.
+  - [x] 28.1.2 Add fail-closed migration/coexistence diagnostics for projects that mix embedded-only assumptions with shared std package inputs. (`docs/design/phase-28.1.2-shared-std-migration-coexistence-diagnostics.md`) `Completed: 2026-06-04`.
 
 - [ ] 28.2 Shared std loader and ABI verification [Distribution Gate C]
-  - [ ] 28.2.0 Implement runtime/link-time shared std artifact discovery and exact-identity selection from locked inputs only.
+  - [x] 28.2.0 Implement runtime/link-time shared std artifact discovery and exact-identity selection from locked inputs only. (`crates/cli/src/commands/run/package_loader/{prelude.rs,lockfile.rs,resolve.rs}`, `crates/cli/src/commands/run/package_loader_tests.rs`) `Completed: 2026-06-04`.
   - [ ] 28.2.1 Implement fail-closed verified std ABI compatibility validation before loading/link activation.
   - [ ] 28.2.2 Implement deterministic runtime diagnostics for missing artifact, digest mismatch, trust failure, ABI mismatch, and loader replay mismatch using the locked runtime error family.
 

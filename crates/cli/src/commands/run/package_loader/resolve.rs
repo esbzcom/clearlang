@@ -11,6 +11,7 @@ fn resolve_runtime_link_packages(
 ) -> Result<Vec<LoadedRuntimePackage>, RuntimePackageLoaderError> {
     let mut loaded_packages = Vec::with_capacity(packages.len());
     for pkg in packages {
+        let locked_shared_std = lockfile.shared_std_by_id.get(pkg.id.as_str());
         validate_runtime_package_id(pkg.id.as_str()).map_err(|msg| {
             RuntimePackageLoaderError::new(
                 "R012",
@@ -41,27 +42,55 @@ fn resolve_runtime_link_packages(
                 format!("runtime link package `{}` has empty abi_id", pkg.id),
             ));
         }
-        match lockfile.digests_by_id.get(pkg.id.as_str()) {
-            Some(locked_digest) if locked_digest == &pkg.digest => {}
-            Some(locked_digest) => {
+        if let Some(shared_std) = locked_shared_std {
+            if shared_std.digest != pkg.digest {
                 return Err(RuntimePackageLoaderError::new(
                     "R013",
                     format!(
-                        "runtime link package `{}` digest `{}` does not match lockfile digest `{}`",
-                        pkg.id, pkg.digest, locked_digest
+                        "runtime link shared std package `{}` digest `{}` does not match lockfile std digest `{}`",
+                        pkg.id, pkg.digest, shared_std.digest
                     ),
                 ));
             }
-            None => {
+            if shared_std.artifact_path != pkg.artifact_path {
                 return Err(RuntimePackageLoaderError::new(
-                    "R013",
+                    "R017",
                     format!(
-                        "runtime link package `{}` is not pinned in `{}`",
-                        pkg.id, STRICT_LOCKFILE_FILE
+                        "runtime link shared std package `{}` artifact path `{}` does not match lockfile std artifact path `{}`",
+                        pkg.id, pkg.artifact_path, shared_std.artifact_path
                     ),
                 ));
+            }
+        } else {
+            match lockfile.digests_by_id.get(pkg.id.as_str()) {
+                Some(locked_digest) if locked_digest == &pkg.digest => {}
+                Some(locked_digest) => {
+                    return Err(RuntimePackageLoaderError::new(
+                        "R013",
+                        format!(
+                            "runtime link package `{}` digest `{}` does not match lockfile digest `{}`",
+                            pkg.id, pkg.digest, locked_digest
+                        ),
+                    ));
+                }
+                None => {
+                    return Err(RuntimePackageLoaderError::new(
+                        "R013",
+                        format!(
+                            "runtime link package `{}` is not pinned in `{}`",
+                            pkg.id, STRICT_LOCKFILE_FILE
+                        ),
+                    ));
+                }
             }
         }
+        let selected_digest = locked_shared_std
+            .map(|entry| entry.digest.as_str())
+            .unwrap_or(pkg.digest.as_str());
+        let selected_artifact_path = locked_shared_std
+            .map(|entry| entry.artifact_path.as_str())
+            .unwrap_or(pkg.artifact_path.as_str());
+
         let signature = signatures.get(pkg.id.as_str()).ok_or_else(|| {
             RuntimePackageLoaderError::new(
                 "R014",
@@ -71,12 +100,12 @@ fn resolve_runtime_link_packages(
                 ),
             )
         })?;
-        if signature.digest != pkg.digest {
+        if signature.digest != selected_digest {
             return Err(RuntimePackageLoaderError::new(
                 "R014",
                 format!(
                     "runtime trust gate failed for `{}`: signature digest `{}` does not match runtime-link digest `{}`",
-                    pkg.id, signature.digest, pkg.digest
+                    pkg.id, signature.digest, selected_digest
                 ),
             ));
         }
@@ -165,12 +194,8 @@ fn resolve_runtime_link_packages(
                 format!("runtime trust gate failed for `{}`: {msg}", pkg.id),
             )
         })?;
-        let payload = canonical_signature_payload_v0(
-            name,
-            version,
-            signature.digest.as_str(),
-            signature.signed_at.as_str(),
-        );
+        let payload =
+            canonical_signature_payload_v0(name, version, selected_digest, signature.signed_at.as_str());
         verifying
             .verify_strict(payload.as_bytes(), &signature_bytes)
             .map_err(|_| {
@@ -183,30 +208,31 @@ fn resolve_runtime_link_packages(
                 )
             })?;
 
-        let Some(store_artifact) = store_by_id_digest.get(&(pkg.id.clone(), pkg.digest.clone()))
+        let Some(store_artifact) =
+            store_by_id_digest.get(&(pkg.id.clone(), selected_digest.to_string()))
         else {
             return Err(RuntimePackageLoaderError::new(
                 "R012",
                 format!(
                     "runtime package artifact `{}` with digest `{}` is missing from trusted local store/index",
-                    pkg.id, pkg.digest
+                    pkg.id, selected_digest
                 ),
             ));
         };
-        if store_artifact.path != pkg.artifact_path {
+        if store_artifact.path != selected_artifact_path {
             return Err(RuntimePackageLoaderError::new(
                 "R017",
                 format!(
                     "runtime link package `{}` artifact path `{}` does not match store index path `{}`",
-                    pkg.id, pkg.artifact_path, store_artifact.path
+                    pkg.id, selected_artifact_path, store_artifact.path
                 ),
             ));
         }
         let resolved_path = resolve_runtime_artifact_with_availability_policy(
             root,
             pkg.id.as_str(),
-            pkg.digest.as_str(),
-            store_artifact.path.as_str(),
+            selected_digest,
+            selected_artifact_path,
             availability_policy,
         )?;
         loaded_packages.push(LoadedRuntimePackage {

@@ -173,6 +173,72 @@ struct RawStrictPackageV1 {
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawStrictLockfileV2 {
+    schema_version: u32,
+    resolver_version: u32,
+    roots: Vec<RawStrictRootV1>,
+    packages: Vec<RawStrictPackageV1>,
+    std: RawStrictStdSectionV2,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawStrictStdSectionV2 {
+    delivery: String,
+    #[serde(default)]
+    packages: Vec<RawSharedStdPackageV2>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSharedStdPackageV2 {
+    package_id: String,
+    version: String,
+    verified_std_abi: RawSharedStdAbiV2,
+    artifact: RawSharedStdArtifactV2,
+    signature: RawSharedStdSignatureV2,
+    provenance: RawSharedStdProvenanceV2,
+    #[serde(default)]
+    symbols: Vec<String>,
+    #[serde(default)]
+    dependencies: Vec<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSharedStdAbiV2 {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSharedStdArtifactV2 {
+    format: String,
+    path: String,
+    digest: String,
+    size_bytes: u64,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSharedStdSignatureV2 {
+    key_id: String,
+    algorithm: String,
+    signed_at: String,
+    signature: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSharedStdProvenanceV2 {
+    statement_digest: String,
+    statement_format: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawSignatureRootV0 {
     schema_version: u32,
     signatures: Vec<RawSignatureEntryV0>,
@@ -202,6 +268,13 @@ struct RuntimePackageSignatureEntry {
 struct RuntimeLockfileEvidence {
     resolver_version: Option<u32>,
     digests_by_id: HashMap<String, String>,
+    shared_std_by_id: HashMap<String, RuntimeSharedStdLockEntry>,
+}
+
+#[derive(Clone, Debug)]
+struct RuntimeSharedStdLockEntry {
+    artifact_path: String,
+    digest: String,
 }
 
 #[derive(Clone, Debug)]

@@ -129,6 +129,143 @@ fn write_baseline_runtime_artifacts(root: &Path, artifact_text: &str) {
     );
 }
 
+fn write_shared_std_runtime_artifacts_v2(root: &Path, artifact_text: &str) {
+    let store_dir = root.join("std-packages");
+    fs::create_dir_all(&store_dir).expect("create std-packages dir");
+    write_file(store_dir.join("std-text-1.2.0.wasm").as_path(), artifact_text);
+
+    let digest = format!("sha256:{}", sha256_hex(artifact_text.as_bytes()));
+    let package_id = "std::text@1.2.0";
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": package_id,
+                "digest": digest,
+                "artifact_path": "std-packages/std-text-1.2.0.wasm",
+                "abi_id": "abi:std:text:1.2.0"
+            }
+        ],
+        "bindings": []
+    });
+    write_file(
+        root.join(RUNTIME_LINK_FILE).as_path(),
+        serde_json::to_string_pretty(&runtime_link)
+            .expect("serialize runtime-link")
+            .as_str(),
+    );
+    write_file(
+        root.join(RUNTIME_LINK_HASH_FILE).as_path(),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        )
+        .as_str(),
+    );
+    write_file(
+        root.join(PACKAGE_STORE_INDEX_FILE).as_path(),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "artifacts": [
+                {
+                    "id": package_id,
+                    "digest": digest,
+                    "path": "std-packages/std-text-1.2.0.wasm"
+                }
+            ]
+        }))
+        .expect("serialize store index")
+        .as_str(),
+    );
+    write_file(
+        root.join(STRICT_LOCKFILE_FILE).as_path(),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema_version": 2,
+            "resolver_version": 1,
+            "roots": [],
+            "packages": [],
+            "std": {
+                "delivery": "shared",
+                "packages": [
+                    {
+                        "package_id": "std::text",
+                        "version": "1.2.0",
+                        "verified_std_abi": {
+                            "major": 1,
+                            "minor_min": 3,
+                            "minor_max": 3
+                        },
+                        "artifact": {
+                            "format": "wasm",
+                            "path": "std-packages/std-text-1.2.0.wasm",
+                            "digest": digest,
+                            "size_bytes": artifact_text.len()
+                        },
+                        "signature": {
+                            "key_id": "k1",
+                            "algorithm": "ed25519",
+                            "signed_at": "2026-06-01T00:00:00Z",
+                            "signature": "placeholder"
+                        },
+                        "provenance": {
+                            "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                            "statement_format": "in-toto-v1"
+                        },
+                        "symbols": ["std::bytes", "std::str", "std::str_pattern"],
+                        "dependencies": []
+                    }
+                ]
+            }
+        }))
+        .expect("serialize lockfile")
+        .as_str(),
+    );
+
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signed_at = "2026-06-01T00:00:00Z";
+    let payload = canonical_signature_payload_v0("std::text", "1.2.0", digest.as_str(), signed_at);
+    let signature = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+
+    write_file(
+        root.join("clg.trust-policy.json").as_path(),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "trusted_signers": [
+                {
+                    "key_id": "k1",
+                    "scheme": "ed25519",
+                    "public_key": format!("hex:{}", hex::encode(signing.verifying_key().to_bytes())),
+                    "not_before": "2026-01-01T00:00:00Z",
+                    "not_after": "2027-01-01T00:00:00Z"
+                }
+            ],
+            "revoked_key_ids": []
+        }))
+        .expect("serialize trust policy")
+        .as_str(),
+    );
+    write_file(
+        root.join(STRICT_PACKAGE_SIGNATURES_FILE).as_path(),
+        serde_json::to_string_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "signatures": [
+                {
+                    "name": "std::text",
+                    "version": "1.2.0",
+                    "digest": digest,
+                    "key_id": "k1",
+                    "signed_at": signed_at,
+                    "signature_format": "ed25519",
+                    "signature": signature
+                }
+            ]
+        }))
+        .expect("serialize signature file")
+        .as_str(),
+    );
+}
+
 #[test]
 fn returns_none_when_runtime_link_is_absent() {
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -275,6 +412,110 @@ fn loads_runtime_packages_from_local_store_index() {
     .expect("runtime-link present");
     assert_eq!(loaded.packages.len(), 1);
     assert_eq!(loaded.packages[0].id, "pkg::a@1.0.0");
+}
+
+#[test]
+fn loads_shared_std_packages_from_lockfile_v2_std_section() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(
+        tmp.path(),
+        "(module (func (export \"main\") (result i32) i32.const 0))",
+    );
+
+    let loaded = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect("load runtime packages")
+    .expect("runtime-link present");
+    assert_eq!(loaded.packages.len(), 1);
+    assert_eq!(loaded.packages[0].id, "std::text@1.2.0");
+    assert_eq!(
+        loaded.packages[0].resolved_path,
+        tmp.path().join("std-packages").join("std-text-1.2.0.wasm")
+    );
+}
+
+#[test]
+fn rejects_shared_std_runtime_link_when_only_pinned_in_normal_package_space() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    write_file(
+        tmp.path().join(STRICT_LOCKFILE_FILE).as_path(),
+        r#"{
+  "schema_version": 2,
+  "resolver_version": 1,
+  "roots": [],
+  "packages": [
+    {
+      "id": "std::text@1.2.0",
+      "name": "std::text",
+      "version": "1.2.0",
+      "digest": "sha256:c7c5c1d70c5dec441d7d17042f8bbf5be4c4bf4a4c8f89f46b5f58211a711000",
+      "abi_id": "abi:std:text:1.2.0",
+      "dependencies": []
+    }
+  ],
+  "std": {
+    "delivery": "shared",
+    "packages": []
+  }
+}"#,
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("shared std package must come from std package space");
+    assert_eq!(err.code(), "R013");
+    assert!(
+        err.message().contains("`std.packages[]` is empty"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+#[test]
+fn rejects_shared_std_runtime_link_artifact_path_mismatch_with_r017() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    write_shared_std_runtime_artifacts_v2(tmp.path(), "artifact");
+    let digest = format!("sha256:{}", sha256_hex("artifact".as_bytes()));
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": "std::text@1.2.0",
+                "digest": digest,
+                "artifact_path": "std-packages/other-name.wasm",
+                "abi_id": "abi:std:text:1.2.0"
+            }
+        ],
+        "bindings": []
+    });
+    write_file(
+        tmp.path().join(RUNTIME_LINK_FILE).as_path(),
+        serde_json::to_string_pretty(&runtime_link)
+            .expect("serialize runtime-link")
+            .as_str(),
+    );
+    write_file(
+        tmp.path().join(RUNTIME_LINK_HASH_FILE).as_path(),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        )
+        .as_str(),
+    );
+
+    let err = load_runtime_packages_from_local_store_if_present(
+        tmp.path(),
+        RuntimeLoaderConfig::default(),
+    )
+    .expect_err("artifact path mismatch should fail");
+    assert_eq!(err.code(), "R017");
+    assert!(err.message().contains("lockfile std artifact path"));
 }
 
 #[test]

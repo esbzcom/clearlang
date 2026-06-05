@@ -80,10 +80,18 @@ Once the normal workflow exists, all release-side readers must stop re-implement
 
 Required outcomes:
 
-1. `pkg lock` writer/serializer/normalizer, runtime loading, strict import-map projection, release manifest generation, provenance generation, and `verify-bundle` all consume one validated schema-v2 shared-std model
-2. partial release/import-map JSON readers are deleted or reduced to thin projections over that validated model
-3. release-side negative tests prove the same validation contract for duplicates, ordering, dependency integrity, digest format, signer fields, and delivery-mode semantics
-4. deterministic upgrade/rollback coverage proves `pkg lock --update` and release/verify flows remain stable across shared-std version changes, ABI-range changes, signer rotation, and provenance rotation
+1. the current runtime-only schema-v2 validator is extracted into a reusable command-layer shared-std lock model rather than leaving separate raw readers in runtime, release, and strict import-map paths
+2. the authoritative validated model retains all fields required by downstream projections:
+   - package id and version
+   - verified std ABI range
+   - artifact path, digest, and size
+   - signer key id / algorithm / signed_at / signature
+   - provenance digest / format
+   - symbols and shared-std dependency ids
+3. `pkg lock` writer/serializer/normalizer, runtime loading, strict import-map projection, release manifest generation, provenance generation, and `verify-bundle` all consume that validated schema-v2 model
+4. partial release/import-map JSON readers are deleted or reduced to thin projections over that validated model
+5. release-side and import-map-side negative tests prove the same validation contract for duplicates, ordering, dependency integrity, digest format, signer fields, artifact size/path, provenance shape, and delivery-mode semantics
+6. deterministic upgrade/rollback coverage proves `pkg lock --update` and release/verify flows remain stable across shared-std version changes, ABI-range changes, signer rotation, provenance rotation, and rollback to earlier locked shared-std versions
 
 This gate removes the structural tech debt of having multiple near-duplicate validators with inconsistent safety contracts.
 

@@ -1,3 +1,8 @@
+use crate::commands::shared_std_lock::{
+    load_validated_shared_std_lock_section, project_shared_std_evidence,
+    SharedStdEvidence as StrictImportMapSharedStdEvidence,
+};
+
 fn strict_import_map_artifact_path(out: &Path) -> PathBuf {
     let file_name = out
         .file_name()
@@ -136,127 +141,13 @@ fn strict_import_map_artifact_json(
     })
 }
 
-#[derive(Clone, Debug, serde::Serialize, Eq, PartialEq, Ord, PartialOrd)]
-struct StrictImportMapSharedStdEvidence {
-    package_id: String,
-    version: String,
-    verified_std_abi: StrictImportMapSharedStdAbiClaim,
-    artifact_digest: String,
-    signature_key_id: String,
-    provenance_digest: String,
-}
-
-#[derive(Clone, Debug, serde::Serialize, Eq, PartialEq, Ord, PartialOrd)]
-struct StrictImportMapSharedStdAbiClaim {
-    major: u32,
-    minor_min: u32,
-    minor_max: u32,
-}
-
 fn strict_import_map_shared_std_evidence(
     module_root: &Path,
 ) -> std::result::Result<Vec<StrictImportMapSharedStdEvidence>, String> {
-    let lock_path = module_root.join("clg.lock.json");
-    if !lock_path.exists() {
-        return Ok(Vec::new());
-    }
-    let bytes = fs::read(&lock_path)
-        .map_err(|err| format!("reading shared std lockfile `{}`: {err}", lock_path.display()))?;
-    let value: serde_json::Value = serde_json::from_slice(bytes.as_slice())
-        .map_err(|err| format!("parsing shared std lockfile `{}`: {err}", lock_path.display()))?;
-    let schema_version = value
-        .get("schema_version")
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(0);
-    if schema_version != 2 {
-        return Ok(Vec::new());
-    }
-    let delivery = value
-        .get("std")
-        .and_then(|value| value.get("delivery"))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("embedded");
-    if delivery != "shared" {
-        return Ok(Vec::new());
-    }
-    let Some(packages) = value
-        .get("std")
-        .and_then(|value| value.get("packages"))
-        .and_then(serde_json::Value::as_array)
-    else {
+    let Some(shared_std) = load_validated_shared_std_lock_section(module_root)? else {
         return Ok(Vec::new());
     };
-
-    let mut out = Vec::with_capacity(packages.len());
-    for package in packages {
-        let package_id = package
-            .get("package_id")
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| "shared std package is missing `package_id`".to_string())?;
-        let version = package
-            .get("version")
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| format!("shared std package `{package_id}` is missing `version`"))?;
-        let verified_std_abi = package
-            .get("verified_std_abi")
-            .and_then(serde_json::Value::as_object)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi`")
-            })?;
-        let artifact_digest = package
-            .get("artifact")
-            .and_then(|value| value.get("digest"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `artifact.digest`")
-            })?;
-        let signature_key_id = package
-            .get("signature")
-            .and_then(|value| value.get("key_id"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `signature.key_id`")
-            })?;
-        let provenance_digest = package
-            .get("provenance")
-            .and_then(|value| value.get("statement_digest"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `provenance.statement_digest`")
-            })?;
-        let major = verified_std_abi
-            .get("major")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi.major`")
-            })?;
-        let minor_min = verified_std_abi
-            .get("minor_min")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi.minor_min`")
-            })?;
-        let minor_max = verified_std_abi
-            .get("minor_max")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or_else(|| {
-                format!("shared std package `{package_id}@{version}` is missing `verified_std_abi.minor_max`")
-            })?;
-        out.push(StrictImportMapSharedStdEvidence {
-            package_id: package_id.to_string(),
-            version: version.to_string(),
-            verified_std_abi: StrictImportMapSharedStdAbiClaim {
-                major: major as u32,
-                minor_min: minor_min as u32,
-                minor_max: minor_max as u32,
-            },
-            artifact_digest: artifact_digest.to_string(),
-            signature_key_id: signature_key_id.to_string(),
-            provenance_digest: provenance_digest.to_string(),
-        });
-    }
-    out.sort();
-    Ok(out)
+    Ok(project_shared_std_evidence(&shared_std))
 }
 
 #[cfg(test)]

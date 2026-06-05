@@ -15,9 +15,16 @@ use crate::commands::release_defaults::{
     load_project_manifest_v1, load_required_release_defaults_v0, load_verify_trust_policy_v1,
     ProjectManifestV1, STRICT_PROJECT_FILE,
 };
+use crate::commands::shared_std_lock::{
+    load_validated_shared_std_lock_section, project_shared_std_evidence,
+};
 use crate::commands::verify::{self, VerifyMode};
 use crate::logging::{Logger, StageTimings};
 use crate::signing::{self, SignScope};
+
+type ReleaseSharedStdPackageEvidence = crate::commands::shared_std_lock::SharedStdEvidence;
+#[cfg(test)]
+type ReleaseSharedStdAbiClaim = crate::commands::shared_std_lock::SharedStdAbiClaim;
 
 #[derive(Debug, Clone)]
 struct ReleasePaths {
@@ -71,67 +78,6 @@ struct ReleaseArtifactFile {
 struct ReleaseStageStatus {
     stage: String,
     status: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
-struct ReleaseSharedStdPackageEvidence {
-    package_id: String,
-    version: String,
-    verified_std_abi: ReleaseSharedStdAbiClaim,
-    artifact_digest: String,
-    signature_key_id: String,
-    provenance_digest: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
-struct ReleaseSharedStdAbiClaim {
-    major: u32,
-    minor_min: u32,
-    minor_max: u32,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdLockfileV2 {
-    schema_version: u32,
-    std: RawReleaseSharedStdSectionV2,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdSectionV2 {
-    delivery: String,
-    packages: Vec<RawReleaseSharedStdPackageV2>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdPackageV2 {
-    package_id: String,
-    version: String,
-    verified_std_abi: RawReleaseSharedStdAbiClaimV2,
-    artifact: RawReleaseSharedStdArtifactV2,
-    signature: RawReleaseSharedStdSignatureV2,
-    provenance: RawReleaseSharedStdProvenanceV2,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdAbiClaimV2 {
-    major: u32,
-    minor_min: u32,
-    minor_max: u32,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdArtifactV2 {
-    digest: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdSignatureV2 {
-    key_id: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct RawReleaseSharedStdProvenanceV2 {
-    statement_digest: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -371,17 +317,17 @@ pub fn run(
             logger,
         )?;
     }
-    let shared_std = collect_release_shared_std_package_evidence(root.as_path()).map_err(|err| {
-        release_error(
-            "C130",
-            format!("loading shared std release evidence: {err:#}"),
-            file.as_path(),
-            json_errors,
-        )
-    })?;
-    validate_release_shared_std_mode(&project_manifest, shared_std.as_slice()).map_err(
-        |message| release_error("C130", message, file.as_path(), json_errors),
-    )?;
+    let shared_std =
+        collect_release_shared_std_package_evidence(root.as_path()).map_err(|err| {
+            release_error(
+                "C130",
+                format!("loading shared std release evidence: {err:#}"),
+                file.as_path(),
+                json_errors,
+            )
+        })?;
+    validate_release_shared_std_mode(&project_manifest, shared_std.as_slice())
+        .map_err(|message| release_error("C130", message, file.as_path(), json_errors))?;
     {
         let _stage = timings.start(logger, "release_provenance");
         write_release_provenance(
@@ -795,46 +741,12 @@ fn write_release_provenance(
 fn collect_release_shared_std_package_evidence(
     root: &Path,
 ) -> Result<Vec<ReleaseSharedStdPackageEvidence>> {
-    let lock_path = root.join("clg.lock.json");
-    if !lock_path.exists() {
+    let Some(shared_std) =
+        load_validated_shared_std_lock_section(root).map_err(anyhow::Error::msg)?
+    else {
         return Ok(Vec::new());
-    }
-    let bytes = fs::read(&lock_path).with_context(|| format!("reading {}", lock_path.display()))?;
-    let value: JsonValue = serde_json::from_slice(bytes.as_slice())
-        .with_context(|| format!("parsing {}", lock_path.display()))?;
-    let schema_version = value
-        .get("schema_version")
-        .and_then(JsonValue::as_u64)
-        .unwrap_or(0);
-    if schema_version != 2 {
-        return Ok(Vec::new());
-    }
-    let raw: RawReleaseSharedStdLockfileV2 = serde_json::from_value(value)
-        .with_context(|| format!("decoding shared std schema v2 from {}", lock_path.display()))?;
-    debug_assert_eq!(raw.schema_version, 2);
-    if raw.std.delivery != "shared" {
-        return Ok(Vec::new());
-    }
-
-    let mut out = raw
-        .std
-        .packages
-        .into_iter()
-        .map(|package| ReleaseSharedStdPackageEvidence {
-            package_id: package.package_id,
-            version: package.version,
-            verified_std_abi: ReleaseSharedStdAbiClaim {
-                major: package.verified_std_abi.major,
-                minor_min: package.verified_std_abi.minor_min,
-                minor_max: package.verified_std_abi.minor_max,
-            },
-            artifact_digest: package.artifact.digest,
-            signature_key_id: package.signature.key_id,
-            provenance_digest: package.provenance.statement_digest,
-        })
-        .collect::<Vec<_>>();
-    out.sort();
-    Ok(out)
+    };
+    Ok(project_shared_std_evidence(&shared_std))
 }
 
 fn validate_release_shared_std_mode(
@@ -1170,20 +1082,20 @@ fn verify_bundle_provenance(
             json_errors,
         ));
     }
-    let provenance_shared_std =
-        parse_release_shared_std_package_evidence_value(payload.get("shared_std")).map_err(
-            |err| {
-                release_error(
-                    VERIFY_BUNDLE_ERROR_CODE,
-                    format!(
-                        "provenance payload in `{}` has invalid `shared_std` evidence: {err}",
-                        provenance_path.display()
-                    ),
-                    bundle_path,
-                    json_errors,
-                )
-            },
-        )?;
+    let provenance_shared_std = parse_release_shared_std_package_evidence_value(
+        payload.get("shared_std"),
+    )
+    .map_err(|err| {
+        release_error(
+            VERIFY_BUNDLE_ERROR_CODE,
+            format!(
+                "provenance payload in `{}` has invalid `shared_std` evidence: {err}",
+                provenance_path.display()
+            ),
+            bundle_path,
+            json_errors,
+        )
+    })?;
     if let Some(message) =
         release_shared_std_parity_violation(manifest.shared_std.as_slice(), &provenance_shared_std)
     {
@@ -1204,8 +1116,10 @@ fn verify_bundle_strict_import_map_shared_std_parity(
     json_errors: bool,
 ) -> Result<()> {
     const VERIFY_BUNDLE_ERROR_CODE: &str = "C140";
-    let strict_import_map_path =
-        resolve_manifest_path(manifest.artifacts.strict_import_map.path.as_str(), bundle_dir);
+    let strict_import_map_path = resolve_manifest_path(
+        manifest.artifacts.strict_import_map.path.as_str(),
+        bundle_dir,
+    );
     let bytes = fs::read(strict_import_map_path.as_path()).map_err(|err| {
         release_error(
             VERIFY_BUNDLE_ERROR_CODE,
@@ -1228,20 +1142,20 @@ fn verify_bundle_strict_import_map_shared_std_parity(
             json_errors,
         )
     })?;
-    let import_map_shared_std =
-        parse_release_shared_std_package_evidence_value(import_map.get("shared_std")).map_err(
-            |err| {
-                release_error(
-                    VERIFY_BUNDLE_ERROR_CODE,
-                    format!(
-                        "strict import-map `{}` has invalid `shared_std` evidence: {err}",
-                        strict_import_map_path.display()
-                    ),
-                    bundle_path,
-                    json_errors,
-                )
-            },
-        )?;
+    let import_map_shared_std = parse_release_shared_std_package_evidence_value(
+        import_map.get("shared_std"),
+    )
+    .map_err(|err| {
+        release_error(
+            VERIFY_BUNDLE_ERROR_CODE,
+            format!(
+                "strict import-map `{}` has invalid `shared_std` evidence: {err}",
+                strict_import_map_path.display()
+            ),
+            bundle_path,
+            json_errors,
+        )
+    })?;
     if let Some(message) =
         release_shared_std_parity_violation(manifest.shared_std.as_slice(), &import_map_shared_std)
     {
@@ -1551,10 +1465,10 @@ fn release_error(
 mod tests {
     use super::{
         collect_release_shared_std_package_evidence, discover_manifest_roots,
-        is_release_discovery_ignored_dir, path_has_tests_or_mocks,
-        parse_release_shared_std_package_evidence_value, release_shared_std_parity_violation,
-        validate_release_import_map_has_no_test_paths, ReleasePaths,
-        ReleaseSharedStdAbiClaim, ReleaseSharedStdPackageEvidence,
+        is_release_discovery_ignored_dir, parse_release_shared_std_package_evidence_value,
+        path_has_tests_or_mocks, release_shared_std_parity_violation,
+        validate_release_import_map_has_no_test_paths, ReleasePaths, ReleaseSharedStdAbiClaim,
+        ReleaseSharedStdPackageEvidence,
     };
     use crate::commands::release_defaults::STRICT_PROJECT_FILE;
     use serde_json::json;
@@ -1661,6 +1575,9 @@ mod tests {
         let tmp = tempdir().expect("tempdir");
         let lockfile = json!({
             "schema_version": 2,
+            "resolver_version": 1,
+            "roots": [],
+            "packages": [],
             "std": {
                 "delivery": "shared",
                 "packages": [
@@ -1673,14 +1590,26 @@ mod tests {
                             "minor_max": 0
                         },
                         "artifact": {
+                            "format": "wasm",
+                            "path": "std-packages/std-text-1.2.0.wasm",
+                            "size_bytes": 4,
                             "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                         },
                         "signature": {
-                            "key_id": "std-publisher-ed25519-2026q2"
+                            "key_id": "std-publisher-ed25519-2026q2",
+                            "algorithm": "ed25519",
+                            "signed_at": "2026-06-01T00:00:00Z",
+                            "signature": "sig"
                         },
                         "provenance": {
-                            "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                        }
+                            "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                            "statement_format": "in-toto-v1"
+                        },
+                        "symbols": [
+                            "std::bytes::eq_ct",
+                            "std::str::len"
+                        ],
+                        "dependencies": []
                     }
                 ]
             }
@@ -1724,8 +1653,9 @@ mod tests {
                 minor_min: 0,
                 minor_max: 0,
             },
-            artifact_digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                .to_string(),
+            artifact_digest:
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
             signature_key_id: "std-publisher-ed25519-2026q2".to_string(),
             provenance_digest:
                 "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -1744,8 +1674,9 @@ mod tests {
             "provenance_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         }])))
         .expect("parse provenance shared std");
-        let message = release_shared_std_parity_violation(manifest.as_slice(), provenance.as_slice())
-            .expect("parity mismatch");
+        let message =
+            release_shared_std_parity_violation(manifest.as_slice(), provenance.as_slice())
+                .expect("parity mismatch");
         assert!(message.contains("shared std provenance mismatch"));
     }
 }

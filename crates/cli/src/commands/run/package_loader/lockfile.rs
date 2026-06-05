@@ -359,7 +359,7 @@ fn load_runtime_lockfile_evidence(
             })
         }
         2 => {
-            let raw: RawStrictLockfileV2 = serde_json::from_value(value).map_err(|err| {
+            let raw: RawStrictLockfileV2 = serde_json::from_value(value.clone()).map_err(|err| {
                 let _ = err;
                 RuntimePackageLoaderError::new(
                     "R013",
@@ -591,281 +591,29 @@ fn load_runtime_lockfile_evidence(
                 }
             }
 
-            let delivery = raw.std.delivery.as_str();
-            if delivery != "embedded" && delivery != "shared" {
-                return Err(RuntimePackageLoaderError::new(
-                    "R013",
-                    format!(
-                        "runtime lockfile `{}` has invalid `std.delivery` `{}`; expected `embedded` or `shared`",
-                        path.display(),
-                        raw.std.delivery
-                    ),
-                ));
-            }
-            if delivery == "embedded" && !raw.std.packages.is_empty() {
-                return Err(RuntimePackageLoaderError::new(
-                    "R013",
-                    format!(
-                        "runtime lockfile `{}` declares `std.delivery = embedded` but also contains `std.packages[]`",
-                        path.display()
-                    ),
-                ));
-            }
-            if delivery == "shared" && raw.std.packages.is_empty() {
-                return Err(RuntimePackageLoaderError::new(
-                    "R013",
-                    format!(
-                        "runtime lockfile `{}` declares `std.delivery = shared` but `std.packages[]` is empty",
-                        path.display()
-                    ),
-                ));
-            }
-
-            let mut shared_std_by_id = HashMap::with_capacity(raw.std.packages.len());
-            let mut previous_id: Option<String> = None;
-            for shared_pkg in raw.std.packages {
-                validate_package_id(shared_pkg.package_id.as_str()).map_err(|msg| {
-                    RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` has invalid shared std package_id `{}`: {msg}",
-                            path.display(),
-                            shared_pkg.package_id
-                        ),
-                    )
-                })?;
-                validate_exact_semver(shared_pkg.version.as_str()).map_err(|msg| {
-                    RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` has invalid shared std version `{}` for `{}`: {msg}",
-                            path.display(),
-                            shared_pkg.version,
-                            shared_pkg.package_id
-                        ),
-                    )
-                })?;
-                if shared_pkg.verified_std_abi.minor_max < shared_pkg.verified_std_abi.minor_min {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` has invalid verified_std_abi range {}.{}..{}",
-                            path.display(),
-                            shared_pkg.package_id,
-                            shared_pkg.verified_std_abi.major,
-                            shared_pkg.verified_std_abi.minor_min,
-                            shared_pkg.verified_std_abi.minor_max
-                        ),
-                    ));
-                }
-                if shared_pkg.artifact.format.trim().is_empty() {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` has empty artifact format",
-                            path.display(),
-                            shared_pkg.package_id
-                        ),
-                    ));
-                }
-                validate_relative_artifact_path(shared_pkg.artifact.path.as_str()).map_err(
-                    |msg| {
-                        RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std package `{}` has invalid artifact path `{}`: {msg}",
-                                path.display(),
-                                shared_pkg.package_id,
-                                shared_pkg.artifact.path
-                            ),
-                        )
-                    },
-                )?;
-                if shared_pkg.artifact.size_bytes == 0 {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` has zero artifact size_bytes",
-                            path.display(),
-                            shared_pkg.package_id
-                        ),
-                    ));
-                }
-                validate_sha256_digest(shared_pkg.artifact.digest.as_str()).map_err(|msg| {
-                    RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` has invalid artifact digest `{}`: {msg}",
-                            path.display(),
-                            shared_pkg.package_id,
-                            shared_pkg.artifact.digest
-                        ),
-                    )
-                })?;
-                if shared_pkg.signature.key_id.trim().is_empty()
-                    || shared_pkg.signature.algorithm.trim().is_empty()
-                    || shared_pkg.signature.signed_at.trim().is_empty()
-                    || shared_pkg.signature.signature.trim().is_empty()
-                {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` has incomplete signature fields",
-                            path.display(),
-                            shared_pkg.package_id
-                        ),
-                    ));
-                }
-                validate_sha256_digest(shared_pkg.provenance.statement_digest.as_str()).map_err(
-                    |msg| {
-                        RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std package `{}` has invalid provenance statement_digest `{}`: {msg}",
-                                path.display(),
-                                shared_pkg.package_id,
-                                shared_pkg.provenance.statement_digest
-                            ),
-                        )
-                    },
-                )?;
-                if shared_pkg.provenance.statement_format.trim().is_empty() {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` has empty provenance statement_format",
-                            path.display(),
-                            shared_pkg.package_id
-                        ),
-                    ));
-                }
-                let mut previous_symbol: Option<&str> = None;
-                let mut seen_symbols = HashSet::with_capacity(shared_pkg.symbols.len());
-                for symbol in &shared_pkg.symbols {
-                    if symbol.trim().is_empty() {
-                        return Err(RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std package `{}` has empty symbol entry",
-                                path.display(),
-                                shared_pkg.package_id
-                            ),
-                        ));
-                    }
-                    if let Some(prev) = previous_symbol {
-                        if symbol.as_str() < prev {
-                            return Err(RuntimePackageLoaderError::new(
-                                "R013",
-                                format!(
-                                    "runtime lockfile `{}` shared std package `{}` symbols must be sorted",
-                                    path.display(),
-                                    shared_pkg.package_id
-                                ),
-                            ));
-                        }
-                    }
-                    if !seen_symbols.insert(symbol.as_str()) {
-                        return Err(RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std package `{}` has duplicate symbol `{}`",
-                                path.display(),
-                                shared_pkg.package_id,
-                                symbol
-                            ),
-                        ));
-                    }
-                    previous_symbol = Some(symbol.as_str());
-                }
-                let mut previous_dependency: Option<&str> = None;
-                let mut seen_dependencies = HashSet::with_capacity(shared_pkg.dependencies.len());
-                for dep in &shared_pkg.dependencies {
-                    validate_runtime_package_id(dep.as_str()).map_err(|msg| {
-                        RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std package `{}` has invalid dependency id `{}`: {msg}",
-                                path.display(),
-                                shared_pkg.package_id,
-                                dep
-                            ),
-                        )
-                    })?;
-                    if let Some(prev) = previous_dependency {
-                        if dep.as_str() < prev {
-                            return Err(RuntimePackageLoaderError::new(
-                                "R013",
-                                format!(
-                                    "runtime lockfile `{}` shared std package `{}` dependencies must be sorted by exact id",
-                                    path.display(),
-                                    shared_pkg.package_id
-                                ),
-                            ));
-                        }
-                    }
-                    if !seen_dependencies.insert(dep.as_str()) {
-                        return Err(RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std package `{}` has duplicate dependency id `{}`",
-                                path.display(),
-                                shared_pkg.package_id,
-                                dep
-                            ),
-                        ));
-                    }
-                    previous_dependency = Some(dep.as_str());
-                }
-
-                let exact_id = format!("{}@{}", shared_pkg.package_id, shared_pkg.version);
-                if let Some(prev) = previous_id.as_ref() {
-                    if exact_id < *prev {
-                        return Err(RuntimePackageLoaderError::new(
-                            "R013",
-                            format!(
-                                "runtime lockfile `{}` shared std packages must be sorted by `package_id@version` (found `{}` before `{}`)",
-                                path.display(),
-                                prev,
-                                exact_id
-                            ),
-                        ));
-                    }
-                }
-                previous_id = Some(exact_id.clone());
-                if digests_by_id.contains_key(exact_id.as_str()) {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` shared std package `{}` collides with normal package id space",
-                            path.display(),
-                            exact_id
-                        ),
-                    ));
-                }
-                let new_digest = shared_pkg.artifact.digest.clone();
-                let new_artifact_path = shared_pkg.artifact.path.clone();
-                if let Some(existing) = shared_std_by_id.insert(
-                    exact_id.clone(),
+            let validated_shared_std =
+                crate::commands::shared_std_lock::parse_validated_shared_std_lock_section(
+                    &value,
+                    &path,
+                    "runtime lockfile",
+                )
+                .map_err(|message| RuntimePackageLoaderError::new("R013", message))?
+                .expect("schema v2 parse should return validated shared-std section");
+            let mut shared_std_by_id =
+                HashMap::with_capacity(validated_shared_std.packages.len());
+            for shared_pkg in validated_shared_std.packages {
+                let exact_id = shared_pkg.exact_id();
+                shared_std_by_id.insert(
+                    exact_id,
                     RuntimeSharedStdLockEntry {
-                        artifact_path: new_artifact_path,
-                        digest: new_digest.clone(),
+                        artifact_path: shared_pkg.artifact.path,
+                        digest: shared_pkg.artifact.digest,
                         abi_major: shared_pkg.verified_std_abi.major,
                         abi_minor_min: shared_pkg.verified_std_abi.minor_min,
                         abi_minor_max: shared_pkg.verified_std_abi.minor_max,
                         dependencies: shared_pkg.dependencies,
                     },
-                ) {
-                    return Err(RuntimePackageLoaderError::new(
-                        "R013",
-                        format!(
-                            "runtime lockfile `{}` has duplicate shared std package id `{}` (digests: `{}` vs `{}`)",
-                            path.display(),
-                            exact_id,
-                            existing.digest,
-                            new_digest
-                        ),
-                    ));
-                }
+                );
             }
 
             Ok(RuntimeLockfileEvidence {

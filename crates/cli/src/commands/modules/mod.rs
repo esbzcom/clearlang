@@ -42,10 +42,10 @@ pub fn std_type_info() -> Result<HashMap<String, StdTypeInfo>> {
     std_metadata::std_type_info()
 }
 
+pub(crate) use bundled_std_packages::{bundled_std_package_symbols, is_bundled_std_package_id};
 pub(crate) use verified_std_abi::{
     verified_std_abi_supported_minor_range, verified_std_abi_value_symbols,
 };
-pub(crate) use bundled_std_packages::{bundled_std_package_symbols, is_bundled_std_package_id};
 
 struct Exports {
     values: HashSet<String>,

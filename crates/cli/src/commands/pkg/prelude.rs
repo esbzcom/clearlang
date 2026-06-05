@@ -18,6 +18,9 @@ use crate::commands::release_defaults::{
     ProjectStdConfigV2, RELEASE_DEFAULT_ADVISORY_PLACEHOLDER,
     RELEASE_DEFAULT_KEY_ID_PLACEHOLDER, STRICT_PROJECT_FILE,
 };
+use crate::commands::shared_std_lock::{
+    ValidatedSharedStdLockPackageV2, ValidatedSharedStdLockSectionV2,
+};
 use crate::commands::validation::{
     parse_utc_timestamp_components, validate_exact_semver, validate_package_id,
     validate_semver_requirement, validate_sha256_digest, validate_utc_rfc3339,
@@ -347,52 +350,8 @@ struct StrictLockedPackageV1 {
     dependencies: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
-struct StrictStdSectionV2 {
-    delivery: String,
-    packages: Vec<StrictLockedSharedStdPackageV2>,
-}
-
-#[derive(Debug, Serialize)]
-struct StrictLockedSharedStdPackageV2 {
-    package_id: String,
-    version: String,
-    verified_std_abi: StrictLockedSharedStdAbiV2,
-    artifact: StrictLockedSharedStdArtifactV2,
-    signature: StrictLockedSharedStdSignatureV2,
-    provenance: StrictLockedSharedStdProvenanceV2,
-    symbols: Vec<String>,
-    dependencies: Vec<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct StrictLockedSharedStdAbiV2 {
-    major: u32,
-    minor_min: u32,
-    minor_max: u32,
-}
-
-#[derive(Debug, Serialize)]
-struct StrictLockedSharedStdArtifactV2 {
-    format: String,
-    path: String,
-    digest: String,
-    size_bytes: u64,
-}
-
-#[derive(Debug, Serialize)]
-struct StrictLockedSharedStdSignatureV2 {
-    key_id: String,
-    algorithm: String,
-    signed_at: String,
-    signature: String,
-}
-
-#[derive(Debug, Serialize)]
-struct StrictLockedSharedStdProvenanceV2 {
-    statement_digest: String,
-    statement_format: String,
-}
+type StrictStdSectionV2 = ValidatedSharedStdLockSectionV2;
+type StrictLockedSharedStdPackageV2 = ValidatedSharedStdLockPackageV2;
 
 #[derive(Debug, Serialize)]
 struct ResolvedGraphArtifactV1 {
@@ -416,7 +375,7 @@ struct ExistingStrictLockfileV1 {
     roots: Vec<ExistingStrictRootV1>,
     #[serde(default, rename = "packages")]
     _packages: Vec<serde_json::Value>,
-    #[serde(default)]
+    #[serde(default, rename = "std")]
     _std: Option<serde_json::Value>,
 }
 

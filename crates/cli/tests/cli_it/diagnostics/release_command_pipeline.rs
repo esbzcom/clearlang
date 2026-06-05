@@ -255,6 +255,186 @@ fn release_command_preserves_non_empty_shared_std_evidence_for_shared_manifest()
 }
 
 #[test]
+fn shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+    let out_dir = root.join("out").join("release");
+    let lock_path = root.join("clg.lock.json");
+    let bundle_path = out_dir.join("main.release-bundle.json");
+
+    let v120 = SharedStdPackageFixture {
+        version: "1.2.0",
+        artifact_text: "wasm-v120",
+        key_seed: 7,
+        key_id: "std-publisher-ed25519-2026q2",
+        signed_at: "2026-06-01T00:00:00Z",
+        statement_digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        statement_format: "in-toto-v1",
+        abi_major: 1,
+        abi_minor_min: 0,
+        abi_minor_max: 0,
+    };
+    let v130 = SharedStdPackageFixture {
+        version: "1.3.0",
+        artifact_text: "wasm-v130",
+        key_seed: 8,
+        key_id: "std-publisher-ed25519-2026q3",
+        signed_at: "2026-09-01T00:00:00Z",
+        statement_digest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        statement_format: "in-toto-v1",
+        abi_major: 1,
+        abi_minor_min: 0,
+        abi_minor_max: 1,
+    };
+
+    let lock_and_release = |fixture: SharedStdPackageFixture<'_>,
+                            version_requirement: &str,
+                            abi_minor_max: u32|
+     -> (Value, Value) {
+        write_shared_std_package_metadata_fixtures(&root, &[fixture]);
+
+        write_release_project_defaults_shared_std_with_package(
+            root.join("clg.project.json").as_path(),
+            "2026-03-31T00:00:00Z",
+            "release-2026q2",
+            "main.clear",
+            "out/release",
+            "trust-policy.json",
+            version_requirement,
+            1,
+            0,
+            abi_minor_max,
+        );
+
+        let lock_flag = if lock_path.exists() { "--update" } else { "--generate" };
+        Command::cargo_bin("clg")
+            .unwrap()
+            .args(["pkg", "lock", lock_flag, "--root"])
+            .arg(&root)
+            .assert()
+            .success();
+
+        Command::cargo_bin("clg")
+            .unwrap()
+            .env("CLG_SOLVER_BIN", &solver)
+            .args(["--non-interactive", "release"])
+            .args(["--key"])
+            .arg(&key_path)
+            .args(["--pubkey"])
+            .arg(&pubkey_path)
+            .args(["--root"])
+            .arg(&root)
+            .assert()
+            .success();
+
+        Command::cargo_bin("clg")
+            .unwrap()
+            .args(["verify-bundle", "--bundle"])
+            .arg(&bundle_path)
+            .args(["--pubkey"])
+            .arg(&pubkey_path)
+            .assert()
+            .success();
+
+        let lock_json: Value =
+            serde_json::from_slice(&fs::read(&lock_path).expect("read lockfile")).expect("json");
+        let bundle_json: Value =
+            serde_json::from_slice(&fs::read(&bundle_path).expect("read bundle")).expect("json");
+        (lock_json, bundle_json)
+    };
+
+    let (lock_v120, bundle_v120) = lock_and_release(v120, "=1.2.0", 0);
+    assert_eq!(
+        lock_v120["std"]["packages"][0]["version"].as_str(),
+        Some("1.2.0")
+    );
+    assert_eq!(
+        lock_v120["std"]["packages"][0]["signature"]["key_id"].as_str(),
+        Some("std-publisher-ed25519-2026q2")
+    );
+    assert_eq!(
+        lock_v120["std"]["packages"][0]["provenance"]["statement_digest"].as_str(),
+        Some("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+    );
+    assert_eq!(
+        lock_v120["std"]["packages"][0]["verified_std_abi"]["minor_max"].as_u64(),
+        Some(0)
+    );
+    assert_eq!(
+        bundle_v120["shared_std"][0]["version"].as_str(),
+        Some("1.2.0")
+    );
+    assert_eq!(
+        bundle_v120["shared_std"][0]["signature_key_id"].as_str(),
+        Some("std-publisher-ed25519-2026q2")
+    );
+
+    let (lock_v130, bundle_v130) = lock_and_release(v130, "=1.3.0", 1);
+    assert_eq!(
+        lock_v130["std"]["packages"][0]["version"].as_str(),
+        Some("1.3.0")
+    );
+    assert_eq!(
+        lock_v130["std"]["packages"][0]["signature"]["key_id"].as_str(),
+        Some("std-publisher-ed25519-2026q3")
+    );
+    assert_eq!(
+        lock_v130["std"]["packages"][0]["provenance"]["statement_digest"].as_str(),
+        Some("sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+    );
+    assert_eq!(
+        lock_v130["std"]["packages"][0]["verified_std_abi"]["minor_max"].as_u64(),
+        Some(1)
+    );
+    assert_eq!(
+        bundle_v130["shared_std"][0]["version"].as_str(),
+        Some("1.3.0")
+    );
+    assert_eq!(
+        bundle_v130["shared_std"][0]["signature_key_id"].as_str(),
+        Some("std-publisher-ed25519-2026q3")
+    );
+    assert_eq!(
+        bundle_v130["shared_std"][0]["provenance_digest"].as_str(),
+        Some("sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+    );
+    assert_eq!(
+        bundle_v130["shared_std"][0]["verified_std_abi"]["minor_max"].as_u64(),
+        Some(1)
+    );
+
+    let (lock_rollback, bundle_rollback) = lock_and_release(v120, "=1.2.0", 0);
+    assert_eq!(
+        lock_rollback["std"]["packages"][0]["version"].as_str(),
+        Some("1.2.0")
+    );
+    assert_eq!(
+        lock_rollback["std"]["packages"][0]["signature"]["key_id"].as_str(),
+        Some("std-publisher-ed25519-2026q2")
+    );
+    assert_eq!(
+        bundle_rollback["shared_std"][0]["version"].as_str(),
+        Some("1.2.0")
+    );
+    assert_eq!(
+        bundle_rollback["shared_std"][0]["signature_key_id"].as_str(),
+        Some("std-publisher-ed25519-2026q2")
+    );
+}
+
+#[test]
 fn release_command_fails_closed_when_proved_all_is_not_met() {
     let tmp = tempdir().unwrap();
     let root = tmp.path().join("project");

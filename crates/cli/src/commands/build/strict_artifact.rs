@@ -257,3 +257,36 @@ fn default_assurance_manifest_path(sig_path: &Path) -> PathBuf {
     }
 }
 
+#[cfg(test)]
+mod shared_std_reader_tests {
+    use super::strict_import_map_shared_std_evidence;
+    use std::fs;
+    use tempfile::tempdir;
+
+    use crate::commands::shared_std_lock::tests::malformed_shared_std_lockfile_cases;
+
+    fn write_shared_std_lockfile(root: &std::path::Path, value: &serde_json::Value) {
+        fs::write(
+            root.join("clg.lock.json"),
+            serde_json::to_vec_pretty(value).expect("serialize shared std lockfile"),
+        )
+        .expect("write shared std lockfile");
+    }
+
+    #[test]
+    fn strict_import_map_shared_std_evidence_rejects_malformed_shared_std_cases() {
+        for case in malformed_shared_std_lockfile_cases() {
+            let tmp = tempdir().expect("tempdir");
+            write_shared_std_lockfile(tmp.path(), &case.value);
+            let err = strict_import_map_shared_std_evidence(tmp.path())
+                .expect_err("malformed strict import-map shared std evidence should fail");
+            assert!(
+                err.contains(case.expected_substring),
+                "{}: expected `{}`, got `{err}`",
+                case.label,
+                case.expected_substring
+            );
+        }
+    }
+}
+

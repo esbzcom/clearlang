@@ -132,7 +132,10 @@ fn write_baseline_runtime_artifacts(root: &Path, artifact_text: &str) {
 fn write_shared_std_runtime_artifacts_v2(root: &Path, artifact_text: &str) {
     let store_dir = root.join("std-packages");
     fs::create_dir_all(&store_dir).expect("create std-packages dir");
-    write_file(store_dir.join("std-text-1.2.0.wasm").as_path(), artifact_text);
+    write_file(
+        store_dir.join("std-text-1.2.0.wasm").as_path(),
+        artifact_text,
+    );
 
     let digest = format!("sha256:{}", sha256_hex(artifact_text.as_bytes()));
     let package_id = "std::text@1.2.0";
@@ -720,7 +723,8 @@ fn rejects_shared_std_runtime_link_missing_store_artifact_with_r012() {
     .expect_err("missing shared std artifact should fail");
     assert_eq!(err.code(), "R012");
     assert!(
-        err.message().contains("missing from trusted local store/index"),
+        err.message()
+            .contains("missing from trusted local store/index"),
         "unexpected message: {}",
         err.message()
     );

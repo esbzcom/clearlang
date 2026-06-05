@@ -210,6 +210,12 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
 fn load_root_inputs_for_update(path: &Path) -> Result<Vec<StrictLockRootV1>, PkgLockError> {
     let content = fs::read_to_string(path)
         .map_err(|err| PkgLockError::new("C111", format!("reading {}: {err}", path.display())))?;
+    let raw_value: serde_json::Value = serde_json::from_str(content.as_str()).map_err(|err| {
+        PkgLockError::new(
+            "C111",
+            format!("parsing existing lockfile {}: {err}", path.display()),
+        )
+    })?;
     let raw: ExistingStrictLockfileV1 = serde_json::from_str(content.as_str()).map_err(|err| {
         PkgLockError::new(
             "C111",
@@ -233,6 +239,23 @@ fn load_root_inputs_for_update(path: &Path) -> Result<Vec<StrictLockRootV1>, Pkg
                 path.display()
             ),
         ));
+    }
+    if raw.schema_version == 2 {
+        crate::commands::shared_std_lock::parse_validated_shared_std_lock_section(
+            &raw_value,
+            path,
+            "existing lockfile",
+        )
+        .map_err(|message| PkgLockError::new("C111", message))?
+        .ok_or_else(|| {
+            PkgLockError::new(
+                "C111",
+                format!(
+                    "existing lockfile `{}` did not validate as schema v2 shared std section",
+                    path.display()
+                ),
+            )
+        })?;
     }
 
     let mut roots = Vec::with_capacity(raw.roots.len());

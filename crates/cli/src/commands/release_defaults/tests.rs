@@ -168,7 +168,9 @@ fn parse_release_defaults_rejects_schema_v1_std_section() {
 }"#;
     let err = parse_project_manifest(content, Path::new("clg.project.json"))
         .expect_err("schema v1 std section should fail");
-    assert!(err.message().contains("shared std requires schema_version 2"));
+    assert!(err
+        .message()
+        .contains("shared std requires schema_version 2"));
 }
 
 #[test]

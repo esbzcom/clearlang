@@ -102,3 +102,85 @@ fn pkg_migrate_manifest_reports_c109_when_manifest_already_exists() {
     assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C109"));
     assert_eq!(e0.get("stage").and_then(|s| s.as_str()), Some("build"));
 }
+
+#[test]
+fn pkg_lock_update_rejects_malformed_schema_v2_shared_std_section() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::core",
+      "version": "1.0.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "store/std-core.wasm" },
+      "abi_id": "abi:std::core:1.0.0"
+    }
+  ]
+}"#,
+    )
+    .expect("write metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        r#"{
+  "schema_version": 0,
+  "contracts": [
+    {
+      "abi_id": "abi:std::core:1.0.0",
+      "package": "std::core",
+      "version": "1.0.0",
+      "imports": []
+    }
+  ]
+}"#,
+    )
+    .expect("write abi");
+    fs::write(
+        root.join("clg.lock.json"),
+        r#"{
+  "schema_version": 2,
+  "resolver_version": 1,
+  "roots": [
+    {
+      "name": "example-app",
+      "dependencies": [
+        { "name": "std::core", "requirement": "^1.0.0" }
+      ]
+    }
+  ],
+  "packages": [],
+  "std": {
+    "delivery": "shared",
+    "packages": []
+  }
+}"#,
+    )
+    .expect("write malformed lockfile");
+
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "pkg", "lock", "--update", "--root"])
+        .arg(root)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    let errs = v
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .expect("errors array");
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C111"));
+    assert!(
+        e0.get("message")
+            .and_then(|s| s.as_str())
+            .unwrap_or_default()
+            .contains("declares `std.delivery = shared` but `std.packages[]` is empty"),
+        "unexpected error: {v}"
+    );
+}

@@ -285,6 +285,8 @@ fn load_lockfile_from_metadata_with_policy(
         path,
         advisory_root,
         &catalog,
+        roots.as_slice(),
+        locked_packages.as_slice(),
         &selected,
         std,
         advisories.as_slice(),
@@ -340,6 +342,8 @@ fn build_locked_std_section(
     metadata_path: &Path,
     metadata_root: &Path,
     catalog: &HashMap<String, Vec<ValidatedPackage>>,
+    roots: &[StrictLockRootV1],
+    locked_packages: &[StrictLockedPackageV1],
     selected_packages: &HashMap<String, ValidatedPackage>,
     std: &ProjectStdConfigV2,
     advisories: &[AdvisoryEntry],
@@ -510,11 +514,10 @@ fn build_locked_std_section(
             })?;
             dependency_ids.push(format!("{}@{}", dep_pkg.name, dep_pkg.version));
         }
-        dependency_ids.sort();
         shared_locked.push(StrictLockedSharedStdPackageV2 {
             package_id: selected.name.clone(),
             version: selected.version.clone(),
-            verified_std_abi: StrictLockedSharedStdAbiV2 {
+            verified_std_abi: crate::commands::shared_std_lock::SharedStdAbiClaim {
                 major: selected
                     .verified_std_abi
                     .as_ref()
@@ -531,19 +534,19 @@ fn build_locked_std_section(
                     .expect("validated shared std abi")
                     .minor_max,
             },
-            artifact: StrictLockedSharedStdArtifactV2 {
+            artifact: crate::commands::shared_std_lock::ValidatedSharedStdArtifactV2 {
                 format: "wasm".to_string(),
                 path: selected.artifact_path.clone(),
                 digest: selected.digest.clone(),
                 size_bytes: artifact_size,
             },
-            signature: StrictLockedSharedStdSignatureV2 {
+            signature: crate::commands::shared_std_lock::ValidatedSharedStdSignatureV2 {
                 key_id: signature.key_id.clone(),
                 algorithm: signature.format.clone(),
                 signed_at: signature.signed_at.clone(),
                 signature: signature.signature.clone(),
             },
-            provenance: StrictLockedSharedStdProvenanceV2 {
+            provenance: crate::commands::shared_std_lock::ValidatedSharedStdProvenanceV2 {
                 statement_digest: provenance.statement_digest.clone(),
                 statement_format: provenance.statement_format.clone(),
             },
@@ -551,13 +554,18 @@ fn build_locked_std_section(
             dependencies: dependency_ids,
         });
     }
-    shared_locked.sort_by(|a, b| {
-        format!("{}@{}", a.package_id, a.version).cmp(&format!("{}@{}", b.package_id, b.version))
-    });
-    Ok(StrictStdSectionV2 {
-        delivery: "shared".to_string(),
-        packages: shared_locked,
-    })
+
+    crate::commands::shared_std_lock::normalize_and_validate_shared_std_lock_section_for_lockfile(
+        roots,
+        locked_packages,
+        StrictStdSectionV2 {
+            delivery: "shared".to_string(),
+            packages: shared_locked,
+        },
+        metadata_path,
+        "pkg lock shared std section",
+    )
+    .map_err(|message| PkgLockError::new("C111", message))
 }
 
 fn ensure_locked_shared_std_abi(

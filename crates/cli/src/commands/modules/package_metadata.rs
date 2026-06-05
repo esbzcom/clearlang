@@ -261,10 +261,7 @@ impl PackageMetadataIndex {
                             );
                         }
                         if let Some(provenance) = entry.provenance.as_ref() {
-                            let _ = (
-                                &provenance.statement_digest,
-                                &provenance.statement_format,
-                            );
+                            let _ = (&provenance.statement_digest, &provenance.statement_format);
                         }
                         CanonicalPackageEntry {
                             name: entry.name,

@@ -577,11 +577,7 @@ fn validate_manifest_std(
             validate_non_empty(path, "std.packages[].registry", registry.as_str())?;
         }
         if let Some(signer_policy) = package.signer_policy.as_ref() {
-            validate_non_empty(
-                path,
-                "std.packages[].signer_policy",
-                signer_policy.as_str(),
-            )?;
+            validate_non_empty(path, "std.packages[].signer_policy", signer_policy.as_str())?;
         }
         packages.push(ProjectStdPackageRequirementV2 {
             package_id: package.package_id,

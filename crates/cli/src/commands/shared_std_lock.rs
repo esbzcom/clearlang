@@ -27,14 +27,13 @@ pub(crate) struct SharedStdEvidence {
     pub(crate) provenance_digest: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct ValidatedSharedStdLockSectionV2 {
     pub(crate) delivery: String,
     pub(crate) packages: Vec<ValidatedSharedStdLockPackageV2>,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct ValidatedSharedStdLockPackageV2 {
     pub(crate) package_id: String,
     pub(crate) version: String,
@@ -52,8 +51,7 @@ impl ValidatedSharedStdLockPackageV2 {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct ValidatedSharedStdArtifactV2 {
     pub(crate) format: String,
     pub(crate) path: String,
@@ -61,8 +59,7 @@ pub(crate) struct ValidatedSharedStdArtifactV2 {
     pub(crate) size_bytes: u64,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct ValidatedSharedStdSignatureV2 {
     pub(crate) key_id: String,
     pub(crate) algorithm: String,
@@ -70,8 +67,7 @@ pub(crate) struct ValidatedSharedStdSignatureV2 {
     pub(crate) signature: String,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct ValidatedSharedStdProvenanceV2 {
     pub(crate) statement_digest: String,
     pub(crate) statement_format: String,
@@ -222,6 +218,46 @@ pub(crate) fn project_shared_std_evidence(
         .collect::<Vec<_>>();
     out.sort();
     out
+}
+
+pub(crate) fn canonicalize_shared_std_lock_section(
+    mut shared_std: ValidatedSharedStdLockSectionV2,
+) -> ValidatedSharedStdLockSectionV2 {
+    for package in &mut shared_std.packages {
+        package.symbols.sort();
+        package.dependencies.sort();
+    }
+    shared_std
+        .packages
+        .sort_by_key(|package| package.exact_id());
+    shared_std
+}
+
+pub(crate) fn normalize_and_validate_shared_std_lock_section_for_lockfile<R, P>(
+    roots: &[R],
+    packages: &[P],
+    shared_std: ValidatedSharedStdLockSectionV2,
+    path: &Path,
+    subject: &str,
+) -> Result<ValidatedSharedStdLockSectionV2, String>
+where
+    R: Serialize,
+    P: Serialize,
+{
+    let normalized = canonicalize_shared_std_lock_section(shared_std);
+    let envelope = serde_json::json!({
+        "schema_version": 2,
+        "resolver_version": 1,
+        "roots": roots,
+        "packages": packages,
+        "std": normalized,
+    });
+    parse_validated_shared_std_lock_section(&envelope, path, subject)?.ok_or_else(|| {
+        format!(
+            "{subject} `{}` did not validate as schema v2",
+            path.display()
+        )
+    })
 }
 
 fn validate_shared_std_section_v2(
@@ -488,44 +524,199 @@ fn validate_relative_artifact_path(path: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::{parse_validated_shared_std_lock_section, project_shared_std_evidence};
+    use serde_json::json;
     use std::path::Path;
 
-    #[test]
-    fn parse_shared_std_lock_section_rejects_unsorted_symbols() {
-        let value = serde_json::json!({
+    pub(crate) struct SharedStdMalformedCase {
+        pub(crate) label: &'static str,
+        pub(crate) value: serde_json::Value,
+        pub(crate) expected_substring: &'static str,
+    }
+
+    pub(crate) fn valid_shared_std_package_value(
+        package_id: &str,
+        version: &str,
+    ) -> serde_json::Value {
+        json!({
+            "package_id": package_id,
+            "version": version,
+            "verified_std_abi": {
+                "major": 1,
+                "minor_min": 0,
+                "minor_max": 0
+            },
+            "artifact": {
+                "format": "wasm",
+                "path": format!("std-packages/{}-{}.wasm", package_id.replace("::", "-"), version),
+                "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "size_bytes": 4
+            },
+            "signature": {
+                "key_id": "std-publisher-ed25519-2026q2",
+                "algorithm": "ed25519",
+                "signed_at": "2026-06-01T00:00:00Z",
+                "signature": "sig"
+            },
+            "provenance": {
+                "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "statement_format": "in-toto-v1"
+            },
+            "symbols": [
+                "std::bytes::eq_ct",
+                "std::str::len"
+            ],
+            "dependencies": []
+        })
+    }
+
+    pub(crate) fn valid_shared_std_lockfile_value() -> serde_json::Value {
+        json!({
             "schema_version": 2,
             "resolver_version": 1,
             "roots": [],
             "packages": [],
             "std": {
                 "delivery": "shared",
-                "packages": [{
-                    "package_id": "std::text",
-                    "version": "1.2.0",
-                    "verified_std_abi": { "major": 1, "minor_min": 0, "minor_max": 0 },
-                    "artifact": {
-                        "format": "wasm",
-                        "path": "std-packages/std-text-1.2.0.wasm",
-                        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                        "size_bytes": 4
-                    },
-                    "signature": {
-                        "key_id": "k1",
-                        "algorithm": "ed25519",
-                        "signed_at": "2026-06-01T00:00:00Z",
-                        "signature": "sig"
-                    },
-                    "provenance": {
-                        "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                        "statement_format": "in-toto-v1"
-                    },
-                    "symbols": ["std::str::len", "std::bytes::eq_ct"],
-                    "dependencies": []
-                }]
+                "packages": [valid_shared_std_package_value("std::text", "1.2.0")]
             }
+        })
+    }
+
+    pub(crate) fn malformed_shared_std_lockfile_cases() -> Vec<SharedStdMalformedCase> {
+        let mut cases = Vec::new();
+
+        let mut invalid_delivery = valid_shared_std_lockfile_value();
+        invalid_delivery["std"]["delivery"] = json!("broken");
+        cases.push(SharedStdMalformedCase {
+            label: "invalid delivery",
+            value: invalid_delivery,
+            expected_substring: "invalid `std.delivery`",
         });
+
+        let mut empty_shared_set = valid_shared_std_lockfile_value();
+        empty_shared_set["std"]["packages"] = json!([]);
+        cases.push(SharedStdMalformedCase {
+            label: "empty shared package set",
+            value: empty_shared_set,
+            expected_substring: "`std.packages[]` is empty",
+        });
+
+        let mut duplicate_package_ids = valid_shared_std_lockfile_value();
+        duplicate_package_ids["std"]["packages"] = json!([
+            valid_shared_std_package_value("std::text", "1.2.0"),
+            valid_shared_std_package_value("std::text", "1.2.0")
+        ]);
+        cases.push(SharedStdMalformedCase {
+            label: "duplicate package ids",
+            value: duplicate_package_ids,
+            expected_substring: "duplicate shared std package id",
+        });
+
+        let mut unsorted_package_ids = valid_shared_std_lockfile_value();
+        unsorted_package_ids["std"]["packages"] = json!([
+            valid_shared_std_package_value("std::text", "1.3.0"),
+            valid_shared_std_package_value("std::text", "1.2.0")
+        ]);
+        cases.push(SharedStdMalformedCase {
+            label: "unsorted package ids",
+            value: unsorted_package_ids,
+            expected_substring: "shared std packages must be sorted",
+        });
+
+        let mut duplicate_symbols = valid_shared_std_lockfile_value();
+        duplicate_symbols["std"]["packages"][0]["symbols"] =
+            json!(["std::bytes::eq_ct", "std::bytes::eq_ct"]);
+        cases.push(SharedStdMalformedCase {
+            label: "duplicate symbols",
+            value: duplicate_symbols,
+            expected_substring: "duplicate symbol",
+        });
+
+        let mut unsorted_symbols = valid_shared_std_lockfile_value();
+        unsorted_symbols["std"]["packages"][0]["symbols"] =
+            json!(["std::str::len", "std::bytes::eq_ct"]);
+        cases.push(SharedStdMalformedCase {
+            label: "unsorted symbols",
+            value: unsorted_symbols,
+            expected_substring: "symbols must be sorted",
+        });
+
+        let mut duplicate_dependencies = valid_shared_std_lockfile_value();
+        duplicate_dependencies["std"]["packages"][0]["dependencies"] =
+            json!(["std::bytes@1.0.0", "std::bytes@1.0.0"]);
+        cases.push(SharedStdMalformedCase {
+            label: "duplicate dependencies",
+            value: duplicate_dependencies,
+            expected_substring: "duplicate dependency id",
+        });
+
+        let mut unsorted_dependencies = valid_shared_std_lockfile_value();
+        unsorted_dependencies["std"]["packages"][0]["dependencies"] =
+            json!(["std::zeta@1.0.0", "std::alpha@1.0.0"]);
+        cases.push(SharedStdMalformedCase {
+            label: "unsorted dependencies",
+            value: unsorted_dependencies,
+            expected_substring: "dependencies must be sorted by exact id",
+        });
+
+        let mut invalid_artifact_digest = valid_shared_std_lockfile_value();
+        invalid_artifact_digest["std"]["packages"][0]["artifact"]["digest"] = json!("sha256:bad");
+        cases.push(SharedStdMalformedCase {
+            label: "invalid artifact digest",
+            value: invalid_artifact_digest,
+            expected_substring: "invalid artifact digest",
+        });
+
+        let mut invalid_provenance_digest = valid_shared_std_lockfile_value();
+        invalid_provenance_digest["std"]["packages"][0]["provenance"]["statement_digest"] =
+            json!("sha256:bad");
+        cases.push(SharedStdMalformedCase {
+            label: "invalid provenance digest",
+            value: invalid_provenance_digest,
+            expected_substring: "invalid provenance statement_digest",
+        });
+
+        let mut zero_artifact_size = valid_shared_std_lockfile_value();
+        zero_artifact_size["std"]["packages"][0]["artifact"]["size_bytes"] = json!(0);
+        cases.push(SharedStdMalformedCase {
+            label: "zero artifact size",
+            value: zero_artifact_size,
+            expected_substring: "zero artifact size_bytes",
+        });
+
+        let mut incomplete_signature = valid_shared_std_lockfile_value();
+        incomplete_signature["std"]["packages"][0]["signature"]["key_id"] = json!("");
+        cases.push(SharedStdMalformedCase {
+            label: "incomplete signature fields",
+            value: incomplete_signature,
+            expected_substring: "incomplete signature fields",
+        });
+
+        let mut empty_provenance_format = valid_shared_std_lockfile_value();
+        empty_provenance_format["std"]["packages"][0]["provenance"]["statement_format"] = json!("");
+        cases.push(SharedStdMalformedCase {
+            label: "empty provenance statement format",
+            value: empty_provenance_format,
+            expected_substring: "empty provenance statement_format",
+        });
+
+        let mut normal_shared_collision = valid_shared_std_lockfile_value();
+        normal_shared_collision["packages"] = json!([{ "id": "std::text@1.2.0" }]);
+        cases.push(SharedStdMalformedCase {
+            label: "normal shared collision",
+            value: normal_shared_collision,
+            expected_substring: "collides with normal package id space",
+        });
+
+        cases
+    }
+
+    #[test]
+    fn parse_shared_std_lock_section_rejects_unsorted_symbols() {
+        let mut value = valid_shared_std_lockfile_value();
+        value["std"]["packages"][0]["symbols"] = json!(["std::str::len", "std::bytes::eq_ct"]);
         let err = parse_validated_shared_std_lock_section(
             &value,
             Path::new("clg.lock.json"),
@@ -537,38 +728,7 @@ mod tests {
 
     #[test]
     fn project_shared_std_evidence_sorts_records() {
-        let value = serde_json::json!({
-            "schema_version": 2,
-            "resolver_version": 1,
-            "roots": [],
-            "packages": [],
-            "std": {
-                "delivery": "shared",
-                "packages": [{
-                    "package_id": "std::text",
-                    "version": "1.2.0",
-                    "verified_std_abi": { "major": 1, "minor_min": 0, "minor_max": 0 },
-                    "artifact": {
-                        "format": "wasm",
-                        "path": "std-packages/std-text-1.2.0.wasm",
-                        "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                        "size_bytes": 4
-                    },
-                    "signature": {
-                        "key_id": "k1",
-                        "algorithm": "ed25519",
-                        "signed_at": "2026-06-01T00:00:00Z",
-                        "signature": "sig"
-                    },
-                    "provenance": {
-                        "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                        "statement_format": "in-toto-v1"
-                    },
-                    "symbols": ["std::bytes::eq_ct", "std::str::len"],
-                    "dependencies": []
-                }]
-            }
-        });
+        let value = valid_shared_std_lockfile_value();
         let parsed = parse_validated_shared_std_lock_section(
             &value,
             Path::new("clg.lock.json"),
@@ -579,5 +739,24 @@ mod tests {
         let projected = project_shared_std_evidence(&parsed);
         assert_eq!(projected.len(), 1);
         assert_eq!(projected[0].package_id, "std::text");
+    }
+
+    #[test]
+    fn parse_shared_std_lock_section_rejects_shared_malformed_case_matrix() {
+        for case in malformed_shared_std_lockfile_cases() {
+            let err = parse_validated_shared_std_lock_section(
+                &case.value,
+                Path::new("clg.lock.json"),
+                "shared std lockfile",
+            )
+            .expect_err("malformed shared std lockfile should fail");
+            assert!(
+                err.contains(case.expected_substring),
+                "{}: expected `{}`, got `{}`",
+                case.label,
+                case.expected_substring,
+                err
+            );
+        }
     }
 }

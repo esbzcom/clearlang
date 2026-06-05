@@ -1477,6 +1477,8 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::tempdir;
 
+    use crate::commands::shared_std_lock::tests::malformed_shared_std_lockfile_cases;
+
     fn release_paths_for_import_map(import_map: PathBuf) -> ReleasePaths {
         ReleasePaths {
             module: PathBuf::from("ignored.wasm"),
@@ -1678,5 +1680,29 @@ mod tests {
             release_shared_std_parity_violation(manifest.as_slice(), provenance.as_slice())
                 .expect("parity mismatch");
         assert!(message.contains("shared std provenance mismatch"));
+    }
+
+    fn write_shared_std_lockfile(root: &std::path::Path, value: &serde_json::Value) {
+        fs::write(
+            root.join("clg.lock.json"),
+            serde_json::to_vec_pretty(value).expect("serialize shared std lockfile"),
+        )
+        .expect("write shared std lockfile");
+    }
+
+    #[test]
+    fn collect_release_shared_std_package_evidence_rejects_malformed_shared_std_cases() {
+        for case in malformed_shared_std_lockfile_cases() {
+            let tmp = tempdir().expect("tempdir");
+            write_shared_std_lockfile(tmp.path(), &case.value);
+            let err = collect_release_shared_std_package_evidence(tmp.path())
+                .expect_err("malformed shared std release evidence should fail");
+            assert!(
+                err.to_string().contains(case.expected_substring),
+                "{}: expected `{}`, got `{err}`",
+                case.label,
+                case.expected_substring
+            );
+        }
     }
 }

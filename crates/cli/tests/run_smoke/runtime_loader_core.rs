@@ -272,6 +272,49 @@ fn runtime_loader_tamper_untrusted_signer_reports_r014() {
 }
 
 #[test]
+fn shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r015() {
+    let (_tmp, wasm_path) = setup_shared_std_runtime_loader_fixture(9, 9);
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R015");
+    let value: Value = serde_json::from_slice(stdout.as_slice()).expect("json");
+    let message = value["errors"][0]["message"]
+        .as_str()
+        .expect("runtime error message");
+    assert!(
+        message.contains("runtime shared std ABI mismatch"),
+        "unexpected message: {message}"
+    );
+}
+
+#[test]
+fn shared_std_runtime_loader_tamper_missing_artifact_reports_r012() {
+    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture(0, 0);
+    let root = tmp.path();
+    fs::remove_file(root.join("std-packages").join("std-text-1.2.0.wasm"))
+        .expect("remove shared std artifact");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R012");
+}
+
+#[test]
+fn shared_std_runtime_loader_tamper_untrusted_signer_reports_r014() {
+    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture(0, 0);
+    let root = tmp.path();
+    let trust_path = root.join("clg.trust-policy.json");
+    let mut trust: Value =
+        serde_json::from_slice(fs::read(&trust_path).expect("read trust policy").as_slice())
+            .expect("parse trust policy");
+    trust["revoked_key_ids"] = serde_json::json!(["k1"]);
+    fs::write(
+        &trust_path,
+        serde_json::to_vec_pretty(&trust).expect("serialize trust policy"),
+    )
+    .expect("write trust policy");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R014");
+}
+
+#[test]
 fn runtime_loader_tamper_runtime_link_hash_mismatch_reports_r017() {
     let (tmp, wasm_path) = setup_runtime_loader_fixture();
     let root = tmp.path();

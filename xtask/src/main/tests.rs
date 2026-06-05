@@ -1269,26 +1269,33 @@ let _stage = timings.start(logger, "verify_bundle_shared_std");
 let marker = "shared_std";
 "#;
         let strict_artifact = r#"let marker = "shared_std";"#;
-        let tests = r#"
+        let release_tests = r#"
 fn release_command_preserves_non_empty_shared_std_evidence_for_shared_manifest() {}
 fn shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback() {}
 fn verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered() {}
 fn verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered() {}
 fn verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered() {}
 "#;
+        let runtime_loader_smoke_tests = r#"
+fn shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r015() {}
+fn shared_std_runtime_loader_tamper_missing_artifact_reports_r012() {}
+fn shared_std_runtime_loader_tamper_untrusted_signer_reports_r014() {}
+"#;
 
         let blockers = evaluate_shared_std_distribution_drift_audit(
             roadmap,
             release,
             strict_artifact,
-            tests,
+            release_tests,
+            runtime_loader_smoke_tests,
         );
         assert!(blockers.is_empty(), "expected no blockers, got {blockers:?}");
     }
 
     #[test]
     fn shared_std_distribution_gate_reports_missing_roadmap_and_test_coverage() {
-        let blockers = evaluate_shared_std_distribution_drift_audit("", "", "", "");
+        let blockers =
+            evaluate_shared_std_distribution_drift_audit("", "", "", "", "");
         assert!(
             blockers.iter().any(|line| line.contains("28.3.2")),
             "expected roadmap blocker, got {blockers:?}"
@@ -1300,6 +1307,14 @@ fn verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered() 
                     "verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered"
                 )),
             "expected shared std test blocker, got {blockers:?}"
+        );
+        assert!(
+            blockers
+                .iter()
+                .any(|line| line.contains(
+                    "shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r015"
+                )),
+            "expected runtime shared std smoke blocker, got {blockers:?}"
         );
     }
 }

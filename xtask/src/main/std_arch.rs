@@ -414,6 +414,10 @@ fn run_shared_std_distribution_smoke_tests(root: &Path) -> Result<(), String> {
             "shared std upgrade/rollback release+verify smoke",
         ),
         (
+            "verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered",
+            "shared std strict import-map tamper smoke",
+        ),
+        (
             "verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered",
             "shared std bundle tamper smoke",
         ),
@@ -422,33 +426,92 @@ fn run_shared_std_distribution_smoke_tests(root: &Path) -> Result<(), String> {
             "shared std provenance tamper smoke",
         ),
         (
-            "rejects_shared_std_runtime_link_with_unsupported_verified_abi_minor_range",
+            "shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r015",
             "shared std ABI mismatch smoke",
         ),
         (
-            "rejects_shared_std_runtime_link_missing_store_artifact_with_r012",
+            "shared_std_runtime_loader_tamper_missing_artifact_reports_r012",
             "shared std missing artifact smoke",
         ),
         (
-            "rejects_shared_std_runtime_link_missing_signature_entry_with_r014",
+            "shared_std_runtime_loader_tamper_untrusted_signer_reports_r014",
             "shared std signer mismatch smoke",
         ),
     ];
 
     for (test_name, label) in smoke_tests {
-        cargo_cmd(
+        cargo_test_exact(
             root,
-            &[
-                "test",
-                "-q",
-                "-p",
-                "clg-cli",
-                test_name,
-            ],
+            "clg-cli",
+            test_name,
         )
         .map_err(|err| format!("{label} `{test_name}` failed: {err}"))?;
     }
     Ok(())
+}
+
+fn cargo_test_exact(root: &Path, package: &str, test_name: &str) -> Result<(), String> {
+    let listed = run_cargo_test_capture(root, package, test_name, false, true)?;
+    let listed_matches = listed
+        .lines()
+        .filter(|line| line.trim_end().ends_with(": test"))
+        .count();
+    if listed_matches != 1 {
+        return Err(format!(
+            "cargo test list for `{test_name}` matched {listed_matches} tests instead of exactly one\n{}",
+            listed.trim()
+        ));
+    }
+
+    let executed = run_cargo_test_capture(root, package, test_name, true, false)?;
+    if !executed.contains("running 1 test") || !executed.contains("test result: ok. 1 passed;") {
+        return Err(format!(
+            "cargo test execution for `{test_name}` did not run exactly one passing smoke test\n{}",
+            executed.trim()
+        ));
+    }
+    Ok(())
+}
+
+fn run_cargo_test_capture(
+    root: &Path,
+    package: &str,
+    test_name: &str,
+    quiet: bool,
+    list_only: bool,
+) -> Result<String, String> {
+    let mut command = Command::new("cargo");
+    command.arg("test");
+    if quiet {
+        command.arg("-q");
+    }
+    command
+        .args(["-p", package, test_name])
+        .current_dir(root);
+    if list_only {
+        command.args(["--", "--list"]);
+    }
+
+    let program = command.get_program().to_os_string();
+    let args = command
+        .get_args()
+        .map(|arg| arg.to_os_string())
+        .collect::<Vec<_>>();
+    let display = display_cmd(&program, &args);
+    let output = command
+        .output()
+        .map_err(|e| format!("failed to run {display}: {e}"))?;
+    let stdout = String::from_utf8_lossy(output.stdout.as_slice());
+    let stderr = String::from_utf8_lossy(output.stderr.as_slice());
+    let combined = format!("{stdout}\n{stderr}");
+    if !output.status.success() {
+        return Err(format!(
+            "command {display} failed with status {:?}\n{}",
+            output.status.code(),
+            combined.trim()
+        ));
+    }
+    Ok(combined)
 }
 
 fn run_shared_std_distribution_drift_audit(root: &Path) -> Result<(), String> {
@@ -468,6 +531,12 @@ fn run_shared_std_distribution_drift_audit(root: &Path) -> Result<(), String> {
         .join("cli_it")
         .join("diagnostics")
         .join("release_command_pipeline.rs");
+    let runtime_loader_smoke_tests_path = root
+        .join("crates")
+        .join("cli")
+        .join("tests")
+        .join("run_smoke")
+        .join("runtime_loader_core.rs");
 
     let roadmap_raw =
         fs::read_to_string(&roadmap_path).map_err(|e| format!("read `{}`: {e}", roadmap_path.display()))?;
@@ -477,12 +546,15 @@ fn run_shared_std_distribution_drift_audit(root: &Path) -> Result<(), String> {
         .map_err(|e| format!("read `{}`: {e}", strict_artifact_path.display()))?;
     let release_tests_raw = fs::read_to_string(&release_tests_path)
         .map_err(|e| format!("read `{}`: {e}", release_tests_path.display()))?;
+    let runtime_loader_smoke_tests_raw = fs::read_to_string(&runtime_loader_smoke_tests_path)
+        .map_err(|e| format!("read `{}`: {e}", runtime_loader_smoke_tests_path.display()))?;
 
     let blockers = evaluate_shared_std_distribution_drift_audit(
         &roadmap_raw,
         &release_raw,
         &strict_artifact_raw,
         &release_tests_raw,
+        &runtime_loader_smoke_tests_raw,
     );
     if blockers.is_empty() {
         Ok(())
@@ -499,6 +571,7 @@ fn evaluate_shared_std_distribution_drift_audit(
     release_raw: &str,
     strict_artifact_raw: &str,
     release_tests_raw: &str,
+    runtime_loader_smoke_tests_raw: &str,
 ) -> Vec<String> {
     let mut blockers = Vec::new();
     for marker in [
@@ -553,6 +626,18 @@ fn evaluate_shared_std_distribution_drift_audit(
         if !release_tests_raw.contains(test_name) {
             blockers.push(format!(
                 "release pipeline shared std parity test is missing `{test_name}`"
+            ));
+        }
+    }
+
+    for test_name in [
+        "shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r015",
+        "shared_std_runtime_loader_tamper_missing_artifact_reports_r012",
+        "shared_std_runtime_loader_tamper_untrusted_signer_reports_r014",
+    ] {
+        if !runtime_loader_smoke_tests_raw.contains(test_name) {
+            blockers.push(format!(
+                "runtime shared std smoke coverage is missing `{test_name}`"
             ));
         }
     }

@@ -260,6 +260,174 @@ fn setup_runtime_loader_fixture() -> (tempfile::TempDir, PathBuf) {
     (tmp, wasm_path)
 }
 
+fn write_shared_std_runtime_loader_gate_artifacts(
+    root: &Path,
+    artifact_text: &str,
+    verified_std_abi_minor_min: u32,
+    verified_std_abi_minor_max: u32,
+) {
+    let store_dir = root.join("std-packages");
+    fs::create_dir_all(&store_dir).expect("create std-packages");
+    let artifact_path = store_dir.join("std-text-1.2.0.wasm");
+    fs::write(&artifact_path, artifact_text.as_bytes()).expect("write shared std artifact");
+    let digest = format!("sha256:{}", sha256_hex(artifact_text.as_bytes()));
+    let package_id = "std::text@1.2.0";
+
+    let runtime_link = serde_json::json!({
+        "schema_version": 0,
+        "resolver_version": 1,
+        "packages": [
+            {
+                "id": package_id,
+                "digest": digest,
+                "artifact_path": "std-packages/std-text-1.2.0.wasm",
+                "abi_id": "abi:std:text:1.2.0"
+            }
+        ],
+        "bindings": []
+    });
+    fs::write(
+        root.join("clg.runtime-link.json"),
+        serde_json::to_vec_pretty(&runtime_link).expect("serialize runtime link"),
+    )
+    .expect("write runtime link");
+    fs::write(
+        root.join("clg.runtime-link.sha256"),
+        format!(
+            "{}\n",
+            sha256_hex(canonical_json_bytes(&runtime_link).as_slice())
+        ),
+    )
+    .expect("write runtime link hash");
+
+    fs::write(
+        root.join("clg.package-store-index.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "artifacts": [
+                {
+                    "id": package_id,
+                    "digest": digest,
+                    "path": "std-packages/std-text-1.2.0.wasm"
+                }
+            ]
+        }))
+        .expect("serialize store index"),
+    )
+    .expect("write store index");
+
+    fs::write(
+        root.join("clg.lock.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 2,
+            "resolver_version": 1,
+            "roots": [],
+            "packages": [],
+            "std": {
+                "delivery": "shared",
+                "packages": [
+                    {
+                        "package_id": "std::text",
+                        "version": "1.2.0",
+                        "verified_std_abi": {
+                            "major": 1,
+                            "minor_min": verified_std_abi_minor_min,
+                            "minor_max": verified_std_abi_minor_max
+                        },
+                        "artifact": {
+                            "format": "wasm",
+                            "path": "std-packages/std-text-1.2.0.wasm",
+                            "digest": digest,
+                            "size_bytes": artifact_text.len()
+                        },
+                        "signature": {
+                            "key_id": "k1",
+                            "algorithm": "ed25519",
+                            "signed_at": "2026-06-01T00:00:00Z",
+                            "signature": "placeholder"
+                        },
+                        "provenance": {
+                            "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                            "statement_format": "in-toto-v1"
+                        },
+                        "symbols": ["std::bytes", "std::str", "std::str_pattern"],
+                        "dependencies": []
+                    }
+                ]
+            }
+        }))
+        .expect("serialize lockfile"),
+    )
+    .expect("write lockfile");
+
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signed_at = "2026-06-01T00:00:00Z";
+    let payload = format!("clg-package-signature-v0\nstd::text\n1.2.0\n{digest}\n{signed_at}\n");
+    let signature = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
+    fs::write(
+        root.join("clg.trust-policy.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "trusted_signers": [
+                {
+                    "key_id": "k1",
+                    "scheme": "ed25519",
+                    "public_key": format!("hex:{}", hex::encode(signing.verifying_key().to_bytes())),
+                    "not_before": "2026-01-01T00:00:00Z",
+                    "not_after": "2027-01-01T00:00:00Z"
+                }
+            ],
+            "revoked_key_ids": []
+        }))
+        .expect("serialize trust policy"),
+    )
+    .expect("write trust policy");
+    fs::write(
+        root.join("clg.package-signatures.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 0,
+            "signatures": [
+                {
+                    "name": "std::text",
+                    "version": "1.2.0",
+                    "digest": digest,
+                    "key_id": "k1",
+                    "signed_at": signed_at,
+                    "signature_format": "ed25519",
+                    "signature": signature
+                }
+            ]
+        }))
+        .expect("serialize signature file"),
+    )
+    .expect("write signature file");
+}
+
+fn setup_shared_std_runtime_loader_fixture(
+    verified_std_abi_minor_min: u32,
+    verified_std_abi_minor_max: u32,
+) -> (tempfile::TempDir, PathBuf) {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    let wasm_path = root.join("out.wasm");
+
+    Command::cargo_bin("clg")
+        .expect("bin")
+        .args(["emit-hello", "-o"])
+        .arg(&wasm_path)
+        .assert()
+        .success();
+
+    write_shared_std_runtime_loader_gate_artifacts(
+        root,
+        "shared-std-artifact",
+        verified_std_abi_minor_min,
+        verified_std_abi_minor_max,
+    );
+
+    (tmp, wasm_path)
+}
+
 fn run_json_error_output(file: &Path) -> Vec<u8> {
     let output = Command::cargo_bin("clg")
         .expect("bin")

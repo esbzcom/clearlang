@@ -4,6 +4,7 @@ use std::path::{Component, Path};
 
 use serde::Deserialize;
 
+use crate::commands::modules::is_bundled_std_package_id;
 use crate::commands::validation::{
     semver_requirement_matches_version, validate_exact_semver, validate_package_id,
     validate_semver_requirement,
@@ -31,6 +32,7 @@ pub(crate) struct VerifyTrustAnchorsV1 {
 pub(crate) struct ProjectManifestV1 {
     pub(crate) project: ProjectMetadataV1,
     pub(crate) dependencies: Vec<ProjectDependencyV1>,
+    pub(crate) std: Option<ProjectStdConfigV2>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -54,6 +56,29 @@ pub(crate) struct ProjectContactV1 {
 pub(crate) struct ProjectDependencyV1 {
     pub(crate) name: String,
     pub(crate) requirement: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ProjectStdConfigV2 {
+    pub(crate) delivery: String,
+    pub(crate) packages: Vec<ProjectStdPackageRequirementV2>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ProjectStdPackageRequirementV2 {
+    pub(crate) package_id: String,
+    pub(crate) version_requirement: String,
+    pub(crate) verified_std_abi: ProjectStdAbiRequirementV2,
+    pub(crate) registry: Option<String>,
+    pub(crate) signer_policy: Option<String>,
+    pub(crate) allow_compat_shims: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ProjectStdAbiRequirementV2 {
+    pub(crate) major: u32,
+    pub(crate) minor_min: u32,
+    pub(crate) minor_max: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -92,6 +117,18 @@ struct RawProjectRootV1 {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawProjectRootV2 {
+    schema_version: u32,
+    project: RawProjectMetadataV1,
+    #[serde(default)]
+    dependencies: Vec<RawProjectDependencyV1>,
+    #[serde(default)]
+    std: Option<RawProjectStdConfigV2>,
+    release_defaults: RawReleaseDefaultsV0,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawProjectMetadataV1 {
     name: String,
     description: String,
@@ -114,6 +151,36 @@ struct RawProjectContactV1 {
 struct RawProjectDependencyV1 {
     name: String,
     requirement: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawProjectStdConfigV2 {
+    delivery: String,
+    #[serde(default)]
+    packages: Vec<RawProjectStdPackageRequirementV2>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawProjectStdPackageRequirementV2 {
+    package_id: String,
+    version_requirement: String,
+    verified_std_abi: RawProjectStdAbiRequirementV2,
+    #[serde(default)]
+    registry: Option<String>,
+    #[serde(default)]
+    signer_policy: Option<String>,
+    #[serde(default)]
+    allow_compat_shims: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawProjectStdAbiRequirementV2 {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
 }
 
 #[derive(Deserialize)]
@@ -250,6 +317,12 @@ fn parse_project_manifest(
             })
         }
         1 => {
+            if raw_value.get("std").is_some() {
+                return Err(ReleaseDefaultsError::new(format!(
+                    "project manifest `{}` uses schema_version 1 but declares `std`; shared std requires schema_version 2",
+                    path.display()
+                )));
+            }
             let raw: RawProjectRootV1 = serde_json::from_value(raw_value).map_err(|err| {
                 ReleaseDefaultsError::new(format!(
                     "project manifest `{}` is not valid schema v1 JSON: {err}",
@@ -265,11 +338,33 @@ fn parse_project_manifest(
                 manifest_v1: Some(ProjectManifestV1 {
                     project,
                     dependencies,
+                    std: None,
+                }),
+            })
+        }
+        2 => {
+            let raw: RawProjectRootV2 = serde_json::from_value(raw_value).map_err(|err| {
+                ReleaseDefaultsError::new(format!(
+                    "project manifest `{}` is not valid schema v2 JSON: {err}",
+                    path.display()
+                ))
+            })?;
+            debug_assert_eq!(raw.schema_version, 2);
+            let defaults = validate_release_defaults(path, raw.release_defaults)?;
+            let project = validate_project_metadata(path, raw.project)?;
+            let dependencies = validate_manifest_dependencies(path, raw.dependencies)?;
+            let std = validate_manifest_std(path, raw.std, dependencies.as_slice())?;
+            Ok(ParsedProjectManifest {
+                release_defaults: defaults,
+                manifest_v1: Some(ProjectManifestV1 {
+                    project,
+                    dependencies,
+                    std,
                 }),
             })
         }
         other => Err(ReleaseDefaultsError::new(format!(
-            "project manifest `{}` has unsupported schema_version {}; expected 0 or 1",
+            "project manifest `{}` has unsupported schema_version {}; expected 0, 1, or 2",
             path.display(),
             other
         ))),
@@ -397,6 +492,122 @@ fn validate_manifest_dependencies(
             .then_with(|| a.requirement.cmp(&b.requirement))
     });
     Ok(dependencies)
+}
+
+fn validate_manifest_std(
+    path: &Path,
+    raw_std: Option<RawProjectStdConfigV2>,
+    dependencies: &[ProjectDependencyV1],
+) -> Result<Option<ProjectStdConfigV2>, ReleaseDefaultsError> {
+    let Some(raw_std) = raw_std else {
+        return Ok(None);
+    };
+    if raw_std.delivery != "embedded" && raw_std.delivery != "shared" {
+        return Err(ReleaseDefaultsError::new(format!(
+            "project manifest `{}` field `std.delivery` must be `embedded` or `shared`, got `{}`",
+            path.display(),
+            raw_std.delivery
+        )));
+    }
+    if raw_std.delivery == "embedded" && !raw_std.packages.is_empty() {
+        return Err(ReleaseDefaultsError::new(format!(
+            "project manifest `{}` declares `std.delivery = embedded` but `std.packages[]` is not empty",
+            path.display()
+        )));
+    }
+    if raw_std.delivery == "shared" && raw_std.packages.is_empty() {
+        return Err(ReleaseDefaultsError::new(format!(
+            "project manifest `{}` declares `std.delivery = shared` but `std.packages[]` is empty",
+            path.display()
+        )));
+    }
+
+    let dependency_names = dependencies
+        .iter()
+        .map(|dependency| dependency.name.as_str())
+        .collect::<HashSet<_>>();
+    let mut packages = Vec::with_capacity(raw_std.packages.len());
+    let mut seen_package_ids = HashSet::with_capacity(raw_std.packages.len());
+    let mut duplicate_package_ids = BTreeSet::new();
+    for package in raw_std.packages {
+        if !is_bundled_std_package_id(package.package_id.as_str()) {
+            return Err(ReleaseDefaultsError::new(format!(
+                "project manifest `{}` has unsupported shared std package_id `{}`",
+                path.display(),
+                package.package_id
+            )));
+        }
+        if !seen_package_ids.insert(package.package_id.clone()) {
+            duplicate_package_ids.insert(package.package_id.clone());
+        }
+        if dependency_names.contains(package.package_id.as_str()) {
+            return Err(ReleaseDefaultsError::new(format!(
+                "project manifest `{}` cannot declare shared std package `{}` in both `dependencies[]` and `std.packages[]`",
+                path.display(),
+                package.package_id
+            )));
+        }
+        validate_semver_requirement(package.version_requirement.as_str()).map_err(|msg| {
+            ReleaseDefaultsError::new(format!(
+                "project manifest `{}` shared std package `{}` has invalid version_requirement `{}`: {}",
+                path.display(),
+                package.package_id,
+                package.version_requirement,
+                msg
+            ))
+        })?;
+        if package.verified_std_abi.major < 1 {
+            return Err(ReleaseDefaultsError::new(format!(
+                "project manifest `{}` shared std package `{}` must declare `verified_std_abi.major >= 1`",
+                path.display(),
+                package.package_id
+            )));
+        }
+        if package.verified_std_abi.minor_max < package.verified_std_abi.minor_min {
+            return Err(ReleaseDefaultsError::new(format!(
+                "project manifest `{}` shared std package `{}` has invalid verified_std_abi range {}.{}..{}",
+                path.display(),
+                package.package_id,
+                package.verified_std_abi.major,
+                package.verified_std_abi.minor_min,
+                package.verified_std_abi.minor_max
+            )));
+        }
+        if let Some(registry) = package.registry.as_ref() {
+            validate_non_empty(path, "std.packages[].registry", registry.as_str())?;
+        }
+        if let Some(signer_policy) = package.signer_policy.as_ref() {
+            validate_non_empty(
+                path,
+                "std.packages[].signer_policy",
+                signer_policy.as_str(),
+            )?;
+        }
+        packages.push(ProjectStdPackageRequirementV2 {
+            package_id: package.package_id,
+            version_requirement: package.version_requirement,
+            verified_std_abi: ProjectStdAbiRequirementV2 {
+                major: package.verified_std_abi.major,
+                minor_min: package.verified_std_abi.minor_min,
+                minor_max: package.verified_std_abi.minor_max,
+            },
+            registry: package.registry,
+            signer_policy: package.signer_policy,
+            allow_compat_shims: package.allow_compat_shims,
+        });
+    }
+    if let Some(first) = duplicate_package_ids.iter().next() {
+        return Err(ReleaseDefaultsError::new(format!(
+            "project manifest `{}` has duplicate shared std package `{}`",
+            path.display(),
+            first
+        )));
+    }
+    packages.sort_by(|a, b| a.package_id.cmp(&b.package_id));
+    Ok(Some(ProjectStdConfigV2 {
+        delivery: raw_std.delivery,
+        packages,
+    }))
 }
 
 fn validate_website(path: &Path, website: &str) -> Result<(), ReleaseDefaultsError> {

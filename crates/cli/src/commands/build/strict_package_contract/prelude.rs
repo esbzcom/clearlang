@@ -121,6 +121,10 @@ struct RawPackageMetadataEntryV1 {
     dependencies: Vec<RawPackageDependencyRequirementV1>,
     signature: RawPackageSignatureV1,
     trust: RawPackageTrustV1,
+    #[serde(default)]
+    verified_std_abi: Option<RawPackageVerifiedStdAbiV1>,
+    #[serde(default)]
+    provenance: Option<RawPackageProvenanceV1>,
 }
 
 #[derive(Deserialize)]
@@ -143,6 +147,21 @@ struct RawPackageSignatureV1 {
 #[serde(deny_unknown_fields)]
 struct RawPackageTrustV1 {
     trusted_anchor_ids: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageVerifiedStdAbiV1 {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPackageProvenanceV1 {
+    statement_digest: String,
+    statement_format: String,
 }
 
 #[derive(Deserialize)]

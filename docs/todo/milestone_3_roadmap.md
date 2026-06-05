@@ -304,3 +304,32 @@ Release policy during activation: **embedded std remains the safe default until 
 - [x] 28.4 Activation and rollout decision [Distribution Gate E]
   - [x] 28.4.0 Wire shared std distribution checks into `xtask release-precheck` and CI so the full evidence chain is gated before any activation decision.
   - [x] 28.4.1 Publish rollout decision: remain experimental, enable for selected profiles, or defer again; record explicit rationale and default behavior.
+
+Post-Milestone 3 path to a debt-free normal shared-std production path: **do not upgrade rollout policy until the normal lock/release/verify workflow, CI gates, and operational support are routine and unified**.
+
+- [x] 28.5 Shared std normal workflow completion [Distribution Gate F] `Completed: 2026-06-05`.
+  - [x] 28.5.0 Teach `clg pkg lock` generate/update to emit schema v2 shared-std lock records from the normal project workflow rather than side-channel/manual lockfile mutation. (`crates/cli/src/commands/pkg/{prelude.rs,lock_command.rs,lockfile_loader.rs,artifacts.rs}`, `crates/cli/src/commands/pkg/tests.rs`) `Completed: 2026-06-05`.
+  - [x] 28.5.1 Make `clg release` fail closed when `shared` std is requested but the regenerated lock/evidence chain is missing, downgraded, or empty. (`crates/cli/src/commands/release.rs`, `crates/cli/tests/cli_it/diagnostics/release_command_pipeline.rs`) `Completed: 2026-06-05`.
+  - [x] 28.5.2 Remove schema split debt from the normal shared-std release path: successful production use must not depend on schema v1 lock regeneration followed by empty `shared_std[]` projections. (`crates/cli/src/commands/release_defaults.rs`, `crates/cli/src/commands/build/strict_lockfile/{prelude.rs,load_and_parse.rs,tests.rs}`, `crates/cli/src/commands/build/strict_package_contract/{prelude.rs,parse.rs}`) `Completed: 2026-06-05`.
+  - [x] 28.5.3 Make schema v2 the only supported normal shared-std lock schema: `shared` release flows reject schema v1 rather than carrying compatibility branches or fallback projections. (`crates/cli/src/commands/release_defaults.rs`, `crates/cli/src/commands/release.rs`, `crates/cli/src/commands/release_defaults/tests.rs`) `Completed: 2026-06-05`.
+
+- [ ] 28.6 Shared std evidence model unification [Distribution Gate G]
+  - [ ] 28.6.0 Reuse one authoritative validated schema-v2 shared-std model across `pkg lock` writer/serializer/normalizer, runtime loading, strict import-map projection, release manifest generation, provenance generation, and `verify-bundle`.
+  - [ ] 28.6.1 Delete or reduce partial JSON readers to thin projections over the validated model so ordering, digest, dependency, signer, and delivery-mode rules are enforced once.
+  - [ ] 28.6.2 Add deterministic negative coverage proving release-side readers reject malformed/duplicate/out-of-order/incomplete shared-std evidence with the same fail-closed semantics as runtime loading.
+  - [ ] 28.6.3 Add deterministic upgrade/rollback coverage for `pkg lock --update` and release/verify flows, including shared-std version changes, ABI-range changes, signer rotation, and provenance rotation.
+
+- [ ] 28.7 Command-level release and CI activation gates [Distribution Gate H]
+  - [ ] 28.7.0 Replace grep/source-shape shared-std activation checks with fixture-driven `clg release` + `clg verify-bundle` smoke gates that prove non-empty shared-std evidence survives the end-to-end workflow.
+  - [ ] 28.7.1 Extend CI with representative shared-std profile matrices covering happy path, tamper path, ABI mismatch, missing artifact, signer/provenance mismatch, and upgrade/replay behavior.
+  - [ ] 28.7.2 Keep cheap drift/audit checks only as secondary guardrails; behavior gates remain the rollout blocker for production support.
+
+- [ ] 28.8 Productization and operational readiness [Distribution Gate I]
+  - [ ] 28.8.0 Make shared-std artifact publishing, signing, provenance generation, key rotation, and registry/distribution handling routine and documented.
+  - [ ] 28.8.1 Publish user-facing guidance for explicit shared-std opt-in, release, verify, upgrade, rollback, and incident response without hidden fallback behavior.
+  - [ ] 28.8.2 Prove the support model is acceptable: deterministic diagnostics, repeatable operational playbooks, and no unresolved packaging/deployment ambiguity remain.
+
+- [ ] 28.9 Rollout upgrade from experimental to supported production [Distribution Gate J]
+  - [ ] 28.9.0 Re-run the rollout decision only after Gates F-I are green and there are no unresolved fail-closed diagnostics, provenance gaps, or duplicated validation paths.
+  - [ ] 28.9.1 Decide whether `shared` becomes a supported production option while preserving `embedded` as a valid production mode.
+  - [ ] 28.9.2 Lock the final product contract: supported activation semantics, CI/profile coverage, compatibility/deprecation rules, documentation, and debt cleanup are complete.

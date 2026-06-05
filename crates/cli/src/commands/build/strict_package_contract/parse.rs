@@ -51,9 +51,20 @@ fn parse_package_metadata_abi_v0(
             raw_metadata
                 .packages
                 .into_iter()
-                .map(|pkg| StrictPackageMetadataEntry {
-                    dependencies: pkg
-                        .dependencies
+                .map(|pkg| {
+                    if let Some(verified_std_abi) = pkg.verified_std_abi.as_ref() {
+                        let _ = (
+                            verified_std_abi.major,
+                            verified_std_abi.minor_min,
+                            verified_std_abi.minor_max,
+                        );
+                    }
+                    if let Some(provenance) = pkg.provenance.as_ref() {
+                        let _ = (&provenance.statement_digest, &provenance.statement_format);
+                    }
+                    StrictPackageMetadataEntry {
+                        dependencies: pkg
+                            .dependencies
                         .into_iter()
                         .map(|dep| StrictPackageDependencyRequirement {
                             name: dep.name,
@@ -73,6 +84,7 @@ fn parse_package_metadata_abi_v0(
                         signature: pkg.signature.signature,
                     }),
                     trusted_anchor_ids: pkg.trust.trusted_anchor_ids,
+                    }
                 })
                 .collect()
         }

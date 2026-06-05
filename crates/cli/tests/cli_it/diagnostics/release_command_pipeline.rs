@@ -160,6 +160,101 @@ fn release_command_orchestrates_lock_build_sign_verify_and_bundle() {
 }
 
 #[test]
+fn release_command_preserves_non_empty_shared_std_evidence_for_shared_manifest() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    write_shared_std_package_metadata_fixture(&root);
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults_shared_std(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+    let out_dir = root.join("out").join("release");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["--non-interactive", "release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let bundle_path = out_dir.join("main.release-bundle.json");
+    let bundle: Value =
+        serde_json::from_slice(&fs::read(&bundle_path).expect("read bundle manifest"))
+            .expect("parse bundle");
+    let shared_std = bundle
+        .get("shared_std")
+        .and_then(|v| v.as_array())
+        .expect("bundle shared_std array");
+    assert_eq!(shared_std.len(), 1, "shared release should carry non-empty evidence");
+    assert_eq!(
+        shared_std[0]
+            .get("package_id")
+            .and_then(|v| v.as_str()),
+        Some("std::text")
+    );
+
+    let strict_import_map_path = bundle
+        .get("artifacts")
+        .and_then(|v| v.get("strict_import_map"))
+        .and_then(|v| v.get("path"))
+        .and_then(|v| v.as_str())
+        .expect("strict import-map artifact path");
+    let strict_import_map: Value = serde_json::from_slice(
+        fs::read(strict_import_map_path)
+            .expect("read strict import-map artifact")
+            .as_slice(),
+    )
+    .expect("parse strict import-map artifact");
+    let import_map_shared_std = strict_import_map
+        .get("shared_std")
+        .and_then(|v| v.as_array())
+        .expect("strict import-map shared_std");
+    assert_eq!(import_map_shared_std.len(), 1);
+
+    let provenance_path = bundle
+        .get("artifacts")
+        .and_then(|v| v.get("provenance"))
+        .and_then(|v| v.get("path"))
+        .and_then(|v| v.as_str())
+        .expect("provenance artifact path");
+    let provenance: Value = serde_json::from_slice(
+        fs::read(provenance_path)
+            .expect("read provenance artifact")
+            .as_slice(),
+    )
+    .expect("parse provenance artifact");
+    let provenance_shared_std = provenance
+        .get("payload")
+        .and_then(|v| v.get("shared_std"))
+        .and_then(|v| v.as_array())
+        .expect("provenance shared_std");
+    assert_eq!(provenance_shared_std.len(), 1);
+}
+
+#[test]
 fn release_command_fails_closed_when_proved_all_is_not_met() {
     let tmp = tempdir().unwrap();
     let root = tmp.path().join("project");

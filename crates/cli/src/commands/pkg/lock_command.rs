@@ -173,6 +173,7 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
         match load_lockfile_from_metadata_with_policy(
             metadata_path.as_path(),
             root_inputs,
+            project_manifest.as_ref(),
             &advisory_policy,
         ) {
             Ok(value) => value,
@@ -193,7 +194,7 @@ pub fn run_lock(args: RunLockArgs, logger: Logger) -> Result<()> {
         println!(
             "wrote {} with {} pinned package(s) [sha256:{}]",
             lockfile_path.display(),
-            lockfile.packages.len(),
+            lockfile.packages().len(),
             canonical_hash
         );
         println!(
@@ -215,11 +216,11 @@ fn load_root_inputs_for_update(path: &Path) -> Result<Vec<StrictLockRootV1>, Pkg
             format!("parsing existing lockfile {}: {err}", path.display()),
         )
     })?;
-    if raw.schema_version != 1 {
+    if raw.schema_version != 1 && raw.schema_version != 2 {
         return Err(PkgLockError::new(
             "C111",
             format!(
-                "existing lockfile `{}` must use schema_version 1",
+                "existing lockfile `{}` must use schema_version 1 or 2",
                 path.display()
             ),
         ));

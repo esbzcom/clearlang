@@ -11,9 +11,11 @@ use crate::commands::build::CompilerMode;
 use crate::commands::helpers::{
     canonical_json_bytes, make_single_json_error, sha256_hex, CommandError,
 };
+use crate::commands::modules::{bundled_std_package_symbols, is_bundled_std_package_id};
 use crate::commands::release_defaults::{
     default_project_clg_version_requirement, enforce_project_clg_version_compatibility,
-    load_project_manifest_v1, RELEASE_DEFAULT_ADVISORY_PLACEHOLDER,
+    load_project_manifest_v1, ProjectManifestV1, ProjectStdAbiRequirementV2,
+    ProjectStdConfigV2, RELEASE_DEFAULT_ADVISORY_PLACEHOLDER,
     RELEASE_DEFAULT_KEY_ID_PLACEHOLDER, STRICT_PROJECT_FILE,
 };
 use crate::commands::validation::{
@@ -51,6 +53,10 @@ struct PackageMetadataEntry {
     signature: Option<PackageSignatureEntry>,
     #[serde(default)]
     trust: Option<PackageTrustEntry>,
+    #[serde(default)]
+    verified_std_abi: Option<PackageVerifiedStdAbiEntry>,
+    #[serde(default)]
+    provenance: Option<PackageProvenanceEntry>,
 }
 
 #[derive(Deserialize)]
@@ -60,7 +66,7 @@ struct PackageArtifactEntry {
     path: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PackageSignatureEntry {
     format: String,
@@ -73,6 +79,21 @@ struct PackageSignatureEntry {
 #[serde(deny_unknown_fields)]
 struct PackageTrustEntry {
     trusted_anchor_ids: Vec<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PackageVerifiedStdAbiEntry {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PackageProvenanceEntry {
+    statement_digest: String,
+    statement_format: String,
 }
 
 #[derive(Deserialize)]
@@ -144,6 +165,9 @@ struct ValidatedPackage {
     artifact_path: String,
     abi_id: String,
     dependencies: Vec<PackageRequirementEntry>,
+    signature: Option<PackageSignatureEntry>,
+    verified_std_abi: Option<PackageVerifiedStdAbiEntry>,
+    provenance: Option<PackageProvenanceEntry>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -249,11 +273,56 @@ impl ParsedRequirement {
 }
 
 #[derive(Debug, Serialize)]
+enum StrictLockfile {
+    V1(StrictLockfileV1),
+    V2(StrictLockfileV2),
+}
+
+impl StrictLockfile {
+    fn roots(&self) -> &[StrictLockRootV1] {
+        match self {
+            Self::V1(lockfile) => lockfile.roots.as_slice(),
+            Self::V2(lockfile) => lockfile.roots.as_slice(),
+        }
+    }
+
+    fn packages(&self) -> &[StrictLockedPackageV1] {
+        match self {
+            Self::V1(lockfile) => lockfile.packages.as_slice(),
+            Self::V2(lockfile) => lockfile.packages.as_slice(),
+        }
+    }
+
+    fn schema_version(&self) -> u32 {
+        match self {
+            Self::V1(lockfile) => lockfile.schema_version,
+            Self::V2(lockfile) => lockfile.schema_version,
+        }
+    }
+
+    fn resolver_version(&self) -> u32 {
+        match self {
+            Self::V1(lockfile) => lockfile.resolver_version,
+            Self::V2(lockfile) => lockfile.resolver_version,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 struct StrictLockfileV1 {
     schema_version: u32,
     resolver_version: u32,
     roots: Vec<StrictLockRootV1>,
     packages: Vec<StrictLockedPackageV1>,
+}
+
+#[derive(Debug, Serialize)]
+struct StrictLockfileV2 {
+    schema_version: u32,
+    resolver_version: u32,
+    roots: Vec<StrictLockRootV1>,
+    packages: Vec<StrictLockedPackageV1>,
+    std: StrictStdSectionV2,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -279,6 +348,53 @@ struct StrictLockedPackageV1 {
 }
 
 #[derive(Debug, Serialize)]
+struct StrictStdSectionV2 {
+    delivery: String,
+    packages: Vec<StrictLockedSharedStdPackageV2>,
+}
+
+#[derive(Debug, Serialize)]
+struct StrictLockedSharedStdPackageV2 {
+    package_id: String,
+    version: String,
+    verified_std_abi: StrictLockedSharedStdAbiV2,
+    artifact: StrictLockedSharedStdArtifactV2,
+    signature: StrictLockedSharedStdSignatureV2,
+    provenance: StrictLockedSharedStdProvenanceV2,
+    symbols: Vec<String>,
+    dependencies: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct StrictLockedSharedStdAbiV2 {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Debug, Serialize)]
+struct StrictLockedSharedStdArtifactV2 {
+    format: String,
+    path: String,
+    digest: String,
+    size_bytes: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct StrictLockedSharedStdSignatureV2 {
+    key_id: String,
+    algorithm: String,
+    signed_at: String,
+    signature: String,
+}
+
+#[derive(Debug, Serialize)]
+struct StrictLockedSharedStdProvenanceV2 {
+    statement_digest: String,
+    statement_format: String,
+}
+
+#[derive(Debug, Serialize)]
 struct ResolvedGraphArtifactV1 {
     schema_version: u32,
     resolver_version: u32,
@@ -300,6 +416,8 @@ struct ExistingStrictLockfileV1 {
     roots: Vec<ExistingStrictRootV1>,
     #[serde(default, rename = "packages")]
     _packages: Vec<serde_json::Value>,
+    #[serde(default)]
+    _std: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]

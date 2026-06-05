@@ -18,12 +18,12 @@ struct ExternalStdPackagePlanFile {
 struct ExternalStdPackagePlanEntry {
     package_id: String,
     modules: Vec<String>,
-    #[allow(dead_code)]
     symbols: Vec<String>,
 }
 
 struct BundledStdPackageCatalog {
     modules_by_package: Vec<(&'static str, BTreeSet<String>)>,
+    symbols_by_package: Vec<(&'static str, BTreeSet<String>)>,
 }
 
 fn parse_bundled_std_package_plan(raw: &str) -> Result<ExternalStdPackagePlanFile, String> {
@@ -66,6 +66,7 @@ fn load_bundled_std_package_catalog_from_str(
 ) -> Result<BundledStdPackageCatalog, String> {
     let raw = parse_bundled_std_package_plan(raw)?;
     let mut modules_by_package = Vec::with_capacity(BUNDLED_STD_PACKAGE_IDS.len());
+    let mut symbols_by_package = Vec::with_capacity(BUNDLED_STD_PACKAGE_IDS.len());
     for package_id in BUNDLED_STD_PACKAGE_IDS {
         let Some(entry) = raw
             .packages
@@ -78,8 +79,15 @@ fn load_bundled_std_package_catalog_from_str(
             *package_id,
             entry.modules.iter().cloned().collect::<BTreeSet<_>>(),
         ));
+        symbols_by_package.push((
+            *package_id,
+            entry.symbols.iter().cloned().collect::<BTreeSet<_>>(),
+        ));
     }
-    Ok(BundledStdPackageCatalog { modules_by_package })
+    Ok(BundledStdPackageCatalog {
+        modules_by_package,
+        symbols_by_package,
+    })
 }
 
 fn bundled_std_package_catalog() -> &'static BundledStdPackageCatalog {
@@ -135,6 +143,20 @@ pub(super) fn bundled_std_package_id_for_module(path: &str) -> Option<&'static s
         .modules_by_package
         .iter()
         .find_map(|(package_id, modules)| modules.contains(path).then_some(*package_id))
+}
+
+pub(crate) fn is_bundled_std_package_id(package_id: &str) -> bool {
+    bundled_std_package_catalog()
+        .modules_by_package
+        .iter()
+        .any(|(candidate, _)| *candidate == package_id)
+}
+
+pub(crate) fn bundled_std_package_symbols(package_id: &str) -> Option<&'static BTreeSet<String>> {
+    bundled_std_package_catalog()
+        .symbols_by_package
+        .iter()
+        .find_map(|(candidate, symbols)| (*candidate == package_id).then_some(symbols))
 }
 
 pub(super) fn bundled_std_module_migration_message(module_path: &str, detail: &str) -> String {

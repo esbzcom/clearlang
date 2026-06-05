@@ -71,6 +71,16 @@ struct RawStrictLockfileV1 {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawStrictLockfileV2 {
+    schema_version: u32,
+    resolver_version: u32,
+    roots: Vec<RawStrictRootV1>,
+    packages: Vec<RawStrictPackageV1>,
+    std: RawStrictStdSectionV2,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawStrictRootV1 {
     name: String,
     dependencies: Vec<RawStrictRootDependencyV1>,
@@ -92,4 +102,44 @@ struct RawStrictPackageV1 {
     digest: String,
     abi_id: String,
     dependencies: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawStrictStdSectionV2 {
+    delivery: String,
+    #[serde(default)]
+    packages: Vec<RawStrictSharedStdPackageV2>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawStrictSharedStdPackageV2 {
+    package_id: String,
+    version: String,
+    #[serde(default)]
+    verified_std_abi: Option<serde_json::Value>,
+    artifact: RawStrictSharedStdArtifactV2,
+    #[serde(default)]
+    signature: Option<serde_json::Value>,
+    #[serde(default)]
+    provenance: Option<serde_json::Value>,
+    #[serde(default)]
+    symbols: Vec<String>,
+    #[serde(default)]
+    dependencies: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawStrictSharedStdArtifactV2 {
+    #[serde(default)]
+    format: Option<String>,
+    #[serde(default)]
+    path: Option<String>,
+    digest: String,
+    #[serde(default)]
+    size_bytes: Option<u64>,
 }

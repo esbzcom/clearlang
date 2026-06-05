@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::release_defaults::{
+        ProjectContactV1, ProjectMetadataV1, ProjectStdPackageRequirementV2,
+    };
 
     #[test]
     fn lockfile_from_metadata_sorts_and_pins() {
@@ -29,16 +32,16 @@ mod tests {
 }"#,
         )
         .expect("write metadata");
-        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect("load lockfile from metadata");
-        assert_eq!(lockfile.schema_version, 1);
-        assert_eq!(lockfile.resolver_version, 1);
-        assert_eq!(lockfile.packages.len(), 2);
-        assert_eq!(lockfile.packages[0].id, "a::pkg@1.0.0");
-        assert_eq!(lockfile.packages[1].id, "z::pkg@2.0.0");
-        assert_eq!(lockfile.roots.len(), 1);
-        assert_eq!(lockfile.roots[0].name, "app");
-        assert_eq!(lockfile.roots[0].dependencies[0].name, "a::pkg");
+        assert_eq!(lockfile.schema_version(), 1);
+        assert_eq!(lockfile.resolver_version(), 1);
+        assert_eq!(lockfile.packages().len(), 2);
+        assert_eq!(lockfile.packages()[0].id, "a::pkg@1.0.0");
+        assert_eq!(lockfile.packages()[1].id, "z::pkg@2.0.0");
+        assert_eq!(lockfile.roots().len(), 1);
+        assert_eq!(lockfile.roots()[0].name, "app");
+        assert_eq!(lockfile.roots()[0].dependencies[0].name, "a::pkg");
     }
 
     #[test]
@@ -72,11 +75,11 @@ mod tests {
         )
         .expect("write metadata");
 
-        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect("load lockfile from metadata");
-        assert_eq!(lockfile.roots.len(), 1);
-        assert_eq!(lockfile.roots[0].dependencies.len(), 1);
-        assert_eq!(lockfile.roots[0].dependencies[0].name, "app::entry");
+        assert_eq!(lockfile.roots().len(), 1);
+        assert_eq!(lockfile.roots()[0].dependencies.len(), 1);
+        assert_eq!(lockfile.roots()[0].dependencies[0].name, "app::entry");
     }
 
     #[test]
@@ -106,7 +109,7 @@ mod tests {
 }"#,
         )
         .expect("write metadata");
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("expected duplicate error");
         assert!(err.to_string().contains("duplicate package id `dup@1.0.0`"));
     }
@@ -134,7 +137,7 @@ mod tests {
 }"#,
         )
         .expect("write metadata");
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("expected unknown dependency");
         assert!(err
             .to_string()
@@ -184,9 +187,9 @@ mod tests {
         )
         .expect("write metadata");
 
-        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect("solver should resolve");
-        let mut ids: Vec<String> = lockfile.packages.iter().map(|p| p.id.clone()).collect();
+        let mut ids: Vec<String> = lockfile.packages().iter().map(|p| p.id.clone()).collect();
         ids.sort();
         assert_eq!(ids, vec!["app::entry@1.0.0", "lib::core@1.2.0"]);
     }
@@ -220,7 +223,7 @@ mod tests {
         )
         .expect("write metadata");
 
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("unsatisfiable constraints should fail");
         assert_eq!(err.code(), "C113");
         assert!(err.to_string().contains("no satisfiable version set"));
@@ -273,7 +276,7 @@ mod tests {
         )
         .expect("write advisories");
 
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("deny advisory should fail");
         assert_eq!(err.code(), "C115");
         assert!(err.to_string().contains("ADV-001"));
@@ -327,7 +330,7 @@ mod tests {
         )
         .expect("write advisories");
 
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("force-upgrade advisory should fail");
         assert_eq!(err.code(), "C116");
         assert!(err.to_string().contains("ADV-002"));
@@ -388,9 +391,9 @@ mod tests {
         )
         .expect("write advisories");
 
-        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let lockfile = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect("force-upgrade should resolve to safe candidate");
-        let mut ids: Vec<String> = lockfile.packages.iter().map(|p| p.id.clone()).collect();
+        let mut ids: Vec<String> = lockfile.packages().iter().map(|p| p.id.clone()).collect();
         ids.sort();
         assert_eq!(ids, vec!["app::entry@1.0.0", "lib::core@1.0.5"]);
     }
@@ -421,14 +424,14 @@ mod tests {
         )
         .expect("write advisories");
 
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("invalid advisory schema should fail");
         assert_eq!(err.code(), "C117");
     }
 
     #[test]
     fn canonical_lockfile_bytes_are_stable_and_hashed() {
-        let lockfile = StrictLockfileV1 {
+        let lockfile = StrictLockfile::V1(StrictLockfileV1 {
             schema_version: 1,
             resolver_version: 1,
             roots: vec![StrictLockRootV1 {
@@ -447,7 +450,7 @@ mod tests {
                 abi_id: "abi:std::core:1.0.0".to_string(),
                 dependencies: Vec::new(),
             }],
-        };
+        });
         let bytes_a = canonical_lockfile_bytes(&lockfile).expect("canonical bytes");
         let bytes_b = canonical_lockfile_bytes(&lockfile).expect("canonical bytes");
         assert_eq!(bytes_a, bytes_b);
@@ -466,7 +469,7 @@ mod tests {
     fn write_lockfile_appends_newline_and_returns_canonical_hash() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let path = tmp.path().join(STRICT_LOCKFILE_FILE);
-        let lockfile = StrictLockfileV1 {
+        let lockfile = StrictLockfile::V1(StrictLockfileV1 {
             schema_version: 1,
             resolver_version: 1,
             roots: vec![StrictLockRootV1 {
@@ -485,7 +488,7 @@ mod tests {
                 abi_id: "abi:std::host:1.0.0".to_string(),
                 dependencies: Vec::new(),
             }],
-        };
+        });
         let hash = write_lockfile(path.as_path(), &lockfile).expect("write lockfile");
         let written = fs::read(path).expect("read lockfile");
         assert_eq!(written.last().copied(), Some(b'\n'));
@@ -495,7 +498,7 @@ mod tests {
 
     #[test]
     fn canonical_resolved_graph_bytes_are_stable_and_hashed() {
-        let lockfile = StrictLockfileV1 {
+        let lockfile = StrictLockfile::V1(StrictLockfileV1 {
             schema_version: 1,
             resolver_version: 1,
             roots: vec![StrictLockRootV1 {
@@ -527,7 +530,7 @@ mod tests {
                     dependencies: vec!["std::host@1.0.0".to_string()],
                 },
             ],
-        };
+        });
         let bytes_a = canonical_resolved_graph_bytes(&lockfile).expect("resolved graph bytes");
         let bytes_b = canonical_resolved_graph_bytes(&lockfile).expect("resolved graph bytes");
         assert_eq!(bytes_a, bytes_b);
@@ -538,7 +541,7 @@ mod tests {
     #[test]
     fn write_resolved_graph_artifact_writes_bytes_and_hash_sidecar() {
         let tmp = tempfile::tempdir().expect("tempdir");
-        let lockfile = StrictLockfileV1 {
+        let lockfile = StrictLockfile::V1(StrictLockfileV1 {
             schema_version: 1,
             resolver_version: 1,
             roots: vec![StrictLockRootV1 {
@@ -557,7 +560,7 @@ mod tests {
                 abi_id: "abi:pkg::a:1.0.0".to_string(),
                 dependencies: Vec::new(),
             }],
-        };
+        });
         let hash = write_resolved_graph_artifact(tmp.path(), &lockfile)
             .expect("write resolved graph artifact");
         let graph_bytes = fs::read(tmp.path().join(RESOLVED_GRAPH_FILE)).expect("read graph bytes");
@@ -606,7 +609,7 @@ mod tests {
         )
         .expect("write metadata");
 
-        let err = load_lockfile_from_metadata(metadata_path.as_path(), None)
+        let err = load_lockfile_from_metadata(metadata_path.as_path(), None, None)
             .expect_err("expected transitive cycle diagnostics");
         assert_eq!(err.code(), "C112");
         assert!(
@@ -614,6 +617,106 @@ mod tests {
                 .contains("x::pkg@1.0.0 -> z::pkg@1.0.0 -> y::pkg@1.0.0 -> x::pkg@1.0.0"),
             "message: {}",
             err
+        );
+    }
+
+    #[test]
+    fn lockfile_from_metadata_emits_schema_v2_shared_std_section_for_shared_manifest() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let metadata_path = tmp.path().join(CANONICAL_PACKAGE_METADATA_FILE);
+        let store_dir = tmp.path().join("std-packages");
+        fs::create_dir_all(&store_dir).expect("create std store");
+        fs::write(store_dir.join("std-text-1.2.0.wasm"), b"wasm").expect("write artifact");
+        fs::write(
+            &metadata_path,
+            r#"{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "std::text",
+      "version": "1.2.0",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact": { "format": "wasm", "path": "std-packages/std-text-1.2.0.wasm" },
+      "abi_id": "abi:std::text:1.2.0",
+      "signature": {
+        "format": "ed25519",
+        "key_id": "std-publisher-ed25519-2026q2",
+        "signed_at": "2026-06-01T00:00:00Z",
+        "signature": "deadbeef"
+      },
+      "trust": {
+        "trusted_anchor_ids": ["std-root"]
+      },
+      "verified_std_abi": {
+        "major": 1,
+        "minor_min": 0,
+        "minor_max": 0
+      },
+      "provenance": {
+        "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "statement_format": "in-toto-v1"
+      }
+    }
+  ]
+}"#,
+        )
+        .expect("write metadata");
+        let manifest = ProjectManifestV1 {
+            project: ProjectMetadataV1 {
+                name: "example-app".to_string(),
+                description: "Example project".to_string(),
+                version: "0.1.0".to_string(),
+                clg_version: "^0.1.0".to_string(),
+                entry: "main.clear".to_string(),
+                website: "https://example.com".to_string(),
+                contact: ProjectContactV1 {
+                    name: "Example Maintainer".to_string(),
+                    email: "maintainer@example.com".to_string(),
+                },
+            },
+            dependencies: Vec::new(),
+            std: Some(ProjectStdConfigV2 {
+                delivery: "shared".to_string(),
+                packages: vec![ProjectStdPackageRequirementV2 {
+                    package_id: "std::text".to_string(),
+                    version_requirement: "^1.2.0".to_string(),
+                    verified_std_abi: ProjectStdAbiRequirementV2 {
+                        major: 1,
+                        minor_min: 0,
+                        minor_max: 0,
+                    },
+                    registry: Some("default".to_string()),
+                    signer_policy: Some("std-publisher-prod".to_string()),
+                    allow_compat_shims: false,
+                }],
+            }),
+        };
+
+        let lockfile = load_lockfile_from_metadata(
+            metadata_path.as_path(),
+            Some(vec![StrictLockRootV1 {
+                name: "example-app".to_string(),
+                dependencies: Vec::new(),
+            }]),
+            Some(&manifest),
+        )
+        .expect("shared std lockfile should resolve");
+        let StrictLockfile::V2(lockfile) = lockfile else {
+            panic!("shared std manifest must emit schema v2 lockfile");
+        };
+        assert_eq!(lockfile.std.delivery, "shared");
+        assert_eq!(lockfile.std.packages.len(), 1);
+        assert_eq!(lockfile.std.packages[0].package_id, "std::text");
+        assert_eq!(lockfile.std.packages[0].artifact.size_bytes, 4);
+        assert!(
+            lockfile.std.packages[0]
+                .symbols
+                .contains(&"std::str::len".to_string())
+        );
+        assert!(
+            lockfile.std.packages[0]
+                .symbols
+                .contains(&"std::bytes::eq_ct".to_string())
         );
     }
 }

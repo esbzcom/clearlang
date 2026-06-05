@@ -114,12 +114,13 @@ pub fn run_migrate_manifest(args: RunMigrateManifestArgs, logger: Logger) -> Res
             let lock = match load_lockfile_from_metadata_with_policy(
                 metadata_path.as_path(),
                 None,
+                None,
                 &policy,
             ) {
                 Ok(value) => value,
                 Err(err) => return fail_pkg(err.code(), err.to_string()),
             };
-            lock.roots
+            lock.roots().to_vec()
         };
         match build_generated_manifest(root.as_path(), roots) {
             Ok(value) => value,

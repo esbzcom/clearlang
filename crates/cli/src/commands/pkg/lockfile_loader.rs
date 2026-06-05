@@ -2,16 +2,18 @@
 fn load_lockfile_from_metadata(
     path: &Path,
     root_inputs: Option<Vec<StrictLockRootV1>>,
-) -> Result<StrictLockfileV1, PkgLockError> {
+    project_manifest: Option<&ProjectManifestV1>,
+) -> Result<StrictLockfile, PkgLockError> {
     let policy = AdvisoryPolicy::standard();
-    load_lockfile_from_metadata_with_policy(path, root_inputs, &policy)
+    load_lockfile_from_metadata_with_policy(path, root_inputs, project_manifest, &policy)
 }
 
 fn load_lockfile_from_metadata_with_policy(
     path: &Path,
     root_inputs: Option<Vec<StrictLockRootV1>>,
+    project_manifest: Option<&ProjectManifestV1>,
     advisory_policy: &AdvisoryPolicy,
-) -> Result<StrictLockfileV1, PkgLockError> {
+) -> Result<StrictLockfile, PkgLockError> {
     if !path.exists() {
         return Err(PkgLockError::new(
             "C027",
@@ -58,6 +60,8 @@ fn load_lockfile_from_metadata_with_policy(
             dependencies: raw_dependencies,
             signature,
             trust,
+            verified_std_abi,
+            provenance,
         } = pkg;
         validate_package_id(name.as_str()).map_err(|msg| {
             PkgLockError::new("C027", format!("invalid package name `{}`: {msg}", name))
@@ -195,6 +199,9 @@ fn load_lockfile_from_metadata_with_policy(
             artifact_path,
             abi_id,
             dependencies,
+            signature,
+            verified_std_abi,
+            provenance,
         });
     }
     if let Some(first) = duplicate_package_ids.iter().next() {
@@ -256,6 +263,45 @@ fn load_lockfile_from_metadata_with_policy(
         ));
     }
 
+    let locked_packages = locked_packages_from_selection(&selected)?;
+    let Some(manifest) = project_manifest else {
+        return Ok(StrictLockfile::V1(StrictLockfileV1 {
+            schema_version: 1,
+            resolver_version: 1,
+            roots,
+            packages: locked_packages,
+        }));
+    };
+    let Some(std) = manifest.std.as_ref() else {
+        return Ok(StrictLockfile::V1(StrictLockfileV1 {
+            schema_version: 1,
+            resolver_version: 1,
+            roots,
+            packages: locked_packages,
+        }));
+    };
+
+    let std_section = build_locked_std_section(
+        path,
+        advisory_root,
+        &catalog,
+        &selected,
+        std,
+        advisories.as_slice(),
+        advisory_policy,
+    )?;
+    Ok(StrictLockfile::V2(StrictLockfileV2 {
+        schema_version: 2,
+        resolver_version: 1,
+        roots,
+        packages: locked_packages,
+        std: std_section,
+    }))
+}
+
+fn locked_packages_from_selection(
+    selected: &HashMap<String, ValidatedPackage>,
+) -> Result<Vec<StrictLockedPackageV1>, PkgLockError> {
     let mut selected_names: Vec<&str> = selected.keys().map(|name| name.as_str()).collect();
     selected_names.sort();
     let mut locked_packages = Vec::with_capacity(selected_names.len());
@@ -287,13 +333,276 @@ fn load_lockfile_from_metadata_with_policy(
         });
     }
     locked_packages.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(locked_packages)
+}
 
-    Ok(StrictLockfileV1 {
-        schema_version: 1,
-        resolver_version: 1,
-        roots,
-        packages: locked_packages,
+fn build_locked_std_section(
+    metadata_path: &Path,
+    metadata_root: &Path,
+    catalog: &HashMap<String, Vec<ValidatedPackage>>,
+    selected_packages: &HashMap<String, ValidatedPackage>,
+    std: &ProjectStdConfigV2,
+    advisories: &[AdvisoryEntry],
+    advisory_policy: &AdvisoryPolicy,
+) -> Result<StrictStdSectionV2, PkgLockError> {
+    if std.delivery == "embedded" {
+        return Ok(StrictStdSectionV2 {
+            delivery: "embedded".to_string(),
+            packages: Vec::new(),
+        });
+    }
+
+    let shared_std_roots = vec![StrictLockRootV1 {
+        name: "shared-std".to_string(),
+        dependencies: std
+            .packages
+            .iter()
+            .map(|package| StrictLockRootDependencyV1 {
+                name: package.package_id.clone(),
+                requirement: package.version_requirement.clone(),
+            })
+            .collect(),
+    }];
+    let shared_selection = solve_deterministic_versions(
+        catalog,
+        shared_std_roots.as_slice(),
+        advisories,
+        advisory_policy.advisory_as_of,
+    )?;
+    if let Some(cycle) = detect_resolved_cycle(&shared_selection) {
+        return Err(PkgLockError::new(
+            "C112",
+            format!("deterministic shared std dependency cycle detected: {cycle}"),
+        ));
+    }
+
+    for package in &std.packages {
+        if selected_packages.contains_key(package.package_id.as_str()) {
+            return Err(PkgLockError::new(
+                "C109",
+                format!(
+                    "shared std package `{}` collides with normal locked package space; keep shared std out of `dependencies[]`/`packages[]`",
+                    package.package_id
+                ),
+            ));
+        }
+    }
+
+    let mut shared_locked = Vec::with_capacity(std.packages.len());
+    for package in &std.packages {
+        if !is_bundled_std_package_id(package.package_id.as_str()) {
+            return Err(PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std package `{}` is not a supported externalizable std package id",
+                    package.package_id
+                ),
+            ));
+        }
+        let selected = shared_selection
+            .get(package.package_id.as_str())
+            .ok_or_else(|| {
+                PkgLockError::new(
+                    "C113",
+                    format!(
+                        "deterministic semver solver found no satisfiable shared std version set for `{}`",
+                        package.package_id
+                    ),
+                )
+            })?;
+        ensure_locked_shared_std_abi(metadata_path, selected, &package.verified_std_abi)?;
+        let signature = selected.signature.as_ref().ok_or_else(|| {
+            PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std package `{}` is missing canonical signature metadata",
+                    package.package_id
+                ),
+            )
+        })?;
+        if signature.format != "ed25519"
+            || signature.key_id.trim().is_empty()
+            || signature.signed_at.trim().is_empty()
+            || signature.signature.trim().is_empty()
+        {
+            return Err(PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std package `{}` has incomplete canonical signature metadata",
+                    package.package_id
+                ),
+            ));
+        }
+        let provenance = selected.provenance.as_ref().ok_or_else(|| {
+            PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std package `{}` is missing canonical provenance metadata",
+                    package.package_id
+                ),
+            )
+        })?;
+        validate_sha256_digest(provenance.statement_digest.as_str()).map_err(|msg| {
+            PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std package `{}` has invalid provenance statement_digest `{}`: {msg}",
+                    package.package_id, provenance.statement_digest
+                ),
+            )
+        })?;
+        if provenance.statement_format.trim().is_empty() {
+            return Err(PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std package `{}` has empty provenance statement_format",
+                    package.package_id
+                ),
+            ));
+        }
+        let symbols = bundled_std_package_symbols(package.package_id.as_str())
+            .ok_or_else(|| {
+                PkgLockError::new(
+                    "C111",
+                    format!(
+                        "shared std package `{}` is missing bundled symbol metadata",
+                        package.package_id
+                    ),
+                )
+            })?
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        let artifact_path = metadata_root.join(selected.artifact_path.as_str());
+        let artifact_size = fs::metadata(&artifact_path)
+            .map_err(|err| {
+                PkgLockError::new(
+                    "C111",
+                    format!(
+                        "reading shared std artifact `{}` for `{}`: {err}",
+                        artifact_path.display(),
+                        package.package_id
+                    ),
+                )
+            })?
+            .len();
+        if artifact_size == 0 {
+            return Err(PkgLockError::new(
+                "C111",
+                format!(
+                    "shared std artifact `{}` for `{}` has zero size",
+                    artifact_path.display(),
+                    package.package_id
+                ),
+            ));
+        }
+        let mut dependency_ids = Vec::new();
+        for dependency in &selected.dependencies {
+            let dep_pkg = shared_selection.get(dependency.name.as_str()).ok_or_else(|| {
+                PkgLockError::new(
+                    "C111",
+                    format!(
+                        "shared std package `{}` depends on `{}` outside the locked shared std package set",
+                        package.package_id,
+                        dependency.name
+                    ),
+                )
+            })?;
+            dependency_ids.push(format!("{}@{}", dep_pkg.name, dep_pkg.version));
+        }
+        dependency_ids.sort();
+        shared_locked.push(StrictLockedSharedStdPackageV2 {
+            package_id: selected.name.clone(),
+            version: selected.version.clone(),
+            verified_std_abi: StrictLockedSharedStdAbiV2 {
+                major: selected
+                    .verified_std_abi
+                    .as_ref()
+                    .expect("validated shared std abi")
+                    .major,
+                minor_min: selected
+                    .verified_std_abi
+                    .as_ref()
+                    .expect("validated shared std abi")
+                    .minor_min,
+                minor_max: selected
+                    .verified_std_abi
+                    .as_ref()
+                    .expect("validated shared std abi")
+                    .minor_max,
+            },
+            artifact: StrictLockedSharedStdArtifactV2 {
+                format: "wasm".to_string(),
+                path: selected.artifact_path.clone(),
+                digest: selected.digest.clone(),
+                size_bytes: artifact_size,
+            },
+            signature: StrictLockedSharedStdSignatureV2 {
+                key_id: signature.key_id.clone(),
+                algorithm: signature.format.clone(),
+                signed_at: signature.signed_at.clone(),
+                signature: signature.signature.clone(),
+            },
+            provenance: StrictLockedSharedStdProvenanceV2 {
+                statement_digest: provenance.statement_digest.clone(),
+                statement_format: provenance.statement_format.clone(),
+            },
+            symbols,
+            dependencies: dependency_ids,
+        });
+    }
+    shared_locked.sort_by(|a, b| {
+        format!("{}@{}", a.package_id, a.version).cmp(&format!("{}@{}", b.package_id, b.version))
+    });
+    Ok(StrictStdSectionV2 {
+        delivery: "shared".to_string(),
+        packages: shared_locked,
     })
+}
+
+fn ensure_locked_shared_std_abi(
+    metadata_path: &Path,
+    package: &ValidatedPackage,
+    requirement: &ProjectStdAbiRequirementV2,
+) -> Result<(), PkgLockError> {
+    let abi = package.verified_std_abi.as_ref().ok_or_else(|| {
+        PkgLockError::new(
+            "C111",
+            format!(
+                "shared std package `{}` in `{}` is missing canonical verified_std_abi metadata",
+                package.name,
+                metadata_path.display()
+            ),
+        )
+    })?;
+    if abi.minor_max < abi.minor_min {
+        return Err(PkgLockError::new(
+            "C111",
+            format!(
+                "shared std package `{}` has invalid canonical verified_std_abi range {}.{}..{}",
+                package.name, abi.major, abi.minor_min, abi.minor_max
+            ),
+        ));
+    }
+    if abi.major != requirement.major
+        || abi.minor_min < requirement.minor_min
+        || abi.minor_max > requirement.minor_max
+    {
+        return Err(PkgLockError::new(
+            "C111",
+            format!(
+                "shared std package `{}` locked ABI {}.{}..{} does not satisfy manifest requirement {}.{}..{}",
+                package.name,
+                abi.major,
+                abi.minor_min,
+                abi.minor_max,
+                requirement.major,
+                requirement.minor_min,
+                requirement.minor_max
+            ),
+        ));
+    }
+    Ok(())
 }
 
 fn derive_root_inputs_for_generate(

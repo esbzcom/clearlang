@@ -13,7 +13,7 @@ use crate::commands::pkg;
 use crate::commands::release_defaults::{
     enforce_project_clg_version_compatibility, is_release_defaults_placeholder,
     load_project_manifest_v1, load_required_release_defaults_v0, load_verify_trust_policy_v1,
-    STRICT_PROJECT_FILE,
+    ProjectManifestV1, STRICT_PROJECT_FILE,
 };
 use crate::commands::verify::{self, VerifyMode};
 use crate::logging::{Logger, StageTimings};
@@ -189,7 +189,7 @@ pub fn run(
         release_error(
             "C130",
             format!(
-                "release requires schema v1 `{}` with `project.entry` configured",
+                "release requires schema v1/v2 `{}` with `project.entry` configured",
                 STRICT_PROJECT_FILE
             ),
             manifest_path.as_path(),
@@ -379,6 +379,9 @@ pub fn run(
             json_errors,
         )
     })?;
+    validate_release_shared_std_mode(&project_manifest, shared_std.as_slice()).map_err(
+        |message| release_error("C130", message, file.as_path(), json_errors),
+    )?;
     {
         let _stage = timings.start(logger, "release_provenance");
         write_release_provenance(
@@ -832,6 +835,56 @@ fn collect_release_shared_std_package_evidence(
         .collect::<Vec<_>>();
     out.sort();
     Ok(out)
+}
+
+fn validate_release_shared_std_mode(
+    manifest: &ProjectManifestV1,
+    shared_std: &[ReleaseSharedStdPackageEvidence],
+) -> std::result::Result<(), String> {
+    let Some(std) = manifest.std.as_ref() else {
+        if !shared_std.is_empty() {
+            return Err(format!(
+                "`{}` does not declare shared std, but release lock evidence contains {} shared std package(s)",
+                STRICT_PROJECT_FILE,
+                shared_std.len()
+            ));
+        }
+        return Ok(());
+    };
+    if std.delivery == "embedded" {
+        if !shared_std.is_empty() {
+            return Err(format!(
+                "`{}` declares `std.delivery = embedded`, but release lock evidence contains {} shared std package(s)",
+                STRICT_PROJECT_FILE,
+                shared_std.len()
+            ));
+        }
+        return Ok(());
+    }
+    if shared_std.is_empty() {
+        return Err(format!(
+            "release requires non-empty shared std evidence because `{}` declares `std.delivery = shared`; `clg.lock.json` must be schema v2 with populated `std.packages[]`",
+            STRICT_PROJECT_FILE
+        ));
+    }
+    let expected = std
+        .packages
+        .iter()
+        .map(|package| package.package_id.as_str())
+        .collect::<BTreeSet<_>>();
+    let actual = shared_std
+        .iter()
+        .map(|package| package.package_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if expected != actual {
+        return Err(format!(
+            "release shared std evidence does not match `{}` intent; manifest packages = {:?}, lock evidence packages = {:?}",
+            STRICT_PROJECT_FILE,
+            expected,
+            actual
+        ));
+    }
+    Ok(())
 }
 
 fn parse_release_shared_std_package_evidence_value(

@@ -70,6 +70,170 @@ fn write_release_project_defaults(
     .expect("write project defaults");
 }
 
+fn write_release_project_defaults_shared_std(
+    path: &Path,
+    advisory_as_of: &str,
+    key_id: &str,
+    entry: &str,
+    out_dir: &str,
+    trust_policy: &str,
+) {
+    let value = json!({
+        "schema_version": 2,
+        "project": {
+            "name": "example-app",
+            "description": "Example project",
+            "version": "0.1.0",
+            "clg_version": current_clg_version_requirement(),
+            "entry": entry,
+            "website": "https://example.com",
+            "contact": {
+                "name": "Example Maintainer",
+                "email": "maintainer@example.com"
+            }
+        },
+        "dependencies": [],
+        "std": {
+            "delivery": "shared",
+            "packages": [
+                {
+                    "package_id": "std::text",
+                    "version_requirement": "^1.2.0",
+                    "verified_std_abi": {
+                        "major": 1,
+                        "minor_min": 0,
+                        "minor_max": 0
+                    },
+                    "registry": "default",
+                    "signer_policy": "std-publisher-prod",
+                    "allow_compat_shims": false
+                }
+            ]
+        },
+        "release_defaults": {
+            "advisory_as_of": advisory_as_of,
+            "key_id": key_id,
+            "out_dir": out_dir,
+            "trust_policy": trust_policy,
+        }
+    });
+    fs::write(
+        path,
+        serde_json::to_vec_pretty(&value).expect("serialize shared std project defaults"),
+    )
+    .expect("write shared std project defaults");
+}
+
+fn write_shared_std_package_metadata_fixture(root: &Path) {
+    let signing = SigningKey::from_bytes(&[7u8; 32]);
+    let signed_at = "2026-06-01T00:00:00Z";
+    let digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let key_id = "std-publisher-ed25519-2026q2";
+    let signature = hex::encode(
+        signing
+            .sign(
+                format!(
+                    "clg-package-signature-v0\n{}\n{}\n{}\n{}\n",
+                    "std::text", "1.2.0", digest, signed_at
+                )
+                .as_bytes(),
+            )
+            .to_bytes(),
+    );
+    let store_dir = root.join("std-packages");
+    fs::create_dir_all(&store_dir).expect("create std-packages");
+    fs::write(store_dir.join("std-text-1.2.0.wasm"), b"wasm").expect("write shared std artifact");
+    fs::write(
+        root.join("clg.package-metadata.json"),
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 1,
+            "packages": [
+                {
+                    "name": "std::text",
+                    "version": "1.2.0",
+                    "digest": digest,
+                    "artifact": { "format": "wasm", "path": "std-packages/std-text-1.2.0.wasm" },
+                    "abi_id": "abi:std::text:1.2.0",
+                    "dependencies": [],
+                    "signature": {
+                        "format": "ed25519",
+                        "key_id": key_id,
+                        "signed_at": signed_at,
+                        "signature": signature
+                    },
+                    "trust": {
+                        "trusted_anchor_ids": [key_id]
+                    },
+                    "verified_std_abi": {
+                        "major": 1,
+                        "minor_min": 0,
+                        "minor_max": 0
+                    },
+                    "provenance": {
+                        "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "statement_format": "in-toto-v1"
+                    }
+                }
+            ]
+        }))
+        .expect("serialize shared std package metadata"),
+    )
+    .expect("write shared std package metadata");
+    fs::write(
+        root.join("clg.package-abi.json"),
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 0,
+            "contracts": [
+                {
+                    "abi_id": "abi:std::text:1.2.0",
+                    "package": "std::text",
+                    "version": "1.2.0",
+                    "imports": []
+                }
+            ]
+        }))
+        .expect("serialize shared std package abi"),
+    )
+    .expect("write shared std package abi");
+    fs::write(
+        root.join("clg.package-signatures.json"),
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 0,
+            "signatures": [
+                {
+                    "name": "std::text",
+                    "version": "1.2.0",
+                    "digest": digest,
+                    "key_id": key_id,
+                    "signed_at": signed_at,
+                    "signature_format": "ed25519",
+                    "signature": signature
+                }
+            ]
+        }))
+        .expect("serialize shared std package signatures"),
+    )
+    .expect("write shared std package signatures");
+    fs::write(
+        root.join("clg.trust-policy.json"),
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 0,
+            "trusted_signers": [
+                {
+                    "key_id": key_id,
+                    "scheme": "ed25519",
+                    "public_key": format!("hex:{}", hex::encode(signing.verifying_key().to_bytes())),
+                    "not_before": "2026-01-01T00:00:00Z",
+                    "not_after": "2027-01-01T00:00:00Z"
+                }
+            ],
+            "revoked_key_ids": []
+        }))
+        .expect("serialize shared std trust policy"),
+    )
+    .expect("write shared std trust policy");
+}
+
 fn write_signing_keys(root: &Path) -> (PathBuf, PathBuf) {
     let signing = SigningKey::from_bytes(&[7u8; 32]);
     let public = signing.verifying_key();

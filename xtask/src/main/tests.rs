@@ -1258,6 +1258,9 @@ locked surface:
 - [x] 28.3.0
 - [x] 28.3.1
 - [x] 28.3.2
+- [x] 28.6.4
+- [x] 28.6.5
+- [x] 28.6.6
 "#;
         let release = r#"
 fn collect_release_shared_std_package_evidence() {}
@@ -1267,12 +1270,14 @@ let marker = "shared_std";
 "#;
         let strict_artifact = r#"let marker = "shared_std";"#;
         let tests = r#"
+fn release_command_preserves_non_empty_shared_std_evidence_for_shared_manifest() {}
+fn shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback() {}
 fn verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered() {}
 fn verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered() {}
 fn verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered() {}
 "#;
 
-        let blockers = evaluate_shared_std_distribution_gate(
+        let blockers = evaluate_shared_std_distribution_drift_audit(
             roadmap,
             release,
             strict_artifact,
@@ -1283,7 +1288,7 @@ fn verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered() 
 
     #[test]
     fn shared_std_distribution_gate_reports_missing_roadmap_and_test_coverage() {
-        let blockers = evaluate_shared_std_distribution_gate("", "", "", "");
+        let blockers = evaluate_shared_std_distribution_drift_audit("", "", "", "");
         assert!(
             blockers.iter().any(|line| line.contains("28.3.2")),
             "expected roadmap blocker, got {blockers:?}"

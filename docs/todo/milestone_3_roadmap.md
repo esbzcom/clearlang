@@ -322,10 +322,10 @@ Post-Milestone 3 path to a debt-free normal shared-std production path: **do not
   - [x] 28.6.5 Add deterministic negative coverage proving release-side and import-map-side readers reject the same malformed shared-std cases as runtime loading: invalid `std.delivery`, empty shared package set, duplicate/out-of-order package ids, duplicate/out-of-order symbols, duplicate/out-of-order dependency ids, malformed artifact/provenance digests, zero artifact size, incomplete signature/provenance fields, and normal/shared id-space collisions. `Completed: 2026-06-05`.
   - [x] 28.6.6 Add deterministic `pkg lock --update` and release/verify upgrade coverage for shared-std version changes, ABI-range changes, signer rotation, provenance rotation, and rollback to earlier locked shared-std versions without hidden manual repair steps. `Completed: 2026-06-05`.
 
-- [ ] 28.7 Command-level release and CI activation gates [Distribution Gate H]
-  - [ ] 28.7.0 Replace grep/source-shape shared-std activation checks with fixture-driven `clg release` + `clg verify-bundle` smoke gates that prove non-empty shared-std evidence survives the end-to-end workflow.
-  - [ ] 28.7.1 Extend CI with representative shared-std profile matrices covering happy path, tamper path, ABI mismatch, missing artifact, signer/provenance mismatch, and upgrade/replay behavior.
-  - [ ] 28.7.2 Keep cheap drift/audit checks only as secondary guardrails; behavior gates remain the rollout blocker for production support.
+- [x] 28.7 Command-level release and CI activation gates [Distribution Gate H] `Completed: 2026-06-05`
+  - [x] 28.7.0 Replace grep/source-shape shared-std activation checks with fixture-driven `clg release` + `clg verify-bundle` smoke gates that prove non-empty shared-std evidence survives the end-to-end workflow. `Completed: 2026-06-05`
+  - [x] 28.7.1 Extend CI with representative shared-std profile matrices covering happy path, tamper path, ABI mismatch, missing artifact, signer/provenance mismatch, and upgrade/replay behavior. `Completed: 2026-06-05`
+  - [x] 28.7.2 Keep cheap drift/audit checks only as secondary guardrails; behavior gates remain the rollout blocker for production support. `Completed: 2026-06-05`
 
 - [ ] 28.8 Productization and operational readiness [Distribution Gate I]
   - [ ] 28.8.0 Make shared-std artifact publishing, signing, provenance generation, key rotation, and registry/distribution handling routine and documented.

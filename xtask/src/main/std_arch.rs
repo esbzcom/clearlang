@@ -399,6 +399,59 @@ fn run_shared_std_distribution_check(root: &Path, raw_args: Vec<String>) -> Resu
     if !raw_args.is_empty() {
         return Err("shared-std-distribution-check does not accept args".to_string());
     }
+    run_shared_std_distribution_smoke_tests(root)?;
+    run_shared_std_distribution_drift_audit(root)
+}
+
+fn run_shared_std_distribution_smoke_tests(root: &Path) -> Result<(), String> {
+    let smoke_tests: &[(&str, &str)] = &[
+        (
+            "release_command_preserves_non_empty_shared_std_evidence_for_shared_manifest",
+            "happy-path shared std release evidence smoke",
+        ),
+        (
+            "shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback",
+            "shared std upgrade/rollback release+verify smoke",
+        ),
+        (
+            "verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered",
+            "shared std bundle tamper smoke",
+        ),
+        (
+            "verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered",
+            "shared std provenance tamper smoke",
+        ),
+        (
+            "rejects_shared_std_runtime_link_with_unsupported_verified_abi_minor_range",
+            "shared std ABI mismatch smoke",
+        ),
+        (
+            "rejects_shared_std_runtime_link_missing_store_artifact_with_r012",
+            "shared std missing artifact smoke",
+        ),
+        (
+            "rejects_shared_std_runtime_link_missing_signature_entry_with_r014",
+            "shared std signer mismatch smoke",
+        ),
+    ];
+
+    for (test_name, label) in smoke_tests {
+        cargo_cmd(
+            root,
+            &[
+                "test",
+                "-q",
+                "-p",
+                "clg-cli",
+                test_name,
+            ],
+        )
+        .map_err(|err| format!("{label} `{test_name}` failed: {err}"))?;
+    }
+    Ok(())
+}
+
+fn run_shared_std_distribution_drift_audit(root: &Path) -> Result<(), String> {
     let roadmap_path = root.join("docs").join("todo").join("milestone_3_roadmap.md");
     let release_path = root.join("crates").join("cli").join("src").join("commands").join("release.rs");
     let strict_artifact_path = root
@@ -425,7 +478,7 @@ fn run_shared_std_distribution_check(root: &Path, raw_args: Vec<String>) -> Resu
     let release_tests_raw = fs::read_to_string(&release_tests_path)
         .map_err(|e| format!("read `{}`: {e}", release_tests_path.display()))?;
 
-    let blockers = evaluate_shared_std_distribution_gate(
+    let blockers = evaluate_shared_std_distribution_drift_audit(
         &roadmap_raw,
         &release_raw,
         &strict_artifact_raw,
@@ -441,7 +494,7 @@ fn run_shared_std_distribution_check(root: &Path, raw_args: Vec<String>) -> Resu
     }
 }
 
-fn evaluate_shared_std_distribution_gate(
+fn evaluate_shared_std_distribution_drift_audit(
     roadmap_raw: &str,
     release_raw: &str,
     strict_artifact_raw: &str,
@@ -460,6 +513,9 @@ fn evaluate_shared_std_distribution_gate(
         "- [x] 28.3.0",
         "- [x] 28.3.1",
         "- [x] 28.3.2",
+        "- [x] 28.6.4",
+        "- [x] 28.6.5",
+        "- [x] 28.6.6",
     ] {
         if !roadmap_raw.contains(marker) {
             blockers.push(format!(
@@ -488,6 +544,8 @@ fn evaluate_shared_std_distribution_gate(
     }
 
     for test_name in [
+        "release_command_preserves_non_empty_shared_std_evidence_for_shared_manifest",
+        "shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback",
         "verify_bundle_fails_closed_when_strict_import_map_shared_std_evidence_is_tampered",
         "verify_bundle_fails_closed_when_bundle_manifest_shared_std_evidence_is_tampered",
         "verify_bundle_fails_closed_when_provenance_shared_std_evidence_is_tampered",

@@ -5,6 +5,7 @@
 - `clg verify-bundle --require-provenance` failure on published release.
 - Cross-runner reproducibility witness mismatch.
 - Missing GA target binary or parity artifact.
+- Cross-platform proof parity artifact mismatch.
 
 ## Immediate Actions
 1. Freeze milestone_3 tag/release promotion.
@@ -19,6 +20,7 @@
 ## Recovery
 1. Rebuild and republish corrected artifacts.
 2. Validate:
+   - proof parity compare,
    - binary smoke gate,
    - binary reproducibility witness compare,
    - verify-bundle with required provenance.

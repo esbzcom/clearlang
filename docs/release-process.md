@@ -11,7 +11,7 @@ Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` 
 
 Phase 25.6 policy lock:
 - GA artifact scope is distributable `clg` binaries (release bundles remain assurance evidence).
-- GA baseline targets are Windows + Linux; macOS is preview/non-blocking in this phase.
+- GA baseline targets are Windows + Linux + macOS.
 - Provenance attestation is required for GA release-train artifacts.
 
 ## Primary UX Surface (Gate C Lock)
@@ -188,10 +188,10 @@ Project module root must include:
 - `clg.host-profile.json`
 - `trust-policy.json` (schema v1 trust-anchor policy for compile-time verify)
 
-Windows-first self-contained solver setup (no system install):
+Self-contained solver setup per supported release target (no system install):
 
 ```powershell
-cargo run -p xtask -- solver-vendor-stage --from C:\path\to\z3.exe --platform windows
+cargo run -p xtask -- solver-vendor-stage --from <PATH-TO-Z3> --platform <windows|linux|macos>
 ```
 
 Set publisher signing key env var before staging:
@@ -309,11 +309,11 @@ Publish these files together:
 - `out/generic.release-bundle.json`
 - checksums/SBOM/release notes as needed by your distribution process
 
-For milestone_3 binary distribution artifacts (Windows/Linux GA baseline), emit the signed binary bundle:
+For milestone_3 binary distribution artifacts (Windows/Linux/macOS GA baseline), emit the signed binary bundle:
 
 ```powershell
 $env:CLG_BINARY_RELEASE_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
-cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux> --out-dir tmp/milestone3-binary/<platform>
+cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux|macos> --out-dir tmp/milestone3-binary/<platform>
 ```
 
 Bundle outputs include the platform binary, checksum manifest, signed metadata, and SBOM/license evidence.
@@ -330,7 +330,7 @@ Bundle outputs include the platform binary, checksum manifest, signed metadata, 
 - `--require-assurance proved_all` now also requires zero assumption boundaries in signed payloads/manifests (`unsigned.int_model`, `bitwise.uninterpreted`, `crypto.uninterpreted` are prohibited in release bundles).
 - Signed assurance payloads include deterministic `proof_status` (`proved_all|not_proved_all`) for release-policy tooling.
 - Milestone 3 CI/tag gate is locked by `docs/evidence/milestone_3-proof-gate.lock.json` and enforced by `crates/cli/tests/milestone3_release_gate.rs`.
-- Milestone 3 release-target parity gate currently runs on Windows (`windows-latest`) and enforces deterministic proof-parity artifact emission before `milestone_3` tag release gating.
+- Milestone 3 release-target parity gate now runs on Windows, Linux, and macOS and enforces deterministic proof-parity artifact emission plus cross-platform parity comparison before `milestone_3` tag release gating.
   - `cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`
   - `cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging`
 - Solver supply-chain gate is locked by `docs/design/phase-25.1.16-solver-supply-chain.lock.json` (pinned version + checksum/signature + legal notices + CVE/rollback policy).

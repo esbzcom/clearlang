@@ -4,8 +4,7 @@
 Operational guidance for install/upgrade/uninstall/verify workflows on GA baseline targets:
 - Windows
 - Linux
-
-macOS is preview in this phase and non-blocking for GA closure.
+- macOS
 
 ## Install
 1. Download the platform binary and checksum sidecar from release artifacts.
@@ -20,7 +19,7 @@ Release artifact production command (CI/operator workflow):
 
 ```powershell
 $env:CLG_BINARY_RELEASE_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
-cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux> --out-dir tmp/milestone3-binary/<platform>
+cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux|macos> --out-dir tmp/milestone3-binary/<platform>
 ```
 
 ## Upgrade
@@ -40,6 +39,9 @@ cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux> --out-
 - `clg --help`
 - `clg release --help`
 - `clg verify-bundle --help`
+
+`milestone3-proof-parity` and `milestone3-proof-parity-compare` also validate that the bundled
+release-grade solver path emits deterministic parity artifacts across Windows, Linux, and macOS.
 
 ## References
 - `.github/workflows/ci.yml`

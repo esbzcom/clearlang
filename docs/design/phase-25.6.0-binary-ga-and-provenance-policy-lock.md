@@ -19,10 +19,7 @@ Implications:
 
 ### 2) GA Target Matrix (`25.6.1`)
 Support policy is locked as:
-- Baseline GA targets (required gates): `windows` and `linux`.
-- Preview target (non-blocking for GA): `macos`.
-
-This lock intentionally treats macOS as preview in this phase; macOS failures do not block `25.6` GA closure unless policy is revised in a follow-up lock.
+- Baseline GA targets (required gates): `windows`, `linux`, and `macos`.
 
 ### 3) Provenance Requirement (`25.6.10`)
 Provenance attestation is:

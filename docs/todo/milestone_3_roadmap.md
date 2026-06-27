@@ -367,8 +367,8 @@ then re-locking the final breadth-complete production contract.
   - [x] 29.2.2 Extend release, verify-bundle, runtime-loader, import-migration, and xtask publish coverage to exercise `std::sequence` happy-path and fail-closed behavior. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/tests.rs`) `Completed: 2026-06-27`
   - [x] 29.2.3 Update user/operator documentation only after implementation lands so the supported shared-package set stays accurate. (`docs/release/shared-std-user-guide.md`, `docs/release/shared-std-operations.md`, `docs/release-process.md`, `docs/design/phase-28.9.1-shared-std-production-decision.md`, `docs/design/phase-28.9.2-shared-std-product-contract-lock.md`) `Completed: 2026-06-27`
 
-- [ ] 29.3 `std::contract` shared-std slice lock [Planning Gate C]
-  - [ ] 29.3.0 Publish the bounded Wave 2 promotion lock for `std::contract`, covering the exact package boundary, supported modules/symbols, fail-closed migration diagnostics, and trust/ABI/provenance rules while explicitly deferring chain-adapter packages. (`docs/design/phase-29.3.0-std-contract-shared-std-slice-lock.md`)
+- [x] 29.3 `std::contract` shared-std slice lock [Planning Gate C] `Completed: 2026-06-27`
+  - [x] 29.3.0 Publish the bounded Wave 2 promotion lock for `std::contract`, covering the exact package boundary, supported modules/symbols, fail-closed migration diagnostics, and trust/ABI/provenance rules while explicitly deferring chain-adapter packages. (`docs/design/phase-29.3.0-std-contract-shared-std-slice-lock.md`) `Completed: 2026-06-27`
 
 - [ ] 29.4 `std::contract` shared-std promotion [Execution Gate B]
   - [ ] 29.4.0 Extend bundled shared-std package allowlists, canonical publication flow, and manifest/lock validation so `std::contract` is a supported shared package without changing the current default delivery mode.

@@ -14,7 +14,7 @@ Execution order for Milestone 4: **planning lock -> candidate inventory -> first
   - [x] 30.2.0 Select the first bounded Milestone 4 execution slice, define its success target, and name the remaining deferred tracks explicitly. (`docs/design/phase-30.2.0-first-milestone-4-slice-selection.md`) `Completed: 2026-06-27`
 
 - [ ] 30.3 Multi-platform GA hardening [Execution Gate A]
-  - [ ] 30.3.0 Publish the platform-support and GA promotion lock covering Windows/Linux/macOS status, deterministic proof/release parity scope, and release-blocking criteria before implementation changes land.
+  - [x] 30.3.0 Publish the platform-support and GA promotion lock covering Windows/Linux/macOS status, deterministic proof/release parity scope, and release-blocking criteria before implementation changes land. (`docs/design/phase-30.3.0-multi-platform-ga-support-lock.md`) `Completed: 2026-06-27`
   - [ ] 30.3.1 Extend CI, release-train, and binary evidence gates so the locked GA target matrix is enforced under one deterministic proof/release parity contract.
   - [ ] 30.3.2 Update binary operations, release-train, release-process, and incident-response documentation after the platform contract changes land so operator guidance stays exact.
 
@@ -25,4 +25,3 @@ Execution order for Milestone 4: **planning lock -> candidate inventory -> first
 
 - [ ] 30.5 Next additive product-surface selection [Planning Gate D]
   - [ ] 30.5.0 Re-rank the remaining additive product tracks after `30.3` and `30.4`, then select the next bounded surface decision from: shared-package expansion, richer chain-helper surfaces, or delivery-mode simplification.
-

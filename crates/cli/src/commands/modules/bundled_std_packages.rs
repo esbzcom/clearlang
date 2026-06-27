@@ -14,6 +14,7 @@ const BUNDLED_STD_PACKAGE_IDS: &[&str] = &[
     "std::contract",
     "std::eth",
     "std::solana",
+    "std::cosmos",
 ];
 
 #[derive(Deserialize)]
@@ -277,12 +278,24 @@ pub(super) fn bundled_std_solana_modules() -> &'static BTreeSet<String> {
 }
 
 #[cfg(test)]
+pub(super) fn bundled_std_cosmos_modules() -> &'static BTreeSet<String> {
+    static BUNDLED_STD_COSMOS_MODULES: OnceLock<BTreeSet<String>> = OnceLock::new();
+    BUNDLED_STD_COSMOS_MODULES.get_or_init(|| {
+        load_bundled_std_package_modules_from_str(
+            include_str!("../../../../../docs/design/phase-27.2-external-std-package-plan.v1.json"),
+            "std::cosmos",
+        )
+        .expect("bundled std package plan must expose std::cosmos")
+    })
+}
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        bundled_std_codec_modules, bundled_std_contract_modules, bundled_std_eth_modules,
-        bundled_std_int_modules, bundled_std_item_migration_message,
+        bundled_std_codec_modules, bundled_std_contract_modules, bundled_std_cosmos_modules,
+        bundled_std_eth_modules, bundled_std_int_modules, bundled_std_item_migration_message,
         bundled_std_module_migration_message, bundled_std_package_external_imports,
         bundled_std_package_id_for_module, bundled_std_package_modules,
         bundled_std_sequence_modules, bundled_std_solana_modules, bundled_std_text_modules,
@@ -336,6 +349,7 @@ mod tests {
         let expected: BTreeSet<String> = [
             "std::array",
             "std::bytes",
+            "std::cosmos",
             "std::contract",
             "std::contract::address",
             "std::contract::amount",
@@ -435,6 +449,16 @@ mod tests {
     }
 
     #[test]
+    fn bundled_std_cosmos_modules_follow_phase27_plan() {
+        let expected: BTreeSet<String> = ["std::cosmos"].into_iter().map(str::to_string).collect();
+        assert_eq!(
+            bundled_std_cosmos_modules(),
+            &expected,
+            "std::cosmos bundled module set must stay aligned with the phase 27 plan"
+        );
+    }
+
+    #[test]
     fn bundled_std_package_external_imports_cover_supported_surface() {
         let symbols: BTreeSet<String> = bundled_std_package_external_imports()
             .iter()
@@ -457,6 +481,8 @@ mod tests {
         assert!(symbols.contains("std::eth::from_bytes"));
         assert!(symbols.contains("std::solana::from_array"));
         assert!(symbols.contains("std::solana::from_bytes"));
+        assert!(symbols.contains("std::cosmos::from_array"));
+        assert!(symbols.contains("std::cosmos::from_bytes"));
     }
 
     #[test]
@@ -510,6 +536,10 @@ mod tests {
             bundled_std_package_id_for_module("std::solana"),
             Some("std::solana")
         );
+        assert_eq!(
+            bundled_std_package_id_for_module("std::cosmos"),
+            Some("std::cosmos")
+        );
         assert_eq!(bundled_std_package_id_for_module("std::env"), None);
     }
 
@@ -560,6 +590,14 @@ mod tests {
                 "module does not export item `missing`"
             ),
             "symbol `std::solana::missing` moved to bundled std package `std::solana`; module does not export item `missing`"
+        );
+        assert_eq!(
+            bundled_std_item_migration_message(
+                "std::cosmos",
+                "missing",
+                "module does not export item `missing`"
+            ),
+            "symbol `std::cosmos::missing` moved to bundled std package `std::cosmos`; module does not export item `missing`"
         );
     }
 }

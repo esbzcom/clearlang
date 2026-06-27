@@ -357,6 +357,7 @@ fn write_shared_std_runtime_loader_gate_artifacts(
                         "symbols": match package_id {
                             "std::eth" => serde_json::json!(["std::eth::from_array", "std::eth::from_bytes"]),
                             "std::solana" => serde_json::json!(["std::solana::from_array", "std::solana::from_bytes"]),
+                            "std::cosmos" => serde_json::json!(["std::cosmos::from_array", "std::cosmos::from_bytes"]),
                             _ => serde_json::json!(["std::bytes", "std::str", "std::str_pattern"]),
                         },
                         "dependencies": []

@@ -63,7 +63,7 @@ mod tests {
     fn parse_shared_std_publish_args_accepts_explicit_values() {
         let opts = parse_shared_std_publish_args(vec![
             "--package-id".to_string(),
-            "std::eth".to_string(),
+            "std::solana".to_string(),
             "--version".to_string(),
             "1.2.3".to_string(),
             "--signed-at".to_string(),
@@ -86,7 +86,7 @@ mod tests {
             "7".to_string(),
         ])
         .expect("parse args");
-        assert_eq!(opts.package_id, "std::eth");
+        assert_eq!(opts.package_id, "std::solana");
         assert_eq!(opts.version, "1.2.3");
         assert_eq!(opts.out_dir, Some(PathBuf::from("tmp/shared")));
         assert_eq!(opts.registry_dir, Some(PathBuf::from("tmp/registry")));
@@ -112,6 +112,15 @@ mod tests {
         ])
         .expect("std::eth should be accepted");
         assert_eq!(accepted.package_id, "std::eth");
+
+        let accepted = parse_shared_std_publish_args(vec![
+            "--package-id".to_string(),
+            "std::solana".to_string(),
+            "--signed-at".to_string(),
+            "2026-06-27T00:00:00Z".to_string(),
+        ])
+        .expect("std::solana should be accepted");
+        assert_eq!(accepted.package_id, "std::solana");
 
         let err = parse_shared_std_publish_args(vec![
             "--package-id".to_string(),
@@ -427,7 +436,7 @@ mod tests {
             repo.as_path(),
             vec![
                 "--package-id".to_string(),
-                "std::eth".to_string(),
+                "std::solana".to_string(),
                 "--version".to_string(),
                 "1.2.3".to_string(),
                 "--signed-at".to_string(),
@@ -444,11 +453,11 @@ mod tests {
         )
         .expect("publish shared std artifact");
 
-        let publish_manifest_path = out_dir.join("std-eth-1.2.3.publish.json");
-        let package_manifest_path = out_dir.join("std-eth-1.2.3.shared-std-package.json");
-        let signatures_path = out_dir.join("std-eth-1.2.3.package-signatures.json");
-        let pubkey_path = out_dir.join("std-eth-1.2.3.pubkey.json");
-        let provenance_path = out_dir.join("std-eth-1.2.3.provenance.json");
+        let publish_manifest_path = out_dir.join("std-solana-1.2.3.publish.json");
+        let package_manifest_path = out_dir.join("std-solana-1.2.3.shared-std-package.json");
+        let signatures_path = out_dir.join("std-solana-1.2.3.package-signatures.json");
+        let pubkey_path = out_dir.join("std-solana-1.2.3.pubkey.json");
+        let provenance_path = out_dir.join("std-solana-1.2.3.provenance.json");
         let canonical_metadata_path = out_dir.join("clg.package-metadata.json");
         let canonical_abi_path = out_dir.join("clg.package-abi.json");
 
@@ -464,7 +473,7 @@ mod tests {
             &std::fs::read(&publish_manifest_path).expect("read publish manifest"),
         )
         .expect("parse publish manifest");
-        assert_eq!(publish_manifest["package_id"], "std::eth");
+        assert_eq!(publish_manifest["package_id"], "std::solana");
         assert_eq!(publish_manifest["version"], "1.2.3");
         assert_eq!(publish_manifest["registry_mode"], "file_registry");
 
@@ -472,7 +481,7 @@ mod tests {
             &std::fs::read(&package_manifest_path).expect("read shared std package manifest"),
         )
         .expect("parse shared std package manifest");
-        assert_eq!(package_manifest["package_id"], "std::eth");
+        assert_eq!(package_manifest["package_id"], "std::solana");
         assert_eq!(package_manifest["version"], "1.2.3");
         assert_eq!(package_manifest["signature"]["key_id"], "shared-std-2026q2");
         assert_eq!(package_manifest["provenance"]["statement_format"], "in-toto-v1");
@@ -481,7 +490,7 @@ mod tests {
             &std::fs::read(&signatures_path).expect("read package signatures"),
         )
         .expect("parse package signatures");
-        assert_eq!(signatures["signatures"][0]["name"], "std::eth");
+        assert_eq!(signatures["signatures"][0]["name"], "std::solana");
         assert_eq!(signatures["signatures"][0]["version"], "1.2.3");
 
         let pubkey: serde_json::Value =
@@ -500,8 +509,12 @@ mod tests {
         let signed_at = signatures["signatures"][0]["signed_at"]
             .as_str()
             .expect("signature signed_at");
-        let payload =
-            canonical_package_signature_payload("std::eth", "1.2.3", signed_digest, signed_at);
+        let payload = canonical_package_signature_payload(
+            "std::solana",
+            "1.2.3",
+            signed_digest,
+            signed_at,
+        );
         let signature_bytes = hex::decode(
             signatures["signatures"][0]["signature"]
                 .as_str()
@@ -523,40 +536,37 @@ mod tests {
             &std::fs::read(&canonical_metadata_path).expect("read canonical metadata"),
         )
         .expect("parse canonical metadata");
-        assert_eq!(canonical_metadata["packages"][0]["name"], "std::eth");
+        assert_eq!(canonical_metadata["packages"][0]["name"], "std::solana");
         assert_eq!(
             canonical_metadata["packages"][0]["artifact"]["path"],
-            "std-packages/std-eth-1.2.3.wasm"
+            "std-packages/std-solana-1.2.3.wasm"
         );
         assert_eq!(
             canonical_metadata["packages"][0]["trust"]["trusted_anchor_ids"][0],
             "std-publisher-prod"
         );
-        let eth_symbols = package_manifest["symbols"]
+        let solana_symbols = package_manifest["symbols"]
             .as_array()
             .expect("shared std package symbols should be an array")
             .iter()
             .filter_map(|value| value.as_str())
             .collect::<Vec<_>>();
         assert_eq!(
-            eth_symbols,
-            vec![
-                "std::eth::from_array",
-                "std::eth::from_bytes",
-            ]
+            solana_symbols,
+            vec!["std::solana::from_array", "std::solana::from_bytes",]
         );
 
         let registry_copy = registry_dir
-            .join("std__eth")
+            .join("std__solana")
             .join("1.2.3")
-            .join("std-eth-1.2.3.shared-std-package.json");
+            .join("std-solana-1.2.3.shared-std-package.json");
         assert!(registry_copy.is_file(), "registry package manifest should exist");
         assert!(
             registry_dir
-                .join("std__eth")
+                .join("std__solana")
                 .join("1.2.3")
                 .join("std-packages")
-                .join("std-eth-1.2.3.wasm")
+                .join("std-solana-1.2.3.wasm")
                 .is_file(),
             "registry artifact copy should preserve nested std-packages layout"
         );

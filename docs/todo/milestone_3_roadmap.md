@@ -385,6 +385,8 @@ then re-locking the final breadth-complete production contract.
 
 - [ ] 29.7 Remaining chain-adapter promotions [Execution Gate D]
   - [ ] 29.7.0 Promote the remaining approved chain-adapter packages one at a time using the same bounded contract from 29.5; no bulk multi-package activation is allowed without per-package evidence parity.
+    - [x] `std::solana`: extend allowlists, publication, manifest/lock validation, release/verify-bundle coverage, runtime fail-closed checks, and migration diagnostics using the locked bounded shape. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/core/artifacts_and_vendor.rs`, `xtask/src/main/artifacts_cli_models.rs`, `xtask/src/main/tests.rs`, `crates/cli/tests/cli_it/diagnostics/release_command_pipeline.rs`) `Completed: 2026-06-27`
+    - [ ] `std::cosmos`: promote the final approved chain-adapter package with the same per-package evidence parity before closing 29.7.0.
   - [ ] 29.7.1 Update docs, operational playbooks, and compatibility/deprecation notes after each chain-adapter promotion so the supported surface stays exact and audit-friendly.
 
 - [ ] 29.8 Breadth-complete production closure [Completion Gate E]

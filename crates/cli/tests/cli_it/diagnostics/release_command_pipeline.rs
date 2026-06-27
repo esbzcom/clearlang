@@ -478,6 +478,127 @@ fn release_command_accepts_std_eth_shared_std_evidence_for_shared_manifest() {
 }
 
 #[test]
+fn release_command_accepts_std_solana_shared_std_evidence_for_shared_manifest() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path().join("project");
+    fs::create_dir_all(&root).expect("create root");
+
+    let source = root.join("main.clear");
+    write_release_success_source(&source);
+    write_minimal_strict_preflight_files(&root);
+    write_shared_std_package_metadata_fixtures(
+        &root,
+        &[SharedStdPackageFixture {
+            package_id: "std::solana",
+            version: "1.2.0",
+            artifact_text: "wasm-solana",
+            key_seed: 10,
+            key_id: "std-publisher-ed25519-2026q4",
+            signed_at: "2026-06-20T00:00:00Z",
+            statement_digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            statement_format: "in-toto-v1",
+            abi_major: 1,
+            abi_minor_min: 0,
+            abi_minor_max: 0,
+        }],
+    );
+    fs::remove_file(root.join("clg.lock.json")).expect("remove legacy lockfile fixture");
+
+    let verify_trust_policy = root.join("trust-policy.json");
+    write_verify_trust_policy_v1(&verify_trust_policy);
+    write_release_project_defaults_shared_std_with_named_package(
+        root.join("clg.project.json").as_path(),
+        "2026-03-31T00:00:00Z",
+        "release-2026q2",
+        "main.clear",
+        "out/release",
+        "trust-policy.json",
+        "std::solana",
+        "^1.2.0",
+        1,
+        0,
+        0,
+    );
+    let (key_path, pubkey_path) = write_signing_keys(&root);
+
+    let solver = write_fake_unsat_solver(&root.join("solver"));
+    write_solver_integrity_sidecars(&solver);
+    let out_dir = root.join("out").join("release");
+
+    Command::cargo_bin("clg")
+        .unwrap()
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["--non-interactive", "release"])
+        .args(["--key"])
+        .arg(&key_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .args(["--root"])
+        .arg(&root)
+        .assert()
+        .success();
+
+    let bundle_path = out_dir.join("main.release-bundle.json");
+    let bundle: Value =
+        serde_json::from_slice(&fs::read(&bundle_path).expect("read bundle manifest"))
+            .expect("parse bundle");
+    let shared_std = bundle
+        .get("shared_std")
+        .and_then(|v| v.as_array())
+        .expect("bundle shared_std array");
+    assert_eq!(shared_std.len(), 1, "shared release should carry non-empty evidence");
+    assert_eq!(
+        shared_std[0]
+            .get("package_id")
+            .and_then(|v| v.as_str()),
+        Some("std::solana")
+    );
+
+    let strict_import_map_path = bundle
+        .get("artifacts")
+        .and_then(|v| v.get("strict_import_map"))
+        .and_then(|v| v.get("path"))
+        .and_then(|v| v.as_str())
+        .expect("strict import-map artifact path");
+    let strict_import_map: Value = serde_json::from_slice(
+        fs::read(strict_import_map_path)
+            .expect("read strict import-map artifact")
+            .as_slice(),
+    )
+    .expect("parse strict import-map artifact");
+    let import_map_shared_std = strict_import_map
+        .get("shared_std")
+        .and_then(|v| v.as_array())
+        .expect("strict import-map shared_std");
+    assert_eq!(import_map_shared_std.len(), 1);
+    assert_eq!(
+        import_map_shared_std[0]
+            .get("package_id")
+            .and_then(|v| v.as_str()),
+        Some("std::solana")
+    );
+
+    let verify_out = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["verify-bundle", "--bundle"])
+        .arg(&bundle_path)
+        .args(["--pubkey"])
+        .arg(&pubkey_path)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let verify_text = String::from_utf8(verify_out).expect("utf8");
+    let verify_summary: Value =
+        serde_json::from_str(verify_text.trim()).expect("verify-bundle summary json");
+    assert_eq!(
+        verify_summary.get("status").and_then(|v| v.as_str()),
+        Some("verified")
+    );
+}
+
+#[test]
 fn shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback() {
     let tmp = tempdir().unwrap();
     let root = tmp.path().join("project");

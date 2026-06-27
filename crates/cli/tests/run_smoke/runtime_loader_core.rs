@@ -325,6 +325,16 @@ fn shared_std_eth_runtime_loader_tamper_missing_artifact_reports_r012() {
 }
 
 #[test]
+fn shared_std_solana_runtime_loader_tamper_missing_artifact_reports_r012() {
+    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture("std::solana", "1.2.0", 0, 0);
+    let root = tmp.path();
+    fs::remove_file(root.join("std-packages").join("std-solana-1.2.0.wasm"))
+        .expect("remove shared std solana artifact");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R012");
+}
+
+#[test]
 fn runtime_loader_tamper_runtime_link_hash_mismatch_reports_r017() {
     let (tmp, wasm_path) = setup_runtime_loader_fixture();
     let root = tmp.path();

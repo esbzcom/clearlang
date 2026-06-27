@@ -12,6 +12,7 @@ const BUNDLED_STD_PACKAGE_IDS: &[&str] = &[
     "std::sequence",
     "std::codec",
     "std::contract",
+    "std::eth",
 ];
 
 #[derive(Deserialize)]
@@ -251,14 +252,27 @@ pub(super) fn bundled_std_contract_modules() -> &'static BTreeSet<String> {
 }
 
 #[cfg(test)]
+pub(super) fn bundled_std_eth_modules() -> &'static BTreeSet<String> {
+    static BUNDLED_STD_ETH_MODULES: OnceLock<BTreeSet<String>> = OnceLock::new();
+    BUNDLED_STD_ETH_MODULES.get_or_init(|| {
+        load_bundled_std_package_modules_from_str(
+            include_str!("../../../../../docs/design/phase-27.2-external-std-package-plan.v1.json"),
+            "std::eth",
+        )
+        .expect("bundled std package plan must expose std::eth")
+    })
+}
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        bundled_std_codec_modules, bundled_std_contract_modules, bundled_std_int_modules,
-        bundled_std_item_migration_message, bundled_std_module_migration_message,
-        bundled_std_package_external_imports, bundled_std_package_id_for_module,
-        bundled_std_package_modules, bundled_std_sequence_modules, bundled_std_text_modules,
+        bundled_std_codec_modules, bundled_std_contract_modules, bundled_std_eth_modules,
+        bundled_std_int_modules, bundled_std_item_migration_message,
+        bundled_std_module_migration_message, bundled_std_package_external_imports,
+        bundled_std_package_id_for_module, bundled_std_package_modules,
+        bundled_std_sequence_modules, bundled_std_text_modules,
         load_bundled_std_package_modules_from_str,
     };
 
@@ -316,6 +330,7 @@ mod tests {
             "std::contract::event",
             "std::decode_error",
             "std::decoder",
+            "std::eth",
             "std::encode_error",
             "std::encoder",
             "std::slice",
@@ -386,6 +401,16 @@ mod tests {
     }
 
     #[test]
+    fn bundled_std_eth_modules_follow_phase27_plan() {
+        let expected: BTreeSet<String> = ["std::eth"].into_iter().map(str::to_string).collect();
+        assert_eq!(
+            bundled_std_eth_modules(),
+            &expected,
+            "std::eth bundled module set must stay aligned with the phase 27 plan"
+        );
+    }
+
+    #[test]
     fn bundled_std_package_external_imports_cover_supported_surface() {
         let symbols: BTreeSet<String> = bundled_std_package_external_imports()
             .iter()
@@ -404,6 +429,8 @@ mod tests {
         assert!(symbols.contains("std::contract::amount::add_checked"));
         assert!(symbols.contains("std::contract::event::new"));
         assert!(symbols.contains("std::contract::contract_error::equals"));
+        assert!(symbols.contains("std::eth::from_array"));
+        assert!(symbols.contains("std::eth::from_bytes"));
     }
 
     #[test]
@@ -449,6 +476,10 @@ mod tests {
             bundled_std_package_id_for_module("std::contract::event"),
             Some("std::contract")
         );
+        assert_eq!(
+            bundled_std_package_id_for_module("std::eth"),
+            Some("std::eth")
+        );
         assert_eq!(bundled_std_package_id_for_module("std::env"), None);
     }
 
@@ -483,6 +514,14 @@ mod tests {
                 "module does not export item `missing`"
             ),
             "symbol `std::contract::event::missing` moved to bundled std package `std::contract`; module does not export item `missing`"
+        );
+        assert_eq!(
+            bundled_std_item_migration_message(
+                "std::eth",
+                "missing",
+                "module does not export item `missing`"
+            ),
+            "symbol `std::eth::missing` moved to bundled std package `std::eth`; module does not export item `missing`"
         );
     }
 }

@@ -379,9 +379,9 @@ then re-locking the final breadth-complete production contract.
   - [x] 29.5.0 Publish the Wave 2 chain-adapter execution order and full-production closure criteria for `std::eth`, `std::solana`, and `std::cosmos`, including explicit prioritization rationale, shared-vs-embedded activation expectations, and what remains non-goal/deferred. (`docs/design/phase-29.5.0-chain-adapter-production-ordering-lock.md`) `Completed: 2026-06-27`
   - [x] 29.5.1 Lock one canonical bounded rollout shape for chain adapters: exact per-package module/symbol boundaries, deterministic migration diagnostics, and proof/release/runtime constraints that must hold before any chain adapter becomes supported in shared form. (`docs/design/phase-29.5.1-chain-adapter-rollout-shape-lock.md`) `Completed: 2026-06-27`
 
-- [ ] 29.6 First chain-adapter supported promotion [Execution Gate C]
-  - [ ] 29.6.0 Promote the first selected chain-adapter package from 29.5 under the bounded lock, including allowlists, publication, manifest/lock validation, and release/runtime enforcement.
-  - [ ] 29.6.1 Add end-to-end happy-path and fail-closed coverage for the first selected chain adapter across publish, lock, release, verify-bundle, runtime loading, and migration diagnostics.
+- [x] 29.6 First chain-adapter supported promotion [Execution Gate C] `Completed: 2026-06-27`
+  - [x] 29.6.0 Promote the first selected chain-adapter package from 29.5 under the bounded lock, including allowlists, publication, manifest/lock validation, and release/runtime enforcement. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/core/artifacts_and_vendor.rs`, `xtask/src/main/artifacts_cli_models.rs`, `crates/cli/src/commands/release_defaults/tests.rs`) `Completed: 2026-06-27`
+  - [x] 29.6.1 Add end-to-end happy-path and fail-closed coverage for the first selected chain adapter across publish, lock, release, verify-bundle, runtime loading, and migration diagnostics. (`xtask/src/main/tests.rs`, `crates/cli/tests/cli_it/imports/std_and_edges.rs`, `crates/cli/tests/cli_it/diagnostics/release_command_pipeline.rs`, `crates/cli/tests/run_smoke/prelude.rs`, `crates/cli/tests/run_smoke/runtime_loader_core.rs`) `Completed: 2026-06-27`
 
 - [ ] 29.7 Remaining chain-adapter promotions [Execution Gate D]
   - [ ] 29.7.0 Promote the remaining approved chain-adapter packages one at a time using the same bounded contract from 29.5; no bulk multi-package activation is allowed without per-package evidence parity.

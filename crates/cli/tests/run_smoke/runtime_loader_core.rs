@@ -273,7 +273,7 @@ fn runtime_loader_tamper_untrusted_signer_reports_r014() {
 
 #[test]
 fn shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r015() {
-    let (_tmp, wasm_path) = setup_shared_std_runtime_loader_fixture(9, 9);
+    let (_tmp, wasm_path) = setup_shared_std_runtime_loader_fixture("std::text", "1.2.0", 9, 9);
     let stdout = run_json_error_output(&wasm_path);
     assert_first_error_code(stdout.as_slice(), "R015");
     let value: Value = serde_json::from_slice(stdout.as_slice()).expect("json");
@@ -288,7 +288,7 @@ fn shared_std_runtime_loader_rejects_unsupported_verified_abi_minor_range_with_r
 
 #[test]
 fn shared_std_runtime_loader_tamper_missing_artifact_reports_r012() {
-    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture(0, 0);
+    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture("std::text", "1.2.0", 0, 0);
     let root = tmp.path();
     fs::remove_file(root.join("std-packages").join("std-text-1.2.0.wasm"))
         .expect("remove shared std artifact");
@@ -298,7 +298,7 @@ fn shared_std_runtime_loader_tamper_missing_artifact_reports_r012() {
 
 #[test]
 fn shared_std_runtime_loader_tamper_untrusted_signer_reports_r014() {
-    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture(0, 0);
+    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture("std::text", "1.2.0", 0, 0);
     let root = tmp.path();
     let trust_path = root.join("clg.trust-policy.json");
     let mut trust: Value =
@@ -312,6 +312,16 @@ fn shared_std_runtime_loader_tamper_untrusted_signer_reports_r014() {
     .expect("write trust policy");
     let stdout = run_json_error_output(&wasm_path);
     assert_first_error_code(stdout.as_slice(), "R014");
+}
+
+#[test]
+fn shared_std_eth_runtime_loader_tamper_missing_artifact_reports_r012() {
+    let (tmp, wasm_path) = setup_shared_std_runtime_loader_fixture("std::eth", "1.2.0", 0, 0);
+    let root = tmp.path();
+    fs::remove_file(root.join("std-packages").join("std-eth-1.2.0.wasm"))
+        .expect("remove shared std eth artifact");
+    let stdout = run_json_error_output(&wasm_path);
+    assert_first_error_code(stdout.as_slice(), "R012");
 }
 
 #[test]

@@ -262,26 +262,30 @@ fn setup_runtime_loader_fixture() -> (tempfile::TempDir, PathBuf) {
 
 fn write_shared_std_runtime_loader_gate_artifacts(
     root: &Path,
+    package_id: &str,
+    version: &str,
     artifact_text: &str,
     verified_std_abi_minor_min: u32,
     verified_std_abi_minor_max: u32,
 ) {
     let store_dir = root.join("std-packages");
     fs::create_dir_all(&store_dir).expect("create std-packages");
-    let artifact_path = store_dir.join("std-text-1.2.0.wasm");
+    let artifact_stem = format!("{}-{}", package_id.replace("::", "-"), version);
+    let artifact_name = format!("{artifact_stem}.wasm");
+    let artifact_path = store_dir.join(&artifact_name);
     fs::write(&artifact_path, artifact_text.as_bytes()).expect("write shared std artifact");
     let digest = format!("sha256:{}", sha256_hex(artifact_text.as_bytes()));
-    let package_id = "std::text@1.2.0";
+    let package_release_id = format!("{package_id}@{version}");
 
     let runtime_link = serde_json::json!({
         "schema_version": 0,
         "resolver_version": 1,
         "packages": [
             {
-                "id": package_id,
+                "id": package_release_id,
                 "digest": digest,
-                "artifact_path": "std-packages/std-text-1.2.0.wasm",
-                "abi_id": "abi:std:text:1.2.0"
+                "artifact_path": format!("std-packages/{artifact_name}"),
+                "abi_id": format!("abi:{package_id}:{version}")
             }
         ],
         "bindings": []
@@ -306,9 +310,9 @@ fn write_shared_std_runtime_loader_gate_artifacts(
             "schema_version": 0,
             "artifacts": [
                 {
-                    "id": package_id,
+                    "id": package_release_id,
                     "digest": digest,
-                    "path": "std-packages/std-text-1.2.0.wasm"
+                    "path": format!("std-packages/{artifact_name}")
                 }
             ]
         }))
@@ -327,8 +331,8 @@ fn write_shared_std_runtime_loader_gate_artifacts(
                 "delivery": "shared",
                 "packages": [
                     {
-                        "package_id": "std::text",
-                        "version": "1.2.0",
+                        "package_id": package_id,
+                        "version": version,
                         "verified_std_abi": {
                             "major": 1,
                             "minor_min": verified_std_abi_minor_min,
@@ -336,7 +340,7 @@ fn write_shared_std_runtime_loader_gate_artifacts(
                         },
                         "artifact": {
                             "format": "wasm",
-                            "path": "std-packages/std-text-1.2.0.wasm",
+                            "path": format!("std-packages/{artifact_name}"),
                             "digest": digest,
                             "size_bytes": artifact_text.len()
                         },
@@ -350,7 +354,10 @@ fn write_shared_std_runtime_loader_gate_artifacts(
                             "statement_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                             "statement_format": "in-toto-v1"
                         },
-                        "symbols": ["std::bytes", "std::str", "std::str_pattern"],
+                        "symbols": match package_id {
+                            "std::eth" => serde_json::json!(["std::eth::from_array", "std::eth::from_bytes"]),
+                            _ => serde_json::json!(["std::bytes", "std::str", "std::str_pattern"]),
+                        },
                         "dependencies": []
                     }
                 ]
@@ -362,7 +369,8 @@ fn write_shared_std_runtime_loader_gate_artifacts(
 
     let signing = SigningKey::from_bytes(&[7u8; 32]);
     let signed_at = "2026-06-01T00:00:00Z";
-    let payload = format!("clg-package-signature-v0\nstd::text\n1.2.0\n{digest}\n{signed_at}\n");
+    let payload =
+        format!("clg-package-signature-v0\n{package_id}\n{version}\n{digest}\n{signed_at}\n");
     let signature = hex::encode(signing.sign(payload.as_bytes()).to_bytes());
     fs::write(
         root.join("clg.trust-policy.json"),
@@ -388,8 +396,8 @@ fn write_shared_std_runtime_loader_gate_artifacts(
             "schema_version": 0,
             "signatures": [
                 {
-                    "name": "std::text",
-                    "version": "1.2.0",
+                    "name": package_id,
+                    "version": version,
                     "digest": digest,
                     "key_id": "k1",
                     "signed_at": signed_at,
@@ -404,6 +412,8 @@ fn write_shared_std_runtime_loader_gate_artifacts(
 }
 
 fn setup_shared_std_runtime_loader_fixture(
+    package_id: &str,
+    version: &str,
     verified_std_abi_minor_min: u32,
     verified_std_abi_minor_max: u32,
 ) -> (tempfile::TempDir, PathBuf) {
@@ -420,6 +430,8 @@ fn setup_shared_std_runtime_loader_fixture(
 
     write_shared_std_runtime_loader_gate_artifacts(
         root,
+        package_id,
+        version,
         "shared-std-artifact",
         verified_std_abi_minor_min,
         verified_std_abi_minor_max,

@@ -584,7 +584,7 @@ fn parse_shared_std_publish_args(raw_args: Vec<String>) -> Result<SharedStdPubli
                     .ok_or_else(|| "missing value for `--package-id`".to_string())?;
                 if !is_supported_shared_std_package_id(value.as_str()) {
                     return Err(format!(
-                        "unsupported `--package-id` `{}`; expected one of: std::text, std::int, std::sequence, std::codec, std::contract",
+                        "unsupported `--package-id` `{}`; expected one of: std::text, std::int, std::sequence, std::codec, std::contract, std::eth",
                         value
                     ));
                 }
@@ -1065,7 +1065,7 @@ fn load_external_std_package_plan(
 fn is_supported_shared_std_package_id(package_id: &str) -> bool {
     matches!(
         package_id,
-        "std::text" | "std::int" | "std::sequence" | "std::codec" | "std::contract"
+        "std::text" | "std::int" | "std::sequence" | "std::codec" | "std::contract" | "std::eth"
     )
 }
 

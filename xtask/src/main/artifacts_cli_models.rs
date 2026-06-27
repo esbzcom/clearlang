@@ -120,6 +120,9 @@ fn print_help() {
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");
+    println!(
+        "  shared-std-publish [--version X.Y.Z] --signed-at RFC3339Z [--out-dir DIR] [--registry-dir DIR] [--key-id ID] [--statement-format FORMAT] [--abi-major N] [--abi-minor-min N] [--abi-minor-max N]"
+    );
     println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos] [--key-id ID]");
     println!("  binary-repro-witness [--out FILE] (phase 25.6 binary reproducibility witness)");
     println!(
@@ -156,6 +159,19 @@ fn print_help() {
 struct StdCoreArtifactOpts {
     version: String,
     out_dir: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug)]
+struct SharedStdPublishOpts {
+    version: String,
+    out_dir: Option<PathBuf>,
+    registry_dir: Option<PathBuf>,
+    key_id: String,
+    signed_at: String,
+    statement_format: String,
+    abi_major: u32,
+    abi_minor_min: u32,
+    abi_minor_max: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -293,6 +309,128 @@ struct MetadataEntry {
     surface: String,
     strict_package_metadata: String,
     strict_package_abi: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdArtifactDescriptor {
+    format: String,
+    path: String,
+    digest: String,
+    size_bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdVerifiedAbiDescriptor {
+    major: u32,
+    minor_min: u32,
+    minor_max: u32,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPackageSignatureEntry {
+    name: String,
+    version: String,
+    digest: String,
+    key_id: String,
+    signed_at: String,
+    signature_format: String,
+    signature: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPackageSignaturesFile {
+    schema_version: u32,
+    signatures: Vec<SharedStdPackageSignatureEntry>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPublishedPackageSignature {
+    key_id: String,
+    algorithm: String,
+    signed_at: String,
+    signature: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPublishedProvenance {
+    statement_digest: String,
+    statement_format: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPublishedPackage {
+    schema_version: u32,
+    package_id: String,
+    version: String,
+    verified_std_abi: SharedStdVerifiedAbiDescriptor,
+    artifact: SharedStdArtifactDescriptor,
+    signature: SharedStdPublishedPackageSignature,
+    provenance: SharedStdPublishedProvenance,
+    symbols: Vec<String>,
+    dependencies: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdProvenanceStatement {
+    schema_version: u32,
+    statement_type: String,
+    package_id: String,
+    version: String,
+    verified_std_abi: SharedStdVerifiedAbiDescriptor,
+    artifact: SharedStdArtifactDescriptor,
+    metadata: SharedStdProvenanceMetadata,
+    signature: SharedStdProvenanceSignatureRef,
+    registry: SharedStdProvenanceRegistry,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdProvenanceMetadata {
+    manifest_path: String,
+    manifest_digest: String,
+    package_metadata_path: String,
+    package_metadata_digest: String,
+    package_abi_path: String,
+    package_abi_digest: String,
+    package_signatures_path: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdProvenanceSignatureRef {
+    key_id: String,
+    algorithm: String,
+    signed_at: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdProvenanceRegistry {
+    mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    registry_dir: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPublishFileEntry {
+    path: String,
+    digest: String,
+    size_bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct SharedStdPublishManifest {
+    schema_version: u32,
+    package_id: String,
+    version: String,
+    verified_std_abi: SharedStdVerifiedAbiDescriptor,
+    key_id: String,
+    signed_at: String,
+    statement_format: String,
+    package_manifest: String,
+    provenance_statement: String,
+    public_key: String,
+    registry_mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    registry_dir: Option<String>,
+    files: Vec<SharedStdPublishFileEntry>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

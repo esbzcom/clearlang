@@ -39,6 +39,81 @@ mod tests {
     }
 
     #[test]
+    fn parse_shared_std_publish_args_accepts_defaults() {
+        let opts = parse_shared_std_publish_args(vec![
+            "--signed-at".to_string(),
+            "2026-06-27T00:00:00Z".to_string(),
+        ])
+        .expect("parse args");
+        assert_eq!(opts.version, "1.0.0");
+        assert!(opts.out_dir.is_none());
+        assert!(opts.registry_dir.is_none());
+        assert_eq!(opts.key_id, "shared-std-ed25519-2026q2");
+        assert_eq!(opts.statement_format, "in-toto-v1");
+        assert_eq!(opts.abi_major, 1);
+        assert_eq!(opts.abi_minor_min, 0);
+        assert_eq!(opts.abi_minor_max, 0);
+    }
+
+    #[test]
+    fn parse_shared_std_publish_args_accepts_explicit_values() {
+        let opts = parse_shared_std_publish_args(vec![
+            "--version".to_string(),
+            "1.2.3".to_string(),
+            "--signed-at".to_string(),
+            "2026-06-27T01:02:03Z".to_string(),
+            "--out-dir".to_string(),
+            "tmp/shared".to_string(),
+            "--registry-dir".to_string(),
+            "tmp/registry".to_string(),
+            "--key-id".to_string(),
+            "shared-std-2026q3".to_string(),
+            "--statement-format".to_string(),
+            "in-toto-v1".to_string(),
+            "--abi-major".to_string(),
+            "2".to_string(),
+            "--abi-minor-min".to_string(),
+            "4".to_string(),
+            "--abi-minor-max".to_string(),
+            "7".to_string(),
+        ])
+        .expect("parse args");
+        assert_eq!(opts.version, "1.2.3");
+        assert_eq!(opts.out_dir, Some(PathBuf::from("tmp/shared")));
+        assert_eq!(opts.registry_dir, Some(PathBuf::from("tmp/registry")));
+        assert_eq!(opts.key_id, "shared-std-2026q3");
+        assert_eq!(opts.signed_at, "2026-06-27T01:02:03Z");
+        assert_eq!(opts.abi_major, 2);
+        assert_eq!(opts.abi_minor_min, 4);
+        assert_eq!(opts.abi_minor_max, 7);
+    }
+
+    #[test]
+    fn parse_shared_std_publish_args_rejects_invalid_input() {
+        let err =
+            parse_shared_std_publish_args(Vec::new()).expect_err("expected missing signed-at");
+        assert!(err.contains("missing required `--signed-at`"));
+
+        let err = parse_shared_std_publish_args(vec![
+            "--signed-at".to_string(),
+            "2026-06-27".to_string(),
+        ])
+        .expect_err("expected invalid timestamp");
+        assert!(err.contains("invalid timestamp"));
+
+        let err = parse_shared_std_publish_args(vec![
+            "--signed-at".to_string(),
+            "2026-06-27T00:00:00Z".to_string(),
+            "--abi-minor-min".to_string(),
+            "8".to_string(),
+            "--abi-minor-max".to_string(),
+            "3".to_string(),
+        ])
+        .expect_err("expected invalid abi range");
+        assert!(err.contains("must be <= `--abi-minor-max`"));
+    }
+
+    #[test]
     fn parse_solver_vendor_stage_args_accepts_defaults_and_platform() {
         let opts =
             parse_solver_vendor_stage_args(vec!["--from".to_string(), "tmp/z3.exe".to_string()])
@@ -299,6 +374,128 @@ mod tests {
         let _invalid_guard = scoped_env_set("CLG_BINARY_RELEASE_SIGNING_KEY_HEX", Some("ABCDEF"));
         let invalid = load_binary_release_signing_key().expect_err("expected invalid key error");
         assert!(invalid.contains("must be a lowercase 32-byte hex key"));
+    }
+
+    #[test]
+    fn load_shared_std_signing_key_fails_closed_for_missing_and_invalid_values() {
+        let _env_lock = test_env_lock().lock().expect("lock env");
+        let _missing_guard = scoped_env_set("CLG_SHARED_STD_SIGNING_KEY_HEX", None);
+        let missing = load_shared_std_signing_key().expect_err("expected missing key error");
+        assert!(missing.contains("missing `CLG_SHARED_STD_SIGNING_KEY_HEX`"));
+        drop(_missing_guard);
+
+        let _invalid_guard = scoped_env_set("CLG_SHARED_STD_SIGNING_KEY_HEX", Some("ABCDEF"));
+        let invalid = load_shared_std_signing_key().expect_err("expected invalid key error");
+        assert!(invalid.contains("must be a lowercase 32-byte hex key"));
+    }
+
+    #[test]
+    fn publish_shared_std_artifact_emits_signed_publish_bundle_and_registry_copy() {
+        let _env_lock = test_env_lock().lock().expect("lock env");
+        let repo = repo_root();
+        let out_dir = unique_temp_dir("shared-std-publish-out");
+        let registry_dir = unique_temp_dir("shared-std-publish-registry");
+        let _key_guard = scoped_env_set(
+            "CLG_SHARED_STD_SIGNING_KEY_HEX",
+            Some("2222222222222222222222222222222222222222222222222222222222222222"),
+        );
+
+        publish_shared_std_artifact(
+            repo.as_path(),
+            vec![
+                "--version".to_string(),
+                "1.2.3".to_string(),
+                "--signed-at".to_string(),
+                "2026-06-27T00:00:00Z".to_string(),
+                "--out-dir".to_string(),
+                out_dir.to_string_lossy().to_string(),
+                "--registry-dir".to_string(),
+                registry_dir.to_string_lossy().to_string(),
+                "--key-id".to_string(),
+                "shared-std-2026q2".to_string(),
+            ],
+        )
+        .expect("publish shared std artifact");
+
+        let publish_manifest_path = out_dir.join("std-core-1.2.3.publish.json");
+        let package_manifest_path = out_dir.join("std-core-1.2.3.shared-std-package.json");
+        let signatures_path = out_dir.join("std-core-1.2.3.package-signatures.json");
+        let pubkey_path = out_dir.join("std-core-1.2.3.pubkey.json");
+        let provenance_path = out_dir.join("std-core-1.2.3.provenance.json");
+
+        assert!(publish_manifest_path.is_file());
+        assert!(package_manifest_path.is_file());
+        assert!(signatures_path.is_file());
+        assert!(pubkey_path.is_file());
+        assert!(provenance_path.is_file());
+
+        let publish_manifest: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&publish_manifest_path).expect("read publish manifest"),
+        )
+        .expect("parse publish manifest");
+        assert_eq!(publish_manifest["package_id"], "std::core");
+        assert_eq!(publish_manifest["version"], "1.2.3");
+        assert_eq!(publish_manifest["registry_mode"], "file_registry");
+
+        let package_manifest: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&package_manifest_path).expect("read shared std package manifest"),
+        )
+        .expect("parse shared std package manifest");
+        assert_eq!(package_manifest["package_id"], "std::core");
+        assert_eq!(package_manifest["version"], "1.2.3");
+        assert_eq!(package_manifest["signature"]["key_id"], "shared-std-2026q2");
+        assert_eq!(package_manifest["provenance"]["statement_format"], "in-toto-v1");
+
+        let signatures: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&signatures_path).expect("read package signatures"),
+        )
+        .expect("parse package signatures");
+        assert_eq!(signatures["signatures"][0]["name"], "std::core");
+        assert_eq!(signatures["signatures"][0]["version"], "1.2.3");
+
+        let pubkey: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&pubkey_path).expect("read pubkey"))
+                .expect("parse pubkey");
+        let public_key_hex = pubkey["public_key"].as_str().expect("pubkey");
+        let mut public_key_bytes = [0u8; 32];
+        let decoded_pubkey = hex::decode(public_key_hex).expect("decode pubkey hex");
+        public_key_bytes.copy_from_slice(&decoded_pubkey);
+        let verifying_key =
+            VerifyingKey::from_bytes(&public_key_bytes).expect("verifying key from bytes");
+
+        let signed_digest = signatures["signatures"][0]["digest"]
+            .as_str()
+            .expect("signature digest");
+        let signed_at = signatures["signatures"][0]["signed_at"]
+            .as_str()
+            .expect("signature signed_at");
+        let payload =
+            canonical_package_signature_payload("std::core", "1.2.3", signed_digest, signed_at);
+        let signature_bytes = hex::decode(
+            signatures["signatures"][0]["signature"]
+                .as_str()
+                .expect("signature hex"),
+        )
+        .expect("decode signature");
+        let signature = Signature::try_from(signature_bytes.as_slice()).expect("signature bytes");
+        verifying_key
+            .verify(payload.as_bytes(), &signature)
+            .expect("shared std package signature should verify");
+
+        let provenance: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&provenance_path).expect("read provenance"),
+        )
+        .expect("parse provenance");
+        assert_eq!(provenance["registry"]["mode"], "file_registry");
+
+        let registry_copy = registry_dir
+            .join("std__core")
+            .join("1.2.3")
+            .join("std-core-1.2.3.shared-std-package.json");
+        assert!(registry_copy.is_file(), "registry package manifest should exist");
+
+        cleanup_temp_dir(out_dir.as_path());
+        cleanup_temp_dir(registry_dir.as_path());
     }
 
     #[test]

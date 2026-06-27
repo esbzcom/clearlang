@@ -126,6 +126,36 @@ GA release-train provenance requirement:
 clg verify-bundle --bundle out/generic.release-bundle.json --keyring keys/release-keyring.json --require-provenance
 ```
 
+## Shared Std Publish Flow (28.8.0)
+
+Shared std remains explicit opt-in and is not the default release path.
+Operators publish shared std artifacts through `xtask` so artifact, signature, provenance,
+and registry layout stay deterministic:
+
+```powershell
+$env:CLG_SHARED_STD_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
+cargo run -p xtask -- shared-std-publish `
+  --version 1.0.0 `
+  --signed-at 2026-06-27T00:00:00Z `
+  --out-dir dist/shared-std/std-core/1.0.0 `
+  --registry-dir dist/shared-std/registry `
+  --key-id shared-std-2026q2
+```
+
+The publish bundle includes:
+- versioned wasm artifact + digest,
+- strict package metadata + ABI manifest,
+- canonical package-signature envelope,
+- provenance statement digest binding the publish set,
+- shared-std package manifest for schema-v2 lock/runtime flows,
+- signer public-key metadata, and
+- optional file-registry copy under `std__core/<version>/`.
+
+Operational references:
+- `docs/release/shared-std-operations.md`
+- `docs/security/shared-std-key-rotation.md`
+- `docs/security/shared-std-rollback-procedure.md`
+
 ## VSCode/IDE Plugin Profile (25.2.10)
 Use the plugin-safe profile for primary commands:
 

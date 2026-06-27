@@ -14,6 +14,8 @@ const SOLVER_VENDOR_SIGNING_KEY_ENV: &str = "CLG_SOLVER_VENDOR_SIGNING_KEY_HEX";
 const DEFAULT_SOLVER_VENDOR_KEY_ID: &str = "z3-vendor-k7-2026q2";
 const BINARY_RELEASE_SIGNING_KEY_ENV: &str = "CLG_BINARY_RELEASE_SIGNING_KEY_HEX";
 const DEFAULT_BINARY_RELEASE_KEY_ID: &str = "milestone3-binary-ed25519-2026q2";
+const SHARED_STD_SIGNING_KEY_ENV: &str = "CLG_SHARED_STD_SIGNING_KEY_HEX";
+const DEFAULT_SHARED_STD_KEY_ID: &str = "shared-std-ed25519-2026q2";
 
 fn main() -> Result<(), String> {
     let mut args = env::args().skip(1);
@@ -38,6 +40,7 @@ fn main() -> Result<(), String> {
         "validate" => validate_samples(&root)?,
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,
+        "shared-std-publish" => publish_shared_std_artifact(&root, args.collect())?,
         "solver-vendor-stage" => stage_solver_vendor(&root, args.collect())?,
         "manifest-lock-drift-check" => run_manifest_lock_drift_gate(&root, args.collect())?,
         "std-surface-drift-check" => check_std_surface_drift(&root, args.collect())?,

@@ -1,4 +1,4 @@
-# Phase 30.3.0 - Multi-Platform GA Support Lock
+# Phase 29.12.0 - Multi-Platform GA Support Lock
 
 Date: 2026-06-27
 Status: Locked
@@ -6,21 +6,21 @@ Owner: release-owner
 
 ## Purpose
 
-Lock the platform-support contract for the first Milestone 4 execution slice before CI, release,
-or documentation changes land.
+Lock the platform-support contract for the first remaining Milestone 3 execution slice before CI,
+release, or documentation changes land.
 
-Milestone 3 closed with:
+`29.8` closed the shared-std breadth-complete contract with:
 
 - `windows` and `linux` as GA baseline binary targets
 - `macos` as preview and non-blocking for GA closure
 - proof parity gating narrower than the binary/test support matrix
 
-This lock defines the target post-Milestone-3 hardening contract so the next implementation slice
-has an exact success condition.
+This lock defines the target hardening contract so the next implementation slice has an exact
+success condition.
 
 ## Locked Target State
 
-The intended supported GA binary target matrix after `30.3` is:
+The intended supported GA binary target matrix after `29.12` is:
 
 - `windows`
 - `linux`
@@ -34,12 +34,11 @@ That means the target end state for this slice is:
 
 ## Transition Rule
 
-This document locks the target state for the `30.3` slice.
+This document locks the target state for the `29.12` slice.
 
 It does not itself activate the new GA matrix immediately.
 
-Until `30.3.1` and `30.3.2` land, the active published release contract remains the Milestone 3
-contract:
+Until `29.12.1+` lands, the active published release contract remains:
 
 - GA: `windows`, `linux`
 - preview: `macos`
@@ -49,7 +48,7 @@ documentation updates are complete.
 
 ## Required GA Blocking Contract
 
-When `30.3` is complete, GA release-train blocking must require all of the following for every GA
+When `29.12` is complete, GA release-train blocking must require all of the following for every GA
 target:
 
 1. proof-parity execution on identical strict inputs
@@ -115,7 +114,7 @@ If those documents disagree, the slice is incomplete.
 
 ## Next Task
 
-The next task after this lock is `30.3.1`:
+The next task after this lock is `29.12.1`:
 
 - expand the trusted self-contained solver support matrix first, because full GA proof parity
   cannot execute on `linux` and `macos` until those bundled solver assets exist
@@ -130,4 +129,4 @@ The next task after this lock is `30.3.1`:
 - `docs/design/phase-25.6.13-binary-publication-policy-lock.md`
 - `docs/release/milestone_3-binary-operations.md`
 - `docs/release/milestone_3-release-train-checklist.md`
-- `docs/todo/milestone_4_roadmap.md`
+- `docs/todo/milestone_3_roadmap.md`

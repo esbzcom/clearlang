@@ -1,4 +1,4 @@
-# Phase 30.3.1 - Multi-Platform Solver Prerequisite Lock
+# Phase 29.12.1 - Multi-Platform Solver Prerequisite Lock
 
 Date: 2026-06-27
 Status: Locked
@@ -8,7 +8,7 @@ Owner: release-owner
 
 Make the first blocking prerequisite for multi-platform GA hardening explicit.
 
-`30.3.0` locked the target GA matrix as `windows`, `linux`, and `macos`.
+`29.12.0` locked the target GA matrix as `windows`, `linux`, and `macos`.
 
 However, the repository cannot truthfully enforce full proof parity on that matrix yet, because
 the current self-contained trusted solver bundle is still Windows-only.
@@ -31,18 +31,19 @@ support contract is expanded first.
 
 ## Locked Decision
 
-The execution order inside `30.3` is revised as follows:
+The execution order inside `29.12` is revised as follows:
 
-1. `30.3.1` expands the self-contained solver support matrix and trusted vendor-bundle coverage to
+1. `29.12.2` expands the self-contained solver support matrix and trusted vendor-bundle coverage to
    the intended GA platforms
-2. `30.3.2` extends CI, release-train, and binary evidence gates only after `30.3.1` is complete
-3. `30.3.3` updates operator and release documentation after the behavior contract changes land
+2. `29.12.3` extends CI, release-train, and binary evidence gates only after `29.12.2` is
+   complete
+3. `29.12.4` updates operator and release documentation after the behavior contract changes land
 
-This is a prerequisite lock, not a retreat from the `30.3.0` target state.
+This is a prerequisite lock, not a retreat from the `29.12.0` target state.
 
-## Required Output Of `30.3.1`
+## Required Output Of `29.12.2`
 
-`30.3.1` succeeds only when all of the following are true:
+`29.12.2` succeeds only when all of the following are true:
 
 1. the solver support-matrix lock is updated from Windows-only to the intended multi-platform set
 2. trusted bundled solver artifacts, checksums, and detached signatures exist for every intended GA
@@ -82,7 +83,7 @@ This prerequisite lock does not authorize:
 
 ## Next Task
 
-The next task after this prerequisite lock is the implementation body of `30.3.1`:
+The next task after this prerequisite lock is the implementation body of `29.12.2`:
 
 - expand the trusted self-contained solver bundle set and update the solver support matrix
 
@@ -90,7 +91,7 @@ The next task after this prerequisite lock is the implementation body of `30.3.1
 
 - `docs/design/phase-25.1.15-solver-support-matrix.md`
 - `docs/design/phase-25.1.16-solver-supply-chain-security-gates.md`
-- `docs/design/phase-30.3.0-multi-platform-ga-support-lock.md`
+- `docs/design/phase-29.12.0-multi-platform-ga-support-lock.md`
 - `crates/cli/src/commands/build/solver/discovery.rs`
 - `tools/proof/z3/windows/z3.exe`
-- `docs/todo/milestone_4_roadmap.md`
+- `docs/todo/milestone_3_roadmap.md`

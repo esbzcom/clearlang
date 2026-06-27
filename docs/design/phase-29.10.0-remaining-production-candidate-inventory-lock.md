@@ -1,4 +1,4 @@
-# Phase 30.1.0 - Post-Release Candidate Inventory Lock
+# Phase 29.10.0 - Remaining Production Candidate Inventory Lock
 
 Date: 2026-06-27
 Status: Locked
@@ -6,8 +6,8 @@ Owner: roadmap-owner
 
 ## Purpose
 
-Inventory the explicitly deferred additive tracks after Milestone 3 so Milestone 4 work is chosen
-from a named candidate set rather than from ad hoc requests.
+Inventory the explicitly deferred remaining production tracks after `29.8` so the rest of
+Milestone 3 is chosen from a named candidate set rather than ad hoc requests.
 
 ## Candidate Tracks
 
@@ -87,27 +87,27 @@ Why it is a candidate:
 
 ## Inventory Decision
 
-The candidate set above is the only authorized Milestone 4 starting pool for now.
+The candidate set above is the only authorized remaining production pool for now.
 
-Anything outside these tracks requires a new planning lock before it can claim Milestone 4
+Anything outside these tracks requires a new planning lock before it can claim Milestone 3
 priority.
 
 ## Selection Guidance
 
-The first Milestone 4 slice should prefer:
+The first remaining Milestone 3 slice should prefer:
 
 1. high impact on the supported product contract
-2. low risk of weakening the Milestone 3 closure guarantees
+2. low risk of weakening the current locked guarantees
 3. minimal new language or std surface
 
-That biases the first execution slice toward support-matrix and release/distribution hardening
-instead of new package or language surface.
+That biases the first remaining execution slice toward support-matrix and release/distribution
+hardening instead of new package or language surface.
 
 ## Next Task
 
-The next task after this inventory lock is `30.2.0`:
+The next task after this inventory lock is `29.11.0`:
 
-- select the first bounded Milestone 4 execution slice from the candidate set above
+- select the first bounded remaining Milestone 3 execution slice from the candidate set above
 
 ## References
 
@@ -116,4 +116,4 @@ The next task after this inventory lock is `30.2.0`:
 - `docs/design/phase-25.6.13-binary-publication-policy-lock.md`
 - `docs/design/phase-28.9.2-shared-std-product-contract-lock.md`
 - `docs/design/phase-29.8.1-milestone-3-closure-lock.md`
-- `docs/todo/milestone_4_roadmap.md`
+- `docs/todo/milestone_3_roadmap.md`

@@ -1,4 +1,4 @@
-# Phase 30.2.0 - First Milestone 4 Slice Selection
+# Phase 29.11.0 - First Final-Hardening Slice Selection
 
 Date: 2026-06-27
 Status: Locked
@@ -6,20 +6,19 @@ Owner: roadmap-owner
 
 ## Decision
 
-The first Milestone 4 execution slice is:
+The first remaining Milestone 3 execution slice is:
 
 - multi-platform GA hardening
 
-This creates the first bounded execution gate for Milestone 4:
+This creates the first bounded remaining execution gate:
 
-- `30.3` Multi-platform GA hardening
+- `29.12` Multi-platform GA hardening
 
 ## Why This Slice Comes First
 
 ### 1. It Improves The Supported Product Contract Without Expanding Surface Area
 
-Milestone 3 already closed the currently planned language, release, and shared-std product
-surface.
+`29.8` already closed the currently planned shared-std product surface.
 
 The next highest-value step is to make the shipped support matrix more explicit and more complete,
 not to add more API surface immediately.
@@ -34,7 +33,7 @@ not to add more API surface immediately.
 - crypto-focused: hardened release and provenance guarantees on shipped binaries matter more than
   additive library convenience
 
-### 3. It Keeps Milestone 4 Conservative
+### 3. It Keeps The Remaining Milestone 3 Work Conservative
 
 Choosing platform hardening first avoids two riskier early moves:
 
@@ -50,11 +49,11 @@ This selection intentionally defers:
 3. richer chain-helper or chain-runtime helper surfaces
 4. any default-mode change from `embedded` to `shared`
 
-Those stay valid candidate tracks, but not the first Milestone 4 slice.
+Those stay valid candidate tracks, but not the first remaining Milestone 3 slice.
 
-## Success Target For `30.3`
+## Success Target For `29.12`
 
-`30.3` succeeds only when:
+`29.12` succeeds only when:
 
 1. the GA platform matrix is re-locked explicitly
 2. the proof/release parity contract matches that matrix
@@ -63,9 +62,10 @@ Those stay valid candidate tracks, but not the first Milestone 4 slice.
 
 ## Next Task
 
-The next task after this slice-selection lock is `30.3.0`:
+The next task after this slice-selection lock is `29.12.0`:
 
-- publish the support-matrix and GA-promotion lock for the first Milestone 4 execution slice
+- publish the support-matrix and GA-promotion lock for the first remaining Milestone 3 execution
+  slice
 
 ## References
 
@@ -73,5 +73,5 @@ The next task after this slice-selection lock is `30.3.0`:
 - `docs/design/phase-25.1.13-ci-replay-gates-release-target-platforms.md`
 - `docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`
 - `docs/design/phase-25.6.13-binary-publication-policy-lock.md`
-- `docs/design/phase-30.1.0-post-release-candidate-inventory-lock.md`
-- `docs/todo/milestone_4_roadmap.md`
+- `docs/design/phase-29.10.0-remaining-production-candidate-inventory-lock.md`
+- `docs/todo/milestone_3_roadmap.md`

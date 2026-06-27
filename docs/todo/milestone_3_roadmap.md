@@ -354,6 +354,11 @@ but also a production-complete shared-std expansion path for the remaining plann
 surfaces. That means closing `std::contract` first, then chain-adapter packages one at a time,
 then re-locking the final breadth-complete production contract.
 
+After `29.8`, Phase 29 continues inside Milestone 3 for the remaining production-hardening and
+distribution-completion work that still affects whether the full product is release-complete:
+platform-matrix hardening, installer/publication-channel expansion, and the final ranking of any
+remaining additive product-surface work.
+
 - [x] 29.0 Post-production expansion planning lock [Planning Gate A] `Completed: 2026-06-27`
   - [x] 29.0.0 Publish Phase 29 purpose, prioritization rules, and success target so post-production work resumes from an explicit planning contract rather than ad hoc feature selection. (`docs/design/phase-29.0.0-post-m3-expansion-planning-lock.md`) `Completed: 2026-06-27`
 
@@ -391,4 +396,28 @@ then re-locking the final breadth-complete production contract.
 
 - [x] 29.8 Breadth-complete production closure [Completion Gate E] `Completed: 2026-06-27`
   - [x] 29.8.0 Re-run the production contract decision after 29.4 and 29.6-29.7 are green; confirm whether the planned Wave 2 shared-package surface is now complete enough to call Milestone 3 production-complete in breadth as well as baseline safety. (`docs/design/phase-29.8.0-breadth-complete-production-decision.md`) `Completed: 2026-06-27`
-  - [x] 29.8.1 Publish the final Milestone 3 closure lock, naming the supported shared-package set, any intentionally deferred non-goals, and the exact post-M3 steady-state maintenance expectations. (`docs/design/phase-29.8.1-milestone-3-closure-lock.md`) `Completed: 2026-06-27`
+  - [x] 29.8.1 Publish the shared-std breadth closure lock, naming the supported shared-package set, the intentionally deferred non-goals for shared-package breadth completion, and the steady-state maintenance expectations for the locked shared surface. (`docs/design/phase-29.8.1-milestone-3-closure-lock.md`) `Completed: 2026-06-27`
+
+- [x] 29.9 Remaining Milestone 3 hardening planning lock [Planning Gate F] `Completed: 2026-06-27`
+  - [x] 29.9.0 Publish the post-29.8 planning lock, defining scope, non-goals, release invariants, and success criteria for the remaining Milestone 3 production-hardening work so later changes do not drift into ad hoc feature selection. (`docs/design/phase-29.9.0-post-29.8-hardening-planning-lock.md`) `Completed: 2026-06-27`
+
+- [x] 29.10 Remaining production candidate inventory [Planning Gate G] `Completed: 2026-06-27`
+  - [x] 29.10.0 Inventory the explicitly deferred remaining production tracks and classify them against the README design principles so the rest of Milestone 3 is selected from an exact candidate set rather than roadmap drift. (`docs/design/phase-29.10.0-remaining-production-candidate-inventory-lock.md`) `Completed: 2026-06-27`
+
+- [x] 29.11 First final-hardening slice selection [Planning Gate H] `Completed: 2026-06-27`
+  - [x] 29.11.0 Select the first bounded remaining Milestone 3 execution slice, define its success target, and name the remaining deferred tracks explicitly. (`docs/design/phase-29.11.0-first-final-hardening-slice-selection.md`) `Completed: 2026-06-27`
+
+- [ ] 29.12 Multi-platform GA hardening [Execution Gate I]
+  - [x] 29.12.0 Publish the platform-support and GA promotion lock covering Windows/Linux/macOS status, deterministic proof/release parity scope, and release-blocking criteria before implementation changes land. (`docs/design/phase-29.12.0-multi-platform-ga-support-lock.md`) `Completed: 2026-06-27`
+  - [x] 29.12.1 Publish the solver-matrix prerequisite lock, making explicit that multi-platform proof parity cannot become release-grade until trusted bundled solver coverage exists for every intended GA platform. (`docs/design/phase-29.12.1-multi-platform-solver-prerequisite-lock.md`) `Completed: 2026-06-27`
+  - [ ] 29.12.2 Expand the self-contained solver support matrix and trusted vendor-bundle coverage to the intended GA platforms so proof parity can execute under the existing fail-closed trust contract.
+  - [ ] 29.12.3 Extend CI, release-train, and binary evidence gates so the locked GA target matrix is enforced under one deterministic proof/release parity contract.
+  - [ ] 29.12.4 Update binary operations, release-train, release-process, and incident-response documentation after the platform contract changes land so operator guidance stays exact.
+
+- [ ] 29.13 Installer channel expansion [Execution Gate J]
+  - [ ] 29.13.0 Publish the installer/publication-channel policy lock for the first supported post-GitHub-release channels, including parity requirements, signing expectations, and non-goals.
+  - [ ] 29.13.1 Implement the first bounded installer/distribution channels under the locked publication policy without weakening provenance or checksum requirements.
+  - [ ] 29.13.2 Update installation and operations documentation only after the new channels are shipped and covered.
+
+- [ ] 29.14 Final additive product-surface selection [Planning Gate K]
+  - [ ] 29.14.0 Re-rank the remaining additive product tracks after `29.12` and `29.13`, then select the next bounded surface decision from: shared-package expansion, richer chain-helper surfaces, or delivery-mode simplification.

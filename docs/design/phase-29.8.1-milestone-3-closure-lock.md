@@ -1,4 +1,4 @@
-# Phase 29.8.1 - Milestone 3 Closure Lock
+# Phase 29.8.1 - Shared-Std Breadth Closure Lock
 
 Date: 2026-06-27
 Status: Locked
@@ -6,18 +6,19 @@ Owner: std-packages-owner
 
 ## Purpose
 
-Close Milestone 3 with one final product lock that confirms the supported production surface after
-the breadth-complete decision in `29.8.0`.
+Close the shared-std breadth-complete contract inside Milestone 3 after the production decision in
+`29.8.0`.
 
 This lock exists to remove any remaining ambiguity about:
 
 - the exact shared-package set that is supported in production
-- which items are intentionally deferred and therefore not release blockers
-- the steady-state maintenance rules that apply after Milestone 3 ships
+- which items are intentionally deferred and therefore not release blockers for shared-std breadth
+  completion
+- the steady-state maintenance rules that apply after the shared-std breadth-complete surface ships
 
 ## Final Supported Production Contract
 
-Milestone 3 closes with two supported production delivery modes:
+Milestone 3 currently supports two production delivery modes:
 
 1. `embedded` - the default supported production mode
 2. `shared` - an explicit opt-in supported production mode using the schema-v2 fail-closed shared
@@ -34,11 +35,12 @@ The exact supported bundled shared-package set is:
 - `std::solana`
 - `std::cosmos`
 
-Anything outside that package-id set is outside the Milestone 3 supported shared contract.
+Anything outside that package-id set is outside the currently supported shared contract.
 
-## Why Milestone 3 Is Closed
+## Why Shared-Std Breadth Closure Is Locked
 
-Milestone 3 is production-ready because the required product conditions are now all locked:
+The planned shared-std breadth-complete contract is now locked because the required package-surface
+conditions are all satisfied:
 
 1. the shared workflow has one deterministic production shape for lock, release, verify-bundle,
    runtime loading, key rotation, and rollback
@@ -48,7 +50,7 @@ Milestone 3 is production-ready because the required product conditions are now 
 4. the product still defaults to the simpler `embedded` path, so existing users are not forced into
    a more operationally complex mode
 
-That satisfies the Milestone 3 product bar described by the README principles:
+That satisfies the README product bar for this shared-std breadth-complete slice:
 
 - simple for users: the default remains simple and the opt-in shared surface is explicit
 - AI-friendly: the package boundary, activation rules, and diagnostics remain predictable
@@ -58,7 +60,8 @@ That satisfies the Milestone 3 product bar described by the README principles:
 
 ## Intentionally Deferred Non-Goals
 
-The following items remain intentionally deferred after Milestone 3 and are not release blockers:
+The following items remain intentionally deferred and are not release blockers for this shared-std
+breadth-complete closure:
 
 1. changing the default delivery mode from `embedded` to `shared`
 2. expanding the supported shared package-id set beyond the eight locked packages in this document
@@ -70,12 +73,13 @@ The following items remain intentionally deferred after Milestone 3 and are not 
 6. treating experimental or compatibility-only std packages as production shared packages without a
    new design lock, documentation update, and behavior-gate coverage
 
-These are future-scope product decisions, not unfinished Milestone 3 work.
+These remain future-scope product decisions or later Milestone 3 hardening work, not unfinished
+shared-package breadth work.
 
-## Post-M3 Steady-State Maintenance Expectations
+## Post-Breadth Maintenance Expectations
 
-After Milestone 3, the supported production contract is maintained under the following steady-state
-rules:
+After this shared-std breadth-complete slice, the supported production contract is maintained under
+the following steady-state rules:
 
 1. any change to shared activation semantics, package membership, trust roots, bundle layout, ABI
    acceptance, or runtime validation must update the authoritative design and operator docs in the
@@ -91,17 +95,17 @@ rules:
 6. unsupported or partial shared workflows continue to fail closed rather than falling back to
    embedded or accepting approximate evidence
 
-## Final Product Position
+## Product Position After 29.8
 
-Milestone 3 now closes as a full production milestone for the currently planned ClearLang shared-std
-surface.
+This document closes the planned shared-std package-expansion work inside Milestone 3.
 
 That means:
 
-- no additional Phase 29 work is required to call the current supported product releasable
-- remaining future std-package or chain-surface work is additive scope, not closure debt
-- the authoritative supported surface after Milestone 3 is the exact contract locked here and in
-  `28.9.2`
+- the authoritative supported shared surface is the exact contract locked here and in `28.9.2`
+- `std::contract`, `std::eth`, `std::solana`, and `std::cosmos` no longer represent open shared
+  package-promotion debt
+- later Milestone 3 work may still harden platform support, distribution channels, or other
+  release-contract details without reopening the locked shared package set
 
 ## References
 

@@ -407,15 +407,15 @@ remaining additive product-surface work.
 - [x] 29.11 First final-hardening slice selection [Planning Gate H] `Completed: 2026-06-27`
   - [x] 29.11.0 Select the first bounded remaining Milestone 3 execution slice, define its success target, and name the remaining deferred tracks explicitly. (`docs/design/phase-29.11.0-first-final-hardening-slice-selection.md`) `Completed: 2026-06-27`
 
-- [ ] 29.12 Multi-platform GA hardening [Execution Gate I]
+- [x] 29.12 Multi-platform GA hardening [Execution Gate I] `Completed: 2026-06-27`
   - [x] 29.12.0 Publish the platform-support and GA promotion lock covering Windows/Linux/macOS status, deterministic proof/release parity scope, and release-blocking criteria before implementation changes land. (`docs/design/phase-29.12.0-multi-platform-ga-support-lock.md`) `Completed: 2026-06-27`
   - [x] 29.12.1 Publish the solver-matrix prerequisite lock, making explicit that multi-platform proof parity cannot become release-grade until trusted bundled solver coverage exists for every intended GA platform. (`docs/design/phase-29.12.1-multi-platform-solver-prerequisite-lock.md`) `Completed: 2026-06-27`
-  - [ ] 29.12.2 Expand the self-contained solver support matrix and trusted vendor-bundle coverage to the intended GA platforms so proof parity can execute under the existing fail-closed trust contract.
-  - [ ] 29.12.3 Extend CI, release-train, and binary evidence gates so the locked GA target matrix is enforced under one deterministic proof/release parity contract.
-  - [ ] 29.12.4 Update binary operations, release-train, release-process, and incident-response documentation after the platform contract changes land so operator guidance stays exact.
+  - [x] 29.12.2 Expand the self-contained solver support matrix and trusted vendor-bundle coverage to the intended GA platforms so proof parity can execute under the existing fail-closed trust contract. (`tools/proof/z3/linux/z3`, `tools/proof/z3/macos/z3`, `docs/design/phase-25.1.15-solver-support-matrix.md`, `docs/design/phase-25.1.16-solver-supply-chain.lock.json`) `Completed: 2026-06-27`
+  - [x] 29.12.3 Extend CI, release-train, and binary evidence gates so the locked GA target matrix is enforced under one deterministic proof/release parity contract. (`.github/workflows/ci.yml`, `docs/evidence/milestone_3-proof-gate.md`, `docs/evidence/milestone_3-proof-gate.lock.json`) `Completed: 2026-06-27`
+  - [x] 29.12.4 Update binary operations, release-train, release-process, and incident-response documentation after the platform contract changes land so operator guidance stays exact. (`docs/release/milestone_3-binary-operations.md`, `docs/release/milestone_3-release-train-checklist.md`, `docs/release/milestone_3-binary-incident-runbook.md`, `docs/release-process.md`, `docs/design/phase-25.6.0-binary-ga-and-provenance-policy-lock.md`, `docs/design/phase-25.6.13-binary-publication-policy-lock.md`) `Completed: 2026-06-27`
 
 - [ ] 29.13 Installer channel expansion [Execution Gate J]
-  - [ ] 29.13.0 Publish the installer/publication-channel policy lock for the first supported post-GitHub-release channels, including parity requirements, signing expectations, and non-goals.
+  - [x] 29.13.0 Publish the installer/publication-channel policy lock for the first supported post-GitHub-release channels, including parity requirements, signing expectations, and non-goals. (`docs/design/phase-29.13.0-installer-publication-channel-policy-lock.md`) `Completed: 2026-06-27`
   - [ ] 29.13.1 Implement the first bounded installer/distribution channels under the locked publication policy without weakening provenance or checksum requirements.
   - [ ] 29.13.2 Update installation and operations documentation only after the new channels are shipped and covered.
 

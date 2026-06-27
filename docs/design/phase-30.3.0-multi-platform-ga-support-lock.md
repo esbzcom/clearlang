@@ -117,7 +117,8 @@ If those documents disagree, the slice is incomplete.
 
 The next task after this lock is `30.3.1`:
 
-- extend CI, release-train, and evidence gates so the locked GA matrix is enforced end to end
+- expand the trusted self-contained solver support matrix first, because full GA proof parity
+  cannot execute on `linux` and `macos` until those bundled solver assets exist
 
 ## References
 

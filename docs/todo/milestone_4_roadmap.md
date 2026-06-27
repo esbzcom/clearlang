@@ -15,8 +15,10 @@ Execution order for Milestone 4: **planning lock -> candidate inventory -> first
 
 - [ ] 30.3 Multi-platform GA hardening [Execution Gate A]
   - [x] 30.3.0 Publish the platform-support and GA promotion lock covering Windows/Linux/macOS status, deterministic proof/release parity scope, and release-blocking criteria before implementation changes land. (`docs/design/phase-30.3.0-multi-platform-ga-support-lock.md`) `Completed: 2026-06-27`
-  - [ ] 30.3.1 Extend CI, release-train, and binary evidence gates so the locked GA target matrix is enforced under one deterministic proof/release parity contract.
-  - [ ] 30.3.2 Update binary operations, release-train, release-process, and incident-response documentation after the platform contract changes land so operator guidance stays exact.
+  - [x] 30.3.1 Publish the solver-matrix prerequisite lock, making explicit that multi-platform proof parity cannot become release-grade until trusted bundled solver coverage exists for every intended GA platform. (`docs/design/phase-30.3.1-multi-platform-solver-prerequisite-lock.md`) `Completed: 2026-06-27`
+  - [ ] 30.3.2 Expand the self-contained solver support matrix and trusted vendor-bundle coverage to the intended GA platforms so proof parity can execute under the existing fail-closed trust contract.
+  - [ ] 30.3.3 Extend CI, release-train, and binary evidence gates so the locked GA target matrix is enforced under one deterministic proof/release parity contract.
+  - [ ] 30.3.4 Update binary operations, release-train, release-process, and incident-response documentation after the platform contract changes land so operator guidance stays exact.
 
 - [ ] 30.4 Installer channel expansion [Execution Gate B]
   - [ ] 30.4.0 Publish the installer/publication-channel policy lock for the first supported post-GitHub-release channels, including parity requirements, signing expectations, and non-goals.

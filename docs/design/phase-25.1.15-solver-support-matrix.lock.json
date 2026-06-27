@@ -2,7 +2,9 @@
   "schema_version": 1,
   "policy_version": "25.1.15",
   "release_target_platforms": [
-    "windows-x64"
+    "windows-x64",
+    "linux-x64-glibc-2.39",
+    "macos-x64-15.7.3"
   ],
   "unsupported_target_policy": {
     "release_mode": "fail_closed",

@@ -172,3 +172,112 @@ fn solver_supply_chain_gate_is_wired_into_ci_and_release_evidence() {
         "milestone_3 proof gate lock should include solver supply-chain gate command"
     );
 }
+
+#[test]
+fn solver_supply_chain_gate_covers_all_staged_release_target_bundles() {
+    let root = repo_root();
+    let support_matrix = read_json(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.1.15-solver-support-matrix.lock.json")
+            .as_path(),
+    );
+    let supply_chain = read_json(
+        root.join("docs")
+            .join("design")
+            .join("phase-25.1.16-solver-supply-chain.lock.json")
+            .as_path(),
+    );
+
+    let allowed_statuses = supply_chain["bundle_integrity"]["rotation_policy"]["allowed_statuses"]
+        .as_array()
+        .expect("allowed_statuses[]");
+    let trusted_signers = supply_chain["bundle_integrity"]["trusted_signers"]
+        .as_array()
+        .expect("trusted_signers[]");
+    let trusted_key_ids = trusted_signers
+        .iter()
+        .filter(|entry| {
+            let status = entry["status"].as_str().expect("trusted_signers[].status");
+            allowed_statuses
+                .iter()
+                .filter_map(Value::as_str)
+                .any(|allowed| allowed == status)
+        })
+        .map(|entry| {
+            entry["key_id"]
+                .as_str()
+                .expect("trusted_signers[].key_id")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+
+    let release_targets = support_matrix["release_target_platforms"]
+        .as_array()
+        .expect("release_target_platforms[]");
+    for target in release_targets {
+        let target = target.as_str().expect("release target");
+        let bundle = match target {
+            "windows-x64" => root
+                .join("tools")
+                .join("proof")
+                .join("z3")
+                .join("windows")
+                .join("z3.exe"),
+            "linux-x64-glibc-2.39" => root
+                .join("tools")
+                .join("proof")
+                .join("z3")
+                .join("linux")
+                .join("z3"),
+            "macos-x64-15.7.3" => root
+                .join("tools")
+                .join("proof")
+                .join("z3")
+                .join("macos")
+                .join("z3"),
+            other => panic!("unexpected release target `{other}`"),
+        };
+        let checksum_path = bundle.parent().expect("bundle parent").join(format!(
+            "{}.sha256",
+            bundle
+                .file_name()
+                .expect("bundle filename")
+                .to_string_lossy()
+        ));
+        let signature_path = bundle.parent().expect("bundle parent").join(format!(
+            "{}.sig",
+            bundle
+                .file_name()
+                .expect("bundle filename")
+                .to_string_lossy()
+        ));
+
+        let checksum = fs::read_to_string(&checksum_path)
+            .unwrap_or_else(|err| panic!("read `{}`: {err}", checksum_path.display()));
+        let checksum = checksum
+            .lines()
+            .next()
+            .expect("checksum first line")
+            .trim()
+            .to_string();
+        assert!(
+            checksum.starts_with("sha256:"),
+            "solver checksum must use sha256 prefix for `{target}`"
+        );
+
+        let signature = read_json(signature_path.as_path());
+        assert_eq!(signature["schema_version"], Value::from(1));
+        assert_eq!(signature["scheme"], Value::String("ed25519".to_string()));
+        assert_eq!(
+            signature["signed_payload"],
+            Value::String(checksum),
+            "signed payload must match checksum entry for `{target}`"
+        );
+        let key_id = signature["key_id"].as_str().expect("signature.key_id");
+        assert!(
+            trusted_key_ids.iter().any(|trusted| trusted == key_id),
+            "signature key_id `{key_id}` must be trusted for `{target}`"
+        );
+    }
+}

@@ -53,7 +53,7 @@ fn find_step<'a>(steps: &'a [YamlValue], name: &str) -> &'a Mapping {
 }
 
 #[test]
-fn solver_support_matrix_lock_pins_windows_release_target() {
+fn solver_support_matrix_lock_pins_release_targets() {
     let root = repo_root();
     let lock_path = root
         .join("docs")
@@ -81,8 +81,8 @@ fn solver_support_matrix_lock_pins_windows_release_target() {
         .collect();
     assert_eq!(
         release_targets,
-        vec!["windows-x64"],
-        "phase 25.1.15 matrix should pin windows-x64 as the current release target"
+        vec!["windows-x64", "linux-x64-glibc-2.39", "macos-x64-15.7.3"],
+        "phase 25.1.15 matrix should pin the current release-target bundle set"
     );
 
     assert_eq!(
@@ -93,6 +93,78 @@ fn solver_support_matrix_lock_pins_windows_release_target() {
         lock["unsupported_target_policy"]["diagnostic_code"],
         JsonValue::String("C124".to_string())
     );
+}
+
+#[test]
+fn solver_support_matrix_release_targets_have_staged_bundles() {
+    let root = repo_root();
+    let lock_path = root
+        .join("docs")
+        .join("design")
+        .join("phase-25.1.15-solver-support-matrix.lock.json");
+    let lock: JsonValue = serde_json::from_slice(
+        fs::read(lock_path)
+            .expect("read solver support matrix lock")
+            .as_slice(),
+    )
+    .expect("parse solver support matrix lock");
+
+    let release_targets = lock["release_target_platforms"]
+        .as_array()
+        .expect("release_target_platforms[]");
+    for target in release_targets {
+        let target = target.as_str().expect("release target should be a string");
+        let bundle_path = match target {
+            "windows-x64" => root
+                .join("tools")
+                .join("proof")
+                .join("z3")
+                .join("windows")
+                .join("z3.exe"),
+            "linux-x64-glibc-2.39" => root
+                .join("tools")
+                .join("proof")
+                .join("z3")
+                .join("linux")
+                .join("z3"),
+            "macos-x64-15.7.3" => root
+                .join("tools")
+                .join("proof")
+                .join("z3")
+                .join("macos")
+                .join("z3"),
+            other => panic!("unexpected release target `{other}`"),
+        };
+        assert!(
+            bundle_path.is_file(),
+            "release-target solver bundle should exist for `{target}`: `{}`",
+            bundle_path.display()
+        );
+        let checksum_path = bundle_path.parent().expect("bundle parent").join(format!(
+            "{}.sha256",
+            bundle_path
+                .file_name()
+                .expect("bundle filename")
+                .to_string_lossy()
+        ));
+        let signature_path = bundle_path.parent().expect("bundle parent").join(format!(
+            "{}.sig",
+            bundle_path
+                .file_name()
+                .expect("bundle filename")
+                .to_string_lossy()
+        ));
+        assert!(
+            checksum_path.is_file(),
+            "release-target solver checksum should exist for `{target}`: `{}`",
+            checksum_path.display()
+        );
+        assert!(
+            signature_path.is_file(),
+            "release-target solver signature should exist for `{target}`: `{}`",
+            signature_path.display()
+        );
+    }
 }
 
 #[test]

@@ -30,6 +30,12 @@
                                                          "scheme":  "ed25519",
                                                          "public_key":  "hex:bceb973cdbee10fde41787a7f7ef142f38c6862fad8bc5554475a1e896da1f2a",
                                                          "status":  "active"
+                                                     },
+                                                     {
+                                                         "key_id":  "local-z3-vendor-stage-2026q2",
+                                                         "scheme":  "ed25519",
+                                                         "public_key":  "hex:d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+                                                         "status":  "active"
                                                      }
                                                  ],
                              "rotation_policy":  {

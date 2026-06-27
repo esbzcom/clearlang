@@ -70,7 +70,7 @@ Operator publication now uses the same bundled shared-std package-id space that 
 schema-v2 manifest/lock contract already accepts:
 
 - `xtask shared-std-publish` now requires `--package-id`
-- supported bundled package ids are `std::text`, `std::int`, and `std::codec`
+- supported bundled package ids are `std::text`, `std::int`, `std::sequence`, and `std::codec`
 - publish output now emits package-specific manifests plus canonical
   `clg.package-metadata.json` and `clg.package-abi.json`
 - file-registry publication preserves the nested `std-packages/` artifact layout

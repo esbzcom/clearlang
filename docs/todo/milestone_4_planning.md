@@ -14,8 +14,8 @@ without an explicit design lock.
   - [x] 29.1.0 Select the first post-Milestone-3 implementation slice, with explicit scope, DRI, success target, and acceptance gate, while preserving the current release/proof/distribution safety contract. (`docs/design/phase-29.1.0-first-post-m3-slice-selection.md`) `Completed: 2026-06-27`
   - [x] 29.1.1 Publish the selected execution order and rationale, including what is intentionally deferred. (`docs/design/phase-29.1.0-first-post-m3-slice-selection.md`) `Completed: 2026-06-27`
 
-- [ ] 29.2 `std::sequence` shared-std promotion [Execution Gate A]
+- [x] 29.2 `std::sequence` shared-std promotion [Execution Gate A] `Completed: 2026-06-27`
   - [x] 29.2.0 Lock the supported `std::sequence` shared-package contract: package id, modules, symbols, publication shape, and fail-closed migration/activation expectations. (`docs/design/phase-29.2.0-std-sequence-shared-std-lock.md`) `Completed: 2026-06-27`
-  - [ ] 29.2.1 Extend bundled shared-std package allowlists, canonical publication flow, and manifest/lock validation so `std::sequence` is a supported shared package alongside `std::text`, `std::int`, and `std::codec`.
-  - [ ] 29.2.2 Extend release, verify-bundle, runtime-loader, import-migration, and xtask publish coverage to exercise `std::sequence` happy-path and fail-closed behavior.
-  - [ ] 29.2.3 Update user/operator documentation only after implementation lands so the supported shared-package set stays accurate.
+  - [x] 29.2.1 Extend bundled shared-std package allowlists, canonical publication flow, and manifest/lock validation so `std::sequence` is a supported shared package alongside `std::text`, `std::int`, and `std::codec`. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/core/artifacts_and_vendor.rs`, `xtask/src/main/artifacts_cli_models.rs`) `Completed: 2026-06-27`
+  - [x] 29.2.2 Extend release, verify-bundle, runtime-loader, import-migration, and xtask publish coverage to exercise `std::sequence` happy-path and fail-closed behavior. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/tests.rs`) `Completed: 2026-06-27`
+  - [x] 29.2.3 Update user/operator documentation only after implementation lands so the supported shared-package set stays accurate. (`docs/release/shared-std-user-guide.md`, `docs/release/shared-std-operations.md`, `docs/release-process.md`, `docs/design/phase-28.9.1-shared-std-production-decision.md`, `docs/design/phase-28.9.2-shared-std-product-contract-lock.md`) `Completed: 2026-06-27`

@@ -29,6 +29,7 @@ cargo run -p xtask -- shared-std-publish `
 Current bundled shared-std package ids are:
 - `std::text`
 - `std::int`
+- `std::sequence`
 - `std::codec`
 
 3. Confirm the publish bundle contains:

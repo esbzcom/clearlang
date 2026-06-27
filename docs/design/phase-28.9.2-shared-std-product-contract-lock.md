@@ -35,6 +35,7 @@ The supported bundled shared package ids are:
 
 - `std::text`
 - `std::int`
+- `std::sequence`
 - `std::codec`
 
 Anything outside that package-id set is not part of the current supported shared contract.

@@ -24,6 +24,7 @@ After this decision:
 5. current supported bundled shared-std package ids are:
    - `std::text`
    - `std::int`
+   - `std::sequence`
    - `std::codec`
 
 ## Why This Promotion Is Correct

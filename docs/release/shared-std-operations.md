@@ -4,6 +4,9 @@
 Operational guidance for publishing and distributing shared std artifacts while the mode remains
 explicit opt-in.
 
+This is a supported production workflow for the current bundled shared-std package set. It is not
+the default workflow.
+
 ## Publish
 1. Set the shared-std signing key:
 

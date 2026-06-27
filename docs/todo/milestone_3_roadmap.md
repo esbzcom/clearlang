@@ -332,7 +332,7 @@ Post-Milestone 3 path to a debt-free normal shared-std production path: **do not
   - [x] 28.8.1 Publish user-facing guidance for explicit shared-std opt-in, release, verify, upgrade, rollback, and incident response without hidden fallback behavior. `Completed: 2026-06-27`
   - [x] 28.8.2 Prove the support model is acceptable: deterministic diagnostics, repeatable operational playbooks, and no unresolved packaging/deployment ambiguity remain. `Completed: 2026-06-27`
 
-- [ ] 28.9 Rollout upgrade from experimental to supported production [Distribution Gate J]
+- [x] 28.9 Rollout upgrade from experimental to supported production [Distribution Gate J] `Completed: 2026-06-27`
   - [x] 28.9.0 Re-run the rollout decision only after Gates F-I are green and there are no unresolved fail-closed diagnostics, provenance gaps, or duplicated validation paths. `Completed: 2026-06-27`
   - [x] 28.9.1 Decide whether `shared` becomes a supported production option while preserving `embedded` as a valid production mode. `Completed: 2026-06-27`
-  - [ ] 28.9.2 Lock the final product contract: supported activation semantics, CI/profile coverage, compatibility/deprecation rules, documentation, and debt cleanup are complete.
+  - [x] 28.9.2 Lock the final product contract: supported activation semantics, CI/profile coverage, compatibility/deprecation rules, documentation, and debt cleanup are complete. `Completed: 2026-06-27`

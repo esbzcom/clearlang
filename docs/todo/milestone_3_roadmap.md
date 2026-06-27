@@ -422,5 +422,5 @@ remaining additive product-surface work.
 - [x] 29.14 Final additive product-surface selection [Planning Gate K] `Completed: 2026-06-27`
   - [x] 29.14.0 Re-rank the remaining additive product tracks after `29.12` and `29.13`, then select the next bounded surface decision from: shared-package expansion, richer chain-helper surfaces, or delivery-mode simplification. (`docs/design/phase-29.14.0-final-additive-product-surface-selection.md`) `Completed: 2026-06-27`
 
-- [ ] 29.15 Delivery-mode simplification decision [Planning Gate L]
-  - [ ] 29.15.0 Publish the bounded delivery-mode simplification decision lock, including evaluation criteria, migration constraints, fail-closed activation rules, and explicit non-goals.
+- [x] 29.15 Delivery-mode simplification decision [Planning Gate L] `Completed: 2026-06-27`
+  - [x] 29.15.0 Publish the bounded delivery-mode simplification decision lock, including evaluation criteria, migration constraints, fail-closed activation rules, and explicit non-goals. (`docs/design/phase-29.15.0-delivery-mode-simplification-decision-lock.md`) `Completed: 2026-06-27`

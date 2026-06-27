@@ -274,6 +274,7 @@ jobs:
     needs:
       - checks
       - milestone3-proof-parity
+      - milestone3-proof-parity-compare
       - milestone3-test-parity-compare
       - milestone3-binary-repro-compare
       - milestone3-binary-smoke
@@ -293,7 +294,17 @@ jobs:
           cargo test -p clg-cli --test milestone3_release_gate
 
   milestone3-proof-parity:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -309,13 +320,39 @@ jobs:
         run: cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging
       - name: Milestone 3 proof parity snapshot
         env:
-          CLG_PROOF_PARITY_OUT: tmp/proof-parity/windows.json
+          CLG_PROOF_PARITY_OUT: tmp/proof-parity/${{ matrix.platform }}.json
         run: cargo test -p clg-cli --test milestone3_proof_parity -- --nocapture
-      - name: Upload milestone_3 proof parity artifact
+      - name: Upload milestone_3 proof parity artifact (${{ matrix.platform }})
         uses: actions/upload-artifact@v4
         with:
+          name: milestone3-proof-parity-${{ matrix.platform }}
+          path: tmp/proof-parity/${{ matrix.platform }}.json
+
+  milestone3-proof-parity-compare:
+    needs:
+      - milestone3-proof-parity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download milestone_3 proof parity artifact (windows)
+        uses: actions/download-artifact@v4
+        with:
           name: milestone3-proof-parity-windows
-          path: tmp/proof-parity/windows.json
+          path: tmp/proof-parity/windows
+      - name: Download milestone_3 proof parity artifact (linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-proof-parity-linux
+          path: tmp/proof-parity/linux
+      - name: Download milestone_3 proof parity artifact (macos)
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-proof-parity-macos
+          path: tmp/proof-parity/macos
+      - name: Compare milestone_3 proof parity artifacts
+        run: |
+          set -euo pipefail
+          cmp --silent tmp/proof-parity/windows/windows.json tmp/proof-parity/linux/linux.json
+          cmp --silent tmp/proof-parity/windows/windows.json tmp/proof-parity/macos/macos.json
 
   milestone3-test-parity:
     strategy:
@@ -326,6 +363,8 @@ jobs:
             platform: windows
           - os: ubuntu-latest
             platform: linux
+          - os: macos-latest
+            platform: macos
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -359,10 +398,16 @@ jobs:
         with:
           name: milestone3-test-parity-linux
           path: tmp/test-parity/linux
+      - name: Download milestone_3 clg test parity artifact (macos)
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-test-parity-macos
+          path: tmp/test-parity/macos
       - name: Compare milestone_3 clg test parity artifacts
         run: |
           set -euo pipefail
           cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/linux/linux.json
+          cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/macos/macos.json
 
   milestone3-binary-smoke:
     strategy:
@@ -373,6 +418,8 @@ jobs:
             platform: windows
           - os: ubuntu-latest
             platform: linux
+          - os: macos-latest
+            platform: macos
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -427,6 +474,12 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             lane: b
+          - os: macos-latest
+            platform: macos
+            lane: a
+          - os: macos-latest
+            platform: macos
+            lane: b
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -468,6 +521,16 @@ jobs:
         with:
           name: milestone3-binary-repro-linux-b
           path: tmp/binary-repro/linux-b
+      - name: Download binary witness macos-a
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-binary-repro-macos-a
+          path: tmp/binary-repro/macos-a
+      - name: Download binary witness macos-b
+        uses: actions/download-artifact@v4
+        with:
+          name: milestone3-binary-repro-macos-b
+          path: tmp/binary-repro/macos-b
       - name: Compare binary reproducibility witnesses per platform
         run: |
           set -euo pipefail
@@ -481,6 +544,7 @@ jobs:
           pairs = [
               ("windows", "tmp/binary-repro/windows-a/windows-a.json", "tmp/binary-repro/windows-b/windows-b.json"),
               ("linux", "tmp/binary-repro/linux-a/linux-a.json", "tmp/binary-repro/linux-b/linux-b.json"),
+              ("macos", "tmp/binary-repro/macos-a/macos-a.json", "tmp/binary-repro/macos-b/macos-b.json"),
           ]
           for platform, a_path, b_path in pairs:
               a = read(a_path)

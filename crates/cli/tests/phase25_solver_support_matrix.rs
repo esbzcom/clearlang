@@ -208,8 +208,41 @@ fn solver_support_matrix_ci_strategy_matches_workflow() {
     );
     assert_eq!(
         mapping_get_str(parity_job, "runs-on", expected_job),
-        "windows-latest",
-        "solver support-matrix CI job should run on windows-latest"
+        "${{ matrix.os }}",
+        "solver support-matrix CI job should run on matrix.os"
+    );
+    let strategy = as_mapping(
+        mapping_get(parity_job, "strategy", expected_job),
+        "solver support-matrix strategy",
+    );
+    let matrix = as_mapping(
+        mapping_get(strategy, "matrix", "solver support-matrix strategy"),
+        "solver support-matrix matrix",
+    );
+    let include = as_sequence(
+        mapping_get(matrix, "include", "solver support-matrix matrix"),
+        "solver support-matrix matrix include",
+    );
+    let mut has_windows = false;
+    let mut has_linux = false;
+    let mut has_macos = false;
+    for entry in include {
+        let item = as_mapping(entry, "solver support-matrix include item");
+        let os = mapping_get_str(item, "os", "solver support-matrix include item");
+        let platform = mapping_get_str(item, "platform", "solver support-matrix include item");
+        if os == "windows-latest" && platform == "windows" {
+            has_windows = true;
+        }
+        if os == "ubuntu-latest" && platform == "linux" {
+            has_linux = true;
+        }
+        if os == "macos-latest" && platform == "macos" {
+            has_macos = true;
+        }
+    }
+    assert!(
+        has_windows && has_linux && has_macos,
+        "solver support-matrix CI job should cover windows + linux + macos release targets"
     );
     let steps = as_sequence(
         mapping_get(parity_job, "steps", expected_job),

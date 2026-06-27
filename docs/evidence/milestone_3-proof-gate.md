@@ -26,8 +26,12 @@ This document is the evidence index for TODO item `25.0.8`.
   - `cargo test -p clg-cli --test cli_it parse_rejects_theorem_keyword_with_explicit_code`
 - Release-target parity artifact:
   - Windows: `milestone3-proof-parity-windows`
+  - Linux: `milestone3-proof-parity-linux`
+  - macOS: `milestone3-proof-parity-macos`
 - Platform scope:
-  - Milestone 3 release target is currently Windows-only; parity replay runs and artifact emission are enforced on `windows-latest`.
+  - Milestone 3 release-target parity now covers Windows, Linux, and macOS.
+  - parity replay runs and artifact emission are enforced on `windows-latest`, `ubuntu-latest`, and `macos-latest`.
+  - cross-platform release-target parity is enforced by `milestone3-proof-parity-compare`.
   - `cargo test -p clg-cli --features rust-z3-lib --test solver_backend_parity`
   - `cargo test -p clg-cli --features rust-z3-lib --test solver_rust_cutover_packaging`
 - Tag gate (`refs/tags/milestone_3`) runs:

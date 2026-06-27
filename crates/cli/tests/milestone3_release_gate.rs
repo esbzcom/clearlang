@@ -138,7 +138,7 @@ fn validate_lock_artifacts_and_docs(root: &Path) {
         .collect();
     assert_eq!(
         parity_target_ids,
-        vec!["windows"],
+        vec!["windows", "linux", "macos"],
         "milestone_3 lock must pin release-target parity platforms in deterministic order"
     );
     let release_symbol_allowlist = lock
@@ -308,8 +308,8 @@ fn validate_ci_wiring(root: &Path) {
     );
     assert_eq!(
         mapping_get_str(parity_job, "runs-on", "milestone3-proof-parity job"),
-        "windows-latest",
-        "milestone3 proof parity job should run on windows-latest"
+        "${{ matrix.os }}",
+        "milestone3 proof parity job should run on matrix.os"
     );
     let parity_steps = as_sequence(
         mapping_get(parity_job, "steps", "milestone3-proof-parity job"),
@@ -369,10 +369,11 @@ fn validate_ci_wiring(root: &Path) {
     assert!(
         needs.contains(&"checks")
             && needs.contains(&"milestone3-proof-parity")
+            && needs.contains(&"milestone3-proof-parity-compare")
             && needs.contains(&"milestone3-test-parity-compare")
             && needs.contains(&"milestone3-binary-repro-compare")
             && needs.contains(&"milestone3-binary-smoke"),
-        "milestone_3 release gate must depend on checks + proof parity + test parity + binary reproducibility + binary smoke jobs"
+        "milestone_3 release gate must depend on checks + proof parity + proof parity compare + test parity + binary reproducibility + binary smoke jobs"
     );
 
     let test_parity_compare_job = as_mapping(
@@ -401,6 +402,12 @@ fn validate_ci_wiring(root: &Path) {
             "cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/linux/linux.json"
         ),
         "milestone_3 release gate must enforce windows/linux clg test parity compare command"
+    );
+    assert!(
+        compare_run.contains(
+            "cmp --silent tmp/test-parity/windows/windows.json tmp/test-parity/macos/macos.json"
+        ),
+        "milestone_3 release gate must enforce windows/macos clg test parity compare command"
     );
 
     let release_steps = as_sequence(

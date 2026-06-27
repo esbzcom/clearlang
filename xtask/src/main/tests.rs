@@ -41,14 +41,18 @@ mod tests {
     #[test]
     fn parse_shared_std_publish_args_accepts_defaults() {
         let opts = parse_shared_std_publish_args(vec![
+            "--package-id".to_string(),
+            "std::text".to_string(),
             "--signed-at".to_string(),
             "2026-06-27T00:00:00Z".to_string(),
         ])
         .expect("parse args");
+        assert_eq!(opts.package_id, "std::text");
         assert_eq!(opts.version, "1.0.0");
         assert!(opts.out_dir.is_none());
         assert!(opts.registry_dir.is_none());
         assert_eq!(opts.key_id, "shared-std-ed25519-2026q2");
+        assert_eq!(opts.trusted_anchor_id, "std-root");
         assert_eq!(opts.statement_format, "in-toto-v1");
         assert_eq!(opts.abi_major, 1);
         assert_eq!(opts.abi_minor_min, 0);
@@ -58,6 +62,8 @@ mod tests {
     #[test]
     fn parse_shared_std_publish_args_accepts_explicit_values() {
         let opts = parse_shared_std_publish_args(vec![
+            "--package-id".to_string(),
+            "std::codec".to_string(),
             "--version".to_string(),
             "1.2.3".to_string(),
             "--signed-at".to_string(),
@@ -68,6 +74,8 @@ mod tests {
             "tmp/registry".to_string(),
             "--key-id".to_string(),
             "shared-std-2026q3".to_string(),
+            "--trusted-anchor-id".to_string(),
+            "std-publisher-prod".to_string(),
             "--statement-format".to_string(),
             "in-toto-v1".to_string(),
             "--abi-major".to_string(),
@@ -78,10 +86,12 @@ mod tests {
             "7".to_string(),
         ])
         .expect("parse args");
+        assert_eq!(opts.package_id, "std::codec");
         assert_eq!(opts.version, "1.2.3");
         assert_eq!(opts.out_dir, Some(PathBuf::from("tmp/shared")));
         assert_eq!(opts.registry_dir, Some(PathBuf::from("tmp/registry")));
         assert_eq!(opts.key_id, "shared-std-2026q3");
+        assert_eq!(opts.trusted_anchor_id, "std-publisher-prod");
         assert_eq!(opts.signed_at, "2026-06-27T01:02:03Z");
         assert_eq!(opts.abi_major, 2);
         assert_eq!(opts.abi_minor_min, 4);
@@ -90,11 +100,22 @@ mod tests {
 
     #[test]
     fn parse_shared_std_publish_args_rejects_invalid_input() {
-        let err =
-            parse_shared_std_publish_args(Vec::new()).expect_err("expected missing signed-at");
-        assert!(err.contains("missing required `--signed-at`"));
+        let err = parse_shared_std_publish_args(Vec::new())
+            .expect_err("expected missing package-id");
+        assert!(err.contains("missing required `--package-id`"));
 
         let err = parse_shared_std_publish_args(vec![
+            "--package-id".to_string(),
+            "std::sequence".to_string(),
+            "--signed-at".to_string(),
+            "2026-06-27T00:00:00Z".to_string(),
+        ])
+        .expect_err("expected unsupported package id");
+        assert!(err.contains("unsupported `--package-id`"));
+
+        let err = parse_shared_std_publish_args(vec![
+            "--package-id".to_string(),
+            "std::text".to_string(),
             "--signed-at".to_string(),
             "2026-06-27".to_string(),
         ])
@@ -102,6 +123,8 @@ mod tests {
         assert!(err.contains("invalid timestamp"));
 
         let err = parse_shared_std_publish_args(vec![
+            "--package-id".to_string(),
+            "std::text".to_string(),
             "--signed-at".to_string(),
             "2026-06-27T00:00:00Z".to_string(),
             "--abi-minor-min".to_string(),
@@ -403,6 +426,8 @@ mod tests {
         publish_shared_std_artifact(
             repo.as_path(),
             vec![
+                "--package-id".to_string(),
+                "std::text".to_string(),
                 "--version".to_string(),
                 "1.2.3".to_string(),
                 "--signed-at".to_string(),
@@ -413,27 +438,33 @@ mod tests {
                 registry_dir.to_string_lossy().to_string(),
                 "--key-id".to_string(),
                 "shared-std-2026q2".to_string(),
+                "--trusted-anchor-id".to_string(),
+                "std-publisher-prod".to_string(),
             ],
         )
         .expect("publish shared std artifact");
 
-        let publish_manifest_path = out_dir.join("std-core-1.2.3.publish.json");
-        let package_manifest_path = out_dir.join("std-core-1.2.3.shared-std-package.json");
-        let signatures_path = out_dir.join("std-core-1.2.3.package-signatures.json");
-        let pubkey_path = out_dir.join("std-core-1.2.3.pubkey.json");
-        let provenance_path = out_dir.join("std-core-1.2.3.provenance.json");
+        let publish_manifest_path = out_dir.join("std-text-1.2.3.publish.json");
+        let package_manifest_path = out_dir.join("std-text-1.2.3.shared-std-package.json");
+        let signatures_path = out_dir.join("std-text-1.2.3.package-signatures.json");
+        let pubkey_path = out_dir.join("std-text-1.2.3.pubkey.json");
+        let provenance_path = out_dir.join("std-text-1.2.3.provenance.json");
+        let canonical_metadata_path = out_dir.join("clg.package-metadata.json");
+        let canonical_abi_path = out_dir.join("clg.package-abi.json");
 
         assert!(publish_manifest_path.is_file());
         assert!(package_manifest_path.is_file());
         assert!(signatures_path.is_file());
         assert!(pubkey_path.is_file());
         assert!(provenance_path.is_file());
+        assert!(canonical_metadata_path.is_file());
+        assert!(canonical_abi_path.is_file());
 
         let publish_manifest: serde_json::Value = serde_json::from_slice(
             &std::fs::read(&publish_manifest_path).expect("read publish manifest"),
         )
         .expect("parse publish manifest");
-        assert_eq!(publish_manifest["package_id"], "std::core");
+        assert_eq!(publish_manifest["package_id"], "std::text");
         assert_eq!(publish_manifest["version"], "1.2.3");
         assert_eq!(publish_manifest["registry_mode"], "file_registry");
 
@@ -441,7 +472,7 @@ mod tests {
             &std::fs::read(&package_manifest_path).expect("read shared std package manifest"),
         )
         .expect("parse shared std package manifest");
-        assert_eq!(package_manifest["package_id"], "std::core");
+        assert_eq!(package_manifest["package_id"], "std::text");
         assert_eq!(package_manifest["version"], "1.2.3");
         assert_eq!(package_manifest["signature"]["key_id"], "shared-std-2026q2");
         assert_eq!(package_manifest["provenance"]["statement_format"], "in-toto-v1");
@@ -450,7 +481,7 @@ mod tests {
             &std::fs::read(&signatures_path).expect("read package signatures"),
         )
         .expect("parse package signatures");
-        assert_eq!(signatures["signatures"][0]["name"], "std::core");
+        assert_eq!(signatures["signatures"][0]["name"], "std::text");
         assert_eq!(signatures["signatures"][0]["version"], "1.2.3");
 
         let pubkey: serde_json::Value =
@@ -470,7 +501,7 @@ mod tests {
             .as_str()
             .expect("signature signed_at");
         let payload =
-            canonical_package_signature_payload("std::core", "1.2.3", signed_digest, signed_at);
+            canonical_package_signature_payload("std::text", "1.2.3", signed_digest, signed_at);
         let signature_bytes = hex::decode(
             signatures["signatures"][0]["signature"]
                 .as_str()
@@ -488,11 +519,34 @@ mod tests {
         .expect("parse provenance");
         assert_eq!(provenance["registry"]["mode"], "file_registry");
 
+        let canonical_metadata: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&canonical_metadata_path).expect("read canonical metadata"),
+        )
+        .expect("parse canonical metadata");
+        assert_eq!(canonical_metadata["packages"][0]["name"], "std::text");
+        assert_eq!(
+            canonical_metadata["packages"][0]["artifact"]["path"],
+            "std-packages/std-text-1.2.3.wasm"
+        );
+        assert_eq!(
+            canonical_metadata["packages"][0]["trust"]["trusted_anchor_ids"][0],
+            "std-publisher-prod"
+        );
+
         let registry_copy = registry_dir
-            .join("std__core")
+            .join("std__text")
             .join("1.2.3")
-            .join("std-core-1.2.3.shared-std-package.json");
+            .join("std-text-1.2.3.shared-std-package.json");
         assert!(registry_copy.is_file(), "registry package manifest should exist");
+        assert!(
+            registry_dir
+                .join("std__text")
+                .join("1.2.3")
+                .join("std-packages")
+                .join("std-text-1.2.3.wasm")
+                .is_file(),
+            "registry artifact copy should preserve nested std-packages layout"
+        );
 
         cleanup_temp_dir(out_dir.as_path());
         cleanup_temp_dir(registry_dir.as_path());

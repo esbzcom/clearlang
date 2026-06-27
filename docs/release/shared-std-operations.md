@@ -15,30 +15,38 @@ $env:CLG_SHARED_STD_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
 
 ```powershell
 cargo run -p xtask -- shared-std-publish `
+  --package-id std::text `
   --version 1.0.0 `
   --signed-at 2026-06-27T00:00:00Z `
-  --out-dir dist/shared-std/std-core/1.0.0 `
+  --out-dir dist/shared-std/std__text/1.0.0 `
   --registry-dir dist/shared-std/registry `
   --key-id shared-std-2026q2
 ```
 
+Current bundled shared-std package ids are:
+- `std::text`
+- `std::int`
+- `std::codec`
+
 3. Confirm the publish bundle contains:
-   - `std-core-<version>.wasm`
-   - `std-core-<version>.sha256`
-   - `std-core-<version>.package-signatures.json`
-   - `std-core-<version>.provenance.json`
-   - `std-core-<version>.shared-std-package.json`
-   - `std-core-<version>.publish.json`
+   - `std-packages/std-text-<version>.wasm`
+   - `std-text-<version>.sha256`
+   - `std-text-<version>.package-signatures.json`
+   - `std-text-<version>.provenance.json`
+   - `std-text-<version>.shared-std-package.json`
+   - `std-text-<version>.publish.json`
+   - `clg.package-metadata.json`
+   - `clg.package-abi.json`
 
 ## Registry Layout
 File-registry publication writes versioned copies under:
 
 ```text
-<registry-dir>/std__core/<version>/
+<registry-dir>/std__text/<version>/
 ```
 
 This layout is deterministic:
-- package path component is `std__core`,
+- package path component is the package id with `::` rewritten to `__`,
 - version directory is exact semver,
 - no silent overwrite or embedded fallback is allowed.
 

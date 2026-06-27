@@ -88,11 +88,16 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
     let out_dir = opts.out_dir.unwrap_or_else(|| {
         root.join("dist")
             .join("shared-std")
-            .join("std-core")
+            .join(sanitize_package_dir_name(opts.package_id.as_str()))
             .join(&opts.version)
     });
     fs::create_dir_all(&out_dir).map_err(|e| format!("create `{}`: {e}", out_dir.display()))?;
-    let bundle = emit_std_core_artifact_bundle(root, opts.version.as_str(), out_dir.as_path())?;
+    let bundle = emit_shared_std_artifact_bundle(
+        root,
+        opts.package_id.as_str(),
+        opts.version.as_str(),
+        out_dir.as_path(),
+    )?;
 
     let signing_key = load_shared_std_signing_key()?;
     let signature_payload = canonical_package_signature_payload(
@@ -102,7 +107,7 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
         opts.signed_at.as_str(),
     );
     let signature_hex = hex::encode(signing_key.sign(signature_payload.as_bytes()).to_bytes());
-    let signatures_name = format!("std-core-{}.package-signatures.json", bundle.version);
+    let signatures_name = format!("{}.package-signatures.json", bundle.publish_stem);
     let signatures_path = out_dir.join(&signatures_name);
     let signatures = SharedStdPackageSignaturesFile {
         schema_version: 0,
@@ -118,7 +123,7 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
     };
     write_json_pretty(&signatures_path, &signatures)?;
 
-    let pubkey_name = format!("std-core-{}.pubkey.json", bundle.version);
+    let pubkey_name = format!("{}.pubkey.json", bundle.publish_stem);
     let pubkey_path = out_dir.join(&pubkey_name);
     write_json_pretty(
         &pubkey_path,
@@ -147,7 +152,7 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
     } else {
         "unpublished"
     };
-    let provenance_name = format!("std-core-{}.provenance.json", bundle.version);
+    let provenance_name = format!("{}.provenance.json", bundle.publish_stem);
     let provenance_path = out_dir.join(&provenance_name);
     let provenance = SharedStdProvenanceStatement {
         schema_version: 1,
@@ -181,7 +186,7 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
     write_json_pretty(&provenance_path, &provenance)?;
     let provenance_digest = file_sha256_prefixed(provenance_path.as_path())?;
 
-    let published_package_name = format!("std-core-{}.shared-std-package.json", bundle.version);
+    let published_package_name = format!("{}.shared-std-package.json", bundle.publish_stem);
     let published_package_path = out_dir.join(&published_package_name);
     let published_package = SharedStdPublishedPackage {
         schema_version: 1,
@@ -200,9 +205,63 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
             statement_format: opts.statement_format.clone(),
         },
         symbols: bundle.symbols.clone(),
-        dependencies: Vec::new(),
+        dependencies: bundle.dependencies.clone(),
     };
     write_json_pretty(&published_package_path, &published_package)?;
+
+    let canonical_metadata_path = out_dir.join("clg.package-metadata.json");
+    write_json_pretty(
+        &canonical_metadata_path,
+        &serde_json::json!({
+            "schema_version": 1,
+            "packages": [{
+                "name": bundle.package_id.clone(),
+                "version": bundle.version.clone(),
+                "digest": bundle.artifact_digest.clone(),
+                "artifact": {
+                    "format": "wasm",
+                    "path": bundle.canonical_artifact_relpath.clone()
+                },
+                "abi_id": bundle.abi_id.clone(),
+                "dependencies": bundle
+                    .dependencies
+                    .iter()
+                    .map(|dependency| {
+                        serde_json::json!({
+                            "name": dependency,
+                            "requirement": format!("={}", bundle.version)
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+                "signature": {
+                    "format": "ed25519",
+                    "key_id": opts.key_id.clone(),
+                    "signed_at": opts.signed_at.clone(),
+                    "signature": published_package.signature.signature.clone()
+                },
+                "trust": {
+                    "trusted_anchor_ids": [opts.trusted_anchor_id.clone()]
+                },
+                "verified_std_abi": {
+                    "major": published_package.verified_std_abi.major,
+                    "minor_min": published_package.verified_std_abi.minor_min,
+                    "minor_max": published_package.verified_std_abi.minor_max
+                },
+                "provenance": {
+                    "statement_digest": published_package.provenance.statement_digest,
+                    "statement_format": published_package.provenance.statement_format
+                }
+            }]
+        }),
+    )?;
+    let canonical_abi_path = out_dir.join("clg.package-abi.json");
+    fs::copy(bundle.strict_abi_path.as_path(), &canonical_abi_path).map_err(|e| {
+        format!(
+            "copy `{}` -> `{}`: {e}",
+            bundle.strict_abi_path.display(),
+            canonical_abi_path.display()
+        )
+    })?;
 
     let mut files = vec![
         publish_file_entry(bundle.artifact_path.as_path(), out_dir.as_path())?,
@@ -215,10 +274,12 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
         publish_file_entry(pubkey_path.as_path(), out_dir.as_path())?,
         publish_file_entry(provenance_path.as_path(), out_dir.as_path())?,
         publish_file_entry(published_package_path.as_path(), out_dir.as_path())?,
+        publish_file_entry(canonical_metadata_path.as_path(), out_dir.as_path())?,
+        publish_file_entry(canonical_abi_path.as_path(), out_dir.as_path())?,
     ];
     files.sort_by(|a, b| a.path.cmp(&b.path));
 
-    let publish_manifest_name = format!("std-core-{}.publish.json", bundle.version);
+    let publish_manifest_name = format!("{}.publish.json", bundle.publish_stem);
     let publish_manifest_path = out_dir.join(&publish_manifest_name);
     let publish_manifest = SharedStdPublishManifest {
         schema_version: 1,
@@ -249,6 +310,10 @@ fn publish_shared_std_artifact(root: &Path, raw_args: Vec<String>) -> Result<(),
         for entry in &files {
             let source = out_dir.join(&entry.path);
             let dest = registry_target.join(&entry.path);
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("create `{}`: {e}", parent.display()))?;
+            }
             fs::copy(&source, &dest).map_err(|e| {
                 format!(
                     "copy `{}` -> `{}`: {e}",
@@ -497,10 +562,12 @@ fn parse_std_core_args(raw_args: Vec<String>) -> Result<StdCoreArtifactOpts, Str
 }
 
 fn parse_shared_std_publish_args(raw_args: Vec<String>) -> Result<SharedStdPublishOpts, String> {
+    let mut package_id: Option<String> = None;
     let mut version = "1.0.0".to_string();
     let mut out_dir: Option<PathBuf> = None;
     let mut registry_dir: Option<PathBuf> = None;
     let mut key_id = DEFAULT_SHARED_STD_KEY_ID.to_string();
+    let mut trusted_anchor_id = "std-root".to_string();
     let mut signed_at: Option<String> = None;
     let mut statement_format = "in-toto-v1".to_string();
     let mut abi_major = 1u32;
@@ -510,6 +577,19 @@ fn parse_shared_std_publish_args(raw_args: Vec<String>) -> Result<SharedStdPubli
     let mut idx = 0usize;
     while idx < raw_args.len() {
         match raw_args[idx].as_str() {
+            "--package-id" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--package-id`".to_string())?;
+                if !is_supported_shared_std_package_id(value.as_str()) {
+                    return Err(format!(
+                        "unsupported `--package-id` `{}`; expected one of: std::text, std::int, std::codec",
+                        value
+                    ));
+                }
+                package_id = Some(value.clone());
+            }
             "--version" => {
                 idx += 1;
                 let value = raw_args
@@ -541,6 +621,16 @@ fn parse_shared_std_publish_args(raw_args: Vec<String>) -> Result<SharedStdPubli
                     return Err("`--key-id` cannot be empty".to_string());
                 }
                 key_id = value.trim().to_string();
+            }
+            "--trusted-anchor-id" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--trusted-anchor-id`".to_string())?;
+                if value.trim().is_empty() {
+                    return Err("`--trusted-anchor-id` cannot be empty".to_string());
+                }
+                trusted_anchor_id = value.trim().to_string();
             }
             "--signed-at" => {
                 idx += 1;
@@ -574,7 +664,7 @@ fn parse_shared_std_publish_args(raw_args: Vec<String>) -> Result<SharedStdPubli
             }
             other => {
                 return Err(format!(
-                    "unknown shared-std-publish arg `{other}` (supported: --version, --out-dir, --registry-dir, --key-id, --signed-at, --statement-format, --abi-major, --abi-minor-min, --abi-minor-max)"
+                    "unknown shared-std-publish arg `{other}` (supported: --package-id, --version, --out-dir, --registry-dir, --key-id, --trusted-anchor-id, --signed-at, --statement-format, --abi-major, --abi-minor-min, --abi-minor-max)"
                 ));
             }
         }
@@ -588,10 +678,12 @@ fn parse_shared_std_publish_args(raw_args: Vec<String>) -> Result<SharedStdPubli
     }
 
     Ok(SharedStdPublishOpts {
+        package_id: package_id.ok_or_else(|| "missing required `--package-id`".to_string())?,
         version,
         out_dir,
         registry_dir,
         key_id,
+        trusted_anchor_id,
         signed_at: signed_at.ok_or_else(|| "missing required `--signed-at`".to_string())?,
         statement_format,
         abi_major,
@@ -676,8 +768,11 @@ fn publish_file_entry(path: &Path, root: &Path) -> Result<SharedStdPublishFileEn
 struct StdCoreArtifactBundle {
     package_id: String,
     version: String,
+    publish_stem: String,
+    abi_id: String,
     artifact_name: String,
     artifact_path: PathBuf,
+    canonical_artifact_relpath: String,
     artifact_digest: String,
     artifact_size_bytes: u64,
     surface_path: PathBuf,
@@ -689,6 +784,7 @@ struct StdCoreArtifactBundle {
     strict_meta_name: String,
     strict_abi_name: String,
     symbols: Vec<String>,
+    dependencies: Vec<String>,
 }
 
 fn emit_std_core_artifact_bundle(
@@ -786,8 +882,11 @@ fn emit_std_core_artifact_bundle(
     Ok(StdCoreArtifactBundle {
         package_id: "std::core".to_string(),
         version: version.to_string(),
+        publish_stem: format!("std-core-{version}"),
+        abi_id: format!("abi:std::core:{version}"),
         artifact_name,
         artifact_path,
+        canonical_artifact_relpath: format!("std-core-{version}.wasm"),
         artifact_digest: digest,
         artifact_size_bytes: wasm_bytes.len() as u64,
         surface_path,
@@ -799,5 +898,174 @@ fn emit_std_core_artifact_bundle(
         strict_meta_name,
         strict_abi_name,
         symbols,
+        dependencies: Vec::new(),
     })
+}
+
+fn emit_shared_std_artifact_bundle(
+    root: &Path,
+    package_id: &str,
+    version: &str,
+    out_dir: &Path,
+) -> Result<StdCoreArtifactBundle, String> {
+    fs::create_dir_all(out_dir).map_err(|e| format!("create output dir: {e}"))?;
+    let artifact_dir = out_dir.join("std-packages");
+    fs::create_dir_all(&artifact_dir).map_err(|e| format!("create `{}`: {e}", artifact_dir.display()))?;
+
+    let package_plan = load_external_std_package_plan(root, package_id)?;
+    let std_metadata_path = root
+        .join("crates")
+        .join("cli")
+        .join("assets")
+        .join("std-metadata.json");
+    let std_metadata_raw = fs::read_to_string(&std_metadata_path)
+        .map_err(|e| format!("read std metadata `{}`: {e}", std_metadata_path.display()))?;
+    let std_metadata: StdMetadataRoot = serde_json::from_str(&std_metadata_raw)
+        .map_err(|e| format!("parse std metadata `{}`: {e}", std_metadata_path.display()))?;
+    let mut package_modules = std_metadata
+        .modules
+        .into_iter()
+        .filter(|module| package_plan.modules.contains(&module.path))
+        .collect::<Vec<_>>();
+    package_modules.sort_by(|a, b| a.path.cmp(&b.path));
+    for module in &mut package_modules {
+        module
+            .exports
+            .sort_by(|a, b| a.name.cmp(&b.name).then_with(|| a.kind.cmp(&b.kind)));
+    }
+    if package_modules.len() != package_plan.modules.len() {
+        return Err(format!(
+            "shared std package plan `{package_id}` modules are not fully present in std metadata"
+        ));
+    }
+
+    let artifact_stem = package_publish_stem(package_id, version);
+    let artifact_name = format!("{artifact_stem}.wasm");
+    let artifact_path = artifact_dir.join(&artifact_name);
+    let wasm_bytes = minimal_wasm_module_bytes();
+    fs::write(&artifact_path, &wasm_bytes)
+        .map_err(|e| format!("write shared std artifact `{}`: {e}", artifact_path.display()))?;
+    let digest = format!("sha256:{}", hex::encode(Sha256::digest(&wasm_bytes)));
+
+    let imports = core_modules_to_abi_imports(&package_modules);
+    let mut symbols = package_plan.symbols.clone();
+    symbols.sort();
+
+    let surface_name = format!("{artifact_stem}.surface.json");
+    let surface_path = out_dir.join(&surface_name);
+    let surface = StdCoreSurfaceMetadata {
+        schema_version: 0,
+        package: package_id.to_string(),
+        version: version.to_string(),
+        source_std_metadata_schema_version: std_metadata.schema_version,
+        modules: package_modules.clone(),
+    };
+    write_json_pretty(&surface_path, &surface)?;
+
+    let strict_meta_name = format!("{artifact_stem}.package-metadata.json");
+    let strict_meta_path = out_dir.join(&strict_meta_name);
+    let strict_metadata = StrictPackageMetadataFile {
+        schema_version: 0,
+        packages: vec![StrictPackageMetadataEntry {
+            name: package_id.to_string(),
+            version: version.to_string(),
+            digest: digest.clone(),
+            artifact: StrictPackageArtifact {
+                format: "wasm".to_string(),
+                path: format!("std-packages/{artifact_name}"),
+            },
+            abi_id: format!("abi:{package_id}:{version}"),
+        }],
+    };
+    write_json_pretty(&strict_meta_path, &strict_metadata)?;
+
+    let strict_abi_name = format!("{artifact_stem}.package-abi.json");
+    let strict_abi_path = out_dir.join(&strict_abi_name);
+    let strict_abi = StrictAbiFile {
+        schema_version: 0,
+        contracts: vec![StrictAbiContract {
+            abi_id: format!("abi:{package_id}:{version}"),
+            package: package_id.to_string(),
+            version: version.to_string(),
+            imports,
+        }],
+    };
+    write_json_pretty(&strict_abi_path, &strict_abi)?;
+
+    let manifest_name = format!("{artifact_stem}.manifest.json");
+    let manifest_path = out_dir.join(&manifest_name);
+    let manifest = StdCoreArtifactManifest {
+        schema_version: 0,
+        package: package_id.to_string(),
+        version: version.to_string(),
+        artifact: ArtifactEntry {
+            file: format!("std-packages/{artifact_name}"),
+            digest: digest.clone(),
+        },
+        metadata: MetadataEntry {
+            surface: surface_name,
+            strict_package_metadata: strict_meta_name.clone(),
+            strict_package_abi: strict_abi_name.clone(),
+        },
+    };
+    write_json_pretty(&manifest_path, &manifest)?;
+
+    let digest_name = format!("{artifact_stem}.sha256");
+    let digest_path = out_dir.join(&digest_name);
+    fs::write(&digest_path, format!("{digest}\n"))
+        .map_err(|e| format!("write digest file `{}`: {e}", digest_path.display()))?;
+
+    Ok(StdCoreArtifactBundle {
+        package_id: package_id.to_string(),
+        version: version.to_string(),
+        publish_stem: artifact_stem,
+        abi_id: format!("abi:{package_id}:{version}"),
+        artifact_name: artifact_name.clone(),
+        artifact_path,
+        canonical_artifact_relpath: format!("std-packages/{artifact_name}"),
+        artifact_digest: digest,
+        artifact_size_bytes: wasm_bytes.len() as u64,
+        surface_path,
+        strict_meta_path,
+        strict_abi_path,
+        manifest_path,
+        digest_path,
+        manifest_name,
+        strict_meta_name,
+        strict_abi_name,
+        symbols,
+        dependencies: Vec::new(),
+    })
+}
+
+fn load_external_std_package_plan(
+    root: &Path,
+    package_id: &str,
+) -> Result<ExternalStdPackagePlanEntry, String> {
+    let plan_path = root
+        .join("docs")
+        .join("design")
+        .join("phase-27.2-external-std-package-plan.v1.json");
+    let raw = fs::read_to_string(&plan_path)
+        .map_err(|e| format!("read `{}`: {e}", plan_path.display()))?;
+    let plan: ExternalStdPackagePlanFile =
+        serde_json::from_str(&raw).map_err(|e| format!("parse `{}`: {e}", plan_path.display()))?;
+    if plan.schema_version != 1 {
+        return Err(format!(
+            "unsupported external std package plan schema version {}",
+            plan.schema_version
+        ));
+    }
+    plan.packages
+        .into_iter()
+        .find(|entry| entry.package_id == package_id)
+        .ok_or_else(|| format!("external std package plan does not contain `{package_id}`"))
+}
+
+fn is_supported_shared_std_package_id(package_id: &str) -> bool {
+    matches!(package_id, "std::text" | "std::int" | "std::codec")
+}
+
+fn package_publish_stem(package_id: &str, version: &str) -> String {
+    format!("{}-{}", package_id.replace("::", "-"), version)
 }

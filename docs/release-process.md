@@ -135,9 +135,10 @@ and registry layout stay deterministic:
 ```powershell
 $env:CLG_SHARED_STD_SIGNING_KEY_HEX = "<32-byte-ed25519-private-key-hex>"
 cargo run -p xtask -- shared-std-publish `
+  --package-id std::text `
   --version 1.0.0 `
   --signed-at 2026-06-27T00:00:00Z `
-  --out-dir dist/shared-std/std-core/1.0.0 `
+  --out-dir dist/shared-std/std__text/1.0.0 `
   --registry-dir dist/shared-std/registry `
   --key-id shared-std-2026q2
 ```
@@ -145,11 +146,12 @@ cargo run -p xtask -- shared-std-publish `
 The publish bundle includes:
 - versioned wasm artifact + digest,
 - strict package metadata + ABI manifest,
+- canonical `clg.package-metadata.json` + `clg.package-abi.json` for consumer-side lock/runtime flows,
 - canonical package-signature envelope,
 - provenance statement digest binding the publish set,
 - shared-std package manifest for schema-v2 lock/runtime flows,
 - signer public-key metadata, and
-- optional file-registry copy under `std__core/<version>/`.
+- optional file-registry copy under `<package-id with :: -> __>/<version>/`.
 
 Operational references:
 - `docs/release/shared-std-operations.md`

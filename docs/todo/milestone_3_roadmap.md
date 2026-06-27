@@ -327,12 +327,12 @@ Post-Milestone 3 path to a debt-free normal shared-std production path: **do not
   - [x] 28.7.1 Extend CI with representative shared-std profile matrices covering happy path, tamper path, ABI mismatch, missing artifact, signer/provenance mismatch, and upgrade/replay behavior. `Completed: 2026-06-05`
   - [x] 28.7.2 Keep cheap drift/audit checks only as secondary guardrails; behavior gates remain the rollout blocker for production support. `Completed: 2026-06-05`
 
-- [ ] 28.8 Productization and operational readiness [Distribution Gate I]
+- [x] 28.8 Productization and operational readiness [Distribution Gate I] `Completed: 2026-06-27`
   - [x] 28.8.0 Make shared-std artifact publishing, signing, provenance generation, key rotation, and registry/distribution handling routine and documented. `Completed: 2026-06-27`
   - [x] 28.8.1 Publish user-facing guidance for explicit shared-std opt-in, release, verify, upgrade, rollback, and incident response without hidden fallback behavior. `Completed: 2026-06-27`
-  - [ ] 28.8.2 Prove the support model is acceptable: deterministic diagnostics, repeatable operational playbooks, and no unresolved packaging/deployment ambiguity remain.
+  - [x] 28.8.2 Prove the support model is acceptable: deterministic diagnostics, repeatable operational playbooks, and no unresolved packaging/deployment ambiguity remain. `Completed: 2026-06-27`
 
 - [ ] 28.9 Rollout upgrade from experimental to supported production [Distribution Gate J]
-  - [ ] 28.9.0 Re-run the rollout decision only after Gates F-I are green and there are no unresolved fail-closed diagnostics, provenance gaps, or duplicated validation paths.
+  - [x] 28.9.0 Re-run the rollout decision only after Gates F-I are green and there are no unresolved fail-closed diagnostics, provenance gaps, or duplicated validation paths. `Completed: 2026-06-27`
   - [ ] 28.9.1 Decide whether `shared` becomes a supported production option while preserving `embedded` as a valid production mode.
   - [ ] 28.9.2 Lock the final product contract: supported activation semantics, CI/profile coverage, compatibility/deprecation rules, documentation, and debt cleanup are complete.

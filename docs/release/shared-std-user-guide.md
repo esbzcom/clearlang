@@ -71,6 +71,7 @@ Rules that matter:
 - `schema_version` must be `2` for shared std.
 - `std.delivery` must be exactly `shared`.
 - `std.packages[]` must be non-empty for shared std.
+- current bundled shared-std package ids are `std::text`, `std::int`, and `std::codec`.
 - Shared std package ids must not also appear in normal `dependencies[]`.
 
 ## Lock

@@ -121,7 +121,7 @@ fn print_help() {
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");
     println!(
-        "  shared-std-publish [--version X.Y.Z] --signed-at RFC3339Z [--out-dir DIR] [--registry-dir DIR] [--key-id ID] [--statement-format FORMAT] [--abi-major N] [--abi-minor-min N] [--abi-minor-max N]"
+        "  shared-std-publish --package-id std::text|std::int|std::codec [--version X.Y.Z] --signed-at RFC3339Z [--out-dir DIR] [--registry-dir DIR] [--key-id ID] [--trusted-anchor-id ID] [--statement-format FORMAT] [--abi-major N] [--abi-minor-min N] [--abi-minor-max N]"
     );
     println!("  solver-vendor-stage --from PATH [--platform windows|linux|macos] [--key-id ID]");
     println!("  binary-repro-witness [--out FILE] (phase 25.6 binary reproducibility witness)");
@@ -163,10 +163,12 @@ struct StdCoreArtifactOpts {
 
 #[derive(Clone, Debug)]
 struct SharedStdPublishOpts {
+    package_id: String,
     version: String,
     out_dir: Option<PathBuf>,
     registry_dir: Option<PathBuf>,
     key_id: String,
+    trusted_anchor_id: String,
     signed_at: String,
     statement_format: String,
     abi_major: u32,

@@ -349,6 +349,11 @@ Phase 29 continues the roadmap after that production baseline is established. Ne
 must preserve the current fail-closed product contract and still satisfy the README design
 principles before expanding surface area.
 
+Phase 29 success target: Milestone 3 should finish with not only a supported production baseline,
+but also a production-complete shared-std expansion path for the remaining planned Wave 2 package
+surfaces. That means closing `std::contract` first, then chain-adapter packages one at a time,
+then re-locking the final breadth-complete production contract.
+
 - [x] 29.0 Post-production expansion planning lock [Planning Gate A] `Completed: 2026-06-27`
   - [x] 29.0.0 Publish Phase 29 purpose, prioritization rules, and success target so post-production work resumes from an explicit planning contract rather than ad hoc feature selection. (`docs/design/phase-29.0.0-post-m3-expansion-planning-lock.md`) `Completed: 2026-06-27`
 
@@ -364,3 +369,24 @@ principles before expanding surface area.
 
 - [ ] 29.3 `std::contract` shared-std slice lock [Planning Gate C]
   - [ ] 29.3.0 Publish the bounded Wave 2 promotion lock for `std::contract`, covering the exact package boundary, supported modules/symbols, fail-closed migration diagnostics, and trust/ABI/provenance rules while explicitly deferring chain-adapter packages. (`docs/design/phase-29.3.0-std-contract-shared-std-slice-lock.md`)
+
+- [ ] 29.4 `std::contract` shared-std promotion [Execution Gate B]
+  - [ ] 29.4.0 Extend bundled shared-std package allowlists, canonical publication flow, and manifest/lock validation so `std::contract` is a supported shared package without changing the current default delivery mode.
+  - [ ] 29.4.1 Extend release, verify-bundle, runtime-loader, import-migration, and xtask publish coverage for the bounded `std::contract` surface under the same fail-closed trust, ABI, digest, provenance, and replay rules as existing supported packages.
+  - [ ] 29.4.2 Update user/operator documentation only after implementation lands so the supported shared-package set, migration guidance, and incident-response playbooks stay accurate.
+
+- [ ] 29.5 Chain-adapter production ordering lock [Planning Gate D]
+  - [ ] 29.5.0 Publish the Wave 2 chain-adapter execution order and full-production closure criteria for `std::eth`, `std::solana`, and `std::cosmos`, including explicit prioritization rationale, shared-vs-embedded activation expectations, and what remains non-goal/deferred.
+  - [ ] 29.5.1 Lock one canonical bounded rollout shape for chain adapters: exact per-package module/symbol boundaries, deterministic migration diagnostics, and proof/release/runtime constraints that must hold before any chain adapter becomes supported in shared form.
+
+- [ ] 29.6 First chain-adapter supported promotion [Execution Gate C]
+  - [ ] 29.6.0 Promote the first selected chain-adapter package from 29.5 under the bounded lock, including allowlists, publication, manifest/lock validation, and release/runtime enforcement.
+  - [ ] 29.6.1 Add end-to-end happy-path and fail-closed coverage for the first selected chain adapter across publish, lock, release, verify-bundle, runtime loading, and migration diagnostics.
+
+- [ ] 29.7 Remaining chain-adapter promotions [Execution Gate D]
+  - [ ] 29.7.0 Promote the remaining approved chain-adapter packages one at a time using the same bounded contract from 29.5; no bulk multi-package activation is allowed without per-package evidence parity.
+  - [ ] 29.7.1 Update docs, operational playbooks, and compatibility/deprecation notes after each chain-adapter promotion so the supported surface stays exact and audit-friendly.
+
+- [ ] 29.8 Breadth-complete production closure [Completion Gate E]
+  - [ ] 29.8.0 Re-run the production contract decision after 29.4 and 29.6-29.7 are green; confirm whether the planned Wave 2 shared-package surface is now complete enough to call Milestone 3 production-complete in breadth as well as baseline safety.
+  - [ ] 29.8.1 Publish the final Milestone 3 closure lock, naming the supported shared-package set, any intentionally deferred non-goals, and the exact post-M3 steady-state maintenance expectations.

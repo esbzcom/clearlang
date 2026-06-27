@@ -453,9 +453,10 @@ fn validate_shared_std_section_v2(
         }
         if !seen_exact_ids.insert(exact_id) {
             return Err(format!(
-                "{subject} `{}` has duplicate shared std package id `{}`",
+                "{subject} `{}` has duplicate shared std package id `{}@{}`",
                 path.display(),
-                format!("{}@{}", shared_pkg.package_id, shared_pkg.version)
+                shared_pkg.package_id,
+                shared_pkg.version
             ));
         }
         validated.push(ValidatedSharedStdLockPackageV2 {
@@ -535,6 +536,10 @@ pub(crate) mod tests {
         pub(crate) expected_substring: &'static str,
     }
 
+    fn std_symbol(module: &str, member: &str) -> String {
+        format!("{module}::{member}")
+    }
+
     pub(crate) fn valid_shared_std_package_value(
         package_id: &str,
         version: &str,
@@ -564,8 +569,8 @@ pub(crate) mod tests {
                 "statement_format": "in-toto-v1"
             },
             "symbols": [
-                "std::bytes::eq_ct",
-                "std::str::len"
+                std_symbol("std::bytes", "eq_ct"),
+                std_symbol("std::str", "len")
             ],
             "dependencies": []
         })
@@ -626,8 +631,10 @@ pub(crate) mod tests {
         });
 
         let mut duplicate_symbols = valid_shared_std_lockfile_value();
-        duplicate_symbols["std"]["packages"][0]["symbols"] =
-            json!(["std::bytes::eq_ct", "std::bytes::eq_ct"]);
+        duplicate_symbols["std"]["packages"][0]["symbols"] = json!([
+            std_symbol("std::bytes", "eq_ct"),
+            std_symbol("std::bytes", "eq_ct")
+        ]);
         cases.push(SharedStdMalformedCase {
             label: "duplicate symbols",
             value: duplicate_symbols,
@@ -635,8 +642,10 @@ pub(crate) mod tests {
         });
 
         let mut unsorted_symbols = valid_shared_std_lockfile_value();
-        unsorted_symbols["std"]["packages"][0]["symbols"] =
-            json!(["std::str::len", "std::bytes::eq_ct"]);
+        unsorted_symbols["std"]["packages"][0]["symbols"] = json!([
+            std_symbol("std::str", "len"),
+            std_symbol("std::bytes", "eq_ct")
+        ]);
         cases.push(SharedStdMalformedCase {
             label: "unsorted symbols",
             value: unsorted_symbols,
@@ -716,7 +725,10 @@ pub(crate) mod tests {
     #[test]
     fn parse_shared_std_lock_section_rejects_unsorted_symbols() {
         let mut value = valid_shared_std_lockfile_value();
-        value["std"]["packages"][0]["symbols"] = json!(["std::str::len", "std::bytes::eq_ct"]);
+        value["std"]["packages"][0]["symbols"] = json!([
+            std_symbol("std::str", "len"),
+            std_symbol("std::bytes", "eq_ct")
+        ]);
         let err = parse_validated_shared_std_lock_section(
             &value,
             Path::new("clg.lock.json"),

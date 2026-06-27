@@ -589,7 +589,7 @@ fn verify_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result
         ));
     }
     for (expected_hash, rel_path) in entries {
-        let absolute = bundle_dir.join(rel_path.replace('/', &std::path::MAIN_SEPARATOR.to_string()));
+        let absolute = bundle_dir.join(rel_path.replace('/', std::path::MAIN_SEPARATOR_STR));
         if !absolute.is_file() {
             return Err(format!(
                 "checksum manifest member `{}` missing from `{}`",
@@ -1080,7 +1080,7 @@ fn create_deterministic_zip(source_dir: &Path, archive_path: &Path) -> Result<()
 fn collect_files_recursive_sorted(dir: &Path) -> Result<Vec<PathBuf>, String> {
     let mut files = Vec::new();
     collect_files_recursive(dir, &mut files)?;
-    files.sort_by(|a, b| normalize_rel_path(dir, a.as_path()).cmp(&normalize_rel_path(dir, b.as_path())));
+    files.sort_by_key(|a| normalize_rel_path(dir, a.as_path()));
     Ok(files)
 }
 
@@ -1089,7 +1089,7 @@ fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), S
         .map_err(|e| format!("read directory `{}`: {e}", dir.display()))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("enumerate directory `{}`: {e}", dir.display()))?;
-    entries.sort_by(|a, b| a.path().cmp(&b.path()));
+    entries.sort_by_key(|a| a.path());
     for entry in entries {
         let path = entry.path();
         if path.is_dir() {

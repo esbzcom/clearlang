@@ -723,175 +723,6 @@ fn validate_artifact(name: &str, artifact: &RawPackageArtifact, _root: &Path) ->
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use clg_ast::{Effect, Param, ParamKind, Type};
-    use clg_typer::BuiltinRoute;
-
-    use super::{ExternalImportBinding, PackageMetadataIndex};
-
-    #[test]
-    fn extend_external_imports_indexes_modules_and_bindings() {
-        let mut index = PackageMetadataIndex::default();
-        index
-            .extend_external_imports([ExternalImportBinding {
-                function: "std::str::len".to_string(),
-                import_module: "std::str".to_string(),
-                import_name: "len".to_string(),
-                params: vec![Param {
-                    kind: ParamKind::Borrow,
-                    name: "s".to_string(),
-                    ty: Type::String,
-                }],
-                ret: Type::Int,
-                effect: Effect::Pure,
-                route: BuiltinRoute::Intrinsic,
-            }])
-            .expect("bundled external import should index cleanly");
-
-        let module = index
-            .module("std::str")
-            .expect("std::str module should exist");
-        assert!(module.values.contains("len"));
-        assert_eq!(index.external_imports().len(), 1);
-    }
-
-    #[test]
-    fn extend_external_imports_accepts_identical_duplicate_symbols() {
-        let mut index = PackageMetadataIndex::default();
-        let binding = ExternalImportBinding {
-            function: "std::str::len".to_string(),
-            import_module: "std::str".to_string(),
-            import_name: "len".to_string(),
-            params: vec![Param {
-                kind: ParamKind::Borrow,
-                name: "s".to_string(),
-                ty: Type::String,
-            }],
-            ret: Type::Int,
-            effect: Effect::Pure,
-            route: BuiltinRoute::Intrinsic,
-        };
-        index
-            .extend_external_imports([binding.clone()])
-            .expect("first import should succeed");
-        index
-            .extend_external_imports([binding])
-            .expect("identical duplicate import should be treated as idempotent");
-        assert_eq!(index.external_imports().len(), 1);
-    }
-
-    #[test]
-    fn extend_external_imports_rejects_conflicting_duplicate_symbols() {
-        let mut index = PackageMetadataIndex::default();
-        index
-            .extend_external_imports([ExternalImportBinding {
-                function: "std::str::len".to_string(),
-                import_module: "std::str".to_string(),
-                import_name: "len".to_string(),
-                params: vec![Param {
-                    kind: ParamKind::Borrow,
-                    name: "s".to_string(),
-                    ty: Type::String,
-                }],
-                ret: Type::Int,
-                effect: Effect::Pure,
-                route: BuiltinRoute::Intrinsic,
-            }])
-            .expect("first import should succeed");
-        let err = index
-            .extend_external_imports([ExternalImportBinding {
-                function: "std::str::len".to_string(),
-                import_module: "std::str".to_string(),
-                import_name: "len".to_string(),
-                params: vec![Param {
-                    kind: ParamKind::Borrow,
-                    name: "s".to_string(),
-                    ty: Type::Bytes,
-                }],
-                ret: Type::Int,
-                effect: Effect::Pure,
-                route: BuiltinRoute::Intrinsic,
-            }])
-            .expect_err("conflicting duplicate import should fail");
-        assert!(
-            err.to_string()
-                .contains("duplicate value export `std::str::len`"),
-            "expected duplicate symbol rejection, got: {err}"
-        );
-    }
-
-    #[test]
-    fn extend_std_modules_indexes_types_and_layouts() {
-        let mut index = PackageMetadataIndex::default();
-        index
-            .extend_std_modules(["std::encoder".to_string()])
-            .expect("bundled std module should index cleanly");
-
-        let module = index
-            .module("std::encoder")
-            .expect("std::encoder module should exist");
-        assert!(module.values.contains("new"));
-        assert!(module.values.contains("finish"));
-        assert!(module.types.contains("Encoder"));
-
-        let mut layouts = std::collections::HashMap::new();
-        index
-            .merge_type_layouts(&mut layouts)
-            .expect("type layouts should merge cleanly");
-        let layout = layouts
-            .get("std::encoder::Encoder")
-            .expect("encoder layout should exist");
-        assert_eq!(layout.byte_len, 4);
-        assert_eq!(layout.align, 4);
-    }
-
-    #[test]
-    fn extend_external_imports_accepts_preloaded_bundled_std_values() {
-        let mut index = PackageMetadataIndex::default();
-        index
-            .extend_std_modules(["std::bytes".to_string()])
-            .expect("bundled std module should preload cleanly");
-        index
-            .extend_external_imports([ExternalImportBinding {
-                function: "std::bytes::len".to_string(),
-                import_module: "std::bytes".to_string(),
-                import_name: "len".to_string(),
-                params: vec![Param {
-                    kind: ParamKind::Borrow,
-                    name: "b".to_string(),
-                    ty: Type::Bytes,
-                }],
-                ret: Type::Int,
-                effect: Effect::Pure,
-                route: BuiltinRoute::Intrinsic,
-            }])
-            .expect("preloaded bundled std value should accept external binding attachment");
-        assert_eq!(index.external_imports().len(), 1);
-    }
-
-    #[test]
-    fn merge_type_layouts_accepts_identical_preloaded_std_layouts() {
-        let mut index = PackageMetadataIndex::default();
-        index
-            .extend_std_modules(["std::encoder".to_string()])
-            .expect("bundled std module should preload cleanly");
-
-        let mut layouts = std::collections::HashMap::new();
-        layouts.insert(
-            "std::encoder::Encoder".to_string(),
-            clg_typer::StdTypeInfo {
-                byte_len: 4,
-                align: 4,
-            },
-        );
-        index
-            .merge_type_layouts(&mut layouts)
-            .expect("identical preloaded layout should merge idempotently");
-        assert_eq!(layouts.len(), 1);
-    }
-}
-
 fn parse_effect(value: Option<&str>) -> Result<Effect> {
     match value.unwrap_or("pure") {
         "pure" => Ok(Effect::Pure),
@@ -946,4 +777,177 @@ fn validate_module_path_like_type(value: &str) -> Result<()> {
         validate_identifier(part)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use clg_ast::{Effect, Param, ParamKind, Type};
+    use clg_typer::BuiltinRoute;
+
+    use super::{ExternalImportBinding, PackageMetadataIndex};
+
+    fn std_symbol(module: &str, member: &str) -> String {
+        format!("{module}::{member}")
+    }
+
+    #[test]
+    fn extend_external_imports_indexes_modules_and_bindings() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_external_imports([ExternalImportBinding {
+                function: std_symbol("std::str", "len"),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "s".to_string(),
+                    ty: Type::String,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect("bundled external import should index cleanly");
+
+        let module = index
+            .module("std::str")
+            .expect("std::str module should exist");
+        assert!(module.values.contains("len"));
+        assert_eq!(index.external_imports().len(), 1);
+    }
+
+    #[test]
+    fn extend_external_imports_accepts_identical_duplicate_symbols() {
+        let mut index = PackageMetadataIndex::default();
+        let binding = ExternalImportBinding {
+            function: std_symbol("std::str", "len"),
+            import_module: "std::str".to_string(),
+            import_name: "len".to_string(),
+            params: vec![Param {
+                kind: ParamKind::Borrow,
+                name: "s".to_string(),
+                ty: Type::String,
+            }],
+            ret: Type::Int,
+            effect: Effect::Pure,
+            route: BuiltinRoute::Intrinsic,
+        };
+        index
+            .extend_external_imports([binding.clone()])
+            .expect("first import should succeed");
+        index
+            .extend_external_imports([binding])
+            .expect("identical duplicate import should be treated as idempotent");
+        assert_eq!(index.external_imports().len(), 1);
+    }
+
+    #[test]
+    fn extend_external_imports_rejects_conflicting_duplicate_symbols() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_external_imports([ExternalImportBinding {
+                function: std_symbol("std::str", "len"),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "s".to_string(),
+                    ty: Type::String,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect("first import should succeed");
+        let err = index
+            .extend_external_imports([ExternalImportBinding {
+                function: std_symbol("std::str", "len"),
+                import_module: "std::str".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "s".to_string(),
+                    ty: Type::Bytes,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect_err("conflicting duplicate import should fail");
+        assert!(
+            err.to_string()
+                .contains("duplicate value export `std::str::len`"),
+            "expected duplicate symbol rejection, got: {err}"
+        );
+    }
+
+    #[test]
+    fn extend_std_modules_indexes_types_and_layouts() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_std_modules(["std::encoder".to_string()])
+            .expect("bundled std module should index cleanly");
+
+        let module = index
+            .module("std::encoder")
+            .expect("std::encoder module should exist");
+        assert!(module.values.contains("new"));
+        assert!(module.values.contains("finish"));
+        assert!(module.types.contains("Encoder"));
+
+        let mut layouts = std::collections::HashMap::new();
+        index
+            .merge_type_layouts(&mut layouts)
+            .expect("type layouts should merge cleanly");
+        let layout = layouts
+            .get("std::encoder::Encoder")
+            .expect("encoder layout should exist");
+        assert_eq!(layout.byte_len, 4);
+        assert_eq!(layout.align, 4);
+    }
+
+    #[test]
+    fn extend_external_imports_accepts_preloaded_bundled_std_values() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_std_modules(["std::bytes".to_string()])
+            .expect("bundled std module should preload cleanly");
+        index
+            .extend_external_imports([ExternalImportBinding {
+                function: std_symbol("std::bytes", "len"),
+                import_module: "std::bytes".to_string(),
+                import_name: "len".to_string(),
+                params: vec![Param {
+                    kind: ParamKind::Borrow,
+                    name: "b".to_string(),
+                    ty: Type::Bytes,
+                }],
+                ret: Type::Int,
+                effect: Effect::Pure,
+                route: BuiltinRoute::Intrinsic,
+            }])
+            .expect("preloaded bundled std value should accept external binding attachment");
+        assert_eq!(index.external_imports().len(), 1);
+    }
+
+    #[test]
+    fn merge_type_layouts_accepts_identical_preloaded_std_layouts() {
+        let mut index = PackageMetadataIndex::default();
+        index
+            .extend_std_modules(["std::encoder".to_string()])
+            .expect("bundled std module should preload cleanly");
+
+        let mut layouts = std::collections::HashMap::new();
+        layouts.insert(
+            "std::encoder::Encoder".to_string(),
+            clg_typer::StdTypeInfo {
+                byte_len: 4,
+                align: 4,
+            },
+        );
+        index
+            .merge_type_layouts(&mut layouts)
+            .expect("identical preloaded layout should merge idempotently");
+        assert_eq!(layouts.len(), 1);
+    }
 }

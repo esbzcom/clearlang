@@ -281,17 +281,17 @@ fn load_lockfile_from_metadata_with_policy(
         }));
     };
 
-    let std_section = build_locked_std_section(
-        path,
-        advisory_root,
-        &catalog,
-        roots.as_slice(),
-        locked_packages.as_slice(),
-        &selected,
+    let std_section = build_locked_std_section(LockedStdSectionInputs {
+        metadata_path: path,
+        metadata_root: advisory_root,
+        catalog: &catalog,
+        roots: roots.as_slice(),
+        locked_packages: locked_packages.as_slice(),
+        selected_packages: &selected,
         std,
-        advisories.as_slice(),
+        advisories: advisories.as_slice(),
         advisory_policy,
-    )?;
+    })?;
     Ok(StrictLockfile::V2(StrictLockfileV2 {
         schema_version: 2,
         resolver_version: 1,
@@ -338,17 +338,32 @@ fn locked_packages_from_selection(
     Ok(locked_packages)
 }
 
+struct LockedStdSectionInputs<'a> {
+    metadata_path: &'a Path,
+    metadata_root: &'a Path,
+    catalog: &'a HashMap<String, Vec<ValidatedPackage>>,
+    roots: &'a [StrictLockRootV1],
+    locked_packages: &'a [StrictLockedPackageV1],
+    selected_packages: &'a HashMap<String, ValidatedPackage>,
+    std: &'a ProjectStdConfigV2,
+    advisories: &'a [AdvisoryEntry],
+    advisory_policy: &'a AdvisoryPolicy,
+}
+
 fn build_locked_std_section(
-    metadata_path: &Path,
-    metadata_root: &Path,
-    catalog: &HashMap<String, Vec<ValidatedPackage>>,
-    roots: &[StrictLockRootV1],
-    locked_packages: &[StrictLockedPackageV1],
-    selected_packages: &HashMap<String, ValidatedPackage>,
-    std: &ProjectStdConfigV2,
-    advisories: &[AdvisoryEntry],
-    advisory_policy: &AdvisoryPolicy,
+    inputs: LockedStdSectionInputs<'_>,
 ) -> Result<StrictStdSectionV2, PkgLockError> {
+    let LockedStdSectionInputs {
+        metadata_path,
+        metadata_root,
+        catalog,
+        roots,
+        locked_packages,
+        selected_packages,
+        std,
+        advisories,
+        advisory_policy,
+    } = inputs;
     if std.delivery == "embedded" {
         return Ok(StrictStdSectionV2 {
             delivery: "embedded".to_string(),

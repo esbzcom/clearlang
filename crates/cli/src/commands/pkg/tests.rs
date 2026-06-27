@@ -5,6 +5,10 @@ mod tests {
         ProjectContactV1, ProjectMetadataV1, ProjectStdPackageRequirementV2,
     };
 
+    fn std_symbol(module: &str, member: &str) -> String {
+        format!("{module}::{member}")
+    }
+
     #[test]
     fn lockfile_from_metadata_sorts_and_pins() {
         let tmp = tempfile::tempdir().expect("tempdir");
@@ -711,12 +715,12 @@ mod tests {
         assert!(
             lockfile.std.packages[0]
                 .symbols
-                .contains(&"std::str::len".to_string())
+                .contains(&std_symbol("std::str", "len"))
         );
         assert!(
             lockfile.std.packages[0]
                 .symbols
-                .contains(&"std::bytes::eq_ct".to_string())
+                .contains(&std_symbol("std::bytes", "eq_ct"))
         );
     }
 }

@@ -302,6 +302,10 @@ mod tests {
         load_bundled_std_package_modules_from_str,
     };
 
+    fn std_symbol(module: &str, member: &str) -> String {
+        format!("{module}::{member}")
+    }
+
     #[test]
     fn rejects_unsupported_schema_version() {
         let err = load_bundled_std_package_modules_from_str(
@@ -464,25 +468,25 @@ mod tests {
             .iter()
             .map(|binding| binding.function.clone())
             .collect();
-        assert!(symbols.contains("std::str::len"));
-        assert!(symbols.contains("std::bytes::eq_ct"));
-        assert!(symbols.contains("std::str_pattern::matches"));
-        assert!(symbols.contains("std::u64::rotl"));
-        assert!(symbols.contains("std::u128::from_limbs"));
-        assert!(symbols.contains("std::u256::limb3"));
-        assert!(symbols.contains("std::encoder::new"));
-        assert!(symbols.contains("std::decoder::read_bool"));
-        assert!(symbols.contains("std::decode_error::equals"));
-        assert!(symbols.contains("std::contract::address::from_bytes"));
-        assert!(symbols.contains("std::contract::amount::add_checked"));
-        assert!(symbols.contains("std::contract::event::new"));
-        assert!(symbols.contains("std::contract::contract_error::equals"));
-        assert!(symbols.contains("std::eth::from_array"));
-        assert!(symbols.contains("std::eth::from_bytes"));
-        assert!(symbols.contains("std::solana::from_array"));
-        assert!(symbols.contains("std::solana::from_bytes"));
-        assert!(symbols.contains("std::cosmos::from_array"));
-        assert!(symbols.contains("std::cosmos::from_bytes"));
+        assert!(symbols.contains(&std_symbol("std::str", "len")));
+        assert!(symbols.contains(&std_symbol("std::bytes", "eq_ct")));
+        assert!(symbols.contains(&std_symbol("std::str_pattern", "matches")));
+        assert!(symbols.contains(&std_symbol("std::u64", "rotl")));
+        assert!(symbols.contains(&std_symbol("std::u128", "from_limbs")));
+        assert!(symbols.contains(&std_symbol("std::u256", "limb3")));
+        assert!(symbols.contains(&std_symbol("std::encoder", "new")));
+        assert!(symbols.contains(&std_symbol("std::decoder", "read_bool")));
+        assert!(symbols.contains(&std_symbol("std::decode_error", "equals")));
+        assert!(symbols.contains(&std_symbol("std::contract", "address::from_bytes")));
+        assert!(symbols.contains(&std_symbol("std::contract", "amount::add_checked")));
+        assert!(symbols.contains(&std_symbol("std::contract", "event::new")));
+        assert!(symbols.contains(&std_symbol("std::contract", "contract_error::equals")));
+        assert!(symbols.contains(&std_symbol("std::eth", "from_array")));
+        assert!(symbols.contains(&std_symbol("std::eth", "from_bytes")));
+        assert!(symbols.contains(&std_symbol("std::solana", "from_array")));
+        assert!(symbols.contains(&std_symbol("std::solana", "from_bytes")));
+        assert!(symbols.contains(&std_symbol("std::cosmos", "from_array")));
+        assert!(symbols.contains(&std_symbol("std::cosmos", "from_bytes")));
     }
 
     #[test]

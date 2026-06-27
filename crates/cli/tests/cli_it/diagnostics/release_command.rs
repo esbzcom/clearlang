@@ -86,32 +86,51 @@ fn write_release_project_defaults_shared_std(
 ) {
     write_release_project_defaults_shared_std_with_named_package(
         path,
+        SharedStdProjectDefaults {
+            advisory_as_of,
+            key_id,
+            entry,
+            out_dir,
+            trust_policy,
+            package_id: "std::text",
+            version_requirement: "^1.2.0",
+            abi_major: 1,
+            abi_minor_min: 0,
+            abi_minor_max: 0,
+        },
+    );
+}
+
+#[derive(Clone, Copy)]
+struct SharedStdProjectDefaults<'a> {
+    advisory_as_of: &'a str,
+    key_id: &'a str,
+    entry: &'a str,
+    out_dir: &'a str,
+    trust_policy: &'a str,
+    package_id: &'a str,
+    version_requirement: &'a str,
+    abi_major: u32,
+    abi_minor_min: u32,
+    abi_minor_max: u32,
+}
+
+fn write_release_project_defaults_shared_std_with_named_package(
+    path: &Path,
+    defaults: SharedStdProjectDefaults<'_>,
+) {
+    let SharedStdProjectDefaults {
         advisory_as_of,
         key_id,
         entry,
         out_dir,
         trust_policy,
-        "std::text",
-        "^1.2.0",
-        1,
-        0,
-        0,
-    );
-}
-
-fn write_release_project_defaults_shared_std_with_named_package(
-    path: &Path,
-    advisory_as_of: &str,
-    key_id: &str,
-    entry: &str,
-    out_dir: &str,
-    trust_policy: &str,
-    package_id: &str,
-    version_requirement: &str,
-    abi_major: u32,
-    abi_minor_min: u32,
-    abi_minor_max: u32,
-) {
+        package_id,
+        version_requirement,
+        abi_major,
+        abi_minor_min,
+        abi_minor_max,
+    } = defaults;
     let value = json!({
         "schema_version": 2,
         "project": {
@@ -160,28 +179,14 @@ fn write_release_project_defaults_shared_std_with_named_package(
 
 fn write_release_project_defaults_shared_std_with_package(
     path: &Path,
-    advisory_as_of: &str,
-    key_id: &str,
-    entry: &str,
-    out_dir: &str,
-    trust_policy: &str,
-    version_requirement: &str,
-    abi_major: u32,
-    abi_minor_min: u32,
-    abi_minor_max: u32,
+    defaults: SharedStdProjectDefaults<'_>,
 ) {
     write_release_project_defaults_shared_std_with_named_package(
         path,
-        advisory_as_of,
-        key_id,
-        entry,
-        out_dir,
-        trust_policy,
-        "std::text",
-        version_requirement,
-        abi_major,
-        abi_minor_min,
-        abi_minor_max,
+        SharedStdProjectDefaults {
+            package_id: "std::text",
+            ..defaults
+        },
     );
 }
 

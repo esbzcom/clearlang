@@ -434,7 +434,7 @@ mod tests {
                 .split_once("  ")
                 .unwrap_or_else(|| panic!("invalid checksum line: {line}"));
             listed_paths.push(rel_path.to_string());
-            let normalized_rel = rel_path.replace('/', &std::path::MAIN_SEPARATOR.to_string());
+            let normalized_rel = rel_path.replace('/', std::path::MAIN_SEPARATOR_STR);
             let absolute = out_dir.join(normalized_rel);
             let actual_hash = file_sha256_hex(absolute.as_path()).expect("hash checksum member");
             assert_eq!(

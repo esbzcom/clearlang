@@ -330,29 +330,29 @@ pub fn run(
         .map_err(|message| release_error("C130", message, file.as_path(), json_errors))?;
     {
         let _stage = timings.start(logger, "release_provenance");
-        write_release_provenance(
-            paths.provenance.as_path(),
-            &release_signing_key,
-            key_id.as_str(),
-            advisory_as_of.as_str(),
-            file.as_path(),
-            root.as_path(),
-            &paths,
-            shared_std.as_slice(),
-        )?;
+        write_release_provenance(ReleaseProvenanceInputs {
+            path: paths.provenance.as_path(),
+            signing_key: &release_signing_key,
+            key_id: key_id.as_str(),
+            advisory_as_of: advisory_as_of.as_str(),
+            entry: file.as_path(),
+            root: root.as_path(),
+            paths: &paths,
+            shared_std: shared_std.as_slice(),
+        })?;
     }
     let bundle_manifest = {
         let _stage = timings.start(logger, "release_bundle");
-        write_release_bundle_manifest(
-            paths.bundle_manifest.as_path(),
-            &file,
-            &root,
-            advisory_as_of.as_str(),
-            key_id.as_str(),
-            verify_trust_policy.as_path(),
-            &paths,
-            shared_std.as_slice(),
-        )?
+        write_release_bundle_manifest(ReleaseBundleManifestInputs {
+            path: paths.bundle_manifest.as_path(),
+            entry: &file,
+            root: &root,
+            advisory_as_of: advisory_as_of.as_str(),
+            key_id: key_id.as_str(),
+            trust_policy: verify_trust_policy.as_path(),
+            paths: &paths,
+            shared_std: shared_std.as_slice(),
+        })?
     };
 
     logger.summary(&timings);
@@ -564,7 +564,7 @@ fn discover_manifest_roots(search_root: &Path) -> Result<Vec<PathBuf>> {
         let mut children = entries
             .map(|entry| entry.map_err(anyhow::Error::from))
             .collect::<Result<Vec<_>>>()?;
-        children.sort_by(|a, b| a.path().cmp(&b.path()));
+        children.sort_by_key(|a| a.path());
         for entry in children {
             let path = entry.path();
             let file_type = entry
@@ -624,16 +624,30 @@ fn release_paths(out_dir: PathBuf, stem: &str) -> ReleasePaths {
     }
 }
 
+struct ReleaseBundleManifestInputs<'a> {
+    path: &'a Path,
+    entry: &'a Path,
+    root: &'a Path,
+    advisory_as_of: &'a str,
+    key_id: &'a str,
+    trust_policy: &'a Path,
+    paths: &'a ReleasePaths,
+    shared_std: &'a [ReleaseSharedStdPackageEvidence],
+}
+
 fn write_release_bundle_manifest(
-    path: &Path,
-    entry: &Path,
-    root: &Path,
-    advisory_as_of: &str,
-    key_id: &str,
-    trust_policy: &Path,
-    paths: &ReleasePaths,
-    shared_std: &[ReleaseSharedStdPackageEvidence],
+    inputs: ReleaseBundleManifestInputs<'_>,
 ) -> Result<ReleaseBundleManifestV1> {
+    let ReleaseBundleManifestInputs {
+        path,
+        entry,
+        root,
+        advisory_as_of,
+        key_id,
+        trust_policy,
+        paths,
+        shared_std,
+    } = inputs;
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
@@ -707,16 +721,28 @@ fn artifact_file(path: &Path) -> Result<ReleaseArtifactFile> {
     })
 }
 
-fn write_release_provenance(
-    path: &Path,
-    signing_key: &Path,
-    key_id: &str,
-    advisory_as_of: &str,
-    entry: &Path,
-    root: &Path,
-    paths: &ReleasePaths,
-    shared_std: &[ReleaseSharedStdPackageEvidence],
-) -> Result<()> {
+struct ReleaseProvenanceInputs<'a> {
+    path: &'a Path,
+    signing_key: &'a Path,
+    key_id: &'a str,
+    advisory_as_of: &'a str,
+    entry: &'a Path,
+    root: &'a Path,
+    paths: &'a ReleasePaths,
+    shared_std: &'a [ReleaseSharedStdPackageEvidence],
+}
+
+fn write_release_provenance(inputs: ReleaseProvenanceInputs<'_>) -> Result<()> {
+    let ReleaseProvenanceInputs {
+        path,
+        signing_key,
+        key_id,
+        advisory_as_of,
+        entry,
+        root,
+        paths,
+        shared_std,
+    } = inputs;
     let payload = serde_json::json!({
         "kind": "clearlang.release_provenance",
         "schema_version": 1,
@@ -1479,6 +1505,10 @@ mod tests {
 
     use crate::commands::shared_std_lock::tests::malformed_shared_std_lockfile_cases;
 
+    fn std_symbol(module: &str, member: &str) -> String {
+        format!("{module}::{member}")
+    }
+
     fn release_paths_for_import_map(import_map: PathBuf) -> ReleasePaths {
         ReleasePaths {
             module: PathBuf::from("ignored.wasm"),
@@ -1608,8 +1638,8 @@ mod tests {
                             "statement_format": "in-toto-v1"
                         },
                         "symbols": [
-                            "std::bytes::eq_ct",
-                            "std::str::len"
+                            std_symbol("std::bytes", "eq_ct"),
+                            std_symbol("std::str", "len")
                         ],
                         "dependencies": []
                     }

@@ -285,16 +285,18 @@ fn release_command_accepts_std_contract_shared_std_evidence_for_shared_manifest(
     write_verify_trust_policy_v1(&verify_trust_policy);
     write_release_project_defaults_shared_std_with_named_package(
         root.join("clg.project.json").as_path(),
-        "2026-03-31T00:00:00Z",
-        "release-2026q2",
-        "main.clear",
-        "out/release",
-        "trust-policy.json",
-        "std::contract",
-        "^1.2.0",
-        1,
-        0,
-        0,
+        SharedStdProjectDefaults {
+            advisory_as_of: "2026-03-31T00:00:00Z",
+            key_id: "release-2026q2",
+            entry: "main.clear",
+            out_dir: "out/release",
+            trust_policy: "trust-policy.json",
+            package_id: "std::contract",
+            version_requirement: "^1.2.0",
+            abi_major: 1,
+            abi_minor_min: 0,
+            abi_minor_max: 0,
+        },
     );
     let (key_path, pubkey_path) = write_signing_keys(&root);
 
@@ -387,16 +389,18 @@ fn release_command_accepts_std_eth_shared_std_evidence_for_shared_manifest() {
     write_verify_trust_policy_v1(&verify_trust_policy);
     write_release_project_defaults_shared_std_with_named_package(
         root.join("clg.project.json").as_path(),
-        "2026-03-31T00:00:00Z",
-        "release-2026q2",
-        "main.clear",
-        "out/release",
-        "trust-policy.json",
-        "std::eth",
-        "^1.2.0",
-        1,
-        0,
-        0,
+        SharedStdProjectDefaults {
+            advisory_as_of: "2026-03-31T00:00:00Z",
+            key_id: "release-2026q2",
+            entry: "main.clear",
+            out_dir: "out/release",
+            trust_policy: "trust-policy.json",
+            package_id: "std::eth",
+            version_requirement: "^1.2.0",
+            abi_major: 1,
+            abi_minor_min: 0,
+            abi_minor_max: 0,
+        },
     );
     let (key_path, pubkey_path) = write_signing_keys(&root);
 
@@ -508,16 +512,18 @@ fn release_command_accepts_std_solana_shared_std_evidence_for_shared_manifest() 
     write_verify_trust_policy_v1(&verify_trust_policy);
     write_release_project_defaults_shared_std_with_named_package(
         root.join("clg.project.json").as_path(),
-        "2026-03-31T00:00:00Z",
-        "release-2026q2",
-        "main.clear",
-        "out/release",
-        "trust-policy.json",
-        "std::solana",
-        "^1.2.0",
-        1,
-        0,
-        0,
+        SharedStdProjectDefaults {
+            advisory_as_of: "2026-03-31T00:00:00Z",
+            key_id: "release-2026q2",
+            entry: "main.clear",
+            out_dir: "out/release",
+            trust_policy: "trust-policy.json",
+            package_id: "std::solana",
+            version_requirement: "^1.2.0",
+            abi_major: 1,
+            abi_minor_min: 0,
+            abi_minor_max: 0,
+        },
     );
     let (key_path, pubkey_path) = write_signing_keys(&root);
 
@@ -629,16 +635,18 @@ fn release_command_accepts_std_cosmos_shared_std_evidence_for_shared_manifest() 
     write_verify_trust_policy_v1(&verify_trust_policy);
     write_release_project_defaults_shared_std_with_named_package(
         root.join("clg.project.json").as_path(),
-        "2026-03-31T00:00:00Z",
-        "release-2026q2",
-        "main.clear",
-        "out/release",
-        "trust-policy.json",
-        "std::cosmos",
-        "^1.2.0",
-        1,
-        0,
-        0,
+        SharedStdProjectDefaults {
+            advisory_as_of: "2026-03-31T00:00:00Z",
+            key_id: "release-2026q2",
+            entry: "main.clear",
+            out_dir: "out/release",
+            trust_policy: "trust-policy.json",
+            package_id: "std::cosmos",
+            version_requirement: "^1.2.0",
+            abi_major: 1,
+            abi_minor_min: 0,
+            abi_minor_max: 0,
+        },
     );
     let (key_path, pubkey_path) = write_signing_keys(&root);
 
@@ -774,15 +782,18 @@ fn shared_std_pkg_lock_update_and_release_support_upgrade_rotation_and_rollback(
 
         write_release_project_defaults_shared_std_with_package(
             root.join("clg.project.json").as_path(),
-            "2026-03-31T00:00:00Z",
-            "release-2026q2",
-            "main.clear",
-            "out/release",
-            "trust-policy.json",
-            version_requirement,
-            1,
-            0,
-            abi_minor_max,
+            SharedStdProjectDefaults {
+                advisory_as_of: "2026-03-31T00:00:00Z",
+                key_id: "release-2026q2",
+                entry: "main.clear",
+                out_dir: "out/release",
+                trust_policy: "trust-policy.json",
+                package_id: "std::text",
+                version_requirement,
+                abi_major: 1,
+                abi_minor_min: 0,
+                abi_minor_max,
+            },
         );
 
         let lock_flag = if lock_path.exists() { "--update" } else { "--generate" };

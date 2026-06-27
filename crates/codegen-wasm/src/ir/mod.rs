@@ -258,9 +258,8 @@ fn validate_external_import_binding(
     Ok(())
 }
 
-fn encode_compiler_routed_std_function(
-    f: &clg_ir::Function,
-    std_fn: CompilerRoutedStdFn,
+#[derive(Clone, Copy, Debug, Default)]
+struct CompilerRoutedImportIndices {
     fd_write_index: Option<u32>,
     env_time_index: Option<u32>,
     env_chain_id_index: Option<u32>,
@@ -279,6 +278,12 @@ fn encode_compiler_routed_std_function(
     host_env_caller_raw_index: Option<u32>,
     host_env_block_height_raw_index: Option<u32>,
     host_env_timestamp_raw_index: Option<u32>,
+}
+
+fn encode_compiler_routed_std_function(
+    f: &clg_ir::Function,
+    std_fn: CompilerRoutedStdFn,
+    import_indices: CompilerRoutedImportIndices,
 ) -> Result<wasm_encoder::Function> {
     match std_fn {
         CompilerRoutedStdFn::BytesLen | CompilerRoutedStdFn::StrLen => encode_intrinsic_str_len(f),
@@ -291,76 +296,112 @@ fn encode_compiler_routed_std_function(
             encode_intrinsic_identity(f)
         }
         CompilerRoutedStdFn::WasiPrint => {
-            let fd_write = fd_write_index.expect("fd_write import expected");
+            let fd_write = import_indices
+                .fd_write_index
+                .expect("fd_write import expected");
             encode_intrinsic_wasi_print(f, fd_write)
         }
         CompilerRoutedStdFn::EnvTime => {
-            let idx = env_time_index.expect("env_time import expected");
+            let idx = import_indices
+                .env_time_index
+                .expect("env_time import expected");
             encode_intrinsic_env_time(f, idx)
         }
         CompilerRoutedStdFn::EnvChainId => {
-            let idx = env_chain_id_index.expect("env_chain_id import expected");
+            let idx = import_indices
+                .env_chain_id_index
+                .expect("env_chain_id import expected");
             encode_intrinsic_env_chain_id(f, idx)
         }
         CompilerRoutedStdFn::EnvRandom => {
-            let idx = env_random_index.expect("env_random import expected");
+            let idx = import_indices
+                .env_random_index
+                .expect("env_random import expected");
             encode_intrinsic_env_random(f, idx)
         }
         CompilerRoutedStdFn::CryptoHash => {
-            let idx = crypto_hash_index.expect("crypto_hash import expected");
+            let idx = import_indices
+                .crypto_hash_index
+                .expect("crypto_hash import expected");
             encode_intrinsic_crypto_hash(f, idx)
         }
         CompilerRoutedStdFn::CryptoHmac => {
-            let idx = crypto_hmac_index.expect("crypto_hmac import expected");
+            let idx = import_indices
+                .crypto_hmac_index
+                .expect("crypto_hmac import expected");
             encode_intrinsic_crypto_hmac(f, idx)
         }
         CompilerRoutedStdFn::CryptoVerify => {
-            let idx = crypto_verify_index.expect("crypto_verify import expected");
+            let idx = import_indices
+                .crypto_verify_index
+                .expect("crypto_verify import expected");
             encode_intrinsic_crypto_verify(f, idx)
         }
         CompilerRoutedStdFn::HostStorageContainsRaw => encode_external_import_forwarder(
             f,
-            host_storage_contains_raw_index.expect("host_storage_contains import expected"),
+            import_indices
+                .host_storage_contains_raw_index
+                .expect("host_storage_contains import expected"),
         ),
         CompilerRoutedStdFn::HostStorageGetRaw => encode_external_import_forwarder(
             f,
-            host_storage_get_raw_index.expect("host_storage_get import expected"),
+            import_indices
+                .host_storage_get_raw_index
+                .expect("host_storage_get import expected"),
         ),
         CompilerRoutedStdFn::HostStorageSetRaw => encode_external_import_forwarder(
             f,
-            host_storage_set_raw_index.expect("host_storage_set import expected"),
+            import_indices
+                .host_storage_set_raw_index
+                .expect("host_storage_set import expected"),
         ),
         CompilerRoutedStdFn::HostStorageDeleteRaw => encode_external_import_forwarder(
             f,
-            host_storage_delete_raw_index.expect("host_storage_delete import expected"),
+            import_indices
+                .host_storage_delete_raw_index
+                .expect("host_storage_delete import expected"),
         ),
         CompilerRoutedStdFn::HostLogInfoRaw => encode_external_import_forwarder(
             f,
-            host_log_info_raw_index.expect("host_log_info import expected"),
+            import_indices
+                .host_log_info_raw_index
+                .expect("host_log_info import expected"),
         ),
         CompilerRoutedStdFn::HostLogWarnRaw => encode_external_import_forwarder(
             f,
-            host_log_warn_raw_index.expect("host_log_warn import expected"),
+            import_indices
+                .host_log_warn_raw_index
+                .expect("host_log_warn import expected"),
         ),
         CompilerRoutedStdFn::HostLogErrorRaw => encode_external_import_forwarder(
             f,
-            host_log_error_raw_index.expect("host_log_error import expected"),
+            import_indices
+                .host_log_error_raw_index
+                .expect("host_log_error import expected"),
         ),
         CompilerRoutedStdFn::HostEnvChainIdRaw => encode_external_import_forwarder(
             f,
-            host_env_chain_id_raw_index.expect("host_env_chain_id import expected"),
+            import_indices
+                .host_env_chain_id_raw_index
+                .expect("host_env_chain_id import expected"),
         ),
         CompilerRoutedStdFn::HostEnvCallerRaw => encode_external_import_forwarder(
             f,
-            host_env_caller_raw_index.expect("host_env_caller import expected"),
+            import_indices
+                .host_env_caller_raw_index
+                .expect("host_env_caller import expected"),
         ),
         CompilerRoutedStdFn::HostEnvBlockHeightRaw => encode_external_import_forwarder(
             f,
-            host_env_block_height_raw_index.expect("host_env_block_height import expected"),
+            import_indices
+                .host_env_block_height_raw_index
+                .expect("host_env_block_height import expected"),
         ),
         CompilerRoutedStdFn::HostEnvTimestampRaw => encode_external_import_forwarder(
             f,
-            host_env_timestamp_raw_index.expect("host_env_timestamp import expected"),
+            import_indices
+                .host_env_timestamp_raw_index
+                .expect("host_env_timestamp import expected"),
         ),
         CompilerRoutedStdFn::StrStartsWith => encode_intrinsic_str_starts_with(f),
         CompilerRoutedStdFn::StrEndsWith => encode_intrinsic_str_ends_with(f),
@@ -564,24 +605,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
     module.section(&types);
 
     let mut import_count = 0u32;
-    let mut fd_write_index: Option<u32> = None;
-    let mut env_time_index: Option<u32> = None;
-    let mut env_chain_id_index: Option<u32> = None;
-    let mut env_random_index: Option<u32> = None;
-    let mut crypto_hash_index: Option<u32> = None;
-    let mut crypto_hmac_index: Option<u32> = None;
-    let mut crypto_verify_index: Option<u32> = None;
-    let mut host_storage_contains_raw_index: Option<u32> = None;
-    let mut host_storage_get_raw_index: Option<u32> = None;
-    let mut host_storage_set_raw_index: Option<u32> = None;
-    let mut host_storage_delete_raw_index: Option<u32> = None;
-    let mut host_log_info_raw_index: Option<u32> = None;
-    let mut host_log_warn_raw_index: Option<u32> = None;
-    let mut host_log_error_raw_index: Option<u32> = None;
-    let mut host_env_chain_id_raw_index: Option<u32> = None;
-    let mut host_env_caller_raw_index: Option<u32> = None;
-    let mut host_env_block_height_raw_index: Option<u32> = None;
-    let mut host_env_timestamp_raw_index: Option<u32> = None;
+    let mut compiler_routed_import_indices = CompilerRoutedImportIndices::default();
     let mut external_import_indices: HashMap<String, u32> =
         HashMap::with_capacity(used_external_imports.len());
     let mut imports = ImportSection::new();
@@ -591,7 +615,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "fd_write",
             EntityType::Function(fd_write_ty),
         );
-        fd_write_index = Some(import_count);
+        compiler_routed_import_indices.fd_write_index = Some(import_count);
         import_count += 1;
     }
     if let Some(env_time_ty) = env_time_ty {
@@ -600,7 +624,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "env_time",
             EntityType::Function(env_time_ty),
         );
-        env_time_index = Some(import_count);
+        compiler_routed_import_indices.env_time_index = Some(import_count);
         import_count += 1;
     }
     if let Some(env_chain_id_ty) = env_chain_id_ty {
@@ -609,7 +633,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "env_chain_id",
             EntityType::Function(env_chain_id_ty),
         );
-        env_chain_id_index = Some(import_count);
+        compiler_routed_import_indices.env_chain_id_index = Some(import_count);
         import_count += 1;
     }
     if let Some(env_random_ty) = env_random_ty {
@@ -618,7 +642,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "env_random",
             EntityType::Function(env_random_ty),
         );
-        env_random_index = Some(import_count);
+        compiler_routed_import_indices.env_random_index = Some(import_count);
         import_count += 1;
     }
     if let Some(crypto_hash_ty) = crypto_hash_ty {
@@ -627,7 +651,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "crypto_hash",
             EntityType::Function(crypto_hash_ty),
         );
-        crypto_hash_index = Some(import_count);
+        compiler_routed_import_indices.crypto_hash_index = Some(import_count);
         import_count += 1;
     }
     if let Some(crypto_hmac_ty) = crypto_hmac_ty {
@@ -636,7 +660,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "crypto_hmac",
             EntityType::Function(crypto_hmac_ty),
         );
-        crypto_hmac_index = Some(import_count);
+        compiler_routed_import_indices.crypto_hmac_index = Some(import_count);
         import_count += 1;
     }
     if let Some(crypto_verify_ty) = crypto_verify_ty {
@@ -645,7 +669,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "crypto_verify",
             EntityType::Function(crypto_verify_ty),
         );
-        crypto_verify_index = Some(import_count);
+        compiler_routed_import_indices.crypto_verify_index = Some(import_count);
         import_count += 1;
     }
     if let Some(ty) = host_storage_contains_raw_ty {
@@ -654,7 +678,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "host_storage_contains",
             EntityType::Function(ty),
         );
-        host_storage_contains_raw_index = Some(import_count);
+        compiler_routed_import_indices.host_storage_contains_raw_index = Some(import_count);
         import_count += 1;
     }
     if let Some(ty) = host_storage_get_raw_ty {
@@ -663,7 +687,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "host_storage_get",
             EntityType::Function(ty),
         );
-        host_storage_get_raw_index = Some(import_count);
+        compiler_routed_import_indices.host_storage_get_raw_index = Some(import_count);
         import_count += 1;
     }
     if let Some(ty) = host_storage_set_raw_ty {
@@ -672,7 +696,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "host_storage_set",
             EntityType::Function(ty),
         );
-        host_storage_set_raw_index = Some(import_count);
+        compiler_routed_import_indices.host_storage_set_raw_index = Some(import_count);
         import_count += 1;
     }
     if let Some(ty) = host_storage_delete_raw_ty {
@@ -681,23 +705,23 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "host_storage_delete",
             EntityType::Function(ty),
         );
-        host_storage_delete_raw_index = Some(import_count);
+        compiler_routed_import_indices.host_storage_delete_raw_index = Some(import_count);
         import_count += 1;
     }
     if let Some(ty) = host_log_raw_ty {
         if has_host_log_info_raw {
             imports.import("clearlang_host", "host_log_info", EntityType::Function(ty));
-            host_log_info_raw_index = Some(import_count);
+            compiler_routed_import_indices.host_log_info_raw_index = Some(import_count);
             import_count += 1;
         }
         if has_host_log_warn_raw {
             imports.import("clearlang_host", "host_log_warn", EntityType::Function(ty));
-            host_log_warn_raw_index = Some(import_count);
+            compiler_routed_import_indices.host_log_warn_raw_index = Some(import_count);
             import_count += 1;
         }
         if has_host_log_error_raw {
             imports.import("clearlang_host", "host_log_error", EntityType::Function(ty));
-            host_log_error_raw_index = Some(import_count);
+            compiler_routed_import_indices.host_log_error_raw_index = Some(import_count);
             import_count += 1;
         }
     }
@@ -708,7 +732,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 "host_env_chain_id",
                 EntityType::Function(ty),
             );
-            host_env_chain_id_raw_index = Some(import_count);
+            compiler_routed_import_indices.host_env_chain_id_raw_index = Some(import_count);
             import_count += 1;
         }
         if has_host_env_block_height_raw {
@@ -717,7 +741,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 "host_env_block_height",
                 EntityType::Function(ty),
             );
-            host_env_block_height_raw_index = Some(import_count);
+            compiler_routed_import_indices.host_env_block_height_raw_index = Some(import_count);
             import_count += 1;
         }
         if has_host_env_timestamp_raw {
@@ -726,7 +750,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
                 "host_env_timestamp",
                 EntityType::Function(ty),
             );
-            host_env_timestamp_raw_index = Some(import_count);
+            compiler_routed_import_indices.host_env_timestamp_raw_index = Some(import_count);
             import_count += 1;
         }
     }
@@ -736,7 +760,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
             "host_env_caller",
             EntityType::Function(ty),
         );
-        host_env_caller_raw_index = Some(import_count);
+        compiler_routed_import_indices.host_env_caller_raw_index = Some(import_count);
         import_count += 1;
     }
     for (binding, ty_idx) in &used_external_imports {
@@ -901,28 +925,7 @@ pub fn emit_from_ir_with_opts(ir: &IrModule, opts: CodegenOpts) -> Result<Vec<u8
         }
         // Route compiler-owned std shims explicitly; non-ABI std helpers continue through IR or package imports.
         let func = if let Some(std_fn) = compiler_routed_std_fn(f.name.as_str()) {
-            encode_compiler_routed_std_function(
-                f,
-                std_fn,
-                fd_write_index,
-                env_time_index,
-                env_chain_id_index,
-                env_random_index,
-                crypto_hash_index,
-                crypto_hmac_index,
-                crypto_verify_index,
-                host_storage_contains_raw_index,
-                host_storage_get_raw_index,
-                host_storage_set_raw_index,
-                host_storage_delete_raw_index,
-                host_log_info_raw_index,
-                host_log_warn_raw_index,
-                host_log_error_raw_index,
-                host_env_chain_id_raw_index,
-                host_env_caller_raw_index,
-                host_env_block_height_raw_index,
-                host_env_timestamp_raw_index,
-            )?
+            encode_compiler_routed_std_function(f, std_fn, compiler_routed_import_indices)?
         } else {
             if f.name.starts_with("std::")
                 && builtin_route(f.name.as_str()) == BuiltinRoute::Intrinsic

@@ -419,5 +419,8 @@ remaining additive product-surface work.
   - [x] 29.13.1 Implement the first bounded installer/distribution channels under the locked publication policy without weakening provenance or checksum requirements. (`xtask/src/main/core/dispatch_and_drift.rs`, `xtask/src/main/artifacts_cli_models.rs`, `xtask/src/main/tests.rs`, `xtask/Cargo.toml`) `Completed: 2026-06-27`
   - [x] 29.13.2 Update installation and operations documentation only after the new channels are shipped and covered. (`docs/release/milestone_3-binary-operations.md`, `docs/release/milestone_3-release-train-checklist.md`, `docs/release/milestone_3-binary-incident-runbook.md`, `docs/release-process.md`, `docs/design/phase-25.6.13-binary-publication-policy-lock.md`, `release_notes/milestone_3.md`) `Completed: 2026-06-27`
 
-- [ ] 29.14 Final additive product-surface selection [Planning Gate K]
-  - [ ] 29.14.0 Re-rank the remaining additive product tracks after `29.12` and `29.13`, then select the next bounded surface decision from: shared-package expansion, richer chain-helper surfaces, or delivery-mode simplification.
+- [x] 29.14 Final additive product-surface selection [Planning Gate K] `Completed: 2026-06-27`
+  - [x] 29.14.0 Re-rank the remaining additive product tracks after `29.12` and `29.13`, then select the next bounded surface decision from: shared-package expansion, richer chain-helper surfaces, or delivery-mode simplification. (`docs/design/phase-29.14.0-final-additive-product-surface-selection.md`) `Completed: 2026-06-27`
+
+- [ ] 29.15 Delivery-mode simplification decision [Planning Gate L]
+  - [ ] 29.15.0 Publish the bounded delivery-mode simplification decision lock, including evaluation criteria, migration constraints, fail-closed activation rules, and explicit non-goals.

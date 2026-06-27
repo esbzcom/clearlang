@@ -32,22 +32,38 @@ Current bundled shared-std package ids are:
 - `std::sequence`
 - `std::codec`
 - `std::contract`
+- `std::eth`
+- `std::solana`
+- `std::cosmos`
 
 3. Confirm the publish bundle contains:
-   - `std-packages/std-text-<version>.wasm`
-   - `std-text-<version>.sha256`
-   - `std-text-<version>.package-signatures.json`
-   - `std-text-<version>.provenance.json`
-   - `std-text-<version>.shared-std-package.json`
-   - `std-text-<version>.publish.json`
+   - `std-packages/<package-stem>-<version>.wasm`
+   - `<package-stem>-<version>.sha256`
+   - `<package-stem>-<version>.package-signatures.json`
+   - `<package-stem>-<version>.provenance.json`
+   - `<package-stem>-<version>.shared-std-package.json`
+   - `<package-stem>-<version>.publish.json`
    - `clg.package-metadata.json`
    - `clg.package-abi.json`
+
+Canonical stems for the chain packages are:
+- `std-eth`
+- `std-solana`
+- `std-cosmos`
 
 ## Registry Layout
 File-registry publication writes versioned copies under:
 
 ```text
 <registry-dir>/std__text/<version>/
+```
+
+Chain-package examples:
+
+```text
+<registry-dir>/std__eth/<version>/
+<registry-dir>/std__solana/<version>/
+<registry-dir>/std__cosmos/<version>/
 ```
 
 This layout is deterministic:

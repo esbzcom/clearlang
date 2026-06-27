@@ -71,8 +71,14 @@ Rules that matter:
 - `schema_version` must be `2` for shared std.
 - `std.delivery` must be exactly `shared`.
 - `std.packages[]` must be non-empty for shared std.
-- current bundled shared-std package ids are `std::text`, `std::int`, `std::sequence`, `std::codec`, and `std::contract`.
+- current bundled shared-std package ids are `std::text`, `std::int`, `std::sequence`, `std::codec`, `std::contract`, `std::eth`, `std::solana`, and `std::cosmos`.
 - Shared std package ids must not also appear in normal `dependencies[]`.
+
+Current chain-package type surfaces in the supported shared set are:
+
+- `std::eth::Address`
+- `std::solana::Pubkey`
+- `std::cosmos::Addr`
 
 ## Lock
 Generate the lockfile from the shared manifest intent:

@@ -27,6 +27,9 @@ After this decision:
    - `std::sequence`
    - `std::codec`
    - `std::contract`
+   - `std::eth`
+   - `std::solana`
+   - `std::cosmos`
 
 ## Why This Promotion Is Correct
 

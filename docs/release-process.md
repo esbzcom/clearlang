@@ -153,7 +153,7 @@ The publish bundle includes:
 - signer public-key metadata, and
 - optional file-registry copy under `<package-id with :: -> __>/<version>/`.
 
-Current supported shared-package ids are `std::text`, `std::int`, `std::sequence`, `std::codec`, and `std::contract`.
+Current supported shared-package ids are `std::text`, `std::int`, `std::sequence`, `std::codec`, `std::contract`, `std::eth`, `std::solana`, and `std::cosmos`.
 
 Operational references:
 - `docs/release/shared-std-operations.md`

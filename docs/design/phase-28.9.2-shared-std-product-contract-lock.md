@@ -38,6 +38,9 @@ The supported bundled shared package ids are:
 - `std::sequence`
 - `std::codec`
 - `std::contract`
+- `std::eth`
+- `std::solana`
+- `std::cosmos`
 
 Anything outside that package-id set is not part of the current supported shared contract.
 

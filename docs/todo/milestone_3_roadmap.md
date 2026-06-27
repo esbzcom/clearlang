@@ -376,7 +376,7 @@ then re-locking the final breadth-complete production contract.
   - [x] 29.4.2 Update user/operator documentation only after implementation lands so the supported shared-package set, migration guidance, and incident-response playbooks stay accurate. (`docs/release/shared-std-user-guide.md`, `docs/release/shared-std-operations.md`, `docs/release-process.md`, `docs/design/phase-28.9.1-shared-std-production-decision.md`, `docs/design/phase-28.9.2-shared-std-product-contract-lock.md`, `docs/evidence/phase-28.8-shared-std-support-readiness.md`) `Completed: 2026-06-27`
 
 - [ ] 29.5 Chain-adapter production ordering lock [Planning Gate D]
-  - [ ] 29.5.0 Publish the Wave 2 chain-adapter execution order and full-production closure criteria for `std::eth`, `std::solana`, and `std::cosmos`, including explicit prioritization rationale, shared-vs-embedded activation expectations, and what remains non-goal/deferred.
+  - [x] 29.5.0 Publish the Wave 2 chain-adapter execution order and full-production closure criteria for `std::eth`, `std::solana`, and `std::cosmos`, including explicit prioritization rationale, shared-vs-embedded activation expectations, and what remains non-goal/deferred. (`docs/design/phase-29.5.0-chain-adapter-production-ordering-lock.md`) `Completed: 2026-06-27`
   - [ ] 29.5.1 Lock one canonical bounded rollout shape for chain adapters: exact per-package module/symbol boundaries, deterministic migration diagnostics, and proof/release/runtime constraints that must hold before any chain adapter becomes supported in shared form.
 
 - [ ] 29.6 First chain-adapter supported promotion [Execution Gate C]

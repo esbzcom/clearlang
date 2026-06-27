@@ -130,6 +130,9 @@ fn print_help() {
     );
     println!("  milestone3-binary-bundle-verify --bundle-dir DIR");
     println!(
+        "  milestone3-installer-channels --version X.Y.Z --release-tag TAG --windows-bundle-dir DIR --linux-bundle-dir DIR --macos-bundle-dir DIR [--repo owner/name] [--out-dir DIR]"
+    );
+    println!(
         "  manifest-lock-drift-check [--path DIR] (phase 25.4 manifest/lock consistency gate)"
     );
     println!(
@@ -199,6 +202,17 @@ struct Milestone3BinaryBundleOpts {
 #[derive(Clone, Debug)]
 struct Milestone3BinaryBundleVerifyOpts {
     bundle_dir: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+struct Milestone3InstallerChannelsOpts {
+    version: String,
+    release_tag: String,
+    repo: String,
+    windows_bundle_dir: PathBuf,
+    linux_bundle_dir: PathBuf,
+    macos_bundle_dir: PathBuf,
+    out_dir: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]

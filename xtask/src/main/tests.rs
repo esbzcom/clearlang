@@ -269,6 +269,65 @@ mod tests {
     }
 
     #[test]
+    fn parse_milestone3_installer_channels_args_accepts_explicit_values() {
+        let opts = parse_milestone3_installer_channels_args(vec![
+            "--version".to_string(),
+            "0.1.0".to_string(),
+            "--release-tag".to_string(),
+            "v0.1.0".to_string(),
+            "--repo".to_string(),
+            "example/clearlang".to_string(),
+            "--windows-bundle-dir".to_string(),
+            "tmp/windows".to_string(),
+            "--linux-bundle-dir".to_string(),
+            "tmp/linux".to_string(),
+            "--macos-bundle-dir".to_string(),
+            "tmp/macos".to_string(),
+            "--out-dir".to_string(),
+            "tmp/channels".to_string(),
+        ])
+        .expect("parse args");
+        assert_eq!(opts.version, "0.1.0");
+        assert_eq!(opts.release_tag, "v0.1.0");
+        assert_eq!(opts.repo, "example/clearlang");
+        assert_eq!(opts.windows_bundle_dir, PathBuf::from("tmp/windows"));
+        assert_eq!(opts.linux_bundle_dir, PathBuf::from("tmp/linux"));
+        assert_eq!(opts.macos_bundle_dir, PathBuf::from("tmp/macos"));
+        assert_eq!(opts.out_dir, Some(PathBuf::from("tmp/channels")));
+    }
+
+    #[test]
+    fn parse_milestone3_installer_channels_args_rejects_invalid_input() {
+        let err = parse_milestone3_installer_channels_args(Vec::new())
+            .expect_err("expected missing args");
+        assert!(err.contains("missing required `--version`"));
+
+        let err = parse_milestone3_installer_channels_args(vec![
+            "--version".to_string(),
+            "0.1".to_string(),
+        ])
+        .expect_err("expected invalid semver");
+        assert!(err.contains("invalid version"));
+
+        let err = parse_milestone3_installer_channels_args(vec![
+            "--version".to_string(),
+            "0.1.0".to_string(),
+            "--release-tag".to_string(),
+            "v0.1.0".to_string(),
+            "--repo".to_string(),
+            "badrepo".to_string(),
+            "--windows-bundle-dir".to_string(),
+            "tmp/windows".to_string(),
+            "--linux-bundle-dir".to_string(),
+            "tmp/linux".to_string(),
+            "--macos-bundle-dir".to_string(),
+            "tmp/macos".to_string(),
+        ])
+        .expect_err("expected invalid repo");
+        assert!(err.contains("invalid `--repo` value"));
+    }
+
+    #[test]
     fn milestone3_binary_bundle_emits_signed_artifacts_and_valid_checksums() {
         let _env_lock = test_env_lock().lock().expect("lock env");
         let root = unique_temp_dir("milestone3-binary-bundle");
@@ -399,6 +458,147 @@ mod tests {
                 .iter()
                 .any(|path| path.starts_with("licenses/third-party-licenses.json")),
             "checksums should include third-party license summary"
+        );
+
+        cleanup_temp_dir(root.as_path());
+    }
+
+    #[test]
+    fn milestone3_installer_channels_emit_archives_and_metadata() {
+        let _env_lock = test_env_lock().lock().expect("lock env");
+        let root = unique_temp_dir("milestone3-installer-channels");
+        std::fs::write(root.join("LICENSE"), "test license\n").expect("write LICENSE");
+
+        let _key_guard = scoped_env_set(
+            "CLG_BINARY_RELEASE_SIGNING_KEY_HEX",
+            Some("1111111111111111111111111111111111111111111111111111111111111111"),
+        );
+        let metadata_fixture = prepare_supply_chain_metadata_fixture(root.as_path());
+        let metadata_fixture_str = metadata_fixture.to_string_lossy().to_string();
+        let _metadata_guard =
+            scoped_env_set("CLG_SUPPLY_CHAIN_METADATA_JSON", Some(metadata_fixture_str.as_str()));
+        let (tracked_metadata, runtime_link) = prepare_supply_chain_runtime_fixtures(root.as_path());
+        let _tracked_metadata_guard = scoped_env_set(
+            "CLG_SUPPLY_CHAIN_TRACKED_METADATA",
+            Some(normalize_rel_path(root.as_path(), tracked_metadata.as_path()).as_str()),
+        );
+        let _runtime_guard = scoped_env_set(
+            "CLG_SUPPLY_CHAIN_RUNTIME_LINKS",
+            Some(normalize_rel_path(root.as_path(), runtime_link.as_path()).as_str()),
+        );
+        let _legacy_out_guard = scoped_env_set("CLG_SUPPLY_CHAIN_OUT_DIR", None);
+
+        let windows_binary = root.join("clg.exe");
+        let linux_binary = root.join("clg-linux");
+        let macos_binary = root.join("clg-macos");
+        std::fs::write(&windows_binary, b"fake-clg-windows").expect("write windows binary");
+        std::fs::write(&linux_binary, b"fake-clg-linux").expect("write linux binary");
+        std::fs::write(&macos_binary, b"fake-clg-macos").expect("write macos binary");
+
+        let windows_bundle = root.join("bundles").join("windows");
+        let linux_bundle = root.join("bundles").join("linux");
+        let macos_bundle = root.join("bundles").join("macos");
+        for (platform, binary, bundle_dir) in [
+            ("windows", windows_binary.as_path(), windows_bundle.as_path()),
+            ("linux", linux_binary.as_path(), linux_bundle.as_path()),
+            ("macos", macos_binary.as_path(), macos_bundle.as_path()),
+        ] {
+            emit_milestone3_binary_bundle(
+                root.as_path(),
+                vec![
+                    "--platform".to_string(),
+                    platform.to_string(),
+                    "--binary".to_string(),
+                    binary.to_string_lossy().to_string(),
+                    "--out-dir".to_string(),
+                    bundle_dir.to_string_lossy().to_string(),
+                ],
+            )
+            .expect("emit platform bundle");
+        }
+
+        let out_dir = root.join("out").join("channels");
+        emit_milestone3_installer_channels(
+            root.as_path(),
+            vec![
+                "--version".to_string(),
+                "0.1.0".to_string(),
+                "--release-tag".to_string(),
+                "v0.1.0".to_string(),
+                "--windows-bundle-dir".to_string(),
+                windows_bundle.to_string_lossy().to_string(),
+                "--linux-bundle-dir".to_string(),
+                linux_bundle.to_string_lossy().to_string(),
+                "--macos-bundle-dir".to_string(),
+                macos_bundle.to_string_lossy().to_string(),
+                "--out-dir".to_string(),
+                out_dir.to_string_lossy().to_string(),
+            ],
+        )
+        .expect("emit installer channels");
+
+        let manifest_path = out_dir
+            .join("metadata")
+            .join("milestone3-installer-channels.json");
+        let manifest: Milestone3InstallerChannelsManifest = serde_json::from_slice(
+            &std::fs::read(&manifest_path).expect("read installer manifest"),
+        )
+        .expect("parse installer manifest");
+        assert_eq!(manifest.version, "0.1.0");
+        assert_eq!(manifest.release_tag, "v0.1.0");
+        assert_eq!(manifest.archives.len(), 3);
+        assert_eq!(manifest.homebrew.formula_path, "homebrew/Formula/clg.rb");
+        assert_eq!(
+            manifest.winget.nested_installer_relative_path,
+            "bin/windows/clg.exe"
+        );
+
+        let formula = std::fs::read_to_string(
+            out_dir.join("homebrew").join("Formula").join("clg.rb"),
+        )
+        .expect("read homebrew formula");
+        assert!(
+            formula.contains("https://github.com/clearlang/clearlang/releases/download/v0.1.0/clg-milestone3-linux-x64-bundle.zip"),
+            "formula should reference canonical linux archive URL"
+        );
+        assert!(
+            formula.contains("https://github.com/clearlang/clearlang/releases/download/v0.1.0/clg-milestone3-macos-x64-bundle.zip"),
+            "formula should reference canonical macos archive URL"
+        );
+
+        let winget_installer = std::fs::read_to_string(
+            out_dir
+                .join("winget")
+                .join("manifests")
+                .join("c")
+                .join("ClearLang")
+                .join("ClearLang")
+                .join("0.1.0")
+                .join("ClearLang.ClearLang.installer.yaml"),
+        )
+        .expect("read winget installer manifest");
+        assert!(winget_installer.contains("InstallerType: zip"));
+        assert!(winget_installer.contains("NestedInstallerType: portable"));
+        assert!(winget_installer.contains("RelativeFilePath: bin/windows/clg.exe"));
+
+        let windows_archive_path = out_dir
+            .join("archives")
+            .join("clg-milestone3-windows-x64-bundle.zip");
+        let windows_archive =
+            std::fs::File::open(&windows_archive_path).expect("open windows archive");
+        let mut zip = zip::ZipArchive::new(windows_archive).expect("parse windows zip");
+        let mut names = Vec::new();
+        for idx in 0..zip.len() {
+            let file = zip.by_index(idx).expect("zip entry");
+            names.push(file.name().to_string());
+        }
+        assert!(
+            names.contains(&"bin/windows/clg.exe".to_string()),
+            "archive should contain the portable windows binary"
+        );
+        assert!(
+            names.contains(&"metadata/milestone3-binary-bundle.signed.json".to_string()),
+            "archive should retain signed bundle metadata"
         );
 
         cleanup_temp_dir(root.as_path());

@@ -416,7 +416,7 @@ remaining additive product-surface work.
 
 - [ ] 29.13 Installer channel expansion [Execution Gate J]
   - [x] 29.13.0 Publish the installer/publication-channel policy lock for the first supported post-GitHub-release channels, including parity requirements, signing expectations, and non-goals. (`docs/design/phase-29.13.0-installer-publication-channel-policy-lock.md`) `Completed: 2026-06-27`
-  - [ ] 29.13.1 Implement the first bounded installer/distribution channels under the locked publication policy without weakening provenance or checksum requirements.
+  - [x] 29.13.1 Implement the first bounded installer/distribution channels under the locked publication policy without weakening provenance or checksum requirements. (`xtask/src/main/core/dispatch_and_drift.rs`, `xtask/src/main/artifacts_cli_models.rs`, `xtask/src/main/tests.rs`, `xtask/Cargo.toml`) `Completed: 2026-06-27`
   - [ ] 29.13.2 Update installation and operations documentation only after the new channels are shipped and covered.
 
 - [ ] 29.14 Final additive product-surface selection [Planning Gate K]

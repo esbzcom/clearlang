@@ -11,5 +11,6 @@ serde_json = "1"
 sha2 = "0.10"
 regex = "1"
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 clg-ast = { path = "../crates/ast" }
 clg-typer = { path = "../crates/typer" }

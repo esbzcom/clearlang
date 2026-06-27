@@ -9,6 +9,8 @@ use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use zip::write::FileOptions;
+use zip::{CompressionMethod, DateTime, ZipWriter};
 
 const SOLVER_VENDOR_SIGNING_KEY_ENV: &str = "CLG_SOLVER_VENDOR_SIGNING_KEY_HEX";
 const DEFAULT_SOLVER_VENDOR_KEY_ID: &str = "z3-vendor-k7-2026q2";
@@ -59,6 +61,9 @@ fn main() -> Result<(), String> {
         "milestone3-binary-bundle" => emit_milestone3_binary_bundle(&root, args.collect())?,
         "milestone3-binary-bundle-verify" => {
             verify_milestone3_binary_bundle(&root, args.collect())?
+        }
+        "milestone3-installer-channels" => {
+            emit_milestone3_installer_channels(&root, args.collect())?
         }
         "milestone2-perf-gate" => run_milestone2_perf_gate(&root, args.collect())?,
         "milestone2-supply-chain-gate" => run_milestone2_supply_chain_gate(&root, args.collect())?,
@@ -241,6 +246,44 @@ struct Milestone3BundlePubkeyMetadata {
     key_id: String,
     scheme: String,
     public_key: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Milestone3InstallerChannelsManifest {
+    schema_version: u32,
+    version: String,
+    release_tag: String,
+    repository: String,
+    release_notes_url: String,
+    archives: Vec<Milestone3InstallerArchive>,
+    homebrew: Milestone3HomebrewChannel,
+    winget: Milestone3WingetChannel,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Milestone3InstallerArchive {
+    platform: String,
+    asset_name: String,
+    url: String,
+    sha256: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Milestone3HomebrewChannel {
+    formula_path: String,
+    linux_url: String,
+    linux_sha256: String,
+    macos_url: String,
+    macos_sha256: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Milestone3WingetChannel {
+    package_identifier: String,
+    manifest_dir: String,
+    installer_url: String,
+    installer_sha256: String,
+    nested_installer_relative_path: String,
 }
 
 fn emit_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
@@ -570,6 +613,148 @@ fn verify_milestone3_binary_bundle(root: &Path, raw_args: Vec<String>) -> Result
     Ok(())
 }
 
+fn emit_milestone3_installer_channels(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_milestone3_installer_channels_args(raw_args)?;
+    let out_dir = opts.out_dir.clone().unwrap_or_else(|| {
+        root.join("tmp")
+            .join("milestone3-installer-channels")
+            .join(opts.version.as_str())
+    });
+    if out_dir.exists() {
+        fs::remove_dir_all(&out_dir)
+            .map_err(|e| format!("cleanup installer channels dir `{}`: {e}", out_dir.display()))?;
+    }
+    fs::create_dir_all(&out_dir)
+        .map_err(|e| format!("create installer channels dir `{}`: {e}", out_dir.display()))?;
+
+    let bundle_specs = [
+        ("windows", resolve_from_root(root, &opts.windows_bundle_dir)),
+        ("linux", resolve_from_root(root, &opts.linux_bundle_dir)),
+        ("macos", resolve_from_root(root, &opts.macos_bundle_dir)),
+    ];
+
+    let archives_dir = out_dir.join("archives");
+    let homebrew_dir = out_dir.join("homebrew").join("Formula");
+    let winget_dir = out_dir
+        .join("winget")
+        .join("manifests")
+        .join("c")
+        .join("ClearLang")
+        .join("ClearLang")
+        .join(opts.version.as_str());
+    let metadata_dir = out_dir.join("metadata");
+    for dir in [&archives_dir, &homebrew_dir, &winget_dir, &metadata_dir] {
+        fs::create_dir_all(dir).map_err(|e| format!("create `{}`: {e}", dir.display()))?;
+    }
+
+    let mut archives = Vec::new();
+    for (platform, bundle_dir) in bundle_specs {
+        verify_milestone3_binary_bundle(
+            root,
+            vec![
+                "--bundle-dir".to_string(),
+                bundle_dir.to_string_lossy().to_string(),
+            ],
+        )?;
+        let signed = read_milestone3_signed_bundle(bundle_dir.as_path())?;
+        if signed.payload.platform != platform {
+            return Err(format!(
+                "bundle `{}` declares platform `{}` but `{platform}` was required",
+                bundle_dir.display(),
+                signed.payload.platform
+            ));
+        }
+        let asset_name = format!("clg-milestone3-{platform}-x64-bundle.zip");
+        let archive_path = archives_dir.join(asset_name.as_str());
+        create_deterministic_zip(bundle_dir.as_path(), archive_path.as_path())?;
+        let sha256 = file_sha256_hex(archive_path.as_path())?;
+        archives.push(Milestone3InstallerArchive {
+            platform: platform.to_string(),
+            url: format!(
+                "https://github.com/{}/releases/download/{}/{}",
+                opts.repo, opts.release_tag, asset_name
+            ),
+            asset_name,
+            sha256,
+        });
+    }
+    archives.sort_by(|a, b| a.platform.cmp(&b.platform));
+
+    let release_notes_url = format!(
+        "https://github.com/{}/releases/tag/{}",
+        opts.repo, opts.release_tag
+    );
+    let linux_archive = archive_for_platform(&archives, "linux")?.clone();
+    let macos_archive = archive_for_platform(&archives, "macos")?.clone();
+    let windows_archive = archive_for_platform(&archives, "windows")?.clone();
+
+    let formula_path = homebrew_dir.join("clg.rb");
+    fs::write(
+        &formula_path,
+        render_homebrew_formula(
+            &opts.version,
+            &release_notes_url,
+            &linux_archive,
+            &macos_archive,
+        ),
+    )
+    .map_err(|e| format!("write `{}`: {e}", formula_path.display()))?;
+
+    let winget_version_path = winget_dir.join("ClearLang.ClearLang.yaml");
+    let winget_locale_path = winget_dir.join("ClearLang.ClearLang.locale.en-US.yaml");
+    let winget_installer_path = winget_dir.join("ClearLang.ClearLang.installer.yaml");
+    fs::write(
+        &winget_version_path,
+        render_winget_version_manifest(&opts.version),
+    )
+    .map_err(|e| format!("write `{}`: {e}", winget_version_path.display()))?;
+    fs::write(
+        &winget_locale_path,
+        render_winget_locale_manifest(&opts.version, &release_notes_url),
+    )
+    .map_err(|e| format!("write `{}`: {e}", winget_locale_path.display()))?;
+    fs::write(
+        &winget_installer_path,
+        render_winget_installer_manifest(&opts.version, &release_notes_url, &windows_archive),
+    )
+    .map_err(|e| format!("write `{}`: {e}", winget_installer_path.display()))?;
+
+    let manifest = Milestone3InstallerChannelsManifest {
+        schema_version: 1,
+        version: opts.version.clone(),
+        release_tag: opts.release_tag.clone(),
+        repository: opts.repo.clone(),
+        release_notes_url: release_notes_url.clone(),
+        archives,
+        homebrew: Milestone3HomebrewChannel {
+            formula_path: normalize_rel_path(&out_dir, formula_path.as_path()),
+            linux_url: linux_archive.url.clone(),
+            linux_sha256: linux_archive.sha256.clone(),
+            macos_url: macos_archive.url.clone(),
+            macos_sha256: macos_archive.sha256.clone(),
+        },
+        winget: Milestone3WingetChannel {
+            package_identifier: "ClearLang.ClearLang".to_string(),
+            manifest_dir: normalize_rel_path(&out_dir, winget_dir.as_path()),
+            installer_url: windows_archive.url.clone(),
+            installer_sha256: windows_archive.sha256.clone(),
+            nested_installer_relative_path: "bin/windows/clg.exe".to_string(),
+        },
+    };
+    write_json_pretty(
+        &metadata_dir.join("milestone3-installer-channels.json"),
+        &manifest,
+    )?;
+
+    println!(
+        "milestone3 installer channels emitted: {} (version={}, tag={})",
+        out_dir.display(),
+        opts.version,
+        opts.release_tag
+    );
+    Ok(())
+}
+
 fn parse_binary_repro_witness_args(
     raw_args: Vec<String>,
 ) -> Result<BinaryReproWitnessOpts, String> {
@@ -684,6 +869,100 @@ fn parse_milestone3_binary_bundle_verify_args(
     Ok(Milestone3BinaryBundleVerifyOpts { bundle_dir })
 }
 
+fn parse_milestone3_installer_channels_args(
+    raw_args: Vec<String>,
+) -> Result<Milestone3InstallerChannelsOpts, String> {
+    let mut version: Option<String> = None;
+    let mut release_tag: Option<String> = None;
+    let mut repo = "clearlang/clearlang".to_string();
+    let mut windows_bundle_dir: Option<PathBuf> = None;
+    let mut linux_bundle_dir: Option<PathBuf> = None;
+    let mut macos_bundle_dir: Option<PathBuf> = None;
+    let mut out_dir: Option<PathBuf> = None;
+    let mut idx = 0usize;
+    while idx < raw_args.len() {
+        match raw_args[idx].as_str() {
+            "--version" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--version`".to_string())?;
+                validate_semver(value)?;
+                version = Some(value.trim().to_string());
+            }
+            "--release-tag" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--release-tag`".to_string())?;
+                if value.trim().is_empty() {
+                    return Err("`--release-tag` cannot be empty".to_string());
+                }
+                release_tag = Some(value.trim().to_string());
+            }
+            "--repo" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--repo`".to_string())?;
+                let normalized = value.trim();
+                if normalized.is_empty() || normalized.split('/').count() != 2 {
+                    return Err(format!(
+                        "invalid `--repo` value `{normalized}`: expected `owner/name`"
+                    ));
+                }
+                repo = normalized.to_string();
+            }
+            "--windows-bundle-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--windows-bundle-dir`".to_string())?;
+                windows_bundle_dir = Some(PathBuf::from(value));
+            }
+            "--linux-bundle-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--linux-bundle-dir`".to_string())?;
+                linux_bundle_dir = Some(PathBuf::from(value));
+            }
+            "--macos-bundle-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--macos-bundle-dir`".to_string())?;
+                macos_bundle_dir = Some(PathBuf::from(value));
+            }
+            "--out-dir" => {
+                idx += 1;
+                let value = raw_args
+                    .get(idx)
+                    .ok_or_else(|| "missing value for `--out-dir`".to_string())?;
+                out_dir = Some(PathBuf::from(value));
+            }
+            other => {
+                return Err(format!(
+                    "unknown milestone3-installer-channels arg `{other}` (supported: --version, --release-tag, --repo, --windows-bundle-dir, --linux-bundle-dir, --macos-bundle-dir, --out-dir)"
+                ));
+            }
+        }
+        idx += 1;
+    }
+    Ok(Milestone3InstallerChannelsOpts {
+        version: version.ok_or_else(|| "missing required `--version`".to_string())?,
+        release_tag: release_tag.ok_or_else(|| "missing required `--release-tag`".to_string())?,
+        repo,
+        windows_bundle_dir: windows_bundle_dir
+            .ok_or_else(|| "missing required `--windows-bundle-dir`".to_string())?,
+        linux_bundle_dir: linux_bundle_dir
+            .ok_or_else(|| "missing required `--linux-bundle-dir`".to_string())?,
+        macos_bundle_dir: macos_bundle_dir
+            .ok_or_else(|| "missing required `--macos-bundle-dir`".to_string())?,
+        out_dir,
+    })
+}
+
 fn clg_binary_path(target_dir: &Path) -> PathBuf {
     let file = if cfg!(windows) { "clg.exe" } else { "clg" };
     target_dir.join("release").join(file)
@@ -701,6 +980,125 @@ fn current_platform_id() -> &'static str {
         "macos" => "macos",
         _ => "unknown",
     }
+}
+
+fn read_milestone3_signed_bundle(
+    bundle_dir: &Path,
+) -> Result<Milestone3SignedBundleMetadata, String> {
+    let signed_path = bundle_dir
+        .join("metadata")
+        .join("milestone3-binary-bundle.signed.json");
+    serde_json::from_slice(
+        &fs::read(&signed_path).map_err(|e| format!("read `{}`: {e}", signed_path.display()))?,
+    )
+    .map_err(|e| format!("parse `{}`: {e}", signed_path.display()))
+}
+
+fn resolve_from_root(root: &Path, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    }
+}
+
+fn archive_for_platform<'a>(
+    archives: &'a [Milestone3InstallerArchive],
+    platform: &str,
+) -> Result<&'a Milestone3InstallerArchive, String> {
+    archives
+        .iter()
+        .find(|archive| archive.platform == platform)
+        .ok_or_else(|| format!("missing generated installer archive for `{platform}`"))
+}
+
+fn render_homebrew_formula(
+    version: &str,
+    release_notes_url: &str,
+    linux_archive: &Milestone3InstallerArchive,
+    macos_archive: &Milestone3InstallerArchive,
+) -> String {
+    format!(
+        "class Clg < Formula\n  desc \"ClearLang command-line interface\"\n  homepage \"https://clearlang.net\"\n  url \"{macos_url}\"\n  version \"{version}\"\n  license \"MIT\"\n\n  on_macos do\n    sha256 \"{macos_sha}\"\n  end\n\n  on_linux do\n    url \"{linux_url}\"\n    sha256 \"{linux_sha}\"\n  end\n\n  def install\n    if OS.mac?\n      bin.install \"bin/macos/clg\" => \"clg\"\n    elsif OS.linux?\n      bin.install \"bin/linux/clg\" => \"clg\"\n    else\n      odie \"ClearLang milestone_3 supports Homebrew only on macOS and Linux\"\n    end\n  end\n\n  test do\n    system \"#{{bin}}/clg\", \"--help\"\n  end\nend\n\n# Release notes: {release_notes_url}\n",
+        macos_url = macos_archive.url,
+        macos_sha = macos_archive.sha256,
+        linux_url = linux_archive.url,
+        linux_sha = linux_archive.sha256,
+    )
+}
+
+fn render_winget_version_manifest(version: &str) -> String {
+    format!(
+        "PackageIdentifier: ClearLang.ClearLang\nPackageVersion: {version}\nDefaultLocale: en-US\nManifestType: version\nManifestVersion: 1.6.0\n"
+    )
+}
+
+fn render_winget_locale_manifest(version: &str, release_notes_url: &str) -> String {
+    format!(
+        "PackageIdentifier: ClearLang.ClearLang\nPackageVersion: {version}\nPackageLocale: en-US\nPublisher: ClearLang\nPublisherUrl: https://clearlang.net\nPublisherSupportUrl: https://github.com/clearlang/clearlang/issues\nPackageName: ClearLang CLI\nPackageUrl: https://clearlang.net\nShortDescription: ClearLang command-line interface\nLicense: MIT\nLicenseUrl: https://github.com/clearlang/clearlang/blob/main/LICENSE\nReleaseNotesUrl: {release_notes_url}\nManifestType: defaultLocale\nManifestVersion: 1.6.0\n"
+    )
+}
+
+fn render_winget_installer_manifest(
+    version: &str,
+    release_notes_url: &str,
+    windows_archive: &Milestone3InstallerArchive,
+) -> String {
+    format!(
+        "PackageIdentifier: ClearLang.ClearLang\nPackageVersion: {version}\nInstallerLocale: en-US\nInstallerType: zip\nNestedInstallerType: portable\nNestedInstallerFiles:\n  - RelativeFilePath: bin/windows/clg.exe\n    PortableCommandAlias: clg\nReleaseNotesUrl: {release_notes_url}\nInstallers:\n  - Architecture: x64\n    InstallerUrl: {url}\n    InstallerSha256: {sha}\nManifestType: installer\nManifestVersion: 1.6.0\n",
+        url = windows_archive.url,
+        sha = windows_archive.sha256,
+    )
+}
+
+fn create_deterministic_zip(source_dir: &Path, archive_path: &Path) -> Result<(), String> {
+    let file = fs::File::create(archive_path)
+        .map_err(|e| format!("create `{}`: {e}", archive_path.display()))?;
+    let mut zip = ZipWriter::new(file);
+    let timestamp =
+        DateTime::from_date_and_time(1980, 1, 1, 0, 0, 0).expect("valid deterministic zip time");
+    let files = collect_files_recursive_sorted(source_dir)?;
+    for path in files {
+        let rel = normalize_rel_path(source_dir, path.as_path());
+        let permissions = if rel.starts_with("bin/") { 0o755 } else { 0o644 };
+        let options = FileOptions::default()
+            .compression_method(CompressionMethod::Stored)
+            .last_modified_time(timestamp)
+            .unix_permissions(permissions);
+        zip.start_file(rel, options)
+            .map_err(|e| format!("start zip entry `{}`: {e}", archive_path.display()))?;
+        let bytes = fs::read(&path).map_err(|e| format!("read `{}`: {e}", path.display()))?;
+        use std::io::Write;
+        zip.write_all(&bytes)
+            .map_err(|e| format!("write zip entry `{}`: {e}", archive_path.display()))?;
+    }
+    zip.finish()
+        .map_err(|e| format!("finalize `{}`: {e}", archive_path.display()))?;
+    Ok(())
+}
+
+fn collect_files_recursive_sorted(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    collect_files_recursive(dir, &mut files)?;
+    files.sort_by(|a, b| normalize_rel_path(dir, a.as_path()).cmp(&normalize_rel_path(dir, b.as_path())));
+    Ok(files)
+}
+
+fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    let mut entries = fs::read_dir(dir)
+        .map_err(|e| format!("read directory `{}`: {e}", dir.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("enumerate directory `{}`: {e}", dir.display()))?;
+    entries.sort_by(|a, b| a.path().cmp(&b.path()));
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files_recursive(path.as_path(), files)?;
+        } else if path.is_file() {
+            files.push(path);
+        }
+    }
+    Ok(())
 }
 
 fn resolve_milestone3_binary_source(

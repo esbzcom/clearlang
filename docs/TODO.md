@@ -1,4 +1,4 @@
-﻿# ClearLang TODO
+# ClearLang TODO
 
 Milestone-oriented index (primary planning entrypoint):
 
@@ -10,13 +10,9 @@ Milestone-oriented index (primary planning entrypoint):
 - Scope: runnable namespace baseline, strict package/trust gates, runtime loader rollout, milestone_2 release readiness.
 - Details: [`docs/todo/milestone_2_go_live.md`](todo/milestone_2_go_live.md)
 
-## Milestone 3 - Proved Release, Distribution, and Standalone Std (25-26)
+## Milestone 3 - Proved Release, Distribution, and Standalone Std (25-29)
 - Scope: `release == proved`, solver closure, UX simplification, deterministic test runner, manifests/lockfile, binary release gates, and standalone std API/proof completion.
 - Details: [`docs/todo/milestone_3_roadmap.md`](todo/milestone_3_roadmap.md)
-
-## Milestone 4 - Post-Milestone-3 Planning (29+)
-- Scope: re-establish the backlog after Milestones 1-3 closure without weakening supported production guarantees or design-principle constraints.
-- Details: [`docs/todo/milestone_4_planning.md`](todo/milestone_4_planning.md)
 
 ## Legacy Gate Markers (Test Compatibility)
 - [x] 25.2.1 Gate C policy lock

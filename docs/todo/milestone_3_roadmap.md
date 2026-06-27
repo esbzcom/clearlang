@@ -1,4 +1,4 @@
-﻿# Milestone 3 - Proved Release, Distribution, and Standalone Std (25-26)
+# Milestone 3 - Proved Release, Distribution, and Standalone Std (25-29)
 
 This document merges prior Milestone 25 and Milestone 26 planning into one Milestone 3 execution backlog.
 
@@ -336,3 +336,31 @@ Post-Milestone 3 path to a debt-free normal shared-std production path: **do not
   - [x] 28.9.0 Re-run the rollout decision only after Gates F-I are green and there are no unresolved fail-closed diagnostics, provenance gaps, or duplicated validation paths. `Completed: 2026-06-27`
   - [x] 28.9.1 Decide whether `shared` becomes a supported production option while preserving `embedded` as a valid production mode. `Completed: 2026-06-27`
   - [x] 28.9.2 Lock the final product contract: supported activation semantics, CI/profile coverage, compatibility/deprecation rules, documentation, and debt cleanup are complete. `Completed: 2026-06-27`
+
+# Phase 29 - Post-Production Expansion Backlog
+
+Milestone 3 already ends with a supported production contract:
+
+1. `embedded` is the supported default production delivery mode
+2. `shared` is a supported explicit opt-in production delivery mode for the current bundled package set
+3. proof, release, provenance, and distribution workflows are documented and release-gated
+
+Phase 29 continues the roadmap after that production baseline is established. New execution slices
+must preserve the current fail-closed product contract and still satisfy the README design
+principles before expanding surface area.
+
+- [x] 29.0 Post-production expansion planning lock [Planning Gate A] `Completed: 2026-06-27`
+  - [x] 29.0.0 Publish Phase 29 purpose, prioritization rules, and success target so post-production work resumes from an explicit planning contract rather than ad hoc feature selection. (`docs/design/phase-29.0.0-post-m3-expansion-planning-lock.md`) `Completed: 2026-06-27`
+
+- [x] 29.1 First execution slice selection [Planning Gate B] `Completed: 2026-06-27`
+  - [x] 29.1.0 Select the first post-production implementation slice, with explicit scope, DRI, success target, and acceptance gate, while preserving the current release/proof/distribution safety contract. (`docs/design/phase-29.1.0-first-post-m3-slice-selection.md`) `Completed: 2026-06-27`
+  - [x] 29.1.1 Publish the selected execution order and rationale, including what is intentionally deferred. (`docs/design/phase-29.1.0-first-post-m3-slice-selection.md`) `Completed: 2026-06-27`
+
+- [x] 29.2 `std::sequence` shared-std promotion [Execution Gate A] `Completed: 2026-06-27`
+  - [x] 29.2.0 Lock the supported `std::sequence` shared-package contract: package id, modules, symbols, publication shape, and fail-closed migration/activation expectations. (`docs/design/phase-29.2.0-std-sequence-shared-std-lock.md`) `Completed: 2026-06-27`
+  - [x] 29.2.1 Extend bundled shared-std package allowlists, canonical publication flow, and manifest/lock validation so `std::sequence` is a supported shared package alongside `std::text`, `std::int`, and `std::codec`. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/core/artifacts_and_vendor.rs`, `xtask/src/main/artifacts_cli_models.rs`) `Completed: 2026-06-27`
+  - [x] 29.2.2 Extend release, verify-bundle, runtime-loader, import-migration, and xtask publish coverage to exercise `std::sequence` happy-path and fail-closed behavior. (`crates/cli/src/commands/modules/bundled_std_packages.rs`, `xtask/src/main/tests.rs`) `Completed: 2026-06-27`
+  - [x] 29.2.3 Update user/operator documentation only after implementation lands so the supported shared-package set stays accurate. (`docs/release/shared-std-user-guide.md`, `docs/release/shared-std-operations.md`, `docs/release-process.md`, `docs/design/phase-28.9.1-shared-std-production-decision.md`, `docs/design/phase-28.9.2-shared-std-product-contract-lock.md`) `Completed: 2026-06-27`
+
+- [ ] 29.3 `std::contract` shared-std slice lock [Planning Gate C]
+  - [ ] 29.3.0 Publish the bounded Wave 2 promotion lock for `std::contract`, covering the exact package boundary, supported modules/symbols, fail-closed migration diagnostics, and trust/ABI/provenance rules while explicitly deferring chain-adapter packages. (`docs/design/phase-29.3.0-std-contract-shared-std-slice-lock.md`)

@@ -6,11 +6,11 @@ Owner: roadmap-owner
 
 ## Decision
 
-The first post-Milestone-3 implementation slice is:
+The first post-production implementation slice is:
 
 - promote `std::sequence` to the supported shared-std package set
 
-This creates the first bounded execution gate after Milestone 3:
+This creates the first bounded execution gate after Milestone 3 reaches production readiness:
 
 - `29.2` `std::sequence` shared-std promotion
 
@@ -85,5 +85,5 @@ Those can be revisited only after `std::sequence` proves the next promotion path
 
 - `docs/design/phase-27.0-verified-std-abi-decoupling-lock.md`
 - `docs/design/phase-27.2-external-std-package-plan.v1.json`
-- `docs/design/phase-29.0.0-milestone-4-planning-lock.md`
+- `docs/design/phase-29.0.0-post-m3-expansion-planning-lock.md`
 

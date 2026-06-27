@@ -1,4 +1,4 @@
-# Phase 29.0.0 - Milestone 4 Planning Lock
+# Phase 29.0.0 - Post-M3 Expansion Planning Lock
 
 Date: 2026-06-27
 Status: Locked
@@ -9,7 +9,7 @@ Owner: roadmap-owner
 Milestones 1-3 close the currently tracked foundation, go-live, proof/release, and shared-std
 distribution roadmap.
 
-Milestone 4 begins only after the backlog is re-established explicitly.
+Phase 29 begins only after the post-production backlog is re-established explicitly.
 
 The purpose of this lock is to prevent unfocused post-milestone work from degrading the current
 product contract.
@@ -28,7 +28,7 @@ feature accumulation.
 
 ## Prioritization Rules
 
-Any Milestone 4 execution slice must satisfy the repository design principles:
+Any Phase 29 execution slice must satisfy the repository design principles:
 
 ### 1. Simple For Users
 
@@ -44,7 +44,7 @@ workflow, the slice is not ready.
 
 ### 3. Provably Correct
 
-Milestone 4 must not weaken the current proof/release contract. New slices should either preserve
+Phase 29 must not weaken the current proof/release contract. New slices should either preserve
 the existing formal guarantees or make those guarantees easier to validate and operate.
 
 ### 4. Crypto-Focused
@@ -63,7 +63,7 @@ This lock does not authorize:
 
 ## Success Target
 
-Milestone 4 planning is successful only when:
+Phase 29 planning is successful only when:
 
 1. the first post-Milestone-3 execution slice is explicitly selected
 2. that slice has a bounded scope and acceptance gate
@@ -72,7 +72,7 @@ Milestone 4 planning is successful only when:
 
 ## Next Task
 
-The next task is `29.1.0`:
+The next task after this planning lock is `29.1.0`:
 
 - select the first post-Milestone-3 implementation slice and lock its execution contract
 

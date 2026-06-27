@@ -153,6 +153,7 @@ The publish bundle includes:
 
 Operational references:
 - `docs/release/shared-std-operations.md`
+- `docs/release/shared-std-user-guide.md`
 - `docs/security/shared-std-key-rotation.md`
 - `docs/security/shared-std-rollback-procedure.md`
 

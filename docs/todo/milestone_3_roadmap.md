@@ -329,7 +329,7 @@ Post-Milestone 3 path to a debt-free normal shared-std production path: **do not
 
 - [ ] 28.8 Productization and operational readiness [Distribution Gate I]
   - [x] 28.8.0 Make shared-std artifact publishing, signing, provenance generation, key rotation, and registry/distribution handling routine and documented. `Completed: 2026-06-27`
-  - [ ] 28.8.1 Publish user-facing guidance for explicit shared-std opt-in, release, verify, upgrade, rollback, and incident response without hidden fallback behavior.
+  - [x] 28.8.1 Publish user-facing guidance for explicit shared-std opt-in, release, verify, upgrade, rollback, and incident response without hidden fallback behavior. `Completed: 2026-06-27`
   - [ ] 28.8.2 Prove the support model is acceptable: deterministic diagnostics, repeatable operational playbooks, and no unresolved packaging/deployment ambiguity remain.
 
 - [ ] 28.9 Rollout upgrade from experimental to supported production [Distribution Gate J]

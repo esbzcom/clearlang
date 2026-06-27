@@ -128,7 +128,7 @@ clg verify-bundle --bundle out/generic.release-bundle.json --keyring keys/releas
 
 ## Shared Std Publish Flow (28.8.0)
 
-Shared std remains explicit opt-in and is not the default release path.
+Shared std is a supported explicit opt-in release path and is not the default.
 Operators publish shared std artifacts through `xtask` so artifact, signature, provenance,
 and registry layout stay deterministic:
 

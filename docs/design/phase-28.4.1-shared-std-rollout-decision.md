@@ -4,6 +4,8 @@ Date: 2026-06-04
 Status: Locked
 Owner: std-arch-owner
 
+Superseded on 2026-06-27 by `docs/design/phase-28.9.1-shared-std-production-decision.md`.
+
 ## Decision
 
 Shared std distribution remains `experimental` and `disabled by default`.

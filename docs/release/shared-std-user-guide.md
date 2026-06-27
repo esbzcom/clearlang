@@ -1,7 +1,7 @@
 # Shared Std User Guide
 
 ## Status
-Shared std is explicit opt-in. It is not the default.
+Shared std is a supported explicit opt-in production mode. It is not the default.
 
 - Default mode remains `embedded`.
 - Shared std must be selected in `clg.project.json`.

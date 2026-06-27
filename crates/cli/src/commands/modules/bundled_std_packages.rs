@@ -6,7 +6,13 @@ use serde::Deserialize;
 
 use super::ExternalImportBinding;
 
-const BUNDLED_STD_PACKAGE_IDS: &[&str] = &["std::text", "std::int", "std::sequence", "std::codec"];
+const BUNDLED_STD_PACKAGE_IDS: &[&str] = &[
+    "std::text",
+    "std::int",
+    "std::sequence",
+    "std::codec",
+    "std::contract",
+];
 
 #[derive(Deserialize)]
 struct ExternalStdPackagePlanFile {
@@ -233,14 +239,26 @@ pub(super) fn bundled_std_codec_modules() -> &'static BTreeSet<String> {
 }
 
 #[cfg(test)]
+pub(super) fn bundled_std_contract_modules() -> &'static BTreeSet<String> {
+    static BUNDLED_STD_CONTRACT_MODULES: OnceLock<BTreeSet<String>> = OnceLock::new();
+    BUNDLED_STD_CONTRACT_MODULES.get_or_init(|| {
+        load_bundled_std_package_modules_from_str(
+            include_str!("../../../../../docs/design/phase-27.2-external-std-package-plan.v1.json"),
+            "std::contract",
+        )
+        .expect("bundled std package plan must expose std::contract")
+    })
+}
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        bundled_std_codec_modules, bundled_std_int_modules, bundled_std_item_migration_message,
-        bundled_std_module_migration_message, bundled_std_package_external_imports,
-        bundled_std_package_id_for_module, bundled_std_package_modules,
-        bundled_std_sequence_modules, bundled_std_text_modules,
+        bundled_std_codec_modules, bundled_std_contract_modules, bundled_std_int_modules,
+        bundled_std_item_migration_message, bundled_std_module_migration_message,
+        bundled_std_package_external_imports, bundled_std_package_id_for_module,
+        bundled_std_package_modules, bundled_std_sequence_modules, bundled_std_text_modules,
         load_bundled_std_package_modules_from_str,
     };
 
@@ -287,10 +305,15 @@ mod tests {
     }
 
     #[test]
-    fn bundled_std_package_modules_cover_current_wave1_cut() {
+    fn bundled_std_package_modules_cover_current_supported_cut() {
         let expected: BTreeSet<String> = [
             "std::array",
             "std::bytes",
+            "std::contract",
+            "std::contract::address",
+            "std::contract::amount",
+            "std::contract::contract_error",
+            "std::contract::event",
             "std::decode_error",
             "std::decoder",
             "std::encode_error",
@@ -308,7 +331,7 @@ mod tests {
         assert_eq!(
             bundled_std_package_modules(),
             &expected,
-            "bundled std package module set must stay aligned with the active Wave 1 cut"
+            "bundled std package module set must stay aligned with the active supported cut"
         );
     }
 
@@ -344,7 +367,26 @@ mod tests {
     }
 
     #[test]
-    fn bundled_std_package_external_imports_cover_text_int_and_codec_surface() {
+    fn bundled_std_contract_modules_follow_phase27_plan() {
+        let expected: BTreeSet<String> = [
+            "std::contract",
+            "std::contract::address",
+            "std::contract::amount",
+            "std::contract::contract_error",
+            "std::contract::event",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        assert_eq!(
+            bundled_std_contract_modules(),
+            &expected,
+            "std::contract bundled module set must stay aligned with the phase 27 plan"
+        );
+    }
+
+    #[test]
+    fn bundled_std_package_external_imports_cover_supported_surface() {
         let symbols: BTreeSet<String> = bundled_std_package_external_imports()
             .iter()
             .map(|binding| binding.function.clone())
@@ -358,6 +400,10 @@ mod tests {
         assert!(symbols.contains("std::encoder::new"));
         assert!(symbols.contains("std::decoder::read_bool"));
         assert!(symbols.contains("std::decode_error::equals"));
+        assert!(symbols.contains("std::contract::address::from_bytes"));
+        assert!(symbols.contains("std::contract::amount::add_checked"));
+        assert!(symbols.contains("std::contract::event::new"));
+        assert!(symbols.contains("std::contract::contract_error::equals"));
     }
 
     #[test]
@@ -399,6 +445,10 @@ mod tests {
             bundled_std_package_id_for_module("std::encoder"),
             Some("std::codec")
         );
+        assert_eq!(
+            bundled_std_package_id_for_module("std::contract::event"),
+            Some("std::contract")
+        );
         assert_eq!(bundled_std_package_id_for_module("std::env"), None);
     }
 
@@ -425,6 +475,14 @@ mod tests {
                 "bundled std package metadata is missing module `std::slice`"
             ),
             "module `std::slice` moved to bundled std package `std::sequence`; bundled std package metadata is missing module `std::slice`"
+        );
+        assert_eq!(
+            bundled_std_item_migration_message(
+                "std::contract::event",
+                "missing",
+                "module does not export item `missing`"
+            ),
+            "symbol `std::contract::event::missing` moved to bundled std package `std::contract`; module does not export item `missing`"
         );
     }
 }

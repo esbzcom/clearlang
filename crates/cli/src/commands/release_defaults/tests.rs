@@ -139,6 +139,56 @@ fn parse_release_defaults_accepts_schema_v2_shared_std_manifest() {
 }
 
 #[test]
+fn parse_release_defaults_accepts_schema_v2_std_contract_shared_std_manifest() {
+    let content = r#"{
+  "schema_version": 2,
+  "project": {
+    "name": "example-app",
+    "description": "Example project",
+    "version": "1.2.3",
+    "clg_version": "^0.1.0",
+    "entry": "main.clear",
+    "website": "https://example.com",
+    "contact": {
+      "name": "Example Maintainer",
+      "email": "maintainer@example.com"
+    }
+  },
+  "dependencies": [],
+  "std": {
+    "delivery": "shared",
+    "packages": [
+      {
+        "package_id": "std::contract",
+        "version_requirement": "^1.2.0",
+        "verified_std_abi": {
+          "major": 1,
+          "minor_min": 0,
+          "minor_max": 0
+        },
+        "registry": "default",
+        "signer_policy": "std-publisher-prod",
+        "allow_compat_shims": false
+      }
+    ]
+  },
+  "release_defaults": {
+    "advisory_as_of": "2026-03-31T00:00:00Z",
+    "key_id": "release-2026q2",
+    "out_dir": "out/release",
+    "trust_policy": "trust-policy.json"
+  }
+}"#;
+    let parsed = parse_project_manifest(content, Path::new("clg.project.json")).expect("schema v2");
+    let manifest = parsed.manifest_v1.expect("manifest");
+    let std = manifest.std.expect("std config");
+    assert_eq!(std.delivery, "shared");
+    assert_eq!(std.packages.len(), 1);
+    assert_eq!(std.packages[0].package_id, "std::contract");
+    assert_eq!(std.packages[0].version_requirement, "^1.2.0");
+}
+
+#[test]
 fn parse_release_defaults_rejects_schema_v1_std_section() {
     let content = r#"{
   "schema_version": 1,

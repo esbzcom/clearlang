@@ -26,6 +26,7 @@ After this decision:
    - `std::int`
    - `std::sequence`
    - `std::codec`
+   - `std::contract`
 
 ## Why This Promotion Is Correct
 

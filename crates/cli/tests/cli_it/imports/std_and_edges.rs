@@ -489,6 +489,45 @@ fn import_unknown_std_codec_item_reports_c021_with_package_guidance() {
 }
 
 #[test]
+fn import_unknown_std_contract_item_reports_c021_with_package_guidance() {
+    let tmp = tempdir().unwrap();
+    let root = tmp.path();
+
+    let main_src = r#"
+        import std::contract::event::{missing}
+        function main() -> Int { 0 }
+    "#;
+    let main_path = root.join("main.clear");
+    fs::write(&main_path, main_src.trim()).expect("write main");
+
+    let wasm_path = root.join("out.wasm");
+    let output = Command::cargo_bin("clg")
+        .unwrap()
+        .args(["--json-errors", "build"])
+        .arg(&main_path)
+        .args(["-o"])
+        .arg(&wasm_path)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: Value = serde_json::from_slice(&output).expect("json");
+    assert!(!v.get("ok").and_then(|b| b.as_bool()).unwrap_or(true));
+    let errs = v.get("errors").and_then(|e| e.as_array()).expect("errors");
+    assert_eq!(errs.len(), 1);
+    let e0 = &errs[0];
+    assert_eq!(e0.get("code").and_then(|s| s.as_str()), Some("C021"));
+    let message = e0.get("message").and_then(|s| s.as_str()).unwrap_or("");
+    assert!(
+        message.contains(
+            "symbol `std::contract::event::missing` moved to bundled std package `std::contract`"
+        ),
+        "expected bundled std contract migration guidance, got: {message}"
+    );
+}
+
+#[test]
 fn import_std_chain_type_item_allows_build() {
     let tmp = tempdir().unwrap();
     let root = tmp.path();

@@ -31,6 +31,7 @@ Current bundled shared-std package ids are:
 - `std::int`
 - `std::sequence`
 - `std::codec`
+- `std::contract`
 
 3. Confirm the publish bundle contains:
    - `std-packages/std-text-<version>.wasm`

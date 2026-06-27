@@ -318,6 +318,24 @@ cargo run -p xtask -- milestone3-binary-bundle --platform <windows|linux|macos> 
 
 Bundle outputs include the platform binary, checksum manifest, signed metadata, and SBOM/license evidence.
 
+For supported installer/publication-channel outputs, generate the bounded Homebrew and winget metadata from the canonical signed bundle set:
+
+```powershell
+cargo run -p xtask -- milestone3-installer-channels `
+  --version <MAJOR.MINOR.PATCH> `
+  --release-tag <TAG> `
+  --windows-bundle-dir tmp/milestone3-binary/windows `
+  --linux-bundle-dir tmp/milestone3-binary/linux `
+  --macos-bundle-dir tmp/milestone3-binary/macos `
+  --out-dir tmp/milestone3-installer-channels/<TAG>
+```
+
+This command emits:
+- per-platform GitHub bundle archives for the supported installer channels,
+- `homebrew/Formula/clg.rb` pinned to the Linux/macOS archives,
+- winget manifests pinned to the Windows archive,
+- machine-readable installer-channel metadata summarizing URLs and SHA-256 values.
+
 ## Notes
 - Milestone 3 policy lock: production release is `release == proved` (`proved_all` required). Non-proved outputs are dev/non-release only.
 - `--compiler-mode permissive|standard` are transitional dev/evidence workflows and are not accepted for production release artifacts.

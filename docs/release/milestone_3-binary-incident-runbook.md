@@ -6,6 +6,7 @@
 - Cross-runner reproducibility witness mismatch.
 - Missing GA target binary or parity artifact.
 - Cross-platform proof parity artifact mismatch.
+- Homebrew formula or winget manifest URL/SHA mismatch against the published release tag.
 
 ## Immediate Actions
 1. Freeze milestone_3 tag/release promotion.
@@ -23,7 +24,8 @@
    - proof parity compare,
    - binary smoke gate,
    - binary reproducibility witness compare,
-   - verify-bundle with required provenance.
+   - verify-bundle with required provenance,
+   - installer channel metadata URL/SHA parity against the published tag.
 3. Update release notes with incident summary and remediation.
 
 ## Post-Incident

@@ -6,7 +6,7 @@ Milestone 3 focuses on theorem-grade release assurance workflows and first usabl
 ## Compatibility Matrix
 - Windows: GA baseline
 - Linux: GA baseline
-- macOS: preview (non-blocking in this phase)
+- macOS: GA baseline
 
 ## Highlights
 - Primary release workflow: `clg release` with deterministic bundle emission.
@@ -15,15 +15,17 @@ Milestone 3 focuses on theorem-grade release assurance workflows and first usabl
 - Provenance support: signed bundle provenance artifact, with fail-closed required mode (`--require-provenance`).
 - Deterministic release readiness preflight: `clg release --check-only`.
 - Signed binary bundle artifact: `xtask milestone3-binary-bundle` emits binary + checksums + signed metadata + SBOM/license evidence.
+- Installer-channel outputs: `xtask milestone3-installer-channels` emits canonical Homebrew and winget metadata from the signed GitHub bundle set.
 
 ## Known Limitations
-- Channel-specific installers (MSI/deb/rpm/Homebrew) are deferred.
-- macOS remains preview in this phase.
+- apt/rpm repository publication remains deferred.
+- Windows MSI packaging remains deferred.
 
 ## Upgrade Notes
 1. Adopt keyring-driven verification for historical key rotation safety.
 2. For release-train workflows, require provenance verification (`--require-provenance`).
-3. Use milestone_3 release-train checklist/runbook before publishing.
+3. Generate Homebrew/winget metadata from the signed bundle set for the exact release tag being published.
+4. Use milestone_3 release-train checklist/runbook before publishing.
 
 ## Verification Commands
 ```powershell

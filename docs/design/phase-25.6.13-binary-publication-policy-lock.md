@@ -5,6 +5,8 @@ Policy lock for milestone_3 binary publication channels and parity requirements.
 
 ## Supported Channels (This Phase)
 - GitHub release artifacts are the canonical publication channel for milestone_3.
+- Homebrew formula publication is supported for `linux` and `macos` when it points to the canonical GitHub bundle archives with pinned SHA-256 values.
+- Winget manifest publication is supported for `windows` when it points to the canonical GitHub bundle archive with pinned SHA-256 value.
 - Channel parity requirements apply to all GA baseline targets (`windows`, `linux`, `macos`).
 
 ## Required Publication Artifacts per GA Target
@@ -18,13 +20,13 @@ Policy lock for milestone_3 binary publication channels and parity requirements.
   - checksum artifacts,
   - provenance-bound release-bundle evidence,
   - proof parity artifacts consistent with the locked release-target matrix,
-  - release notes references.
+  - release notes references,
+  - channel metadata URLs and SHA-256 pins that match the published GitHub bundle archives.
 - Missing parity artifacts are release-train blocking.
 
 ## Deferred/Unsupported Channels (Explicit Defer)
-- Homebrew package publication (deferred).
 - apt/rpm repository publication (deferred).
-- Windows MSI/winget integration (deferred).
+- Windows MSI packaging (deferred).
 
 These channels require separate follow-up policy locks and rollout evidence.
 

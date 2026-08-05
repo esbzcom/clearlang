@@ -46,6 +46,15 @@ pub(super) fn check_func<'a>(
                 },
             );
         }
+        if matches!(f.effect, clg_ast::Effect::Mut) {
+            env.insert(
+                "__clg_state_write_cap",
+                LocalBinding {
+                    ty: Type::Bool,
+                    kind: ParamKind::Borrow,
+                },
+            );
+        }
     }
     let mut tracker = ResourceTracker::with_capacity(f.params.len());
     for p in &f.params {

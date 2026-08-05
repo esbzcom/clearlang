@@ -214,6 +214,18 @@ fn max_effect_with_locals<'a>(
             type_args: _,
             span,
         } => {
+            if callee.starts_with("__clg_state_write$") {
+                if allowed < EffectLevel::Mut {
+                    return Err(TyperError::effect_required("state write", "mut", *span).into());
+                }
+                let mut eff = EffectLevel::Mut;
+                for arg in args {
+                    eff = eff.join(max_effect_with_locals(
+                        arg, fns, trait_env, allowed, fn_locals,
+                    )?);
+                }
+                return Ok(eff);
+            }
             let mut eff = EffectLevel::Pure;
             for arg in args {
                 eff = eff.join(max_effect_with_locals(

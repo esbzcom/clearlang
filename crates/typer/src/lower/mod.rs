@@ -586,6 +586,12 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Index { base, index, span } => lower_index_expr(ctx, base, index, span),
         Expr::Bin { op, lhs, rhs, .. } => lower_bin_expr(ctx, e, op, lhs, rhs, expected),
         Expr::Call { callee, args, .. } => {
+            if callee.starts_with("__clg_state_write$") {
+                let field = callee.trim_start_matches("__clg_state_write$");
+                anyhow::bail!(
+                    "stateful contract lowering is unavailable until the selected target provides a contract state adapter (field `{field}`)"
+                )
+            }
             lower_call_expr(ctx, e, callee.as_str(), args, expected.as_ref())
         }
         Expr::Lambda { .. } => lower_lambda_expr(ctx, e, expected.as_ref()),

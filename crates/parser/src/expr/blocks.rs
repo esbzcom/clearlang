@@ -28,6 +28,26 @@ where
             })
             .boxed();
 
+        let state_write = kw("state")
+            .then_ignore(just('.').padded().labelled("'.'"))
+            .then(ident_p())
+            .then_ignore(just('=').padded())
+            .then(expr_inner.clone())
+            .then_ignore(just(';').padded().labelled("';'"))
+            .map_with(|((_, field), value), e| {
+                let span = to_span(e.span());
+                Stmt::Expr {
+                    expr: Box::new(Expr::Call {
+                        callee: format!("__clg_state_write${field}"),
+                        type_args: Vec::new(),
+                        args: vec![value],
+                        span,
+                    }),
+                    span,
+                }
+            })
+            .boxed();
+
         let while_stmt = kw("while")
             .padded()
             .ignore_then(expr_inner.clone())
@@ -72,7 +92,7 @@ where
             })
             .boxed();
 
-        let stmts = choice((let_stmt, while_stmt, expr_stmt))
+        let stmts = choice((let_stmt, state_write, while_stmt, expr_stmt))
             .repeated()
             .collect::<Vec<_>>();
         let tail = expr_inner.or_not();

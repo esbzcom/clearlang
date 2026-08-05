@@ -3,6 +3,18 @@ use crate::check::show_ty;
 use clg_ast::{Span, Type};
 
 impl TyperError {
+    pub fn state_write_not_allowed(span: Span) -> Self {
+        Self::new(
+            "T822",
+            format!(
+                "at {}..{}: state writes require a `mut` contract transition",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn duplicate_type(name: &str, span: Span) -> Self {
         Self::new(
             "T701",

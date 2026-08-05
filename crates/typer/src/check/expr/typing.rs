@@ -3,8 +3,8 @@ use clg_ast::{Block, Expr, MatchPat, Span, Stmt, Type};
 use std::collections::{HashMap, HashSet};
 
 use super::super::{
-    base_type, is_resource_type, AliasMap, BoundsMap, FnSig, LocalBinding, TraitEnv, TypeDefs,
-    RETURN_KEY,
+    base_type, binding_compatible, is_resource_type, AliasMap, BoundsMap, FnSig, LocalBinding,
+    TraitEnv, TypeDefs, RETURN_KEY,
 };
 use super::block::type_block;
 use super::call_expr::type_call_expr;
@@ -454,6 +454,26 @@ pub(crate) fn type_of<'a>(
             args,
             type_args,
             span,
+        } if callee.starts_with("__clg_state_write$") => type_state_write_expr(
+            callee,
+            args,
+            type_args,
+            *span,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth,
+        ),
+        Expr::Call {
+            callee,
+            args,
+            type_args,
+            span,
         } => type_call_expr(
             callee.as_str(),
             args,
@@ -486,6 +506,76 @@ pub(crate) fn type_of<'a>(
             depth,
         ),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn type_state_write_expr<'a>(
+    callee: &str,
+    args: &'a [Expr],
+    type_args: &[Type],
+    span: Span,
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
+    depth: usize,
+) -> Result<Type> {
+    if !type_args.is_empty() || args.len() != 1 || !env.contains_key("__clg_state_write_cap") {
+        return Err(TyperError::state_write_not_allowed(span).into());
+    }
+    let Some(LocalBinding {
+        ty: Type::Named {
+            name,
+            args: state_args,
+        },
+        ..
+    }) = env.get("state")
+    else {
+        return Err(TyperError::state_write_not_allowed(span).into());
+    };
+    let Some(contract_name) = state_args
+        .is_empty()
+        .then(|| name.strip_prefix("__clg_contract_state$"))
+        .flatten()
+    else {
+        return Err(TyperError::state_write_not_allowed(span).into());
+    };
+    let field = callee.trim_start_matches("__clg_state_write$");
+    let state_fields = type_defs
+        .contract_states
+        .get(contract_name)
+        .expect("contract state type must have a field table");
+    let Some(field_def) = state_fields.get(field) else {
+        return Err(TyperError::unknown_struct_field("state", field, span).into());
+    };
+    let found = type_of(
+        &args[0],
+        env,
+        tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        type_params,
+        bounds,
+        depth + 1,
+        Some(&field_def.ty),
+    )?;
+    if !binding_compatible(&field_def.ty, &found, aliases)? {
+        return Err(TyperError::struct_field_type_mismatch(
+            "state",
+            field,
+            field_def.ty.clone(),
+            found,
+            span,
+        )
+        .into());
+    }
+    Ok(Type::Bool)
 }
 
 #[allow(clippy::too_many_arguments)]

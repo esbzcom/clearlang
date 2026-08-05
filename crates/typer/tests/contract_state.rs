@@ -54,3 +54,38 @@ fn state_is_not_visible_to_non_contract_functions() {
         .expect_err("state must remain contract-scoped");
     assert!(format!("{err:#}").contains("T006"));
 }
+
+#[test]
+fn mut_contract_transition_can_write_declared_state_field() {
+    let source = r#"
+        contract Counter version 1 {
+            state { total: U64; }
+            mut function set_total(value: U64) -> U64 {
+                state.total = value;
+                state.total
+            }
+        }
+    "#;
+    type_check_only(&parse(source).expect("parse state write"))
+        .expect("type-check mut state write");
+    let err = check(&parse(source).expect("parse state write"))
+        .expect_err("state write lowering must fail closed without a state adapter");
+    assert!(format!("{err:#}").contains("stateful contract lowering is unavailable"));
+
+    let err = type_check_only(
+        &parse(
+            r#"
+                contract Counter version 1 {
+                    state { total: U64; }
+                    pure function invalid(value: U64) -> U64 {
+                        state.total = value;
+                        state.total
+                    }
+                }
+            "#,
+        )
+        .expect("parse pure state write"),
+    )
+    .expect_err("reject state write outside mut transition");
+    assert!(format!("{err:#}").contains("T822"));
+}

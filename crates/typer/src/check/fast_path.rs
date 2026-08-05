@@ -103,8 +103,15 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
     validate_alias_predicates(&alias_map, &fns, &type_defs, &trait_env)?;
 
     for f in &ast.funcs {
-        check_func(f, &fns, &trait_env, &alias_map, &type_defs)
-            .with_context(|| format!("in function `{}`", f.name))?;
+        check_func(
+            f,
+            &fns,
+            &trait_env,
+            &alias_map,
+            &type_defs,
+            super::contract_owner_for_function(ast, &f.name),
+        )
+        .with_context(|| format!("in function `{}`", f.name))?;
     }
     for tr in &ast.traits {
         for method in &tr.methods {

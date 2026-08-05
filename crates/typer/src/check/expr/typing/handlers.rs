@@ -286,6 +286,19 @@ pub(super) fn type_field_access<'a>(
     let resolved = base_type(&base_ty, aliases)?;
     match resolved {
         Type::Named { name, args } => {
+            if args.is_empty() {
+                let state_name = name.strip_prefix("__clg_contract_state$");
+                if let Some(contract_name) = state_name {
+                    let state_fields = type_defs
+                        .contract_states
+                        .get(contract_name)
+                        .expect("contract state type must have a field table");
+                    let Some(field_def) = state_fields.get(field) else {
+                        return Err(TyperError::unknown_struct_field("state", field, span).into());
+                    };
+                    return Ok(field_def.ty.clone());
+                }
+            }
             let Some(struct_info) = type_defs.structs.get(name.as_str()) else {
                 return Err(TyperError::expected_struct(name.as_str(), span).into());
             };

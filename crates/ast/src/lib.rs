@@ -62,6 +62,7 @@ pub struct ContractDecl {
     pub name_span: Span,
     pub version: u32,
     pub fields: Vec<StructField>,
+    pub functions: Vec<Func>,
     pub span: Span,
 }
 

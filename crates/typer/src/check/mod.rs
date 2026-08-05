@@ -101,6 +101,24 @@ pub(crate) struct TypeDefs<'a> {
     pub resources: HashSet<&'a str>,
     pub structs: HashMap<&'a str, StructInfo<'a>>,
     pub enums: HashMap<&'a str, EnumInfo<'a>>,
+    pub contract_states: HashMap<&'a str, HashMap<&'a str, &'a StructField>>,
+}
+
+pub(crate) fn contract_state_type_name(contract_name: &str) -> String {
+    format!("__clg_contract_state${contract_name}")
+}
+
+pub(crate) fn contract_owner_for_function<'a>(program: &'a Program, name: &str) -> Option<&'a str> {
+    program
+        .contracts
+        .iter()
+        .find(|contract| {
+            contract
+                .functions
+                .iter()
+                .any(|function| function.name == name)
+        })
+        .map(|contract| contract.name.as_str())
 }
 
 pub(crate) struct TraitInfo<'a> {
@@ -325,8 +343,15 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
     validate_alias_predicates(&alias_map, &fns, &type_defs, &trait_env)?;
 
     for f in &ast.funcs {
-        check_func(f, &fns, &trait_env, &alias_map, &type_defs)
-            .with_context(|| format!("in function `{}`", f.name))?;
+        check_func(
+            f,
+            &fns,
+            &trait_env,
+            &alias_map,
+            &type_defs,
+            contract_owner_for_function(ast, &f.name),
+        )
+        .with_context(|| format!("in function `{}`", f.name))?;
     }
     for tr in &ast.traits {
         for method in &tr.methods {

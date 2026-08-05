@@ -35,7 +35,7 @@ enum Item {
 #[derive(Debug)]
 enum TopLevel {
     Import(clg_ast::ImportDecl),
-    Contract(clg_ast::ContractDecl),
+    Contract(crate::contract_decl::ParsedContract),
     Item(Box<Item>),
 }
 
@@ -127,7 +127,11 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             for item in items {
                 match item {
                     TopLevel::Import(i) => imports.push(i),
-                    TopLevel::Contract(contract) => contracts.push(contract),
+                    TopLevel::Contract(contract) => {
+                        refined_aliases.extend(contract.inline_aliases);
+                        funcs.extend(contract.contract.functions.iter().cloned());
+                        contracts.push(contract.contract);
+                    }
                     TopLevel::Item(item) => match *item {
                         Item::Alias(a) => refined_aliases.push(a),
                         Item::Func(f) => {

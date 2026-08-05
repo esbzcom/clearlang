@@ -421,6 +421,21 @@ fn parses_call_chain_as_argument() {
 }
 
 #[test]
+fn parses_contract_owned_function_with_state_field_read() {
+    let src = r#"
+        contract Counter version 1 {
+            state { total: U64; }
+            pure function read() -> U64 { state.total }
+        }
+    "#;
+
+    let program = parse(src).expect("should parse contract transition");
+    assert_eq!(program.contracts.len(), 1);
+    assert_eq!(program.contracts[0].functions.len(), 1);
+    assert_eq!(program.funcs.len(), 1);
+}
+
+#[test]
 fn parses_multiple_args_and_parentheses() {
     // Stress commas/parentheses and precedence: add(1, (2 + 3) * (4 + 5))
     let src = r#"

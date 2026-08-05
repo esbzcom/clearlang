@@ -20,6 +20,7 @@ pub(super) fn check_func<'a>(
     trait_env: &super::TraitEnv<'a>,
     aliases: &AliasMap,
     type_defs: &TypeDefs,
+    contract_owner: Option<&str>,
 ) -> Result<()> {
     let type_params = type_param_names(&f.type_params);
     let bounds = validate_bounds(&f.where_bounds, &type_params, trait_env)?;
@@ -32,6 +33,20 @@ pub(super) fn check_func<'a>(
             kind: ParamKind::Borrow,
         },
     );
+    if let Some(contract_name) = contract_owner {
+        if matches!(f.effect, clg_ast::Effect::Pure | clg_ast::Effect::Mut) {
+            env.insert(
+                "state",
+                LocalBinding {
+                    ty: Type::Named {
+                        name: super::contract_state_type_name(contract_name),
+                        args: Vec::new(),
+                    },
+                    kind: ParamKind::Borrow,
+                },
+            );
+        }
+    }
     let mut tracker = ResourceTracker::with_capacity(f.params.len());
     for p in &f.params {
         let resolved_ty = base_type(&p.ty, aliases)?;

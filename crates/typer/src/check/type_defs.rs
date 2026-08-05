@@ -23,6 +23,17 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
 
     let mut structs: HashMap<&str, StructInfo<'_>> = HashMap::with_capacity(program.structs.len());
     let mut enums: HashMap<&str, EnumInfo<'_>> = HashMap::with_capacity(program.enums.len());
+    let mut contract_states: HashMap<&str, HashMap<&str, &StructField>> =
+        HashMap::with_capacity(program.contracts.len());
+
+    for contract in &program.contracts {
+        let fields = contract
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field))
+            .collect();
+        contract_states.insert(contract.name.as_str(), fields);
+    }
 
     for s in &program.structs {
         let name = s.name.as_str();
@@ -74,5 +85,6 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
         resources,
         structs,
         enums,
+        contract_states,
     })
 }

@@ -564,6 +564,12 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::StructLit {
             name: _, fields, ..
         } => lower_struct_lit(ctx, e, fields),
+        Expr::FieldAccess { base, field, .. } if matches!(base.as_ref(), Expr::Var(name, _) if name == "state") =>
+        {
+            anyhow::bail!(
+                "stateful contract lowering is unavailable until the selected target provides a contract state adapter (field `{field}`)"
+            )
+        }
         Expr::FieldAccess { base, field, .. } => lower_field_access(ctx, base, field.as_str()),
         Expr::Unary { .. } => lower_unary_expr(),
         Expr::Match {

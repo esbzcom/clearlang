@@ -92,6 +92,18 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             )
         });
 
+        let state_field_expr = kw("state")
+            .then_ignore(just('.').padded().labelled("'.'"))
+            .then(ident_p())
+            .map_with(|(_, field), e| {
+                let span = to_span(e.span());
+                Expr::FieldAccess {
+                    base: Box::new(Expr::Var("state".to_string(), span)),
+                    field,
+                    span,
+                }
+            });
+
         let ret_expr = just("return")
             .padded()
             .ignore_then(expr.clone())
@@ -282,6 +294,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             ctor_call,
             unsigned_cast,
             call_expr,
+            state_field_expr,
             var_expr,
         ))
         .padded()

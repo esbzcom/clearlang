@@ -7,6 +7,7 @@ This directory is organized by role so operational docs stay easy to find.
 
 ## Canonical Project State
 - Roadmap/checklist: `docs/TODO.md`
+- Milestone 4 product roadmap: `docs/todo/milestone_4_roadmap.md`
 - Milestone 2 release notes: `release_notes/milestone_2.md`
 - Current release command flow: `docs/release-process.md`
 
@@ -33,6 +34,7 @@ This directory is organized by role so operational docs stay easy to find.
 
 ## Design Locks
 - Design lock catalog: `docs/design-locks.md`
+- Milestone 4 production-contract lock: `docs/design/phase-30.0.0-milestone-4-production-contract-platform-lock.md`
 
 ## Evidence
 - Milestone 2 readiness: `docs/evidence/milestone_2-readiness.md`

@@ -14,6 +14,10 @@ Milestone-oriented index (primary planning entrypoint):
 - Scope: `release == proved`, solver closure, UX simplification, deterministic test runner, manifests/lockfile, binary release gates, and standalone std API/proof completion.
 - Details: [`docs/todo/milestone_3_roadmap.md`](todo/milestone_3_roadmap.md)
 
+## Milestone 4 - Production Contract Platform (30-35)
+- Scope: stateful contract semantics, one complete initial chain target (EVM), release-grade crypto boundaries, bounded runtime operation, and contract developer tooling.
+- Details: [`docs/todo/milestone_4_roadmap.md`](todo/milestone_4_roadmap.md)
+
 ## Legacy Gate Markers (Test Compatibility)
 - [x] 25.2.1 Gate C policy lock
 - [x] 25.2.2 Gate C UX design lock

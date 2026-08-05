@@ -35,3 +35,6 @@ This document tracks the current design-lock references.
 - `docs/design/phase-26.0.0-std-embedded-first-policy-lock.md`
 - `docs/design/phase-26.0.1-std-scope-and-governance-lock.md`
 - `docs/design/phase-26.1.0-std-core-first-production-api-lock.md`
+
+## Milestone 4 Production Contract Platform
+- `docs/design/phase-30.0.0-milestone-4-production-contract-platform-lock.md`

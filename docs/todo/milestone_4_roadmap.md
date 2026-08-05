@@ -25,7 +25,11 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
   - [x] 30.1.0 Lock the source-level contract state declaration, schema versioning, upgrade, and
     migration policy before implementation. (`docs/design/phase-30.1.0-state-schema-and-migration-lock.md`) `Completed: 2026-08-05`.
   - [x] 30.1.1 Implement typed persistent state declarations and deterministic storage layout
-    artifacts. (`crates/{ast,parser,typer,cli}`, `crates/parser/tests/parse_smoke.rs`, `crates/typer/tests/contracts.rs`) `Completed: 2026-08-05`.
+    artifacts. (`crates/{ast,parser,typer,cli}`, `crates/parser/tests/parse_smoke.rs`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
+  - [ ] 30.1.1.1 Bind declared `state.<field>` values into contract-function typing and add
+    deterministic read/write lowering hooks. This is required before `old(...)` can represent a
+    true pre-state rather than an alias for an immutable parameter.
+    (`docs/design/phase-30.1.1.1-contract-state-binding-lock.md`)
   - [ ] 30.1.2 Implement `old(...)` snapshots in `ensure` clauses, including parser, typer, VC,
     solver encoding, diagnostics, and no-snapshot misuse rejection.
   - [ ] 30.1.3 Add state-transition and storage-invariant proof obligations with deterministic

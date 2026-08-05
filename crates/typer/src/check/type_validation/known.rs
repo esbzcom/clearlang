@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use super::super::type_params::validate_type_params;
 use super::super::{AliasMap, StdTypeMap, TraitEnv, TypeDefs};
+use super::contains_named_resource;
 use crate::errors::TyperError;
 
 pub(crate) fn ensure_known_type(
@@ -125,6 +126,37 @@ pub(crate) fn validate_known_types(
     trait_env: &TraitEnv,
     std_types: &StdTypeMap,
 ) -> Result<()> {
+    let mut contract_names = HashSet::new();
+    for contract in &program.contracts {
+        if !contract_names.insert(contract.name.as_str()) {
+            return Err(TyperError::duplicate_contract_state_field(
+                &contract.name,
+                contract.name_span,
+            )
+            .into());
+        }
+        let mut field_names = HashSet::new();
+        for field in &contract.fields {
+            if !field_names.insert(field.name.as_str()) {
+                return Err(
+                    TyperError::duplicate_contract_state_field(&field.name, field.span).into(),
+                );
+            }
+            ensure_known_type(
+                &field.ty,
+                aliases,
+                type_defs,
+                &HashSet::new(),
+                std_types,
+                Some(field.span),
+            )?;
+            if !is_persistable_state_type(&field.ty)
+                || contains_named_resource(&field.ty, &type_defs.resources, &HashSet::new())
+            {
+                return Err(TyperError::invalid_contract_state_type(&field.ty, field.span).into());
+            }
+        }
+    }
     for res in &program.resources {
         for field in &res.fields {
             ensure_known_type(
@@ -184,4 +216,21 @@ pub(crate) fn validate_known_types(
         }
     }
     Ok(())
+}
+
+fn is_persistable_state_type(ty: &Type) -> bool {
+    match ty {
+        Type::Fn { .. } => false,
+        Type::Option(inner)
+        | Type::List(inner)
+        | Type::Set(inner)
+        | Type::Slice(inner)
+        | Type::Array(inner, _) => is_persistable_state_type(inner),
+        Type::Result(ok, err) | Type::Map(ok, err) => {
+            is_persistable_state_type(ok) && is_persistable_state_type(err)
+        }
+        Type::Tuple(elements) => elements.iter().all(is_persistable_state_type),
+        Type::Named { args, .. } => args.iter().all(is_persistable_state_type),
+        _ => true,
+    }
 }

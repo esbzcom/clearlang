@@ -39,3 +39,4 @@ This document tracks the current design-lock references.
 ## Milestone 4 Production Contract Platform
 - `docs/design/phase-30.0.0-milestone-4-production-contract-platform-lock.md`
 - `docs/design/phase-30.0.1-milestone-4-gate-governance-lock.md`
+- `docs/design/phase-30.1.0-state-schema-and-migration-lock.md`

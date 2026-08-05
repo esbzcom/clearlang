@@ -63,6 +63,11 @@ pub(crate) fn validate_supported_types(
             ensure_supported_type(&field.ty, Some(field.span), &HashSet::new())?;
         }
     }
+    for contract in &program.contracts {
+        for field in &contract.fields {
+            ensure_supported_type(&field.ty, Some(field.span), &HashSet::new())?;
+        }
+    }
     for s in &program.structs {
         let type_params = validate_type_params(&s.type_params, type_defs, aliases, trait_env)?;
         for field in &s.fields {

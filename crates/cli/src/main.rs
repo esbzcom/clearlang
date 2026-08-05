@@ -108,6 +108,9 @@ enum Commands {
         /// Include debug names in Wasm (name section)
         #[arg(long, default_value_t = false)]
         debug_names: bool,
+        /// Emit the canonical persistent-contract state schema JSON
+        #[arg(long, value_name = "FILE")]
+        emit_contract_state_schema: Option<PathBuf>,
         /// Emit verification conditions to JSON (see docs/proofs/vc-schema.md)
         #[arg(long, value_name = "FILE")]
         emit_vcs: Option<PathBuf>,
@@ -335,6 +338,7 @@ fn main() -> Result<()> {
             contract,
             validate,
             debug_names,
+            emit_contract_state_schema,
             emit_vcs,
             emit_proof,
             compiler_mode,
@@ -357,6 +361,7 @@ fn main() -> Result<()> {
                 contract,
                 validate,
                 debug_names,
+                emit_contract_state_schema,
                 emit_vcs,
                 emit_proof,
                 compiler_mode,

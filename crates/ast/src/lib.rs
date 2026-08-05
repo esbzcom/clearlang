@@ -46,6 +46,7 @@ pub struct ImportDecl {
 pub struct Program {
     pub module: Option<ModuleDecl>,
     pub imports: Vec<ImportDecl>,
+    pub contracts: Vec<ContractDecl>,
     pub refined_aliases: Vec<RefinedAlias>,
     pub resources: Vec<Resource>,
     pub structs: Vec<StructDecl>,
@@ -53,6 +54,15 @@ pub struct Program {
     pub traits: Vec<TraitDecl>,
     pub impls: Vec<ImplDecl>,
     pub funcs: Vec<Func>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContractDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub version: u32,
+    pub fields: Vec<StructField>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]

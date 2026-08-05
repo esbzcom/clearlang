@@ -36,6 +36,7 @@ mod strict_package_signatures;
 mod strict_preflight_input;
 pub(crate) mod strict_trust_policy;
 mod strict_validation;
+mod contract_state_schema;
 mod vcs_json;
 
 use strict::{
@@ -48,6 +49,7 @@ use strict_package_contract::StrictPackageContractV0;
 use strict_package_signatures::enforce_trust_gate_v0;
 use strict_preflight_input::load_required_strict_preflight_input_v0;
 use vcs_json::write_vcs_json;
+use contract_state_schema::write_contract_state_schema;
 
 const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
 

@@ -480,13 +480,13 @@ ClearLang aims to be:
 
 ## 6. Current Capabilities (Subset)
 
-- Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, contract clauses, resource declarations with drop blocks, and consume params.
+- Parsing: Int/Bool/String literals, namespaced calls, Option/Result with `match`, expression-form `if/else`, contract clauses, versioned persistent contract-state declarations, resource declarations with drop blocks, and consume params.
 
-- Typing: Effect lattice (`pure`/`mut`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, span-rich diagnostics (Txxx codes), and linear/resource tracking (`T801`-`T804`) with collection rejection (`T806`).
+- Typing: Effect lattice (`pure`/`mut`), persistable/unique contract-state field validation (`T820`/`T821`), Option/Result pattern typing plus `if let`/`??`/postfix `?`, collection APIs with structured errors, span-rich diagnostics (Txxx codes), and linear/resource tracking (`T801`-`T804`) with collection rejection (`T806`).
 
 - Codegen & runtime: IR->Wasm pipeline with string allocator/runtime traps (`R000`-`R002`), optional debug names, and `wasm-tools validate`.
 
-- CLI & tooling: primary UX contract is `check`/`test`/`release` (Gate C + Gate D slices). Shipped primary commands are `check`, `test`, and `release`. Additional deterministic quality/pro power commands (`fmt`, `parse`, `build`, `run`, `verify`) are retained; supports `--json-errors`, `--emit-vcs`, and Wasmtime-backed `run`. VSCode/plugin profile: `docs/ide/vscode-cli-profile.md`.
+- CLI & tooling: primary UX contract is `check`/`test`/`release` (Gate C + Gate D slices). Shipped primary commands are `check`, `test`, and `release`. Additional deterministic quality/pro power commands (`fmt`, `parse`, `build`, `run`, `verify`) are retained; supports `--json-errors`, `--emit-vcs`, `--emit-contract-state-schema`, and Wasmtime-backed `run`. VSCode/plugin profile: `docs/ide/vscode-cli-profile.md`.
 - Standard library package draft catalog: `docs/std/README.md`.
 
 Gate D testing references:

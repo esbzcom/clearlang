@@ -98,6 +98,7 @@ mod tests {
         Program {
             module: None,
             imports: Vec::new(),
+            contracts: Vec::new(),
             refined_aliases: Vec::new(),
             resources: Vec::new(),
             structs: Vec::new(),

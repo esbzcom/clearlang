@@ -5,6 +5,7 @@ pub fn run(
     contract: bool,
     validate: bool,
     debug_names: bool,
+    emit_contract_state_schema: Option<PathBuf>,
     emit_vcs: Option<PathBuf>,
     emit_proof: Option<PathBuf>,
     compiler_mode: CompilerMode,
@@ -203,6 +204,11 @@ pub fn run(
         mono_program,
         mangled_name_origins,
     } = type_output;
+
+    if let Some(schema_path) = emit_contract_state_schema.as_ref() {
+        let _stage = timings.start(logger, "emit_contract_state_schema");
+        write_contract_state_schema(&mono_program, schema_path)?;
+    }
     let vcs_before_solver = vcs.clone();
 
     let fail_build = |code: &'static str, message: &str, function: Option<String>| -> Result<()> {

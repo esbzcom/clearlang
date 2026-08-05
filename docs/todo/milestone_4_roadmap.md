@@ -22,10 +22,10 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
     Milestone 4 parent gate. (`docs/design/phase-30.0.1-milestone-4-gate-governance-lock.md`) `Completed: 2026-08-05`.
 
 - [ ] 30.1 Stateful contract semantics [Contract Gate A]
-  - [ ] 30.1.0 Lock the source-level contract state declaration, schema versioning, upgrade, and
-    migration policy before implementation.
-  - [ ] 30.1.1 Implement typed persistent state declarations and deterministic storage layout
-    artifacts.
+  - [x] 30.1.0 Lock the source-level contract state declaration, schema versioning, upgrade, and
+    migration policy before implementation. (`docs/design/phase-30.1.0-state-schema-and-migration-lock.md`) `Completed: 2026-08-05`.
+  - [x] 30.1.1 Implement typed persistent state declarations and deterministic storage layout
+    artifacts. (`crates/{ast,parser,typer,cli}`, `crates/parser/tests/parse_smoke.rs`, `crates/typer/tests/contracts.rs`) `Completed: 2026-08-05`.
   - [ ] 30.1.2 Implement `old(...)` snapshots in `ensure` clauses, including parser, typer, VC,
     solver encoding, diagnostics, and no-snapshot misuse rejection.
   - [ ] 30.1.3 Add state-transition and storage-invariant proof obligations with deterministic

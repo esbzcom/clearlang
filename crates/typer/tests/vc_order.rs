@@ -65,6 +65,7 @@ fn vcs_are_sorted_by_function_and_id() {
     let program = Program {
         module: None,
         imports: vec![],
+        contracts: vec![],
         refined_aliases: vec![],
         resources: vec![],
         structs: vec![],

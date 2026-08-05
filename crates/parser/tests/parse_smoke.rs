@@ -2,6 +2,32 @@ use clg_ast::{BinOp, Effect, Expr, ImportKind, Type, UnaryOp};
 use clg_parser::parse;
 
 #[test]
+fn parses_versioned_contract_state_declaration() {
+    let src = r#"
+        contract Vault version 7 {
+            state {
+                owner: Bytes;
+                total: U64;
+                balances: Map<Bytes, U64>;
+            }
+        }
+    "#;
+    let ast = parse(src).expect("parse contract state declaration");
+    assert_eq!(ast.contracts.len(), 1);
+    let contract = &ast.contracts[0];
+    assert_eq!(contract.name, "Vault");
+    assert_eq!(contract.version, 7);
+    assert_eq!(
+        contract
+            .fields
+            .iter()
+            .map(|field| field.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["owner", "total", "balances"]
+    );
+}
+
+#[test]
 fn parses_contract_clauses() {
     let src = r#"
         pure function inc(x: Int) -> Int

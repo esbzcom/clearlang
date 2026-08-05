@@ -214,6 +214,7 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
     let mut resolved = Program {
         module: None,
         imports: Vec::new(),
+        contracts: Vec::new(),
         refined_aliases: Vec::new(),
         resources: Vec::new(),
         structs: Vec::new(),
@@ -231,6 +232,7 @@ pub(super) fn load_program(entry: &Path, json_errors: bool) -> Result<ProgramLoa
     for module in &modules {
         let env = build_import_env(module, &modules_by_name, &package_index, json_errors)?;
         let mut program = resolve_program(module, &env);
+        resolved.contracts.append(&mut program.contracts);
         resolved
             .refined_aliases
             .append(&mut program.refined_aliases);

@@ -1,4 +1,5 @@
 use crate::alias::refined_alias_p;
+use crate::contract_decl::contract_p;
 use crate::enum_decl::enum_p;
 use crate::func::{func_p, ParsedFunc};
 use crate::impl_decl::{impl_p, ParsedImplDecl};
@@ -34,6 +35,7 @@ enum Item {
 #[derive(Debug)]
 enum TopLevel {
     Import(clg_ast::ImportDecl),
+    Contract(clg_ast::ContractDecl),
     Item(Box<Item>),
 }
 
@@ -104,6 +106,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
     let top_level = choice((
         import_decl_p().map(TopLevel::Import),
+        contract_p().map(TopLevel::Contract),
         exported_item.map(|item| TopLevel::Item(Box::new(item))),
         item.map(|item| TopLevel::Item(Box::new(item))),
     ));
@@ -113,6 +116,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
         .then(top_level.repeated().collect::<Vec<_>>())
         .map(|(module_decl, items)| {
             let mut refined_aliases = Vec::with_capacity(items.len());
+            let mut contracts = Vec::new();
             let mut funcs = Vec::with_capacity(items.len());
             let mut resources = Vec::with_capacity(items.len());
             let mut structs = Vec::with_capacity(items.len());
@@ -123,6 +127,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             for item in items {
                 match item {
                     TopLevel::Import(i) => imports.push(i),
+                    TopLevel::Contract(contract) => contracts.push(contract),
                     TopLevel::Item(item) => match *item {
                         Item::Alias(a) => refined_aliases.push(a),
                         Item::Func(f) => {
@@ -143,6 +148,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
             Program {
                 module: module_decl,
                 imports,
+                contracts,
                 refined_aliases,
                 resources,
                 structs,

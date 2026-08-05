@@ -30,6 +30,14 @@ pub(super) fn resolve_program(module: &ModuleUnit, env: &ImportEnv) -> clg_ast::
     program.module = None;
     program.imports.clear();
 
+    for contract in &mut program.contracts {
+        contract.name = qualify_name(prefix, &contract.name);
+        let params = HashSet::new();
+        for field in &mut contract.fields {
+            resolve_type(&mut field.ty, &ctx, &params);
+        }
+    }
+
     for alias in &mut program.refined_aliases {
         alias.name = qualify_name(prefix, &alias.name);
         let mut params = HashSet::new();

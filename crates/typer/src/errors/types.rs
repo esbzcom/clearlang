@@ -151,6 +151,32 @@ impl TyperError {
         )
     }
 
+    pub fn duplicate_contract_state_field(field: &str, span: Span) -> Self {
+        Self::new(
+            "T820",
+            format!(
+                "at {}..{}: duplicate contract state field `{}`",
+                span.start, span.end, field
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn invalid_contract_state_type(ty: &Type, span: Span) -> Self {
+        Self::new(
+            "T821",
+            format!(
+                "at {}..{}: contract state type `{}` is not persistable",
+                span.start,
+                span.end,
+                show_ty(ty.clone())
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn duplicate_enum_variant(variant: &str, span: Span) -> Self {
         Self::new(
             "T219",

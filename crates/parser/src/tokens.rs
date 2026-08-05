@@ -130,7 +130,8 @@ pub(crate) fn ident_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
             | "Option" | "Result" | "match" | "Some" | "None" | "Ok" | "Err" | "true" | "false"
             | "require" | "ensure" | "resource" | "struct" | "enum" | "interface"
             | "implementation" | "for" | "where" | "drop" | "consume" | "import" | "export"
-            | "module" | "as" => Err(Rich::custom(span, format!("`{s}` is a reserved keyword"))),
+            | "module" | "as" | "contract" | "state" | "version" | "init" | "old"
+            | "migrate" => Err(Rich::custom(span, format!("`{s}` is a reserved keyword"))),
             _ => Ok(s),
         })
         .padded()
@@ -159,7 +160,8 @@ pub(crate) fn func_name_p<'a>() -> impl Parser<'a, &'a str, String, ErrTy<'a>> {
             | "variant" | "Int" | "U8" | "U64" | "U128" | "U256" | "Bool" | "true" | "false"
             | "match" | "require" | "ensure" | "resource" | "struct" | "enum" | "interface"
             | "implementation" | "for" | "where" | "drop" | "consume" | "import" | "export"
-            | "module" | "as" => Err(Rich::custom(span, format!("`{s}` is a reserved keyword"))),
+            | "module" | "as" | "contract" | "state" | "version" | "init" | "old"
+            | "migrate" => Err(Rich::custom(span, format!("`{s}` is a reserved keyword"))),
             _ => Ok(s),
         })
         .padded()

@@ -18,8 +18,8 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
 - [ ] 30.0 Milestone 4 product and architecture lock [Planning Gate A]
   - [x] 30.0.0 Publish the governing product boundary, supported target decision, proof claim,
     non-goals, and exit criterion. (`docs/design/phase-30.0.0-milestone-4-production-contract-platform-lock.md`) `Completed: 2026-08-05`.
-  - [ ] 30.0.1 Define ownership, acceptance evidence, and release-gate dependencies for every
-    Milestone 4 parent gate.
+  - [x] 30.0.1 Define ownership, acceptance evidence, and release-gate dependencies for every
+    Milestone 4 parent gate. (`docs/design/phase-30.0.1-milestone-4-gate-governance-lock.md`) `Completed: 2026-08-05`.
 
 - [ ] 30.1 Stateful contract semantics [Contract Gate A]
   - [ ] 30.1.0 Lock the source-level contract state declaration, schema versioning, upgrade, and

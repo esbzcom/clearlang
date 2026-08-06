@@ -171,6 +171,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | T820 | type | Duplicate contract state field. |
 | T821 | type | Contract state type is not persistable (for example, a function value or resource). |
 | T822 | type | Contract state write outside a `mut` contract transition. |
+| T823 | type | Illegal `old(...)` scope or non-state-rooted snapshot expression. |
 | T901 | type | While loops in pure functions require a variant for totality. |
 | T902 | type | Recursive call requires a decreasing measure. |
 | T903 | type | Loop variant is not decreasing. |

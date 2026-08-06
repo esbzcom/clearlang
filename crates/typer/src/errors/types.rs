@@ -3,6 +3,18 @@ use crate::check::show_ty;
 use clg_ast::{Span, Type};
 
 impl TyperError {
+    pub fn old_expression_not_allowed(span: Span) -> Self {
+        Self::new(
+            "T823",
+            format!(
+                "at {}..{}: `old(...)` is allowed only for a state-rooted expression in an `ensure` clause",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn state_write_not_allowed(span: Span) -> Self {
         Self::new(
             "T822",

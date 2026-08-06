@@ -46,7 +46,9 @@ fn compute_max_id(f: &IrFunction, params_len: u32) -> u32 {
                 max_id = max_id.max(dst.0).max(size.0);
             }
             IrInstr::Load { dst, ptr, .. } => max_id = max_id.max(dst.0).max(ptr.0),
+            IrInstr::StateRead { dst, .. } => max_id = max_id.max(dst.0),
             IrInstr::Store { ptr, src, .. } => max_id = max_id.max(ptr.0).max(src.0),
+            IrInstr::StateWrite { src, .. } => max_id = max_id.max(src.0),
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
@@ -180,6 +182,13 @@ fn emit_instruction(
         } => {
             memory::emit_load(insts, *dst, *ptr, *offset, *ty);
         }
+        IrInstr::StateRead {
+            contract, field, ..
+        } => {
+            anyhow::bail!(
+                "Wasm backend has no contract state adapter for read `{contract}.{field}`"
+            )
+        }
         IrInstr::Store {
             ptr,
             src,
@@ -187,6 +196,13 @@ fn emit_instruction(
             ty,
         } => {
             memory::emit_store(insts, *ptr, *src, *offset, *ty);
+        }
+        IrInstr::StateWrite {
+            contract, field, ..
+        } => {
+            anyhow::bail!(
+                "Wasm backend has no contract state adapter for write `{contract}.{field}`"
+            )
         }
         IrInstr::IBin {
             dst,

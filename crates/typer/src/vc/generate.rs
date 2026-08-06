@@ -1,5 +1,6 @@
 use crate::guards::{collect_mut_calls, guard_callee_for_kind, MutCall};
-use clg_ast::{BinOp, Block, Effect, Expr, Func, Program, Span, Stmt, Type};
+use clg_ast::{BinOp, Block, ContractDecl, Effect, Expr, Func, Program, Span, Stmt, Type};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use super::{
@@ -40,6 +41,9 @@ const ASSUMPTION_PRIMITIVE_MESSAGE: &str =
     "Primitive std dependencies are not formally proved and are treated as assumed boundaries.";
 const ASSUMPTION_EXTERNAL_MESSAGE: &str =
     "External imported dependencies are outside the current proof kernel and are treated as assumed boundaries.";
+const ASSUMPTION_STATE_TRANSITION_ID: &str = "contract.state.transition.adapter";
+const ASSUMPTION_STATE_TRANSITION_MESSAGE: &str =
+    "Contract state transition symbols are emitted, but their target adapter and solver semantics are not yet proved.";
 
 pub fn generate_vcs(program: &Program) -> Vec<VerificationCondition> {
     generate_vcs_with_dependencies(program, &AssumptionDependencies::default())
@@ -433,9 +437,192 @@ pub fn generate_vcs_with_dependencies(
                 });
             }
         }
+
+        if matches!(func.effect, Effect::Mut) {
+            if let Some(contract) = contract_for_function(program, func) {
+                out.push(state_transition_vc(func, contract));
+            }
+        }
     }
     out.sort_by(|a, b| a.function.cmp(&b.function).then(a.vc_id.cmp(&b.vc_id)));
     out
+}
+
+fn contract_for_function<'a>(program: &'a Program, func: &Func) -> Option<&'a ContractDecl> {
+    program.contracts.iter().find(|contract| {
+        contract
+            .functions
+            .iter()
+            .any(|member| member.name == func.name)
+    })
+}
+
+fn state_field_id(contract: &ContractDecl, field_name: &str) -> String {
+    let input = format!(
+        "clg.contract-state-field.v1\0{}\0{field_name}",
+        contract.name
+    );
+    format!("sha256:{:x}", Sha256::digest(input.as_bytes()))
+}
+
+fn smt_state_symbol(phase: &str, field_id: &str) -> String {
+    format!("|clg.state.{phase}.{field_id}|")
+}
+
+fn collect_state_writes(expr: &Expr, writes: &mut HashSet<String>) {
+    match expr {
+        Expr::Call { callee, args, .. } => {
+            if let Some(field) = callee.strip_prefix("__clg_state_write$") {
+                writes.insert(field.to_string());
+            }
+            for arg in args {
+                collect_state_writes(arg, writes);
+            }
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => {
+            for elem in elems {
+                collect_state_writes(elem, writes);
+            }
+        }
+        Expr::StructLit { fields, .. } => {
+            for field in fields {
+                collect_state_writes(&field.expr, writes);
+            }
+        }
+        Expr::FieldAccess { base, .. }
+        | Expr::Unary { expr: base, .. }
+        | Expr::Return { expr: base, .. }
+        | Expr::Try { expr: base, .. } => collect_state_writes(base, writes),
+        Expr::Index { base, index, .. }
+        | Expr::Bin {
+            lhs: base,
+            rhs: index,
+            ..
+        } => {
+            collect_state_writes(base, writes);
+            collect_state_writes(index, writes);
+        }
+        Expr::Block { block } => {
+            for stmt in &block.statements {
+                match stmt {
+                    Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                        collect_state_writes(expr, writes)
+                    }
+                    Stmt::While {
+                        cond,
+                        invariant,
+                        variant,
+                        body,
+                        ..
+                    } => {
+                        collect_state_writes(cond, writes);
+                        collect_state_writes(invariant, writes);
+                        if let Some(variant) = variant {
+                            collect_state_writes(variant, writes);
+                        }
+                        collect_state_writes(
+                            &Expr::Block {
+                                block: body.clone(),
+                            },
+                            writes,
+                        );
+                    }
+                }
+            }
+            if let Some(tail) = &block.tail {
+                collect_state_writes(tail, writes);
+            }
+        }
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            collect_state_writes(cond, writes);
+            collect_state_writes(then_br, writes);
+            collect_state_writes(else_br, writes);
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            collect_state_writes(scrutinee, writes);
+            for arm in arms {
+                collect_state_writes(&arm.expr, writes);
+            }
+        }
+        Expr::Lambda { body, .. } => collect_state_writes(body, writes),
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => {}
+    }
+}
+
+fn state_transition_vc(func: &Func, contract: &ContractDecl) -> VerificationCondition {
+    let mut writes = HashSet::new();
+    collect_state_writes(&func.body, &mut writes);
+    let mut declarations = Vec::new();
+    let mut rendered_fields = Vec::new();
+    let mut frame_conditions = Vec::new();
+    for field in &contract.fields {
+        let field_id = state_field_id(contract, &field.name);
+        let pre = smt_state_symbol("pre", &field_id);
+        let post = smt_state_symbol("post", &field_id);
+        let sort = smt_sort_for_type(&field.ty, &HashMap::new());
+        declarations.push(format!("(declare-const {pre} {sort})"));
+        declarations.push(format!("(declare-const {post} {sort})"));
+        rendered_fields.push(format!("{}: pre={}, post={}", field.name, pre, post));
+        if !writes.contains(&field.name) {
+            frame_conditions.push(format!("(= {post} {pre})"));
+        }
+    }
+    let post_smt = if frame_conditions.is_empty() {
+        "true".to_string()
+    } else if frame_conditions.len() == 1 {
+        frame_conditions.remove(0)
+    } else {
+        format!("(and {})", frame_conditions.join(" "))
+    };
+    let vc_smt2 = format!(
+        "(set-logic ALL)\n{}\n(assert {})\n(check-sat)",
+        declarations.join("\n"),
+        post_smt
+    );
+    VerificationCondition {
+        function: func.name.clone(),
+        vc_id: "state-transition:0".to_string(),
+        pre: ContractExpr {
+            ast: format!("state entry [{}]", rendered_fields.join(", ")),
+            smt2: "true".to_string(),
+            span: None,
+        },
+        post: ContractExpr {
+            ast: format!(
+                "state exit [{}]; writes [{}]",
+                rendered_fields.join(", "),
+                writes
+                    .into_iter()
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            smt2: post_smt,
+            span: None,
+        },
+        vc_smt2,
+        status: "generated",
+        refinements: Vec::new(),
+        assumptions: vec![AssumptionBoundary {
+            id: ASSUMPTION_STATE_TRANSITION_ID,
+            category: AssumptionCategory::Primitive,
+            status: ASSUMPTION_STATUS_ASSUMED,
+            message: ASSUMPTION_STATE_TRANSITION_MESSAGE,
+            symbols: contract
+                .fields
+                .iter()
+                .map(|field| state_field_id(contract, &field.name))
+                .collect(),
+        }],
+    }
 }
 
 fn wrap_vc_with_extra(encoder: &SmtEncoder, body: &str, extra: &str) -> String {

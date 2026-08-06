@@ -48,6 +48,9 @@ pub(super) fn infer_value_types(
             IrInstr::Load { dst, ty, .. } => {
                 set_type(&mut types, *dst, val_type_for_ir(*ty))?;
             }
+            IrInstr::StateRead { dst, ty, .. } => {
+                set_type(&mut types, *dst, val_type_for_ir(*ty))?;
+            }
             IrInstr::IBin { dst, op, ty, .. } => {
                 let res_ty = match op {
                     BinOpIR::Add
@@ -125,6 +128,7 @@ pub(super) fn infer_value_types(
             IrInstr::Guard { .. }
             | IrInstr::ReturnIf { .. }
             | IrInstr::Store { .. }
+            | IrInstr::StateWrite { .. }
             | IrInstr::BrIf { .. }
             | IrInstr::BrIfEqz { .. }
             | IrInstr::BlockBegin

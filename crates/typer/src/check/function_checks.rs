@@ -112,6 +112,13 @@ pub(super) fn check_func<'a>(
     }
     for ens in &f.ensures {
         let mut ensure_tracker = tracker.clone();
+        ensure_env.insert(
+            "__clg_old_cap",
+            LocalBinding {
+                ty: Type::Bool,
+                kind: ParamKind::Borrow,
+            },
+        );
         let ty = type_of(
             &ens.expr,
             &ensure_env,
@@ -129,6 +136,7 @@ pub(super) fn check_func<'a>(
             return Err(TyperError::contract_not_bool("ensure", ty, ens.span).into());
         }
         max_effect(&ens.expr, fns, trait_env, EffectLevel::Pure)?;
+        ensure_env.remove("__clg_old_cap");
     }
 
     let body_ty = type_of(

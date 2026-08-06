@@ -41,3 +41,4 @@ This document tracks the current design-lock references.
 - `docs/design/phase-30.0.1-milestone-4-gate-governance-lock.md`
 - `docs/design/phase-30.1.0-state-schema-and-migration-lock.md`
 - `docs/design/phase-30.1.1.1-contract-state-binding-lock.md`
+- `docs/design/phase-30.1.1.2-state-transition-vc-ir-lock.md`

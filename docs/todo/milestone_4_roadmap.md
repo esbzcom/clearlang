@@ -26,10 +26,19 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
     migration policy before implementation. (`docs/design/phase-30.1.0-state-schema-and-migration-lock.md`) `Completed: 2026-08-05`.
   - [x] 30.1.1 Implement typed persistent state declarations and deterministic storage layout
     artifacts. (`crates/{ast,parser,typer,cli}`, `crates/parser/tests/parse_smoke.rs`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
-  - [ ] 30.1.1.1 Bind declared `state.<field>` values into contract-function typing and add
+  - [x] 30.1.1.1 Bind declared `state.<field>` values into contract-function typing and add
     deterministic read/write lowering hooks. This is required before `old(...)` can represent a
     true pre-state rather than an alias for an immutable parameter.
-    (`docs/design/phase-30.1.1.1-contract-state-binding-lock.md`)
+    (`docs/design/phase-30.1.1.1-contract-state-binding-lock.md`, `crates/{ast,parser,typer}`) `Completed: 2026-08-05`.
+  - [x] 30.1.1.2 Add target-neutral pre-state/post-state transition symbols to IR and VC
+    artifacts. This must distinguish entry and exit storage before solver encoding of
+    `old(...)`; target backends remain fail-closed until an adapter consumes these operations.
+    (`docs/design/phase-30.1.1.2-state-transition-vc-ir-lock.md`, `crates/{ir,typer,codegen-wasm}`) `Completed: 2026-08-05`.
+    - [x] 30.1.1.2.1 Emit deterministic pre/post state symbols, ordered writes, and scalar
+      frame conditions in generated VCs, with an explicit non-release-grade assumption boundary.
+      (`crates/typer/src/vc/generate.rs`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
+    - [x] 30.1.1.2.2 Lower state reads/writes to target-neutral IR operations and make every
+      backend without a matching state adapter reject them deterministically. (`crates/{ir,typer,codegen-wasm}`, `crates/codegen-wasm/tests/contract_state_ops.rs`) `Completed: 2026-08-05`.
   - [ ] 30.1.2 Implement `old(...)` snapshots in `ensure` clauses, including parser, typer, VC,
     solver encoding, diagnostics, and no-snapshot misuse rejection.
   - [ ] 30.1.3 Add state-transition and storage-invariant proof obligations with deterministic

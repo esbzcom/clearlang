@@ -241,6 +241,18 @@ pub enum Instr {
         callee: u32,
         args: Vec<Value>,
     },
+    StateRead {
+        dst: Value,
+        contract: String,
+        field: String,
+        ty: IrType,
+    },
+    StateWrite {
+        contract: String,
+        field: String,
+        src: Value,
+        ty: IrType,
+    },
     BlockBegin,
     BlockEnd,
     LoopBegin,

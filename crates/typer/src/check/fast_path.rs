@@ -396,6 +396,12 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
             &trait_env,
             &type_defs,
             std_types,
+            mono_program.contracts.iter().find(|contract| {
+                contract
+                    .functions
+                    .iter()
+                    .any(|member| member.name == f.name)
+            }),
             &mut next_closure_code_id,
         )?;
         lowered_funcs.push(lowered.function);

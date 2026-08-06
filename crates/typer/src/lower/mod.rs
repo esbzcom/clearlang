@@ -1,9 +1,9 @@
 use crate::check::{
-    base_type, AliasMap, BoundsMap, FnSig as CheckFnSig, LocalBinding, StdTypeMap, TraitEnv,
-    TypeDefs,
+    base_type, infer_expr_type, AliasMap, BoundsMap, FnSig as CheckFnSig, LocalBinding, StdTypeMap,
+    TraitEnv, TypeDefs,
 };
 use anyhow::Result;
-use clg_ast::{Expr, Func, ParamKind, Type};
+use clg_ast::{ContractDecl, Expr, Func, ParamKind, Type};
 use clg_ir::{
     Function as IrFunction, GuardKind, Instr, IrType, TrapCode, Value, VariantKind, VariantParts,
 };
@@ -439,6 +439,7 @@ pub(crate) struct LowerCtx<'a> {
     pub generated_functions: Vec<IrFunction>,
     pub lambda_cases: Vec<LambdaDispatchCase>,
     pub dispatcher_patches: Vec<DispatcherCallPatch>,
+    pub state_contract: Option<&'a ContractDecl>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -450,6 +451,7 @@ pub(crate) fn lower_func<'a>(
     trait_env: &'a TraitEnv<'a>,
     type_defs: &'a TypeDefs<'a>,
     std_types: &'a StdTypeMap,
+    state_contract: Option<&'a ContractDecl>,
     next_closure_code_id: &mut u32,
 ) -> Result<LoweredFuncArtifacts> {
     let mut env: HashMap<&str, Value> = HashMap::new();
@@ -461,6 +463,18 @@ pub(crate) fn lower_func<'a>(
             kind: ParamKind::Borrow,
         },
     );
+    if let Some(contract) = state_contract {
+        type_env.insert(
+            "state",
+            LocalBinding {
+                ty: Type::Named {
+                    name: crate::check::contract_state_type_name(&contract.name),
+                    args: Vec::new(),
+                },
+                kind: ParamKind::Borrow,
+            },
+        );
+    }
     for (i, p) in f.params.iter().enumerate() {
         env.insert(p.name.as_str(), Value(i as u32));
         type_env.insert(
@@ -498,6 +512,7 @@ pub(crate) fn lower_func<'a>(
         generated_functions: Vec::new(),
         lambda_cases: Vec::new(),
         dispatcher_patches: Vec::new(),
+        state_contract,
     };
 
     for (i, p) in f.params.iter().enumerate() {
@@ -566,9 +581,27 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         } => lower_struct_lit(ctx, e, fields),
         Expr::FieldAccess { base, field, .. } if matches!(base.as_ref(), Expr::Var(name, _) if name == "state") =>
         {
-            anyhow::bail!(
-                "stateful contract lowering is unavailable until the selected target provides a contract state adapter (field `{field}`)"
-            )
+            let contract = ctx
+                .state_contract
+                .ok_or_else(|| anyhow::anyhow!("state access without contract lowering context"))?;
+            let ty = infer_expr_type(
+                e,
+                &ctx.type_env,
+                &ctx.fns,
+                ctx.trait_env,
+                ctx.aliases,
+                ctx.type_defs,
+                &ctx.type_params,
+                &ctx.bounds,
+            )?;
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::StateRead {
+                dst,
+                contract: contract.name.clone(),
+                field: field.clone(),
+                ty: ir_ty(ty),
+            });
+            Ok(dst)
         }
         Expr::FieldAccess { base, field, .. } => lower_field_access(ctx, base, field.as_str()),
         Expr::Unary { .. } => lower_unary_expr(),
@@ -588,9 +621,23 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
         Expr::Call { callee, args, .. } => {
             if callee.starts_with("__clg_state_write$") {
                 let field = callee.trim_start_matches("__clg_state_write$");
-                anyhow::bail!(
-                    "stateful contract lowering is unavailable until the selected target provides a contract state adapter (field `{field}`)"
-                )
+                let contract = ctx.state_contract.ok_or_else(|| {
+                    anyhow::anyhow!("state write without contract lowering context")
+                })?;
+                let value = lower_expr(ctx, &args[0], None)?;
+                let field_ty = contract
+                    .fields
+                    .iter()
+                    .find(|candidate| candidate.name == field)
+                    .map(|candidate| candidate.ty.clone())
+                    .ok_or_else(|| anyhow::anyhow!("unknown contract state field `{field}`"))?;
+                ctx.body.push(Instr::StateWrite {
+                    contract: contract.name.clone(),
+                    field: field.to_string(),
+                    src: value,
+                    ty: ir_ty(field_ty),
+                });
+                return Ok(value);
             }
             lower_call_expr(ctx, e, callee.as_str(), args, expected.as_ref())
         }

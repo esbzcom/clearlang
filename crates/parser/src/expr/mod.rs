@@ -104,6 +104,15 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
                 }
             });
 
+        let old_expr = kw("old")
+            .then(call_args.clone())
+            .map_with(|(_, args), e| Expr::Call {
+                callee: "__clg_old".to_string(),
+                type_args: Vec::new(),
+                args,
+                span: to_span(e.span()),
+            });
+
         let ret_expr = just("return")
             .padded()
             .ignore_then(expr.clone())
@@ -293,6 +302,7 @@ pub(crate) fn expr_p<'a>() -> impl Parser<'a, &'a str, Expr, ErrTy<'a>> {
             if_expr,
             ctor_call,
             unsigned_cast,
+            old_expr,
             call_expr,
             state_field_expr,
             var_expr,

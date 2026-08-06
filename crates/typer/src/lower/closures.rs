@@ -312,6 +312,7 @@ pub(super) fn lower_lambda_expr<'a>(
         generated_functions: Vec::new(),
         lambda_cases: Vec::new(),
         dispatcher_patches: Vec::new(),
+        state_contract: None,
     };
 
     if let Some(layout) = &capture_layout {

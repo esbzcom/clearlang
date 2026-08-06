@@ -454,6 +454,25 @@ pub(crate) fn type_of<'a>(
             args,
             type_args,
             span,
+        } if callee == "__clg_old" => type_old_expr(
+            args,
+            type_args,
+            *span,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth,
+        ),
+        Expr::Call {
+            callee,
+            args,
+            type_args,
+            span,
         } if callee.starts_with("__clg_state_write$") => type_state_write_expr(
             callee,
             args,
@@ -506,6 +525,47 @@ pub(crate) fn type_of<'a>(
             depth,
         ),
     }
+}
+
+fn is_state_rooted(expr: &Expr) -> bool {
+    match expr {
+        Expr::FieldAccess { base, .. } => matches!(base.as_ref(), Expr::Var(name, _) if name == "state"),
+        Expr::Index { base, .. } => is_state_rooted(base),
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn type_old_expr<'a>(
+    args: &'a [Expr],
+    type_args: &[Type],
+    span: Span,
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
+    depth: usize,
+) -> Result<Type> {
+    if !env.contains_key("__clg_old_cap") || !type_args.is_empty() || args.len() != 1 || !is_state_rooted(&args[0]) {
+        return Err(TyperError::old_expression_not_allowed(span).into());
+    }
+    type_of(
+        &args[0],
+        env,
+        tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        type_params,
+        bounds,
+        depth + 1,
+        None,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

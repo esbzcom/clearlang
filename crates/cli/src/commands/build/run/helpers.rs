@@ -40,6 +40,41 @@ fn strict_import_map_source_files(module_root: &Path, source_files: &[PathBuf]) 
     out
 }
 
+fn contract_source_graph_identity(
+    module_root: &Path,
+    source_files: &[PathBuf],
+) -> Result<serde_json::Value> {
+    use serde_json::json;
+
+    let canonical_root = module_root
+        .canonicalize()
+        .unwrap_or_else(|_| module_root.to_path_buf());
+    let mut files = source_files
+        .iter()
+        .map(|source| {
+            let relative = source.strip_prefix(canonical_root.as_path()).unwrap_or(source);
+            let path = normalize_path_for_report(relative);
+            let bytes = fs::read(source)
+                .with_context(|| format!("read loaded contract source `{}`", source.display()))?;
+            Ok(json!({
+                "digest": format!("sha256:{}", sha256_hex(bytes.as_slice())),
+                "path": path,
+            }))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    files.sort_by(|left, right| left["path"].as_str().cmp(&right["path"].as_str()));
+    files.dedup_by(|left, right| left["path"] == right["path"]);
+    let identity = json!({
+        "algorithm": "clg.loaded-source-graph.v1",
+        "files": files,
+    });
+    Ok(json!({
+        "algorithm": identity["algorithm"].clone(),
+        "digest": format!("sha256:{}", sha256_hex(canonical_json_bytes(&identity).as_slice())),
+        "files": identity["files"].clone(),
+    }))
+}
+
 fn release_module_graph_test_path_violation(
     module_root: &Path,
     source_files: &[PathBuf],

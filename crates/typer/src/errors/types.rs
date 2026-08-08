@@ -201,6 +201,104 @@ impl TyperError {
         )
     }
 
+    pub fn duplicate_contract_event(event: &str, span: Span) -> Self {
+        Self::new(
+            "T824",
+            format!(
+                "at {}..{}: duplicate contract event `{}`",
+                span.start, span.end, event
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn duplicate_contract_event_field(field: &str, span: Span) -> Self {
+        Self::new(
+            "T825",
+            format!(
+                "at {}..{}: duplicate contract event field `{}`",
+                span.start, span.end, field
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn invalid_contract_event_type(ty: &Type, span: Span) -> Self {
+        Self::new(
+            "T826",
+            format!(
+                "at {}..{}: contract event field type `{}` is not serializable",
+                span.start,
+                span.end,
+                show_ty(ty.clone())
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn contract_event_emit_not_allowed(span: Span) -> Self {
+        Self::new(
+            "T827",
+            format!(
+                "at {}..{}: event emission is allowed only in a mut function owned by the declaring contract",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn invalid_migration_schema_digest(span: Span) -> Self {
+        Self::new(
+            "T828",
+            format!(
+                "at {}..{}: migration `from schema` must be a sha256 digest",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn contract_init_incomplete(field: &str, span: Span) -> Self {
+        Self::new(
+            "T829",
+            format!(
+                "at {}..{}: contract init must initialize declared state field `{}` on every successful path",
+                span.start, span.end, field
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn external_call_not_allowed(span: Span) -> Self {
+        Self::new(
+            "T830",
+            format!(
+                "at {}..{}: external calls are allowed only in a contract-owned mut transition",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
+    pub fn external_call_abi_not_supported(interface: &str, method: &str, span: Span) -> Self {
+        Self::new(
+            "T831",
+            format!(
+                "at {}..{}: external call target `{}.{}` is not a declared interface method",
+                span.start, span.end, interface, method
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn duplicate_enum_variant(variant: &str, span: Span) -> Self {
         Self::new(
             "T219",

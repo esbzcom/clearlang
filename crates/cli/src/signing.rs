@@ -162,6 +162,7 @@ pub fn sign_bundle(
     proof_artifact_hash: Option<&str>,
     solver_profile_hash: Option<&str>,
     solver_profile: Option<&serde_json::Value>,
+    source_graph: Option<&serde_json::Value>,
 ) -> Result<()> {
     let signing = load_signing_key(key_path)?;
     let mut payload_value = package.build_signing_payload(module_hash_hex, scope, timestamp);
@@ -207,6 +208,12 @@ pub fn sign_bundle(
             .as_object_mut()
             .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?
             .insert("solver_profile".to_string(), profile.clone());
+    }
+    if let Some(source_graph) = source_graph {
+        payload_value
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?
+            .insert("source_graph".to_string(), source_graph.clone());
     }
     let (sig_hex, _) = sign_payload(&signing, &payload_value);
     let sig_file = SignatureFile {

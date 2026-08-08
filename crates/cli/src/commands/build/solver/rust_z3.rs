@@ -3,7 +3,7 @@ fn rust_z3_lib_outcome_for_vc(
     options: &[SolverOption],
     per_vc_timeout_ms: u64,
     vc: &VerificationCondition,
-) -> std::result::Result<&'static str, RustZ3ExecError> {
+) -> std::result::Result<SolverOutcome, RustZ3ExecError> {
     let (prelude, body) = split_vc_formula(&vc.vc_smt2);
     let mut script = String::new();
     if !prelude.is_empty() {
@@ -25,14 +25,23 @@ fn rust_z3_lib_outcome_for_vc(
         solver.from_string(script.as_str());
 
         match solver.check() {
-            Z3SatResult::Unsat => Ok("proved"),
-            Z3SatResult::Sat => Ok("failed"),
+            Z3SatResult::Unsat => Ok(SolverOutcome {
+                status: "proved",
+                counterexample: None,
+            }),
+            Z3SatResult::Sat => Ok(SolverOutcome {
+                status: "failed",
+                counterexample: solver.get_model().map(|model| model.to_string()),
+            }),
             Z3SatResult::Unknown => {
                 let reason = solver.get_reason_unknown().unwrap_or_default();
                 if reason.to_ascii_lowercase().contains("timeout") {
                     Err(RustZ3ExecError::TimedOut)
                 } else {
-                    Ok("unknown")
+                    Ok(SolverOutcome {
+                        status: "unknown",
+                        counterexample: None,
+                    })
                 }
             }
         }

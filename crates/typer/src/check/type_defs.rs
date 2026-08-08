@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clg_ast::{EnumVariant, Program, StructField};
+use clg_ast::{EnumVariant, EventDecl, Program, StructField};
 use std::collections::{HashMap, HashSet};
 
 use super::{EnumInfo, StructInfo, TypeDefs};
@@ -25,6 +25,8 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
     let mut enums: HashMap<&str, EnumInfo<'_>> = HashMap::with_capacity(program.enums.len());
     let mut contract_states: HashMap<&str, HashMap<&str, &StructField>> =
         HashMap::with_capacity(program.contracts.len());
+    let mut contract_events: HashMap<&str, HashMap<&str, &EventDecl>> =
+        HashMap::with_capacity(program.contracts.len());
 
     for contract in &program.contracts {
         let fields = contract
@@ -33,6 +35,12 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
             .map(|field| (field.name.as_str(), field))
             .collect();
         contract_states.insert(contract.name.as_str(), fields);
+        let events = contract
+            .events
+            .iter()
+            .map(|event| (event.name.as_str(), event))
+            .collect();
+        contract_events.insert(contract.name.as_str(), events);
     }
 
     for s in &program.structs {
@@ -86,5 +94,6 @@ pub(super) fn build_type_defs(program: &Program) -> Result<TypeDefs<'_>> {
         structs,
         enums,
         contract_states,
+        contract_events,
     })
 }

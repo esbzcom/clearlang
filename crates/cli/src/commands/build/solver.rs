@@ -45,6 +45,12 @@ enum SolverBackendKind {
     RustZ3Lib,
 }
 
+#[derive(Debug, Clone)]
+struct SolverOutcome {
+    status: &'static str,
+    counterexample: Option<String>,
+}
+
 include!("solver/backend.rs");
 include!("solver/discovery.rs");
 include!("solver/integrity.rs");

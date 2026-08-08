@@ -49,6 +49,16 @@ fn compute_max_id(f: &IrFunction, params_len: u32) -> u32 {
             IrInstr::StateRead { dst, .. } => max_id = max_id.max(dst.0),
             IrInstr::Store { ptr, src, .. } => max_id = max_id.max(ptr.0).max(src.0),
             IrInstr::StateWrite { src, .. } => max_id = max_id.max(src.0),
+            IrInstr::EventEmit { args, .. } => {
+                for arg in args {
+                    max_id = max_id.max(arg.0);
+                }
+            }
+            IrInstr::ExternalCall { args, .. } => {
+                for arg in args {
+                    max_id = max_id.max(arg.0);
+                }
+            }
             IrInstr::IBin { dst, lhs, rhs, .. } => {
                 max_id = max_id.max(dst.0).max(lhs.0).max(rhs.0);
             }
@@ -204,6 +214,19 @@ fn emit_instruction(
                 "Wasm backend has no contract state adapter for write `{contract}.{field}`"
             )
         }
+        IrInstr::EventEmit {
+            contract, event, ..
+        } => anyhow::bail!(
+            "Wasm backend has no contract event adapter for emit `{contract}.{event}`"
+        ),
+        IrInstr::ExternalCall {
+            contract,
+            interface,
+            method,
+            ..
+        } => anyhow::bail!(
+            "Wasm backend has no external call adapter for `{contract}` calling `{interface}.{method}`"
+        ),
         IrInstr::IBin {
             dst,
             op,

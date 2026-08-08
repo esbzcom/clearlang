@@ -62,7 +62,34 @@ pub struct ContractDecl {
     pub name_span: Span,
     pub version: u32,
     pub fields: Vec<StructField>,
+    pub events: Vec<EventDecl>,
+    pub invariants: Vec<Contract>,
+    pub init: Option<ContractInitDecl>,
+    pub migration: Option<MigrationDecl>,
     pub functions: Vec<Func>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContractInitDecl {
+    pub params: Vec<Param>,
+    pub body: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct MigrationDecl {
+    pub from_schema: String,
+    pub from_schema_span: Span,
+    pub body: Expr,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct EventDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub fields: Vec<StructField>,
     pub span: Span,
 }
 

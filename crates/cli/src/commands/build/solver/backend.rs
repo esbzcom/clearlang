@@ -114,7 +114,10 @@ fn apply_external_z3_cli_solver_outcomes(vcs: &mut [VerificationCondition]) -> R
         let remaining_ms = profile.total_timeout_ms.saturating_sub(elapsed_ms);
         let per_vc_timeout_ms = profile.per_vc_timeout_ms.min(remaining_ms);
         match solver_outcome_for_vc(&solver_bin, &profile.options, per_vc_timeout_ms, vc) {
-            Ok(status) => vc.status = status,
+            Ok(outcome) => {
+                vc.status = outcome.status;
+                vc.counterexample = outcome.counterexample;
+            }
             Err(SolverExecError::Unavailable) => {
                 // Keep existing "generated" status when solver cannot be launched.
                 return Ok(());
@@ -156,7 +159,10 @@ fn apply_rust_z3_lib_solver_outcomes(vcs: &mut [VerificationCondition]) -> Resul
         let remaining_ms = profile.total_timeout_ms.saturating_sub(elapsed_ms);
         let per_vc_timeout_ms = profile.per_vc_timeout_ms.min(remaining_ms);
         match rust_z3_lib_outcome_for_vc(&profile.options, per_vc_timeout_ms, vc) {
-            Ok(status) => vc.status = status,
+            Ok(outcome) => {
+                vc.status = outcome.status;
+                vc.counterexample = outcome.counterexample;
+            }
             Err(RustZ3ExecError::TimedOut) => vc.status = "timeout",
             Err(RustZ3ExecError::InvocationFailed) => vc.status = "unknown",
         }

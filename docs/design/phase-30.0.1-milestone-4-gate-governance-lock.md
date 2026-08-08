@@ -50,6 +50,15 @@ Implementation within `30.1` may begin after its own design lock. `30.2`, `30.3`
 may execute in parallel only after their listed design dependencies are locked. `30.6` is strictly
 last: partial evidence from any predecessor is not sufficient.
 
+## Contract Gate A Sequencing Adjustment
+
+The final proof-closure work in `30.1` requires executable target-state and solver semantics.
+Accordingly, the narrow `30.3.0.1` state/event adapter and solver bridge is promoted ahead of
+`30.1.3.2` and `30.1.5.3`. Its scope is limited to `StateRead`, `StateWrite`, and `EventEmit`,
+deterministic counterexamples, and fail-closed treatment of `ExternalCall`; deployment, RPC, and
+general EVM execution remain deferred. Once that slice is complete, the two `30.1` proof-closure
+items must complete before the remaining reentrancy and full target/simulator work proceeds.
+
 ## Evidence Contract
 
 Each parent gate must contribute an entry to `docs/evidence/milestone_4-contract-platform.md`

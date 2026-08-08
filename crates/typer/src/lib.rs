@@ -16,8 +16,8 @@ pub use check::{
 };
 pub use errors::TyperError;
 pub use vc::{
-    generate_vcs, generate_vcs_with_dependencies, AssumptionBoundary, AssumptionCategory,
-    AssumptionDependencies, ContractExpr, ExprSnapshot, RefinementAttachment,
+    expr_to_source, generate_vcs, generate_vcs_with_dependencies, AssumptionBoundary,
+    AssumptionCategory, AssumptionDependencies, ContractExpr, ExprSnapshot, RefinementAttachment,
     RefinementAttachmentDetail, RefinementAttachmentKind, RefinementFlowDetail, RefinementFlowKind,
     RefinementPremise, VerificationCondition,
 };

@@ -253,6 +253,17 @@ pub enum Instr {
         src: Value,
         ty: IrType,
     },
+    EventEmit {
+        contract: String,
+        event: String,
+        args: Vec<Value>,
+    },
+    ExternalCall {
+        contract: String,
+        interface: String,
+        method: String,
+        args: Vec<Value>,
+    },
     BlockBegin,
     BlockEnd,
     LoopBegin,

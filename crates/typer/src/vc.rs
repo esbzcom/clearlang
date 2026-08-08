@@ -6,10 +6,10 @@ mod smt;
 mod source;
 
 pub use generate::{generate_vcs, generate_vcs_with_dependencies, AssumptionDependencies};
+pub use source::expr_to_source;
 
 use clg_ast::{Expr, Span, Type};
 use smt::SmtEncoder;
-use source::expr_to_source;
 
 #[derive(Debug, Clone)]
 pub struct ContractExpr {
@@ -154,6 +154,8 @@ pub struct VerificationCondition {
     pub post: ContractExpr,
     pub vc_smt2: String,
     pub status: &'static str,
+    /// Canonical SMT-LIB model returned for a failed VC, when the configured solver provided one.
+    pub counterexample: Option<String>,
     pub refinements: Vec<RefinementPremise>,
     pub assumptions: Vec<AssumptionBoundary>,
 }

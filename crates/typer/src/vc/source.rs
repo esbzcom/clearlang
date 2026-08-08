@@ -1,6 +1,6 @@
 use clg_ast::{BinOp, Expr, MatchArm, MatchPat, Stmt, UnaryOp};
 
-pub(super) fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
+pub fn expr_to_source(expr: &Expr, parent_prec: u8) -> String {
     match expr {
         Expr::Int(n, _) => n.to_string(),
         Expr::Bool(b, _) => b.to_string(),

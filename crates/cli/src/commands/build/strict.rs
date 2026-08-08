@@ -7,6 +7,7 @@ const ASSUMPTION_BITWISE_ID: &str = "bitwise.uninterpreted";
 const ASSUMPTION_CRYPTO_ID: &str = "crypto.uninterpreted";
 const ASSUMPTION_PRIMITIVE_ID: &str = "primitive.unproved";
 const ASSUMPTION_EXTERNAL_ID: &str = "external.dependency";
+const ASSUMPTION_STATE_TRANSITION_ID: &str = "contract.state.transition.adapter";
 
 pub(super) fn proof_strict_for_mode(
     mode: CompilerMode,
@@ -137,6 +138,7 @@ fn category_for_assumption_id(id: &str) -> Option<AssumptionCategory> {
         ASSUMPTION_CRYPTO_ID => Some(AssumptionCategory::Crypto),
         ASSUMPTION_PRIMITIVE_ID => Some(AssumptionCategory::Primitive),
         ASSUMPTION_EXTERNAL_ID => Some(AssumptionCategory::External),
+        ASSUMPTION_STATE_TRANSITION_ID => Some(AssumptionCategory::Primitive),
         _ => None,
     }
 }
@@ -163,6 +165,7 @@ mod tests {
             },
             vc_smt2: "(=> true true)".to_string(),
             status: "generated",
+            counterexample: None,
             refinements: Vec::new(),
             assumptions: Vec::new(),
         }

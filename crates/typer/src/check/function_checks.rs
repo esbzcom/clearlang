@@ -1,5 +1,8 @@
 use anyhow::Result;
-use clg_ast::{Func, ParamKind, TraitMethod, Type};
+use clg_ast::{
+    Contract, ContractDecl, ContractInitDecl, Expr, Func, MigrationDecl, ParamKind, Stmt,
+    TraitMethod, Type,
+};
 use std::collections::{HashMap, HashSet};
 
 use super::expr::{self, consume_var_expr, expr_span, max_effect, type_of, ResourceTracker};
@@ -13,6 +16,191 @@ use super::{
 };
 use crate::errors::TyperError;
 use crate::guards::{collect_mut_guards, MutGuardKey};
+
+pub(super) fn check_contract_invariant<'a>(
+    contract: &'a ContractDecl,
+    invariant: &'a Contract,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &super::TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
+    let mut env = HashMap::new();
+    env.insert(
+        "state",
+        LocalBinding {
+            ty: Type::Named {
+                name: super::contract_state_type_name(&contract.name),
+                args: Vec::new(),
+            },
+            kind: ParamKind::Borrow,
+        },
+    );
+    let mut tracker = ResourceTracker::with_capacity(0);
+    let type_params = HashSet::new();
+    let bounds = BoundsMap::new();
+    let ty = type_of(
+        &invariant.expr,
+        &env,
+        &mut tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        &type_params,
+        &bounds,
+        0,
+        None,
+    )?;
+    if base_type(&ty, aliases)? != Type::Bool {
+        return Err(TyperError::contract_not_bool("invariant", ty, invariant.span).into());
+    }
+    max_effect(&invariant.expr, fns, trait_env, EffectLevel::Pure)?;
+    Ok(())
+}
+
+pub(super) fn check_contract_migration<'a>(
+    contract: &'a ContractDecl,
+    migration: &'a MigrationDecl,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &super::TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
+    let valid_digest = migration
+        .from_schema
+        .strip_prefix("sha256:")
+        .is_some_and(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()));
+    if !valid_digest {
+        return Err(TyperError::invalid_migration_schema_digest(migration.from_schema_span).into());
+    }
+    let mut env = HashMap::new();
+    env.insert(
+        "state",
+        LocalBinding {
+            ty: Type::Named {
+                name: super::contract_state_type_name(&contract.name),
+                args: Vec::new(),
+            },
+            kind: ParamKind::Borrow,
+        },
+    );
+    env.insert(
+        "__clg_state_write_cap",
+        LocalBinding {
+            ty: Type::Bool,
+            kind: ParamKind::Borrow,
+        },
+    );
+    let mut tracker = ResourceTracker::with_capacity(0);
+    let type_params = HashSet::new();
+    let bounds = BoundsMap::new();
+    type_of(
+        &migration.body,
+        &env,
+        &mut tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        &type_params,
+        &bounds,
+        0,
+        None,
+    )?;
+    max_effect(&migration.body, fns, trait_env, EffectLevel::Mut)?;
+    Ok(())
+}
+
+pub(super) fn check_contract_init<'a>(
+    contract: &'a ContractDecl,
+    init: &'a ContractInitDecl,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &super::TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+) -> Result<()> {
+    let mut env = HashMap::new();
+    env.insert(
+        "state",
+        LocalBinding {
+            ty: Type::Named {
+                name: super::contract_state_type_name(&contract.name),
+                args: Vec::new(),
+            },
+            kind: ParamKind::Borrow,
+        },
+    );
+    env.insert(
+        "__clg_state_write_cap",
+        LocalBinding {
+            ty: Type::Bool,
+            kind: ParamKind::Borrow,
+        },
+    );
+    let mut tracker = ResourceTracker::with_capacity(init.params.len());
+    for param in &init.params {
+        if env
+            .insert(
+                param.name.as_str(),
+                LocalBinding {
+                    ty: param.ty.clone(),
+                    kind: param.kind,
+                },
+            )
+            .is_some()
+        {
+            return Err(TyperError::duplicate_parameter(&param.name).into());
+        }
+        let resolved_ty = base_type(&param.ty, aliases)?;
+        tracker.register_param(
+            param.name.as_str(),
+            param.kind,
+            is_resource_type(&resolved_ty, aliases, type_defs)?,
+        );
+    }
+    let type_params = HashSet::new();
+    let bounds = BoundsMap::new();
+    type_of(
+        &init.body,
+        &env,
+        &mut tracker,
+        fns,
+        trait_env,
+        aliases,
+        type_defs,
+        &type_params,
+        &bounds,
+        0,
+        None,
+    )?;
+    max_effect(&init.body, fns, trait_env, EffectLevel::Mut)?;
+
+    let initialized = direct_init_writes(&init.body);
+    for field in &contract.fields {
+        if !initialized.contains(field.name.as_str()) {
+            return Err(TyperError::contract_init_incomplete(&field.name, init.span).into());
+        }
+    }
+    Ok(())
+}
+
+fn direct_init_writes(body: &Expr) -> HashSet<&str> {
+    let Expr::Block { block } = body else {
+        return HashSet::new();
+    };
+    block
+        .statements
+        .iter()
+        .filter_map(|stmt| match stmt {
+            Stmt::Expr { expr, .. } => match expr.as_ref() {
+                Expr::Call { callee, .. } => callee.strip_prefix("__clg_state_write$"),
+                _ => None,
+            },
+            Stmt::Let { .. } | Stmt::While { .. } => None,
+        })
+        .collect()
+}
 
 pub(super) fn check_func<'a>(
     f: &'a Func,
@@ -49,6 +237,20 @@ pub(super) fn check_func<'a>(
         if matches!(f.effect, clg_ast::Effect::Mut) {
             env.insert(
                 "__clg_state_write_cap",
+                LocalBinding {
+                    ty: Type::Bool,
+                    kind: ParamKind::Borrow,
+                },
+            );
+            env.insert(
+                "__clg_event_emit_cap",
+                LocalBinding {
+                    ty: Type::Bool,
+                    kind: ParamKind::Borrow,
+                },
+            );
+            env.insert(
+                "__clg_external_call_cap",
                 LocalBinding {
                     ty: Type::Bool,
                     kind: ParamKind::Borrow,

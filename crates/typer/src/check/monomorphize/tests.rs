@@ -22,6 +22,8 @@ fn find_impl_uses_call_span_for_missing_impl() {
         resources: HashSet::new(),
         structs: HashMap::new(),
         enums: HashMap::new(),
+        contract_states: HashMap::new(),
+        contract_events: HashMap::new(),
     };
     let base_fns: HashMap<&str, FnSig> = HashMap::new();
     let base_funcs: HashMap<&str, &Func> = HashMap::new();
@@ -85,6 +87,8 @@ fn find_impl_uses_call_span_for_ambiguous_impl() {
         resources: HashSet::new(),
         structs: HashMap::new(),
         enums: HashMap::new(),
+        contract_states: HashMap::new(),
+        contract_events: HashMap::new(),
     };
     let base_fns: HashMap<&str, FnSig> = HashMap::new();
     let base_funcs: HashMap<&str, &Func> = HashMap::new();
@@ -265,6 +269,8 @@ fn mangling_shortening_collision_reports_t250() {
         resources: HashSet::new(),
         structs: HashMap::new(),
         enums: HashMap::new(),
+        contract_states: HashMap::new(),
+        contract_events: HashMap::new(),
     };
     let base_fns: HashMap<&str, FnSig> = HashMap::new();
     let base_funcs: HashMap<&str, &Func> = HashMap::new();

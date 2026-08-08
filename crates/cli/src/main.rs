@@ -111,6 +111,9 @@ enum Commands {
         /// Emit the canonical persistent-contract state schema JSON
         #[arg(long, value_name = "FILE")]
         emit_contract_state_schema: Option<PathBuf>,
+        /// Require the contract state schema to be append-only compatible with a prior schema
+        #[arg(long, value_name = "FILE")]
+        check_contract_state_schema: Option<PathBuf>,
         /// Emit verification conditions to JSON (see docs/proofs/vc-schema.md)
         #[arg(long, value_name = "FILE")]
         emit_vcs: Option<PathBuf>,
@@ -339,6 +342,7 @@ fn main() -> Result<()> {
             validate,
             debug_names,
             emit_contract_state_schema,
+            check_contract_state_schema,
             emit_vcs,
             emit_proof,
             compiler_mode,
@@ -362,6 +366,7 @@ fn main() -> Result<()> {
                 validate,
                 debug_names,
                 emit_contract_state_schema,
+                check_contract_state_schema,
                 emit_vcs,
                 emit_proof,
                 compiler_mode,

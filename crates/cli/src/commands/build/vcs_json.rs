@@ -408,6 +408,18 @@ fn vc_counterexample_json(vc: &VerificationCondition, file: &str) -> Option<serd
         })
         .collect();
 
+    if let Some(model) = vc.counterexample.as_ref() {
+        return Some(json!({
+            "on_status": "failed",
+            "state": "solver_model",
+            "format": "clg.counterexample.v1",
+            "reason": "solver found a concrete counterexample",
+            "focus_span": focus,
+            "bindings": bindings,
+            "model_smt2": model,
+        }));
+    }
+
     Some(json!({
         "on_status": "failed",
         "state": "solver_unavailable",

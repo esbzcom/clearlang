@@ -639,6 +639,51 @@ fn lower_expr<'a>(ctx: &mut LowerCtx<'a>, e: &'a Expr, expected: Option<Type>) -
                 });
                 return Ok(value);
             }
+            if callee.starts_with("__clg_event_emit$") {
+                let event = callee.trim_start_matches("__clg_event_emit$");
+                let contract = ctx.state_contract.ok_or_else(|| {
+                    anyhow::anyhow!("event emission without contract lowering context")
+                })?;
+                if !contract
+                    .events
+                    .iter()
+                    .any(|candidate| candidate.name == event)
+                {
+                    anyhow::bail!("unknown contract event `{event}`");
+                }
+                let args = args
+                    .iter()
+                    .map(|arg| lower_expr(ctx, arg, None))
+                    .collect::<Result<Vec<_>>>()?;
+                ctx.body.push(Instr::EventEmit {
+                    contract: contract.name.clone(),
+                    event: event.to_string(),
+                    args,
+                });
+                return lower_bool_lit(ctx, true);
+            }
+            if callee.starts_with("__clg_external_call$") {
+                let Some((interface, method)) = callee
+                    .trim_start_matches("__clg_external_call$")
+                    .split_once('$')
+                else {
+                    anyhow::bail!("invalid external call lowering marker");
+                };
+                let contract = ctx.state_contract.ok_or_else(|| {
+                    anyhow::anyhow!("external call without contract lowering context")
+                })?;
+                let args = args
+                    .iter()
+                    .map(|arg| lower_expr(ctx, arg, None))
+                    .collect::<Result<Vec<_>>>()?;
+                ctx.body.push(Instr::ExternalCall {
+                    contract: contract.name.clone(),
+                    interface: interface.to_string(),
+                    method: method.to_string(),
+                    args,
+                });
+                return lower_bool_lit(ctx, true);
+            }
             lower_call_expr(ctx, e, callee.as_str(), args, expected.as_ref())
         }
         Expr::Lambda { .. } => lower_lambda_expr(ctx, e, expected.as_ref()),

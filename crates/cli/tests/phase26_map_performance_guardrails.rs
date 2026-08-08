@@ -50,7 +50,13 @@ fn phase26_map_performance_machine_contract_is_valid() {
         .expect("measurement_artifact.sha256");
     let raw_path = root.join(raw_path_rel);
     let raw_bytes = fs::read(&raw_path).expect("read raw measurement artifact");
-    let actual_raw_sha = hex::encode(Sha256::digest(&raw_bytes));
+    // Evidence JSON is canonical LF text. Normalize checkout line endings before hashing so the
+    // pinned artifact identity is identical on Windows and Unix worktrees.
+    let canonical_raw_bytes = String::from_utf8(raw_bytes.clone())
+        .expect("raw measurement artifact is UTF-8")
+        .replace("\r\n", "\n")
+        .into_bytes();
+    let actual_raw_sha = hex::encode(Sha256::digest(&canonical_raw_bytes));
     assert_eq!(
         actual_raw_sha, expected_raw_sha,
         "raw measurement artifact hash mismatch"

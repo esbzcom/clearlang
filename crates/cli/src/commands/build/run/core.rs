@@ -6,6 +6,7 @@ pub fn run(
     validate: bool,
     debug_names: bool,
     emit_contract_state_schema: Option<PathBuf>,
+    check_contract_state_schema: Option<PathBuf>,
     emit_vcs: Option<PathBuf>,
     emit_proof: Option<PathBuf>,
     compiler_mode: CompilerMode,
@@ -101,6 +102,7 @@ pub fn run(
         load_program(&file, json_errors)?
     };
     let module_root = file.parent().unwrap_or_else(|| Path::new("."));
+    let contract_source_graph = contract_source_graph_identity(module_root, loaded.source_files.as_slice())?;
     if release_profile == ReleaseProfile::Production {
         if let Some(message) =
             release_module_graph_test_path_violation(module_root, loaded.source_files.as_slice())
@@ -204,10 +206,15 @@ pub fn run(
         mono_program,
         mangled_name_origins,
     } = type_output;
+    let contract_proof_source_graph = (!mono_program.contracts.is_empty()).then_some(&contract_source_graph);
 
     if let Some(schema_path) = emit_contract_state_schema.as_ref() {
         let _stage = timings.start(logger, "emit_contract_state_schema");
-        write_contract_state_schema(&mono_program, schema_path)?;
+        write_contract_state_schema(&mono_program, schema_path, Some(&contract_source_graph))?;
+    }
+    if let Some(prior_schema_path) = check_contract_state_schema.as_ref() {
+        let _stage = timings.start(logger, "check_contract_state_schema");
+        check_contract_state_schema_compatibility(&mono_program, prior_schema_path)?;
     }
     let vcs_before_solver = vcs.clone();
 

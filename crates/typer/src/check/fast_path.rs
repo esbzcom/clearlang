@@ -4,7 +4,9 @@ use clg_ir::{Instr, Module};
 use std::collections::HashMap;
 
 use super::aliases::{build_alias_map, validate_alias_predicates};
-use super::function_checks::{check_func, check_impl_method, check_trait_default_method};
+use super::function_checks::{
+    check_contract_init, check_func, check_impl_method, check_trait_default_method,
+};
 use super::intrinsics::{collect_called_functions, collect_used_intrinsics};
 use super::monomorphize::{monomorphize_program, MonomorphizeOutput};
 use super::totality::level_from_effect;
@@ -101,6 +103,25 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
     }
 
     validate_alias_predicates(&alias_map, &fns, &type_defs, &trait_env)?;
+
+    for contract in &ast.contracts {
+        for invariant in &contract.invariants {
+            super::check_contract_invariant(
+                contract, invariant, &fns, &trait_env, &alias_map, &type_defs,
+            )
+            .with_context(|| format!("in invariant for contract `{}`", contract.name))?;
+        }
+        if let Some(init) = &contract.init {
+            check_contract_init(contract, init, &fns, &trait_env, &alias_map, &type_defs)
+                .with_context(|| format!("in init for contract `{}`", contract.name))?;
+        }
+        if let Some(migration) = &contract.migration {
+            super::check_contract_migration(
+                contract, migration, &fns, &trait_env, &alias_map, &type_defs,
+            )
+            .with_context(|| format!("in migration for contract `{}`", contract.name))?;
+        }
+    }
 
     for f in &ast.funcs {
         check_func(

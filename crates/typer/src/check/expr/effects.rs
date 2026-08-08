@@ -233,6 +233,30 @@ fn max_effect_with_locals<'a>(
                 }
                 return Ok(eff);
             }
+            if callee.starts_with("__clg_event_emit$") {
+                if allowed < EffectLevel::Mut {
+                    return Err(TyperError::effect_required("event emission", "mut", *span).into());
+                }
+                let mut eff = EffectLevel::Mut;
+                for arg in args {
+                    eff = eff.join(max_effect_with_locals(
+                        arg, fns, trait_env, allowed, fn_locals,
+                    )?);
+                }
+                return Ok(eff);
+            }
+            if callee.starts_with("__clg_external_call$") {
+                if allowed < EffectLevel::Mut {
+                    return Err(TyperError::effect_required("external call", "mut", *span).into());
+                }
+                let mut eff = EffectLevel::Mut;
+                for arg in args {
+                    eff = eff.join(max_effect_with_locals(
+                        arg, fns, trait_env, allowed, fn_locals,
+                    )?);
+                }
+                return Ok(eff);
+            }
             let mut eff = EffectLevel::Pure;
             for arg in args {
                 eff = eff.join(max_effect_with_locals(

@@ -4,7 +4,8 @@ Milestone 4 makes ClearLang usable as a production contract product, starting wi
 EVM-compatible target workflow. It preserves the Milestone 3 proof, release, provenance, and
 delivery contracts.
 
-Execution order: **contract semantics -> external-call safety -> target adapter and simulator ->
+Execution order: **contract source semantics -> target-profile lock and minimal state adapter ->
+state proof/migration closure -> external-call safety -> full target adapter and simulator ->
 crypto claim closure -> developer and operational readiness -> end-to-end release gate**.
 
 ## Product Boundary
@@ -14,6 +15,22 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
   independently verify.
 - Explicitly deferred: additional chain targets, web/mobile frameworks, and general application
   runtime work.
+
+## Binding Sequencing Adjustment: Close Contract Gate A
+
+30.1's remaining work requires concrete target-state and solver semantics; it cannot be completed
+by further source-language work alone. Therefore the first executable slice of Target Gate C is
+promoted ahead of the remaining 30.1 closure:
+
+1. Complete the target-profile lock (30.3.0) and minimal state/event adapter plus solver bridge
+   (30.3.0.1).
+2. Complete state counterexample, invariant-regression, and migration proof closure
+   (30.1.3.2 and 30.1.5.3), then mark 30.1 complete.
+3. Continue reentrancy enforcement (30.2.2-30.2.4), then the rest of target/simulator work
+   (30.3.1-30.3.4).
+
+The promoted adapter is deliberately narrow: it consumes only `StateRead`, `StateWrite`, and
+`EventEmit`; it does not enable network deployment, external calls, or a general EVM target.
 
 - [ ] 30.0 Milestone 4 product and architecture lock [Planning Gate A]
   - [x] 30.0.0 Publish the governing product boundary, supported target decision, proof claim,
@@ -39,18 +56,90 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
       (`crates/typer/src/vc/generate.rs`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
     - [x] 30.1.1.2.2 Lower state reads/writes to target-neutral IR operations and make every
       backend without a matching state adapter reject them deterministically. (`crates/{ir,typer,codegen-wasm}`, `crates/codegen-wasm/tests/contract_state_ops.rs`) `Completed: 2026-08-05`.
-  - [ ] 30.1.2 Implement `old(...)` snapshots in `ensure` clauses, including parser, typer, VC,
-    solver encoding, diagnostics, and no-snapshot misuse rejection.
+    - [ ] 30.1.1.3 Implement the locked `init(...)` lifecycle: exactly-once constructor identity,
+      complete state-field initialization on every successful path, no outbound call, and
+      constructor invariant proof evidence.
+      - [x] 30.1.1.3.1 Parse and type-check `init(...)` declarations with constructor-only state
+        write authority, full direct field initialization, stable `T829` diagnostics, and
+        `init-invariant:*` VCs. (`crates/{ast,parser,typer}`, `crates/typer/tests/contract_state.rs`)
+        `Completed: 2026-08-08`.
+      - [ ] 30.1.1.3.2 Execute `init` exactly once through the target adapter and prove complete
+        initialization across branches/loops before any deployed contract is accepted.
+    - [ ] 30.1.1.4 Complete the locked contract-state artifact identity: normalized invariant
+      identifiers/expressions, constructor identity, target-profile identifier, and compiler and
+      source digests must be bound into the schema and release evidence.
+      - [x] 30.1.1.4.1 Bind normalized invariant and constructor identities plus the minimal
+        target-profile identifier into the deterministic state-schema artifact.
+        (`crates/cli/src/commands/build/contract_state_schema.rs`,
+        `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-08`.
+      - [ ] 30.1.1.4.2 Bind compiler and loaded-source digests into the schema, proof, target,
+        and signed release artifacts, then add cross-artifact drift rejection.
+        - [x] 30.1.1.4.2.1 Bind compiler identity and the complete loaded source-graph digest
+          into schema, proof, and signed-bundle artifacts.
+          (`crates/cli/src/commands/build/{run/core.rs,run/helpers.rs,contract_state_schema.rs}`,
+          `crates/{cli/src/proofs/artifact_hashing.rs,cli/src/signing.rs}`,
+          `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-08`.
+        - [ ] 30.1.1.4.2.2 Bind the same identity into the executable target receipt and add
+          cross-artifact drift rejection.
+  - [x] 30.1.2 Implement `old(...)` snapshots in `ensure` clauses, including parser, typer, VC,
+    solver encoding, diagnostics, and no-snapshot misuse rejection. Entry-state symbols now
+    encode `old(state.<field>)`, while ordinary state reads in bodies and postconditions use
+    exit-state symbols; the explicit target-adapter assumption remains release-blocking.
+    (`crates/{parser,typer}`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
   - [ ] 30.1.3 Add state-transition and storage-invariant proof obligations with deterministic
     counterexamples and proof artifacts.
-  - [ ] 30.1.4 Implement canonical event declarations/emission plus target-neutral ABI evidence.
+    - [x] 30.1.3.1 Parse and type-check contract `invariant` declarations, then emit stable
+      entry-to-exit storage-invariant VCs for every mut transition. The existing proof artifact
+      pipeline records these target-neutral VCs and their assumption boundary.
+      (`crates/{ast,parser,typer}`, `crates/parser/tests/parse_smoke.rs`,
+      `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
+    - [x] 30.1.3.2 Connect the minimal target state adapter (30.3.0.1) to the solver model so
+      straight-line scalar state-transition and invariant VCs use an explicit entry/exit relation
+      and retain deterministic concrete solver models for failures. Unsupported flow and external
+      calls remain explicit release-blocking boundaries.
+      (`docs/design/phase-30.3.0-target-profile-and-state-solver-lock.md`,
+      `crates/{typer,cli}`, `crates/typer/tests/contract_state.rs`,
+      `crates/cli/tests/solver_outcomes.rs`) `Completed: 2026-08-08`.
+  - [x] 30.1.4 Implement canonical event declarations/emission plus target-neutral ABI evidence.
+    - [x] 30.1.4.1 Add canonical contract event declarations and deterministic event ABI evidence
+      to the contract-state artifact. Event and event-field identifiers are stable hashes over
+      the contract/event identity and declaration order is preserved.
+      (`crates/{ast,parser,typer,cli}`, `crates/parser/tests/parse_smoke.rs`,
+      `crates/typer/tests/contract_state.rs`, `crates/cli/tests/cli_it/basic/contract_state_schema.rs`)
+      `Completed: 2026-08-06`.
+    - [x] 30.1.4.2 Add typed event emission, target-neutral event IR, and deterministic
+      fail-closed backend behavior until a target adapter consumes emitted events.
+      (`crates/{parser,typer,ir,codegen-wasm}`, `crates/typer/tests/contract_state.rs`,
+      `crates/codegen-wasm/tests/contract_state_ops.rs`) `Completed: 2026-08-06`.
   - [ ] 30.1.5 Add schema compatibility, storage migration, and state-invariant regression gates.
+    - [x] 30.1.5.1 Add a deterministic append-only state-schema compatibility gate. It requires
+      a version increase and rejects changed, removed, reordered, or identity-mismatched prior
+      fields before code generation. (`clg build --check-contract-state-schema <FILE>`,
+      `crates/cli/src/commands/build/contract_state_schema.rs`,
+      `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-06`.
+    - [x] 30.1.5.2 Add explicit migration declarations and migration-proof/evidence artifacts
+      for incompatible state changes. Migrations require an exact prior schema digest, have
+      exclusive state-write access, contribute deterministic schema evidence, and emit
+      invariant-preservation VCs under the existing target-adapter assumption boundary.
+      (`crates/{ast,parser,typer,cli}`, `crates/typer/tests/contract_state.rs`,
+      `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-08`.
+    - [x] 30.1.5.3 Add state-invariant regression fixtures once the minimal target state adapter
+      (30.3.0.1) can discharge concrete state-model counterexamples. Fixtures cover valid and
+      invalid scalar transitions, migration invariants, and explicit unsupported-model boundaries.
+      (`crates/typer/tests/contract_state.rs`, `crates/cli/tests/solver_outcomes.rs`)
+      `Completed: 2026-08-08`.
 
 - [ ] 30.2 External-call and reentrancy safety [Contract Gate B]
-  - [ ] 30.2.0 Lock the external-call capability, its relationship to local state mutation, and
+  - [x] 30.2.0 Lock the external-call capability, its relationship to local state mutation, and
     exact unsupported patterns/diagnostics.
-  - [ ] 30.2.1 Implement explicit outbound-call syntax or a typed standard interface that cannot
-    be confused with ordinary local I/O.
+    (`docs/design/phase-30.2.0-external-call-reentrancy-lock.md`) `Completed: 2026-08-08`.
+  - [x] 30.2.1 Implement explicit outbound-call syntax or a typed standard interface that cannot
+    be confused with ordinary local I/O. `external_call Interface.method(args);` resolves only
+    against a declared interface method, is available only in a contract mut transition, lowers
+    to target-neutral IR, and fails closed without a backend adapter.
+    (`crates/{parser,typer,ir,codegen-wasm}`, `crates/parser/tests/parse_smoke.rs`,
+    `crates/typer/tests/contract_state.rs`, `crates/codegen-wasm/tests/contract_state_ops.rs`)
+    `Completed: 2026-08-08`.
   - [ ] 30.2.2 Enforce checks-effects-interactions ordering or an equivalently strong
     state-transition/reentrancy protocol at type and proof boundaries.
   - [ ] 30.2.3 Add adversarial reentrancy fixtures and fail-closed release tests.
@@ -58,8 +147,17 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
     reentrancy prevention outside the enforced model.
 
 - [ ] 30.3 EVM-compatible target and local simulation [Target Gate C]
-  - [ ] 30.3.0 Lock supported EVM compatibility/version range, account/value/block-context
-    model, ABI mapping, error/revert semantics, and gas/resource policy.
+  - [x] 30.3.0 Lock the minimal target profile needed by Contract Gate A: canonical state
+    pre/post symbols, scalar SMT sorts, event receipts, and strict exclusions. Full EVM
+    compatibility/version, account/value/block-context, ABI mapping, revert semantics, and gas
+    policy remain deferred to 30.3.1-30.3.4.
+    (`docs/design/phase-30.3.0-target-profile-and-state-solver-lock.md`) `Completed: 2026-08-08`.
+  - [x] 30.3.0.1 Implement the narrow state/event storage adapter and solver bridge required to
+    execute `StateRead`, `StateWrite`, and `EventEmit`, produce deterministic concrete state
+    counterexamples, and preserve fail-closed behavior for `ExternalCall`. This must complete
+    before 30.1.3.2 and 30.1.5.3; deployment, RPC, and general EVM execution remain deferred.
+    (`crates/{typer,cli}`, `crates/typer/tests/contract_state.rs`,
+    `crates/cli/tests/solver_outcomes.rs`) `Completed: 2026-08-08`.
   - [ ] 30.3.1 Implement deterministic ABI generation for contract functions, events, errors,
     state schema, and target metadata.
   - [ ] 30.3.2 Implement a deterministic local simulator with caller, storage, value, block

@@ -168,7 +168,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
+            "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n; U64 bitvector bridge (phase 25.1.17)\n(declare-const clg.u64.bv.x (_ BitVec 64))\n(assert (= x (clg.u64.to_int clg.u64.bv.x)))\n(declare-const clg.u64.bv.y (_ BitVec 64))\n(assert (= y (clg.u64.to_int clg.u64.bv.y)))\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
           },
           "vc_id": "vc:0"
         }
@@ -203,7 +203,7 @@
     "proof_status": "not_proved_all",
     "status": "generated",
     "vc": {
-      "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
+      "smt2": "; Builtin intrinsics are modeled as uninterpreted functions.\n(declare-fun |std::bytes::eq_ct| (String String) Bool)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n; U64 bitvector bridge (phase 25.1.17)\n(declare-const clg.u64.bv.x (_ BitVec 64))\n(assert (= x (clg.u64.to_int clg.u64.bv.x)))\n(declare-const clg.u64.bv.y (_ BitVec 64))\n(assert (= y (clg.u64.to_int clg.u64.bv.y)))\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (|std::bytes::eq_ct| a b) (|std::bytes::eq_ct| a b)))"
     },
     "vc_id": "vc:0",
     "version": 2
@@ -361,7 +361,7 @@
           },
           "status": "generated",
           "vc": {
-            "smt2": "; U64 bitvector bridge helpers.\n(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x))"
+            "smt2": "; U64 bitvector bridge helpers.\n(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n; U64 bitvector bridge (phase 25.1.17)\n(declare-const clg.u64.bv.x (_ BitVec 64))\n(assert (= x (clg.u64.to_int clg.u64.bv.x)))\n(declare-const clg.u64.bv.y (_ BitVec 64))\n(assert (= y (clg.u64.to_int clg.u64.bv.y)))\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x))"
           },
           "vc_id": "vc:1"
         }
@@ -396,7 +396,7 @@
     "proof_status": "not_proved_all",
     "status": "generated",
     "vc": {
-      "smt2": "; U64 bitvector bridge helpers.\n(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x))"
+      "smt2": "; U64 bitvector bridge helpers.\n(declare-fun clg.u64.to_int ((_ BitVec 64)) Int)\n(declare-const a String)\n(declare-const b String)\n(declare-const x Int)\n(declare-const y Int)\n; U64 bitvector bridge (phase 25.1.17)\n(declare-const clg.u64.bv.x (_ BitVec 64))\n(assert (= x (clg.u64.to_int clg.u64.bv.x)))\n(declare-const clg.u64.bv.y (_ BitVec 64))\n(assert (= y (clg.u64.to_int clg.u64.bv.y)))\n(=> (and true (and (<= 0 x) (<= x 18446744073709551615)) (and (<= 0 y) (<= y 18446744073709551615))) (= (clg.u64.to_int (bvand ((_ int2bv 64) x) ((_ int2bv 64) y))) x))"
     },
     "vc_id": "vc:1",
     "version": 2

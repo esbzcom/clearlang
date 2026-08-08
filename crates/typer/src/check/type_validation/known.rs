@@ -156,6 +156,39 @@ pub(crate) fn validate_known_types(
                 return Err(TyperError::invalid_contract_state_type(&field.ty, field.span).into());
             }
         }
+        let mut event_names = HashSet::new();
+        for event in &contract.events {
+            if !event_names.insert(event.name.as_str()) {
+                return Err(
+                    TyperError::duplicate_contract_event(&event.name, event.name_span).into(),
+                );
+            }
+            let mut event_field_names = HashSet::new();
+            for field in &event.fields {
+                if !event_field_names.insert(field.name.as_str()) {
+                    return Err(TyperError::duplicate_contract_event_field(
+                        &field.name,
+                        field.span,
+                    )
+                    .into());
+                }
+                ensure_known_type(
+                    &field.ty,
+                    aliases,
+                    type_defs,
+                    &HashSet::new(),
+                    std_types,
+                    Some(field.span),
+                )?;
+                if !is_persistable_state_type(&field.ty)
+                    || contains_named_resource(&field.ty, &type_defs.resources, &HashSet::new())
+                {
+                    return Err(
+                        TyperError::invalid_contract_event_type(&field.ty, field.span).into(),
+                    );
+                }
+            }
+        }
     }
     for res in &program.resources {
         for field in &res.fields {

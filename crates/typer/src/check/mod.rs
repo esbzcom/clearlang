@@ -17,7 +17,10 @@ mod type_validation;
 use self::aliases::{build_alias_map, validate_alias_predicates};
 pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::fast_path::fast_path_without_totality_with_std_and_external;
-use self::function_checks::{check_func, check_impl_method, check_trait_default_method};
+use self::function_checks::{
+    check_contract_init, check_contract_invariant, check_contract_migration, check_func,
+    check_impl_method, check_trait_default_method,
+};
 use self::intrinsics::{collect_called_functions, collect_used_intrinsics};
 use self::monomorphize::{monomorphize_program, MonomorphizeOutput};
 use self::pipeline::check_with_vcs_with_std_and_external_impl;
@@ -35,8 +38,8 @@ use crate::lower::{build_dispatcher_function, dispatcher_name, lower_func};
 use crate::vc::{generate_vcs_with_dependencies, AssumptionDependencies, VerificationCondition};
 use anyhow::{Context, Result};
 use clg_ast::{
-    Effect, EnumDecl, EnumVariant, Expr, Func, ImplDecl, Param, ParamKind, Program, Span,
-    StructDecl, StructField, TraitBound, TraitDecl, TraitMethod, Type,
+    Effect, EnumDecl, EnumVariant, EventDecl, Expr, Func, ImplDecl, Param, ParamKind, Program,
+    Span, StructDecl, StructField, TraitBound, TraitDecl, TraitMethod, Type,
 };
 use clg_ir::{Instr, Module};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -102,6 +105,7 @@ pub(crate) struct TypeDefs<'a> {
     pub structs: HashMap<&'a str, StructInfo<'a>>,
     pub enums: HashMap<&'a str, EnumInfo<'a>>,
     pub contract_states: HashMap<&'a str, HashMap<&'a str, &'a StructField>>,
+    pub contract_events: HashMap<&'a str, HashMap<&'a str, &'a EventDecl>>,
 }
 
 pub(crate) fn contract_state_type_name(contract_name: &str) -> String {
@@ -341,6 +345,25 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
     }
 
     validate_alias_predicates(&alias_map, &fns, &type_defs, &trait_env)?;
+
+    for contract in &ast.contracts {
+        for invariant in &contract.invariants {
+            check_contract_invariant(
+                contract, invariant, &fns, &trait_env, &alias_map, &type_defs,
+            )
+            .with_context(|| format!("in invariant for contract `{}`", contract.name))?;
+        }
+        if let Some(init) = &contract.init {
+            check_contract_init(contract, init, &fns, &trait_env, &alias_map, &type_defs)
+                .with_context(|| format!("in init for contract `{}`", contract.name))?;
+        }
+        if let Some(migration) = &contract.migration {
+            check_contract_migration(
+                contract, migration, &fns, &trait_env, &alias_map, &type_defs,
+            )
+            .with_context(|| format!("in migration for contract `{}`", contract.name))?;
+        }
+    }
 
     for f in &ast.funcs {
         check_func(

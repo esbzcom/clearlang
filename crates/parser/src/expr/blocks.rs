@@ -48,6 +48,64 @@ where
             })
             .boxed();
 
+        let event_emit = kw("emit")
+            .ignore_then(ident_p())
+            .then(
+                expr_inner
+                    .clone()
+                    .separated_by(just(',').padded().labelled("comma"))
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(
+                        just('(').padded().labelled("'('"),
+                        just(')').padded().labelled("')'"),
+                    ),
+            )
+            .then_ignore(just(';').padded().labelled("';'"))
+            .map_with(|(event, args), e| {
+                let span = to_span(e.span());
+                Stmt::Expr {
+                    expr: Box::new(Expr::Call {
+                        callee: format!("__clg_event_emit${event}"),
+                        type_args: Vec::new(),
+                        args,
+                        span,
+                    }),
+                    span,
+                }
+            })
+            .boxed();
+
+        let external_call = kw("external_call")
+            .ignore_then(ident_p())
+            .then_ignore(just('.').padded().labelled("'.'"))
+            .then(ident_p())
+            .then(
+                expr_inner
+                    .clone()
+                    .separated_by(just(',').padded().labelled("comma"))
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(
+                        just('(').padded().labelled("'('"),
+                        just(')').padded().labelled("')'"),
+                    ),
+            )
+            .then_ignore(just(';').padded().labelled("';'"))
+            .map_with(|((interface, method), args), e| {
+                let span = to_span(e.span());
+                Stmt::Expr {
+                    expr: Box::new(Expr::Call {
+                        callee: format!("__clg_external_call${interface}${method}"),
+                        type_args: Vec::new(),
+                        args,
+                        span,
+                    }),
+                    span,
+                }
+            })
+            .boxed();
+
         let while_stmt = kw("while")
             .padded()
             .ignore_then(expr_inner.clone())
@@ -92,9 +150,16 @@ where
             })
             .boxed();
 
-        let stmts = choice((let_stmt, state_write, while_stmt, expr_stmt))
-            .repeated()
-            .collect::<Vec<_>>();
+        let stmts = choice((
+            let_stmt,
+            state_write,
+            event_emit,
+            external_call,
+            while_stmt,
+            expr_stmt,
+        ))
+        .repeated()
+        .collect::<Vec<_>>();
         let tail = expr_inner.or_not();
 
         stmts

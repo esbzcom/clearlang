@@ -24,6 +24,7 @@ pub fn write_proof_artifact_json(
     path: &Path,
     toolchain: &str,
     compiler_mode: &str,
+    source_graph: Option<&serde_json::Value>,
 ) -> Result<ProofArtifactEmission> {
     use serde_json::json;
 
@@ -88,7 +89,18 @@ pub fn write_proof_artifact_json(
             json!(assumption_boundaries),
         );
         entry.insert("vc_hash".to_string(), json!(vc_hash));
-        if status != "proved" {
+        if let Some(model) = vc.counterexample.as_ref() {
+            entry.insert(
+                "counterexample".to_string(),
+                json!({
+                    "state": "solver_model",
+                    "format": "clg.counterexample.v1",
+                    "reason": "solver found a concrete counterexample",
+                    "bindings": [],
+                    "model_smt2": model,
+                }),
+            );
+        } else if status != "proved" {
             entry.insert(
                 "counterexample".to_string(),
                 json!({
@@ -102,7 +114,7 @@ pub fn write_proof_artifact_json(
         vc_items.push(serde_json::Value::Object(entry));
     }
 
-    let artifact = json!({
+    let mut artifact = json!({
         "format": "clg.proof_artifact.v1",
         "schema_version": 1,
         "generated_by": toolchain,
@@ -120,6 +132,12 @@ pub fn write_proof_artifact_json(
         },
         "vcs": vc_items,
     });
+    if let Some(source_graph) = source_graph {
+        artifact
+            .as_object_mut()
+            .expect("proof artifact is an object")
+            .insert("source_graph".to_string(), source_graph.clone());
+    }
     let artifact_hash = sha256_prefixed_hex(canonical_json_bytes(&artifact).as_slice());
     let bytes = serde_json::to_vec_pretty(&artifact)?;
     fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))?;

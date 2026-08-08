@@ -82,6 +82,25 @@ pub(super) fn check_with_vcs_with_std_and_external_impl(
 
     validate_alias_predicates(&alias_map, &fns, &type_defs, &trait_env)?;
 
+    for contract in &ast.contracts {
+        for invariant in &contract.invariants {
+            check_contract_invariant(
+                contract, invariant, &fns, &trait_env, &alias_map, &type_defs,
+            )
+            .with_context(|| format!("in invariant for contract `{}`", contract.name))?;
+        }
+        if let Some(init) = &contract.init {
+            check_contract_init(contract, init, &fns, &trait_env, &alias_map, &type_defs)
+                .with_context(|| format!("in init for contract `{}`", contract.name))?;
+        }
+        if let Some(migration) = &contract.migration {
+            check_contract_migration(
+                contract, migration, &fns, &trait_env, &alias_map, &type_defs,
+            )
+            .with_context(|| format!("in migration for contract `{}`", contract.name))?;
+        }
+    }
+
     for f in &ast.funcs {
         check_func(
             f,

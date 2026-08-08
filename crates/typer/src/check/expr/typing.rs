@@ -493,6 +493,46 @@ pub(crate) fn type_of<'a>(
             args,
             type_args,
             span,
+        } if callee.starts_with("__clg_event_emit$") => type_event_emit_expr(
+            callee,
+            args,
+            type_args,
+            *span,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth,
+        ),
+        Expr::Call {
+            callee,
+            args,
+            type_args,
+            span,
+        } if callee.starts_with("__clg_external_call$") => type_external_call_expr(
+            callee,
+            args,
+            type_args,
+            *span,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth,
+        ),
+        Expr::Call {
+            callee,
+            args,
+            type_args,
+            span,
         } => type_call_expr(
             callee.as_str(),
             args,
@@ -529,7 +569,9 @@ pub(crate) fn type_of<'a>(
 
 fn is_state_rooted(expr: &Expr) -> bool {
     match expr {
-        Expr::FieldAccess { base, .. } => matches!(base.as_ref(), Expr::Var(name, _) if name == "state"),
+        Expr::FieldAccess { base, .. } => {
+            matches!(base.as_ref(), Expr::Var(name, _) if name == "state")
+        }
         Expr::Index { base, .. } => is_state_rooted(base),
         _ => false,
     }
@@ -550,7 +592,11 @@ fn type_old_expr<'a>(
     bounds: &BoundsMap,
     depth: usize,
 ) -> Result<Type> {
-    if !env.contains_key("__clg_old_cap") || !type_args.is_empty() || args.len() != 1 || !is_state_rooted(&args[0]) {
+    if !env.contains_key("__clg_old_cap")
+        || !type_args.is_empty()
+        || args.len() != 1
+        || !is_state_rooted(&args[0])
+    {
         return Err(TyperError::old_expression_not_allowed(span).into());
     }
     type_of(
@@ -634,6 +680,140 @@ fn type_state_write_expr<'a>(
             span,
         )
         .into());
+    }
+    Ok(Type::Bool)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn type_event_emit_expr<'a>(
+    callee: &str,
+    args: &'a [Expr],
+    type_args: &[Type],
+    span: Span,
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
+    depth: usize,
+) -> Result<Type> {
+    if !type_args.is_empty() || !env.contains_key("__clg_event_emit_cap") {
+        return Err(TyperError::contract_event_emit_not_allowed(span).into());
+    }
+    let Some(LocalBinding {
+        ty: Type::Named {
+            name,
+            args: state_args,
+        },
+        ..
+    }) = env.get("state")
+    else {
+        return Err(TyperError::contract_event_emit_not_allowed(span).into());
+    };
+    let Some(contract_name) = state_args
+        .is_empty()
+        .then(|| name.strip_prefix("__clg_contract_state$"))
+        .flatten()
+    else {
+        return Err(TyperError::contract_event_emit_not_allowed(span).into());
+    };
+    let event_name = callee.trim_start_matches("__clg_event_emit$");
+    let events = type_defs
+        .contract_events
+        .get(contract_name)
+        .expect("contract state type must have an event table");
+    let Some(event) = events.get(event_name) else {
+        return Err(TyperError::contract_event_emit_not_allowed(span).into());
+    };
+    if args.len() != event.fields.len() {
+        return Err(TyperError::contract_event_emit_not_allowed(span).into());
+    }
+    for (arg, field) in args.iter().zip(&event.fields) {
+        let found = type_of(
+            arg,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth + 1,
+            Some(&field.ty),
+        )?;
+        if !binding_compatible(&field.ty, &found, aliases)? {
+            return Err(TyperError::struct_field_type_mismatch(
+                event_name,
+                &field.name,
+                field.ty.clone(),
+                found,
+                span,
+            )
+            .into());
+        }
+    }
+    Ok(Type::Bool)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn type_external_call_expr<'a>(
+    callee: &str,
+    args: &'a [Expr],
+    type_args: &[Type],
+    span: Span,
+    env: &HashMap<&'a str, LocalBinding>,
+    tracker: &mut ResourceTracker,
+    fns: &HashMap<&'a str, FnSig>,
+    trait_env: &TraitEnv<'a>,
+    aliases: &AliasMap,
+    type_defs: &TypeDefs,
+    type_params: &HashSet<String>,
+    bounds: &BoundsMap,
+    depth: usize,
+) -> Result<Type> {
+    if !type_args.is_empty() || !env.contains_key("__clg_external_call_cap") {
+        return Err(TyperError::external_call_not_allowed(span).into());
+    }
+    let Some((interface, method)) = callee
+        .trim_start_matches("__clg_external_call$")
+        .split_once('$')
+    else {
+        return Err(TyperError::external_call_not_allowed(span).into());
+    };
+    let Some(trait_info) = trait_env.traits.get(interface) else {
+        return Err(TyperError::external_call_abi_not_supported(interface, method, span).into());
+    };
+    let Some(method_def) = trait_info.methods.get(method) else {
+        return Err(TyperError::external_call_abi_not_supported(interface, method, span).into());
+    };
+    if args.len() != method_def.params.len() {
+        return Err(
+            TyperError::arity_mismatch(callee, method_def.params.len(), args.len(), span).into(),
+        );
+    }
+    for (arg, param) in args.iter().zip(&method_def.params) {
+        let found = type_of(
+            arg,
+            env,
+            tracker,
+            fns,
+            trait_env,
+            aliases,
+            type_defs,
+            type_params,
+            bounds,
+            depth + 1,
+            Some(&param.ty),
+        )?;
+        if !binding_compatible(&param.ty, &found, aliases)? {
+            return Err(
+                TyperError::external_call_abi_not_supported(interface, method, span).into(),
+            );
+        }
     }
     Ok(Type::Bool)
 }

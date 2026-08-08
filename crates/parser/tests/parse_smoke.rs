@@ -436,6 +436,79 @@ fn parses_contract_owned_function_with_state_field_read() {
 }
 
 #[test]
+fn parses_contract_state_invariant() {
+    let src = r#"
+        contract Counter version 1 {
+            state { open: Bool; }
+            invariant { state.open == true }
+            mut function activate() -> Bool {
+                state.open = true;
+                state.open
+            }
+        }
+    "#;
+
+    let program = parse(src).expect("should parse contract invariant");
+    assert_eq!(program.contracts[0].invariants.len(), 1);
+}
+
+#[test]
+fn parses_contract_event_declaration() {
+    let src = r#"
+        contract Vault version 1 {
+            state { total: U64; }
+            event Deposit { account: Bytes; amount: U64; }
+        }
+    "#;
+
+    let program = parse(src).expect("should parse contract event");
+    let event = &program.contracts[0].events[0];
+    assert_eq!(event.name, "Deposit");
+    assert_eq!(event.fields.len(), 2);
+    assert_eq!(event.fields[0].name, "account");
+    assert_eq!(event.fields[1].name, "amount");
+}
+
+#[test]
+fn parses_contract_migration_declaration() {
+    let src = r#"
+        contract Vault version 2 {
+            state { total: U64; }
+            migrate from schema "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+                state.total = 0;
+                0
+            }
+        }
+    "#;
+
+    let program = parse(src).expect("should parse contract migration");
+    assert_eq!(
+        program.contracts[0]
+            .migration
+            .as_ref()
+            .expect("migration")
+            .from_schema,
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    );
+}
+
+#[test]
+fn parses_explicit_external_call_statement() {
+    let src = r#"
+        interface Receiver { io function receive(amount: U64) -> Bool; }
+        contract Vault version 1 {
+            state { total: U64; }
+            mut function notify(amount: U64) -> U64 {
+                external_call Receiver.receive(amount);
+                amount
+            }
+        }
+    "#;
+
+    parse(src).expect("should parse explicit external call");
+}
+
+#[test]
 fn parses_multiple_args_and_parentheses() {
     // Stress commas/parentheses and precedence: add(1, (2 + 3) * (4 + 5))
     let src = r#"

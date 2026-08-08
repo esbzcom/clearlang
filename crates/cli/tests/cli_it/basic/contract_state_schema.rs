@@ -7,6 +7,7 @@ fn build_emits_deterministic_contract_state_schema() {
         r#"
             contract Vault version 1 {
                 state { owner: Bytes; total: U64; balances: Map<Bytes, U64>; }
+                event Deposit { account: Bytes; amount: U64; }
             }
             function main() -> Int { 0 }
         "#,
@@ -51,4 +52,139 @@ fn build_emits_deterministic_contract_state_schema() {
     assert_eq!(schema["fields"][1]["name"], "total");
     assert_eq!(schema["fields"][2]["name"], "balances");
     assert_eq!(schema["layout"]["field_order"], "declaration");
+    assert_eq!(
+        schema["layout"]["target_profile"],
+        "clg.contract-state-solver.v1"
+    );
+    assert_eq!(schema["invariants"].as_array().map(Vec::len), Some(0));
+    assert!(schema["init"].is_null());
+    assert_eq!(schema["compiler"]["name"], "clg-cli");
+    assert!(schema["source_graph"]["digest"]
+        .as_str()
+        .expect("source digest")
+        .starts_with("sha256:"));
+    assert_eq!(schema["events"][0]["name"], "Deposit");
+    assert_eq!(schema["events"][0]["fields"][0]["name"], "account");
+    assert_eq!(schema["events"][0]["fields"][1]["name"], "amount");
+    assert_eq!(schema["event_abi"]["algorithm"], "clg.contract-event-abi.v1");
+    assert!(schema["event_abi"]["digest"]
+        .as_str()
+        .expect("event ABI digest")
+        .starts_with("sha256:"));
+}
+
+#[test]
+fn build_checks_contract_state_schema_is_append_only() {
+    let dir = tempdir().expect("tempdir");
+    let prior_source = dir.path().join("vault-v1.clear");
+    let compatible_source = dir.path().join("vault-v2.clear");
+    let incompatible_source = dir.path().join("vault-invalid.clear");
+    let migrated_source = dir.path().join("vault-migrated.clear");
+    let prior_schema = dir.path().join("vault-v1.schema.json");
+    fs::write(
+        &prior_source,
+        r#"
+            contract Vault version 1 { state { owner: Bytes; total: U64; } }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write prior source");
+    fs::write(
+        &compatible_source,
+        r#"
+            contract Vault version 2 { state { owner: Bytes; total: U64; revision: U64; } }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write compatible source");
+    fs::write(
+        &incompatible_source,
+        r#"
+            contract Vault version 2 { state { total: U64; owner: Bytes; } }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write incompatible source");
+
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            prior_source.to_str().expect("prior source path"),
+            "-o",
+            dir.path().join("prior.wasm").to_str().expect("prior wasm path"),
+            "--emit-contract-state-schema",
+            prior_schema.to_str().expect("prior schema path"),
+        ])
+        .assert()
+        .success();
+    let prior: Value = serde_json::from_slice(&fs::read(&prior_schema).expect("read prior schema"))
+        .expect("parse prior schema");
+    let prior_digest = prior["schema"]["digest"]
+        .as_str()
+        .expect("prior schema digest");
+    fs::write(
+        &migrated_source,
+        format!(
+            r#"
+                contract Vault version 2 {{
+                    state {{ total: U64; owner: Bytes; }}
+                    migrate from schema "{prior_digest}" {{
+                        state.total = U64(0);
+                        0
+                    }}
+                }}
+                function main() -> Int {{ 0 }}
+            "#
+        ),
+    )
+    .expect("write migrated source");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            compatible_source.to_str().expect("compatible source path"),
+            "-o",
+            dir.path()
+                .join("compatible.wasm")
+                .to_str()
+                .expect("compatible wasm path"),
+            "--check-contract-state-schema",
+            prior_schema.to_str().expect("prior schema path"),
+        ])
+        .assert()
+        .success();
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            incompatible_source
+                .to_str()
+                .expect("incompatible source path"),
+            "-o",
+            dir.path()
+                .join("incompatible.wasm")
+                .to_str()
+                .expect("incompatible wasm path"),
+            "--check-contract-state-schema",
+            prior_schema.to_str().expect("prior schema path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("declare a migration"));
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            migrated_source.to_str().expect("migrated source path"),
+            "-o",
+            dir.path()
+                .join("migrated.wasm")
+                .to_str()
+                .expect("migrated wasm path"),
+            "--check-contract-state-schema",
+            prior_schema.to_str().expect("prior schema path"),
+        ])
+        .assert()
+        .success();
 }

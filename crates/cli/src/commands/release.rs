@@ -246,6 +246,7 @@ pub fn run(
             false,
             false,
             None,
+            None,
             Some(paths.vcs.clone()),
             Some(paths.proof.clone()),
             CompilerMode::Strict,

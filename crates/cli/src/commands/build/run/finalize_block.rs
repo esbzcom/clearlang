@@ -16,6 +16,7 @@
             proof_path,
             toolchain.as_str(),
             compiler_mode.as_str(),
+            contract_proof_source_graph,
         )?;
         if logger.enabled(LogLevel::Debug) {
             logger.event(
@@ -71,6 +72,7 @@
             proof_artifact_hash,
             solver_profile_hash,
             solver_profile,
+            Some(&contract_source_graph),
         )?;
         let manifest_payload = build_assurance_manifest_payload(AssuranceManifestInput {
             vcs: &vcs,

@@ -35,7 +35,12 @@ fn main() {
     let mut stdin = Vec::new();
     let _ = io::stdin().read_to_end(&mut stdin);
     match std::env::var("CLG_FAKE_Z3_RESULT").as_deref() {
-        Ok("sat") => println!("sat"),
+        Ok("sat") => {
+            println!("sat");
+            if String::from_utf8_lossy(&stdin).contains("(get-model)") {
+                println!("(model (define-fun |clg.state.pre.fixture| () Int 7))");
+            }
+        }
         Ok("unknown") => {
             println!("unknown");
             println!("(:reason-unknown \"incomplete\")");
@@ -129,7 +134,7 @@ fn build_with_solver_status(fake_status: &str) -> Value {
     write_solver_integrity_sidecars(&solver);
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
-        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_SOLVER_BIN", &solver)
         .env("CLG_FAKE_Z3_RESULT", fake_status)
         .arg("build")
         .arg(&source)
@@ -176,7 +181,7 @@ fn configured_solver_statuses_flow_into_emit_proof_summary() {
     write_solver_integrity_sidecars(&solver);
     Command::cargo_bin("clg")
         .expect("cargo_bin clg")
-        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_SOLVER_BIN", &solver)
         .env("CLG_FAKE_Z3_RESULT", "sat")
         .arg("build")
         .arg(&source)
@@ -214,6 +219,39 @@ fn configured_solver_statuses_flow_into_emit_proof_summary() {
         summary.get("generated_count").and_then(|v| v.as_u64()),
         Some(0),
         "configured solver should replace generated status with deterministic solver status"
+    );
+    let first = artifact["vcs"]
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("proof VC");
+    assert_eq!(
+        first["counterexample"]["state"].as_str(),
+        Some("solver_model")
+    );
+    assert!(first["counterexample"]["model_smt2"]
+        .as_str()
+        .expect("model")
+        .contains("clg.state.pre.fixture"));
+
+    let replay_proof = tmp.path().join("out.replay.proof.json");
+    Command::cargo_bin("clg")
+        .expect("cargo_bin clg")
+        .env("CLG_SOLVER_BIN", solver)
+        .env("CLG_FAKE_Z3_RESULT", "sat")
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(tmp.path().join("out.replay.wasm"))
+        .arg("--emit-vcs")
+        .arg(&vcs)
+        .arg("--emit-proof")
+        .arg(&replay_proof)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read(&proof).expect("read first proof"),
+        fs::read(&replay_proof).expect("read replay proof"),
+        "solver counterexample artifacts must be byte-stable across identical runs"
     );
 }
 

@@ -76,6 +76,7 @@ mod tests {
             },
             vc_smt2: "(=> true true)".to_string(),
             status,
+            counterexample: None,
             refinements: Vec::new(),
             assumptions: Vec::new(),
         }

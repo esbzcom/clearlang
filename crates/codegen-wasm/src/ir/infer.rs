@@ -129,6 +129,8 @@ pub(super) fn infer_value_types(
             | IrInstr::ReturnIf { .. }
             | IrInstr::Store { .. }
             | IrInstr::StateWrite { .. }
+            | IrInstr::EventEmit { .. }
+            | IrInstr::ExternalCall { .. }
             | IrInstr::BrIf { .. }
             | IrInstr::BrIfEqz { .. }
             | IrInstr::BlockBegin

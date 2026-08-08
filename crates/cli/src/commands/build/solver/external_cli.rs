@@ -32,7 +32,7 @@ fn solver_outcome_for_vc(
     options: &[SolverOption],
     per_vc_timeout_ms: u64,
     vc: &VerificationCondition,
-) -> std::result::Result<&'static str, SolverExecError> {
+) -> std::result::Result<SolverOutcome, SolverExecError> {
     let (prelude, body) = split_vc_formula(&vc.vc_smt2);
     let mut check_script = String::new();
     append_solver_script_prelude(&mut check_script, options, per_vc_timeout_ms);
@@ -44,8 +44,24 @@ fn solver_outcome_for_vc(
     let check_output = run_solver(solver_bin, check_script.as_str(), per_vc_timeout_ms)?;
     let status = parse_check_sat_status(check_output.as_str());
     match status {
-        Some("unsat") => Ok("proved"),
-        Some("sat") => Ok("failed"),
+        Some("unsat") => Ok(SolverOutcome {
+            status: "proved",
+            counterexample: None,
+        }),
+        Some("sat") => {
+            let mut model_script = String::new();
+            append_solver_script_prelude(&mut model_script, options, per_vc_timeout_ms);
+            if !prelude.is_empty() {
+                model_script.push_str(prelude.as_str());
+                model_script.push('\n');
+            }
+            model_script.push_str(format!("(assert (not {}))\n(check-sat)\n(get-model)\n", body).as_str());
+            let model_output = run_solver(solver_bin, model_script.as_str(), per_vc_timeout_ms)?;
+            Ok(SolverOutcome {
+                status: "failed",
+                counterexample: solver_model_from_output(model_output.as_str()),
+            })
+        }
         Some("unknown") => {
             let mut reason_script = String::new();
             append_solver_script_prelude(&mut reason_script, options, per_vc_timeout_ms);
@@ -59,13 +75,33 @@ fn solver_outcome_for_vc(
             );
             let reason_output = run_solver(solver_bin, reason_script.as_str(), per_vc_timeout_ms)?;
             if parse_reason_is_timeout(reason_output.as_str()) {
-                Ok("timeout")
+                Ok(SolverOutcome {
+                    status: "timeout",
+                    counterexample: None,
+                })
             } else {
-                Ok("unknown")
+                Ok(SolverOutcome {
+                    status: "unknown",
+                    counterexample: None,
+                })
             }
         }
-        _ => Ok("unknown"),
+        _ => Ok(SolverOutcome {
+            status: "unknown",
+            counterexample: None,
+        }),
     }
+}
+
+fn solver_model_from_output(output: &str) -> Option<String> {
+    let mut lines = output.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == "sat" {
+            let model = lines.collect::<Vec<_>>().join("\n");
+            return (!model.trim().is_empty()).then_some(model);
+        }
+    }
+    None
 }
 
 fn split_vc_formula(vc_smt2: &str) -> (String, String) {

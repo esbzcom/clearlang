@@ -229,8 +229,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     (`docs/design/phase-30.4.3-contract-crypto-nonclaims.md`) `Completed: 2026-08-09`.
 
 - [ ] 30.5 Contract developer experience and runtime operations [Readiness Gate E]
-  - [ ] 30.5.0 Define a bounded-memory lifecycle policy for closures, simulator instances, and
-    contract host execution; add limits and observable failure modes.
+  - [x] 30.5.0 Define a bounded-memory lifecycle policy for closures, simulator instances, and
+    contract host execution; add limits and observable failure modes. The supported scalar
+    simulator records fuel and enforces explicit JSON byte limits; unsupported dynamic lifecycles
+    remain fail-closed. (`docs/design/phase-30.5.0-contract-runtime-lifecycle-limits.md`,
+    `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
   - [ ] 30.5.1 Ship target-aware contract test commands with property/fuzz campaigns,
     deterministic seed replay, trace capture, and test-artifact schemas.
   - [ ] 30.5.2 Add source locations/stack traces for target simulation failures and a supported

@@ -179,6 +179,42 @@ fn simulate_rejects_transitions_that_exceed_the_fuel_limit() {
 }
 
 #[test]
+fn simulate_rejects_json_inputs_over_the_memory_limit() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    fs::write(
+        &source,
+        "contract Counter version 1 { state { total: U64; } mut function set(value: U64) -> U64 { state.total = value; value } }",
+    )
+    .expect("write source");
+    fs::write(&state, r#"{"total":0}"#).expect("write state");
+    fs::write(&args, "[1]").expect("write args");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source"),
+            "--function",
+            "set",
+            "--state",
+            state.to_str().expect("state"),
+            "--args",
+            args.to_str().expect("args"),
+            "--state-out",
+            dir.path().join("out.json").to_str().expect("out"),
+            "--trace-out",
+            dir.path().join("trace.json").to_str().expect("trace"),
+            "--memory-limit",
+            "1",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("simulator state exceeds memory limit"));
+}
+
+#[test]
 fn simulate_rejects_external_calls_without_committing_partial_state() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("vault.clear");

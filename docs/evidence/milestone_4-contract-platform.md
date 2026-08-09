@@ -57,3 +57,19 @@
   external execution, target imports, ABI wire encoding, RPC, and deployment remain unsupported.
 - Release policy: simulation is local evidence only; it is neither a target-execution attestation
   nor a deployment/release claim.
+
+## 30.1.1.3.2 Constructor simulator lifecycle
+
+- Date: 2026-08-09
+- Accountable owner: language-and-proof-owner
+- Review boundary: target-runtime-owner
+- Acceptance commands:
+  - `cargo test -p clg-typer --test contract_state`
+  - `cargo test -p clg-cli --test cli_it basic::simulate`
+- Stable result: checked `init(...)` declarations lower to a private constructor IR entrypoint;
+  `clg simulate --init` accepts only `{}`, validates the resulting complete scalar state, and
+  writes a canonical initialization trace without a public return value.
+- Negative evidence: nested initialization remains `T829`; reusing initialized state with
+  `--init` fails before execution and without state output.
+- Known exclusions: durable deployment identity, branch/loop constructor execution, target
+  receipts, and constructor calldata are deferred. This is local lifecycle evidence only.

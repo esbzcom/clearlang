@@ -63,6 +63,15 @@ fn contract_init_requires_direct_initialization_of_every_state_field() {
         }
     "#;
     type_check_only(&parse(valid).expect("parse contract init")).expect("type-check complete init");
+    let init_module = check(&parse(valid).expect("parse lowerable contract init"))
+        .expect("lower constructor into target-neutral IR");
+    assert!(init_module.funcs.iter().any(|function| {
+        function.name == "__clg_contract_init$Vault"
+            && function
+                .body
+                .iter()
+                .any(|instruction| matches!(instruction, Instr::StateWrite { .. }))
+    }));
     let with_invariant = valid.replace(
         "init(owner: Bytes, initial: U64)",
         "invariant { state.total >= U64(0) }\n            init(owner: Bytes, initial: U64)",

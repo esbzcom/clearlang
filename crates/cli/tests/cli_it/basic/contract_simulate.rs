@@ -234,3 +234,83 @@ fn simulate_rejects_external_calls_without_committing_partial_state() {
     assert_eq!(trace["state_changes"], serde_json::json!([{ "field": "total", "value": 1 }]));
     assert_eq!(trace["events"], serde_json::json!([{ "event": "Paid", "args": [1] }]));
 }
+
+#[test]
+fn simulate_init_requires_empty_state_and_produces_initialized_state() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    let empty_state = dir.path().join("empty-state.json");
+    let args = dir.path().join("args.json");
+    let initialized_state = dir.path().join("initialized-state.json");
+    let init_trace = dir.path().join("init-trace.json");
+    fs::write(
+        &source,
+        r#"
+            contract Counter version 1 {
+                state { total: U64; }
+                invariant { state.total >= U64(0) }
+                init(initial: U64) {
+                    state.total = initial;
+                    0
+                }
+            }
+        "#,
+    )
+    .expect("write contract source");
+    fs::write(&empty_state, "{}").expect("write empty state");
+    fs::write(&args, "[5]").expect("write arguments");
+
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--init",
+            "--state",
+            empty_state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            initialized_state.to_str().expect("state output path"),
+            "--trace-out",
+            init_trace.to_str().expect("trace output path"),
+        ])
+        .assert()
+        .success();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&initialized_state).expect("initialized state"))
+            .expect("parse initialized state"),
+        serde_json::json!({ "total": 5 })
+    );
+    let trace: Value = serde_json::from_slice(&fs::read(&init_trace).expect("init trace"))
+        .expect("parse init trace");
+    assert_eq!(trace["lifecycle"], "init");
+    assert_eq!(trace["function"], "init");
+    assert_eq!(trace["result"], Value::Null);
+    assert_eq!(trace["status"], "success");
+
+    let rejected_state_out = dir.path().join("rejected-state.json");
+    let rejected_trace_out = dir.path().join("rejected-trace.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--init",
+            "--state",
+            initialized_state.to_str().expect("initialized state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            rejected_state_out.to_str().expect("rejected state path"),
+            "--trace-out",
+            rejected_trace_out.to_str().expect("rejected trace path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "simulator init may only execute against an empty state object",
+        ));
+    assert!(!rejected_state_out.exists());
+    assert!(!rejected_trace_out.exists());
+}

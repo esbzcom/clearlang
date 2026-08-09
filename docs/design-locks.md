@@ -42,6 +42,7 @@ This document tracks the current design-lock references.
 - `docs/design/phase-30.1.0-state-schema-and-migration-lock.md`
 - `docs/design/phase-30.1.1.1-contract-state-binding-lock.md`
 - `docs/design/phase-30.1.1.2-state-transition-vc-ir-lock.md`
+- `docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`
 - `docs/design/phase-30.2.0-external-call-reentrancy-lock.md`
 - `docs/design/phase-30.3.0-target-profile-and-state-solver-lock.md`
 - `docs/design/phase-30.3.1-deterministic-target-abi-lock.md`

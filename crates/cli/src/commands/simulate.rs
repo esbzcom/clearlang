@@ -14,7 +14,8 @@ use crate::logging::Logger;
 
 pub fn run(
     file: PathBuf,
-    function: String,
+    function: Option<String>,
+    init: bool,
     state: PathBuf,
     args: PathBuf,
     state_out: PathBuf,
@@ -48,40 +49,52 @@ pub fn run(
         [contract] => contract,
         _ => bail!("simulate requires exactly one contract declaration"),
     };
-    let source_func = contract
-        .functions
-        .iter()
-        .find(|candidate| candidate.name == function)
-        .ok_or_else(|| anyhow::anyhow!("contract transition `{function}` not found"))?;
+    let (entrypoint, params, is_init) = if init {
+        let init = contract
+            .init
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("contract has no init declaration"))?;
+        ("init".to_string(), init.params.as_slice(), true)
+    } else {
+        let function = function.expect("clap requires --function when --init is absent");
+        let source_func = contract
+            .functions
+            .iter()
+            .find(|candidate| candidate.name == function)
+            .ok_or_else(|| anyhow::anyhow!("contract transition `{function}` not found"))?;
+        (function, source_func.params.as_slice(), false)
+    };
+    let ir_name = if is_init {
+        format!("__clg_contract_init${}", contract.name)
+    } else {
+        entrypoint.clone()
+    };
     let func = typed
         .ir
         .funcs
         .iter()
-        .find(|candidate| candidate.name == function)
-        .ok_or_else(|| anyhow::anyhow!("contract transition `{function}` not found"))?;
+        .find(|candidate| candidate.name == ir_name)
+        .ok_or_else(|| anyhow::anyhow!("contract transition `{entrypoint}` not found"))?;
     let mut storage = read_object(&state, "state")?;
     let arg_values = read_array(&args, "args")?;
-    if arg_values.len() != func.params.len() {
+    if arg_values.len() != params.len() {
         bail!(
             "simulator argument count mismatch: expected {}, found {}",
-            func.params.len(),
+            params.len(),
             arg_values.len()
         );
     }
-    for field in &contract.fields {
-        let field_value = storage
-            .get(&field.name)
-            .ok_or_else(|| anyhow::anyhow!("simulator state is missing field `{}`", field.name))?;
-        scalar_for_type(field_value, &field.ty)
-            .with_context(|| format!("state field `{}`", field.name))?;
-    }
-    if storage.len() != contract.fields.len() {
-        bail!("simulator state contains undeclared fields");
+    if is_init {
+        if !storage.is_empty() {
+            bail!("simulator init may only execute against an empty state object");
+        }
+    } else {
+        validate_initialized_state(&storage, &contract.fields)?;
     }
 
     let before = JsonValue::Object(storage.clone());
     let mut values = HashMap::new();
-    for (index, (arg_value, parameter)) in arg_values.iter().zip(&source_func.params).enumerate() {
+    for (index, (arg_value, parameter)) in arg_values.iter().zip(params).enumerate() {
         values.insert(index as u32, scalar_for_type(arg_value, &parameter.ty)?);
     }
     let event_types = contract
@@ -117,7 +130,8 @@ pub fn run(
         "events": events,
         "fuel_limit": gas_limit,
         "fuel_used": fuel_used,
-        "function": function,
+        "function": entrypoint,
+        "lifecycle": if is_init { "init" } else { "transition" },
         "result": JsonValue::Null,
         "schema_version": 1,
         "state_after": after,
@@ -129,14 +143,19 @@ pub fn run(
     });
     match execution {
         Ok(result) => {
+            if is_init {
+                validate_initialized_state(&storage, &contract.fields)?;
+            }
             fs::write(&state_out, canonical_json_bytes(&after))
                 .with_context(|| format!("write simulated state `{}`", state_out.display()))?;
-            trace["result"] = scalar_json(
-                result,
-                func.ret.ok_or_else(|| {
-                    anyhow::anyhow!("simulator transition has no scalar return type")
-                })?,
-            );
+            if !is_init {
+                trace["result"] = scalar_json(
+                    result,
+                    func.ret.ok_or_else(|| {
+                        anyhow::anyhow!("simulator transition has no scalar return type")
+                    })?,
+                );
+            }
             trace["status"] = JsonValue::String("success".to_string());
         }
         Err(error) => {
@@ -252,6 +271,23 @@ fn scalar_for_type(value: &JsonValue, ty: &Type) -> Result<i64> {
             .ok_or_else(|| anyhow::anyhow!("simulator expected an in-range U64 JSON integer")),
         _ => bail!("simulator supports only Bool, Int, and in-range U64 scalar values"),
     }
+}
+
+fn validate_initialized_state(
+    storage: &serde_json::Map<String, JsonValue>,
+    fields: &[clg_ast::StructField],
+) -> Result<()> {
+    for field in fields {
+        let field_value = storage
+            .get(&field.name)
+            .ok_or_else(|| anyhow::anyhow!("simulator state is missing field `{}`", field.name))?;
+        scalar_for_type(field_value, &field.ty)
+            .with_context(|| format!("state field `{}`", field.name))?;
+    }
+    if storage.len() != fields.len() {
+        bail!("simulator state contains undeclared fields");
+    }
+    Ok(())
 }
 
 fn scalar(value: &JsonValue) -> Result<i64> {

@@ -173,8 +173,11 @@ enum Commands {
     Simulate {
         #[arg(value_name = "FILE")]
         file: PathBuf,
-        #[arg(long)]
-        function: String,
+        #[arg(long, required_unless_present = "init", conflicts_with = "init")]
+        function: Option<String>,
+        /// Execute the contract constructor against an empty state object
+        #[arg(long, default_value_t = false, conflicts_with = "function")]
+        init: bool,
         #[arg(long, value_name = "FILE")]
         state: PathBuf,
         #[arg(long, value_name = "FILE")]
@@ -421,6 +424,7 @@ fn main() -> Result<()> {
         Commands::Simulate {
             file,
             function,
+            init,
             state,
             args,
             state_out,
@@ -433,6 +437,7 @@ fn main() -> Result<()> {
         } => cmd_simulate::run(
             file,
             function,
+            init,
             state,
             args,
             state_out,

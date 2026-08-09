@@ -28,7 +28,7 @@ queue.
 3. [x] 30.2.0-30.2.2 external-call capability and CEI enforcement.
 4. [x] 30.3.1 deterministic target ABI generation.
 5. [x] 30.3.2 deterministic local simulator.
-6. [ ] 30.1.1.3.2 [Contract Gate A] exactly-once `init` lifecycle and all-path initialization
+6. [x] 30.1.1.3.2 [Contract Gate A] exactly-once `init` lifecycle and all-path initialization
    proof, after the simulator exists.
 7. [ ] 30.3.3 explicit deploy/call/invoke adapter and target receipts.
 8. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
@@ -74,7 +74,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
         write authority, full direct field initialization, stable `T829` diagnostics, and
         `init-invariant:*` VCs. (`crates/{ast,parser,typer}`, `crates/typer/tests/contract_state.rs`)
         `Completed: 2026-08-08`.
-      - Target-dependent execution item 30.1.1.3.2 is scheduled after 30.3.2 below.
+      - [x] 30.1.1.3.2 Execute `init` once through the local target adapter: a private lowered
+        constructor entrypoint accepts only empty input state and validates complete initialized
+        output before commit. Control-flow initialization remains fail-closed under `T829` until a
+        later adapter proves it. (`docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`,
+        `crates/{typer,cli}`, `crates/{typer,cli}/tests`) `Completed: 2026-08-09`.
     - [ ] 30.1.1.4 Complete the locked contract-state artifact identity: normalized invariant
       identifiers/expressions, constructor identity, target-profile identifier, and compiler and
       source digests must be bound into the schema and release evidence.
@@ -186,9 +190,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     calls fail closed without committing state. (`crates/cli/src/commands/simulate.rs`,
     `crates/cli/tests/cli_it/basic/contract_simulate.rs`,
     `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-09`.
-  - [ ] 30.1.1.3.2 [Contract Gate A ownership] Execute `init` exactly once through the target
-    adapter and prove complete initialization across branches/loops before any deployed contract
-    is accepted. Requires the 30.3.2 simulator lifecycle.
+  - [x] 30.1.1.3.2 [Contract Gate A ownership] Execute `init` exactly once through the local
+    target adapter and prove complete initialization for the accepted direct-write profile.
+    Branch/loop initialization remains rejected by `T829` until a later target adapter can prove
+    all paths. (`docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`,
+    `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
   - [ ] 30.3.3 Implement deploy/call/invoke adapter commands with explicit RPC/target
     configuration and no implicit network selection.
   - [ ] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the

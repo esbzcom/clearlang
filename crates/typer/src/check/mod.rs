@@ -236,6 +236,38 @@ pub(super) fn ensure_user_function_name_allowed(name: &str) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn contract_init_ir_name(contract_name: &str) -> String {
+    format!("__clg_contract_init${contract_name}")
+}
+
+pub(crate) fn synthesized_contract_init_functions(
+    contracts: &[clg_ast::ContractDecl],
+) -> Vec<Func> {
+    contracts
+        .iter()
+        .filter_map(|contract| {
+            contract.init.as_ref().map(|init| Func {
+                is_exported: false,
+                effect: Effect::Mut,
+                effect_span: None,
+                name: contract_init_ir_name(&contract.name),
+                type_params: Vec::new(),
+                params: init.params.clone(),
+                ret: Type::Int,
+                where_bounds: Vec::new(),
+                requires: Vec::new(),
+                ensures: Vec::new(),
+                body: init.body.clone(),
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn contract_owns_lowered_function(contract: &clg_ast::ContractDecl, name: &str) -> bool {
+    contract.functions.iter().any(|member| member.name == name)
+        || contract.init.is_some() && name == contract_init_ir_name(&contract.name)
+}
+
 pub fn check_with_vcs(ast: &Program) -> Result<TypecheckOutput> {
     let std_types = StdTypeMap::new();
     check_with_vcs_with_std(ast, &std_types)

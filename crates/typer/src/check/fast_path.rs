@@ -166,9 +166,14 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
     }
 
     let MonomorphizeOutput {
-        program: mono_program,
+        program: mut mono_program,
         mangled_name_origins,
     } = monomorphize_program(ast, &fns, &trait_env, &alias_map, &type_defs)?;
+    mono_program
+        .funcs
+        .extend(super::synthesized_contract_init_functions(
+            &mono_program.contracts,
+        ));
     let mut mono_fns: HashMap<&str, FnSig> =
         HashMap::with_capacity(builtins.len() + external_builtins.len() + mono_program.funcs.len());
     for (name, params, ret, eff) in &builtins {
@@ -417,12 +422,10 @@ pub(super) fn fast_path_without_totality_with_std_and_external(
             &trait_env,
             &type_defs,
             std_types,
-            mono_program.contracts.iter().find(|contract| {
-                contract
-                    .functions
-                    .iter()
-                    .any(|member| member.name == f.name)
-            }),
+            mono_program
+                .contracts
+                .iter()
+                .find(|contract| super::contract_owns_lowered_function(contract, &f.name)),
             &mut next_closure_code_id,
         )?;
         lowered_funcs.push(lowered.function);

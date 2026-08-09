@@ -177,9 +177,10 @@ Each `stderr` line is a standalone JSON object (NDJSON):
 | T826 | type | Contract event field type is not serializable. |
 | T827 | type | Contract event emission is outside a contract-owned `mut` transition. |
 | T828 | type | Migration `from schema` value is not a SHA-256 digest. |
-| T829 | type | Contract `init` does not initialize every declared state field on every successful path. |
-| T830 | type | External-call capability is outside a contract-owned `mut` transition. |
-| T831 | type | External-call target is not a declared interface method. |
+  | T829 | type | Contract `init` does not initialize every declared state field on every successful path. |
+  | T830 | type | External-call capability is outside a contract-owned `mut` transition. |
+  | T831 | type | External-call target is not a declared interface method. |
+  | T832 | type | State interaction, event emission, or an additional external call follows an external call. |
 | T901 | type | While loops in pure functions require a variant for totality. |
 | T902 | type | Recursive call requires a decreasing measure. |
 | T903 | type | Loop variant is not decreasing. |

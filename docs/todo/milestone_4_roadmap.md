@@ -16,23 +16,34 @@ crypto claim closure -> developer and operational readiness -> end-to-end releas
 - Explicitly deferred: additional chain targets, web/mobile frameworks, and general application
   runtime work.
 
-## Binding Sequencing Adjustment: Close Contract Gate A
+## Dependency-Ordered Execution Plan
 
-30.1's remaining work requires concrete target-state and solver semantics; it cannot be completed
-by further source-language work alone. Therefore the first executable slice of Target Gate C is
-promoted ahead of the remaining 30.1 closure:
+The numbered gate sections below remain the ownership index. Execute unfinished work only in this
+order; a task's gate label identifies accountability, not its position in the implementation
+queue.
 
-1. Complete the target-profile lock (30.3.0) and minimal state/event adapter plus solver bridge
-   (30.3.0.1).
-2. Complete state counterexample, invariant-regression, and migration proof closure
-   (30.1.3.2 and 30.1.5.3), then mark 30.1 complete.
-3. Continue reentrancy enforcement (30.2.2-30.2.4), then the rest of target/simulator work
-   (30.3.1-30.3.4).
+1. [x] 30.0 product and architecture lock.
+2. [x] 30.1 source semantics, state proof closure, and migration regression coverage through
+   30.1.3.2 and 30.1.5.3.
+3. [x] 30.2.0-30.2.2 external-call capability and CEI enforcement.
+4. [x] 30.3.1 deterministic target ABI generation.
+5. [ ] 30.3.2 deterministic local simulator.
+6. [ ] 30.1.1.3.2 [Contract Gate A] exactly-once `init` lifecycle and all-path initialization
+   proof, after the simulator exists.
+7. [ ] 30.3.3 explicit deploy/call/invoke adapter and target receipts.
+8. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
+    rejection, after target receipts exist.
+9. [ ] Mark 30.1 complete.
+10. [ ] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests, then 30.2.4 the
+    precise security claim and exclusions. This Contract Gate B work is parallel to steps 4-8 and
+    does not block Contract Gate A.
+11. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
+12. [ ] Continue 30.4-30.6 in their listed dependency order.
 
 The promoted adapter is deliberately narrow: it consumes only `StateRead`, `StateWrite`, and
 `EventEmit`; it does not enable network deployment, external calls, or a general EVM target.
 
-- [ ] 30.0 Milestone 4 product and architecture lock [Planning Gate A]
+- [x] 30.0 Milestone 4 product and architecture lock [Planning Gate A] `Completed: 2026-08-05`.
   - [x] 30.0.0 Publish the governing product boundary, supported target decision, proof claim,
     non-goals, and exit criterion. (`docs/design/phase-30.0.0-milestone-4-production-contract-platform-lock.md`) `Completed: 2026-08-05`.
   - [x] 30.0.1 Define ownership, acceptance evidence, and release-gate dependencies for every
@@ -63,8 +74,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
         write authority, full direct field initialization, stable `T829` diagnostics, and
         `init-invariant:*` VCs. (`crates/{ast,parser,typer}`, `crates/typer/tests/contract_state.rs`)
         `Completed: 2026-08-08`.
-      - [ ] 30.1.1.3.2 Execute `init` exactly once through the target adapter and prove complete
-        initialization across branches/loops before any deployed contract is accepted.
+      - Target-dependent execution item 30.1.1.3.2 is scheduled after 30.3.2 below.
     - [ ] 30.1.1.4 Complete the locked contract-state artifact identity: normalized invariant
       identifiers/expressions, constructor identity, target-profile identifier, and compiler and
       source digests must be bound into the schema and release evidence.
@@ -79,15 +89,14 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
           (`crates/cli/src/commands/build/{run/core.rs,run/helpers.rs,contract_state_schema.rs}`,
           `crates/{cli/src/proofs/artifact_hashing.rs,cli/src/signing.rs}`,
           `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-08`.
-        - [ ] 30.1.1.4.2.2 Bind the same identity into the executable target receipt and add
-          cross-artifact drift rejection.
+        - Target-dependent execution item 30.1.1.4.2.2 is scheduled after 30.3.3 below.
   - [x] 30.1.2 Implement `old(...)` snapshots in `ensure` clauses, including parser, typer, VC,
     solver encoding, diagnostics, and no-snapshot misuse rejection. Entry-state symbols now
     encode `old(state.<field>)`, while ordinary state reads in bodies and postconditions use
     exit-state symbols; the explicit target-adapter assumption remains release-blocking.
     (`crates/{parser,typer}`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
-  - [ ] 30.1.3 Add state-transition and storage-invariant proof obligations with deterministic
-    counterexamples and proof artifacts.
+  - [x] 30.1.3 Add state-transition and storage-invariant proof obligations with deterministic
+    counterexamples and proof artifacts. `Completed: 2026-08-08`.
     - [x] 30.1.3.1 Parse and type-check contract `invariant` declarations, then emit stable
       entry-to-exit storage-invariant VCs for every mut transition. The existing proof artifact
       pipeline records these target-neutral VCs and their assumption boundary.
@@ -111,7 +120,8 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       fail-closed backend behavior until a target adapter consumes emitted events.
       (`crates/{parser,typer,ir,codegen-wasm}`, `crates/typer/tests/contract_state.rs`,
       `crates/codegen-wasm/tests/contract_state_ops.rs`) `Completed: 2026-08-06`.
-  - [ ] 30.1.5 Add schema compatibility, storage migration, and state-invariant regression gates.
+  - [x] 30.1.5 Add schema compatibility, storage migration, and state-invariant regression gates.
+    `Completed: 2026-08-08`.
     - [x] 30.1.5.1 Add a deterministic append-only state-schema compatibility gate. It requires
       a version increase and rejects changed, removed, reordered, or identity-mismatched prior
       fields before code generation. (`clg build --check-contract-state-schema <FILE>`,
@@ -140,8 +150,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     (`crates/{parser,typer,ir,codegen-wasm}`, `crates/parser/tests/parse_smoke.rs`,
     `crates/typer/tests/contract_state.rs`, `crates/codegen-wasm/tests/contract_state_ops.rs`)
     `Completed: 2026-08-08`.
-  - [ ] 30.2.2 Enforce checks-effects-interactions ordering or an equivalently strong
-    state-transition/reentrancy protocol at type and proof boundaries.
+  - [x] 30.2.2 Enforce checks-effects-interactions ordering at the type boundary. A
+    contract-owned `mut` transition may make at most one outbound call, and state reads/writes,
+    event emission, or another outbound call after it fail deterministically with `T832`.
+    (`crates/typer/src/check/function_checks.rs`, `crates/typer/tests/contract_state.rs`,
+    `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-08`.
   - [ ] 30.2.3 Add adversarial reentrancy fixtures and fail-closed release tests.
   - [ ] 30.2.4 Publish the precise security claim and exclusions; do not claim generic
     reentrancy prevention outside the enforced model.
@@ -158,12 +171,24 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     before 30.1.3.2 and 30.1.5.3; deployment, RPC, and general EVM execution remain deferred.
     (`crates/{typer,cli}`, `crates/typer/tests/contract_state.rs`,
     `crates/cli/tests/solver_outcomes.rs`) `Completed: 2026-08-08`.
-  - [ ] 30.3.1 Implement deterministic ABI generation for contract functions, events, errors,
-    state schema, and target metadata.
+  - [x] 30.3.1 Implement deterministic ABI generation for contract functions, events, errors,
+    state schema, and target metadata. `clg build --emit-contract-abi <FILE>` emits the canonical
+    descriptor with explicit deferred wire/error boundaries; EVM selector and calldata encoding
+    remain later target/crypto work.
+    (`docs/design/phase-30.3.1-deterministic-target-abi-lock.md`,
+    `crates/cli/src/commands/build/contract_abi.rs`,
+    `crates/cli/tests/cli_it/basic/contract_state_schema.rs`,
+    `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-09`.
   - [ ] 30.3.2 Implement a deterministic local simulator with caller, storage, value, block
     context, gas/resource limits, and versioned execution traces.
+  - [ ] 30.1.1.3.2 [Contract Gate A ownership] Execute `init` exactly once through the target
+    adapter and prove complete initialization across branches/loops before any deployed contract
+    is accepted. Requires the 30.3.2 simulator lifecycle.
   - [ ] 30.3.3 Implement deploy/call/invoke adapter commands with explicit RPC/target
     configuration and no implicit network selection.
+  - [ ] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the
+    executable target receipt and reject schema/proof/target/signed-bundle drift. Requires the
+    30.3.3 deploy/call/invoke receipt.
   - [ ] 30.3.4 Add end-to-end target conformance and compatibility fixtures against the supported
     EVM-compatible environment.
 

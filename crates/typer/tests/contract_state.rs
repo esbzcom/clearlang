@@ -78,6 +78,34 @@ fn contract_init_requires_direct_initialization_of_every_state_field() {
     let err = type_check_only(&parse(&incomplete).expect("parse incomplete init"))
         .expect_err("reject incomplete init");
     assert!(format!("{err:#}").contains("T829"));
+
+    let nested_write = r#"
+        contract Vault version 1 {
+            state { owner: Bytes; }
+            init(owner: Bytes) {
+                { state.owner = owner; 0 };
+                0
+            }
+        }
+    "#;
+    let err = type_check_only(&parse(nested_write).expect("parse nested init write"))
+        .expect_err("reject initialization that is not a direct init write");
+    assert!(format!("{err:#}").contains("T829"));
+
+    let outbound_call = r#"
+        interface Receiver { io function receive() -> Bool; }
+        contract Vault version 1 {
+            state { owner: Bytes; }
+            init(owner: Bytes) {
+                external_call Receiver.receive();
+                state.owner = owner;
+                0
+            }
+        }
+    "#;
+    let err = type_check_only(&parse(outbound_call).expect("parse init outbound call"))
+        .expect_err("reject outbound calls from init");
+    assert!(format!("{err:#}").contains("T830"));
 }
 
 #[test]
@@ -258,6 +286,57 @@ fn mut_contract_transition_can_make_typed_external_call() {
     let err = type_check_only(&parse(&invalid).expect("parse pure external call"))
         .expect_err("reject external call outside mut transition");
     assert!(format!("{err:#}").contains("T830"));
+}
+
+#[test]
+fn contract_external_calls_enforce_checks_effects_interactions() {
+    let valid = r#"
+        interface Receiver { io function receive(amount: U64) -> Bool; }
+        contract Vault version 1 {
+            state { total: U64; }
+            event Paid { amount: U64; }
+            mut function pay(amount: U64) -> U64 {
+                state.total = amount;
+                emit Paid(amount);
+                external_call Receiver.receive(amount);
+                amount
+            }
+        }
+    "#;
+    type_check_only(&parse(valid).expect("parse CEI transition"))
+        .expect("accept checks-effects-interactions ordering");
+
+    for (name, invalid) in [
+        (
+            "state write",
+            valid.replace(
+                "                amount\n",
+                "                state.total = amount;\n                amount\n",
+            ),
+        ),
+        (
+            "state read",
+            valid.replace("                amount\n", "                state.total\n"),
+        ),
+        (
+            "event emission",
+            valid.replace(
+                "                amount\n",
+                "                emit Paid(amount);\n                amount\n",
+            ),
+        ),
+        (
+            "second external call",
+            valid.replace(
+                "                amount\n",
+                "                external_call Receiver.receive(amount);\n                amount\n",
+            ),
+        ),
+    ] {
+        let err = type_check_only(&parse(&invalid).expect("parse CEI violation"))
+            .expect_err("reject interaction after external call");
+        assert!(format!("{err:#}").contains("T832"), "{name}: {err:#}");
+    }
 }
 
 #[test]

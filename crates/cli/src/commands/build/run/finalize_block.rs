@@ -72,7 +72,7 @@
             proof_artifact_hash,
             solver_profile_hash,
             solver_profile,
-            Some(&contract_source_graph),
+            contract_source_graph.as_ref(),
         )?;
         let manifest_payload = build_assurance_manifest_payload(AssuranceManifestInput {
             vcs: &vcs,

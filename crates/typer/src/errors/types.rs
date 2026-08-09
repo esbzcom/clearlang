@@ -299,6 +299,18 @@ impl TyperError {
         )
     }
 
+    pub fn external_call_order_violation(span: Span) -> Self {
+        Self::new(
+            "T832",
+            format!(
+                "at {}..{}: state reads/writes, event emission, and additional external calls are forbidden after an external call",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn duplicate_enum_variant(variant: &str, span: Span) -> Self {
         Self::new(
             "T219",

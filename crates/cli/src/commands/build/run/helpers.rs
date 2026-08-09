@@ -75,6 +75,16 @@ fn contract_source_graph_identity(
     }))
 }
 
+fn requires_contract_source_graph(
+    has_contract: bool,
+    emit_contract_state_schema: bool,
+    emit_contract_abi: bool,
+    emit_proof: bool,
+    sign: bool,
+) -> bool {
+    sign || emit_contract_state_schema || emit_contract_abi || (has_contract && emit_proof)
+}
+
 fn release_module_graph_test_path_violation(
     module_root: &Path,
     source_files: &[PathBuf],

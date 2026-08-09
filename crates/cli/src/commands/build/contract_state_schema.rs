@@ -92,7 +92,7 @@ pub(super) fn check_contract_state_schema_compatibility(
     Ok(())
 }
 
-fn contract_state_schema_artifact(
+pub(super) fn contract_state_schema_artifact(
     program: &Program,
     source_graph: Option<&serde_json::Value>,
 ) -> Result<serde_json::Value> {
@@ -266,7 +266,7 @@ fn field_id(contract: &ContractDecl, field_name: &str) -> String {
     format!("sha256:{}", sha256_hex(input.as_bytes()))
 }
 
-fn render_type(ty: &Type) -> String {
+pub(super) fn render_type(ty: &Type) -> String {
     match ty {
         Type::Int => "Int".to_string(),
         Type::U8 => "U8".to_string(),

@@ -176,6 +176,17 @@
     }
 
     #[test]
+    fn contract_source_graph_is_computed_only_for_identity_consumers() {
+        assert!(!requires_contract_source_graph(false, false, false, false, false));
+        assert!(!requires_contract_source_graph(true, false, false, false, false));
+        assert!(requires_contract_source_graph(false, true, false, false, false));
+        assert!(requires_contract_source_graph(false, false, true, false, false));
+        assert!(requires_contract_source_graph(true, false, false, true, false));
+        assert!(!requires_contract_source_graph(false, false, false, true, false));
+        assert!(requires_contract_source_graph(false, false, false, false, true));
+    }
+
+    #[test]
     fn evaluate_strict_gates_orders_by_code_then_package_then_symbol() {
         let expected_profiles = std::collections::BTreeMap::from([
             (

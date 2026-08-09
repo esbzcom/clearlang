@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clg_ast::{
-    Contract, ContractDecl, ContractInitDecl, Expr, Func, MigrationDecl, ParamKind, Stmt,
+    Block, Contract, ContractDecl, ContractInitDecl, Expr, Func, MigrationDecl, ParamKind, Stmt,
     TraitMethod, Type,
 };
 use std::collections::{HashMap, HashSet};
@@ -377,7 +377,167 @@ pub(super) fn check_func<'a>(
         enforce_mut_guards(&f.body, &guard_keys)?;
     }
     max_effect(&f.body, fns, trait_env, allowed_effect)?;
+    if contract_owner.is_some() && matches!(f.effect, clg_ast::Effect::Mut) {
+        enforce_external_call_cei(&f.body)?;
+    }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct ExternalCallFlow {
+    can_continue_before_call: bool,
+    can_continue_after_call: bool,
+}
+
+impl ExternalCallFlow {
+    const fn entry() -> Self {
+        Self {
+            can_continue_before_call: true,
+            can_continue_after_call: false,
+        }
+    }
+
+    fn merge(self, other: Self) -> Self {
+        Self {
+            can_continue_before_call: self.can_continue_before_call
+                || other.can_continue_before_call,
+            can_continue_after_call: self.can_continue_after_call || other.can_continue_after_call,
+        }
+    }
+
+    fn interaction(self, span: clg_ast::Span) -> Result<Self> {
+        if self.can_continue_after_call {
+            return Err(TyperError::external_call_order_violation(span).into());
+        }
+        Ok(self)
+    }
+
+    fn outbound_call(self, span: clg_ast::Span) -> Result<Self> {
+        if self.can_continue_after_call {
+            return Err(TyperError::external_call_order_violation(span).into());
+        }
+        Ok(Self {
+            can_continue_before_call: false,
+            can_continue_after_call: self.can_continue_before_call,
+        })
+    }
+}
+
+fn enforce_external_call_cei(body: &Expr) -> Result<()> {
+    let _ = analyze_external_call_cei(body, ExternalCallFlow::entry())?;
+    Ok(())
+}
+
+fn analyze_external_call_cei(expr: &Expr, flow: ExternalCallFlow) -> Result<ExternalCallFlow> {
+    match expr {
+        Expr::Int(_, _) | Expr::Bool(_, _) | Expr::String(_, _) | Expr::Var(_, _) => Ok(flow),
+        Expr::Return { expr, .. } | Expr::Try { expr, .. } | Expr::Unary { expr, .. } => {
+            analyze_external_call_cei(expr, flow)
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => elems
+            .iter()
+            .try_fold(flow, |flow, item| analyze_external_call_cei(item, flow)),
+        Expr::StructLit { fields, .. } => fields.iter().try_fold(flow, |flow, field| {
+            analyze_external_call_cei(&field.expr, flow)
+        }),
+        Expr::FieldAccess { base, span, .. } => {
+            let flow = analyze_external_call_cei(base, flow)?;
+            if matches!(base.as_ref(), Expr::Var(name, _) if name == "state") {
+                flow.interaction(*span)
+            } else {
+                Ok(flow)
+            }
+        }
+        Expr::Index { base, index, .. } => {
+            let flow = analyze_external_call_cei(base, flow)?;
+            analyze_external_call_cei(index, flow)
+        }
+        Expr::Bin { lhs, rhs, .. } => {
+            let flow = analyze_external_call_cei(lhs, flow)?;
+            analyze_external_call_cei(rhs, flow)
+        }
+        Expr::Call {
+            callee, args, span, ..
+        } => {
+            let flow = args
+                .iter()
+                .try_fold(flow, |flow, arg| analyze_external_call_cei(arg, flow))?;
+            if callee.starts_with("__clg_state_write$") || callee.starts_with("__clg_event_emit$") {
+                flow.interaction(*span)
+            } else if callee.starts_with("__clg_external_call$") {
+                flow.outbound_call(*span)
+            } else {
+                Ok(flow)
+            }
+        }
+        Expr::Block { block } => analyze_external_call_cei_block(block, flow),
+        Expr::If {
+            cond,
+            then_br,
+            else_br,
+            ..
+        } => {
+            let flow = analyze_external_call_cei(cond, flow)?;
+            let then_flow = analyze_external_call_cei(then_br, flow)?;
+            let else_flow = analyze_external_call_cei(else_br, flow)?;
+            Ok(then_flow.merge(else_flow))
+        }
+        Expr::Match {
+            scrutinee, arms, ..
+        } => {
+            let flow = analyze_external_call_cei(scrutinee, flow)?;
+            arms.iter().try_fold(
+                ExternalCallFlow {
+                    can_continue_before_call: false,
+                    can_continue_after_call: false,
+                },
+                |merged, arm| Ok(merged.merge(analyze_external_call_cei(&arm.expr, flow)?)),
+            )
+        }
+        Expr::Lambda { body, .. } => {
+            let _ = analyze_external_call_cei(body, ExternalCallFlow::entry())?;
+            Ok(flow)
+        }
+    }
+}
+
+fn analyze_external_call_cei_block(
+    block: &Block,
+    flow: ExternalCallFlow,
+) -> Result<ExternalCallFlow> {
+    let flow = block
+        .statements
+        .iter()
+        .try_fold(flow, |flow, stmt| match stmt {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => {
+                analyze_external_call_cei(expr, flow)
+            }
+            Stmt::While {
+                cond,
+                invariant,
+                variant,
+                body,
+                span,
+            } => {
+                let flow = analyze_external_call_cei(cond, flow)?;
+                let flow = analyze_external_call_cei(invariant, flow)?;
+                let flow = if let Some(variant) = variant {
+                    analyze_external_call_cei(variant, flow)?
+                } else {
+                    flow
+                };
+                let body_flow = analyze_external_call_cei_block(body, flow)?;
+                if body_flow.can_continue_after_call {
+                    return Err(TyperError::external_call_order_violation(*span).into());
+                }
+                Ok(flow)
+            }
+        })?;
+    if let Some(tail) = &block.tail {
+        analyze_external_call_cei(tail, flow)
+    } else {
+        Ok(flow)
+    }
 }
 
 pub(super) fn check_impl_method<'a>(

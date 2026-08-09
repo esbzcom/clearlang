@@ -1,10 +1,16 @@
 #[test]
 fn build_emits_deterministic_contract_state_schema() {
     let dir = tempdir().expect("tempdir");
+    let support_dir = dir.path().join("support");
+    fs::create_dir_all(&support_dir).expect("create support directory");
+    let support = support_dir.join("values.clear");
+    fs::write(&support, "export function one() -> U64 { U64(1) }").expect("write support source");
     let source = dir.path().join("vault.clear");
     fs::write(
         &source,
         r#"
+            import support::values
+
             contract Vault version 1 {
                 state { owner: Bytes; total: U64; balances: Map<Bytes, U64>; }
                 event Deposit { account: Bytes; amount: U64; }
@@ -15,6 +21,7 @@ fn build_emits_deterministic_contract_state_schema() {
     .expect("write source");
     let first_schema = dir.path().join("first.schema.json");
     let second_schema = dir.path().join("second.schema.json");
+    let changed_source_schema = dir.path().join("changed-source.schema.json");
 
     Command::cargo_bin("clg")
         .expect("clg binary")
@@ -63,6 +70,9 @@ fn build_emits_deterministic_contract_state_schema() {
         .as_str()
         .expect("source digest")
         .starts_with("sha256:"));
+    assert_eq!(schema["source_graph"]["files"].as_array().map(Vec::len), Some(2));
+    assert_eq!(schema["source_graph"]["files"][0]["path"], "support/values.clear");
+    assert_eq!(schema["source_graph"]["files"][1]["path"], "vault.clear");
     assert_eq!(schema["events"][0]["name"], "Deposit");
     assert_eq!(schema["events"][0]["fields"][0]["name"], "account");
     assert_eq!(schema["events"][0]["fields"][1]["name"], "amount");
@@ -71,6 +81,29 @@ fn build_emits_deterministic_contract_state_schema() {
         .as_str()
         .expect("event ABI digest")
         .starts_with("sha256:"));
+
+    fs::write(&support, "export function one() -> U64 { U64(2) }").expect("change support source");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            source.to_str().expect("source path"),
+            "-o",
+            dir.path().join("vault-changed.wasm").to_str().expect("wasm path"),
+            "--emit-contract-state-schema",
+            changed_source_schema.to_str().expect("schema path"),
+        ])
+        .assert()
+        .success();
+    let changed: Value = serde_json::from_slice(
+        &fs::read(&changed_source_schema).expect("read changed-source schema"),
+    )
+    .expect("parse changed-source schema");
+    assert_ne!(
+        schema["source_graph"]["digest"],
+        changed["source_graph"]["digest"],
+        "all loaded source files must contribute to the contract identity"
+    );
 }
 
 #[test]
@@ -187,4 +220,97 @@ fn build_checks_contract_state_schema_is_append_only() {
         ])
         .assert()
         .success();
+}
+
+#[test]
+fn build_emits_deterministic_target_contract_abi() {
+    let dir = tempdir().expect("tempdir");
+    let support_dir = dir.path().join("support");
+    fs::create_dir_all(&support_dir).expect("create support directory");
+    let support = support_dir.join("values.clear");
+    fs::write(&support, "export function one() -> U64 { U64(1) }").expect("write support source");
+    let source = dir.path().join("vault.clear");
+    fs::write(
+        &source,
+        r#"
+            import support::values
+
+            contract Vault version 1 {
+                state { total: U64; }
+                event Deposited { amount: U64; }
+                pure function balance() -> U64 { U64(0) }
+                mut function deposit(amount: U64) -> U64 { amount }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write source");
+    let first_abi = dir.path().join("first.abi.json");
+    let second_abi = dir.path().join("second.abi.json");
+    let changed_source_abi = dir.path().join("changed-source.abi.json");
+
+    for (abi, wasm) in [
+        (&first_abi, dir.path().join("first.wasm")),
+        (&second_abi, dir.path().join("second.wasm")),
+    ] {
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "build",
+                source.to_str().expect("source path"),
+                "-o",
+                wasm.to_str().expect("wasm path"),
+                "--emit-contract-abi",
+                abi.to_str().expect("ABI path"),
+            ])
+            .assert()
+            .success();
+    }
+
+    let first = fs::read(&first_abi).expect("read first ABI");
+    let second = fs::read(&second_abi).expect("read second ABI");
+    assert_eq!(first, second, "ABI output must be byte-stable");
+    let abi: Value = serde_json::from_slice(&first).expect("parse ABI");
+    assert_eq!(abi["abi"]["format"], "clg.contract-abi.v1");
+    assert_eq!(abi["contract"]["name"], "Vault");
+    assert_eq!(abi["functions"][0]["signature"], "balance()->U64");
+    assert_eq!(abi["functions"][1]["signature"], "deposit(U64)->U64");
+    assert_eq!(abi["events"][0]["name"], "Deposited");
+    assert_eq!(abi["errors"]["status"], "unsupported");
+    assert_eq!(abi["target"]["profile"], "clg.evm-compatible.abi.v1");
+    assert_eq!(abi["target"]["wire_encoding"], "deferred");
+    assert!(abi["state_schema"]["digest"]
+        .as_str()
+        .expect("state schema digest")
+        .starts_with("sha256:"));
+    assert!(abi["source_graph"]["digest"]
+        .as_str()
+        .expect("source graph digest")
+        .starts_with("sha256:"));
+
+    fs::write(&support, "export function one() -> U64 { U64(2) }").expect("change support source");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            source.to_str().expect("source path"),
+            "-o",
+            dir.path()
+                .join("changed-source.wasm")
+                .to_str()
+                .expect("wasm path"),
+            "--emit-contract-abi",
+            changed_source_abi.to_str().expect("ABI path"),
+        ])
+        .assert()
+        .success();
+    let changed: Value = serde_json::from_slice(
+        &fs::read(&changed_source_abi).expect("read changed-source ABI"),
+    )
+    .expect("parse changed-source ABI");
+    assert_ne!(
+        abi["source_graph"]["digest"],
+        changed["source_graph"]["digest"],
+        "all loaded source files must contribute to the ABI identity"
+    );
 }

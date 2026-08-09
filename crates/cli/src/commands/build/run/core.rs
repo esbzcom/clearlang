@@ -6,6 +6,7 @@ pub fn run(
     validate: bool,
     debug_names: bool,
     emit_contract_state_schema: Option<PathBuf>,
+    emit_contract_abi: Option<PathBuf>,
     check_contract_state_schema: Option<PathBuf>,
     emit_vcs: Option<PathBuf>,
     emit_proof: Option<PathBuf>,
@@ -102,7 +103,6 @@ pub fn run(
         load_program(&file, json_errors)?
     };
     let module_root = file.parent().unwrap_or_else(|| Path::new("."));
-    let contract_source_graph = contract_source_graph_identity(module_root, loaded.source_files.as_slice())?;
     if release_profile == ReleaseProfile::Production {
         if let Some(message) =
             release_module_graph_test_path_violation(module_root, loaded.source_files.as_slice())
@@ -206,11 +206,27 @@ pub fn run(
         mono_program,
         mangled_name_origins,
     } = type_output;
-    let contract_proof_source_graph = (!mono_program.contracts.is_empty()).then_some(&contract_source_graph);
+    let contract_source_graph_required = requires_contract_source_graph(
+        !mono_program.contracts.is_empty(),
+        emit_contract_state_schema.is_some(),
+        emit_contract_abi.is_some(),
+        emit_proof.is_some(),
+        sign,
+    );
+    let contract_source_graph = contract_source_graph_required
+        .then(|| contract_source_graph_identity(module_root, loaded.source_files.as_slice()))
+        .transpose()?;
+    let contract_proof_source_graph = (!mono_program.contracts.is_empty())
+        .then_some(contract_source_graph.as_ref())
+        .flatten();
 
     if let Some(schema_path) = emit_contract_state_schema.as_ref() {
         let _stage = timings.start(logger, "emit_contract_state_schema");
-        write_contract_state_schema(&mono_program, schema_path, Some(&contract_source_graph))?;
+        write_contract_state_schema(&mono_program, schema_path, contract_source_graph.as_ref())?;
+    }
+    if let Some(abi_path) = emit_contract_abi.as_ref() {
+        let _stage = timings.start(logger, "emit_contract_abi");
+        write_contract_abi(&mono_program, abi_path, contract_source_graph.as_ref())?;
     }
     if let Some(prior_schema_path) = check_contract_state_schema.as_ref() {
         let _stage = timings.start(logger, "check_contract_state_schema");

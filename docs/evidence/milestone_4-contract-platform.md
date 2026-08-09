@@ -88,3 +88,15 @@
   executable build before it writes a Wasm artifact because the external-call adapter is absent.
 - Known exclusions: this confirms fail-closed behavior and source ordering only; it is not a
   target callback or live-network reentrancy conformance result.
+
+## 30.2.4 Reentrancy security claim
+
+- Date: 2026-08-09
+- Accountable owner: language-security-owner
+- Review boundary: target-runtime-owner
+- Stable claim: only accepted source-level `mut` transitions receive the CEI ordering guarantee;
+  no executable external-call path is currently supported.
+- Exclusions and release rule: callbacks, proxies, delegate calls, raw calldata, dynamic targets,
+  target-runtime behavior, and call-boundary invariant proof are excluded. Any outbound-call IR
+  or unresolved target/solver boundary remains strict-release blocking.
+- Governing lock: `docs/design/phase-30.2.4-reentrancy-security-claim-lock.md`.

@@ -34,9 +34,9 @@ queue.
 8. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
     rejection, after target receipts exist.
 9. [ ] Mark 30.1 complete.
-10. [x] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests. Continue with
-    30.2.4, the precise security claim and exclusions. This Contract Gate B work is parallel to
-    steps 4-8 and does not block Contract Gate A.
+10. [x] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests, then 30.2.4 the
+    precise security claim and exclusions. This Contract Gate B work is parallel to steps 4-8 and
+    does not block Contract Gate A.
 11. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
 12. [ ] Continue 30.4-30.6 in their listed dependency order.
 
@@ -164,8 +164,9 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     external-call contract without producing an executable artifact. (`crates/typer/tests/contract_state.rs`,
     `crates/cli/tests/cli_it/basic/build_release.rs`,
     `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-09`.
-  - [ ] 30.2.4 Publish the precise security claim and exclusions; do not claim generic
+  - [x] 30.2.4 Publish the precise security claim and exclusions; do not claim generic
     reentrancy prevention outside the enforced model.
+    (`docs/design/phase-30.2.4-reentrancy-security-claim-lock.md`) `Completed: 2026-08-09`.
 
 - [ ] 30.3 EVM-compatible target and local simulation [Target Gate C]
   - [x] 30.3.0 Lock the minimal target profile needed by Contract Gate A: canonical state

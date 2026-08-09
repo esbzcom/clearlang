@@ -220,8 +220,10 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     The selected contract surface is empty, and the boundary preserves strict fail-closed handling
     for any future crypto-dependent path. (`docs/design/phase-30.4.1-contract-crypto-assurance-boundary.md`)
     `Completed: 2026-08-09`.
-  - [ ] 30.4.2 Add authorization/signature proof fixtures and negative tests for malformed keys,
-    signatures, domains, and replay inputs.
+  - [x] 30.4.2 Add authorization/signature proof fixtures and negative tests for malformed keys,
+    signatures, domains, and replay inputs. No fixture is valid before a contract crypto API is
+    selected; the fixture policy prevents tooling signatures from being misrepresented as support.
+    (`docs/design/phase-30.4.2-contract-crypto-fixture-policy.md`) `Completed: 2026-08-09`.
   - [ ] 30.4.3 Keep cryptographic hardness and timing/side-channel properties explicitly outside
     the claim unless separately verified.
 

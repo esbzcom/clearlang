@@ -224,8 +224,9 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     signatures, domains, and replay inputs. No fixture is valid before a contract crypto API is
     selected; the fixture policy prevents tooling signatures from being misrepresented as support.
     (`docs/design/phase-30.4.2-contract-crypto-fixture-policy.md`) `Completed: 2026-08-09`.
-  - [ ] 30.4.3 Keep cryptographic hardness and timing/side-channel properties explicitly outside
+  - [x] 30.4.3 Keep cryptographic hardness and timing/side-channel properties explicitly outside
     the claim unless separately verified.
+    (`docs/design/phase-30.4.3-contract-crypto-nonclaims.md`) `Completed: 2026-08-09`.
 
 - [ ] 30.5 Contract developer experience and runtime operations [Readiness Gate E]
   - [ ] 30.5.0 Define a bounded-memory lifecycle policy for closures, simulator instances, and

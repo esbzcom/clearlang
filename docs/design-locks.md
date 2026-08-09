@@ -52,3 +52,4 @@ This document tracks the current design-lock references.
 - `docs/design/phase-30.4.0-contract-crypto-surface-lock.md`
 - `docs/design/phase-30.4.1-contract-crypto-assurance-boundary.md`
 - `docs/design/phase-30.4.2-contract-crypto-fixture-policy.md`
+- `docs/design/phase-30.4.3-contract-crypto-nonclaims.md`

@@ -215,8 +215,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     profile, including exact claim boundaries and threat-model exclusions. No source-level crypto
     primitive is selected; tooling crypto remains outside contract semantics.
     (`docs/design/phase-30.4.0-contract-crypto-surface-lock.md`) `Completed: 2026-08-09`.
-  - [ ] 30.4.1 Implement theorem-grade semantic models or an independently verified attestation
+  - [x] 30.4.1 Implement theorem-grade semantic models or an independently verified attestation
     boundary for each selected crypto primitive; unlabelled assumptions remain release-blocking.
+    The selected contract surface is empty, and the boundary preserves strict fail-closed handling
+    for any future crypto-dependent path. (`docs/design/phase-30.4.1-contract-crypto-assurance-boundary.md`)
+    `Completed: 2026-08-09`.
   - [ ] 30.4.2 Add authorization/signature proof fixtures and negative tests for malformed keys,
     signatures, domains, and replay inputs.
   - [ ] 30.4.3 Keep cryptographic hardness and timing/side-channel properties explicitly outside

@@ -196,6 +196,9 @@ enum Commands {
         timestamp: u64,
         #[arg(long, default_value_t = 100000)]
         gas_limit: u64,
+        /// Maximum bytes accepted for each JSON input and emitted artifact
+        #[arg(long, default_value_t = 1_048_576)]
+        memory_limit: u64,
     },
     /// Phase 25.2.3: one-command release orchestration (Gate C)
     Release {
@@ -434,6 +437,7 @@ fn main() -> Result<()> {
             block_number,
             timestamp,
             gas_limit,
+            memory_limit,
         } => cmd_simulate::run(
             file,
             function,
@@ -447,6 +451,7 @@ fn main() -> Result<()> {
             block_number,
             timestamp,
             gas_limit,
+            memory_limit,
             logger.with_command("simulate"),
         ),
         Commands::Release {

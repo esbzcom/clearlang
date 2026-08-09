@@ -25,6 +25,7 @@ pub fn run(
     block_number: u64,
     timestamp: u64,
     gas_limit: u64,
+    memory_limit: u64,
     _logger: Logger,
 ) -> Result<()> {
     let loaded = load_program(&file, false)?;
@@ -75,8 +76,8 @@ pub fn run(
         .iter()
         .find(|candidate| candidate.name == ir_name)
         .ok_or_else(|| anyhow::anyhow!("contract transition `{entrypoint}` not found"))?;
-    let mut storage = read_object(&state, "state")?;
-    let arg_values = read_array(&args, "args")?;
+    let mut storage = read_object(&state, "state", memory_limit)?;
+    let arg_values = read_array(&args, "args", memory_limit)?;
     if arg_values.len() != params.len() {
         bail!(
             "simulator argument count mismatch: expected {}, found {}",
@@ -146,7 +147,7 @@ pub fn run(
             if is_init {
                 validate_initialized_state(&storage, &contract.fields)?;
             }
-            fs::write(&state_out, canonical_json_bytes(&after))
+            write_limited_json(&state_out, &after, memory_limit)
                 .with_context(|| format!("write simulated state `{}`", state_out.display()))?;
             if !is_init {
                 trace["result"] = scalar_json(
@@ -160,12 +161,12 @@ pub fn run(
         }
         Err(error) => {
             trace["failure"] = JsonValue::String(format!("{error:#}"));
-            fs::write(&trace_out, canonical_json_bytes(&trace))
+            write_limited_json(&trace_out, &trace, memory_limit)
                 .with_context(|| format!("write simulation trace `{}`", trace_out.display()))?;
             return Err(error);
         }
     }
-    fs::write(&trace_out, canonical_json_bytes(&trace))
+    write_limited_json(&trace_out, &trace, memory_limit)
         .with_context(|| format!("write simulation trace `{}`", trace_out.display()))
 }
 
@@ -316,22 +317,39 @@ fn scalar_json(value: i64, ty: IrType) -> JsonValue {
     }
 }
 
-fn read_object(path: &PathBuf, label: &str) -> Result<serde_json::Map<String, JsonValue>> {
-    serde_json::from_slice::<JsonValue>(
-        &fs::read(path).with_context(|| format!("read simulator {label} `{}`", path.display()))?,
-    )?
-    .as_object()
-    .cloned()
-    .ok_or_else(|| anyhow::anyhow!("simulator {label} must be a JSON object"))
+fn read_object(
+    path: &PathBuf,
+    label: &str,
+    memory_limit: u64,
+) -> Result<serde_json::Map<String, JsonValue>> {
+    serde_json::from_slice::<JsonValue>(&read_limited(path, label, memory_limit)?)?
+        .as_object()
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("simulator {label} must be a JSON object"))
 }
 
-fn read_array(path: &PathBuf, label: &str) -> Result<Vec<JsonValue>> {
-    serde_json::from_slice::<JsonValue>(
-        &fs::read(path).with_context(|| format!("read simulator {label} `{}`", path.display()))?,
-    )?
-    .as_array()
-    .cloned()
-    .ok_or_else(|| anyhow::anyhow!("simulator {label} must be a JSON array"))
+fn read_array(path: &PathBuf, label: &str, memory_limit: u64) -> Result<Vec<JsonValue>> {
+    serde_json::from_slice::<JsonValue>(&read_limited(path, label, memory_limit)?)?
+        .as_array()
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("simulator {label} must be a JSON array"))
+}
+
+fn read_limited(path: &PathBuf, label: &str, memory_limit: u64) -> Result<Vec<u8>> {
+    let bytes =
+        fs::read(path).with_context(|| format!("read simulator {label} `{}`", path.display()))?;
+    if bytes.len() as u64 > memory_limit {
+        bail!("simulator {label} exceeds memory limit of {memory_limit} bytes");
+    }
+    Ok(bytes)
+}
+
+fn write_limited_json(path: &PathBuf, value: &JsonValue, memory_limit: u64) -> Result<()> {
+    let bytes = canonical_json_bytes(value);
+    if bytes.len() as u64 > memory_limit {
+        bail!("simulator output exceeds memory limit of {memory_limit} bytes");
+    }
+    fs::write(path, bytes).with_context(|| format!("write simulator output `{}`", path.display()))
 }
 
 fn bin(op: BinOpIR, left: i64, right: i64) -> Result<i64> {

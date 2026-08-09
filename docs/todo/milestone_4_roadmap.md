@@ -27,7 +27,7 @@ queue.
    30.1.3.2 and 30.1.5.3.
 3. [x] 30.2.0-30.2.2 external-call capability and CEI enforcement.
 4. [x] 30.3.1 deterministic target ABI generation.
-5. [ ] 30.3.2 deterministic local simulator.
+5. [x] 30.3.2 deterministic local simulator.
 6. [ ] 30.1.1.3.2 [Contract Gate A] exactly-once `init` lifecycle and all-path initialization
    proof, after the simulator exists.
 7. [ ] 30.3.3 explicit deploy/call/invoke adapter and target receipts.
@@ -179,8 +179,13 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     `crates/cli/src/commands/build/contract_abi.rs`,
     `crates/cli/tests/cli_it/basic/contract_state_schema.rs`,
     `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-09`.
-  - [ ] 30.3.2 Implement a deterministic local simulator with caller, storage, value, block
-    context, gas/resource limits, and versioned execution traces.
+  - [x] 30.3.2 Implement a deterministic local simulator with caller, storage, value, block
+    context, gas/resource limits, and versioned execution traces. `clg simulate` executes the
+    locked straight-line scalar state profile using explicit JSON state/arguments and emits
+    canonical `clg.contract-simulation-trace.v1` evidence. Unsupported instructions and external
+    calls fail closed without committing state. (`crates/cli/src/commands/simulate.rs`,
+    `crates/cli/tests/cli_it/basic/contract_simulate.rs`,
+    `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-09`.
   - [ ] 30.1.1.3.2 [Contract Gate A ownership] Execute `init` exactly once through the target
     adapter and prove complete initialization across branches/loops before any deployed contract
     is accepted. Requires the 30.3.2 simulator lifecycle.

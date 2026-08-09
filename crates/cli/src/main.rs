@@ -7,7 +7,7 @@ use clg_cli::commands::{
     check as cmd_check, emit_hello as cmd_emit_hello, fmt as cmd_fmt,
     helpers::CommandError,
     lint as cmd_lint, parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
-    strict as cmd_strict,
+    simulate as cmd_simulate, strict as cmd_strict,
     test::{self as cmd_test, TestReportFormat},
     verify::{self as cmd_verify, VerifyMode},
 };
@@ -168,6 +168,31 @@ enum Commands {
         /// Export to invoke (default: main)
         #[arg(long, default_value = "main")]
         invoke: String,
+    },
+    /// Deterministically simulate a supported scalar contract transition
+    Simulate {
+        #[arg(value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long)]
+        function: String,
+        #[arg(long, value_name = "FILE")]
+        state: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        args: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        state_out: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        trace_out: PathBuf,
+        #[arg(long, default_value = "clg:caller:default")]
+        caller: String,
+        #[arg(long, default_value_t = 0)]
+        value: u64,
+        #[arg(long, default_value_t = 0)]
+        block_number: u64,
+        #[arg(long, default_value_t = 0)]
+        timestamp: u64,
+        #[arg(long, default_value_t = 100000)]
+        gas_limit: u64,
     },
     /// Phase 25.2.3: one-command release orchestration (Gate C)
     Release {
@@ -393,6 +418,32 @@ fn main() -> Result<()> {
         Commands::Run { file, invoke } => {
             cmd_run::run(file, invoke, cli.json_errors, logger.with_command("run"))
         }
+        Commands::Simulate {
+            file,
+            function,
+            state,
+            args,
+            state_out,
+            trace_out,
+            caller,
+            value,
+            block_number,
+            timestamp,
+            gas_limit,
+        } => cmd_simulate::run(
+            file,
+            function,
+            state,
+            args,
+            state_out,
+            trace_out,
+            caller,
+            value,
+            block_number,
+            timestamp,
+            gas_limit,
+            logger.with_command("simulate"),
+        ),
         Commands::Release {
             key,
             pubkey,

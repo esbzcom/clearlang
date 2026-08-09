@@ -1,0 +1,236 @@
+#[test]
+fn simulate_contract_transition_is_deterministic_and_emits_a_trace() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    let first_state_out = dir.path().join("first-state.json");
+    let first_trace_out = dir.path().join("first-trace.json");
+    let second_state_out = dir.path().join("second-state.json");
+    let second_trace_out = dir.path().join("second-trace.json");
+    fs::write(
+        &source,
+        r#"
+            contract Counter version 1 {
+                state { total: U64; }
+                event Changed { total: U64; }
+                mut function set_total(total: U64) -> U64 {
+                    state.total = total;
+                    emit Changed(total);
+                    total
+                }
+                pure function get_total() -> U64 { state.total }
+            }
+        "#,
+    )
+    .expect("write contract source");
+    fs::write(&state, r#"{"total":2}"#).expect("write state");
+    fs::write(&args, "[5]").expect("write arguments");
+
+    for (state_out, trace_out) in [
+        (&first_state_out, &first_trace_out),
+        (&second_state_out, &second_trace_out),
+    ] {
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "simulate",
+                source.to_str().expect("source path"),
+                "--function",
+                "set_total",
+                "--state",
+                state.to_str().expect("state path"),
+                "--args",
+                args.to_str().expect("args path"),
+                "--state-out",
+                state_out.to_str().expect("state output path"),
+                "--trace-out",
+                trace_out.to_str().expect("trace output path"),
+                "--caller",
+                "clg:test:alice",
+                "--value",
+                "7",
+                "--block-number",
+                "9",
+                "--timestamp",
+                "10",
+                "--gas-limit",
+                "100",
+            ])
+            .assert()
+            .success();
+    }
+
+    assert_eq!(
+        fs::read(&first_state_out).expect("read first state"),
+        fs::read(&second_state_out).expect("read second state"),
+        "simulation state output must be byte-stable"
+    );
+    assert_eq!(
+        fs::read(&first_trace_out).expect("read first trace"),
+        fs::read(&second_trace_out).expect("read second trace"),
+        "simulation trace output must be byte-stable"
+    );
+    let state_out: Value = serde_json::from_slice(&fs::read(&first_state_out).expect("state"))
+        .expect("parse state output");
+    let trace: Value = serde_json::from_slice(&fs::read(&first_trace_out).expect("trace"))
+        .expect("parse trace output");
+    assert_eq!(state_out, serde_json::json!({ "total": 5 }));
+    assert_eq!(trace["trace_format"], "clg.contract-simulation-trace.v1");
+    assert_eq!(trace["schema_version"], 1);
+    assert_eq!(trace["status"], "success");
+    assert_eq!(trace["caller"], "clg:test:alice");
+    assert_eq!(trace["value"], 7);
+    assert_eq!(trace["block"], serde_json::json!({ "number": 9, "timestamp": 10 }));
+    assert_eq!(trace["state_before"], serde_json::json!({ "total": 2 }));
+    assert_eq!(trace["state_after"], serde_json::json!({ "total": 5 }));
+    assert_eq!(trace["result"], 5);
+    assert_eq!(trace["events"], serde_json::json!([{ "event": "Changed", "args": [5] }]));
+    assert!(trace["fuel_used"].as_u64().expect("fuel used") <= 100);
+
+    let query_state_out = dir.path().join("query-state.json");
+    let query_trace_out = dir.path().join("query-trace.json");
+    let query_args = dir.path().join("query-args.json");
+    fs::write(&query_args, "[]").expect("write query arguments");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "get_total",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            query_args.to_str().expect("query arguments path"),
+            "--state-out",
+            query_state_out.to_str().expect("query state output path"),
+            "--trace-out",
+            query_trace_out.to_str().expect("query trace output path"),
+        ])
+        .assert()
+        .success();
+    let query_trace: Value =
+        serde_json::from_slice(&fs::read(&query_trace_out).expect("query trace"))
+            .expect("parse query trace");
+    assert_eq!(query_trace["result"], 2);
+    assert_eq!(query_trace["events"], serde_json::json!([]));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&query_state_out).expect("query state"))
+            .expect("parse query state"),
+        serde_json::json!({ "total": 2 })
+    );
+}
+
+#[test]
+fn simulate_rejects_transitions_that_exceed_the_fuel_limit() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    let state_out = dir.path().join("state-out.json");
+    let trace_out = dir.path().join("trace-out.json");
+    fs::write(
+        &source,
+        r#"
+            contract Counter version 1 {
+                state { total: U64; }
+                mut function set_total(value: U64) -> U64 {
+                    state.total = value;
+                    state.total
+                }
+            }
+        "#,
+    )
+    .expect("write contract source");
+    fs::write(&state, r#"{"total":0}"#).expect("write state");
+    fs::write(&args, "[1]").expect("write arguments");
+
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_total",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            state_out.to_str().expect("state output path"),
+            "--trace-out",
+            trace_out.to_str().expect("trace output path"),
+            "--gas-limit",
+            "0",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("simulator fuel limit exceeded"));
+    assert!(!state_out.exists());
+    let trace: Value = serde_json::from_slice(&fs::read(&trace_out).expect("failure trace"))
+        .expect("parse failure trace");
+    assert_eq!(trace["status"], "failure");
+    assert_eq!(trace["result"], Value::Null);
+    assert!(trace["failure"]
+        .as_str()
+        .expect("failure message")
+        .contains("simulator fuel limit exceeded"));
+}
+
+#[test]
+fn simulate_rejects_external_calls_without_committing_partial_state() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("vault.clear");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    let state_out = dir.path().join("state-out.json");
+    let trace_out = dir.path().join("trace-out.json");
+    fs::write(
+        &source,
+        r#"
+            interface Receiver { io function receive(amount: U64) -> Bool; }
+            contract Vault version 1 {
+                state { total: U64; }
+                event Paid { amount: U64; }
+                mut function pay(amount: U64) -> U64 {
+                    state.total = amount;
+                    emit Paid(amount);
+                    external_call Receiver.receive(amount);
+                    amount
+                }
+            }
+        "#,
+    )
+    .expect("write contract source");
+    fs::write(&state, r#"{"total":0}"#).expect("write state");
+    fs::write(&args, "[1]").expect("write arguments");
+
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "pay",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            state_out.to_str().expect("state output path"),
+            "--trace-out",
+            trace_out.to_str().expect("trace output path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "simulator does not support external calls",
+        ));
+    assert!(!state_out.exists());
+    let trace: Value = serde_json::from_slice(&fs::read(&trace_out).expect("failure trace"))
+        .expect("parse failure trace");
+    assert_eq!(trace["status"], "failure");
+    assert_eq!(trace["state_changes"], serde_json::json!([{ "field": "total", "value": 1 }]));
+    assert_eq!(trace["events"], serde_json::json!([{ "event": "Paid", "args": [1] }]));
+}

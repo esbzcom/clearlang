@@ -11,6 +11,7 @@ pub mod release;
 pub(crate) mod release_defaults;
 pub mod run;
 pub(crate) mod shared_std_lock;
+pub mod simulate;
 pub mod strict;
 pub mod test;
 pub(crate) mod validation;

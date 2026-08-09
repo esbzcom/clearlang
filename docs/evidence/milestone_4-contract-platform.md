@@ -38,3 +38,22 @@
   ABI or a deployment receipt.
 - Release policy: release remains fail-closed until the target adapter binds this descriptor to an
   executable receipt and independently verifies cross-artifact identity.
+
+## 30.3.2 Deterministic local simulator
+
+- Date: 2026-08-09
+- Accountable owner: target-runtime-owner
+- Review boundary: language-and-proof-owner
+- Execution profile: `clg.contract-simulation-trace.v1`
+- Acceptance command: `cargo test -p clg-cli --test cli_it basic::simulate`
+- Stable result: `clg simulate <SOURCE> --function <NAME> --state <FILE> --args <FILE>
+  --state-out <FILE> --trace-out <FILE>` deterministically executes the locked straight-line
+  scalar state profile. It records explicit caller, value, block number, timestamp, fuel, ordered
+  state changes, ordered events, result/failure, and pre/post state in canonical JSON.
+- Negative evidence: fuel exhaustion and `ExternalCall` both fail closed. They write a canonical
+  failure trace, preserve the input as the only committed state, and never create the requested
+  state output, including when the rejected external call follows otherwise valid effects.
+- Known exclusions: control flow, collections, memory-backed values, user-function dispatch,
+  external execution, target imports, ABI wire encoding, RPC, and deployment remain unsupported.
+- Release policy: simulation is local evidence only; it is neither a target-execution attestation
+  nor a deployment/release claim.

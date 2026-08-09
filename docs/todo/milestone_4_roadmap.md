@@ -196,7 +196,9 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     all paths. (`docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`,
     `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
   - [ ] 30.3.3 Implement deploy/call/invoke adapter commands with explicit RPC/target
-    configuration and no implicit network selection.
+    configuration and no implicit network selection. The command/receipt contract is locked, but
+    remains blocked on EVM bytecode plus selector/calldata encoding; the existing ABI descriptor
+    is deliberately not a wire ABI. (`docs/design/phase-30.3.3-explicit-target-adapter-receipt-lock.md`)
   - [ ] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the
     executable target receipt and reject schema/proof/target/signed-bundle drift. Requires the
     30.3.3 deploy/call/invoke receipt.

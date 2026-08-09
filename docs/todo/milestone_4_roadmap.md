@@ -211,8 +211,10 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     EVM-compatible environment.
 
 - [ ] 30.4 Crypto assurance for the first contract profile [Proof Gate D]
-  - [ ] 30.4.0 Select and lock the minimal crypto surface required by the first EVM contract
-    profile, including exact claim boundaries and threat-model exclusions.
+  - [x] 30.4.0 Select and lock the minimal crypto surface required by the first EVM contract
+    profile, including exact claim boundaries and threat-model exclusions. No source-level crypto
+    primitive is selected; tooling crypto remains outside contract semantics.
+    (`docs/design/phase-30.4.0-contract-crypto-surface-lock.md`) `Completed: 2026-08-09`.
   - [ ] 30.4.1 Implement theorem-grade semantic models or an independently verified attestation
     boundary for each selected crypto primitive; unlabelled assumptions remain release-blocking.
   - [ ] 30.4.2 Add authorization/signature proof fixtures and negative tests for malformed keys,

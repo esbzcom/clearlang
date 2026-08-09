@@ -49,3 +49,4 @@ This document tracks the current design-lock references.
 - `docs/design/phase-30.3.1-deterministic-target-abi-lock.md`
 - `docs/design/phase-30.3.2-deterministic-local-simulator-lock.md`
 - `docs/design/phase-30.3.3-explicit-target-adapter-receipt-lock.md`
+- `docs/design/phase-30.4.0-contract-crypto-surface-lock.md`

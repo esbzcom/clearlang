@@ -34,9 +34,9 @@ queue.
 8. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
     rejection, after target receipts exist.
 9. [ ] Mark 30.1 complete.
-10. [ ] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests, then 30.2.4 the
-    precise security claim and exclusions. This Contract Gate B work is parallel to steps 4-8 and
-    does not block Contract Gate A.
+10. [x] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests. Continue with
+    30.2.4, the precise security claim and exclusions. This Contract Gate B work is parallel to
+    steps 4-8 and does not block Contract Gate A.
 11. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
 12. [ ] Continue 30.4-30.6 in their listed dependency order.
 
@@ -159,7 +159,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     event emission, or another outbound call after it fail deterministically with `T832`.
     (`crates/typer/src/check/function_checks.rs`, `crates/typer/tests/contract_state.rs`,
     `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-08`.
-  - [ ] 30.2.3 Add adversarial reentrancy fixtures and fail-closed release tests.
+  - [x] 30.2.3 Add adversarial reentrancy fixtures and fail-closed release tests. CEI negatives
+    cover every prohibited interaction after an outbound call, and the build command rejects an
+    external-call contract without producing an executable artifact. (`crates/typer/tests/contract_state.rs`,
+    `crates/cli/tests/cli_it/basic/build_release.rs`,
+    `docs/evidence/milestone_4-contract-platform.md`) `Completed: 2026-08-09`.
   - [ ] 30.2.4 Publish the precise security claim and exclusions; do not claim generic
     reentrancy prevention outside the enforced model.
 

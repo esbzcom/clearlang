@@ -90,6 +90,44 @@ fn build_contract_requires_query_function() {
 }
 
 #[test]
+fn build_rejects_adversarial_contract_external_call_without_an_adapter() {
+    let tmp = tempdir().expect("tempdir");
+    let file = tmp.path().join("reentrant.clear");
+    let out = tmp.path().join("reentrant.wasm");
+    fs::write(
+        &file,
+        r#"
+            interface Receiver { io function receive(amount: U64) -> Bool; }
+            contract Vault version 1 {
+                state { total: U64; }
+                mut function notify(amount: U64) -> U64 {
+                    external_call Receiver.receive(amount);
+                    amount
+                }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write adversarial contract");
+
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            file.to_str().expect("source path"),
+            "-o",
+            out.to_str().expect("output path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no external call adapter"));
+    assert!(
+        !out.exists(),
+        "a contract containing an external call must not produce an executable artifact"
+    );
+}
+
+#[test]
 fn release_help_exposes_gate_c_primary_shape() {
     let output = Command::cargo_bin("clg")
         .unwrap()

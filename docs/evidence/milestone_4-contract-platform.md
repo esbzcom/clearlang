@@ -73,3 +73,18 @@
   `--init` fails before execution and without state output.
 - Known exclusions: durable deployment identity, branch/loop constructor execution, target
   receipts, and constructor calldata are deferred. This is local lifecycle evidence only.
+
+## 30.2.3 Adversarial reentrancy and release-fail-closed evidence
+
+- Date: 2026-08-09
+- Accountable owner: language-security-owner
+- Review boundary: release-assurance-owner
+- Acceptance commands:
+  - `cargo test -p clg-typer --test contract_state contract_external_calls_enforce_checks_effects_interactions`
+  - `cargo test -p clg-cli --test cli_it basic::build_rejects_adversarial_contract_external_call_without_an_adapter`
+- Stable result: CEI rejects every state read/write, event emission, and additional outbound call
+  after the first external call with `T832`.
+- Negative/release evidence: an adversarial contract containing a typed external call fails the
+  executable build before it writes a Wasm artifact because the external-call adapter is absent.
+- Known exclusions: this confirms fail-closed behavior and source ordering only; it is not a
+  target callback or live-network reentrancy conformance result.

@@ -235,7 +235,9 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     remain fail-closed. (`docs/design/phase-30.5.0-contract-runtime-lifecycle-limits.md`,
     `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
   - [ ] 30.5.1 Ship target-aware contract test commands with property/fuzz campaigns,
-    deterministic seed replay, trace capture, and test-artifact schemas.
+    deterministic seed replay, trace capture, and test-artifact schemas. The simulator-only
+    command/replay policy is locked; test-plan schema and campaign implementation remain pending.
+    (`docs/design/phase-30.5.1-contract-test-simulator-policy.md`)
   - [ ] 30.5.2 Add source locations/stack traces for target simulation failures and a supported
     VS Code/LSP integration based on the stable CLI protocol.
   - [ ] 30.5.3 Publish developer and operator guidance for local simulation, deployment,

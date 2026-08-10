@@ -54,3 +54,4 @@ This document tracks the current design-lock references.
 - `docs/design/phase-30.4.2-contract-crypto-fixture-policy.md`
 - `docs/design/phase-30.4.3-contract-crypto-nonclaims.md`
 - `docs/design/phase-30.5.0-contract-runtime-lifecycle-limits.md`
+- `docs/design/phase-30.5.1-contract-test-simulator-policy.md`

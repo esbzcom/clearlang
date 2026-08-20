@@ -309,8 +309,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     a deterministic simulator campaign report. (`docs/design/phase-30.6.0-contract-release-orchestration-lock.md`,
     `crates/cli/{src/commands/contract_release.rs,tests/cli_it/basic/contract_test_campaign.rs}`)
     `Completed: 2026-08-20`.
-  - [ ] 30.6.1 Add independent bundle verification for source/artifact, ABI, target profile,
-    state-schema version, proof/attestation evidence, and signatures.
+  - [x] 30.6.1 Add independent bundle verification for source/artifact, ABI, target profile,
+    state-schema version, proof/attestation evidence, and signatures. `clg contract verify-release`
+    resolves only bundle-local artifacts, verifies canonical hashes and target/schema/wire-ABI/proof
+    binding, then verifies the target-artifact signature and assurance manifest.
+    (`docs/design/phase-30.6.1-contract-release-verification-lock.md`, `crates/cli/src/commands/contract_release.rs`)
+    `Completed: 2026-08-20`.
   - [ ] 30.6.2 Add deterministic CI gates covering reference-contract creation through
     deploy/invoke/verification, plus tamper, replay, upgrade, and reentrancy-negative paths.
   - [ ] 30.6.3 Publish the final supported product contract, compatibility policy, release

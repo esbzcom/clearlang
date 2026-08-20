@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use serde::Deserialize;
 use serde_json::json;
 
 use super::{build, contract_test};
@@ -12,6 +13,47 @@ use crate::logging::{Logger, StageTimings};
 use crate::signing::{self, SignScope};
 
 const BUNDLE_FORMAT: &str = "clg.contract-release-bundle.v1";
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Bundle {
+    format: String,
+    schema_version: u32,
+    key_id: String,
+    target_profile: String,
+    target_execution_profile: String,
+    artifacts: BundleArtifacts,
+    orchestration: Vec<Stage>,
+    source: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BundleArtifacts {
+    contract_abi: Artifact,
+    contract_state_schema: Artifact,
+    contract_test_report: Artifact,
+    evm_artifact: Artifact,
+    evm_wire_abi: Artifact,
+    proof_artifact: Artifact,
+    signature: Artifact,
+    signed_assurance_manifest: Artifact,
+    vcs: Artifact,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Artifact {
+    path: String,
+    sha256: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Stage {
+    stage: String,
+    status: String,
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -134,6 +176,143 @@ pub fn run(
     println!(
         "{}",
         serde_json::to_string_pretty(&bundle).expect("serialize contract release bundle")
+    );
+    Ok(())
+}
+
+pub fn verify(
+    bundle_path: PathBuf,
+    pubkey: PathBuf,
+    json_errors: bool,
+    logger: Logger,
+) -> Result<()> {
+    let failure = |message: String| -> Result<()> {
+        if json_errors {
+            return Err(crate::commands::helpers::CommandError::json(
+                crate::commands::helpers::make_single_json_error(
+                    "C140",
+                    "verify",
+                    message,
+                    &bundle_path,
+                    0,
+                    0,
+                    None,
+                ),
+            )
+            .into());
+        }
+        Err(anyhow!(message))
+    };
+    let bytes = fs::read(&bundle_path)
+        .map_err(|err| anyhow!(err).context("read contract release bundle"))?;
+    let bundle: Bundle = serde_json::from_slice(&bytes)
+        .map_err(|err| anyhow!(err).context("parse contract release bundle"))?;
+    if bundle.format != BUNDLE_FORMAT
+        || bundle.schema_version != 1
+        || bundle.target_profile != "clg.evm-compatible.v1"
+        || bundle.target_execution_profile != "clg.evm-stateful-scalar.v1"
+        || bundle.key_id.trim().is_empty()
+        || bundle.source.trim().is_empty()
+    {
+        return failure("unsupported or malformed contract release bundle".to_string());
+    }
+    if bundle.orchestration.len() != 4
+        || bundle
+            .orchestration
+            .iter()
+            .any(|stage| stage.status != "ok")
+    {
+        return failure(
+            "contract release bundle has incomplete orchestration evidence".to_string(),
+        );
+    }
+    let known_stages = [
+        "build_prove_sign",
+        "verify_signature",
+        "contract_test_simulate",
+        "package",
+    ];
+    if bundle
+        .orchestration
+        .iter()
+        .map(|stage| stage.stage.as_str())
+        .collect::<Vec<_>>()
+        != known_stages
+    {
+        return failure("contract release bundle has unexpected orchestration stages".to_string());
+    }
+    let directory = bundle_path.parent().unwrap_or_else(|| Path::new("."));
+    let artifacts = [
+        &bundle.artifacts.contract_abi,
+        &bundle.artifacts.contract_state_schema,
+        &bundle.artifacts.contract_test_report,
+        &bundle.artifacts.evm_artifact,
+        &bundle.artifacts.evm_wire_abi,
+        &bundle.artifacts.proof_artifact,
+        &bundle.artifacts.signature,
+        &bundle.artifacts.signed_assurance_manifest,
+        &bundle.artifacts.vcs,
+    ];
+    for artifact in artifacts {
+        if Path::new(&artifact.path).components().count() != 1
+            || !artifact.sha256.starts_with("sha256:")
+        {
+            return failure(
+                "contract release bundle has unsafe artifact path or digest".to_string(),
+            );
+        }
+        let path = directory.join(&artifact.path);
+        let actual = fs::read(&path)
+            .map_err(|err| anyhow!(err).context("read contract release artifact"))?;
+        if format!("sha256:{}", sha256_hex(&actual)) != artifact.sha256 {
+            return failure(format!(
+                "contract release artifact digest mismatch: {}",
+                artifact.path
+            ));
+        }
+    }
+    let artifact_path = directory.join(&bundle.artifacts.evm_artifact.path);
+    let wire_path = directory.join(&bundle.artifacts.evm_wire_abi.path);
+    let schema_path = directory.join(&bundle.artifacts.contract_state_schema.path);
+    let proof_path = directory.join(&bundle.artifacts.proof_artifact.path);
+    let artifact: serde_json::Value = serde_json::from_slice(&fs::read(&artifact_path)?)?;
+    let wire: serde_json::Value = serde_json::from_slice(&fs::read(&wire_path)?)?;
+    let schema: serde_json::Value = serde_json::from_slice(&fs::read(&schema_path)?)?;
+    let proof: serde_json::Value = serde_json::from_slice(&fs::read(&proof_path)?)?;
+    if artifact["target"]["profile"] != bundle.target_profile
+        || artifact["execution_profile"] != bundle.target_execution_profile
+        || artifact["wire_abi"]["digest"] != wire["wire_abi"]["digest"]
+        || artifact["state_schema"]["digest"] != schema["schema"]["digest"]
+        || proof["format"] != "clg.proof_artifact.v1"
+    {
+        return failure(
+            "contract release artifacts have incompatible target, ABI, schema, or proof evidence"
+                .to_string(),
+        );
+    }
+    signing::verify_signature_details(
+        &artifact_path,
+        &directory.join(&bundle.artifacts.signature.path),
+        &pubkey,
+    )
+    .map_err(|err| anyhow!("verify contract release signature: {err}"))?;
+    signing::verify_assurance_manifest(
+        &directory.join(&bundle.artifacts.signed_assurance_manifest.path),
+        &pubkey,
+    )
+    .map_err(|err| anyhow!("verify contract release assurance manifest: {err}"))?;
+    logger.event(
+        crate::logging::LogLevel::Info,
+        "verified",
+        "contract_release",
+        &[],
+    );
+    println!(
+        "{}",
+        serde_json::to_string_pretty(
+            &json!({"schema_version":1,"status":"verified","bundle":bundle_path})
+        )
+        .expect("serialize verification")
     );
     Ok(())
 }

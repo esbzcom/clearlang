@@ -83,4 +83,12 @@ fn contract_release_help_exposes_the_complete_evidence_contract() {
         .stdout(predicate::str::contains("--pubkey <FILE>"))
         .stdout(predicate::str::contains("--out-dir <DIR>"))
         .stdout(predicate::str::contains("--prior-state-schema <FILE>"));
+
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["contract", "verify-release", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--bundle <FILE>"))
+        .stdout(predicate::str::contains("--pubkey <FILE>"));
 }

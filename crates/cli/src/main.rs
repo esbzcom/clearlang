@@ -347,6 +347,13 @@ enum ContractCommands {
         #[arg(long, value_name = "FILE")]
         prior_state_schema: Option<PathBuf>,
     },
+    /// Independently verify a contract-release bundle and its evidence set
+    VerifyRelease {
+        #[arg(long, value_name = "FILE")]
+        bundle: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        pubkey: PathBuf,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -604,6 +611,12 @@ fn main() -> Result<()> {
                 prior_state_schema,
                 cli.json_errors,
                 logger.with_command("contract-release"),
+            ),
+            ContractCommands::VerifyRelease { bundle, pubkey } => cmd_contract_release::verify(
+                bundle,
+                pubkey,
+                cli.json_errors,
+                logger.with_command("contract-verify-release"),
             ),
         },
         Commands::Build {

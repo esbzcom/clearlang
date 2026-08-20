@@ -302,8 +302,13 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     (`docs/contract-operations.md`) `Completed: 2026-08-20`.
 
 - [ ] 30.6 Production contract release closure [Release Gate F]
-  - [ ] 30.6.0 Add `clg contract release` orchestration that proves, tests, simulates, packages
-    ABI/state-schema/target evidence, signs, and verifies the contract release bundle.
+  - [x] 30.6.0 Add `clg contract release` orchestration that proves, tests, simulates, packages
+    ABI/state-schema/target evidence, signs, and verifies the contract release bundle. The
+    command emits `clg.contract-release-bundle.v1`, binds the signed proof package to canonical
+    stateful EVM artifact bytes, verifies the generated signature/assurance evidence, and retains
+    a deterministic simulator campaign report. (`docs/design/phase-30.6.0-contract-release-orchestration-lock.md`,
+    `crates/cli/{src/commands/contract_release.rs,tests/cli_it/basic/contract_test_campaign.rs}`)
+    `Completed: 2026-08-20`.
   - [ ] 30.6.1 Add independent bundle verification for source/artifact, ABI, target profile,
     state-schema version, proof/attestation evidence, and signatures.
   - [ ] 30.6.2 Add deterministic CI gates covering reference-contract creation through

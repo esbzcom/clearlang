@@ -9,6 +9,7 @@ pub fn run(
     emit_contract_abi: Option<PathBuf>,
     emit_evm_wire_abi: Option<PathBuf>,
     emit_evm_artifact: Option<PathBuf>,
+    stateful_evm_evidence: bool,
     check_contract_state_schema: Option<PathBuf>,
     emit_vcs: Option<PathBuf>,
     emit_proof: Option<PathBuf>,
@@ -218,6 +219,7 @@ pub fn run(
             })
         });
     if stateful_evm_artifact
+        && !stateful_evm_evidence
         && (validate || emit_vcs.is_some() || emit_proof.is_some() || sign || contract)
     {
         fail_preflight(
@@ -565,7 +567,7 @@ pub fn run(
         Vec::new()
     };
 
-    if stateful_evm_artifact {
+    if stateful_evm_artifact && !stateful_evm_evidence {
         eprintln!(
             "EVM target artifact emitted; Wasm codegen is intentionally skipped for the stateful EVM profile"
         );
@@ -590,7 +592,14 @@ pub fn run(
         .map(|pkg| pkg.encode_section(&[0u8; 32]))
         .transpose()?;
 
-    let (wasm_bytes, module_hash_bytes) = {
+    let (wasm_bytes, module_hash_bytes) = if stateful_evm_artifact {
+        let artifact_path = emit_evm_artifact
+            .as_ref()
+            .expect("stateful EVM artifact requires an output path");
+        let artifact_bytes = fs::read(artifact_path)
+            .with_context(|| format!("reading EVM target artifact `{}`", artifact_path.display()))?;
+        (artifact_bytes.clone(), Some(hash_module(&artifact_bytes)))
+    } else {
         let _stage = timings.start(logger, "codegen");
         let wasm_std_core_link_mode = WasmStdCoreLinkMode::from(std_core_link_mode);
         let mut wasm_bytes = emit_from_ir_with_opts(

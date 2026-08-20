@@ -4,8 +4,8 @@ use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 use clg_cli::commands::{
     build::{self as cmd_build, CompilerMode, ReleaseProfile, StdCoreLinkMode},
-    check as cmd_check, contract_test as cmd_contract_test, emit_hello as cmd_emit_hello,
-    fmt as cmd_fmt,
+    check as cmd_check, contract_release as cmd_contract_release,
+    contract_test as cmd_contract_test, emit_hello as cmd_emit_hello, fmt as cmd_fmt,
     helpers::CommandError,
     lint as cmd_lint, parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
     simulate as cmd_simulate, strict as cmd_strict, target as cmd_target,
@@ -330,6 +330,23 @@ enum ContractCommands {
         #[arg(long, value_name = "DIR")]
         trace_dir: PathBuf,
     },
+    /// Prove, test/simulate, sign, verify, and package a supported EVM contract release
+    Release {
+        #[arg(value_name = "FILE")]
+        source: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        plan: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        key: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        pubkey: PathBuf,
+        #[arg(long)]
+        key_id: String,
+        #[arg(long, value_name = "DIR")]
+        out_dir: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        prior_state_schema: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -569,6 +586,25 @@ fn main() -> Result<()> {
                 trace_dir,
                 logger.with_command("contract-test"),
             ),
+            ContractCommands::Release {
+                source,
+                plan,
+                key,
+                pubkey,
+                key_id,
+                out_dir,
+                prior_state_schema,
+            } => cmd_contract_release::run(
+                source,
+                plan,
+                key,
+                pubkey,
+                key_id,
+                out_dir,
+                prior_state_schema,
+                cli.json_errors,
+                logger.with_command("contract-release"),
+            ),
         },
         Commands::Build {
             file,
@@ -607,6 +643,7 @@ fn main() -> Result<()> {
                 emit_contract_abi,
                 emit_evm_wire_abi,
                 emit_evm_artifact,
+                false,
                 check_contract_state_schema,
                 emit_vcs,
                 emit_proof,

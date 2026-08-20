@@ -249,6 +249,7 @@ pub fn run(
             None,
             None,
             None,
+            false,
             None,
             Some(paths.vcs.clone()),
             Some(paths.proof.clone()),

@@ -70,3 +70,17 @@ fn contract_test_campaign_is_seeded_replayable_and_captures_simulator_traces() {
     assert_eq!(trace["trace_format"], "clg.contract-simulation-trace.v1");
     assert_eq!(trace["status"], "success");
 }
+
+#[test]
+fn contract_release_help_exposes_the_complete_evidence_contract() {
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["contract", "release", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--plan <FILE>"))
+        .stdout(predicate::str::contains("--key <FILE>"))
+        .stdout(predicate::str::contains("--pubkey <FILE>"))
+        .stdout(predicate::str::contains("--out-dir <DIR>"))
+        .stdout(predicate::str::contains("--prior-state-schema <FILE>"));
+}

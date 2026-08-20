@@ -295,8 +295,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     published VS Code CLI profile. (`docs/design/phase-30.5.2-simulation-diagnostics-vscode-lock.md`,
     `crates/cli/{src/commands/simulate.rs,tests/cli_it/basic/contract_simulate.rs}`)
     `Completed: 2026-08-20`.
-  - [ ] 30.5.3 Publish developer and operator guidance for local simulation, deployment,
-    upgrades, rollback, key custody, incident response, and target compatibility.
+  - [x] 30.5.3 Publish developer and operator guidance for local simulation, deployment,
+    upgrades, rollback, key custody, incident response, and target compatibility. The guide
+    preserves the explicit target/evidence boundary and names unsupported upgrade, signing, and
+    compatibility paths rather than implying ambient automation.
+    (`docs/contract-operations.md`) `Completed: 2026-08-20`.
 
 - [ ] 30.6 Production contract release closure [Release Gate F]
   - [ ] 30.6.0 Add `clg contract release` orchestration that proves, tests, simulates, packages

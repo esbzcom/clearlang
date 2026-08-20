@@ -657,6 +657,7 @@ fn main() -> Result<()> {
             timestamp,
             gas_limit,
             memory_limit,
+            cli.json_errors,
             logger.with_command("simulate"),
         ),
         Commands::Target { command } => match command {

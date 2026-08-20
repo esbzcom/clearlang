@@ -179,6 +179,70 @@ fn simulate_rejects_transitions_that_exceed_the_fuel_limit() {
 }
 
 #[test]
+fn simulate_failure_trace_and_json_diagnostic_share_a_source_location() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("guarded.clear");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    let trace_out = dir.path().join("trace-out.json");
+    let source_text = r#"
+        contract Counter version 1 {
+            state { total: U64; }
+            mut function set_total(value: U64) -> U64
+                require { value > U64(0) }
+            {
+                state.total = value;
+                state.total
+            }
+        }
+    "#;
+    fs::write(&source, source_text).expect("write contract source");
+    fs::write(&state, r#"{"total":0}"#).expect("write state");
+    fs::write(&args, "[0]").expect("write arguments");
+
+    let output = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "--non-interactive",
+            "--json-errors",
+            "--json-events",
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_total",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            dir.path().join("state-out.json").to_str().expect("state output path"),
+            "--trace-out",
+            trace_out.to_str().expect("trace output path"),
+        ])
+        .output()
+        .expect("run simulator");
+    assert!(!output.status.success());
+    let diagnostic: Value = serde_json::from_slice(&output.stdout).expect("JSON diagnostic");
+    let error = &diagnostic["errors"][0];
+    assert_eq!(error["code"], "C142");
+    assert_eq!(error["stage"], "simulate");
+    assert_eq!(error["function"], "set_total");
+    assert_eq!(error["file"], source.display().to_string());
+
+    let trace: Value = serde_json::from_slice(&fs::read(&trace_out).expect("failure trace"))
+        .expect("parse failure trace");
+    assert_eq!(trace["status"], "failure");
+    assert_eq!(trace["failure_location"]["function"], "set_total");
+    assert_eq!(trace["failure_location"]["file"], source.display().to_string());
+    assert_eq!(trace["failure_location"]["start"], error["start"]);
+    assert_eq!(trace["failure_location"]["end"], error["end"]);
+    assert_eq!(trace["stack"].as_array().map(Vec::len), Some(1));
+    assert!(trace["stack"][0]["instruction"].as_u64().is_some());
+    assert_eq!(trace["stack"][0]["function"], "set_total");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("\"command\":\"simulate\""));
+}
+
+#[test]
 fn simulate_rejects_json_inputs_over_the_memory_limit() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("counter.clear");

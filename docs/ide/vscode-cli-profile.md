@@ -29,6 +29,12 @@ Test runner:
 clg --non-interactive --json-errors --json-events test examples/projects/testing --report json
 ```
 
+Contract simulation:
+
+```powershell
+clg --non-interactive --json-errors --json-events simulate contract.clear --function transfer --state state.json --args args.json --state-out state-out.json --trace-out trace.json
+```
+
 `clg test` uses the same stdout/stderr and event-channel contract as `check`/`release`.
 
 ## Machine-Readable Contract
@@ -57,6 +63,29 @@ Stability rules:
 - `errors` remains an array with stable core fields:
   - `code`, `stage`, `message`, `file`, `start`, `end`
   - optional: `function`
+
+### Contract simulation failures
+
+When a supported contract transition fails during execution, `simulate --json-errors` returns
+the same error envelope with `code: "C142"`, `stage: "simulate"`, and a `function` field. The
+`file`, `start`, and `end` fields identify the failing guard when the lowered instruction retains
+a source span; otherwise they identify the selected function body. VS Code/LSP clients should use
+these fields as the primary diagnostic range.
+
+The `--trace-out` artifact is `clg.contract-simulation-trace.v1`. On execution failure it adds:
+
+```json
+{
+  "failure_location": { "file": "contract.clear", "start": 0, "end": 1, "function": "transfer" },
+  "stack": [
+    { "file": "contract.clear", "start": 0, "end": 1, "function": "transfer", "instruction": 4 }
+  ]
+}
+```
+
+`stack` is ordered caller-to-failing frame and currently contains the selected simulator entry
+frame only; unsupported calls fail closed rather than fabricating cross-contract frames. The
+optional trace fields are additive and do not change the CLI profile schema version.
 
 ### Event NDJSON (`--json-events`, stderr)
 One event per line:

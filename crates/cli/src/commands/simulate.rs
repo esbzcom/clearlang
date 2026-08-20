@@ -3,14 +3,14 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
-use clg_ast::Type;
+use clg_ast::{Expr, Span, Type};
 use clg_ir::{BinOpIR, Instr, IrType, Value};
 use clg_typer::{check_with_vcs_with_std_and_external, ExternalBuiltinSig};
 use serde_json::{json, Value as JsonValue};
 
 use super::modules::load_program;
-use crate::commands::helpers::canonical_json_bytes;
-use crate::logging::Logger;
+use crate::commands::helpers::{canonical_json_bytes, make_single_json_error, CommandError};
+use crate::logging::{LogLevel, Logger};
 
 pub fn run(
     file: PathBuf,
@@ -26,8 +26,10 @@ pub fn run(
     timestamp: u64,
     gas_limit: u64,
     memory_limit: u64,
-    _logger: Logger,
+    json_errors: bool,
+    logger: Logger,
 ) -> Result<()> {
+    logger.event(LogLevel::Info, "start", "simulate", &[]);
     let loaded = load_program(&file, false)?;
     let external_sigs = loaded
         .external_imports
@@ -50,12 +52,17 @@ pub fn run(
         [contract] => contract,
         _ => bail!("simulate requires exactly one contract declaration"),
     };
-    let (entrypoint, params, is_init) = if init {
+    let (entrypoint, params, body_span, is_init) = if init {
         let init = contract
             .init
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("contract has no init declaration"))?;
-        ("init".to_string(), init.params.as_slice(), true)
+        (
+            "init".to_string(),
+            init.params.as_slice(),
+            expr_span(&init.body),
+            true,
+        )
     } else {
         let function = function.expect("clap requires --function when --init is absent");
         let source_func = contract
@@ -63,7 +70,12 @@ pub fn run(
             .iter()
             .find(|candidate| candidate.name == function)
             .ok_or_else(|| anyhow::anyhow!("contract transition `{function}` not found"))?;
-        (function, source_func.params.as_slice(), false)
+        (
+            function,
+            source_func.params.as_slice(),
+            expr_span(&source_func.body),
+            false,
+        )
     };
     let ir_name = if is_init {
         format!("__clg_contract_init${}", contract.name)
@@ -159,15 +171,56 @@ pub fn run(
             }
             trace["status"] = JsonValue::String("success".to_string());
         }
-        Err(error) => {
-            trace["failure"] = JsonValue::String(format!("{error:#}"));
+        Err(failure) => {
+            let location = failure.span.unwrap_or(body_span);
+            trace["failure"] = JsonValue::String(failure.message.clone());
+            trace["failure_location"] = json!({
+                "end": location.end,
+                "file": file.display().to_string(),
+                "function": entrypoint,
+                "start": location.start,
+            });
+            trace["stack"] = json!([{
+                "end": location.end,
+                "file": file.display().to_string(),
+                "function": entrypoint,
+                "instruction": failure.instruction,
+                "start": location.start,
+            }]);
             write_limited_json(&trace_out, &trace, memory_limit)
                 .with_context(|| format!("write simulation trace `{}`", trace_out.display()))?;
-            return Err(error);
+            logger.event(
+                LogLevel::Info,
+                "failure",
+                "simulate",
+                &[("code", "C142".to_string())],
+            );
+            if json_errors {
+                return Err(CommandError::json(make_single_json_error(
+                    "C142",
+                    "simulate",
+                    failure.message,
+                    &file,
+                    location.start,
+                    location.end,
+                    Some(entrypoint),
+                ))
+                .into());
+            }
+            return Err(anyhow::Error::msg(failure.message));
         }
     }
     write_limited_json(&trace_out, &trace, memory_limit)
-        .with_context(|| format!("write simulation trace `{}`", trace_out.display()))
+        .with_context(|| format!("write simulation trace `{}`", trace_out.display()))?;
+    logger.event(LogLevel::Info, "finish", "simulate", &[]);
+    Ok(())
+}
+
+#[derive(Debug)]
+struct ExecutionFailure {
+    message: String,
+    instruction: usize,
+    span: Option<Span>,
 }
 
 fn execute(
@@ -179,75 +232,138 @@ fn execute(
     event_types: &HashMap<&str, Vec<IrType>>,
     fuel: &mut u64,
     limit: u64,
-) -> Result<i64> {
-    for instruction in body {
-        *fuel = fuel
-            .checked_add(1)
-            .ok_or_else(|| anyhow::anyhow!("simulator fuel overflow"))?;
+) -> std::result::Result<i64, ExecutionFailure> {
+    for (instruction_index, instruction) in body.iter().enumerate() {
+        *fuel = fuel.checked_add(1).ok_or_else(|| {
+            execution_failure(instruction, instruction_index, "simulator fuel overflow")
+        })?;
         if *fuel > limit {
-            bail!("simulator fuel limit exceeded");
+            return Err(execution_failure(
+                instruction,
+                instruction_index,
+                "simulator fuel limit exceeded",
+            ));
         }
-        match instruction {
-            Instr::IConst { dst, n, .. } => {
-                values.insert(dst.0, *n);
-            }
-            Instr::StateRead { dst, field, .. } => {
-                let stored = storage
-                    .get(field)
-                    .ok_or_else(|| anyhow::anyhow!("missing state field `{field}`"))?;
-                values.insert(dst.0, scalar(stored)?);
-            }
-            Instr::StateWrite { field, src, ty, .. } => {
-                let field_value = get(values, *src)?;
-                let json_value = scalar_json(field_value, *ty);
-                storage.insert(field.clone(), json_value.clone());
-                state_changes.push(json!({ "field": field, "value": json_value }));
-            }
-            Instr::EventEmit { event, args, .. } => {
-                let argument_types = event_types
-                    .get(event.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("simulator event `{event}` is not declared"))?;
-                if args.len() != argument_types.len() {
-                    bail!("simulator event `{event}` has an invalid argument count");
+        let instruction_result = (|| -> Result<Option<i64>> {
+            match instruction {
+                Instr::IConst { dst, n, .. } => {
+                    values.insert(dst.0, *n);
                 }
-                let event_args = args
-                    .iter()
-                    .zip(argument_types)
-                    .map(|(argument, ty)| {
-                        get(values, *argument).map(|value| scalar_json(value, *ty))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                events.push(json!({ "event": event, "args": event_args }));
-            }
-            Instr::IBin {
-                dst, op, lhs, rhs, ..
-            } => {
-                values.insert(dst.0, bin(*op, get(values, *lhs)?, get(values, *rhs)?)?);
-            }
-            Instr::ISelect {
-                dst,
-                cond,
-                then_v,
-                else_v,
-            } => {
-                let selected = if get(values, *cond)? != 0 {
-                    get(values, *then_v)?
-                } else {
-                    get(values, *else_v)?
-                };
-                values.insert(dst.0, selected);
-            }
-            Instr::Guard { cond, .. } => {
-                if get(values, *cond)? == 0 {
-                    bail!("simulator contract guard failed");
+                Instr::StateRead { dst, field, .. } => {
+                    let stored = storage
+                        .get(field)
+                        .ok_or_else(|| anyhow::anyhow!("missing state field `{field}`"))?;
+                    values.insert(dst.0, scalar(stored)?);
                 }
+                Instr::StateWrite { field, src, ty, .. } => {
+                    let field_value = get(values, *src)?;
+                    let json_value = scalar_json(field_value, *ty);
+                    storage.insert(field.clone(), json_value.clone());
+                    state_changes.push(json!({ "field": field, "value": json_value }));
+                }
+                Instr::EventEmit { event, args, .. } => {
+                    let argument_types = event_types.get(event.as_str()).ok_or_else(|| {
+                        anyhow::anyhow!("simulator event `{event}` is not declared")
+                    })?;
+                    if args.len() != argument_types.len() {
+                        bail!("simulator event `{event}` has an invalid argument count");
+                    }
+                    let event_args = args
+                        .iter()
+                        .zip(argument_types)
+                        .map(|(argument, ty)| {
+                            get(values, *argument).map(|value| scalar_json(value, *ty))
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    events.push(json!({ "event": event, "args": event_args }));
+                }
+                Instr::IBin {
+                    dst, op, lhs, rhs, ..
+                } => {
+                    values.insert(dst.0, bin(*op, get(values, *lhs)?, get(values, *rhs)?)?);
+                }
+                Instr::ISelect {
+                    dst,
+                    cond,
+                    then_v,
+                    else_v,
+                } => {
+                    let selected = if get(values, *cond)? != 0 {
+                        get(values, *then_v)?
+                    } else {
+                        get(values, *else_v)?
+                    };
+                    values.insert(dst.0, selected);
+                }
+                Instr::Guard { cond, .. } => {
+                    if get(values, *cond)? == 0 {
+                        bail!("simulator contract guard failed");
+                    }
+                }
+                Instr::Ret { val } => return Ok(Some(get(values, *val)?)),
+                Instr::ExternalCall { .. } => bail!("simulator does not support external calls"),
+                other => bail!("simulator does not support instruction `{other:?}`"),
             }
-            Instr::Ret { val } => return get(values, *val),
-            Instr::ExternalCall { .. } => bail!("simulator does not support external calls"),
-            other => bail!("simulator does not support instruction `{other:?}`"),
+            Ok(None)
+        })();
+        match instruction_result {
+            Ok(Some(result)) => return Ok(result),
+            Ok(None) => {}
+            Err(error) => return Err(execution_failure(instruction, instruction_index, error)),
         }
     }
-    bail!("simulator transition has no return")
+    Err(ExecutionFailure {
+        message: "simulator transition has no return".to_string(),
+        instruction: body.len(),
+        span: None,
+    })
+}
+
+fn execution_failure(
+    instruction: &Instr,
+    instruction_index: usize,
+    error: impl std::fmt::Display,
+) -> ExecutionFailure {
+    ExecutionFailure {
+        message: error.to_string(),
+        instruction: instruction_index,
+        span: instruction_span(instruction),
+    }
+}
+
+fn instruction_span(instruction: &Instr) -> Option<Span> {
+    match instruction {
+        Instr::Guard {
+            span: Some((start, end)),
+            ..
+        } => Some(Span {
+            start: *start as usize,
+            end: *end as usize,
+        }),
+        _ => None,
+    }
+}
+
+fn expr_span(expr: &Expr) -> Span {
+    match expr {
+        Expr::Int(_, span) | Expr::Bool(_, span) | Expr::String(_, span) | Expr::Var(_, span) => {
+            *span
+        }
+        Expr::ArrayLit { span, .. }
+        | Expr::TupleLit { span, .. }
+        | Expr::StructLit { span, .. }
+        | Expr::FieldAccess { span, .. }
+        | Expr::Index { span, .. }
+        | Expr::Bin { span, .. }
+        | Expr::Call { span, .. }
+        | Expr::Return { span, .. }
+        | Expr::Unary { span, .. }
+        | Expr::Match { span, .. }
+        | Expr::If { span, .. }
+        | Expr::Try { span, .. }
+        | Expr::Lambda { span, .. } => *span,
+        Expr::Block { block } => block.span,
+    }
 }
 
 fn get(values: &HashMap<u32, i64>, value: Value) -> Result<i64> {

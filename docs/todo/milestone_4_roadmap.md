@@ -289,8 +289,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     surface and canonical campaign evidence. (`docs/design/phase-30.5.1-contract-test-simulator-policy.md`,
     `crates/cli/{src/commands/contract_test.rs,tests/cli_it/basic/contract_test_campaign.rs}`)
     `Completed: 2026-08-20`.
-  - [ ] 30.5.2 Add source locations/stack traces for target simulation failures and a supported
-    VS Code/LSP integration based on the stable CLI protocol.
+  - [x] 30.5.2 Add source locations/stack traces for target simulation failures and a supported
+    VS Code/LSP integration based on the stable CLI protocol. Simulation execution failures now
+    emit trace-backed source/stack evidence and stable `C142` JSON diagnostics consumable by the
+    published VS Code CLI profile. (`docs/design/phase-30.5.2-simulation-diagnostics-vscode-lock.md`,
+    `crates/cli/{src/commands/simulate.rs,tests/cli_it/basic/contract_simulate.rs}`)
+    `Completed: 2026-08-20`.
   - [ ] 30.5.3 Publish developer and operator guidance for local simulation, deployment,
     upgrades, rollback, key custody, incident response, and target compatibility.
 

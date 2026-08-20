@@ -7,7 +7,7 @@ use clg_cli::commands::{
     check as cmd_check, emit_hello as cmd_emit_hello, fmt as cmd_fmt,
     helpers::CommandError,
     lint as cmd_lint, parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
-    simulate as cmd_simulate, strict as cmd_strict,
+    simulate as cmd_simulate, strict as cmd_strict, target as cmd_target,
     test::{self as cmd_test, TestReportFormat},
     verify::{self as cmd_verify, VerifyMode},
 };
@@ -114,6 +114,12 @@ enum Commands {
         /// Emit the canonical target-facing contract ABI descriptor JSON
         #[arg(long, value_name = "FILE")]
         emit_contract_abi: Option<PathBuf>,
+        /// Emit the EVM-compatible selector and ABI-v2 wire descriptor JSON
+        #[arg(long, value_name = "FILE")]
+        emit_evm_wire_abi: Option<PathBuf>,
+        /// Emit a deployable EVM artifact for the supported static-pure contract profile
+        #[arg(long, value_name = "FILE")]
+        emit_evm_artifact: Option<PathBuf>,
         /// Require the contract state schema to be append-only compatible with a prior schema
         #[arg(long, value_name = "FILE")]
         check_contract_state_schema: Option<PathBuf>,
@@ -199,6 +205,11 @@ enum Commands {
         /// Maximum bytes accepted for each JSON input and emitted artifact
         #[arg(long, default_value_t = 1_048_576)]
         memory_limit: u64,
+    },
+    /// Explicit EVM-compatible target adapter commands
+    Target {
+        #[command(subcommand)]
+        command: TargetCommands,
     },
     /// Phase 25.2.3: one-command release orchestration (Gate C)
     Release {
@@ -334,6 +345,103 @@ enum StrictCommands {
     },
 }
 
+#[derive(Subcommand, Debug)]
+enum TargetCommands {
+    /// Deploy an EVM-compatible contract artifact
+    Deploy {
+        /// Target profile identifier (currently only clg.evm-compatible.v1)
+        #[arg(long)]
+        target_profile: String,
+        /// Explicit HTTP(S) JSON-RPC endpoint; no endpoint is inferred
+        #[arg(long)]
+        rpc_url: String,
+        /// Expected numeric chain identifier
+        #[arg(long)]
+        chain_id: u64,
+        /// EVM-compatible target artifact containing deploy bytecode
+        #[arg(long, value_name = "FILE")]
+        artifact: PathBuf,
+        /// Wire-compatible ABI artifact
+        #[arg(long, value_name = "FILE")]
+        abi: PathBuf,
+        /// Output path for a successful canonical target receipt
+        #[arg(long, value_name = "FILE")]
+        receipt_out: PathBuf,
+    },
+    /// Execute a read-only EVM-compatible contract call without signing or submitting
+    Call {
+        /// Target profile identifier (currently only clg.evm-compatible.v1)
+        #[arg(long)]
+        target_profile: String,
+        /// Explicit HTTP(S) JSON-RPC endpoint; no endpoint is inferred
+        #[arg(long)]
+        rpc_url: String,
+        /// Expected numeric chain identifier
+        #[arg(long)]
+        chain_id: u64,
+        /// EVM-compatible target artifact containing deploy bytecode
+        #[arg(long, value_name = "FILE")]
+        artifact: PathBuf,
+        /// Wire-compatible ABI artifact
+        #[arg(long, value_name = "FILE")]
+        abi: PathBuf,
+        /// Explicit deployed contract address
+        #[arg(long)]
+        contract_address: String,
+        /// Canonical ABI function identifier
+        #[arg(long)]
+        function: String,
+        /// JSON file containing function arguments
+        #[arg(long, value_name = "FILE")]
+        args: PathBuf,
+        /// Output path for a successful canonical target receipt
+        #[arg(long, value_name = "FILE")]
+        receipt_out: PathBuf,
+    },
+    /// Sign and submit an EVM-compatible contract invocation; never falls back to simulation
+    Invoke {
+        /// Target profile identifier (currently only clg.evm-compatible.v1)
+        #[arg(long)]
+        target_profile: String,
+        /// Explicit HTTP(S) JSON-RPC endpoint; no endpoint is inferred
+        #[arg(long)]
+        rpc_url: String,
+        /// Expected numeric chain identifier
+        #[arg(long)]
+        chain_id: u64,
+        /// EVM-compatible target artifact containing deploy bytecode
+        #[arg(long, value_name = "FILE")]
+        artifact: PathBuf,
+        /// Wire-compatible ABI artifact
+        #[arg(long, value_name = "FILE")]
+        abi: PathBuf,
+        /// Explicit deployed contract address
+        #[arg(long)]
+        contract_address: String,
+        /// Canonical ABI function identifier
+        #[arg(long)]
+        function: String,
+        /// JSON file containing function arguments
+        #[arg(long, value_name = "FILE")]
+        args: PathBuf,
+        /// Explicit transaction sender address
+        #[arg(long)]
+        sender: String,
+        /// Explicit signing-key path; wallet discovery is unsupported
+        #[arg(long, value_name = "FILE")]
+        signing_key: PathBuf,
+        /// Explicit value, in the target's base unit
+        #[arg(long)]
+        value: u64,
+        /// Explicit gas limit
+        #[arg(long)]
+        gas_limit: u64,
+        /// Output path for a successful canonical target receipt
+        #[arg(long, value_name = "FILE")]
+        receipt_out: PathBuf,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let _non_interactive = cli.non_interactive;
@@ -377,6 +485,8 @@ fn main() -> Result<()> {
             debug_names,
             emit_contract_state_schema,
             emit_contract_abi,
+            emit_evm_wire_abi,
+            emit_evm_artifact,
             check_contract_state_schema,
             emit_vcs,
             emit_proof,
@@ -402,6 +512,8 @@ fn main() -> Result<()> {
                 debug_names,
                 emit_contract_state_schema,
                 emit_contract_abi,
+                emit_evm_wire_abi,
+                emit_evm_artifact,
                 check_contract_state_schema,
                 emit_vcs,
                 emit_proof,
@@ -454,6 +566,73 @@ fn main() -> Result<()> {
             memory_limit,
             logger.with_command("simulate"),
         ),
+        Commands::Target { command } => match command {
+            TargetCommands::Deploy {
+                target_profile,
+                rpc_url,
+                chain_id,
+                artifact,
+                abi,
+                receipt_out,
+            } => cmd_target::deploy(cmd_target::DeployArgs {
+                target_profile,
+                rpc_url,
+                chain_id,
+                artifact,
+                abi,
+                receipt_out,
+            }),
+            TargetCommands::Call {
+                target_profile,
+                rpc_url,
+                chain_id,
+                artifact,
+                abi,
+                contract_address,
+                function,
+                args,
+                receipt_out,
+            } => cmd_target::call(cmd_target::CallArgs {
+                target_profile,
+                rpc_url,
+                chain_id,
+                artifact,
+                abi,
+                contract_address,
+                function,
+                args,
+                receipt_out,
+            }),
+            TargetCommands::Invoke {
+                target_profile,
+                rpc_url,
+                chain_id,
+                artifact,
+                abi,
+                contract_address,
+                function,
+                args,
+                sender,
+                signing_key,
+                value,
+                gas_limit,
+                receipt_out,
+            } => cmd_target::invoke(cmd_target::InvokeArgs {
+                target_profile,
+                rpc_url,
+                chain_id,
+                artifact,
+                abi,
+                contract_address,
+                function,
+                args,
+                sender,
+                signing_key,
+                value,
+                gas_limit,
+                receipt_out,
+            }),
+        },
         Commands::Release {
             key,
             pubkey,

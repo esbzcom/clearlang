@@ -32,6 +32,7 @@ hex = "0.4"
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 time = { version = "0.3", features = ["formatting"] }
+ureq = { version = "2.12", default-features = false, features = ["tls"] }
 z3 = { version = "0.19.15", optional = true, default-features = false, features = ["static-link-z3"] }
 
 [dev-dependencies]

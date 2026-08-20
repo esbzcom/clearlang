@@ -38,6 +38,8 @@ pub(crate) mod strict_trust_policy;
 mod strict_validation;
 mod contract_state_schema;
 mod contract_abi;
+mod evm_wire_abi;
+mod evm_artifact;
 mod vcs_json;
 
 use strict::{
@@ -52,6 +54,8 @@ use strict_preflight_input::load_required_strict_preflight_input_v0;
 use vcs_json::write_vcs_json;
 use contract_abi::write_contract_abi;
 use contract_state_schema::{check_contract_state_schema_compatibility, write_contract_state_schema};
+use evm_wire_abi::write_evm_wire_abi;
+use evm_artifact::write_evm_artifact;
 
 const LEGACY_PACKAGE_METADATA_FILE: &str = "clg-packages.json";
 

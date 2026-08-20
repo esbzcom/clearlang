@@ -79,10 +79,17 @@ fn requires_contract_source_graph(
     has_contract: bool,
     emit_contract_state_schema: bool,
     emit_contract_abi: bool,
+    emit_evm_wire_abi: bool,
+    emit_evm_artifact: bool,
     emit_proof: bool,
     sign: bool,
 ) -> bool {
-    sign || emit_contract_state_schema || emit_contract_abi || (has_contract && emit_proof)
+    sign
+        || emit_contract_state_schema
+        || emit_contract_abi
+        || emit_evm_wire_abi
+        || emit_evm_artifact
+        || (has_contract && emit_proof)
 }
 
 fn release_module_graph_test_path_violation(

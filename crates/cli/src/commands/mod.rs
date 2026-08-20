@@ -13,6 +13,7 @@ pub mod run;
 pub(crate) mod shared_std_lock;
 pub mod simulate;
 pub mod strict;
+pub mod target;
 pub mod test;
 pub(crate) mod validation;
 pub mod verify;

@@ -7,6 +7,8 @@ pub fn run(
     debug_names: bool,
     emit_contract_state_schema: Option<PathBuf>,
     emit_contract_abi: Option<PathBuf>,
+    emit_evm_wire_abi: Option<PathBuf>,
+    emit_evm_artifact: Option<PathBuf>,
     check_contract_state_schema: Option<PathBuf>,
     emit_vcs: Option<PathBuf>,
     emit_proof: Option<PathBuf>,
@@ -210,6 +212,8 @@ pub fn run(
         !mono_program.contracts.is_empty(),
         emit_contract_state_schema.is_some(),
         emit_contract_abi.is_some(),
+        emit_evm_wire_abi.is_some(),
+        emit_evm_artifact.is_some(),
         emit_proof.is_some(),
         sign,
     );
@@ -227,6 +231,14 @@ pub fn run(
     if let Some(abi_path) = emit_contract_abi.as_ref() {
         let _stage = timings.start(logger, "emit_contract_abi");
         write_contract_abi(&mono_program, abi_path, contract_source_graph.as_ref())?;
+    }
+    if let Some(wire_abi_path) = emit_evm_wire_abi.as_ref() {
+        let _stage = timings.start(logger, "emit_evm_wire_abi");
+        write_evm_wire_abi(&mono_program, wire_abi_path, contract_source_graph.as_ref())?;
+    }
+    if let Some(evm_artifact_path) = emit_evm_artifact.as_ref() {
+        let _stage = timings.start(logger, "emit_evm_artifact");
+        write_evm_artifact(&mono_program, evm_artifact_path, contract_source_graph.as_ref())?;
     }
     if let Some(prior_schema_path) = check_contract_state_schema.as_ref() {
         let _stage = timings.start(logger, "check_contract_state_schema");

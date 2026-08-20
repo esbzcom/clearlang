@@ -248,6 +248,8 @@ pub fn run(
             None,
             None,
             None,
+            None,
+            None,
             Some(paths.vcs.clone()),
             Some(paths.proof.clone()),
             CompilerMode::Strict,

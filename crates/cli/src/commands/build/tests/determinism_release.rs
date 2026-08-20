@@ -177,13 +177,15 @@
 
     #[test]
     fn contract_source_graph_is_computed_only_for_identity_consumers() {
-        assert!(!requires_contract_source_graph(false, false, false, false, false));
-        assert!(!requires_contract_source_graph(true, false, false, false, false));
-        assert!(requires_contract_source_graph(false, true, false, false, false));
-        assert!(requires_contract_source_graph(false, false, true, false, false));
-        assert!(requires_contract_source_graph(true, false, false, true, false));
-        assert!(!requires_contract_source_graph(false, false, false, true, false));
-        assert!(requires_contract_source_graph(false, false, false, false, true));
+        assert!(!requires_contract_source_graph(false, false, false, false, false, false, false));
+        assert!(!requires_contract_source_graph(true, false, false, false, false, false, false));
+        assert!(requires_contract_source_graph(false, true, false, false, false, false, false));
+        assert!(requires_contract_source_graph(false, false, true, false, false, false, false));
+        assert!(requires_contract_source_graph(false, false, false, true, false, false, false));
+        assert!(requires_contract_source_graph(false, false, false, false, true, false, false));
+        assert!(requires_contract_source_graph(true, false, false, false, false, true, false));
+        assert!(!requires_contract_source_graph(false, false, false, false, false, true, false));
+        assert!(requires_contract_source_graph(false, false, false, false, false, false, true));
     }
 
     #[test]

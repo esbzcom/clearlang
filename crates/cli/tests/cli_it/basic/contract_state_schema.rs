@@ -314,3 +314,102 @@ fn build_emits_deterministic_target_contract_abi() {
         "all loaded source files must contribute to the ABI identity"
     );
 }
+
+#[test]
+fn build_emits_deterministic_evm_wire_abi_with_selectors() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("vault.clear");
+    fs::write(
+        &source,
+        r#"
+            contract Vault version 1 {
+                state { total: U64; }
+                event Deposited { amount: U64; }
+                mut function deposit(amount: U64) -> Bool { true }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write source");
+    let first = dir.path().join("first.evm-abi.json");
+    let second = dir.path().join("second.evm-abi.json");
+
+    for (wire_abi, wasm) in [
+        (&first, dir.path().join("first.wasm")),
+        (&second, dir.path().join("second.wasm")),
+    ] {
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "build",
+                source.to_str().expect("source path"),
+                "-o",
+                wasm.to_str().expect("wasm path"),
+                "--emit-evm-wire-abi",
+                wire_abi.to_str().expect("wire ABI path"),
+            ])
+            .assert()
+            .success();
+    }
+
+    let first_bytes = fs::read(&first).expect("read first wire ABI");
+    assert_eq!(first_bytes, fs::read(&second).expect("read second wire ABI"));
+    let wire_abi: Value = serde_json::from_slice(&first_bytes).expect("parse wire ABI");
+    assert_eq!(wire_abi["wire_abi"]["format"], "clg.evm-wire-abi.v1");
+    assert_eq!(wire_abi["target"]["profile"], "clg.evm-compatible.v1");
+    assert_eq!(wire_abi["target"]["bytecode"], "deferred");
+    assert_eq!(wire_abi["functions"][0]["signature"], "deposit(uint64)");
+    assert_eq!(wire_abi["functions"][0]["selector"], "0x13765838");
+    assert_eq!(
+        wire_abi["events"][0]["topic0"],
+        "0x7f2ef186ad31df7b1c02573d76e20029546e02b4fd1e8a696b110783d5834793"
+    );
+}
+
+#[test]
+fn build_emits_deterministic_deployable_evm_artifact_for_static_pure_contracts() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("constant.clear");
+    fs::write(
+        &source,
+        r#"
+            contract Constant version 1 {
+                state { total: U64; }
+                pure function answer() -> U64 { U64(42) }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write source");
+    let first = dir.path().join("first.evm.json");
+    let second = dir.path().join("second.evm.json");
+
+    for (artifact, wasm) in [
+        (&first, dir.path().join("first.wasm")),
+        (&second, dir.path().join("second.wasm")),
+    ] {
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "build",
+                source.to_str().expect("source path"),
+                "-o",
+                wasm.to_str().expect("wasm path"),
+                "--emit-evm-artifact",
+                artifact.to_str().expect("artifact path"),
+            ])
+            .assert()
+            .success();
+    }
+
+    let first_bytes = fs::read(&first).expect("read first artifact");
+    assert_eq!(first_bytes, fs::read(&second).expect("read second artifact"));
+    let artifact: Value = serde_json::from_slice(&first_bytes).expect("parse artifact");
+    assert_eq!(artifact["artifact"]["format"], "clg.evm-artifact.v1");
+    assert_eq!(artifact["target"]["profile"], "clg.evm-compatible.v1");
+    assert_eq!(artifact["execution_profile"], "clg.evm-static-pure.v1");
+    assert!(artifact["bytecode"]
+        .as_str()
+        .expect("bytecode")
+        .starts_with("0x"));
+}

@@ -20,7 +20,8 @@ with an on-chain transaction.
 - The transaction chain ID is the explicit command value, confirmed by `eth_chainId` before any
   submission. The command submits only an RLP-encoded signed transaction with
   `eth_sendRawTransaction`.
-- A command polls `eth_getTransactionReceipt` by the returned transaction hash. It emits a
+- A command polls `eth_getTransactionReceipt` by the returned transaction hash (at most ten
+  explicit polls, 100 ms apart). It emits a
   successful `clg.target-receipt.v1` only when receipt status is `0x1` and block number/hash are
   present and well formed. RPC errors, malformed responses, timeouts, status `0x0`, and chain-ID
   mismatch fail without a success receipt.
@@ -29,4 +30,3 @@ with an on-chain transaction.
 
 EIP-1559 envelopes, account/wallet discovery, remote signing, fee estimation, automatic nonce
 selection, transaction replacement, and confirmation-depth policies are deferred.
-

@@ -39,8 +39,8 @@ queue.
 10. [x] 30.3.3.3.0 stateful scalar EVM profile lock.
 11. [x] 30.3.3.3.1 stateful scalar EVM backend.
 12. [x] 30.3.3.4.0 EVM transaction signing policy lock.
-13. [ ] 30.3.3.4.1 explicit EVM transaction signing, deploy/invoke submission, and receipts.
-14. [ ] Mark 30.3.3 complete.
+13. [x] 30.3.3.4.1 explicit EVM transaction signing, deploy/invoke submission, and receipts.
+14. [x] Mark 30.3.3 complete.
 15. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
     rejection, after deploy/invoke receipts exist.
 16. [ ] Mark 30.1 complete.
@@ -207,7 +207,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     Branch/loop initialization remains rejected by `T829` until a later target adapter can prove
     all paths. (`docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`,
     `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
-  - [ ] 30.3.3 Implement deploy/call/invoke adapter commands and target receipts with explicit
+- [x] 30.3.3 Implement deploy/call/invoke adapter commands and target receipts with explicit
     RPC/target configuration and no implicit network selection.
     (`docs/design/phase-30.3.3-explicit-target-adapter-receipt-lock.md`)
     - [x] 30.3.3.1 Emit canonical `clg.evm-wire-abi.v1` artifacts with Keccak selectors, event
@@ -239,12 +239,14 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       sender derivation, explicit nonce/gas/fee inputs, receipt confirmation, and failure rules.
       (`docs/design/phase-30.3.3.4.0-evm-transaction-signing-policy-lock.md`)
       `Completed: 2026-08-20`.
-    - [ ] 30.3.3.4.1 Implement explicit signed `target deploy` and `target invoke`. Define one
+    - [x] 30.3.3.4.1 Implement explicit signed `target deploy` and `target invoke`. Define one
       validated secp256k1 key-file format; require explicit sender, nonce, gas limit, and fee
       policy; derive and match the sender address; canonically encode/sign EIP-155 transactions;
       submit only with `eth_sendRawTransaction`; and emit a `clg.target-receipt.v1` only after a
       validated successful on-chain receipt. Chain mismatch, RPC failure, malformed receipt, and
-      revert must fail closed without a success receipt.
+      revert must fail closed without a success receipt. Deploy accepts explicit constructor
+      arguments where declared by the wire ABI. (`crates/cli/src/commands/{target.rs,target/transaction.rs}`,
+      `crates/cli/{src/main.rs,tests/cli_it/basic/contract_target.rs}`) `Completed: 2026-08-20`.
   - [ ] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the
     executable target receipt and reject schema/proof/target/signed-bundle drift. Requires the
     30.3.3 deploy/call/invoke receipt.

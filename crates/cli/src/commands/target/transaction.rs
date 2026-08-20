@@ -101,6 +101,10 @@ pub(super) fn sign_legacy(
     ]))
 }
 
+pub(super) fn transaction_hash(raw_transaction: &[u8]) -> String {
+    format!("0x{}", hex::encode(Keccak256::digest(raw_transaction)))
+}
+
 fn derive_address(key: &SigningKey) -> String {
     let point = key.verifying_key().to_encoded_point(false);
     let hash = Keccak256::digest(&point.as_bytes()[1..]);

@@ -358,12 +358,33 @@ enum TargetCommands {
         /// Expected numeric chain identifier
         #[arg(long)]
         chain_id: u64,
+        /// Explicit transaction sender address
+        #[arg(long)]
+        sender: String,
+        /// Explicit sender transaction nonce
+        #[arg(long)]
+        nonce: u64,
+        /// Explicit signing-key path; wallet discovery is unsupported
+        #[arg(long, value_name = "FILE")]
+        signing_key: PathBuf,
+        /// Explicit value, in the target's base unit
+        #[arg(long)]
+        value: u64,
+        /// Explicit gas limit
+        #[arg(long)]
+        gas_limit: u64,
+        /// Explicit legacy EIP-155 gas price
+        #[arg(long)]
+        gas_price: u64,
         /// EVM-compatible target artifact containing deploy bytecode
         #[arg(long, value_name = "FILE")]
         artifact: PathBuf,
         /// Wire-compatible ABI artifact
         #[arg(long, value_name = "FILE")]
         abi: PathBuf,
+        /// Optional JSON file containing constructor arguments
+        #[arg(long, value_name = "FILE")]
+        args: Option<PathBuf>,
         /// Output path for a successful canonical target receipt
         #[arg(long, value_name = "FILE")]
         receipt_out: PathBuf,
@@ -577,15 +598,29 @@ fn main() -> Result<()> {
                 target_profile,
                 rpc_url,
                 chain_id,
+                sender,
+                nonce,
+                signing_key,
+                value,
+                gas_limit,
+                gas_price,
                 artifact,
                 abi,
+                args,
                 receipt_out,
             } => cmd_target::deploy(cmd_target::DeployArgs {
                 target_profile,
                 rpc_url,
                 chain_id,
+                sender,
+                nonce,
+                signing_key,
+                value,
+                gas_limit,
+                gas_price,
                 artifact,
                 abi,
+                args,
                 receipt_out,
             }),
             TargetCommands::Call {

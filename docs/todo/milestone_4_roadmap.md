@@ -315,8 +315,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     binding, then verifies the target-artifact signature and assurance manifest.
     (`docs/design/phase-30.6.1-contract-release-verification-lock.md`, `crates/cli/src/commands/contract_release.rs`)
     `Completed: 2026-08-20`.
-  - [ ] 30.6.2 Add deterministic CI gates covering reference-contract creation through
+  - [x] 30.6.2 Add deterministic CI gates covering reference-contract creation through
     deploy/invoke/verification, plus tamper, replay, upgrade, and reentrancy-negative paths.
+    The offline contract-release CI step runs the locked artifact, campaign replay, schema,
+    target receipt, drift/tamper, and CEI-negative fixtures. (`.github/workflows/ci.yml`,
+    `docs/evidence/phase-30.6-contract-release-ci.md`) `Completed: 2026-08-20`.
   - [ ] 30.6.3 Publish the final supported product contract, compatibility policy, release
     checklist, and known exclusions.
 

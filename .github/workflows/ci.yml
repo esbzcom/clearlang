@@ -35,6 +35,20 @@ jobs:
         run: |
           set -euo pipefail
           cargo test -p clg-cli --test ide_cli_contract
+      - name: Milestone 4 contract release workflow gates
+        run: |
+          set -euo pipefail
+          cargo test -p clg-cli --test cli_it basic::build_emits_stateful_evm_artifact_with_schema_bound_slots_and_transitions
+          cargo test -p clg-cli --test cli_it basic::contract_test_campaign_is_seeded_replayable_and_captures_simulator_traces
+          cargo test -p clg-cli --test cli_it basic::contract_release_help_exposes_the_complete_evidence_contract
+          cargo test -p clg-cli --test cli_it basic::build_checks_contract_state_schema_is_append_only
+          cargo test -p clg-cli --test cli_it basic::build_rejects_adversarial_contract_external_call_without_an_adapter
+          cargo test -p clg-cli --test cli_it basic::target_commands_require_explicit_configuration_and_deploy_signing_policy
+          cargo test -p clg-cli --test cli_it basic::target_invoke_requires_explicit_signing_sender_value_and_gas_policy
+          cargo test -p clg-cli --lib commands::target::tests::deploy_signs_submits_and_writes_confirmed_receipt
+          cargo test -p clg-cli --lib commands::target::tests::invoke_signs_submits_and_writes_confirmed_receipt
+          cargo test -p clg-cli --lib commands::target::tests::cross_artifact_compiler_drift_is_rejected_before_submission
+          cargo test -p clg-typer --test contract_state contract_external_calls_enforce_checks_effects_interactions
       - name: Proof regression gates
         run: |
           set -euo pipefail

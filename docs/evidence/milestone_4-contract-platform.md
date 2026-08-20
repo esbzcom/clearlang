@@ -100,3 +100,23 @@
   target-runtime behavior, and call-boundary invariant proof are excluded. Any outbound-call IR
   or unresolved target/solver boundary remains strict-release blocking.
 - Governing lock: `docs/design/phase-30.2.4-reentrancy-security-claim-lock.md`.
+
+## 30.3.4 EVM target conformance fixtures
+
+- Date: 2026-08-20
+- Accountable owner: target-runtime-owner
+- Review boundary: language-and-proof-owner
+- Target profile: `clg.evm-stateful-scalar.v1` over the explicit `clg.evm-compatible.v1` RPC
+  adapter.
+- Acceptance commands:
+  - `cargo test -p clg-cli --lib commands::build::evm_artifact::tests::stateful_scalar_profile_conforms_for_every_supported_storage_word_type`
+  - `cargo test -p clg-cli --lib commands::target::tests`
+  - `cargo test -p clg-cli --test cli_it target_`
+- Stable result: the opcode fixture executes constructor and transition bytecode for Bool, U8,
+  U64, U128, and signed Int values, then confirms field-ID-derived slots and ABI return words.
+  Target adapter fixtures validate explicit chain selection, EIP-155 raw submission, confirmed
+  receipt handling, constructor data, and evidence-bound receipts.
+- Negative evidence: unsupported IR remains rejected; receipt revert, malformed target data, and
+  compiler/source/proof/bundle drift write no success receipt.
+- Compatibility boundary: this validates the locked opcode and JSON-RPC surface only; it is not a
+  claim of arbitrary EVM client, transaction-envelope, proxy, or external-call compatibility.

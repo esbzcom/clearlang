@@ -4,7 +4,8 @@ use anyhow::Result;
 use clap::{ArgAction, Parser, Subcommand};
 use clg_cli::commands::{
     build::{self as cmd_build, CompilerMode, ReleaseProfile, StdCoreLinkMode},
-    check as cmd_check, emit_hello as cmd_emit_hello, fmt as cmd_fmt,
+    check as cmd_check, contract_test as cmd_contract_test, emit_hello as cmd_emit_hello,
+    fmt as cmd_fmt,
     helpers::CommandError,
     lint as cmd_lint, parse as cmd_parse, pkg as cmd_pkg, release as cmd_release, run as cmd_run,
     simulate as cmd_simulate, strict as cmd_strict, target as cmd_target,
@@ -90,6 +91,11 @@ enum Commands {
         /// Report output format
         #[arg(long, value_enum, default_value_t = TestReportFormat::Human)]
         report: TestReportFormat,
+    },
+    /// Deterministic simulator-only contract test campaigns
+    Contract {
+        #[command(subcommand)]
+        command: ContractCommands,
     },
     /// Advanced expert/debug compile command. For production release, use `clg release`.
     Build {
@@ -304,6 +310,25 @@ enum Commands {
     Pkg {
         #[command(subcommand)]
         command: PkgCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ContractCommands {
+    /// Run a seeded property/fuzz campaign through the local contract simulator
+    Test {
+        /// Contract source file
+        #[arg(value_name = "FILE")]
+        source: PathBuf,
+        /// Canonical campaign plan JSON
+        #[arg(long, value_name = "FILE")]
+        plan: PathBuf,
+        /// Canonical campaign report JSON
+        #[arg(long, value_name = "FILE")]
+        report_out: PathBuf,
+        /// Directory for per-case generated inputs and simulator traces
+        #[arg(long, value_name = "DIR")]
+        trace_dir: PathBuf,
     },
 }
 
@@ -531,6 +556,20 @@ fn main() -> Result<()> {
             cli.json_errors,
             logger.with_command("test"),
         ),
+        Commands::Contract { command } => match command {
+            ContractCommands::Test {
+                source,
+                plan,
+                report_out,
+                trace_dir,
+            } => cmd_contract_test::run(
+                source,
+                plan,
+                report_out,
+                trace_dir,
+                logger.with_command("contract-test"),
+            ),
+        },
         Commands::Build {
             file,
             out,

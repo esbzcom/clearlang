@@ -1,5 +1,6 @@
 pub mod build;
 pub mod check;
+pub mod contract_test;
 pub mod emit_hello;
 pub mod fmt;
 pub mod helpers;

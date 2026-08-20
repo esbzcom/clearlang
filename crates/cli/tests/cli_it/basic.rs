@@ -6,4 +6,5 @@ include!("basic/build_release.rs");
 include!("basic/check_contract.rs");
 include!("basic/contract_state_schema.rs");
 include!("basic/contract_simulate.rs");
+include!("basic/contract_test_campaign.rs");
 include!("basic/contract_target.rs");

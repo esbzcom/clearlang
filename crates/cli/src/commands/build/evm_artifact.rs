@@ -577,6 +577,60 @@ mod tests {
         assert_eq!(run_evm(&runtime, &read, &mut storage).expect("read").0, unsigned_word(9));
     }
 
+    #[test]
+    fn stateful_scalar_profile_conforms_for_every_supported_storage_word_type() {
+        let program = parse(r#"
+            contract Scalars version 1 {
+                state { enabled: Bool; small: U8; amount: U128; delta: Int; }
+                init(enabled: Bool, small: U8, amount: U128, delta: Int) {
+                    state.enabled = enabled;
+                    state.small = small;
+                    state.amount = amount;
+                    state.delta = delta;
+                    0
+                }
+                mut function set(enabled: Bool, small: U8, amount: U128, delta: Int) -> Int {
+                    state.enabled = enabled;
+                    state.small = small;
+                    state.amount = amount;
+                    state.delta = delta;
+                    state.delta
+                }
+            }
+        "#).expect("parse");
+        let ir = check(&program).expect("lower");
+        let artifact = evm_artifact(&program, &ir, None).expect("artifact");
+        assert_eq!(artifact["execution_profile"], STATEFUL_PROFILE);
+        let mut creation = hex::decode(artifact["bytecode"].as_str().expect("bytecode").trim_start_matches("0x")).expect("hex");
+        creation.extend(unsigned_word(1));
+        creation.extend(unsigned_word(7));
+        creation.extend(unsigned_word((1_u128 << 80) + 3));
+        creation.extend(signed_word(-5));
+        let mut storage = BTreeMap::new();
+        let runtime = run_evm(&creation, &[], &mut storage).expect("constructor").0;
+        let slots = artifact["state_mapping"]["storage_layout"].as_array().expect("storage layout");
+        let slot_for = |name: &str| slots.iter().find(|field| field["field"] == name).and_then(|field| field["slot"].as_str()).map(decode_fixed_32).expect("slot").expect("slot bytes");
+        assert_eq!(storage.get(&slot_for("enabled")), Some(&unsigned_word(1)));
+        assert_eq!(storage.get(&slot_for("small")), Some(&unsigned_word(7)));
+        assert_eq!(storage.get(&slot_for("amount")), Some(&unsigned_word((1_u128 << 80) + 3)));
+        assert_eq!(storage.get(&slot_for("delta")), Some(&signed_word(-5)));
+
+        let wire = evm_wire_abi_artifact(&program, None).expect("wire ABI");
+        let selector = wire["functions"].as_array().expect("functions").iter()
+            .find(|function| function["name"] == "set")
+            .and_then(|function| function["selector"].as_str()).expect("set selector");
+        let mut call = hex::decode(selector.trim_start_matches("0x")).expect("selector hex");
+        call.extend(unsigned_word(0));
+        call.extend(unsigned_word(9));
+        call.extend(unsigned_word((1_u128 << 100) + 11));
+        call.extend(signed_word(-11));
+        assert_eq!(run_evm(&runtime, &call, &mut storage).expect("set").0, signed_word(-11));
+        assert_eq!(storage.get(&slot_for("enabled")), Some(&unsigned_word(0)));
+        assert_eq!(storage.get(&slot_for("small")), Some(&unsigned_word(9)));
+        assert_eq!(storage.get(&slot_for("amount")), Some(&unsigned_word((1_u128 << 100) + 11)));
+        assert_eq!(storage.get(&slot_for("delta")), Some(&signed_word(-11)));
+    }
+
     fn run_evm(code: &[u8], calldata: &[u8], storage: &mut BTreeMap<[u8; 32], [u8; 32]>) -> Result<(Vec<u8>, Vec<([u8; 32], Vec<u8>)>)> {
         let mut pc = 0; let mut stack = Vec::<[u8; 32]>::new(); let mut memory = Vec::new(); let mut logs = Vec::new();
         for _ in 0..10_000 {

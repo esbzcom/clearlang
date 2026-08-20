@@ -44,7 +44,7 @@ queue.
 15. [x] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
     rejection, after deploy/invoke receipts exist.
 16. [x] Mark 30.1 complete.
-17. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
+17. [x] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
 18. [ ] Continue 30.4-30.6 in their listed dependency order.
 
 The promoted adapter is deliberately narrow: it consumes only `StateRead`, `StateWrite`, and
@@ -175,7 +175,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     reentrancy prevention outside the enforced model.
     (`docs/design/phase-30.2.4-reentrancy-security-claim-lock.md`) `Completed: 2026-08-09`.
 
-- [ ] 30.3 EVM-compatible target and local simulation [Target Gate C]
+- [x] 30.3 EVM-compatible target and local simulation [Target Gate C] `Completed: 2026-08-20`.
   - [x] 30.3.0 Lock the minimal target profile needed by Contract Gate A: canonical state
     pre/post symbols, scalar SMT sorts, event receipts, and strict exclusions. Full EVM
     compatibility/version, account/value/block-context, ABI mapping, revert semantics, and gas
@@ -252,8 +252,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     30.3.3 deploy/call/invoke receipt. (`docs/design/phase-30.1.1.4.2.2-target-receipt-identity-binding-lock.md`,
     `crates/cli/{src/commands/target.rs,src/{proofs/artifact_hashing.rs,signing.rs},src/main.rs}`,
     `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-08-20`.
-  - [ ] 30.3.4 Add end-to-end target conformance and compatibility fixtures against the supported
-    EVM-compatible environment.
+  - [x] 30.3.4 Add end-to-end target conformance and compatibility fixtures against the supported
+    EVM-compatible environment. The locked scalar fixture executes all supported storage types,
+    constructor and transition ABI words, storage slots, and receipt paths; incompatible surface
+    remains fail-closed. (`docs/design/phase-30.3.4-evm-target-conformance-lock.md`,
+    `docs/evidence/milestone_4-contract-platform.md`,
+    `crates/cli/src/commands/{build/evm_artifact.rs,target.rs}`) `Completed: 2026-08-20`.
 
 - [ ] 30.4 Crypto assurance for the first contract profile [Proof Gate D]
   - [x] 30.4.0 Select and lock the minimal crypto surface required by the first EVM contract
@@ -279,10 +283,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     simulator records fuel and enforces explicit JSON byte limits; unsupported dynamic lifecycles
     remain fail-closed. (`docs/design/phase-30.5.0-contract-runtime-lifecycle-limits.md`,
     `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
-  - [ ] 30.5.1 Ship target-aware contract test commands with property/fuzz campaigns,
+  - [x] 30.5.1 Ship target-aware contract test commands with property/fuzz campaigns,
     deterministic seed replay, trace capture, and test-artifact schemas. The simulator-only
-    command/replay policy is locked; test-plan schema and campaign implementation remain pending.
-    (`docs/design/phase-30.5.1-contract-test-simulator-policy.md`)
+    command/replay policy is locked; `clg contract test` provides the bounded first generator
+    surface and canonical campaign evidence. (`docs/design/phase-30.5.1-contract-test-simulator-policy.md`,
+    `crates/cli/{src/commands/contract_test.rs,tests/cli_it/basic/contract_test_campaign.rs}`)
+    `Completed: 2026-08-20`.
   - [ ] 30.5.2 Add source locations/stack traces for target simulation failures and a supported
     VS Code/LSP integration based on the stable CLI protocol.
   - [ ] 30.5.3 Publish developer and operator guidance for local simulation, deployment,

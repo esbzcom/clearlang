@@ -5,8 +5,9 @@ EVM-compatible target workflow. It preserves the Milestone 3 proof, release, pro
 delivery contracts.
 
 Execution order: **contract source semantics -> target-profile lock and minimal state adapter ->
-state proof/migration closure -> external-call safety -> full target adapter and simulator ->
-crypto claim closure -> developer and operational readiness -> end-to-end release gate**.
+state proof/migration closure -> external-call safety -> local simulator -> wire ABI and bounded
+EVM artifacts -> stateful EVM backend -> signed deploy/invoke receipts -> cross-artifact identity
+binding -> target conformance -> developer and operational readiness -> end-to-end release gate**.
 
 ## Product Boundary
 
@@ -30,15 +31,21 @@ queue.
 5. [x] 30.3.2 deterministic local simulator.
 6. [x] 30.1.1.3.2 [Contract Gate A] exactly-once `init` lifecycle and all-path initialization
    proof, after the simulator exists.
-7. [ ] 30.3.3 explicit deploy/call/invoke adapter and target receipts.
-8. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
-    rejection, after target receipts exist.
-9. [ ] Mark 30.1 complete.
-10. [x] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests, then 30.2.4 the
-    precise security claim and exclusions. This Contract Gate B work is parallel to steps 4-8 and
-    does not block Contract Gate A.
-11. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
-12. [ ] Continue 30.4-30.6 in their listed dependency order.
+7. [x] 30.2.3 adversarial reentrancy fixtures and fail-closed release tests, then 30.2.4 the
+    precise security claim and exclusions. This Contract Gate B work ran in parallel with the
+    early target work and does not block Contract Gate A.
+8. [x] 30.3.3.1 EVM wire ABI with selectors/topics and deterministic static-scalar calldata.
+9. [x] 30.3.3.2 bounded static-pure EVM artifact plus explicit read-only target call and receipt.
+10. [x] 30.3.3.3.0 stateful scalar EVM profile lock.
+11. [x] 30.3.3.3.1 stateful scalar EVM backend.
+12. [x] 30.3.3.4.0 EVM transaction signing policy lock.
+13. [ ] 30.3.3.4.1 explicit EVM transaction signing, deploy/invoke submission, and receipts.
+14. [ ] Mark 30.3.3 complete.
+15. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
+    rejection, after deploy/invoke receipts exist.
+16. [ ] Mark 30.1 complete.
+17. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
+18. [ ] Continue 30.4-30.6 in their listed dependency order.
 
 The promoted adapter is deliberately narrow: it consumes only `StateRead`, `StateWrite`, and
 `EventEmit`; it does not enable network deployment, external calls, or a general EVM target.
@@ -200,10 +207,44 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     Branch/loop initialization remains rejected by `T829` until a later target adapter can prove
     all paths. (`docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`,
     `crates/cli/tests/cli_it/basic/contract_simulate.rs`) `Completed: 2026-08-09`.
-  - [ ] 30.3.3 Implement deploy/call/invoke adapter commands with explicit RPC/target
-    configuration and no implicit network selection. The command/receipt contract is locked, but
-    remains blocked on EVM bytecode plus selector/calldata encoding; the existing ABI descriptor
-    is deliberately not a wire ABI. (`docs/design/phase-30.3.3-explicit-target-adapter-receipt-lock.md`)
+  - [ ] 30.3.3 Implement deploy/call/invoke adapter commands and target receipts with explicit
+    RPC/target configuration and no implicit network selection.
+    (`docs/design/phase-30.3.3-explicit-target-adapter-receipt-lock.md`)
+    - [x] 30.3.3.1 Emit canonical `clg.evm-wire-abi.v1` artifacts with Keccak selectors, event
+      topics, and deterministic ABI-v2 calldata encoding for the initial static-scalar surface.
+      (`crates/cli/src/commands/build/evm_wire_abi.rs`, `crates/cli/src/commands/target.rs`,
+      `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-20`.
+    - [x] 30.3.3.2 Emit bounded deployable `clg.evm-artifact.v1` bytecode for the
+      fail-closed `clg.evm-static-pure.v1` profile, then support explicit read-only `target call`
+      with `eth_chainId` verification, `eth_call`, and canonical success receipts. Constructor,
+      mutation, and signing remain unsupported in this bootstrap profile.
+      (`crates/cli/src/commands/{build/evm_artifact.rs,target.rs}`,
+      `crates/cli/tests/cli_it/basic/{contract_state_schema.rs,contract_target.rs}`)
+      `Completed: 2026-08-20`.
+    - [x] 30.3.3.3.0 Lock the `clg.evm-stateful-scalar.v1` execution profile: supported scalar
+      types, field-ID-derived storage slots, constructor calldata, event encoding, EVM revision,
+      revert behavior, and the exact correspondence to the VC state model.
+      (`docs/design/phase-30.3.3.3.0-stateful-scalar-evm-profile-lock.md`)
+      `Completed: 2026-08-20`.
+    - [x] 30.3.3.3.1 Implement the fail-closed `clg.evm-stateful-scalar.v1` backend for the first
+      stateful contract profile. It must emit constructor and transition bytecode, map only
+      supported scalar `StateRead`/`StateWrite` operations to deterministic `SLOAD`/`SSTORE`
+      slots, ABI-decode/encode the supported scalar surface, and lower declared events to
+      canonical `LOGn` operations. The emitted artifact must bind its storage-slot derivation and
+      transition mapping to the VC state model; every IR operation without a verified EVM mapping
+      must reject. Initial exclusions: collections, dynamic bytes/strings, mutable loops, and
+      external calls. (`crates/cli/src/commands/build/evm_artifact.rs`,
+      `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-20`.
+    - [x] 30.3.3.4.0 Lock the EVM transaction-signing policy: key-file schema, EIP-155 envelope,
+      sender derivation, explicit nonce/gas/fee inputs, receipt confirmation, and failure rules.
+      (`docs/design/phase-30.3.3.4.0-evm-transaction-signing-policy-lock.md`)
+      `Completed: 2026-08-20`.
+    - [ ] 30.3.3.4.1 Implement explicit signed `target deploy` and `target invoke`. Define one
+      validated secp256k1 key-file format; require explicit sender, nonce, gas limit, and fee
+      policy; derive and match the sender address; canonically encode/sign EIP-155 transactions;
+      submit only with `eth_sendRawTransaction`; and emit a `clg.target-receipt.v1` only after a
+      validated successful on-chain receipt. Chain mismatch, RPC failure, malformed receipt, and
+      revert must fail closed without a success receipt.
   - [ ] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the
     executable target receipt and reject schema/proof/target/signed-bundle drift. Requires the
     30.3.3 deploy/call/invoke receipt.

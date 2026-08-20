@@ -12,6 +12,8 @@ use serde_json::{json, Value};
 
 use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 
+mod transaction;
+
 const TARGET_PROFILE: &str = "clg.evm-compatible.v1";
 const WIRE_ABI_FORMAT: &str = "clg.evm-wire-abi.v1";
 const RECEIPT_FORMAT: &str = "clg.target-receipt.v1";
@@ -50,9 +52,11 @@ pub struct InvokeArgs {
     pub function: String,
     pub args: PathBuf,
     pub sender: String,
+    pub nonce: u64,
     pub signing_key: PathBuf,
     pub value: u64,
     pub gas_limit: u64,
+    pub gas_price: u64,
     pub receipt_out: PathBuf,
 }
 
@@ -122,13 +126,31 @@ pub fn invoke(args: InvokeArgs) -> Result<()> {
     let abi = load_wire_abi(&args.abi, &args.target_profile)?;
     let input = read_json(&args.args, "invoke arguments")?;
     let _calldata = encode_calldata(&abi.value, &args.function, &input)?;
+    let signer = transaction::load_signer(&args.signing_key)?;
+    if canonical_address(&args.sender)? != signer.address {
+        bail!("explicit sender does not match the EVM signing key address")
+    }
+    let calldata_bytes = valid_hex_bytes(&_calldata)?;
+    let raw_transaction = transaction::sign_legacy(
+        &transaction::LegacyTransaction {
+            chain_id: args.chain_id,
+            nonce: args.nonce,
+            gas_price: args.gas_price,
+            gas_limit: args.gas_limit,
+            to: Some(&args.contract_address),
+            value: args.value,
+            data: &calldata_bytes,
+        },
+        &signer,
+    )?;
     let _ = (
         &endpoint,
         &args.contract_address,
         &args.sender,
-        &args.signing_key,
         args.value,
         args.gas_limit,
+        args.gas_price,
+        raw_transaction,
         &args.receipt_out,
     );
     bail!("target invoke is unavailable: ClearLang has no explicit EVM transaction signer; no RPC submission was made and no target receipt was written")

@@ -7,7 +7,7 @@ use clg_codegen_wasm::{
     emit_from_ir_with_opts, CodegenOpts, ExportAlias, ExternalImport,
     StdCoreLinkMode as WasmStdCoreLinkMode,
 };
-use clg_ir::{IrType, Module as IrModule};
+use clg_ir::{Instr, IrType, Module as IrModule};
 use clg_typer::{
     check_with_vcs_with_std_and_external, ExternalBuiltinSig, TypecheckOutput, TyperError,
 };

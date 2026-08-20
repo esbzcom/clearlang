@@ -427,6 +427,9 @@ enum TargetCommands {
         /// Explicit transaction sender address
         #[arg(long)]
         sender: String,
+        /// Explicit sender transaction nonce
+        #[arg(long)]
+        nonce: u64,
         /// Explicit signing-key path; wallet discovery is unsupported
         #[arg(long, value_name = "FILE")]
         signing_key: PathBuf,
@@ -436,6 +439,9 @@ enum TargetCommands {
         /// Explicit gas limit
         #[arg(long)]
         gas_limit: u64,
+        /// Explicit legacy EIP-155 gas price
+        #[arg(long)]
+        gas_price: u64,
         /// Output path for a successful canonical target receipt
         #[arg(long, value_name = "FILE")]
         receipt_out: PathBuf,
@@ -613,9 +619,11 @@ fn main() -> Result<()> {
                 function,
                 args,
                 sender,
+                nonce,
                 signing_key,
                 value,
                 gas_limit,
+                gas_price,
                 receipt_out,
             } => cmd_target::invoke(cmd_target::InvokeArgs {
                 target_profile,
@@ -627,9 +635,11 @@ fn main() -> Result<()> {
                 function,
                 args,
                 sender,
+                nonce,
                 signing_key,
                 value,
                 gas_limit,
+                gas_price,
                 receipt_out,
             }),
         },

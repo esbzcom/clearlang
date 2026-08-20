@@ -69,7 +69,9 @@ fn target_invoke_requires_explicit_signing_sender_value_and_gas_policy() {
         .failure()
         .stderr(predicates::str::contains("--target-profile"))
         .stderr(predicates::str::contains("--sender"))
+        .stderr(predicates::str::contains("--nonce"))
         .stderr(predicates::str::contains("--signing-key"))
         .stderr(predicates::str::contains("--value"))
-        .stderr(predicates::str::contains("--gas-limit"));
+        .stderr(predicates::str::contains("--gas-limit"))
+        .stderr(predicates::str::contains("--gas-price"));
 }

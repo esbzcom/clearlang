@@ -208,6 +208,23 @@ pub fn run(
         mono_program,
         mangled_name_origins,
     } = type_output;
+    let stateful_evm_artifact = emit_evm_artifact.is_some()
+        && ir.funcs.iter().any(|function| {
+            function.body.iter().any(|instruction| {
+                matches!(
+                    instruction,
+                    Instr::StateRead { .. } | Instr::StateWrite { .. } | Instr::EventEmit { .. }
+                )
+            })
+        });
+    if stateful_evm_artifact
+        && (validate || emit_vcs.is_some() || emit_proof.is_some() || sign || contract)
+    {
+        fail_preflight(
+            "C130",
+            "the stateful EVM artifact target cannot emit, validate, or sign a Wasm module; run its proof/release workflow after EVM target support is completed",
+        )?;
+    }
     let contract_source_graph_required = requires_contract_source_graph(
         !mono_program.contracts.is_empty(),
         emit_contract_state_schema.is_some(),
@@ -238,7 +255,7 @@ pub fn run(
     }
     if let Some(evm_artifact_path) = emit_evm_artifact.as_ref() {
         let _stage = timings.start(logger, "emit_evm_artifact");
-        write_evm_artifact(&mono_program, evm_artifact_path, contract_source_graph.as_ref())?;
+        write_evm_artifact(&mono_program, &ir, evm_artifact_path, contract_source_graph.as_ref())?;
     }
     if let Some(prior_schema_path) = check_contract_state_schema.as_ref() {
         let _stage = timings.start(logger, "check_contract_state_schema");
@@ -547,6 +564,14 @@ pub fn run(
         }
         Vec::new()
     };
+
+    if stateful_evm_artifact {
+        eprintln!(
+            "EVM target artifact emitted; Wasm codegen is intentionally skipped for the stateful EVM profile"
+        );
+        logger.summary(&timings);
+        return Ok(());
+    }
 
     let toolchain = format!("clg-cli/{}", env!("CARGO_PKG_VERSION"));
     let mut proof_artifact_emission: Option<ProofArtifactEmission> = None;

@@ -413,3 +413,126 @@ fn build_emits_deterministic_deployable_evm_artifact_for_static_pure_contracts()
         .expect("bytecode")
         .starts_with("0x"));
 }
+
+#[test]
+fn build_emits_stateful_evm_artifact_with_schema_bound_slots_and_transitions() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    fs::write(
+        &source,
+        r#"
+            contract Counter version 1 {
+                state { total: U64; }
+                event Changed { total: U64; }
+                init(initial: U64) { state.total = initial; 0 }
+                pure function read() -> U64 { state.total }
+                mut function set_total(value: U64) -> U64 {
+                    state.total = value;
+                    emit Changed(value);
+                    state.total
+                }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write source");
+    let artifact_path = dir.path().join("counter.evm.json");
+    let replay_path = dir.path().join("counter-replay.evm.json");
+
+    for (artifact, wasm) in [
+        (&artifact_path, dir.path().join("counter.wasm")),
+        (&replay_path, dir.path().join("counter-replay.wasm")),
+    ] {
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "build",
+                source.to_str().expect("source path"),
+                "-o",
+                wasm.to_str().expect("Wasm path"),
+                "--emit-evm-artifact",
+                artifact.to_str().expect("artifact path"),
+            ])
+            .assert()
+            .success();
+    }
+
+    let artifact_bytes = fs::read(&artifact_path).expect("read artifact");
+    assert_eq!(artifact_bytes, fs::read(&replay_path).expect("read replay artifact"));
+    let artifact: Value = serde_json::from_slice(&artifact_bytes).expect("parse artifact");
+    assert_eq!(artifact["execution_profile"], "clg.evm-stateful-scalar.v1");
+    assert_eq!(artifact["state_mapping"]["schema_digest"], artifact["state_schema"]["digest"]);
+    let slots = artifact["state_mapping"]["storage_layout"]
+        .as_array()
+        .expect("storage layout");
+    assert_eq!(slots.len(), 1);
+    assert_eq!(slots[0]["field"], "total");
+    assert!(slots[0]["field_id"].as_str().expect("field id").starts_with("sha256:"));
+    assert_eq!(slots[0]["slot"].as_str().expect("slot").len(), 66);
+    let mappings = artifact["state_mapping"]["transition_mapping"].to_string();
+    assert!(mappings.contains("StateRead"));
+    assert!(mappings.contains("StateWrite"));
+    assert!(mappings.contains("EventEmit"));
+}
+
+#[test]
+fn stateful_evm_artifact_rejects_unsupported_state_and_wasm_combinations() {
+    let dir = tempdir().expect("tempdir");
+    let unsupported = dir.path().join("unsupported.clear");
+    let artifact = dir.path().join("unsupported.evm.json");
+    fs::write(
+        &unsupported,
+        r#"
+            contract Counter version 1 {
+                state { owner: Bytes; }
+                init(owner: Bytes) { state.owner = owner; 0 }
+                pure function read() -> Bytes { state.owner }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write unsupported source");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            unsupported.to_str().expect("source path"),
+            "-o",
+            dir.path().join("unsupported.wasm").to_str().expect("Wasm path"),
+            "--emit-evm-artifact",
+            artifact.to_str().expect("artifact path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("does not support state field `owner`"));
+    assert!(!artifact.exists(), "unsupported source must not emit an EVM artifact");
+
+    let supported = dir.path().join("supported.clear");
+    fs::write(
+        &supported,
+        r#"
+            contract Counter version 1 {
+                state { total: U64; }
+                init(initial: U64) { state.total = initial; 0 }
+                pure function read() -> U64 { state.total }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write supported source");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "build",
+            supported.to_str().expect("source path"),
+            "-o",
+            dir.path().join("supported.wasm").to_str().expect("Wasm path"),
+            "--emit-evm-artifact",
+            dir.path().join("supported.evm.json").to_str().expect("artifact path"),
+            "--emit-vcs",
+            dir.path().join("supported.vcs.json").to_str().expect("VC path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("cannot emit, validate, or sign a Wasm module"));
+}

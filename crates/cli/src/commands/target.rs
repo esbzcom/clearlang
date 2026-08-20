@@ -35,6 +35,9 @@ pub struct DeployArgs {
     pub gas_price: u64,
     pub artifact: PathBuf,
     pub abi: PathBuf,
+    pub contract_state_schema: PathBuf,
+    pub proof_artifact: PathBuf,
+    pub signed_bundle: PathBuf,
     pub args: Option<PathBuf>,
     pub receipt_out: PathBuf,
 }
@@ -46,6 +49,9 @@ pub struct CallArgs {
     pub chain_id: u64,
     pub artifact: PathBuf,
     pub abi: PathBuf,
+    pub contract_state_schema: PathBuf,
+    pub proof_artifact: PathBuf,
+    pub signed_bundle: PathBuf,
     pub contract_address: String,
     pub function: String,
     pub args: PathBuf,
@@ -59,6 +65,9 @@ pub struct InvokeArgs {
     pub chain_id: u64,
     pub artifact: PathBuf,
     pub abi: PathBuf,
+    pub contract_state_schema: PathBuf,
+    pub proof_artifact: PathBuf,
+    pub signed_bundle: PathBuf,
     pub contract_address: String,
     pub function: String,
     pub args: PathBuf,
@@ -75,6 +84,13 @@ pub fn deploy(args: DeployArgs) -> Result<()> {
     let endpoint = preflight(&args.target_profile, &args.rpc_url, args.chain_id)?;
     let artifact = load_artifact(&args.artifact, &args.target_profile)?;
     let abi = load_wire_abi(&args.abi, &args.target_profile)?;
+    let evidence = load_evidence(
+        &args.contract_state_schema,
+        &args.proof_artifact,
+        &args.signed_bundle,
+        &artifact,
+        &abi,
+    )?;
     let constructor_args = args
         .args
         .as_ref()
@@ -131,6 +147,7 @@ pub fn deploy(args: DeployArgs) -> Result<()> {
         onchain,
         Some(contract_address),
         None,
+        evidence,
     )
 }
 
@@ -138,6 +155,13 @@ pub fn call(args: CallArgs) -> Result<()> {
     let endpoint = preflight(&args.target_profile, &args.rpc_url, args.chain_id)?;
     let artifact = load_artifact(&args.artifact, &args.target_profile)?;
     let abi = load_wire_abi(&args.abi, &args.target_profile)?;
+    let evidence = load_evidence(
+        &args.contract_state_schema,
+        &args.proof_artifact,
+        &args.signed_bundle,
+        &artifact,
+        &abi,
+    )?;
     let input = read_json(&args.args, "call arguments")?;
     let calldata = encode_calldata(&abi.value, &args.function, &input)?;
 
@@ -164,6 +188,13 @@ pub fn call(args: CallArgs) -> Result<()> {
         "chain_id": args.chain_id,
         "command": "call",
         "contract_address": call_request["to"].clone(),
+        "evidence": {
+            "compiler": evidence.compiler,
+            "proof_artifact_digest": evidence.proof_artifact_digest,
+            "schema_digest": evidence.schema_digest,
+            "signed_bundle_digest": evidence.signed_bundle_digest,
+            "source_graph": evidence.source_graph,
+        },
         "function": args.function,
         "request_digest": format!("sha256:{}", sha256_hex(&canonical_json_bytes(&call_request))),
         "result": { "return_data": return_data, "status": "success" },
@@ -181,6 +212,13 @@ pub fn invoke(args: InvokeArgs) -> Result<()> {
     let endpoint = preflight(&args.target_profile, &args.rpc_url, args.chain_id)?;
     let artifact = load_artifact(&args.artifact, &args.target_profile)?;
     let abi = load_wire_abi(&args.abi, &args.target_profile)?;
+    let evidence = load_evidence(
+        &args.contract_state_schema,
+        &args.proof_artifact,
+        &args.signed_bundle,
+        &artifact,
+        &abi,
+    )?;
     let input = read_json(&args.args, "invoke arguments")?;
     let calldata = encode_calldata(&abi.value, &args.function, &input)?;
     let signer = transaction::load_signer(&args.signing_key)?;
@@ -228,17 +266,35 @@ pub fn invoke(args: InvokeArgs) -> Result<()> {
         onchain,
         Some(contract_address),
         Some(args.function),
+        evidence,
     )
 }
 
 struct LoadedArtifact {
     digest: String,
     bytecode: Vec<u8>,
+    compiler: Value,
+    contract: Value,
+    source_graph: Value,
+    state_schema_digest: Option<String>,
+    wire_abi_digest: String,
 }
 
 struct LoadedWireAbi {
     digest: String,
     value: Value,
+    compiler: Value,
+    contract: Value,
+    source_graph: Value,
+}
+
+#[derive(Debug)]
+struct Evidence {
+    compiler: Value,
+    proof_artifact_digest: String,
+    schema_digest: String,
+    signed_bundle_digest: String,
+    source_graph: Value,
 }
 
 fn load_artifact(path: &PathBuf, target_profile: &str) -> Result<LoadedArtifact> {
@@ -258,9 +314,22 @@ fn load_artifact(path: &PathBuf, target_profile: &str) -> Result<LoadedArtifact>
     if bytecode.is_empty() {
         bail!("target artifact has empty EVM bytecode");
     }
+    let compiler = identity_value(&value, "compiler", "target artifact")?;
+    let contract = identity_value(&value, "contract", "target artifact")?;
+    let source_graph = source_graph_value(&value, "target artifact")?;
+    let wire_abi_digest = digest_value(&value["wire_abi"]["digest"], "target artifact wire ABI")?;
+    let state_schema_digest = match &value["state_schema"]["digest"] {
+        Value::Null => None,
+        value => Some(digest_value(value, "target artifact state schema")?),
+    };
     Ok(LoadedArtifact {
         digest: format!("sha256:{}", sha256_hex(&bytes)),
         bytecode,
+        compiler,
+        contract,
+        source_graph,
+        state_schema_digest,
+        wire_abi_digest,
     })
 }
 
@@ -279,7 +348,189 @@ fn load_wire_abi(path: &PathBuf, target_profile: &str) -> Result<LoadedWireAbi> 
         .filter(|value| value.starts_with("sha256:"))
         .ok_or_else(|| anyhow!("wire ABI is missing its canonical digest"))?
         .to_string();
-    Ok(LoadedWireAbi { digest, value })
+    Ok(LoadedWireAbi {
+        digest,
+        compiler: identity_value(&value, "compiler", "wire ABI")?,
+        contract: identity_value(&value, "contract", "wire ABI")?,
+        source_graph: source_graph_value(&value, "wire ABI")?,
+        value,
+    })
+}
+
+fn load_evidence(
+    schema_path: &PathBuf,
+    proof_path: &PathBuf,
+    signed_bundle_path: &PathBuf,
+    artifact: &LoadedArtifact,
+    abi: &LoadedWireAbi,
+) -> Result<Evidence> {
+    if artifact.wire_abi_digest != abi.digest {
+        bail!("target artifact wire-ABI digest does not match the supplied wire ABI")
+    }
+    ensure_same_identity(
+        "target artifact",
+        &artifact.compiler,
+        "wire ABI",
+        &abi.compiler,
+    )?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.source_graph,
+        "wire ABI",
+        &abi.source_graph,
+    )?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.contract,
+        "wire ABI",
+        &abi.contract,
+    )?;
+
+    let (schema_bytes, schema) = read_json_with_bytes(schema_path, "contract-state schema")?;
+    if schema["schema"]["format"].as_str() != Some("clg.contract-state-schema.v1") {
+        bail!("contract-state schema has an unsupported format")
+    }
+    let schema_digest = digest_value(&schema["schema"]["digest"], "contract-state schema")?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.compiler,
+        "contract-state schema",
+        &identity_value(&schema, "compiler", "contract-state schema")?,
+    )?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.source_graph,
+        "contract-state schema",
+        &source_graph_value(&schema, "contract-state schema")?,
+    )?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.contract,
+        "contract-state schema",
+        &identity_value(&schema, "contract", "contract-state schema")?,
+    )?;
+    if let Some(expected) = &artifact.state_schema_digest {
+        if expected != &schema_digest {
+            bail!("target artifact state-schema digest does not match the supplied contract-state schema")
+        }
+    }
+
+    let (_proof_bytes, proof) = read_json_with_bytes(proof_path, "proof artifact")?;
+    if proof["format"].as_str() != Some("clg.proof_artifact.v1") {
+        bail!("proof artifact has an unsupported format")
+    }
+    ensure_same_identity(
+        "target artifact",
+        &artifact.compiler,
+        "proof artifact",
+        &identity_value(&proof, "compiler", "proof artifact")?,
+    )?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.source_graph,
+        "proof artifact",
+        &source_graph_value(&proof, "proof artifact")?,
+    )?;
+    let proof_artifact_digest = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&proof)));
+
+    let (signed_bundle_bytes, signed_bundle) =
+        read_json_with_bytes(signed_bundle_path, "signed bundle")?;
+    let payload = signed_bundle["payload"]
+        .as_object()
+        .ok_or_else(|| anyhow!("signed bundle is missing its payload object"))?;
+    if signed_bundle["signature_format"].as_str() != Some("ed25519")
+        || signed_bundle["signature"].as_str().is_none()
+        || signed_bundle["key_id"].as_str().is_none()
+    {
+        bail!("signed bundle has malformed signing metadata")
+    }
+    let payload = Value::Object(payload.clone());
+    ensure_same_identity(
+        "target artifact",
+        &artifact.compiler,
+        "signed bundle",
+        &identity_value(&payload, "compiler", "signed bundle")?,
+    )?;
+    ensure_same_identity(
+        "target artifact",
+        &artifact.source_graph,
+        "signed bundle",
+        &source_graph_value(&payload, "signed bundle")?,
+    )?;
+    if digest_value(
+        &payload["proof_artifact_hash"],
+        "signed bundle proof artifact",
+    )? != proof_artifact_digest
+    {
+        bail!("signed bundle proof-artifact hash does not match the supplied proof artifact")
+    }
+
+    let _ = schema_bytes;
+    Ok(Evidence {
+        compiler: artifact.compiler.clone(),
+        proof_artifact_digest,
+        schema_digest,
+        signed_bundle_digest: format!("sha256:{}", sha256_hex(&signed_bundle_bytes)),
+        source_graph: artifact.source_graph.clone(),
+    })
+}
+
+fn read_json_with_bytes(path: &PathBuf, description: &str) -> Result<(Vec<u8>, Value)> {
+    let bytes =
+        fs::read(path).with_context(|| format!("read {description} `{}`", path.display()))?;
+    let value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parse {description} `{}`", path.display()))?;
+    Ok((bytes, value))
+}
+
+fn identity_value(value: &Value, key: &str, description: &str) -> Result<Value> {
+    let value = value[key].clone();
+    if !value.is_object() {
+        bail!("{description} is missing its `{key}` identity object")
+    }
+    Ok(value)
+}
+
+fn source_graph_value(value: &Value, description: &str) -> Result<Value> {
+    let source_graph = identity_value(value, "source_graph", description)?;
+    if source_graph["algorithm"].as_str() != Some("clg.loaded-source-graph.v1") {
+        bail!("{description} has an unsupported loaded-source graph")
+    }
+    let digest = digest_value(&source_graph["digest"], "loaded-source graph")?;
+    let files = source_graph["files"]
+        .as_array()
+        .ok_or_else(|| anyhow!("{description} loaded-source graph is missing files"))?;
+    let identity = json!({ "algorithm": source_graph["algorithm"], "files": files });
+    if digest != format!("sha256:{}", sha256_hex(&canonical_json_bytes(&identity))) {
+        bail!("{description} loaded-source graph digest is invalid")
+    }
+    Ok(source_graph)
+}
+
+fn digest_value(value: &Value, description: &str) -> Result<String> {
+    let digest = value
+        .as_str()
+        .filter(|digest| {
+            digest.len() == "sha256:".len() + 64
+                && digest.starts_with("sha256:")
+                && digest["sha256:".len()..]
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        })
+        .ok_or_else(|| anyhow!("{description} is missing a canonical sha256 digest"))?;
+    Ok(digest.to_string())
+}
+
+fn ensure_same_identity(
+    left_name: &str,
+    left: &Value,
+    right_name: &str,
+    right: &Value,
+) -> Result<()> {
+    if canonical_json_bytes(left) != canonical_json_bytes(right) {
+        bail!("cross-artifact identity drift: {left_name} does not match {right_name}")
+    }
+    Ok(())
 }
 
 fn read_json(path: &PathBuf, description: &str) -> Result<Value> {
@@ -527,6 +778,7 @@ fn write_transaction_receipt(
     onchain: OnchainReceipt,
     contract_address: Option<String>,
     function: Option<String>,
+    evidence: Evidence,
 ) -> Result<()> {
     let request_digest = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&request)));
     let mut receipt = json!({
@@ -534,6 +786,13 @@ fn write_transaction_receipt(
         "block": { "hash": onchain.block_hash, "number": onchain.block_number },
         "chain_id": chain_id,
         "command": command,
+        "evidence": {
+            "compiler": evidence.compiler,
+            "proof_artifact_digest": evidence.proof_artifact_digest,
+            "schema_digest": evidence.schema_digest,
+            "signed_bundle_digest": evidence.signed_bundle_digest,
+            "source_graph": evidence.source_graph,
+        },
         "format": RECEIPT_FORMAT,
         "request_digest": request_digest,
         "result": { "status": "success" },
@@ -738,11 +997,18 @@ mod tests {
     ) -> (PathBuf, PathBuf) {
         let artifact = dir.path().join("contract.evm.json");
         let abi = dir.path().join("contract.abi.json");
+        let compiler = json!({ "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") });
+        let source_graph = test_source_graph();
+        let contract = json!({ "name": "Vault", "version": 1 });
         fs::write(
             &artifact,
             canonical_json_bytes(&json!({
                 "bytecode": "0x6000",
+                "compiler": compiler,
+                "contract": contract,
+                "source_graph": source_graph,
                 "target": { "profile": TARGET_PROFILE },
+                "wire_abi": { "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "format": WIRE_ABI_FORMAT },
             })),
         )
         .expect("write artifact");
@@ -750,13 +1016,66 @@ mod tests {
             &abi,
             canonical_json_bytes(&json!({
                 "constructor": constructor,
+                "compiler": compiler,
+                "contract": contract,
                 "functions": functions,
+                "source_graph": source_graph,
                 "target": { "profile": TARGET_PROFILE },
-                "wire_abi": { "digest": "sha256:test", "format": WIRE_ABI_FORMAT },
+                "wire_abi": { "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "format": WIRE_ABI_FORMAT },
             })),
         )
         .expect("write ABI");
         (artifact, abi)
+    }
+
+    fn test_source_graph() -> Value {
+        let identity = json!({ "algorithm": "clg.loaded-source-graph.v1", "files": [] });
+        json!({
+            "algorithm": identity["algorithm"],
+            "digest": format!("sha256:{}", sha256_hex(&canonical_json_bytes(&identity))),
+            "files": identity["files"],
+        })
+    }
+
+    fn write_evidence(dir: &tempfile::TempDir) -> (PathBuf, PathBuf, PathBuf) {
+        let schema = dir.path().join("schema.json");
+        let proof = dir.path().join("proof.json");
+        let signed_bundle = dir.path().join("bundle.sig.json");
+        let compiler = json!({ "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") });
+        let source_graph = test_source_graph();
+        let contract = json!({ "name": "Vault", "version": 1 });
+        fs::write(
+            &schema,
+            canonical_json_bytes(&json!({
+                "compiler": compiler,
+                "contract": contract,
+                "schema": { "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "format": "clg.contract-state-schema.v1" },
+                "source_graph": source_graph,
+            })),
+        )
+        .expect("write schema evidence");
+        let proof_value = json!({
+            "compiler": compiler,
+            "format": "clg.proof_artifact.v1",
+            "source_graph": source_graph,
+        });
+        let proof_digest = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&proof_value)));
+        fs::write(&proof, canonical_json_bytes(&proof_value)).expect("write proof evidence");
+        fs::write(
+            &signed_bundle,
+            canonical_json_bytes(&json!({
+                "key_id": "test-key",
+                "payload": {
+                    "compiler": compiler,
+                    "proof_artifact_hash": proof_digest,
+                    "source_graph": source_graph,
+                },
+                "signature": "00",
+                "signature_format": "ed25519",
+            })),
+        )
+        .expect("write signed-bundle evidence");
+        (schema, proof, signed_bundle)
     }
 
     #[test]
@@ -842,11 +1161,19 @@ mod tests {
         let abi_path = dir.path().join("contract.abi.json");
         let args_path = dir.path().join("args.json");
         let receipt_path = dir.path().join("receipt.json");
+        let (contract_state_schema, proof_artifact, signed_bundle) = write_evidence(&dir);
+        let compiler = json!({ "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") });
+        let contract = json!({ "name": "Vault", "version": 1 });
+        let source_graph = test_source_graph();
         fs::write(
             &artifact,
             canonical_json_bytes(&json!({
                 "bytecode": "0x6000",
+                "compiler": compiler,
+                "contract": contract,
+                "source_graph": source_graph,
                 "target": { "profile": TARGET_PROFILE },
+                "wire_abi": { "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "format": WIRE_ABI_FORMAT },
             })),
         )
         .expect("write artifact");
@@ -857,8 +1184,11 @@ mod tests {
                     "inputs": [{"name": "amount", "evm_type": "uint64"}],
                     "selector": "0x13765838",
                 }],
+                "compiler": compiler,
+                "contract": contract,
+                "source_graph": source_graph,
                 "target": { "profile": TARGET_PROFILE },
-                "wire_abi": { "digest": "sha256:test", "format": WIRE_ABI_FORMAT },
+                "wire_abi": { "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "format": WIRE_ABI_FORMAT },
             })),
         )
         .expect("write ABI");
@@ -870,6 +1200,9 @@ mod tests {
             chain_id: 1,
             artifact,
             abi: abi_path,
+            contract_state_schema,
+            proof_artifact,
+            signed_bundle,
             contract_address: "0x1111111111111111111111111111111111111111".to_string(),
             function: "0x13765838".to_string(),
             args: args_path,
@@ -919,6 +1252,7 @@ mod tests {
         );
         let args = dir.path().join("constructor.json");
         let receipt = dir.path().join("receipt.json");
+        let (contract_state_schema, proof_artifact, signed_bundle) = write_evidence(&dir);
         fs::write(&args, br#"{"initial":7}"#).expect("write arguments");
 
         deploy(DeployArgs {
@@ -933,6 +1267,9 @@ mod tests {
             gas_price: 1,
             artifact,
             abi,
+            contract_state_schema,
+            proof_artifact,
+            signed_bundle,
             args: Some(args),
             receipt_out: receipt.clone(),
         })
@@ -986,6 +1323,7 @@ mod tests {
         );
         let args = dir.path().join("arguments.json");
         let receipt = dir.path().join("receipt.json");
+        let (contract_state_schema, proof_artifact, signed_bundle) = write_evidence(&dir);
         fs::write(&args, b"[]").expect("write arguments");
 
         invoke(InvokeArgs {
@@ -994,6 +1332,9 @@ mod tests {
             chain_id: 1,
             artifact,
             abi,
+            contract_state_schema,
+            proof_artifact,
+            signed_bundle,
             contract_address: "0x1111111111111111111111111111111111111111".to_string(),
             function: "0x13765838".to_string(),
             args,
@@ -1036,5 +1377,30 @@ mod tests {
         assert!(error.to_string().contains("transaction reverted"));
         let requests = server.join().expect("join mock RPC");
         assert_eq!(requests.len(), 1);
+    }
+
+    #[test]
+    fn cross_artifact_compiler_drift_is_rejected_before_submission() {
+        let dir = tempdir().expect("tempdir");
+        let (artifact_path, abi_path) = write_target_inputs(&dir, Value::Null, json!([]));
+        let (schema_path, proof_path, signed_bundle_path) = write_evidence(&dir);
+        let mut signed_bundle: Value =
+            serde_json::from_slice(&fs::read(&signed_bundle_path).expect("read signed bundle"))
+                .expect("parse signed bundle");
+        signed_bundle["payload"]["compiler"]["version"] = json!("drifted");
+        fs::write(&signed_bundle_path, canonical_json_bytes(&signed_bundle))
+            .expect("write drifted signed bundle");
+
+        let artifact = load_artifact(&artifact_path, TARGET_PROFILE).expect("load artifact");
+        let abi = load_wire_abi(&abi_path, TARGET_PROFILE).expect("load ABI");
+        let error = load_evidence(
+            &schema_path,
+            &proof_path,
+            &signed_bundle_path,
+            &artifact,
+            &abi,
+        )
+        .expect_err("identity drift must fail closed");
+        assert!(error.to_string().contains("cross-artifact identity drift"));
     }
 }

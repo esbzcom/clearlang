@@ -39,7 +39,10 @@ fn target_commands_require_explicit_configuration_and_deploy_signing_policy() {
         .stderr(predicates::str::contains("--signing-key"))
         .stderr(predicates::str::contains("--value"))
         .stderr(predicates::str::contains("--gas-limit"))
-        .stderr(predicates::str::contains("--gas-price"));
+        .stderr(predicates::str::contains("--gas-price"))
+        .stderr(predicates::str::contains("--contract-state-schema"))
+        .stderr(predicates::str::contains("--proof-artifact"))
+        .stderr(predicates::str::contains("--signed-bundle"));
     assert!(!receipt.exists(), "an incomplete command must not create a receipt");
 }
 
@@ -56,5 +59,8 @@ fn target_invoke_requires_explicit_signing_sender_value_and_gas_policy() {
         .stderr(predicates::str::contains("--signing-key"))
         .stderr(predicates::str::contains("--value"))
         .stderr(predicates::str::contains("--gas-limit"))
-        .stderr(predicates::str::contains("--gas-price"));
+        .stderr(predicates::str::contains("--gas-price"))
+        .stderr(predicates::str::contains("--contract-state-schema"))
+        .stderr(predicates::str::contains("--proof-artifact"))
+        .stderr(predicates::str::contains("--signed-bundle"));
 }

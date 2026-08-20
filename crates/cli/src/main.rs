@@ -382,6 +382,15 @@ enum TargetCommands {
         /// Wire-compatible ABI artifact
         #[arg(long, value_name = "FILE")]
         abi: PathBuf,
+        /// Contract-state schema evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        contract_state_schema: PathBuf,
+        /// Proof artifact evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        proof_artifact: PathBuf,
+        /// Signed-bundle evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        signed_bundle: PathBuf,
         /// Optional JSON file containing constructor arguments
         #[arg(long, value_name = "FILE")]
         args: Option<PathBuf>,
@@ -406,6 +415,15 @@ enum TargetCommands {
         /// Wire-compatible ABI artifact
         #[arg(long, value_name = "FILE")]
         abi: PathBuf,
+        /// Contract-state schema evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        contract_state_schema: PathBuf,
+        /// Proof artifact evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        proof_artifact: PathBuf,
+        /// Signed-bundle evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        signed_bundle: PathBuf,
         /// Explicit deployed contract address
         #[arg(long)]
         contract_address: String,
@@ -436,6 +454,15 @@ enum TargetCommands {
         /// Wire-compatible ABI artifact
         #[arg(long, value_name = "FILE")]
         abi: PathBuf,
+        /// Contract-state schema evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        contract_state_schema: PathBuf,
+        /// Proof artifact evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        proof_artifact: PathBuf,
+        /// Signed-bundle evidence bound to this target artifact
+        #[arg(long, value_name = "FILE")]
+        signed_bundle: PathBuf,
         /// Explicit deployed contract address
         #[arg(long)]
         contract_address: String,
@@ -606,6 +633,9 @@ fn main() -> Result<()> {
                 gas_price,
                 artifact,
                 abi,
+                contract_state_schema,
+                proof_artifact,
+                signed_bundle,
                 args,
                 receipt_out,
             } => cmd_target::deploy(cmd_target::DeployArgs {
@@ -620,6 +650,9 @@ fn main() -> Result<()> {
                 gas_price,
                 artifact,
                 abi,
+                contract_state_schema,
+                proof_artifact,
+                signed_bundle,
                 args,
                 receipt_out,
             }),
@@ -629,6 +662,9 @@ fn main() -> Result<()> {
                 chain_id,
                 artifact,
                 abi,
+                contract_state_schema,
+                proof_artifact,
+                signed_bundle,
                 contract_address,
                 function,
                 args,
@@ -639,6 +675,9 @@ fn main() -> Result<()> {
                 chain_id,
                 artifact,
                 abi,
+                contract_state_schema,
+                proof_artifact,
+                signed_bundle,
                 contract_address,
                 function,
                 args,
@@ -650,6 +689,9 @@ fn main() -> Result<()> {
                 chain_id,
                 artifact,
                 abi,
+                contract_state_schema,
+                proof_artifact,
+                signed_bundle,
                 contract_address,
                 function,
                 args,
@@ -666,6 +708,9 @@ fn main() -> Result<()> {
                 chain_id,
                 artifact,
                 abi,
+                contract_state_schema,
+                proof_artifact,
+                signed_bundle,
                 contract_address,
                 function,
                 args,

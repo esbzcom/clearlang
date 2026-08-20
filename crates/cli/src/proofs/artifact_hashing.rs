@@ -117,6 +117,7 @@ pub fn write_proof_artifact_json(
     let mut artifact = json!({
         "format": "clg.proof_artifact.v1",
         "schema_version": 1,
+        "compiler": { "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") },
         "generated_by": toolchain,
         "compiler_mode": compiler_mode,
         "solver_profile": solver_profile.clone(),

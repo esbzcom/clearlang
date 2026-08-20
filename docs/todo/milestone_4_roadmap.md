@@ -41,9 +41,9 @@ queue.
 12. [x] 30.3.3.4.0 EVM transaction signing policy lock.
 13. [x] 30.3.3.4.1 explicit EVM transaction signing, deploy/invoke submission, and receipts.
 14. [x] Mark 30.3.3 complete.
-15. [ ] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
+15. [x] 30.1.1.4.2.2 [Contract Gate A] receipt identity binding and cross-artifact drift
     rejection, after deploy/invoke receipts exist.
-16. [ ] Mark 30.1 complete.
+16. [x] Mark 30.1 complete.
 17. [ ] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
 18. [ ] Continue 30.4-30.6 in their listed dependency order.
 
@@ -56,7 +56,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
   - [x] 30.0.1 Define ownership, acceptance evidence, and release-gate dependencies for every
     Milestone 4 parent gate. (`docs/design/phase-30.0.1-milestone-4-gate-governance-lock.md`) `Completed: 2026-08-05`.
 
-- [ ] 30.1 Stateful contract semantics [Contract Gate A]
+- [x] 30.1 Stateful contract semantics [Contract Gate A] `Completed: 2026-08-20`.
   - [x] 30.1.0 Lock the source-level contract state declaration, schema versioning, upgrade, and
     migration policy before implementation. (`docs/design/phase-30.1.0-state-schema-and-migration-lock.md`) `Completed: 2026-08-05`.
   - [x] 30.1.1 Implement typed persistent state declarations and deterministic storage layout
@@ -74,7 +74,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       (`crates/typer/src/vc/generate.rs`, `crates/typer/tests/contract_state.rs`) `Completed: 2026-08-05`.
     - [x] 30.1.1.2.2 Lower state reads/writes to target-neutral IR operations and make every
       backend without a matching state adapter reject them deterministically. (`crates/{ir,typer,codegen-wasm}`, `crates/codegen-wasm/tests/contract_state_ops.rs`) `Completed: 2026-08-05`.
-    - [ ] 30.1.1.3 Implement the locked `init(...)` lifecycle: exactly-once constructor identity,
+    - [x] 30.1.1.3 Implement the locked `init(...)` lifecycle: exactly-once constructor identity,
       complete state-field initialization on every successful path, no outbound call, and
       constructor invariant proof evidence.
       - [x] 30.1.1.3.1 Parse and type-check `init(...)` declarations with constructor-only state
@@ -86,14 +86,14 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
         output before commit. Control-flow initialization remains fail-closed under `T829` until a
         later adapter proves it. (`docs/design/phase-30.1.1.3.2-init-simulator-lifecycle-lock.md`,
         `crates/{typer,cli}`, `crates/{typer,cli}/tests`) `Completed: 2026-08-09`.
-    - [ ] 30.1.1.4 Complete the locked contract-state artifact identity: normalized invariant
+    - [x] 30.1.1.4 Complete the locked contract-state artifact identity: normalized invariant
       identifiers/expressions, constructor identity, target-profile identifier, and compiler and
       source digests must be bound into the schema and release evidence.
       - [x] 30.1.1.4.1 Bind normalized invariant and constructor identities plus the minimal
         target-profile identifier into the deterministic state-schema artifact.
         (`crates/cli/src/commands/build/contract_state_schema.rs`,
         `crates/cli/tests/cli_it/basic/contract_state_schema.rs`) `Completed: 2026-08-08`.
-      - [ ] 30.1.1.4.2 Bind compiler and loaded-source digests into the schema, proof, target,
+      - [x] 30.1.1.4.2 Bind compiler and loaded-source digests into the schema, proof, target,
         and signed release artifacts, then add cross-artifact drift rejection.
         - [x] 30.1.1.4.2.1 Bind compiler identity and the complete loaded source-graph digest
           into schema, proof, and signed-bundle artifacts.
@@ -247,9 +247,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       revert must fail closed without a success receipt. Deploy accepts explicit constructor
       arguments where declared by the wire ABI. (`crates/cli/src/commands/{target.rs,target/transaction.rs}`,
       `crates/cli/{src/main.rs,tests/cli_it/basic/contract_target.rs}`) `Completed: 2026-08-20`.
-  - [ ] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the
+  - [x] 30.1.1.4.2.2 [Contract Gate A ownership] Bind compiler and loaded-source identity into the
     executable target receipt and reject schema/proof/target/signed-bundle drift. Requires the
-    30.3.3 deploy/call/invoke receipt.
+    30.3.3 deploy/call/invoke receipt. (`docs/design/phase-30.1.1.4.2.2-target-receipt-identity-binding-lock.md`,
+    `crates/cli/{src/commands/target.rs,src/{proofs/artifact_hashing.rs,signing.rs},src/main.rs}`,
+    `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-08-20`.
   - [ ] 30.3.4 Add end-to-end target conformance and compatibility fixtures against the supported
     EVM-compatible environment.
 

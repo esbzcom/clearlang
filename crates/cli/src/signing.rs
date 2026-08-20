@@ -166,6 +166,13 @@ pub fn sign_bundle(
 ) -> Result<()> {
     let signing = load_signing_key(key_path)?;
     let mut payload_value = package.build_signing_payload(module_hash_hex, scope, timestamp);
+    payload_value
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("signature payload must be a JSON object"))?
+        .insert(
+            "compiler".to_string(),
+            serde_json::json!({ "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") }),
+        );
     if lean_checker_version.is_some() || coq_checker_version.is_some() {
         let Some(lean_checker) = lean_checker_version else {
             return Err(anyhow!(

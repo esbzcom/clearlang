@@ -6,6 +6,9 @@ release evidence are distinct operations. A successful simulator trace is never 
 assurance, and a target receipt is evidence of one request rather than a complete release
 attestation.
 
+For the supported surface, compatibility policy, release checklist, and known exclusions, see
+`docs/contract-product-contract.md`.
+
 The first supported executable target profile is `clg.evm-stateful-scalar.v1` through the
 explicit `clg.evm-compatible.v1` JSON-RPC adapter. It supports direct `init`, pure reads, and
 straight-line mutable transitions over `Bool`, `U8`, `U64`, `U128`, and `Int`. See

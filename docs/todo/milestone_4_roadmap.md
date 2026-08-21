@@ -150,7 +150,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       (`crates/typer/tests/contract_state.rs`, `crates/cli/tests/solver_outcomes.rs`)
       `Completed: 2026-08-08`.
 
-- [ ] 30.2 External-call and reentrancy safety [Contract Gate B]
+- [x] 30.2 External-call and reentrancy safety [Contract Gate B] `Completed: 2026-08-20`.
   - [x] 30.2.0 Lock the external-call capability, its relationship to local state mutation, and
     exact unsupported patterns/diagnostics.
     (`docs/design/phase-30.2.0-external-call-reentrancy-lock.md`) `Completed: 2026-08-08`.
@@ -259,7 +259,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     `docs/evidence/milestone_4-contract-platform.md`,
     `crates/cli/src/commands/{build/evm_artifact.rs,target.rs}`) `Completed: 2026-08-20`.
 
-- [ ] 30.4 Crypto assurance for the first contract profile [Proof Gate D]
+- [x] 30.4 Crypto assurance for the first contract profile [Proof Gate D] `Completed: 2026-08-20`.
   - [x] 30.4.0 Select and lock the minimal crypto surface required by the first EVM contract
     profile, including exact claim boundaries and threat-model exclusions. No source-level crypto
     primitive is selected; tooling crypto remains outside contract semantics.
@@ -277,7 +277,8 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     the claim unless separately verified.
     (`docs/design/phase-30.4.3-contract-crypto-nonclaims.md`) `Completed: 2026-08-09`.
 
-- [ ] 30.5 Contract developer experience and runtime operations [Readiness Gate E]
+- [x] 30.5 Contract developer experience and runtime operations [Readiness Gate E]
+  `Completed: 2026-08-20`.
   - [x] 30.5.0 Define a bounded-memory lifecycle policy for closures, simulator instances, and
     contract host execution; add limits and observable failure modes. The supported scalar
     simulator records fuel and enforces explicit JSON byte limits; unsupported dynamic lifecycles
@@ -301,7 +302,7 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     compatibility paths rather than implying ambient automation.
     (`docs/contract-operations.md`) `Completed: 2026-08-20`.
 
-- [ ] 30.6 Production contract release closure [Release Gate F]
+- [x] 30.6 Production contract release closure [Release Gate F] `Completed: 2026-08-20`.
   - [x] 30.6.0 Add `clg contract release` orchestration that proves, tests, simulates, packages
     ABI/state-schema/target evidence, signs, and verifies the contract release bundle. The
     command emits `clg.contract-release-bundle.v1`, binds the signed proof package to canonical
@@ -320,8 +321,9 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     The offline contract-release CI step runs the locked artifact, campaign replay, schema,
     target receipt, drift/tamper, and CEI-negative fixtures. (`.github/workflows/ci.yml`,
     `docs/evidence/phase-30.6-contract-release-ci.md`) `Completed: 2026-08-20`.
-  - [ ] 30.6.3 Publish the final supported product contract, compatibility policy, release
-    checklist, and known exclusions.
+  - [x] 30.6.3 Publish the final supported product contract, compatibility policy, release
+    checklist, and known exclusions. (`docs/contract-product-contract.md`)
+    `Completed: 2026-08-20`.
 
 ## Milestone 4 Exit Criteria
 

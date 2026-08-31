@@ -3,9 +3,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use super::{build, contract_test};
 use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
@@ -272,13 +272,15 @@ pub fn verify(
         }
     }
     let artifact_path = directory.join(&bundle.artifacts.evm_artifact.path);
+    let abi_path = directory.join(&bundle.artifacts.contract_abi.path);
     let wire_path = directory.join(&bundle.artifacts.evm_wire_abi.path);
     let schema_path = directory.join(&bundle.artifacts.contract_state_schema.path);
     let proof_path = directory.join(&bundle.artifacts.proof_artifact.path);
-    let artifact: serde_json::Value = serde_json::from_slice(&fs::read(&artifact_path)?)?;
-    let wire: serde_json::Value = serde_json::from_slice(&fs::read(&wire_path)?)?;
-    let schema: serde_json::Value = serde_json::from_slice(&fs::read(&schema_path)?)?;
-    let proof: serde_json::Value = serde_json::from_slice(&fs::read(&proof_path)?)?;
+    let artifact: Value = serde_json::from_slice(&fs::read(&artifact_path)?)?;
+    let abi: Value = serde_json::from_slice(&fs::read(&abi_path)?)?;
+    let wire: Value = serde_json::from_slice(&fs::read(&wire_path)?)?;
+    let schema: Value = serde_json::from_slice(&fs::read(&schema_path)?)?;
+    let proof: Value = serde_json::from_slice(&fs::read(&proof_path)?)?;
     if artifact["target"]["profile"] != bundle.target_profile
         || artifact["execution_profile"] != bundle.target_execution_profile
         || artifact["wire_abi"]["digest"] != wire["wire_abi"]["digest"]
@@ -290,17 +292,28 @@ pub fn verify(
                 .to_string(),
         );
     }
-    signing::verify_signature_details(
+    let signature = signing::verify_signature_details(
         &artifact_path,
         &directory.join(&bundle.artifacts.signature.path),
         &pubkey,
     )
     .map_err(|err| anyhow!("verify contract release signature: {err}"))?;
-    signing::verify_assurance_manifest(
+    let assurance = signing::verify_assurance_manifest(
         &directory.join(&bundle.artifacts.signed_assurance_manifest.path),
         &pubkey,
     )
     .map_err(|err| anyhow!("verify contract release assurance manifest: {err}"))?;
+    verify_evidence_binding(
+        &bundle.key_id,
+        &artifact,
+        &abi,
+        &wire,
+        &schema,
+        &proof,
+        &signature,
+        &assurance,
+    )
+    .or_else(|err| failure(format!("contract release evidence binding failed: {err}")))?;
     logger.event(
         crate::logging::LogLevel::Info,
         "verified",
@@ -344,4 +357,383 @@ fn artifact_file(path: &Path) -> Result<serde_json::Value> {
             )
         })?;
     Ok(json!({ "path": name, "sha256": format!("sha256:{}", sha256_hex(&bytes)) }))
+}
+
+fn verify_evidence_binding(
+    bundle_key_id: &str,
+    artifact: &Value,
+    abi: &Value,
+    wire: &Value,
+    schema: &Value,
+    proof: &Value,
+    signature: &signing::SignatureFile,
+    assurance: &signing::AssuranceManifestFile,
+) -> Result<()> {
+    let compiler = identity_object(artifact, "compiler", "EVM artifact")?;
+    let contract = identity_object(artifact, "contract", "EVM artifact")?;
+    let source_graph = source_graph_identity(artifact, "EVM artifact")?;
+    for (name, evidence) in [
+        ("contract ABI", abi),
+        ("EVM wire ABI", wire),
+        ("contract-state schema", schema),
+        ("proof artifact", proof),
+    ] {
+        ensure_same_identity(
+            "EVM artifact compiler",
+            &compiler,
+            &format!("{name} compiler"),
+            &identity_object(evidence, "compiler", name)?,
+        )?;
+        ensure_same_identity(
+            "EVM artifact source graph",
+            &source_graph,
+            &format!("{name} source graph"),
+            &source_graph_identity(evidence, name)?,
+        )?;
+    }
+    for (name, evidence) in [
+        ("contract ABI", abi),
+        ("EVM wire ABI", wire),
+        ("contract-state schema", schema),
+    ] {
+        ensure_same_identity(
+            "EVM artifact contract",
+            &contract,
+            &format!("{name} contract"),
+            &identity_object(evidence, "contract", name)?,
+        )?;
+    }
+
+    if signature.key_id != bundle_key_id {
+        bail!("signature key ID does not match the release bundle");
+    }
+    if assurance.signature.key_id != bundle_key_id {
+        bail!("assurance-manifest key ID does not match the release bundle");
+    }
+    let payload = signature
+        .payload
+        .as_object()
+        .ok_or_else(|| anyhow!("signature payload must be an object"))?;
+    ensure_same_identity(
+        "EVM artifact compiler",
+        &compiler,
+        "signature payload compiler",
+        &required_object(payload, "compiler", "signature payload")?,
+    )?;
+    ensure_same_identity(
+        "EVM artifact source graph",
+        &source_graph,
+        "signature payload source graph",
+        &source_graph_identity(&Value::Object(payload.clone()), "signature payload")?,
+    )?;
+
+    let proof_hash = format!("sha256:{}", sha256_hex(&canonical_json_bytes(proof)));
+    ensure_same_digest(
+        &required_string(payload, "proof_artifact_hash", "signature payload")?,
+        &proof_hash,
+        "signature payload proof-artifact hash",
+    )?;
+    let assurance_payload = assurance
+        .payload
+        .as_object()
+        .ok_or_else(|| anyhow!("assurance manifest payload must be an object"))?;
+    let assurance_artifacts =
+        required_object(assurance_payload, "artifacts", "assurance manifest payload")?;
+    ensure_same_digest(
+        &required_string(
+            assurance_artifacts
+                .as_object()
+                .expect("artifacts is an object"),
+            "proof_artifact_hash",
+            "assurance manifest",
+        )?,
+        &proof_hash,
+        "assurance manifest proof-artifact hash",
+    )?;
+    let module_hash = required_string(payload, "module_hash", "signature payload")?;
+    ensure_same_digest(
+        &required_string(
+            assurance_artifacts
+                .as_object()
+                .expect("artifacts is an object"),
+            "module_hash",
+            "assurance manifest",
+        )?,
+        &module_hash,
+        "assurance manifest module hash",
+    )?;
+    let proofs_hash = required_string(payload, "proofs_hash", "signature payload")?;
+    ensure_same_digest(
+        &required_string(
+            assurance_artifacts
+                .as_object()
+                .expect("artifacts is an object"),
+            "proofs_hash",
+            "assurance manifest",
+        )?,
+        &proofs_hash,
+        "assurance manifest proofs hash",
+    )?;
+
+    let compiler_name = required_string(
+        compiler.as_object().expect("compiler is an object"),
+        "name",
+        "EVM artifact compiler",
+    )?;
+    let compiler_version = required_string(
+        compiler.as_object().expect("compiler is an object"),
+        "version",
+        "EVM artifact compiler",
+    )?;
+    let toolchain = required_object(assurance_payload, "toolchain", "assurance manifest payload")?;
+    let expected_toolchain = format!("{compiler_name}/{compiler_version}");
+    if required_string(
+        toolchain.as_object().expect("toolchain is an object"),
+        "name",
+        "assurance manifest toolchain",
+    )? != expected_toolchain
+    {
+        bail!("assurance manifest toolchain does not match the EVM artifact compiler");
+    }
+    ensure_same_digest(
+        &required_string(
+            toolchain.as_object().expect("toolchain is an object"),
+            "fingerprint_sha256",
+            "assurance manifest toolchain",
+        )?,
+        &sha256_hex(expected_toolchain.as_bytes()),
+        "assurance manifest toolchain fingerprint",
+    )?;
+    Ok(())
+}
+
+fn identity_object(value: &Value, key: &str, description: &str) -> Result<Value> {
+    let identity = value[key].clone();
+    if !identity.is_object() {
+        bail!("{description} is missing its `{key}` identity object");
+    }
+    Ok(identity)
+}
+
+fn source_graph_identity(value: &Value, description: &str) -> Result<Value> {
+    let source_graph = identity_object(value, "source_graph", description)?;
+    let source_graph_object = source_graph
+        .as_object()
+        .expect("source graph identity is an object");
+    if required_string(source_graph_object, "algorithm", description)?
+        != "clg.loaded-source-graph.v1"
+    {
+        bail!("{description} has an unsupported loaded-source graph");
+    }
+    let files = source_graph_object
+        .get("files")
+        .filter(|value| value.is_array())
+        .ok_or_else(|| anyhow!("{description} loaded-source graph is missing files"))?;
+    let expected_digest = format!(
+        "sha256:{}",
+        sha256_hex(&canonical_json_bytes(&json!({
+            "algorithm": source_graph_object["algorithm"],
+            "files": files,
+        })))
+    );
+    ensure_same_digest(
+        &required_string(source_graph_object, "digest", description)?,
+        &expected_digest,
+        &format!("{description} loaded-source graph digest"),
+    )?;
+    Ok(source_graph)
+}
+
+fn required_object(
+    object: &serde_json::Map<String, Value>,
+    key: &str,
+    description: &str,
+) -> Result<Value> {
+    let value = object
+        .get(key)
+        .cloned()
+        .filter(Value::is_object)
+        .ok_or_else(|| anyhow!("{description} is missing its `{key}` object"))?;
+    Ok(value)
+}
+
+fn required_string(
+    object: &serde_json::Map<String, Value>,
+    key: &str,
+    description: &str,
+) -> Result<String> {
+    object
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| anyhow!("{description} is missing its `{key}` string"))
+}
+
+fn ensure_same_digest(actual: &str, expected: &str, description: &str) -> Result<()> {
+    if actual != expected {
+        bail!("{description} does not match");
+    }
+    Ok(())
+}
+
+fn ensure_same_identity(
+    left_name: &str,
+    left: &Value,
+    right_name: &str,
+    right: &Value,
+) -> Result<()> {
+    if canonical_json_bytes(left) != canonical_json_bytes(right) {
+        bail!("cross-artifact identity drift: {left_name} does not match {right_name}");
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn matching_evidence() -> (
+        Value,
+        Value,
+        Value,
+        Value,
+        Value,
+        signing::SignatureFile,
+        signing::AssuranceManifestFile,
+    ) {
+        let files = json!([{"path":"counter.clear","sha256":"sha256:source"}]);
+        let source_graph = json!({
+            "algorithm": "clg.loaded-source-graph.v1",
+            "digest": format!("sha256:{}", sha256_hex(&canonical_json_bytes(&json!({
+                "algorithm": "clg.loaded-source-graph.v1",
+                "files": files,
+            })))),
+            "files": files,
+        });
+        let compiler = json!({"name":"clg-cli","version":"0.1.0"});
+        let contract = json!({"name":"Counter","version":1});
+        let artifact = json!({
+            "compiler": compiler,
+            "contract": contract,
+            "source_graph": source_graph,
+        });
+        let abi = artifact.clone();
+        let wire = artifact.clone();
+        let schema = artifact.clone();
+        let proof = json!({
+            "compiler": artifact["compiler"],
+            "source_graph": artifact["source_graph"],
+        });
+        let proof_hash = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&proof)));
+        let module_hash = "a".repeat(64);
+        let proofs_hash = "b".repeat(64);
+        let signature = signing::SignatureFile {
+            key_id: "release-key".to_string(),
+            scope: SignScope::Both,
+            signature_format: "ed25519".to_string(),
+            signature: String::new(),
+            payload: json!({
+                "compiler": artifact["compiler"],
+                "module_hash": module_hash,
+                "proof_artifact_hash": proof_hash,
+                "proofs_hash": proofs_hash,
+                "source_graph": artifact["source_graph"],
+            }),
+        };
+        let toolchain = "clg-cli/0.1.0";
+        let assurance = signing::AssuranceManifestFile {
+            schema_version: 1,
+            payload: json!({
+                "artifacts": {
+                    "module_hash": module_hash,
+                    "proof_artifact_hash": proof_hash,
+                    "proofs_hash": proofs_hash,
+                },
+                "toolchain": {
+                    "name": toolchain,
+                    "fingerprint_sha256": sha256_hex(toolchain.as_bytes()),
+                },
+            }),
+            signature: signing::AssuranceManifestSignature {
+                key_id: "release-key".to_string(),
+                signature_format: "ed25519".to_string(),
+                payload_hash: String::new(),
+                signature: String::new(),
+            },
+        };
+        (artifact, abi, wire, schema, proof, signature, assurance)
+    }
+
+    fn verify_matching_evidence(
+        artifact: &Value,
+        abi: &Value,
+        wire: &Value,
+        schema: &Value,
+        proof: &Value,
+        signature: &signing::SignatureFile,
+        assurance: &signing::AssuranceManifestFile,
+    ) -> Result<()> {
+        verify_evidence_binding(
+            "release-key",
+            artifact,
+            abi,
+            wire,
+            schema,
+            proof,
+            signature,
+            assurance,
+        )
+    }
+
+    #[test]
+    fn evidence_binding_accepts_matching_release_evidence() {
+        let (artifact, abi, wire, schema, proof, signature, assurance) = matching_evidence();
+        verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect("matching evidence must verify");
+    }
+
+    #[test]
+    fn evidence_binding_rejects_signature_proof_hash_drift() {
+        let (artifact, abi, wire, schema, proof, mut signature, assurance) = matching_evidence();
+        signature.payload["proof_artifact_hash"] = json!("sha256:tampered");
+        let err = verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect_err("proof-hash drift must fail closed");
+        assert!(err
+            .to_string()
+            .contains("signature payload proof-artifact hash does not match"));
+    }
+
+    #[test]
+    fn evidence_binding_rejects_source_graph_and_key_id_drift() {
+        let (artifact, mut abi, wire, schema, proof, signature, assurance) = matching_evidence();
+        abi["source_graph"]["files"][0]["path"] = json!("other.clear");
+        let err = verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect_err("source-graph drift must fail closed");
+        assert!(err.to_string().contains("loaded-source graph digest"));
+
+        let (artifact, abi, wire, schema, proof, signature, mut assurance) = matching_evidence();
+        assurance.signature.key_id = "other-key".to_string();
+        let err = verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect_err("assurance key drift must fail closed");
+        assert!(err
+            .to_string()
+            .contains("assurance-manifest key ID does not match"));
+
+        let (artifact, abi, wire, schema, proof, mut signature, assurance) = matching_evidence();
+        signature.key_id = "other-key".to_string();
+        let err = verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect_err("signature key drift must fail closed");
+        assert!(err.to_string().contains("signature key ID does not match"));
+    }
 }

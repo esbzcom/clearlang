@@ -45,7 +45,8 @@ queue.
     rejection, after deploy/invoke receipts exist.
 16. [x] Mark 30.1 complete.
 17. [x] 30.3.4 target conformance and compatibility fixtures, then mark 30.3 complete.
-18. [ ] Continue 30.4-30.6 in their listed dependency order.
+18. [ ] Execute 30.6.4-30.6.7 exit-criterion hardening in order: release-evidence binding,
+   end-to-end fixture coverage, required CI enforcement, then final closure review.
 
 The promoted adapter is deliberately narrow: it consumes only `StateRead`, `StateWrite`, and
 `EventEmit`; it does not enable network deployment, external calls, or a general EVM target.
@@ -302,7 +303,8 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
     compatibility paths rather than implying ambient automation.
     (`docs/contract-operations.md`) `Completed: 2026-08-20`.
 
-- [x] 30.6 Production contract release closure [Release Gate F] `Completed: 2026-08-20`.
+- [ ] 30.6 Production contract release closure [Release Gate F]
+  `Baseline 30.6.0-30.6.3 completed: 2026-08-20; exit-criterion hardening remains.`
   - [x] 30.6.0 Add `clg contract release` orchestration that proves, tests, simulates, packages
     ABI/state-schema/target evidence, signs, and verifies the contract release bundle. The
     command emits `clg.contract-release-bundle.v1`, binds the signed proof package to canonical
@@ -324,12 +326,37 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
   - [x] 30.6.3 Publish the final supported product contract, compatibility policy, release
     checklist, and known exclusions. (`docs/contract-product-contract.md`)
     `Completed: 2026-08-20`.
-
-## Milestone 4 Exit Criteria
-
-1. A reference stateful contract passes the complete supported workflow on the locked target.
-2. Contract state, ABI, target, proof/attestation, and release evidence are deterministic and
-   independently verifiable.
-3. Unsupported crypto, state, target, and external-call assumptions fail closed.
-4. Runtime lifecycle limits and operational failures are bounded, observable, and documented.
-5. CI proves the happy path and the defined negative/tamper/replay/reentrancy paths.
+  - [ ] 30.6.4 Bind every release-bundle claim to independently verifiable, bundle-local
+    evidence. This closes the gap between a syntactically valid proof/signature and evidence
+    that belongs to the packaged contract.
+    - [x] 30.6.4.1 Extend `clg contract verify-release` to verify the signed payload's module
+      hash, proof-artifact hash, compiler identity, source-graph identity, and signing key ID
+      against the packaged EVM artifact, proof, signature, schema, wire ABI, and assurance
+      evidence. Reject each mismatch before reporting success.
+      (`crates/cli/src/commands/contract_release.rs`) `Completed: 2026-08-30`.
+    - [ ] 30.6.4.2 Make simulator campaign evidence self-contained: package a canonical,
+      path-safe trace/input index with digests and replay metadata, verify every indexed entry,
+      and reject omitted, substituted, or traversal-path campaign evidence.
+  - [ ] 30.6.5 Add deterministic release-workflow fixtures that exercise the supported product
+    boundary from source through independent release verification.
+    - [ ] 30.6.5.1 Create a reference stateful-contract fixture that proves, tests, simulates,
+      releases, deploys/invokes on the locked target profile, and independently runs
+      `clg contract verify-release` using only the emitted bundle.
+    - [ ] 30.6.5.2 Run the fixture with controlled release inputs twice and assert the canonical
+      artifact, bundle manifest, campaign index, and verification result are reproducible; make
+      any intentionally variable release field explicit and excluded from the canonical
+      comparison by specification.
+    - [ ] 30.6.5.3 Add a tamper and replay matrix that independently mutates source/artifact,
+      schema, wire ABI, target profile, proof, signature payload, assurance evidence, campaign
+      trace/input, and bundle paths. Each case must fail closed with a stable diagnostic.
+    - [ ] 30.6.5.4 Include supported upgrade/migration and reentrancy-negative scenarios in the
+      end-to-end fixture suite, proving the stated state compatibility and CEI boundaries remain
+      enforced after packaging.
+  - [ ] 30.6.6 Make the complete 30.6.5 fixture suite a required offline CI gate. CI must run
+    the actual `contract release` then `verify-release` happy path, deterministic replay checks,
+    and the tamper/replay/reentrancy/upgrade-negative matrix; publish the command list and
+    retained evidence locations in the CI evidence record.
+  - [ ] 30.6.7 Perform final release-closure review. Mark Release Gate F and the Milestone 4
+    exit criteria complete only after the required CI gate passes and the product contract,
+    compatibility policy, operations guide, and release checklist accurately describe the
+    verified boundary and exclusions.

@@ -138,21 +138,7 @@ fn contract_release_reference_fixture_completes_release_target_and_independent_v
     let (key, pubkey) = write_release_key_material(&dir);
     let solver = write_verified_unsat_solver(&dir);
 
-    Command::cargo_bin("clg")
-        .expect("clg binary")
-        .env("CLG_SOLVER_BIN", &solver)
-        .args(["contract", "release"])
-        .arg(&source)
-        .args(["--plan"])
-        .arg(&plan)
-        .args(["--key"])
-        .arg(&key)
-        .args(["--pubkey"])
-        .arg(&pubkey)
-        .args(["--key-id", "reference-release-key", "--out-dir"])
-        .arg(&out_dir)
-        .assert()
-        .success();
+    run_reference_contract_release(&source, &plan, &key, &pubkey, &out_dir, &solver);
 
     let bundle = out_dir.join("counter.contract-release-bundle.json");
     assert!(bundle.is_file(), "release must emit a bundle");
@@ -262,12 +248,144 @@ fn contract_release_reference_fixture_completes_release_target_and_independent_v
     assert!(invoke_receipt.is_file());
     assert_eq!(invoke_server.join().expect("join invoke RPC").len(), 3);
 }
+
+#[test]
+fn contract_release_reference_fixture_is_reproducible_under_controlled_inputs() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    let plan = dir.path().join("campaign.json");
+    let out_dir = dir.path().join("release");
+    write_reference_counter_source_and_plan(&source, &plan);
+    write_minimal_strict_contract_inputs(&dir);
+    let (key, pubkey) = write_release_key_material(&dir);
+    let solver = write_verified_unsat_solver(&dir);
+
+    run_reference_contract_release(&source, &plan, &key, &pubkey, &out_dir, &solver);
+    verify_reference_release_bundle(&out_dir, &pubkey);
+    let stable_names = [
+        "counter.evm.json",
+        "counter.schema.json",
+        "counter.abi.json",
+        "counter.evm-wire-abi.json",
+        "counter.vcs.json",
+        "counter.proof.json",
+        "counter.campaign.json",
+        "counter.campaign-evidence.json",
+    ];
+    let first_stable_artifacts = stable_names
+        .iter()
+        .map(|name| (*name, fs::read(out_dir.join(name)).expect("read stable release artifact")))
+        .collect::<Vec<_>>();
+    let bundle = out_dir.join("counter.contract-release-bundle.json");
+    let first_bundle_projection = reproducible_bundle_projection(&bundle);
+
+    run_reference_contract_release(&source, &plan, &key, &pubkey, &out_dir, &solver);
+    verify_reference_release_bundle(&out_dir, &pubkey);
+    for (name, first) in first_stable_artifacts {
+        assert_eq!(
+            first,
+            fs::read(out_dir.join(name)).expect("read replayed stable release artifact"),
+            "controlled release inputs must reproduce {name} byte-for-byte"
+        );
+    }
+    assert_eq!(
+        first_bundle_projection,
+        reproducible_bundle_projection(&bundle),
+        "bundle manifest must reproduce after excluding documented time-derived evidence"
+    );
+}
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread;
+
+fn write_reference_counter_source_and_plan(source: &Path, plan: &Path) {
+    fs::write(
+        source,
+        r#"
+            contract Counter version 1 {
+                state { total: U64; }
+                init(initial: U64) { state.total = initial; 0 }
+                mut function set_total(value: U64) -> U64 { state.total = value; state.total }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write reference contract source");
+    fs::write(
+        plan,
+        r#"{
+            "format":"clg.contract-test-plan.v1",
+            "schema_version":1,
+            "seed":42,
+            "cases":1,
+            "function":"set_total",
+            "state":{"total":0},
+            "caller":"clg:test:campaign",
+            "value":0,
+            "block_number":7,
+            "timestamp":8,
+            "gas_limit":100,
+            "memory_limit":1048576,
+            "generators":[{"type":"u64","min":1,"max":9}],
+            "properties":[
+                {"kind":"result_equals_arg","arg":0},
+                {"kind":"state_field_equals_arg","field":"total","arg":0}
+            ]
+        }"#,
+    )
+    .expect("write reference campaign plan");
+}
+
+fn run_reference_contract_release(
+    source: &Path,
+    plan: &Path,
+    key: &Path,
+    pubkey: &Path,
+    out_dir: &Path,
+    solver: &Path,
+) {
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .env("CLG_SOLVER_BIN", solver)
+        .args(["contract", "release"])
+        .arg(source)
+        .args(["--plan"])
+        .arg(plan)
+        .args(["--key"])
+        .arg(key)
+        .args(["--pubkey"])
+        .arg(pubkey)
+        .args(["--key-id", "reference-release-key", "--out-dir"])
+        .arg(out_dir)
+        .assert()
+        .success();
+}
+
+fn verify_reference_release_bundle(out_dir: &Path, pubkey: &Path) {
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["contract", "verify-release", "--bundle"])
+        .arg(out_dir.join("counter.contract-release-bundle.json"))
+        .args(["--pubkey"])
+        .arg(pubkey)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"status\": \"verified\""));
+}
+
+fn reproducible_bundle_projection(bundle: &Path) -> Value {
+    let mut bundle: Value = serde_json::from_slice(&fs::read(bundle).expect("read release bundle"))
+        .expect("parse release bundle");
+    let artifacts = bundle["artifacts"]
+        .as_object_mut()
+        .expect("release bundle artifacts");
+    artifacts.remove("signature");
+    artifacts.remove("signed_assurance_manifest");
+    bundle
+}
 
 fn write_release_key_material(dir: &tempfile::TempDir) -> (PathBuf, PathBuf) {
     let signing = SigningKey::from_bytes(&[11_u8; 32]);

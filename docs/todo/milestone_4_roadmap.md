@@ -347,10 +347,13 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
       `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`)
       `Completed: 2026-08-30`.
-    - [ ] 30.6.5.2 Run the fixture with controlled release inputs twice and assert the canonical
+    - [x] 30.6.5.2 Run the fixture with controlled release inputs twice and assert the canonical
       artifact, bundle manifest, campaign index, and verification result are reproducible; make
       any intentionally variable release field explicit and excluded from the canonical
       comparison by specification.
+      (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
+      `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`)
+      `Completed: 2026-08-30`.
     - [ ] 30.6.5.3 Add a tamper and replay matrix that independently mutates source/artifact,
       schema, wire ABI, target profile, proof, signature payload, assurance evidence, campaign
       trace/input, and bundle paths. Each case must fail closed with a stable diagnostic.

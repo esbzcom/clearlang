@@ -14,6 +14,10 @@ agree with the EVM artifact, contract ABI, wire ABI, state schema, and proof. Th
 signature, and assurance-manifest key IDs must match; the assurance toolchain and fingerprint must
 name the same compiler identity. Any absent, malformed, or mismatched claim fails verification.
 
+The signed stateful EVM artifact is canonical `clg.evm-artifact.v1` JSON rather than a Wasm proof
+section. Its module hash is therefore the SHA-256 of its canonical bytes; non-canonical or
+wrong-format JSON is rejected before the Ed25519 signature is accepted.
+
 Verification is deliberately offline and does not contact an RPC endpoint. It proves the package
 is internally consistent and signed by the supplied public key; target receipt or signer-trust
 policy selection remain explicit operator/release-policy inputs.

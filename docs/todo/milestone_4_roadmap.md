@@ -341,9 +341,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       `crates/cli/src/commands/contract_release.rs`) `Completed: 2026-08-30`.
   - [ ] 30.6.5 Add deterministic release-workflow fixtures that exercise the supported product
     boundary from source through independent release verification.
-    - [ ] 30.6.5.1 Create a reference stateful-contract fixture that proves, tests, simulates,
+    - [x] 30.6.5.1 Create a reference stateful-contract fixture that proves, tests, simulates,
       releases, deploys/invokes on the locked target profile, and independently runs
       `clg contract verify-release` using only the emitted bundle.
+      (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
+      `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`)
+      `Completed: 2026-08-30`.
     - [ ] 30.6.5.2 Run the fixture with controlled release inputs twice and assert the canonical
       artifact, bundle manifest, campaign index, and verification result are reproducible; make
       any intentionally variable release field explicit and excluded from the canonical

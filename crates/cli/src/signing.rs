@@ -7,7 +7,7 @@ use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use wasmparser::{Parser, Payload};
 
-use crate::commands::helpers::{canonical_json_string, sha256_hex};
+use crate::commands::helpers::{canonical_json_bytes, canonical_json_string, sha256_hex};
 use crate::proofs::{
     decode_proof_section, module_bytes_with_zeroed_hash, proofs_hash_from_section, ProofPackage,
 };
@@ -380,18 +380,37 @@ pub fn verify_signature_details(
             )
         })?;
 
-    let zeroed_module = module_bytes_with_zeroed_hash(&module_bytes).map_err(|err| {
-        let message = err.to_string();
-        if message.contains("clearlang.proof section not found") {
-            VerifyError::new(VerifyErrorCode::ProofMissing, message)
-        } else {
+    let is_wasm_module = module_bytes.starts_with(b"\0asm");
+    let computed_module_hash = if is_wasm_module {
+        let zeroed_module = module_bytes_with_zeroed_hash(&module_bytes).map_err(|err| {
+            let message = err.to_string();
+            if message.contains("clearlang.proof section not found") {
+                VerifyError::new(VerifyErrorCode::ProofMissing, message)
+            } else {
+                VerifyError::new(
+                    VerifyErrorCode::SignatureFailure,
+                    format!("canonicalizing module hash: {message}"),
+                )
+            }
+        })?;
+        sha256_hex(&zeroed_module)
+    } else {
+        let artifact: serde_json::Value = serde_json::from_slice(&module_bytes).map_err(|err| {
             VerifyError::new(
                 VerifyErrorCode::SignatureFailure,
-                format!("canonicalizing module hash: {message}"),
+                format!("parsing signed target artifact: {err}"),
             )
+        })?;
+        if artifact["artifact"]["format"].as_str() != Some("clg.evm-artifact.v1")
+            || canonical_json_bytes(&artifact) != module_bytes
+        {
+            return Err(VerifyError::new(
+                VerifyErrorCode::SignatureFailure,
+                "signed target artifact must be canonical `clg.evm-artifact.v1` JSON",
+            ));
         }
-    })?;
-    let computed_module_hash = sha256_hex(&zeroed_module);
+        sha256_hex(&module_bytes)
+    };
 
     let payload_module_hash = sig_file
         .payload
@@ -409,6 +428,10 @@ pub fn verify_signature_details(
             VerifyErrorCode::HashMismatch,
             "payload module hash mismatch",
         ));
+    }
+
+    if !is_wasm_module {
+        return Ok(sig_file);
     }
 
     let proof_bytes = find_proof_section(&module_bytes)?;

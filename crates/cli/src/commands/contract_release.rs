@@ -602,6 +602,7 @@ fn safe_relative_name<'a>(name: &'a str, description: &str) -> Result<&'a str> {
     Ok(name)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn verify_evidence_binding(
     bundle_key_id: &str,
     artifact: &Value,

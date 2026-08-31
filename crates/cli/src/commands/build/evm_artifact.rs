@@ -631,6 +631,7 @@ mod tests {
         assert_eq!(storage.get(&slot_for("delta")), Some(&signed_word(-11)));
     }
 
+    #[allow(clippy::type_complexity)]
     fn run_evm(code: &[u8], calldata: &[u8], storage: &mut BTreeMap<[u8; 32], [u8; 32]>) -> Result<(Vec<u8>, Vec<([u8; 32], Vec<u8>)>)> {
         let mut pc = 0; let mut stack = Vec::<[u8; 32]>::new(); let mut memory = Vec::new(); let mut logs = Vec::new();
         for _ in 0..10_000 {
@@ -665,5 +666,6 @@ mod tests {
     fn word_usize(word: [u8;32]) -> Result<usize> { usize::try_from(u64::from_be_bytes(word[24..].try_into().expect("tail"))).map_err(|_| anyhow!("usize")) }
     fn word_add(left: [u8;32], right: [u8;32]) -> [u8;32] { let mut out=[0;32]; let mut carry=0u16; for index in (0..32).rev() { let sum=left[index] as u16+right[index] as u16+carry; out[index]=sum as u8; carry=sum>>8; } out }
     fn word_sub(left: [u8;32], right: [u8;32]) -> [u8;32] { let mut out=[0;32]; let mut borrow=0i16; for index in (0..32).rev() { let value=left[index] as i16-right[index] as i16-borrow; out[index]=value as u8; borrow=i16::from(value<0); } out }
+    #[allow(clippy::needless_range_loop)]
     fn word_shr(value: [u8;32], shift: usize) -> [u8;32] { if shift>=256 { return [0;32] } let byte_shift=shift/8; let bit_shift=shift%8; let mut out=[0;32]; for target in byte_shift..32 { let source=target-byte_shift; out[target]|=value[source]>>bit_shift; if bit_shift!=0 && source>0 { out[target]|=value[source-1]<<(8-bit_shift); } } out }
 }

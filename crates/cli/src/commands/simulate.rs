@@ -12,6 +12,7 @@ use super::modules::load_program;
 use crate::commands::helpers::{canonical_json_bytes, make_single_json_error, CommandError};
 use crate::logging::{LogLevel, Logger};
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     file: PathBuf,
     function: Option<String>,
@@ -223,6 +224,7 @@ struct ExecutionFailure {
     span: Option<Span>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn execute(
     body: &[Instr],
     values: &mut HashMap<u32, i64>,

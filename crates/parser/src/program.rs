@@ -35,7 +35,7 @@ enum Item {
 #[derive(Debug)]
 enum TopLevel {
     Import(clg_ast::ImportDecl),
-    Contract(crate::contract_decl::ParsedContract),
+    Contract(Box<crate::contract_decl::ParsedContract>),
     Item(Box<Item>),
 }
 
@@ -106,7 +106,7 @@ fn program_p<'a>() -> impl Parser<'a, &'a str, Program, ErrTy<'a>> {
 
     let top_level = choice((
         import_decl_p().map(TopLevel::Import),
-        contract_p().map(TopLevel::Contract),
+        contract_p().map(|contract| TopLevel::Contract(Box::new(contract))),
         exported_item.map(|item| TopLevel::Item(Box::new(item))),
         item.map(|item| TopLevel::Item(Box::new(item))),
     ));

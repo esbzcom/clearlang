@@ -70,24 +70,25 @@ changing source or deployment evidence.
 
 ## 3. Target artifact and evidence preparation
 
-Generate the required artifacts from the same source graph. The relevant build outputs are:
+Use `clg contract release` for the supported product workflow. It performs the strict build,
+proof, signing, signature/assurance verification, seeded campaign, and packaging steps from one
+source graph. Its bundle contains the versioned state schema, ABI and wire ABI, locked EVM
+artifact, VCS and proof evidence, signature and assurance manifest, campaign report, and indexed
+campaign trace/input evidence.
 
-- `--emit-contract-state-schema` for versioned storage evidence.
-- `--emit-contract-abi` and `--emit-evm-wire-abi` for target-facing ABI evidence.
-- `--emit-evm-artifact` for the locked deployable EVM artifact.
-- `--emit-vcs` and `--emit-proof` for proof evidence.
-- `--sign --key --key-id --scope both --sig-out` for the signed bundle required by target
-  commands.
+```powershell
+clg contract release contracts/counter.clear --plan fixtures/counter.campaign.json --key secrets/release-key.json --pubkey secrets/release-pubkey.json --key-id release-2026q3 --out-dir out/counter-release
+clg contract verify-release --bundle out/counter-release/counter.contract-release-bundle.json --pubkey secrets/release-pubkey.json
+```
 
-Run `clg build --help` before composing an expert build command: the currently supported EVM
-artifact profile is intentionally narrower than the general Wasm build surface. Until
-`clg contract release` is delivered, retain the explicit build invocation and every resulting
-file in the change record; do not represent this manual preparation as a completed contract
-release.
+For an upgrade candidate, pass `--prior-state-schema` with the retained prior schema. The command
+enforces append-only compatibility or an exact-digest migration declaration before it packages
+anything. Verify the emitted bundle independently before target submission; verification is
+offline and proves internal package consistency, not a deployment result.
 
-Verify the signed Wasm/proof evidence with the existing release verification flow before target
-submission. `docs/release-process.md` documents the required strict build and `clg verify`
-inputs. The later contract-release command will compose these steps, not replace their checks.
+Raw `clg build` release flags remain expert/debug-only. The EVM artifact profile is intentionally
+narrower than the general Wasm build surface; a manually composed build is not a substitute for a
+supported completed contract release.
 
 ## 4. Deploy, call, and invoke
 

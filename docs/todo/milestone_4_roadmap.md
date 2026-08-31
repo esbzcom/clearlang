@@ -354,9 +354,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
       `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`)
       `Completed: 2026-08-30`.
-    - [ ] 30.6.5.3 Add a tamper and replay matrix that independently mutates source/artifact,
+    - [x] 30.6.5.3 Add a tamper and replay matrix that independently mutates source/artifact,
       schema, wire ABI, target profile, proof, signature payload, assurance evidence, campaign
       trace/input, and bundle paths. Each case must fail closed with a stable diagnostic.
+      (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
+      `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`)
+      `Completed: 2026-08-30`.
     - [ ] 30.6.5.4 Include supported upgrade/migration and reentrancy-negative scenarios in the
       end-to-end fixture suite, proving the stated state compatibility and CEI boundaries remain
       enforced after packaging.

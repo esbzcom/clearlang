@@ -326,17 +326,21 @@ pub fn verify(
                 .to_string(),
         );
     }
-    let signature = signing::verify_signature_details(
+    let signature = match signing::verify_signature_details(
         &artifact_path,
         &directory.join(&bundle.artifacts.signature.path),
         &pubkey,
-    )
-    .map_err(|err| anyhow!("verify contract release signature: {err}"))?;
-    let assurance = signing::verify_assurance_manifest(
+    ) {
+        Ok(signature) => signature,
+        Err(err) => return failure(format!("verify contract release signature: {err}")),
+    };
+    let assurance = match signing::verify_assurance_manifest(
         &directory.join(&bundle.artifacts.signed_assurance_manifest.path),
         &pubkey,
-    )
-    .map_err(|err| anyhow!("verify contract release assurance manifest: {err}"))?;
+    ) {
+        Ok(assurance) => assurance,
+        Err(err) => return failure(format!("verify contract release assurance manifest: {err}")),
+    };
     verify_evidence_binding(
         &bundle.key_id,
         &artifact,

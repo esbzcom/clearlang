@@ -294,6 +294,126 @@ fn contract_release_reference_fixture_is_reproducible_under_controlled_inputs() 
         "bundle manifest must reproduce after excluding documented time-derived evidence"
     );
 }
+
+#[test]
+fn contract_release_verification_rejects_every_packaged_evidence_tamper_class() {
+    let (workspace, pubkey, release) = prepared_reference_release();
+
+    with_tampered_release(workspace.path(), &release, &pubkey, "source-graph", |copied| {
+        let schema = copied.join("counter.schema.json");
+        rewrite_json(&schema, |value| {
+            value["source_graph"]["files"][0]["path"] = serde_json::json!("tampered.clear");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "contract_state_schema",
+            &schema,
+        );
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "target-profile", |copied| {
+        let artifact = copied.join("counter.evm.json");
+        rewrite_json(&artifact, |value| {
+            value["target"]["profile"] = serde_json::json!("clg.evm-compatible.tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "evm_artifact",
+            &artifact,
+        );
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "wire-abi", |copied| {
+        let wire = copied.join("counter.evm-wire-abi.json");
+        rewrite_json(&wire, |value| {
+            value["wire_abi"]["digest"] = serde_json::json!("sha256:tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "evm_wire_abi",
+            &wire,
+        );
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "proof", |copied| {
+        let proof = copied.join("counter.proof.json");
+        rewrite_json(&proof, |value| {
+            value["compiler_mode"] = serde_json::json!("tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "proof_artifact",
+            &proof,
+        );
+    });
+    with_tampered_release(
+        workspace.path(),
+        &release,
+        &pubkey,
+        "signature-payload",
+        |copied| {
+            let signature = copied.join("counter.sig.json");
+            rewrite_json(&signature, |value| {
+                value["payload"]["compiler"]["version"] = serde_json::json!("tampered");
+            });
+            update_bundle_artifact_digest(
+                &copied.join("counter.contract-release-bundle.json"),
+                "signature",
+                &signature,
+            );
+        },
+    );
+    with_tampered_release(workspace.path(), &release, &pubkey, "assurance", |copied| {
+        let assurance = copied.join("counter.assurance.json");
+        rewrite_json(&assurance, |value| {
+            value["payload"]["build"]["compiler_mode"] = serde_json::json!("tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "signed_assurance_manifest",
+            &assurance,
+        );
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "campaign-trace", |copied| {
+        fs::write(
+            copied
+                .join("counter.campaign-traces")
+                .join("case-0000.trace.json"),
+            br#"{"status":"tampered"}"#,
+        )
+        .expect("tamper campaign trace");
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "campaign-input", |copied| {
+        fs::write(
+            copied
+                .join("counter.campaign-traces")
+                .join("case-0000.args.json"),
+            br#"[999]"#,
+        )
+        .expect("tamper campaign input");
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "campaign-replay", |copied| {
+        let report = copied.join("counter.campaign.json");
+        rewrite_json(&report, |value| {
+            value["cases"][0]["replay"]["argv"]
+                .as_array_mut()
+                .expect("replay argv")
+                .push(serde_json::json!("--tampered"));
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "contract_test_report",
+            &report,
+        );
+    });
+    with_tampered_release(workspace.path(), &release, &pubkey, "bundle-path", |copied| {
+        rewrite_json(
+            &copied.join("counter.contract-release-bundle.json"),
+            |value| {
+                value["artifacts"]["evm_artifact"]["path"] =
+                    serde_json::json!("../counter.evm.json");
+            },
+        );
+    });
+}
+
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
@@ -385,6 +505,87 @@ fn reproducible_bundle_projection(bundle: &Path) -> Value {
     artifacts.remove("signature");
     artifacts.remove("signed_assurance_manifest");
     bundle
+}
+
+fn prepared_reference_release() -> (tempfile::TempDir, PathBuf, PathBuf) {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("counter.clear");
+    let plan = dir.path().join("campaign.json");
+    let out_dir = dir.path().join("release");
+    write_reference_counter_source_and_plan(&source, &plan);
+    write_minimal_strict_contract_inputs(&dir);
+    let (key, pubkey) = write_release_key_material(&dir);
+    let solver = write_verified_unsat_solver(&dir);
+    run_reference_contract_release(&source, &plan, &key, &pubkey, &out_dir, &solver);
+    (dir, pubkey, out_dir)
+}
+
+fn copy_release_tree(source: &Path, destination: &Path) {
+    fs::create_dir_all(destination).expect("create copied release directory");
+    for entry in fs::read_dir(source).expect("list release directory") {
+        let entry = entry.expect("read release entry");
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        if entry.file_type().expect("release entry type").is_dir() {
+            copy_release_tree(&source_path, &destination_path);
+        } else {
+            fs::copy(&source_path, &destination_path).expect("copy release evidence file");
+        }
+    }
+}
+
+fn rewrite_json(path: &Path, change: impl FnOnce(&mut Value)) {
+    let mut value: Value = serde_json::from_slice(&fs::read(path).expect("read JSON evidence"))
+        .expect("parse JSON evidence");
+    change(&mut value);
+    fs::write(path, serde_json::to_vec(&value).expect("serialize JSON evidence"))
+        .expect("write JSON evidence");
+}
+
+fn update_bundle_artifact_digest(bundle: &Path, artifact_name: &str, artifact_path: &Path) {
+    rewrite_json(bundle, |value| {
+        value["artifacts"][artifact_name]["sha256"] = serde_json::json!(format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(
+                fs::read(artifact_path).expect("read changed release artifact")
+            ))
+        ));
+    });
+}
+
+fn assert_release_verification_rejects(bundle: &Path, pubkey: &Path) {
+    let output = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["--json-errors", "contract", "verify-release", "--bundle"])
+        .arg(bundle)
+        .args(["--pubkey"])
+        .arg(pubkey)
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let diagnostic: Value = serde_json::from_slice(&output).expect("parse release diagnostic");
+    assert_eq!(
+        diagnostic["errors"][0]["code"], "C140",
+        "tampered release evidence must have a stable release-verification diagnostic"
+    );
+}
+
+fn with_tampered_release(
+    workspace: &Path,
+    release: &Path,
+    pubkey: &Path,
+    case_name: &str,
+    tamper: impl FnOnce(&Path),
+) {
+    let copied_release = workspace.join(case_name);
+    copy_release_tree(release, &copied_release);
+    tamper(&copied_release);
+    assert_release_verification_rejects(
+        &copied_release.join("counter.contract-release-bundle.json"),
+        pubkey,
+    );
 }
 
 fn write_release_key_material(dir: &tempfile::TempDir) -> (PathBuf, PathBuf) {

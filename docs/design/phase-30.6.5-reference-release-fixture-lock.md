@@ -21,3 +21,12 @@ The canonical bundle comparison removes only `artifacts.signature` and
 `artifacts.signed_assurance_manifest`. Those records hash signed payloads with a wall-clock
 release timestamp and are intentionally variable until a future explicit release-time input is
 introduced. Every other bundle field, including the campaign-evidence artifact hash, must match.
+
+## Tamper and replay matrix
+
+The reference fixture copies a completed release and separately tampers its source-graph/schema
+identity, target artifact/profile, wire ABI, proof, signature payload, assurance payload, campaign
+trace, campaign input, campaign replay metadata, and a bundle artifact path. Where appropriate it
+also updates the bundle's declared file hash, proving that the verifier's cross-evidence bindings
+rather than only raw file hashing reject the alteration. Every case must fail with the stable
+`C140` release-verification diagnostic.

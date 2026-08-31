@@ -13,6 +13,7 @@ use crate::logging::{Logger, StageTimings};
 use crate::signing::{self, SignScope};
 
 const BUNDLE_FORMAT: &str = "clg.contract-release-bundle.v1";
+const CAMPAIGN_EVIDENCE_FORMAT: &str = "clg.contract-campaign-evidence-index.v1";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,6 +33,7 @@ struct Bundle {
 struct BundleArtifacts {
     contract_abi: Artifact,
     contract_state_schema: Artifact,
+    contract_test_evidence: Artifact,
     contract_test_report: Artifact,
     evm_artifact: Artifact,
     evm_wire_abi: Artifact,
@@ -41,7 +43,7 @@ struct BundleArtifacts {
     vcs: Artifact,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 struct Artifact {
     path: String,
@@ -53,6 +55,25 @@ struct Artifact {
 struct Stage {
     stage: String,
     status: String,
+}
+
+#[derive(Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct CampaignEvidenceIndex {
+    format: String,
+    schema_version: u32,
+    report_sha256: String,
+    trace_directory: String,
+    cases: Vec<CampaignEvidenceCase>,
+}
+
+#[derive(Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct CampaignEvidenceCase {
+    case: u32,
+    args: Value,
+    replay: Value,
+    files: Vec<Artifact>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -87,6 +108,7 @@ pub fn run(
         signature: out_dir.join(format!("{stem}.sig.json")),
         assurance: out_dir.join(format!("{stem}.assurance.json")),
         campaign: out_dir.join(format!("{stem}.campaign.json")),
+        campaign_evidence: out_dir.join(format!("{stem}.campaign-evidence.json")),
         traces: out_dir.join(format!("{stem}.campaign-traces")),
         bundle: out_dir.join(format!("{stem}.contract-release-bundle.json")),
     };
@@ -140,12 +162,17 @@ pub fn run(
             logger,
         )?;
     }
+    {
+        let _stage = timings.start(logger, "contract_release_campaign_evidence");
+        write_campaign_evidence_index(&paths.campaign, &paths.traces, &paths.campaign_evidence)?;
+    }
     let bundle = {
         let _stage = timings.start(logger, "contract_release_bundle");
         let manifest = json!({
             "artifacts": {
                 "contract_abi": artifact_file(&paths.abi)?,
                 "contract_state_schema": artifact_file(&paths.schema)?,
+                "contract_test_evidence": artifact_file(&paths.campaign_evidence)?,
                 "contract_test_report": artifact_file(&paths.campaign)?,
                 "evm_artifact": artifact_file(&paths.artifact)?,
                 "evm_wire_abi": artifact_file(&paths.wire_abi)?,
@@ -245,6 +272,7 @@ pub fn verify(
     let artifacts = [
         &bundle.artifacts.contract_abi,
         &bundle.artifacts.contract_state_schema,
+        &bundle.artifacts.contract_test_evidence,
         &bundle.artifacts.contract_test_report,
         &bundle.artifacts.evm_artifact,
         &bundle.artifacts.evm_wire_abi,
@@ -276,6 +304,12 @@ pub fn verify(
     let wire_path = directory.join(&bundle.artifacts.evm_wire_abi.path);
     let schema_path = directory.join(&bundle.artifacts.contract_state_schema.path);
     let proof_path = directory.join(&bundle.artifacts.proof_artifact.path);
+    verify_campaign_evidence_index(
+        directory,
+        &bundle.artifacts.contract_test_report,
+        &directory.join(&bundle.artifacts.contract_test_evidence.path),
+    )
+    .or_else(|err| failure(format!("contract release campaign evidence failed: {err}")))?;
     let artifact: Value = serde_json::from_slice(&fs::read(&artifact_path)?)?;
     let abi: Value = serde_json::from_slice(&fs::read(&abi_path)?)?;
     let wire: Value = serde_json::from_slice(&fs::read(&wire_path)?)?;
@@ -340,6 +374,7 @@ struct ReleasePaths {
     signature: PathBuf,
     assurance: PathBuf,
     campaign: PathBuf,
+    campaign_evidence: PathBuf,
     traces: PathBuf,
     bundle: PathBuf,
 }
@@ -357,6 +392,210 @@ fn artifact_file(path: &Path) -> Result<serde_json::Value> {
             )
         })?;
     Ok(json!({ "path": name, "sha256": format!("sha256:{}", sha256_hex(&bytes)) }))
+}
+
+fn write_campaign_evidence_index(
+    report_path: &Path,
+    trace_dir: &Path,
+    index_path: &Path,
+) -> Result<()> {
+    let report_bytes = fs::read(report_path)
+        .with_context(|| format!("read contract campaign report `{}`", report_path.display()))?;
+    let report: Value = serde_json::from_slice(&report_bytes)
+        .with_context(|| format!("parse contract campaign report `{}`", report_path.display()))?;
+    if report["format"] != "clg.contract-test-report.v1" || report["schema_version"] != 1 {
+        bail!("contract campaign report has an unsupported format");
+    }
+    let cases = report["cases"]
+        .as_array()
+        .ok_or_else(|| anyhow!("contract campaign report is missing cases"))?;
+    let trace_directory = single_path_component(trace_dir, "contract campaign trace directory")?;
+    let mut indexed_cases = Vec::with_capacity(cases.len());
+    for (expected_case, case) in cases.iter().enumerate() {
+        let case_number = case["case"]
+            .as_u64()
+            .filter(|number| *number == expected_case as u64)
+            .ok_or_else(|| {
+                anyhow!("contract campaign report cases must be ordered and numbered")
+            })?;
+        if case["status"] != "success" {
+            bail!("contract campaign report contains an unsuccessful case");
+        }
+        let args = case
+            .get("args")
+            .cloned()
+            .filter(Value::is_array)
+            .ok_or_else(|| anyhow!("contract campaign report case is missing arguments"))?;
+        let replay = case
+            .get("replay")
+            .cloned()
+            .filter(|value| value["argv"].as_array().is_some())
+            .ok_or_else(|| anyhow!("contract campaign report case is missing replay metadata"))?;
+        let stem = format!("case-{case_number:04}");
+        let files = [
+            format!("{stem}.args.json"),
+            format!("{stem}.state.json"),
+            format!("{stem}.state-out.json"),
+            format!("{stem}.trace.json"),
+        ]
+        .into_iter()
+        .map(|name| campaign_trace_file(trace_dir, &name))
+        .collect::<Result<Vec<_>>>()?;
+        indexed_cases.push(CampaignEvidenceCase {
+            case: case_number as u32,
+            args,
+            replay,
+            files,
+        });
+    }
+    let index = CampaignEvidenceIndex {
+        format: CAMPAIGN_EVIDENCE_FORMAT.to_string(),
+        schema_version: 1,
+        report_sha256: format!("sha256:{}", sha256_hex(&report_bytes)),
+        trace_directory,
+        cases: indexed_cases,
+    };
+    fs::write(
+        index_path,
+        canonical_json_bytes(&serde_json::to_value(index)?),
+    )
+    .with_context(|| format!("write campaign evidence index `{}`", index_path.display()))
+}
+
+fn verify_campaign_evidence_index(
+    bundle_directory: &Path,
+    report_artifact: &Artifact,
+    index_path: &Path,
+) -> Result<()> {
+    let index_bytes = fs::read(index_path)
+        .with_context(|| format!("read campaign evidence index `{}`", index_path.display()))?;
+    let index: CampaignEvidenceIndex = serde_json::from_slice(&index_bytes)
+        .with_context(|| format!("parse campaign evidence index `{}`", index_path.display()))?;
+    if index.format != CAMPAIGN_EVIDENCE_FORMAT || index.schema_version != 1 {
+        bail!("campaign evidence index has an unsupported format");
+    }
+    if index.report_sha256 != report_artifact.sha256 {
+        bail!("campaign evidence index report digest does not match the release bundle");
+    }
+    let report_path = bundle_directory.join(&report_artifact.path);
+    let report: Value =
+        serde_json::from_slice(&fs::read(&report_path).with_context(|| {
+            format!("read contract campaign report `{}`", report_path.display())
+        })?)
+        .with_context(|| format!("parse contract campaign report `{}`", report_path.display()))?;
+    if report["format"] != "clg.contract-test-report.v1"
+        || report["schema_version"] != 1
+        || report["status"] != "success"
+    {
+        bail!("contract campaign report has an unsupported or unsuccessful status");
+    }
+    let report_cases = report["cases"]
+        .as_array()
+        .ok_or_else(|| anyhow!("contract campaign report is missing cases"))?;
+    if report_cases.len() != index.cases.len() {
+        bail!("campaign evidence index case count does not match the campaign report");
+    }
+    let trace_directory = safe_relative_name(&index.trace_directory, "campaign trace directory")?;
+    let trace_root = bundle_directory.join(trace_directory);
+    let bundle_root = fs::canonicalize(bundle_directory).with_context(|| {
+        format!(
+            "resolve release bundle directory `{}`",
+            bundle_directory.display()
+        )
+    })?;
+    let trace_metadata = fs::symlink_metadata(&trace_root).with_context(|| {
+        format!(
+            "inspect campaign trace directory `{}`",
+            trace_root.display()
+        )
+    })?;
+    if trace_metadata.file_type().is_symlink() || !trace_metadata.is_dir() {
+        bail!("campaign trace directory must be a bundle-local directory");
+    }
+    let trace_root =
+        fs::canonicalize(&trace_root).with_context(|| "resolve campaign trace directory")?;
+    if !trace_root.starts_with(&bundle_root) {
+        bail!("campaign trace directory resolves outside the release bundle");
+    }
+    for (expected_case, (report_case, evidence_case)) in
+        report_cases.iter().zip(index.cases.iter()).enumerate()
+    {
+        if evidence_case.case != expected_case as u32
+            || report_case["case"].as_u64() != Some(expected_case as u64)
+            || report_case["status"] != "success"
+            || report_case["args"] != evidence_case.args
+            || report_case["replay"] != evidence_case.replay
+        {
+            bail!("campaign evidence index case does not match the campaign report");
+        }
+        let stem = format!("case-{expected_case:04}");
+        let expected_files = [
+            format!("{stem}.args.json"),
+            format!("{stem}.state.json"),
+            format!("{stem}.state-out.json"),
+            format!("{stem}.trace.json"),
+        ];
+        if evidence_case.files.len() != expected_files.len() {
+            bail!("campaign evidence index case has incomplete trace/input evidence");
+        }
+        for (artifact, expected_name) in evidence_case.files.iter().zip(expected_files) {
+            if artifact.path != expected_name {
+                bail!("campaign evidence index has an unexpected trace/input path");
+            }
+            let name = safe_relative_name(&artifact.path, "campaign trace/input")?;
+            let path = trace_root.join(name);
+            let metadata = fs::symlink_metadata(&path).with_context(|| {
+                format!("inspect indexed campaign trace/input `{}`", path.display())
+            })?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                bail!("campaign trace/input must be a regular bundle-local file");
+            }
+            let bytes =
+                fs::read(&path).with_context(|| "read indexed campaign trace/input evidence")?;
+            if format!("sha256:{}", sha256_hex(&bytes)) != artifact.sha256 {
+                bail!("campaign evidence index trace/input digest does not match");
+            }
+        }
+        let args_bytes = fs::read(trace_root.join(format!("{stem}.args.json")))
+            .with_context(|| "read indexed campaign arguments")?;
+        let args: Value = serde_json::from_slice(&args_bytes)
+            .with_context(|| "parse indexed campaign arguments")?;
+        if args != evidence_case.args {
+            bail!("campaign evidence index arguments do not match the indexed input file");
+        }
+    }
+    Ok(())
+}
+
+fn campaign_trace_file(trace_dir: &Path, name: &str) -> Result<Artifact> {
+    let path = trace_dir.join(name);
+    let bytes = fs::read(&path)
+        .with_context(|| format!("read campaign trace/input `{}`", path.display()))?;
+    Ok(Artifact {
+        path: name.to_string(),
+        sha256: format!("sha256:{}", sha256_hex(&bytes)),
+    })
+}
+
+fn single_path_component(path: &Path, description: &str) -> Result<String> {
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| anyhow!("{description} must have a file name"))?;
+    Ok(safe_relative_name(name, description)?.to_string())
+}
+
+fn safe_relative_name<'a>(name: &'a str, description: &str) -> Result<&'a str> {
+    let path = Path::new(name);
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || path.is_absolute()
+        || path.components().count() != 1
+    {
+        bail!("{description} has an unsafe path");
+    }
+    Ok(name)
 }
 
 fn verify_evidence_binding(
@@ -735,5 +974,89 @@ mod tests {
         )
         .expect_err("signature key drift must fail closed");
         assert!(err.to_string().contains("signature key ID does not match"));
+    }
+
+    fn campaign_evidence_fixture() -> (tempfile::TempDir, Artifact, PathBuf) {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let traces = directory.path().join("counter.campaign-traces");
+        fs::create_dir(&traces).expect("create trace directory");
+        let stem = "case-0000";
+        fs::write(traces.join(format!("{stem}.args.json")), br#"[7]"#).expect("write args");
+        fs::write(traces.join(format!("{stem}.state.json")), br#"{"total":0}"#)
+            .expect("write state");
+        fs::write(
+            traces.join(format!("{stem}.state-out.json")),
+            br#"{"total":7}"#,
+        )
+        .expect("write state output");
+        fs::write(
+            traces.join(format!("{stem}.trace.json")),
+            br#"{"result":7,"state_after":{"total":7}}"#,
+        )
+        .expect("write trace");
+        let report_path = directory.path().join("counter.campaign.json");
+        fs::write(
+            &report_path,
+            canonical_json_bytes(&json!({
+                "cases": [{
+                    "args": [7],
+                    "case": 0,
+                    "replay": {"argv": ["clg", "simulate", "counter.clear"]},
+                    "status": "success",
+                }],
+                "format": "clg.contract-test-report.v1",
+                "schema_version": 1,
+                "status": "success",
+            })),
+        )
+        .expect("write report");
+        let index_path = directory.path().join("counter.campaign-evidence.json");
+        write_campaign_evidence_index(&report_path, &traces, &index_path)
+            .expect("write evidence index");
+        let report_bytes = fs::read(&report_path).expect("read report");
+        (
+            directory,
+            Artifact {
+                path: "counter.campaign.json".to_string(),
+                sha256: format!("sha256:{}", sha256_hex(&report_bytes)),
+            },
+            index_path,
+        )
+    }
+
+    #[test]
+    fn campaign_evidence_index_verifies_all_bundle_local_trace_inputs() {
+        let (directory, report, index_path) = campaign_evidence_fixture();
+        verify_campaign_evidence_index(directory.path(), &report, &index_path)
+            .expect("complete campaign evidence must verify");
+    }
+
+    #[test]
+    fn campaign_evidence_index_rejects_tampered_or_unsafe_trace_evidence() {
+        let (directory, report, index_path) = campaign_evidence_fixture();
+        fs::write(
+            directory
+                .path()
+                .join("counter.campaign-traces")
+                .join("case-0000.trace.json"),
+            br#"{"result":8,"state_after":{"total":8}}"#,
+        )
+        .expect("tamper trace");
+        let err = verify_campaign_evidence_index(directory.path(), &report, &index_path)
+            .expect_err("tampered trace must fail closed");
+        assert!(err
+            .to_string()
+            .contains("trace/input digest does not match"));
+
+        let (directory, report, index_path) = campaign_evidence_fixture();
+        let mut index: Value = serde_json::from_slice(&fs::read(&index_path).expect("read index"))
+            .expect("parse index");
+        index["trace_directory"] = json!("../outside");
+        fs::write(&index_path, canonical_json_bytes(&index)).expect("write unsafe index");
+        let err = verify_campaign_evidence_index(directory.path(), &report, &index_path)
+            .expect_err("unsafe trace path must fail closed");
+        assert!(err
+            .to_string()
+            .contains("campaign trace directory has an unsafe path"));
     }
 }

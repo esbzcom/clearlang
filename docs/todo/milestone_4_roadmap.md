@@ -334,9 +334,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       against the packaged EVM artifact, proof, signature, schema, wire ABI, and assurance
       evidence. Reject each mismatch before reporting success.
       (`crates/cli/src/commands/contract_release.rs`) `Completed: 2026-08-30`.
-    - [ ] 30.6.4.2 Make simulator campaign evidence self-contained: package a canonical,
+    - [x] 30.6.4.2 Make simulator campaign evidence self-contained: package a canonical,
       path-safe trace/input index with digests and replay metadata, verify every indexed entry,
       and reject omitted, substituted, or traversal-path campaign evidence.
+      (`docs/design/phase-30.6.4-campaign-evidence-lock.md`,
+      `crates/cli/src/commands/contract_release.rs`) `Completed: 2026-08-30`.
   - [ ] 30.6.5 Add deterministic release-workflow fixtures that exercise the supported product
     boundary from source through independent release verification.
     - [ ] 30.6.5.1 Create a reference stateful-contract fixture that proves, tests, simulates,

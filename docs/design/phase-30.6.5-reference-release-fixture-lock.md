@@ -30,3 +30,15 @@ trace, campaign input, campaign replay metadata, and a bundle artifact path. Whe
 also updates the bundle's declared file hash, proving that the verifier's cross-evidence bindings
 rather than only raw file hashing reject the alteration. Every case must fail with the stable
 `C140` release-verification diagnostic.
+
+## Upgrade, migration, and reentrancy boundaries
+
+The fixture first releases and independently verifies `Counter` version 1. It then releases and
+verifies version 2 against that bundle's emitted state schema. Version 2 adds a scalar field and
+declares a migration bound to the exact prior schema digest, so the release workflow exercises the
+supported schema-compatible upgrade and explicit migration path all the way through packaging.
+
+The same fixture submits a candidate version 3 with a state write after an outbound call. The
+release must fail with `T832` and must not emit a release bundle. This establishes the precise CEI
+boundary at the packaging entry point; it does not claim protection for targets or interaction
+patterns outside the supported model.

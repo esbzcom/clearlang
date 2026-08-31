@@ -414,6 +414,138 @@ fn contract_release_verification_rejects_every_packaged_evidence_tamper_class() 
     });
 }
 
+#[test]
+fn contract_release_fixture_packages_supported_migration_and_rejects_reentrancy_candidate() {
+    let dir = tempdir().expect("tempdir");
+    let v1_source = dir.path().join("counter-v1.clear");
+    let v1_plan = dir.path().join("counter-v1.campaign.json");
+    let v1_release = dir.path().join("counter-v1-release");
+    write_reference_counter_source_and_plan(&v1_source, &v1_plan);
+    write_minimal_strict_contract_inputs(&dir);
+    let (key, pubkey) = write_release_key_material(&dir);
+    let solver = write_verified_unsat_solver(&dir);
+    run_reference_contract_release(&v1_source, &v1_plan, &key, &pubkey, &v1_release, &solver);
+    verify_contract_release_bundle(&v1_release, "counter-v1", &pubkey);
+
+    let prior_schema = v1_release.join("counter-v1.schema.json");
+    let prior: Value = serde_json::from_slice(&fs::read(&prior_schema).expect("read v1 schema"))
+        .expect("parse v1 schema");
+    let prior_digest = prior["schema"]["digest"]
+        .as_str()
+        .expect("v1 schema digest");
+    let v2_source = dir.path().join("counter-v2.clear");
+    let v2_plan = dir.path().join("counter-v2.campaign.json");
+    let v2_release = dir.path().join("counter-v2-release");
+    fs::write(
+        &v2_source,
+        format!(
+            r#"
+                contract Counter version 2 {{
+                    state {{ total: U64; revision: U64; }}
+                    init(initial: U64) {{
+                        state.total = initial;
+                        state.revision = U64(0);
+                        0
+                    }}
+                    migrate from schema "{prior_digest}" {{
+                        state.revision = U64(0);
+                        0
+                    }}
+                    mut function set_total(value: U64) -> U64 {{ state.total = value; state.total }}
+                }}
+                function main() -> Int {{ 0 }}
+            "#
+        ),
+    )
+    .expect("write v2 migration contract");
+    fs::write(
+        &v2_plan,
+        r#"{
+            "format":"clg.contract-test-plan.v1",
+            "schema_version":1,
+            "seed":42,
+            "cases":1,
+            "function":"set_total",
+            "state":{"total":0,"revision":0},
+            "caller":"clg:test:campaign",
+            "value":0,
+            "block_number":7,
+            "timestamp":8,
+            "gas_limit":100,
+            "memory_limit":1048576,
+            "generators":[{"type":"u64","min":1,"max":9}],
+            "properties":[
+                {"kind":"result_equals_arg","arg":0},
+                {"kind":"state_field_equals_arg","field":"total","arg":0}
+            ]
+        }"#,
+    )
+    .expect("write v2 campaign plan");
+    run_contract_release(
+        &v2_source,
+        &v2_plan,
+        &key,
+        &pubkey,
+        &v2_release,
+        &solver,
+        Some(&prior_schema),
+    );
+    verify_contract_release_bundle(&v2_release, "counter-v2", &pubkey);
+
+    let v2_schema: Value = serde_json::from_slice(
+        &fs::read(v2_release.join("counter-v2.schema.json")).expect("read v2 schema"),
+    )
+    .expect("parse v2 schema");
+    assert_eq!(v2_schema["contract"]["version"], 2);
+    assert_eq!(v2_schema["fields"][1]["name"], "revision");
+
+    let reentrant_source = dir.path().join("counter-reentrant.clear");
+    let rejected_release = dir.path().join("counter-reentrant-release");
+    fs::write(
+        &reentrant_source,
+        r#"
+            interface Receiver { io function receive(amount: U64) -> Bool; }
+            contract Counter version 3 {
+                state { total: U64; revision: U64; }
+                mut function notify(amount: U64) -> U64 {
+                    state.total = amount;
+                    external_call Receiver.receive(amount);
+                    state.revision = U64(1);
+                    amount
+                }
+            }
+            function main() -> Int { 0 }
+        "#,
+    )
+    .expect("write CEI-negative candidate");
+    let output = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .env("CLG_SOLVER_BIN", &solver)
+        .args(["--json-errors", "contract", "release"])
+        .arg(&reentrant_source)
+        .args(["--plan"])
+        .arg(&v2_plan)
+        .args(["--key"])
+        .arg(&key)
+        .args(["--pubkey"])
+        .arg(&pubkey)
+        .args(["--key-id", "reference-release-key", "--out-dir"])
+        .arg(&rejected_release)
+        .args(["--prior-state-schema"])
+        .arg(v2_release.join("counter-v2.schema.json"))
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let diagnostic: Value = serde_json::from_slice(&output).expect("parse CEI diagnostic");
+    assert_eq!(diagnostic["errors"][0]["code"], "T832");
+    assert!(
+        !rejected_release.join("counter-reentrant.contract-release-bundle.json").exists(),
+        "a CEI-violating candidate must never produce a packaged release bundle"
+    );
+}
+
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
@@ -467,9 +599,21 @@ fn run_reference_contract_release(
     out_dir: &Path,
     solver: &Path,
 ) {
-    Command::cargo_bin("clg")
-        .expect("clg binary")
-        .env("CLG_SOLVER_BIN", solver)
+    run_contract_release(source, plan, key, pubkey, out_dir, solver, None);
+}
+
+fn run_contract_release(
+    source: &Path,
+    plan: &Path,
+    key: &Path,
+    pubkey: &Path,
+    out_dir: &Path,
+    solver: &Path,
+    prior_state_schema: Option<&Path>,
+) {
+    let mut command = Command::cargo_bin("clg").expect("clg binary");
+    command.env("CLG_SOLVER_BIN", solver);
+    command
         .args(["contract", "release"])
         .arg(source)
         .args(["--plan"])
@@ -479,16 +623,22 @@ fn run_reference_contract_release(
         .args(["--pubkey"])
         .arg(pubkey)
         .args(["--key-id", "reference-release-key", "--out-dir"])
-        .arg(out_dir)
-        .assert()
-        .success();
+        .arg(out_dir);
+    if let Some(prior_state_schema) = prior_state_schema {
+        command.args(["--prior-state-schema"]).arg(prior_state_schema);
+    }
+    command.assert().success();
 }
 
 fn verify_reference_release_bundle(out_dir: &Path, pubkey: &Path) {
+    verify_contract_release_bundle(out_dir, "counter", pubkey);
+}
+
+fn verify_contract_release_bundle(out_dir: &Path, stem: &str, pubkey: &Path) {
     Command::cargo_bin("clg")
         .expect("clg binary")
         .args(["contract", "verify-release", "--bundle"])
-        .arg(out_dir.join("counter.contract-release-bundle.json"))
+        .arg(out_dir.join(format!("{stem}.contract-release-bundle.json")))
         .args(["--pubkey"])
         .arg(pubkey)
         .assert()

@@ -339,8 +339,8 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       and reject omitted, substituted, or traversal-path campaign evidence.
       (`docs/design/phase-30.6.4-campaign-evidence-lock.md`,
       `crates/cli/src/commands/contract_release.rs`) `Completed: 2026-08-30`.
-  - [ ] 30.6.5 Add deterministic release-workflow fixtures that exercise the supported product
-    boundary from source through independent release verification.
+  - [x] 30.6.5 Add deterministic release-workflow fixtures that exercise the supported product
+    boundary from source through independent release verification. `Completed: 2026-08-30`.
     - [x] 30.6.5.1 Create a reference stateful-contract fixture that proves, tests, simulates,
       releases, deploys/invokes on the locked target profile, and independently runs
       `clg contract verify-release` using only the emitted bundle.
@@ -360,9 +360,11 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
       `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`)
       `Completed: 2026-08-30`.
-    - [ ] 30.6.5.4 Include supported upgrade/migration and reentrancy-negative scenarios in the
+    - [x] 30.6.5.4 Include supported upgrade/migration and reentrancy-negative scenarios in the
       end-to-end fixture suite, proving the stated state compatibility and CEI boundaries remain
       enforced after packaging.
+      (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
+      `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-08-30`.
   - [ ] 30.6.6 Make the complete 30.6.5 fixture suite a required offline CI gate. CI must run
     the actual `contract release` then `verify-release` happy path, deterministic replay checks,
     and the tamper/replay/reentrancy/upgrade-negative matrix; publish the command list and

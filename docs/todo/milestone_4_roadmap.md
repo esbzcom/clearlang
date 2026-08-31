@@ -365,10 +365,12 @@ The promoted adapter is deliberately narrow: it consumes only `StateRead`, `Stat
       enforced after packaging.
       (`docs/design/phase-30.6.5-reference-release-fixture-lock.md`,
       `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-08-30`.
-  - [ ] 30.6.6 Make the complete 30.6.5 fixture suite a required offline CI gate. CI must run
+  - [x] 30.6.6 Make the complete 30.6.5 fixture suite a required offline CI gate. CI must run
     the actual `contract release` then `verify-release` happy path, deterministic replay checks,
     and the tamper/replay/reentrancy/upgrade-negative matrix; publish the command list and
     retained evidence locations in the CI evidence record.
+    (`.github/workflows/ci.yml`, `docs/evidence/phase-30.6-contract-release-ci.md`)
+    `Completed: 2026-08-30`.
   - [ ] 30.6.7 Perform final release-closure review. Mark Release Gate F and the Milestone 4
     exit criteria complete only after the required CI gate passes and the product contract,
     compatibility policy, operations guide, and release checklist accurately describe the

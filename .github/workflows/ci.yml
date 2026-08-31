@@ -38,9 +38,12 @@ jobs:
       - name: Milestone 4 contract release workflow gates
         run: |
           set -euo pipefail
+          rm -rf tmp/contract-release-fixtures
+          mkdir -p tmp/contract-release-fixtures
+          CLG_CONTRACT_RELEASE_EVIDENCE_DIR=tmp/contract-release-fixtures \
+            cargo test -p clg-cli --test cli_it basic::contract_release_
           cargo test -p clg-cli --test cli_it basic::build_emits_stateful_evm_artifact_with_schema_bound_slots_and_transitions
           cargo test -p clg-cli --test cli_it basic::contract_test_campaign_is_seeded_replayable_and_captures_simulator_traces
-          cargo test -p clg-cli --test cli_it basic::contract_release_help_exposes_the_complete_evidence_contract
           cargo test -p clg-cli --test cli_it basic::build_checks_contract_state_schema_is_append_only
           cargo test -p clg-cli --test cli_it basic::build_rejects_adversarial_contract_external_call_without_an_adapter
           cargo test -p clg-cli --test cli_it basic::target_commands_require_explicit_configuration_and_deploy_signing_policy
@@ -149,6 +152,11 @@ jobs:
         with:
           name: milestone2-supply-chain
           path: tmp/sbom/*
+      - name: Upload milestone_4 contract release fixture evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: milestone4-contract-release-fixtures
+          path: tmp/contract-release-fixtures/*
       - name: Validate emitted Wasm
         run: |
           set -euo pipefail

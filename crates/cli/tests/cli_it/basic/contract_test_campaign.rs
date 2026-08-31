@@ -247,6 +247,7 @@ fn contract_release_reference_fixture_completes_release_target_and_independent_v
     assert!(deploy_receipt.is_file());
     assert!(invoke_receipt.is_file());
     assert_eq!(invoke_server.join().expect("join invoke RPC").len(), 3);
+    retain_release_fixture("happy-path", &out_dir);
 }
 
 #[test]
@@ -293,6 +294,7 @@ fn contract_release_reference_fixture_is_reproducible_under_controlled_inputs() 
         reproducible_bundle_projection(&bundle),
         "bundle manifest must reproduce after excluding documented time-derived evidence"
     );
+    retain_release_fixture("reproducible", &out_dir);
 }
 
 #[test]
@@ -412,6 +414,7 @@ fn contract_release_verification_rejects_every_packaged_evidence_tamper_class() 
             },
         );
     });
+    retain_release_fixture("tamper-baseline", &release);
 }
 
 #[test]
@@ -544,11 +547,14 @@ fn contract_release_fixture_packages_supported_migration_and_rejects_reentrancy_
         !rejected_release.join("counter-reentrant.contract-release-bundle.json").exists(),
         "a CEI-violating candidate must never produce a packaged release bundle"
     );
+    retain_release_fixture("migration-v1", &v1_release);
+    retain_release_fixture("migration-v2", &v2_release);
 }
 
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
+use std::env;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::thread;
@@ -682,6 +688,19 @@ fn copy_release_tree(source: &Path, destination: &Path) {
             fs::copy(&source_path, &destination_path).expect("copy release evidence file");
         }
     }
+}
+
+fn retain_release_fixture(name: &str, release: &Path) {
+    let Some(root) = env::var_os("CLG_CONTRACT_RELEASE_EVIDENCE_DIR") else {
+        return;
+    };
+    let destination = PathBuf::from(root).join(name);
+    assert!(
+        !destination.exists(),
+        "refusing to overwrite retained contract release fixture `{}`",
+        destination.display()
+    );
+    copy_release_tree(release, &destination);
 }
 
 fn rewrite_json(path: &Path, change: impl FnOnce(&mut Value)) {

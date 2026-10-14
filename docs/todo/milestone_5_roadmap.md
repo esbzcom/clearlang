@@ -239,9 +239,11 @@ contract platform.
     event, invariant, and all permitted transitions in the project README and source contracts.
     (`examples/projects/reference-config-registry/v1/README.md`,
     `examples/projects/reference-config-registry/v1/config_registry.clear`) `Completed: 2026-10-14`.
-  - [ ] 42.1.2 Implement deterministic source, manifest, test plan, campaign inputs, simulator
+  - [x] 42.1.2 Implement deterministic source, manifest, test plan, campaign inputs, simulator
     expected traces, release inputs, and signed public test fixtures. Keep all private keys and
     live endpoints outside the repository and fixture format.
+    (`examples/projects/reference-config-registry/v1/fixture-manifest.json`,
+    `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-14`.
   - [ ] 42.1.3 Add v1 and v2 migration fixtures plus source-to-receipt integration tests. Assert
     proof success for valid owner updates, rejection/non-commit for others, release verification
     in an independent directory, and target-receipt identity binding.

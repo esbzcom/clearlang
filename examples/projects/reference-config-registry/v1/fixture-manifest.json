@@ -1,0 +1,23 @@
+{
+  "format": "clg.reference-contract-fixture-manifest.v1",
+  "schema_version": 1,
+  "contract": {
+    "name": "ConfigRegistry",
+    "version": 1
+  },
+  "files": {
+    "campaign_plan": "plans/owner-update.campaign.json",
+    "constructor_args": "release/constructor-args.json",
+    "initial_state": "fixtures/initial-state.json",
+    "non_owner_expected_trace": "expected/non-owner-set-value.trace.json",
+    "owner_arguments": "fixtures/owner-set-value.args.json",
+    "owner_expected_trace": "expected/owner-set-value.trace.json",
+    "public_release_signer": "release/public-release-signer.json",
+    "public_signature_fixture": "release/public-signature-fixture.json",
+    "release_call_arguments": "release/authorized-set-value.args.json"
+  },
+  "security": {
+    "live_endpoints": "forbidden",
+    "private_keys": "forbidden"
+  }
+}

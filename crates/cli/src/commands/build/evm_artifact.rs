@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clg_ast::{ContractDecl, Effect, Expr, Func, Program, Stmt, Type};
-use clg_ir::{Function as IrFunction, Instr, Module as IrModule, Value};
+use clg_ir::{Function as IrFunction, GuardKind, Instr, Module as IrModule, TrapCode, Value};
 use serde_json::{json, Value as JsonValue};
 use sha3::{Digest, Keccak256};
 
@@ -69,6 +70,7 @@ fn static_artifact(
                     .expect("wire ABI selector")
                     .to_string(),
                 code: static_handler(compile_static_pure_function(function)?),
+                guard_jumps: Vec::new(),
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -108,13 +110,14 @@ fn stateful_artifact(
     for (function, descriptor) in contract.functions.iter().zip(descriptors) {
         ensure_scalar_signature(function)?;
         let lowered = find_lowered_function(ir, &function.name)?;
-        let (code, operations) = compile_transition(lowered, function.params.len(), &storage, &events, false)?;
+        let (code, operations, guard_jumps) = compile_transition(lowered, function.params.len(), &storage, &events, false)?;
         handlers.push(Handler {
             selector: descriptor["selector"]
                 .as_str()
                 .expect("wire ABI selector")
                 .to_string(),
             code,
+            guard_jumps,
         });
         mappings.push(json!({ "function": function.name, "operations": operations }));
     }
@@ -125,12 +128,11 @@ fn stateful_artifact(
         Some(init) => {
             ensure_scalar_params(&init.params)?;
             let lowered = find_lowered_function(ir, &format!("__clg_contract_init${}", contract.name))?;
-            let (code, operations) = compile_transition(lowered, init.params.len(), &storage, &events, true)?;
+            let (mut code, operations, guard_jumps) = compile_transition(lowered, init.params.len(), &storage, &events, true)?;
             mappings.push(json!({ "function": format!("{}::init", contract.name), "operations": operations }));
-            constructor_parameter_loader(init.params.len())?
-                .into_iter()
-                .chain(code)
-                .collect()
+            let loader = constructor_parameter_loader(init.params.len())?;
+            patch_guard_destinations(&mut code, &guard_jumps, loader.len())?;
+            loader.into_iter().chain(code).collect()
         }
         None if contract.fields.is_empty() => Vec::new(),
         None => bail!("EVM stateful scalar profile requires a direct `init` for every state field"),
@@ -314,7 +316,13 @@ fn stmt_reads_state(stmt: &Stmt) -> bool {
     }
 }
 
-struct Handler { selector: String, code: Vec<u8> }
+struct Handler {
+    selector: String,
+    code: Vec<u8>,
+    // Each entry points to the two-byte immediate of a JUMPI destination.
+    // It is linked only after the handler's absolute runtime offset is known.
+    guard_jumps: Vec<usize>,
+}
 
 fn compile_transition(
     function: &IrFunction,
@@ -322,9 +330,13 @@ fn compile_transition(
     storage: &BTreeMap<String, StorageField>,
     events: &BTreeMap<String, [u8; 32]>,
     constructor: bool,
-) -> Result<(Vec<u8>, Vec<JsonValue>)> {
+) -> Result<(Vec<u8>, Vec<JsonValue>, Vec<usize>)> {
     let mut code = if constructor { Vec::new() } else { runtime_parameter_loader(param_count)? };
     let mut mappings = Vec::new();
+    let mut caller_values = BTreeSet::new();
+    let mut address_state_values = BTreeSet::new();
+    let mut caller_authorization_conditions = BTreeSet::new();
+    let mut guard_jumps = Vec::new();
     for instruction in &function.body {
         match instruction {
             Instr::IConst { dst, n, .. } => {
@@ -336,11 +348,15 @@ fn compile_transition(
                 code.extend(push32(field.slot_bytes));
                 code.push(0x54); // SLOAD
                 code.extend(store_value(*dst)?);
+                if field.ty == "std::eth::Address" {
+                    address_state_values.insert(dst.0);
+                }
                 mappings.push(json!({ "kind": "StateRead", "field_id": field.field_id, "slot": field.slot }));
             }
             Instr::ContextCaller { dst } => {
                 code.push(0x33); // CALLER
                 code.extend(store_value(*dst)?);
+                caller_values.insert(dst.0);
                 mappings.push(json!({ "kind": "ContextCaller", "opcode": "CALLER" }));
             }
             Instr::AddressEq { dst, lhs, rhs } => {
@@ -348,8 +364,28 @@ fn compile_transition(
                 code.extend(load_value(*rhs)?);
                 code.push(0x14); // EQ
                 code.extend(store_value(*dst)?);
+                if (caller_values.contains(&lhs.0) && address_state_values.contains(&rhs.0))
+                    || (caller_values.contains(&rhs.0) && address_state_values.contains(&lhs.0))
+                {
+                    caller_authorization_conditions.insert(dst.0);
+                }
                 mappings.push(json!({ "kind": "AddressEq", "opcode": "EQ" }));
             }
+            Instr::Guard { cond, trap: TrapCode::ContractViolation, detail: GuardKind::Require, .. }
+                if caller_authorization_conditions.contains(&cond.0) => {
+                    code.extend(load_value(*cond)?);
+                    code.push(0x15); // ISZERO
+                    code.push(0x61); // PUSH2; linked to this handler's local REVERT block below.
+                    guard_jumps.push(code.len());
+                    code.extend([0x00, 0x00]);
+                    code.push(0x57); // JUMPI
+                    mappings.push(json!({
+                        "kind": "CallerAuthorizationGuard",
+                        "condition": cond.0,
+                        "opcode": "ISZERO/JUMPI/REVERT",
+                        "trap": "ContractViolation",
+                    }));
+                }
             Instr::StateWrite { field, src, .. } => {
                 let field = storage.get(field).ok_or_else(|| anyhow!("unknown state field `{field}`"))?;
                 code.extend(load_value(*src)?);
@@ -385,7 +421,33 @@ fn compile_transition(
     if !constructor && !function.body.iter().any(|instruction| matches!(instruction, Instr::Ret { .. })) {
         bail!("EVM stateful scalar function `{}` does not return", function.name)
     }
-    Ok((code, mappings))
+    if !guard_jumps.is_empty() {
+        code.extend([0x5b, 0x60, 0x00, 0x60, 0x00, 0xfd]); // JUMPDEST; REVERT(0, 0)
+    }
+    Ok((code, mappings, guard_jumps))
+}
+
+fn patch_guard_destinations(code: &mut [u8], guard_jumps: &[usize], code_offset: usize) -> Result<()> {
+    if guard_jumps.is_empty() {
+        return Ok(());
+    }
+    let revert_offset = code
+        .len()
+        .checked_sub(6)
+        .ok_or_else(|| anyhow!("missing caller-authorization revert block"))?;
+    let destination = u16::try_from(
+        code_offset
+            .checked_add(revert_offset)
+            .ok_or_else(|| anyhow!("EVM runtime is too large"))?,
+    )
+    .map_err(|_| anyhow!("EVM runtime is too large"))?;
+    for jump in guard_jumps {
+        let target = code
+            .get_mut(*jump..jump.saturating_add(2))
+            .ok_or_else(|| anyhow!("malformed caller-authorization jump"))?;
+        target.copy_from_slice(&destination.to_be_bytes());
+    }
+    Ok(())
 }
 
 fn runtime_parameter_loader(count: usize) -> Result<Vec<u8>> {
@@ -457,7 +519,7 @@ fn emit_runtime(handlers: &[Handler]) -> Result<Vec<u8>> {
         next = next.checked_add(1 + handler.code.len()).ok_or_else(|| anyhow!("EVM runtime is too large"))?;
     }
     let mut runtime = vec![0x60, 0x00, 0x35, 0x60, 0xe0, 0x1c];
-    for (handler, offset) in handlers.iter().zip(offsets) {
+    for (handler, offset) in handlers.iter().zip(offsets.iter().copied()) {
         let selector = hex::decode(handler.selector.strip_prefix("0x").ok_or_else(|| anyhow!("malformed selector"))?)?;
         if selector.len() != 4 { bail!("malformed selector") }
         runtime.extend([0x80, 0x63]);
@@ -465,9 +527,11 @@ fn emit_runtime(handlers: &[Handler]) -> Result<Vec<u8>> {
         runtime.extend([0x14, 0x61, (offset >> 8) as u8, offset as u8, 0x57]);
     }
     runtime.extend([0x60, 0x00, 0x60, 0x00, 0xfd]);
-    for handler in handlers {
+    for (handler, offset) in handlers.iter().zip(offsets.iter().copied()) {
+        let mut code = handler.code.clone();
+        patch_guard_destinations(&mut code, &handler.guard_jumps, offset + 1)?;
         runtime.push(0x5b);
-        runtime.extend(&handler.code);
+        runtime.extend(code);
     }
     Ok(runtime)
 }
@@ -572,12 +636,176 @@ mod tests {
                 Instr::Ret { val: Value(1) },
             ],
         };
-        let (code, mapping) = compile_transition(&function, 0, &BTreeMap::new(), &BTreeMap::new(), false)
+        let (code, mapping, _) = compile_transition(&function, 0, &BTreeMap::new(), &BTreeMap::new(), false)
             .expect("compile caller transition");
         assert!(code.contains(&0x33), "CALLER opcode must be present");
         assert!(code.contains(&0x14), "EQ opcode must be present");
         assert!(mapping.iter().any(|entry| entry["kind"] == "ContextCaller"));
         assert!(mapping.iter().any(|entry| entry["kind"] == "AddressEq"));
+    }
+
+    #[test]
+    fn caller_authorization_guard_reverts_before_an_unauthorized_state_write() {
+        let program = parse(r#"
+            contract Vault version 1 {
+                state { owner: std::eth::Address; value: U64; }
+                init(owner: std::eth::Address) { state.owner = owner; state.value = U64(0); 0 }
+                mut function set_value(value: U64) -> U64
+                    require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+                { state.value = value; state.value }
+            }
+        "#)
+        .expect("parse");
+        let ir = IrModule {
+            funcs: vec![
+                IrFunction {
+                    name: "__clg_contract_init$Vault".to_string(),
+                    params: vec![IrType::Int],
+                    ret: Some(IrType::Int),
+                    body: vec![
+                        Instr::StateWrite {
+                            contract: "Vault".to_string(),
+                            field: "owner".to_string(),
+                            src: Value(0),
+                            ty: IrType::Int,
+                        },
+                        Instr::IConst {
+                            dst: Value(1),
+                            n: 0,
+                            ty: IrType::U64,
+                        },
+                        Instr::StateWrite {
+                            contract: "Vault".to_string(),
+                            field: "value".to_string(),
+                            src: Value(1),
+                            ty: IrType::U64,
+                        },
+                        Instr::Ret { val: Value(1) },
+                    ],
+                },
+                IrFunction {
+                    name: "set_value".to_string(),
+                    params: vec![IrType::U64],
+                    ret: Some(IrType::U64),
+                    body: vec![
+                        Instr::ContextCaller { dst: Value(1) },
+                        Instr::StateRead {
+                            dst: Value(2),
+                            contract: "Vault".to_string(),
+                            field: "owner".to_string(),
+                            ty: IrType::Int,
+                        },
+                        Instr::AddressEq {
+                            dst: Value(3),
+                            lhs: Value(1),
+                            rhs: Value(2),
+                        },
+                        Instr::Guard {
+                            cond: Value(3),
+                            trap: TrapCode::ContractViolation,
+                            span: None,
+                            detail: GuardKind::Require,
+                        },
+                        Instr::StateWrite {
+                            contract: "Vault".to_string(),
+                            field: "value".to_string(),
+                            src: Value(0),
+                            ty: IrType::U64,
+                        },
+                        Instr::Ret { val: Value(0) },
+                    ],
+                },
+            ],
+        };
+        let artifact = evm_artifact(&program, &ir, None).expect("artifact");
+        let operations = &artifact["state_mapping"]["transition_mapping"][0]["operations"];
+        assert!(
+            operations
+                .as_array()
+                .expect("operations")
+                .iter()
+                .any(|operation| operation["kind"] == "CallerAuthorizationGuard")
+        );
+
+        let owner = [0x11; 20];
+        let non_owner = [0x22; 20];
+        let mut creation = hex::decode(
+            artifact["bytecode"]
+                .as_str()
+                .expect("bytecode")
+                .trim_start_matches("0x"),
+        )
+        .expect("hex");
+        creation.extend(address_word(owner));
+        let mut storage = BTreeMap::new();
+        let runtime = run_evm_as(&creation, &[], &mut storage, owner)
+            .expect("constructor")
+            .0;
+
+        let wire = evm_wire_abi_artifact(&program, None).expect("wire ABI");
+        let selector = wire["functions"]
+            .as_array()
+            .expect("functions")
+            .iter()
+            .find(|function| function["name"] == "set_value")
+            .and_then(|function| function["selector"].as_str())
+            .expect("selector");
+        let mut allowed = hex::decode(selector.trim_start_matches("0x")).expect("selector hex");
+        allowed.extend(unsigned_word(9));
+        assert_eq!(
+            run_evm_as(&runtime, &allowed, &mut storage, owner)
+                .expect("authorized write")
+                .0,
+            unsigned_word(9)
+        );
+
+        let value_slot = artifact["state_mapping"]["storage_layout"]
+            .as_array()
+            .expect("storage layout")
+            .iter()
+            .find(|field| field["field"] == "value")
+            .and_then(|field| field["slot"].as_str())
+            .map(decode_fixed_32)
+            .expect("value slot")
+            .expect("value slot bytes");
+        assert_eq!(storage.get(&value_slot), Some(&unsigned_word(9)));
+
+        let mut denied = hex::decode(selector.trim_start_matches("0x")).expect("selector hex");
+        denied.extend(unsigned_word(10));
+        assert!(
+            run_evm_as(&runtime, &denied, &mut storage, non_owner)
+                .unwrap_err()
+                .to_string()
+                .contains("revert")
+        );
+        assert_eq!(storage.get(&value_slot), Some(&unsigned_word(9)));
+    }
+
+    #[test]
+    fn rejects_guard_that_is_not_the_verified_caller_authorization_shape() {
+        let function = IrFunction {
+            name: "unmapped_guard".to_string(),
+            params: Vec::new(),
+            ret: Some(IrType::Bool),
+            body: vec![
+                Instr::IConst {
+                    dst: Value(0),
+                    n: 1,
+                    ty: IrType::Bool,
+                },
+                Instr::Guard {
+                    cond: Value(0),
+                    trap: TrapCode::ContractViolation,
+                    span: None,
+                    detail: GuardKind::Require,
+                },
+                Instr::Ret { val: Value(0) },
+            ],
+        };
+        assert!(compile_transition(&function, 0, &BTreeMap::new(), &BTreeMap::new(), false)
+            .unwrap_err()
+            .to_string()
+            .contains("no verified mapping"));
     }
 
     #[test]
@@ -745,6 +973,16 @@ mod tests {
 
     #[allow(clippy::type_complexity)]
     fn run_evm(code: &[u8], calldata: &[u8], storage: &mut BTreeMap<[u8; 32], [u8; 32]>) -> Result<(Vec<u8>, Vec<([u8; 32], Vec<u8>)>)> {
+        run_evm_as(code, calldata, storage, [0; 20])
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn run_evm_as(
+        code: &[u8],
+        calldata: &[u8],
+        storage: &mut BTreeMap<[u8; 32], [u8; 32]>,
+        caller: [u8; 20],
+    ) -> Result<(Vec<u8>, Vec<([u8; 32], Vec<u8>)>)> {
         let mut pc = 0; let mut stack = Vec::<[u8; 32]>::new(); let mut memory = Vec::new(); let mut logs = Vec::new();
         for _ in 0..10_000 {
             let op = *code.get(pc).ok_or_else(|| anyhow!("end of code"))?; pc += 1;
@@ -754,8 +992,10 @@ mod tests {
                 0x01 => { let right=pop(&mut stack)?; let left=pop(&mut stack)?; stack.push(word_add(left,right)); }
                 0x03 => { let right=pop(&mut stack)?; let left=pop(&mut stack)?; stack.push(word_sub(left,right)); }
                 0x14 => { let right=pop(&mut stack)?; let left=pop(&mut stack)?; stack.push(unsigned_word(u128::from(left==right))); }
+                0x15 => { let value = pop(&mut stack)?; stack.push(unsigned_word(u128::from(value == [0; 32]))); }
                 0x1c => { let shift=word_usize(pop(&mut stack)?)?; let value=pop(&mut stack)?; stack.push(word_shr(value,shift)); }
                 0x35 => { let offset=word_usize(pop(&mut stack)?)?; stack.push(read_word(calldata,offset)); }
+                0x33 => stack.push(address_word(caller)),
                 0x38 => stack.push(unsigned_word(code.len() as u128)),
                 0x39 => { let destination=word_usize(pop(&mut stack)?)?; let source=word_usize(pop(&mut stack)?)?; let size=word_usize(pop(&mut stack)?)?; ensure_mem(&mut memory,destination+size); for index in 0..size { memory[destination+index]=code.get(source+index).copied().unwrap_or(0); } }
                 0x51 => { let offset=word_usize(pop(&mut stack)?)?; stack.push(read_word(&memory,offset)); }
@@ -774,6 +1014,7 @@ mod tests {
     }
 
     fn ensure_mem(memory: &mut Vec<u8>, size: usize) { if memory.len()<size { memory.resize(size,0); } }
+    fn address_word(address: [u8; 20]) -> [u8; 32] { let mut word = [0; 32]; word[12..].copy_from_slice(&address); word }
     fn read_word(memory: &[u8], offset: usize) -> [u8;32] { let mut word=[0;32]; for (index, byte) in word.iter_mut().enumerate() { *byte=memory.get(offset+index).copied().unwrap_or(0); } word }
     fn word_usize(word: [u8;32]) -> Result<usize> { usize::try_from(u64::from_be_bytes(word[24..].try_into().expect("tail"))).map_err(|_| anyhow!("usize")) }
     fn word_add(left: [u8;32], right: [u8;32]) -> [u8;32] { let mut out=[0;32]; let mut carry=0u16; for index in (0..32).rev() { let sum=left[index] as u16+right[index] as u16+carry; out[index]=sum as u8; carry=sum>>8; } out }

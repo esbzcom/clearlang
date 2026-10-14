@@ -1,0 +1,39 @@
+{
+  "block": {
+    "number": 7,
+    "timestamp": 8
+  },
+  "caller": "0x1111111111111111111111111111111111111111",
+  "contract": "ConfigRegistry",
+  "events": [
+    {
+      "args": [
+        7
+      ],
+      "event": "ValueChanged"
+    }
+  ],
+  "fuel_limit": 100,
+  "fuel_used": 8,
+  "function": "set_value",
+  "lifecycle": "transition",
+  "result": 7,
+  "schema_version": 1,
+  "state_after": {
+    "owner": "0x1111111111111111111111111111111111111111",
+    "value": 7
+  },
+  "state_before": {
+    "owner": "0x1111111111111111111111111111111111111111",
+    "value": 0
+  },
+  "state_changes": [
+    {
+      "field": "value",
+      "value": 7
+    }
+  ],
+  "status": "success",
+  "trace_format": "clg.contract-simulation-trace.v1",
+  "value": 0
+}

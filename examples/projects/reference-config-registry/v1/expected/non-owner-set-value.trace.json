@@ -1,0 +1,43 @@
+{
+  "block": {
+    "number": 7,
+    "timestamp": 8
+  },
+  "caller": "0x2222222222222222222222222222222222222222",
+  "contract": "ConfigRegistry",
+  "events": [],
+  "failure": "simulator contract guard failed",
+  "failure_location": {
+    "end": 620,
+    "file": "config_registry.clear",
+    "function": "set_value",
+    "start": 544
+  },
+  "fuel_limit": 100,
+  "fuel_used": 4,
+  "function": "set_value",
+  "lifecycle": "transition",
+  "result": null,
+  "schema_version": 1,
+  "stack": [
+    {
+      "end": 620,
+      "file": "config_registry.clear",
+      "function": "set_value",
+      "instruction": 3,
+      "start": 544
+    }
+  ],
+  "state_after": {
+    "owner": "0x1111111111111111111111111111111111111111",
+    "value": 0
+  },
+  "state_before": {
+    "owner": "0x1111111111111111111111111111111111111111",
+    "value": 0
+  },
+  "state_changes": [],
+  "status": "failure",
+  "trace_format": "clg.contract-simulation-trace.v1",
+  "value": 0
+}

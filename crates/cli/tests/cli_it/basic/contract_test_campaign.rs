@@ -72,6 +72,157 @@ fn contract_test_campaign_is_seeded_replayable_and_captures_simulator_traces() {
 }
 
 #[test]
+fn reference_configuration_registry_v1_public_fixture_replays_without_secrets() {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+    let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/projects/reference-config-registry/v1");
+    let source = project.join("config_registry.clear");
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(project.join("fixture-manifest.json")).expect("read fixture manifest"),
+    )
+    .expect("parse fixture manifest");
+    assert_eq!(manifest["format"], "clg.reference-contract-fixture-manifest.v1");
+    assert_eq!(manifest["security"]["private_keys"], "forbidden");
+    assert_eq!(manifest["security"]["live_endpoints"], "forbidden");
+    for path in manifest["files"].as_object().expect("fixture paths").values() {
+        let fixture = project.join(path.as_str().expect("fixture path"));
+        assert!(fixture.is_file(), "manifested fixture must be checked in");
+        assert!(
+            !String::from_utf8(fs::read(&fixture).expect("read manifested fixture"))
+                .expect("fixture UTF-8")
+                .contains("private_key"),
+            "public fixture format must not contain a private key"
+        );
+    }
+
+    let signature_fixture: Value = serde_json::from_slice(
+        &fs::read(project.join("release/public-signature-fixture.json"))
+            .expect("read public signature fixture"),
+    )
+    .expect("parse public signature fixture");
+    let release_signer: Value = serde_json::from_slice(
+        &fs::read(project.join("release/public-release-signer.json"))
+            .expect("read public release signer"),
+    )
+    .expect("parse public release signer");
+    assert_eq!(release_signer["scheme"], signature_fixture["scheme"]);
+    assert_eq!(release_signer["public_key"], signature_fixture["public_key"]);
+    let public_key: [u8; 32] = hex::decode(signature_fixture["public_key"].as_str().expect("public key"))
+        .expect("public key hex")
+        .try_into()
+        .expect("public key width");
+    let signature = Signature::from_slice(
+        &hex::decode(signature_fixture["signature"].as_str().expect("signature"))
+            .expect("signature hex"),
+    )
+    .expect("signature width");
+    VerifyingKey::from_bytes(&public_key)
+        .expect("valid public key")
+        .verify(signature_fixture["payload"].as_str().expect("payload").as_bytes(), &signature)
+        .expect("public test signature must verify");
+
+    let dir = tempdir().expect("tempdir");
+    let owner = "0x1111111111111111111111111111111111111111";
+    let non_owner = "0x2222222222222222222222222222222222222222";
+    let run_simulation = |args: &str, caller: &str, name: &str| {
+        let state_out = dir.path().join(format!("{name}.state.json"));
+        let trace_out = dir.path().join(format!("{name}.trace.json"));
+        let mut command = Command::cargo_bin("clg").expect("clg binary");
+        command.args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            project.join("fixtures/initial-state.json").to_str().expect("state path"),
+            "--args",
+            project.join(args).to_str().expect("arguments path"),
+            "--state-out",
+            state_out.to_str().expect("state output path"),
+            "--trace-out",
+            trace_out.to_str().expect("trace output path"),
+            "--caller",
+            caller,
+            "--value",
+            "0",
+            "--block-number",
+            "7",
+            "--timestamp",
+            "8",
+            "--gas-limit",
+            "100",
+            "--memory-limit",
+            "1048576",
+        ]);
+        (command, state_out, trace_out)
+    };
+
+    let (mut owner_command, owner_state_out, owner_trace_out) =
+        run_simulation("fixtures/owner-set-value.args.json", owner, "owner");
+    owner_command.assert().success();
+    assert!(owner_state_out.is_file());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&owner_trace_out).expect("read owner trace"))
+            .expect("parse owner trace"),
+        serde_json::from_slice::<Value>(
+            &fs::read(project.join("expected/owner-set-value.trace.json"))
+                .expect("read expected owner trace"),
+        )
+        .expect("parse expected owner trace")
+    );
+
+    let (mut denied_command, denied_state_out, denied_trace_out) =
+        run_simulation("fixtures/non-owner-set-value.args.json", non_owner, "non-owner");
+    denied_command
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("simulator contract guard failed"));
+    assert!(!denied_state_out.exists(), "rejected transition must not commit state");
+    let mut denied_trace: Value =
+        serde_json::from_slice(&fs::read(denied_trace_out).expect("read rejected trace"))
+            .expect("parse rejected trace");
+    denied_trace["failure_location"]["file"] = Value::String("config_registry.clear".to_string());
+    for frame in denied_trace["stack"].as_array_mut().expect("failure stack") {
+        frame["file"] = Value::String("config_registry.clear".to_string());
+    }
+    assert_eq!(
+        denied_trace,
+        serde_json::from_slice::<Value>(
+            &fs::read(project.join("expected/non-owner-set-value.trace.json"))
+                .expect("read expected rejected trace"),
+        )
+        .expect("parse expected rejected trace")
+    );
+
+    let campaign_report = dir.path().join("campaign.report.json");
+    let campaign_traces = dir.path().join("campaign-traces");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "contract",
+            "test",
+            source.to_str().expect("source path"),
+            "--plan",
+            project
+                .join("plans/owner-update.campaign.json")
+                .to_str()
+                .expect("campaign plan path"),
+            "--report-out",
+            campaign_report.to_str().expect("campaign report path"),
+            "--trace-dir",
+            campaign_traces.to_str().expect("campaign trace path"),
+        ])
+        .assert()
+        .success();
+    let campaign: Value =
+        serde_json::from_slice(&fs::read(campaign_report).expect("read campaign report"))
+            .expect("parse campaign report");
+    assert_eq!(campaign["status"], "success");
+    assert_eq!(campaign["cases"].as_array().map(Vec::len), Some(3));
+}
+
+#[test]
 fn caller_aware_campaign_replays_deterministically_and_rejects_substituted_callers() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("config_registry.clear");

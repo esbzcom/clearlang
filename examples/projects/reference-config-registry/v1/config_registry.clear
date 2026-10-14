@@ -25,3 +25,6 @@ contract ConfigRegistry version 1 {
         next
     }
 }
+
+// Required by the current compiler entry contract; this is not a target transition.
+function main() -> Int { 0 }

@@ -81,6 +81,8 @@ fn proof_coverage_matrix_is_complete_and_stable() {
         "std::crypto::hash",
         "std::crypto::hmac",
         "std::crypto::verify",
+        "std::eth::address::equals",
+        "std::eth::context::caller",
         "std::list::get",
         "std::list::insert",
         "std::list::insert_checked",

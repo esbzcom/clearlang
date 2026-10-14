@@ -230,7 +230,7 @@ contract platform.
     (`docs/design/phase-42.0.3-sepolia-offline-rpc-fixture-lock.md`,
     `docs/fixtures/phase-42.0.3/sepolia-rpc-fixtures.json`) `Completed: 2026-10-14`.
 
-- [ ] 42.1 Add a versioned reference configuration-registry project. It must initialize a fixed
+- [x] 42.1 Add a versioned reference configuration-registry project. It must initialize a fixed
   owner, permit that owner alone to update a bounded scalar configuration, emit a canonical event,
   preserve a stated invariant, and provide a migration-compatible v2 scenario. Its local fixture
   must prove, campaign-test, simulate, release, independently verify, deploy/invoke through the
@@ -244,9 +244,11 @@ contract platform.
     live endpoints outside the repository and fixture format.
     (`examples/projects/reference-config-registry/v1/fixture-manifest.json`,
     `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-14`.
-  - [ ] 42.1.3 Add v1 and v2 migration fixtures plus source-to-receipt integration tests. Assert
+  - [x] 42.1.3 Add v1 and v2 migration fixtures plus source-to-receipt integration tests. Assert
     proof success for valid owner updates, rejection/non-commit for others, release verification
     in an independent directory, and target-receipt identity binding.
+    (`examples/projects/reference-config-registry/v2/`,
+    `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-14`.
 
 - [ ] 42.2 Add an explicit operator command/runbook for the testnet exercise. It must require
   operator-provided endpoint, chain ID, signer key, sender, nonce, gas limit, fee, constructor

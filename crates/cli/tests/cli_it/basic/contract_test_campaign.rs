@@ -223,6 +223,219 @@ fn reference_configuration_registry_v1_public_fixture_replays_without_secrets() 
 }
 
 #[test]
+fn reference_configuration_registry_migrates_releases_and_binds_target_receipts() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/projects/reference-config-registry");
+    let dir = tempdir().expect("tempdir");
+    let v1_source = dir.path().join("config-registry-v1.clear");
+    let v1_plan = dir.path().join("config-registry-v1.campaign.json");
+    let v2_source = dir.path().join("config-registry-v2.clear");
+    let v2_plan = dir.path().join("config-registry-v2.campaign.json");
+    fs::copy(root.join("v1/config_registry.clear"), &v1_source).expect("copy v1 source");
+    fs::copy(root.join("v1/plans/owner-update.campaign.json"), &v1_plan)
+        .expect("copy v1 campaign plan");
+    fs::copy(root.join("v2/config_registry.clear"), &v2_source).expect("copy v2 source");
+    fs::copy(root.join("v2/plans/owner-update.campaign.json"), &v2_plan)
+        .expect("copy v2 campaign plan");
+    write_minimal_strict_contract_inputs(&dir);
+    let (key, pubkey) = write_release_key_material(&dir);
+    let solver = write_verified_unsat_solver(&dir);
+
+    let v1_release = dir.path().join("v1-release");
+    run_reference_contract_release(&v1_source, &v1_plan, &key, &pubkey, &v1_release, &solver);
+    verify_contract_release_bundle(&v1_release, "config-registry-v1", &pubkey);
+    let v1_schema_path = v1_release.join("config-registry-v1.schema.json");
+    let v1_schema: Value =
+        serde_json::from_slice(&fs::read(&v1_schema_path).expect("read v1 schema"))
+            .expect("parse v1 schema");
+    let v1_digest = v1_schema["schema"]["digest"]
+        .as_str()
+        .expect("v1 schema digest");
+    let migration: Value = serde_json::from_slice(
+        &fs::read(root.join("v2/migration-fixture.json")).expect("read migration fixture"),
+    )
+    .expect("parse migration fixture");
+    assert_eq!(migration["from"]["schema_digest"], v1_digest);
+    assert_eq!(
+        v1_schema["caller_authorization"]["transitions"][0]["function"],
+        "set_value"
+    );
+    let v1_proof: Value = serde_json::from_slice(
+        &fs::read(v1_release.join("config-registry-v1.proof.json")).expect("read v1 proof"),
+    )
+    .expect("parse v1 proof");
+    assert!(
+        v1_proof["summary"]["total_vcs"].as_u64().expect("total VCs") > 0,
+        "owner-authorized transition must produce proof obligations"
+    );
+    assert_eq!(
+        v1_proof["summary"]["total_vcs"],
+        v1_proof["summary"]["proved_count"],
+        "all owner-update obligations must be proved"
+    );
+    for field in ["failed_count", "unknown_count", "timeout_count", "generated_count"] {
+        assert_eq!(v1_proof["summary"][field], 0, "v1 proof {field}");
+    }
+
+    let rejected_state = dir.path().join("rejected-state.json");
+    let rejected_trace = dir.path().join("rejected-trace.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            v1_source.to_str().expect("v1 source path"),
+            "--function",
+            "set_value",
+            "--state",
+            root.join("v1/fixtures/initial-state.json")
+                .to_str()
+                .expect("state path"),
+            "--args",
+            root.join("v1/fixtures/non-owner-set-value.args.json")
+                .to_str()
+                .expect("arguments path"),
+            "--state-out",
+            rejected_state.to_str().expect("rejected state path"),
+            "--trace-out",
+            rejected_trace.to_str().expect("rejected trace path"),
+            "--caller",
+            "0x2222222222222222222222222222222222222222",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("simulator contract guard failed"));
+    assert!(!rejected_state.exists(), "non-owner update must not commit state");
+
+    let v2_release = dir.path().join("v2-release");
+    run_contract_release(
+        &v2_source,
+        &v2_plan,
+        &key,
+        &pubkey,
+        &v2_release,
+        &solver,
+        Some(&v1_schema_path),
+    );
+    let v2_schema: Value = serde_json::from_slice(
+        &fs::read(v2_release.join("config-registry-v2.schema.json")).expect("read v2 schema"),
+    )
+    .expect("parse v2 schema");
+    assert_eq!(v2_schema["migration"]["from_schema"], v1_digest);
+    assert_eq!(v2_schema["fields"][0], v1_schema["fields"][0]);
+    assert_eq!(v2_schema["fields"][1], v1_schema["fields"][1]);
+    assert_eq!(v2_schema["fields"][2]["name"], "revision");
+
+    let independent_release = dir.path().join("independent-v2-release");
+    copy_release_tree(&v2_release, &independent_release);
+    let independent_pubkey = dir.path().join("independent-release-pubkey.json");
+    fs::copy(&pubkey, &independent_pubkey).expect("copy public key for independent verification");
+    verify_contract_release_bundle(
+        &independent_release,
+        "config-registry-v2",
+        &independent_pubkey,
+    );
+
+    let artifact = v1_release.join("config-registry-v1.evm.json");
+    let wire_abi = v1_release.join("config-registry-v1.evm-wire-abi.json");
+    let proof = v1_release.join("config-registry-v1.proof.json");
+    let signature = v1_release.join("config-registry-v1.sig.json");
+    let target_key = dir.path().join("target-signer.json");
+    fs::write(
+        &target_key,
+        r#"{"format":"clg.evm-signing-key.v1","private_key":"0x0101010101010101010101010101010101010101010101010101010101010101","address":"0x1a642f0e3c3af545e7acbd38b07251b3990914f1"}"#,
+    )
+    .expect("write target signing key");
+    let constructor_args = dir.path().join("constructor.json");
+    fs::write(
+        &constructor_args,
+        br#"["0x1a642f0e3c3af545e7acbd38b07251b3990914f1",0]"#,
+    )
+    .expect("write constructor arguments");
+    let deploy_receipt = dir.path().join("deploy-receipt.json");
+    let (deploy_endpoint, deploy_server) = mock_target_rpc(Some(
+        "0x2222222222222222222222222222222222222222",
+    ));
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["target", "deploy", "--target-profile", "clg.evm-sepolia-pilot.v1"])
+        .args(["--rpc-url"])
+        .arg(&deploy_endpoint)
+        .args(["--chain-id", "11155111", "--sender", "0x1a642f0e3c3af545e7acbd38b07251b3990914f1", "--nonce", "0"])
+        .args(["--signing-key"])
+        .arg(&target_key)
+        .args(["--value", "0", "--gas-limit", "100000", "--gas-price", "1", "--artifact"])
+        .arg(&artifact)
+        .args(["--abi"])
+        .arg(&wire_abi)
+        .args(["--contract-state-schema"])
+        .arg(&v1_schema_path)
+        .args(["--proof-artifact"])
+        .arg(&proof)
+        .args(["--signed-bundle"])
+        .arg(&signature)
+        .args(["--args"])
+        .arg(&constructor_args)
+        .args(["--receipt-out"])
+        .arg(&deploy_receipt)
+        .assert()
+        .success();
+    assert_eq!(deploy_server.join().expect("join deploy RPC").len(), 3);
+
+    let wire: Value = serde_json::from_slice(&fs::read(&wire_abi).expect("read wire ABI"))
+        .expect("parse wire ABI");
+    let selector = wire["functions"]
+        .as_array()
+        .and_then(|functions| functions.iter().find(|function| function["name"] == "set_value"))
+        .and_then(|function| function["selector"].as_str())
+        .expect("set_value selector");
+    let invoke_args = dir.path().join("invoke.json");
+    fs::write(&invoke_args, br#"[7]"#).expect("write invocation arguments");
+    let invoke_receipt = dir.path().join("invoke-receipt.json");
+    let (invoke_endpoint, invoke_server) = mock_target_rpc(None);
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["target", "invoke", "--target-profile", "clg.evm-sepolia-pilot.v1"])
+        .args(["--rpc-url"])
+        .arg(&invoke_endpoint)
+        .args(["--chain-id", "11155111", "--artifact"])
+        .arg(&artifact)
+        .args(["--abi"])
+        .arg(&wire_abi)
+        .args(["--contract-state-schema"])
+        .arg(&v1_schema_path)
+        .args(["--proof-artifact"])
+        .arg(&proof)
+        .args(["--signed-bundle"])
+        .arg(&signature)
+        .args(["--contract-address", "0x2222222222222222222222222222222222222222", "--function"])
+        .arg(selector)
+        .args(["--args"])
+        .arg(&invoke_args)
+        .args(["--sender", "0x1a642f0e3c3af545e7acbd38b07251b3990914f1", "--nonce", "1", "--signing-key"])
+        .arg(&target_key)
+        .args(["--value", "0", "--gas-limit", "100000", "--gas-price", "1", "--receipt-out"])
+        .arg(&invoke_receipt)
+        .assert()
+        .success();
+    assert_eq!(invoke_server.join().expect("join invoke RPC").len(), 3);
+
+    let receipt: Value = serde_json::from_slice(&fs::read(&invoke_receipt).expect("read receipt"))
+        .expect("parse receipt");
+    let artifact_value: Value = serde_json::from_slice(&fs::read(&artifact).expect("read artifact"))
+        .expect("parse artifact");
+    let proof_value: Value = serde_json::from_slice(&fs::read(&proof).expect("read proof"))
+        .expect("parse proof");
+    assert_eq!(receipt["caller"], "0x1a642f0e3c3af545e7acbd38b07251b3990914f1");
+    assert_eq!(receipt["function"], selector);
+    assert_eq!(receipt["artifact_digest"], format!("sha256:{}", hex::encode(Sha256::digest(fs::read(&artifact).expect("read artifact bytes")))));
+    assert_eq!(receipt["wire_abi_digest"], wire["wire_abi"]["digest"]);
+    assert_eq!(receipt["evidence"]["schema_digest"], v1_schema["schema"]["digest"]);
+    assert_eq!(receipt["evidence"]["proof_artifact_digest"], format!("sha256:{}", hex::encode(Sha256::digest(serde_json::to_vec(&proof_value).expect("canonical proof value")))));
+    assert_eq!(receipt["evidence"]["source_graph"], artifact_value["source_graph"]);
+    assert_eq!(receipt["evidence"]["signed_bundle_digest"], format!("sha256:{}", hex::encode(Sha256::digest(fs::read(&signature).expect("read signature bytes")))));
+}
+
+#[test]
 fn caller_aware_campaign_replays_deterministically_and_rejects_substituted_callers() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("config_registry.clear");
@@ -939,7 +1152,13 @@ fn run_contract_release(
     prior_state_schema: Option<&Path>,
 ) {
     let mut command = Command::cargo_bin("clg").expect("clg binary");
-    command.env("CLG_SOLVER_BIN", solver);
+    command
+        .env("CLG_SOLVER_BIN", solver)
+        .env(
+            "CLG_PROOF_MATRIX_PATH",
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../docs/proofs/proof-coverage-matrix.json"),
+        );
     command
         .args(["contract", "release"])
         .arg(source)

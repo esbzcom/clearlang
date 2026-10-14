@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "reference-config-registry",
+    "description": "Deterministic v2 migration fixture for the reference configuration registry",
+    "version": "2.0.0",
+    "clg_version": "^0.1.0",
+    "entry": "config_registry.clear"
+  },
+  "dependencies": [],
+  "release_defaults": {
+    "out_dir": "out/release",
+    "key_id": "reference-fixture-ed25519-v1"
+  }
+}

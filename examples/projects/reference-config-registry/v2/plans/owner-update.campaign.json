@@ -1,0 +1,36 @@
+{
+  "format": "clg.contract-test-plan.v1",
+  "schema_version": 1,
+  "seed": 71,
+  "cases": 3,
+  "function": "set_value",
+  "state": {
+    "owner": "0x1111111111111111111111111111111111111111",
+    "revision": 0,
+    "value": 0
+  },
+  "caller": "0x1111111111111111111111111111111111111111",
+  "value": 0,
+  "block_number": 7,
+  "timestamp": 8,
+  "gas_limit": 100,
+  "memory_limit": 1048576,
+  "generators": [
+    {
+      "type": "u64",
+      "min": 1,
+      "max": 9
+    }
+  ],
+  "properties": [
+    {
+      "kind": "result_equals_arg",
+      "arg": 0
+    },
+    {
+      "kind": "state_field_equals_arg",
+      "field": "value",
+      "arg": 0
+    }
+  ]
+}

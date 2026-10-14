@@ -5,17 +5,19 @@ This folder contains four multi-file projects:
 1. `generic/` - a non-crypto service-style project.
 2. `crypto/` - a crypto-oriented project that uses `std::crypto`.
 3. `testing/` - a Gate D planning example for unit tests + deterministic mock sets.
-4. `reference-config-registry/v1/` - the Milestone 5 caller-authorized, testnet-pilot contract.
+4. `reference-config-registry/v1/` and `reference-config-registry/v2/` - the Milestone 5
+   caller-authorized, testnet-pilot contract and its append-only migration fixture.
 
 ## Reference configuration registry
 
 `reference-config-registry/v1/` is the versioned, narrowly supported contract reference used by
 the Milestone 5 pilot. It fixes one owner and permits that owner alone to update a bounded `U64`
-configuration value while emitting `ValueChanged`. It has no project manifest or release inputs
-yet; those deterministic artifacts are added by task 42.1.2.
+configuration value while emitting `ValueChanged`. Its deterministic manifest, simulation traces,
+campaign plan, and public release inputs are checked in.
 
-See `reference-config-registry/v1/README.md` for its state, transition, invariant, and explicit
-non-goals.
+`reference-config-registry/v2/` preserves the v1 layout, appends a `revision` field, and declares
+the exact v1 state-schema digest for its migration. See each version's README for the transition,
+invariant, migration boundary, and explicit non-goals.
 
 `generic/` and `crypto/` are designed for current CLI behavior:
 - `clg run <entry.clear>` compiles and executes from source.

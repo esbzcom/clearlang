@@ -1,0 +1,19 @@
+{
+  "format": "clg.reference-contract-migration-fixture.v1",
+  "from": {
+    "contract_version": 1,
+    "schema_digest": "sha256:e86a79dc3c132066b1e750df8f55b0777e2b0b3da58647050ac9ebd68d961dcc",
+    "state": {
+      "owner": "0x1111111111111111111111111111111111111111",
+      "value": 7
+    }
+  },
+  "to": {
+    "contract_version": 2,
+    "state": {
+      "owner": "0x1111111111111111111111111111111111111111",
+      "revision": 0,
+      "value": 7
+    }
+  }
+}

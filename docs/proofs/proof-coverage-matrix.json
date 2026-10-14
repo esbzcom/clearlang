@@ -289,6 +289,32 @@
       }
     },
     {
+      "id": "intrinsic.std::eth::address::equals",
+      "kind": "intrinsic",
+      "surface": "std::eth::address::equals",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
+      "id": "intrinsic.std::eth::context::caller",
+      "kind": "intrinsic",
+      "surface": "std::eth::context::caller",
+      "status": "proved",
+      "assumption_boundary": null,
+      "tiers": {
+        "L0": "proved",
+        "L1": "proved",
+        "L2": "proved",
+        "L3": "proved"
+      }
+    },
+    {
       "id": "intrinsic.std::list::get",
       "kind": "intrinsic",
       "surface": "std::list::get",

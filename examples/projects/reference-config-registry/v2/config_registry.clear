@@ -1,0 +1,38 @@
+import std::eth::{Address}
+
+contract ConfigRegistry version 2 {
+    state {
+        owner: std::eth::Address;
+        value: U64;
+        revision: U64;
+    }
+
+    event ValueChanged { value: U64; }
+
+    // v2 preserves every v1 field and owner authorization rule. The appended
+    // revision field begins at zero during migration and remains the v2
+    // migration marker; the locked scalar EVM profile has no arithmetic update.
+
+    init(owner: std::eth::Address, initial_value: U64) {
+        state.owner = owner;
+        state.value = initial_value;
+        state.revision = U64(0);
+        0
+    }
+
+    migrate from schema "sha256:e86a79dc3c132066b1e750df8f55b0777e2b0b3da58647050ac9ebd68d961dcc" {
+        state.revision = U64(0);
+        0
+    }
+
+    mut function set_value(next: U64) -> U64
+        require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+    {
+        state.value = next;
+        emit ValueChanged(next);
+        next
+    }
+}
+
+// Required by the current compiler entry contract; this is not a target transition.
+function main() -> Int { 0 }

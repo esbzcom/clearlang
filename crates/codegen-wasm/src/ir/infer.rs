@@ -51,6 +51,12 @@ pub(super) fn infer_value_types(
             IrInstr::StateRead { dst, ty, .. } => {
                 set_type(&mut types, *dst, val_type_for_ir(*ty))?;
             }
+            IrInstr::ContextCaller { dst } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
+            IrInstr::AddressEq { dst, .. } => {
+                set_type(&mut types, *dst, ValType::I32)?;
+            }
             IrInstr::IBin { dst, op, ty, .. } => {
                 let res_ty = match op {
                     BinOpIR::Add

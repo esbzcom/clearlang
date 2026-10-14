@@ -59,6 +59,9 @@ pub(crate) fn smt_sort_for_type(ty: &Type, aliases: &HashMap<&str, AliasView<'_>
         Type::Bool => "Bool",
         Type::String => "String",
         Type::Bytes => "String",
+        Type::Named { name, args } if name == "std::eth::Address" && args.is_empty() => {
+            "(_ BitVec 160)"
+        }
         Type::Option(_)
         | Type::Result(_, _)
         | Type::List(_)

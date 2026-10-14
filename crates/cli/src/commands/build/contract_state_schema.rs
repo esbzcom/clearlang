@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
-use clg_ast::{ContractDecl, Program, Type};
+use clg_ast::{ContractDecl, Expr, Program, Type};
 use clg_typer::expr_to_source;
 use serde_json::json;
 #[cfg(test)]
@@ -203,7 +203,9 @@ pub(super) fn contract_state_schema_artifact(
             "kind": "exclusive_state_transition",
         })
     });
+    let caller_authorization = caller_authorization_schema(contract);
     let schema_identity = json!({
+        "caller_authorization": caller_authorization,
         "contract": {
             "name": contract.name,
             "version": contract.version,
@@ -221,6 +223,7 @@ pub(super) fn contract_state_schema_artifact(
     });
     let schema_digest = sha256_hex(canonical_json_bytes(&schema_identity).as_slice());
     Ok(json!({
+        "caller_authorization": schema_identity["caller_authorization"].clone(),
         "contract": {
             "name": contract.name,
             "version": contract.version,
@@ -249,6 +252,53 @@ pub(super) fn contract_state_schema_artifact(
         "schema_version": SCHEMA_VERSION,
         "source_graph": source_graph,
     }))
+}
+
+fn caller_authorization_schema(contract: &ContractDecl) -> Option<serde_json::Value> {
+    let owner = contract.fields.iter().find(|field| {
+        field.name == "owner"
+            && matches!(
+                &field.ty,
+                Type::Named { name, args } if name == "std::eth::Address" && args.is_empty()
+            )
+    })?;
+    let transitions = contract
+        .functions
+        .iter()
+        .filter(|function| function.effect == clg_ast::Effect::Mut)
+        .filter(|function| {
+            function
+                .requires
+                .iter()
+                .any(|require| is_owner_caller_guard(&require.expr))
+        })
+        .map(|function| {
+            json!({
+                "function": function.name,
+                "guard": "caller_equals_state_owner",
+            })
+        })
+        .collect::<Vec<_>>();
+    Some(json!({
+        "entry_symbol": "clg.caller.entry",
+        "identity": {
+            "encoding": "evm-address-20-byte",
+            "width_bits": 160,
+        },
+        "owner_field_id": field_id(contract, &owner.name),
+        "profile": "clg.evm-stateful-scalar.v1",
+        "transitions": transitions,
+    }))
+}
+
+fn is_owner_caller_guard(expr: &Expr) -> bool {
+    matches!(expr, Expr::Call { callee, args, .. }
+        if callee == "std::eth::address::equals"
+            && matches!(args.as_slice(), [Expr::Call { callee: caller, args: caller_args, .. }, Expr::FieldAccess { base, field, .. }]
+                if caller == "std::eth::context::caller"
+                    && caller_args.is_empty()
+                    && field == "owner"
+                    && matches!(base.as_ref(), Expr::Var(name, _) if name == "state")))
 }
 
 fn event_id(contract: &ContractDecl, event_name: &str) -> String {
@@ -350,5 +400,42 @@ mod tests {
             .as_str()
             .expect("init id")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn caller_authorization_schema_binds_the_canonical_entry_identity() {
+        let program = clg_parser::parse(
+            r#"
+                contract ConfigRegistry version 1 {
+                    state { owner: std::eth::Address; value: U64; }
+                    init(owner: std::eth::Address, value: U64) {
+                        state.owner = owner;
+                        state.value = value;
+                        0
+                    }
+                    mut function set_value(next: U64) -> U64
+                        require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+                    { state.value = next; next }
+                }
+            "#,
+        )
+        .expect("parse caller-aware schema fixture");
+        let schema = contract_state_schema_artifact(&program, None).expect("emit caller schema");
+        assert_eq!(
+            schema["caller_authorization"]["entry_symbol"],
+            "clg.caller.entry"
+        );
+        assert_eq!(
+            schema["caller_authorization"]["identity"]["width_bits"],
+            160
+        );
+        assert_eq!(
+            schema["caller_authorization"]["transitions"][0]["guard"],
+            "caller_equals_state_owner"
+        );
+        assert_eq!(
+            schema["caller_authorization"]["owner_field_id"],
+            schema["fields"][0]["field_id"]
+        );
     }
 }

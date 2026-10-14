@@ -336,6 +336,12 @@ fn compile_transition(
                 code.extend(store_value(*dst)?);
                 mappings.push(json!({ "kind": "StateRead", "field_id": field.field_id, "slot": field.slot }));
             }
+            Instr::ContextCaller { .. } => {
+                bail!("EVM stateful scalar profile has no verified mapping for canonical caller identity in function `{}`", function.name)
+            }
+            Instr::AddressEq { .. } => {
+                bail!("EVM stateful scalar profile has no verified mapping for canonical address equality in function `{}`", function.name)
+            }
             Instr::StateWrite { field, src, .. } => {
                 let field = storage.get(field).ok_or_else(|| anyhow!("unknown state field `{field}`"))?;
                 code.extend(load_value(*src)?);

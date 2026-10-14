@@ -195,11 +195,13 @@ pub fn generate_vcs_with_dependencies(
             .as_ref()
             .map(|model| model.declarations.clone())
             .unwrap_or_default();
+        let caller_symbol_declarations = caller_symbol_declarations(func);
         let base_vc_extra = merge_extras(&[
             &param_declarations,
             &base_refinement_prelude,
             &u64_bitvector_bindings,
             &state_symbol_declarations,
+            &caller_symbol_declarations,
         ]);
         let linear_control = collect_linear_control_obligations(func, &resource_names);
 
@@ -239,6 +241,7 @@ pub fn generate_vcs_with_dependencies(
                     &refinement_extra,
                     &u64_bitvector_bindings,
                     &state_symbol_declarations,
+                    &caller_symbol_declarations,
                 ]);
                 let vc_smt2 = wrap_vc_with_extra(&encoder, &vc_body, &merged_extra);
 
@@ -566,6 +569,19 @@ fn rewrite_contract_state_expr(
     phase: StatePhase,
 ) -> Expr {
     match expr {
+        Expr::Call {
+            callee, args, span, ..
+        } if callee == "std::eth::context::caller" && args.is_empty() => {
+            Expr::Var("|clg.caller.entry|".to_string(), *span)
+        }
+        Expr::Call {
+            callee, args, span, ..
+        } if callee == "std::eth::address::equals" && args.len() == 2 => Expr::Bin {
+            op: BinOp::Eq,
+            lhs: Box::new(rewrite_contract_state_expr(&args[0], contract, phase)),
+            rhs: Box::new(rewrite_contract_state_expr(&args[1], contract, phase)),
+            span: *span,
+        },
         Expr::FieldAccess { base, field, span } if matches!(base.as_ref(), Expr::Var(name, _) if name == "state") =>
         {
             if let Some(contract) = contract.filter(|contract| {
@@ -911,7 +927,39 @@ fn state_solver_type_supported(ty: &Type) -> bool {
             | Type::U256
             | Type::String
             | Type::Bytes
-    )
+    ) || matches!(ty, Type::Named { name, args } if name == "std::eth::Address" && args.is_empty())
+}
+
+fn caller_symbol_declarations(function: &Func) -> String {
+    if function
+        .requires
+        .iter()
+        .any(|require| expr_uses_caller(&require.expr))
+    {
+        "(declare-const |clg.caller.entry| (_ BitVec 160))".to_string()
+    } else {
+        String::new()
+    }
+}
+
+fn expr_uses_caller(expr: &Expr) -> bool {
+    match expr {
+        Expr::Call { callee, args, .. } => {
+            callee == "std::eth::context::caller" || args.iter().any(expr_uses_caller)
+        }
+        Expr::ArrayLit { elems, .. } | Expr::TupleLit { elems, .. } => elems.iter().any(expr_uses_caller),
+        Expr::StructLit { fields, .. } => fields.iter().any(|field| expr_uses_caller(&field.expr)),
+        Expr::FieldAccess { base, .. } | Expr::Return { expr: base, .. } | Expr::Unary { expr: base, .. } | Expr::Try { expr: base, .. } | Expr::Lambda { body: base, .. } => expr_uses_caller(base),
+        Expr::Block { block } => block.statements.iter().any(|statement| match statement {
+            Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } => expr_uses_caller(expr),
+            Stmt::While { cond, invariant, body, .. } => expr_uses_caller(cond) || expr_uses_caller(invariant) || body.statements.iter().any(|statement| matches!(statement, Stmt::Let { expr, .. } | Stmt::Expr { expr, .. } if expr_uses_caller(expr))),
+        }) || block.tail.as_deref().is_some_and(expr_uses_caller),
+        Expr::Bin { lhs, rhs, .. } => expr_uses_caller(lhs) || expr_uses_caller(rhs),
+        Expr::Match { scrutinee, arms, .. } => expr_uses_caller(scrutinee) || arms.iter().any(|arm| expr_uses_caller(&arm.expr)),
+        Expr::If { cond, then_br, else_br, .. } => expr_uses_caller(cond) || expr_uses_caller(then_br) || expr_uses_caller(else_br),
+        Expr::Index { base, index, .. } => expr_uses_caller(base) || expr_uses_caller(index),
+        Expr::Int(..) | Expr::Bool(..) | Expr::String(..) | Expr::Var(..) => false,
+    }
 }
 
 fn conjoin_smt(parts: Vec<String>) -> String {

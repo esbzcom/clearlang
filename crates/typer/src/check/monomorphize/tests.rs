@@ -37,6 +37,7 @@ fn find_impl_uses_call_span_for_missing_impl() {
         mono_map: HashMap::new(),
         mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
+        contract_owners: HashMap::new(),
     };
     let span = Span { start: 12, end: 34 };
     let err = match mono.find_impl("Eq", &Type::Int, span) {
@@ -102,6 +103,7 @@ fn find_impl_uses_call_span_for_ambiguous_impl() {
         mono_map: HashMap::new(),
         mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
+        contract_owners: HashMap::new(),
     };
     let span = Span { start: 55, end: 89 };
     let err = match mono.find_impl("Eq", &Type::Int, span) {
@@ -284,6 +286,7 @@ fn mangling_shortening_collision_reports_t250() {
         mono_map: HashMap::new(),
         mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
+        contract_owners: HashMap::new(),
     };
 
     let span = Span { start: 7, end: 9 };

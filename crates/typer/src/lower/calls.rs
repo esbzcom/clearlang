@@ -63,6 +63,28 @@ pub(super) fn lower_call_expr<'a>(
         }
     }
     match callee {
+        "std::eth::context::caller" => {
+            if !args.is_empty() {
+                anyhow::bail!("`std::eth::context::caller` expects no arguments");
+            }
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::ContextCaller { dst });
+            Ok(dst)
+        }
+        "std::eth::address::equals" => {
+            if args.len() != 2 {
+                anyhow::bail!("`std::eth::address::equals` expects exactly two arguments");
+            }
+            let address = Type::Named {
+                name: "std::eth::Address".to_string(),
+                args: Vec::new(),
+            };
+            let lhs = lower_expr(ctx, &args[0], Some(address.clone()))?;
+            let rhs = lower_expr(ctx, &args[1], Some(address))?;
+            let dst = fresh(ctx);
+            ctx.body.push(Instr::AddressEq { dst, lhs, rhs });
+            Ok(dst)
+        }
         "std::crypto::sha256" => lower_crypto_sha256_call(ctx, args),
         "std::crypto::hmac_sha256" => lower_crypto_hmac_sha256_call(ctx, args),
         "U8" => {

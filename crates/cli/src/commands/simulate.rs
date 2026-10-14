@@ -257,6 +257,12 @@ fn execute(
                         .ok_or_else(|| anyhow::anyhow!("missing state field `{field}`"))?;
                     values.insert(dst.0, scalar(stored)?);
                 }
+                Instr::ContextCaller { .. } => {
+                    bail!("simulator has no canonical caller identity input")
+                }
+                Instr::AddressEq { .. } => {
+                    bail!("simulator has no canonical address equality operation")
+                }
                 Instr::StateWrite { field, src, ty, .. } => {
                     let field_value = get(values, *src)?;
                     let json_value = scalar_json(field_value, *ty);

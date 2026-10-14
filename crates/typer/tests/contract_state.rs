@@ -1,7 +1,8 @@
 use clg_ir::Instr;
 use clg_parser::parse;
 use clg_typer::{
-    check, generate_vcs, type_check_only, type_check_only_with_std, StdTypeInfo, StdTypeMap,
+    check, check_with_vcs_with_std, generate_vcs, type_check_only, type_check_only_with_std,
+    StdTypeInfo, StdTypeMap,
 };
 
 #[test]
@@ -92,6 +93,85 @@ fn caller_aware_owner_guard_has_a_narrow_typecheck_surface() {
         type_check_only_with_std(&parse(&invalid).expect("parse invalid guard"), &std_types)
             .expect_err("reject non-locked address equality");
     assert!(format!("{error:#}").contains("T834"));
+}
+
+#[test]
+fn caller_guard_vc_binds_a_160_bit_entry_identity_to_the_owner_state() {
+    let source = r#"
+        contract ConfigRegistry version 1 {
+            state { owner: std::eth::Address; value: U64; }
+            init(owner: std::eth::Address, value: U64) {
+                state.owner = owner;
+                state.value = value;
+                0
+            }
+            mut function set_value(next: U64) -> U64
+                require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+                ensure { result == next }
+            {
+                state.value = next;
+                next
+            }
+        }
+    "#;
+    let vc = generate_vcs(&parse(source).expect("parse caller-aware VC fixture"))
+        .into_iter()
+        .find(|candidate| candidate.function == "set_value" && candidate.vc_id == "vc:0")
+        .expect("caller-aware ensure VC");
+    assert!(vc.pre.smt2.contains("|clg.caller.entry|"));
+    assert!(vc.pre.smt2.contains("clg.state.pre.sha256:"));
+    assert!(vc
+        .vc_smt2
+        .contains("(declare-const |clg.caller.entry| (_ BitVec 160))"));
+    assert!(vc.vc_smt2.contains("(_ BitVec 160)"));
+    assert!(vc.assumptions.is_empty());
+}
+
+#[test]
+fn caller_guard_lowers_to_explicit_target_neutral_identity_operations() {
+    let source = r#"
+        contract ConfigRegistry version 1 {
+            state { owner: std::eth::Address; value: U64; }
+            init(owner: std::eth::Address, value: U64) {
+                state.owner = owner;
+                state.value = value;
+                0
+            }
+            mut function set_value(next: U64) -> U64
+                require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+            {
+                state.value = next;
+                next
+            }
+        }
+    "#;
+    let mut std_types = StdTypeMap::new();
+    std_types.insert(
+        "std::eth::Address".to_string(),
+        StdTypeInfo {
+            byte_len: 20,
+            align: 1,
+        },
+    );
+    let output = check_with_vcs_with_std(
+        &parse(source).expect("parse caller-aware lowering fixture"),
+        &std_types,
+    )
+    .expect("lower caller-aware contract into target-neutral IR");
+    let transition = output
+        .ir
+        .funcs
+        .iter()
+        .find(|function| function.name == "set_value")
+        .expect("caller-aware transition");
+    assert!(transition
+        .body
+        .iter()
+        .any(|instruction| matches!(instruction, Instr::ContextCaller { .. })));
+    assert!(transition
+        .body
+        .iter()
+        .any(|instruction| matches!(instruction, Instr::AddressEq { .. })));
 }
 
 #[test]

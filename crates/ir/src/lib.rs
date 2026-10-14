@@ -241,6 +241,17 @@ pub enum Instr {
         callee: u32,
         args: Vec<Value>,
     },
+    // v = the canonical 20-byte caller identity supplied at transition entry.
+    // Backends must either map this exact identity or reject the transition.
+    ContextCaller {
+        dst: Value,
+    },
+    // v = address equality over canonical 20-byte identities.
+    AddressEq {
+        dst: Value,
+        lhs: Value,
+        rhs: Value,
+    },
     StateRead {
         dst: Value,
         contract: String,

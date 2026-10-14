@@ -30,6 +30,18 @@ impl<'a> Monomorphizer<'a> {
                 },
             );
         }
+        if let Some(contract_name) = self.contract_owners.get(func.name.as_str()) {
+            env.insert(
+                "state",
+                LocalBinding {
+                    ty: Type::Named {
+                        name: super::super::contract_state_type_name(contract_name),
+                        args: Vec::new(),
+                    },
+                    kind: ParamKind::Borrow,
+                },
+            );
+        }
 
         for req in &mut func.requires {
             self.rewrite_expr(&mut req.expr, &mut env, &type_params, &bounds)?;

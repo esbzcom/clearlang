@@ -31,6 +31,12 @@ pub(super) fn monomorphize_program<'a>(
     for func in &program.funcs {
         base_funcs.insert(func.name.as_str(), func);
     }
+    let mut contract_owners: HashMap<&'a str, &'a str> = HashMap::new();
+    for contract in &program.contracts {
+        for function in &contract.functions {
+            contract_owners.insert(function.name.as_str(), contract.name.as_str());
+        }
+    }
 
     let mut mono = Monomorphizer {
         base_fns: fns,
@@ -42,6 +48,7 @@ pub(super) fn monomorphize_program<'a>(
         mono_map: HashMap::new(),
         mangled_name_origins: HashMap::new(),
         queue: VecDeque::new(),
+        contract_owners,
     };
 
     for func in &program.funcs {
@@ -73,6 +80,7 @@ struct Monomorphizer<'a> {
     mono_map: HashMap<String, usize>,
     mangled_name_origins: HashMap<String, String>,
     queue: VecDeque<usize>,
+    contract_owners: HashMap<&'a str, &'a str>,
 }
 
 impl<'a> Monomorphizer<'a> {

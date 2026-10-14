@@ -25,6 +25,7 @@ pub fn write_proof_artifact_json(
     toolchain: &str,
     compiler_mode: &str,
     source_graph: Option<&serde_json::Value>,
+    caller_authorization: Option<&serde_json::Value>,
 ) -> Result<ProofArtifactEmission> {
     use serde_json::json;
 
@@ -115,6 +116,7 @@ pub fn write_proof_artifact_json(
     }
 
     let mut artifact = json!({
+        "caller_authorization": caller_authorization.cloned(),
         "format": "clg.proof_artifact.v1",
         "schema_version": 1,
         "compiler": { "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") },

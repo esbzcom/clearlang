@@ -138,6 +138,7 @@ fn stateful_artifact(
     let runtime = emit_runtime(&handlers)?;
     let bytecode = wrap_stateful_init_code(&constructor, &runtime)?;
     let state_mapping = json!({
+        "caller_authorization": schema["caller_authorization"].clone(),
         "schema_digest": schema["schema"]["digest"].clone(),
         "storage_layout": storage.values().map(|field| json!({
             "field": field.name,
@@ -577,6 +578,83 @@ mod tests {
         assert!(code.contains(&0x14), "EQ opcode must be present");
         assert!(mapping.iter().any(|entry| entry["kind"] == "ContextCaller"));
         assert!(mapping.iter().any(|entry| entry["kind"] == "AddressEq"));
+    }
+
+    #[test]
+    fn stateful_artifact_binds_the_schema_caller_authorization_descriptor() {
+        let program = parse(r#"
+            contract Vault version 1 {
+                state { owner: std::eth::Address; value: U64; }
+                init(owner: std::eth::Address) { state.owner = owner; state.value = U64(0); 0 }
+                mut function set_value(value: U64) -> U64
+                    require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+                { state.value = value; state.value }
+            }
+        "#).expect("parse");
+        let ir = IrModule {
+            funcs: vec![
+                IrFunction {
+                    name: "__clg_contract_init$Vault".to_string(),
+                    params: vec![IrType::Int],
+                    ret: Some(IrType::Int),
+                    body: vec![
+                        Instr::StateWrite {
+                            contract: "Vault".to_string(),
+                            field: "owner".to_string(),
+                            src: Value(0),
+                            ty: IrType::Int,
+                        },
+                        Instr::IConst {
+                            dst: Value(1),
+                            n: 0,
+                            ty: IrType::U64,
+                        },
+                        Instr::StateWrite {
+                            contract: "Vault".to_string(),
+                            field: "value".to_string(),
+                            src: Value(1),
+                            ty: IrType::U64,
+                        },
+                        Instr::Ret { val: Value(1) },
+                    ],
+                },
+                IrFunction {
+                    name: "set_value".to_string(),
+                    params: vec![IrType::U64],
+                    ret: Some(IrType::U64),
+                    body: vec![
+                        Instr::ContextCaller { dst: Value(1) },
+                        Instr::StateRead {
+                            dst: Value(2),
+                            contract: "Vault".to_string(),
+                            field: "owner".to_string(),
+                            ty: IrType::Int,
+                        },
+                        Instr::AddressEq {
+                            dst: Value(3),
+                            lhs: Value(1),
+                            rhs: Value(2),
+                        },
+                        Instr::StateWrite {
+                            contract: "Vault".to_string(),
+                            field: "value".to_string(),
+                            src: Value(0),
+                            ty: IrType::U64,
+                        },
+                        Instr::Ret { val: Value(0) },
+                    ],
+                },
+            ],
+        };
+        let artifact = evm_artifact(&program, &ir, None).expect("stateful artifact");
+        assert_eq!(
+            artifact["state_mapping"]["caller_authorization"]["entry_symbol"],
+            "clg.caller.entry"
+        );
+        assert_eq!(
+            artifact["state_mapping"]["caller_authorization"]["identity"]["width_bits"],
+            160
+        );
     }
 
     #[test]

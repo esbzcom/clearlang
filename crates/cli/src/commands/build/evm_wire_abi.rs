@@ -8,6 +8,8 @@ use sha3::{Digest, Keccak256};
 
 use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 
+use super::contract_state_schema::contract_state_schema_artifact;
+
 const FORMAT: &str = "clg.evm-wire-abi.v1";
 const PROFILE: &str = "clg.evm-compatible.v1";
 
@@ -89,7 +91,10 @@ pub(super) fn evm_wire_abi_artifact(
             }))
         })
         .collect::<Result<Vec<_>>>()?;
+    let state_schema = contract_state_schema_artifact(program, source_graph)?;
+    let caller_authorization = state_schema["caller_authorization"].clone();
     let identity = json!({
+        "caller_authorization": caller_authorization,
         "constructor": constructor,
         "contract": { "name": contract.name, "version": contract.version },
         "events": events,
@@ -97,6 +102,7 @@ pub(super) fn evm_wire_abi_artifact(
         "target": { "calldata_encoding": "abi-v2", "profile": PROFILE },
     });
     Ok(json!({
+        "caller_authorization": identity["caller_authorization"].clone(),
         "compiler": { "name": "clg-cli", "version": env!("CARGO_PKG_VERSION") },
         "constructor": identity["constructor"].clone(),
         "contract": identity["contract"].clone(),
@@ -196,5 +202,9 @@ mod tests {
         .expect("parse address ABI fixture");
         let wire = evm_wire_abi_artifact(&program, None).expect("emit address wire ABI");
         assert_eq!(wire["constructor"]["inputs"][0]["evm_type"], "address");
+        assert_eq!(
+            wire["caller_authorization"]["identity"]["encoding"],
+            "evm-address-20-byte"
+        );
     }
 }

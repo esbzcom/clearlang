@@ -647,6 +647,7 @@ fn verify_evidence_binding(
             &identity_object(evidence, "contract", name)?,
         )?;
     }
+    verify_caller_authorization_binding(artifact, wire, schema, proof, signature)?;
 
     if signature.key_id != bundle_key_id {
         bail!("signature key ID does not match the release bundle");
@@ -748,6 +749,98 @@ fn verify_evidence_binding(
         &sha256_hex(expected_toolchain.as_bytes()),
         "assurance manifest toolchain fingerprint",
     )?;
+    Ok(())
+}
+
+fn verify_caller_authorization_binding(
+    artifact: &Value,
+    wire: &Value,
+    schema: &Value,
+    proof: &Value,
+    signature: &signing::SignatureFile,
+) -> Result<()> {
+    let authorization = &schema["caller_authorization"];
+    if authorization.is_null() {
+        for (name, actual) in [
+            (
+                "EVM artifact",
+                &artifact["state_mapping"]["caller_authorization"],
+            ),
+            ("EVM wire ABI", &wire["caller_authorization"]),
+        ] {
+            if !actual.is_null() {
+                bail!("caller-authorization drift: contract-state schema does not match {name}");
+            }
+        }
+        let payload = signature
+            .payload
+            .as_object()
+            .ok_or_else(|| anyhow!("signature payload must be an object"))?;
+        for (name, actual) in [
+            ("proof artifact", &proof["caller_authorization"]),
+            (
+                "signature payload",
+                payload.get("caller_authorization").unwrap_or(&Value::Null),
+            ),
+        ] {
+            if !actual.is_null() {
+                bail!("caller-authorization drift: contract-state schema does not match {name}");
+            }
+        }
+        return Ok(());
+    }
+    let authorization = authorization.as_object().ok_or_else(|| {
+        anyhow!("contract-state schema caller authorization must be an object or null")
+    })?;
+    if authorization.get("entry_symbol").and_then(Value::as_str) != Some("clg.caller.entry")
+        || authorization
+            .get("identity")
+            .and_then(|identity| identity.get("encoding"))
+            .and_then(Value::as_str)
+            != Some("evm-address-20-byte")
+        || authorization
+            .get("identity")
+            .and_then(|identity| identity.get("width_bits"))
+            .and_then(Value::as_u64)
+            != Some(160)
+        || authorization
+            .get("owner_field_id")
+            .and_then(Value::as_str)
+            .is_none()
+        || authorization
+            .get("transitions")
+            .and_then(Value::as_array)
+            .is_none()
+    {
+        bail!("contract-state schema has an invalid caller-authorization descriptor");
+    }
+    let expected = Value::Object(authorization.clone());
+    for (name, actual) in [
+        (
+            "EVM artifact",
+            &artifact["state_mapping"]["caller_authorization"],
+        ),
+        ("EVM wire ABI", &wire["caller_authorization"]),
+    ] {
+        if canonical_json_bytes(actual) != canonical_json_bytes(&expected) {
+            bail!("caller-authorization drift: contract-state schema does not match {name}");
+        }
+    }
+    let payload = signature
+        .payload
+        .as_object()
+        .ok_or_else(|| anyhow!("signature payload must be an object"))?;
+    for (name, actual) in [
+        ("proof artifact", &proof["caller_authorization"]),
+        (
+            "signature payload",
+            payload.get("caller_authorization").unwrap_or(&Value::Null),
+        ),
+    ] {
+        if canonical_json_bytes(actual) != canonical_json_bytes(&expected) {
+            bail!("caller-authorization drift: contract-state schema does not match {name}");
+        }
+    }
     Ok(())
 }
 
@@ -979,6 +1072,39 @@ mod tests {
         )
         .expect_err("signature key drift must fail closed");
         assert!(err.to_string().contains("signature key ID does not match"));
+    }
+
+    #[test]
+    fn evidence_binding_rejects_caller_authorization_drift() {
+        let (mut artifact, abi, mut wire, mut schema, mut proof, mut signature, mut assurance) =
+            matching_evidence();
+        let authorization = json!({
+            "entry_symbol": "clg.caller.entry",
+            "identity": { "encoding": "evm-address-20-byte", "width_bits": 160 },
+            "owner_field_id": "sha256:owner",
+            "profile": "clg.evm-stateful-scalar.v1",
+            "transitions": [{ "function": "set_value", "guard": "caller_equals_state_owner" }],
+        });
+        schema["caller_authorization"] = authorization.clone();
+        artifact["state_mapping"] = json!({ "caller_authorization": authorization.clone() });
+        wire["caller_authorization"] = authorization.clone();
+        proof["caller_authorization"] = authorization.clone();
+        signature.payload["caller_authorization"] = authorization;
+        let proof_hash = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&proof)));
+        signature.payload["proof_artifact_hash"] = json!(proof_hash);
+        assurance.payload["artifacts"]["proof_artifact_hash"] =
+            signature.payload["proof_artifact_hash"].clone();
+        verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect("matching caller evidence must verify");
+
+        wire["caller_authorization"]["transitions"][0]["function"] = json!("other");
+        let error = verify_matching_evidence(
+            &artifact, &abi, &wire, &schema, &proof, &signature, &assurance,
+        )
+        .expect_err("wire caller drift must fail closed");
+        assert!(error.to_string().contains("caller-authorization drift"));
     }
 
     fn campaign_evidence_fixture() -> (tempfile::TempDir, Artifact, PathBuf) {

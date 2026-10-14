@@ -11,12 +11,17 @@
     }
     if let Some(proof_path) = emit_proof.as_ref() {
         let _stage = timings.start(logger, "emit_proof");
+        let caller_authorization = (!mono_program.contracts.is_empty())
+            .then(|| contract_state_schema_artifact(&mono_program, contract_proof_source_graph))
+            .transpose()?
+            .map(|schema| schema["caller_authorization"].clone());
         let emission = write_proof_artifact_json(
             &vcs,
             proof_path,
             toolchain.as_str(),
             compiler_mode.as_str(),
             contract_proof_source_graph,
+            caller_authorization.as_ref(),
         )?;
         if logger.enabled(LogLevel::Debug) {
             logger.event(
@@ -56,6 +61,10 @@
         let solver_profile = proof_artifact_emission
             .as_ref()
             .map(|emission| &emission.solver_profile);
+        let caller_authorization = (!mono_program.contracts.is_empty())
+            .then(|| contract_state_schema_artifact(&mono_program, contract_proof_source_graph))
+            .transpose()?
+            .map(|schema| schema["caller_authorization"].clone());
         let timestamp = OffsetDateTime::now_utc()
             .format(&Rfc3339)
             .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string());
@@ -73,6 +82,7 @@
             solver_profile_hash,
             solver_profile,
             contract_source_graph.as_ref(),
+            caller_authorization.as_ref(),
         )?;
         let manifest_payload = build_assurance_manifest_payload(AssuranceManifestInput {
             vcs: &vcs,

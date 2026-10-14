@@ -273,6 +273,7 @@ pub fn invoke(args: InvokeArgs) -> Result<()> {
 struct LoadedArtifact {
     digest: String,
     bytecode: Vec<u8>,
+    value: Value,
     compiler: Value,
     contract: Value,
     source_graph: Value,
@@ -325,6 +326,7 @@ fn load_artifact(path: &PathBuf, target_profile: &str) -> Result<LoadedArtifact>
     Ok(LoadedArtifact {
         digest: format!("sha256:{}", sha256_hex(&bytes)),
         bytecode,
+        value,
         compiler,
         contract,
         source_graph,
@@ -414,6 +416,7 @@ fn load_evidence(
             bail!("target artifact state-schema digest does not match the supplied contract-state schema")
         }
     }
+    validate_caller_authorization_binding(&schema, &artifact.value, &abi.value)?;
 
     let (_proof_bytes, proof) = read_json_with_bytes(proof_path, "proof artifact")?;
     if proof["format"].as_str() != Some("clg.proof_artifact.v1") {
@@ -464,6 +467,7 @@ fn load_evidence(
     {
         bail!("signed bundle proof-artifact hash does not match the supplied proof artifact")
     }
+    validate_caller_authorization_evidence(&schema, &proof, &payload)?;
 
     let _ = schema_bytes;
     Ok(Evidence {
@@ -473,6 +477,83 @@ fn load_evidence(
         signed_bundle_digest: format!("sha256:{}", sha256_hex(&signed_bundle_bytes)),
         source_graph: artifact.source_graph.clone(),
     })
+}
+
+fn validate_caller_authorization_evidence(
+    schema: &Value,
+    proof: &Value,
+    signed_payload: &Value,
+) -> Result<()> {
+    let expected = &schema["caller_authorization"];
+    for (name, actual) in [
+        ("proof artifact", &proof["caller_authorization"]),
+        ("signed bundle", &signed_payload["caller_authorization"]),
+    ] {
+        if canonical_json_bytes(actual) != canonical_json_bytes(expected) {
+            bail!("caller-authorization drift: contract-state schema does not match {name}");
+        }
+    }
+    Ok(())
+}
+
+fn validate_caller_authorization_binding(
+    schema: &Value,
+    artifact: &Value,
+    abi: &Value,
+) -> Result<()> {
+    let authorization = &schema["caller_authorization"];
+    if authorization.is_null() {
+        for (name, actual) in [
+            (
+                "target artifact",
+                &artifact["state_mapping"]["caller_authorization"],
+            ),
+            ("wire ABI", &abi["caller_authorization"]),
+        ] {
+            if !actual.is_null() {
+                bail!("caller-authorization drift: contract-state schema does not match {name}");
+            }
+        }
+        return Ok(());
+    }
+    let authorization = authorization.as_object().ok_or_else(|| {
+        anyhow!("contract-state schema caller authorization must be an object or null")
+    })?;
+    if authorization.get("entry_symbol").and_then(Value::as_str) != Some("clg.caller.entry")
+        || authorization
+            .get("identity")
+            .and_then(|identity| identity.get("encoding"))
+            .and_then(Value::as_str)
+            != Some("evm-address-20-byte")
+        || authorization
+            .get("identity")
+            .and_then(|identity| identity.get("width_bits"))
+            .and_then(Value::as_u64)
+            != Some(160)
+        || authorization
+            .get("owner_field_id")
+            .and_then(Value::as_str)
+            .is_none()
+        || authorization
+            .get("transitions")
+            .and_then(Value::as_array)
+            .is_none()
+    {
+        bail!("contract-state schema has an invalid caller-authorization descriptor");
+    }
+    let expected = Value::Object(authorization.clone());
+    for (name, actual) in [
+        (
+            "target artifact",
+            &artifact["state_mapping"]["caller_authorization"],
+        ),
+        ("wire ABI", &abi["caller_authorization"]),
+    ] {
+        if canonical_json_bytes(actual) != canonical_json_bytes(&expected) {
+            bail!("caller-authorization drift: contract-state schema does not match {name}");
+        }
+    }
+    Ok(())
 }
 
 fn read_json_with_bytes(path: &PathBuf, description: &str) -> Result<(Vec<u8>, Value)> {
@@ -634,6 +715,16 @@ fn encode_static_word(ty: &str, value: &Value) -> Result<[u8; 32]> {
             if number < 0 { word.fill(0xff); }
             word[24..].copy_from_slice(&number.to_be_bytes());
         }
+        "address" => {
+            let address = value
+                .as_str()
+                .ok_or_else(|| anyhow!("expected canonical address ABI argument"))?;
+            let address = canonical_address(address)
+                .context("expected canonical address ABI argument")?;
+            let bytes = hex::decode(address.trim_start_matches("0x"))
+                .expect("canonical address has already been validated");
+            word[12..].copy_from_slice(&bytes);
+        }
         _ => bail!("EVM calldata encoder does not support dynamic or 256-bit type `{ty}` in the first target profile"),
     }
     Ok(word)
@@ -781,9 +872,11 @@ fn write_transaction_receipt(
     evidence: Evidence,
 ) -> Result<()> {
     let request_digest = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&request)));
+    let caller = request.get("from").cloned().unwrap_or(Value::Null);
     let mut receipt = json!({
         "artifact_digest": artifact.digest,
         "block": { "hash": onchain.block_hash, "number": onchain.block_number },
+        "caller": caller,
         "chain_id": chain_id,
         "command": command,
         "evidence": {
@@ -1351,6 +1444,10 @@ mod tests {
             .expect("parse receipt");
         assert_eq!(output["command"], "invoke");
         assert_eq!(
+            output["caller"],
+            "0x1a642f0e3c3af545e7acbd38b07251b3990914f1"
+        );
+        assert_eq!(
             output["contract_address"],
             "0x1111111111111111111111111111111111111111"
         );
@@ -1380,6 +1477,22 @@ mod tests {
     }
 
     #[test]
+    fn address_arguments_are_encoded_as_a_canonical_20_byte_abi_word() {
+        let word = encode_static_word(
+            "address",
+            &json!("0x1111111111111111111111111111111111111111"),
+        )
+        .expect("encode address");
+        assert_eq!(&word[..12], &[0; 12]);
+        assert_eq!(&word[12..], &[0x11; 20]);
+        assert!(encode_static_word(
+            "address",
+            &json!("0x111111111111111111111111111111111111111G"),
+        )
+        .is_err());
+    }
+
+    #[test]
     fn cross_artifact_compiler_drift_is_rejected_before_submission() {
         let dir = tempdir().expect("tempdir");
         let (artifact_path, abi_path) = write_target_inputs(&dir, Value::Null, json!([]));
@@ -1402,5 +1515,60 @@ mod tests {
         )
         .expect_err("identity drift must fail closed");
         assert!(error.to_string().contains("cross-artifact identity drift"));
+    }
+
+    #[test]
+    fn caller_authorization_descriptor_drift_is_rejected_before_submission() {
+        let authorization = json!({
+            "entry_symbol": "clg.caller.entry",
+            "identity": { "encoding": "evm-address-20-byte", "width_bits": 160 },
+            "owner_field_id": "sha256:owner",
+            "profile": "clg.evm-stateful-scalar.v1",
+            "transitions": [{ "function": "set_value", "guard": "caller_equals_state_owner" }],
+        });
+        let schema = json!({ "caller_authorization": authorization });
+        let artifact = json!({
+            "state_mapping": { "caller_authorization": schema["caller_authorization"] },
+        });
+        let abi = json!({ "caller_authorization": schema["caller_authorization"] });
+        validate_caller_authorization_binding(&schema, &artifact, &abi)
+            .expect("matching caller descriptor");
+        let proof = json!({ "caller_authorization": schema["caller_authorization"] });
+        let signed_payload = json!({ "caller_authorization": schema["caller_authorization"] });
+        validate_caller_authorization_evidence(&schema, &proof, &signed_payload)
+            .expect("matching caller evidence");
+
+        let mut drifted_artifact = artifact.clone();
+        drifted_artifact["state_mapping"]["caller_authorization"]["owner_field_id"] =
+            json!("sha256:other-owner");
+        let error = validate_caller_authorization_binding(&schema, &drifted_artifact, &abi)
+            .expect_err("artifact caller drift must fail closed");
+        assert!(error.to_string().contains("caller-authorization drift"));
+
+        let mut drifted_abi = abi.clone();
+        drifted_abi["caller_authorization"]["identity"]["width_bits"] = json!(256);
+        let error = validate_caller_authorization_binding(&schema, &artifact, &drifted_abi)
+            .expect_err("wire ABI caller drift must fail closed");
+        assert!(error.to_string().contains("caller-authorization drift"));
+
+        let mut drifted_proof = proof.clone();
+        drifted_proof["caller_authorization"]["transitions"][0]["function"] = json!("other");
+        let error =
+            validate_caller_authorization_evidence(&schema, &drifted_proof, &signed_payload)
+                .expect_err("proof caller drift must fail closed");
+        assert!(error.to_string().contains("caller-authorization drift"));
+
+        let mut drifted_signed_payload = signed_payload.clone();
+        drifted_signed_payload["caller_authorization"]["owner_field_id"] = json!("sha256:other");
+        let error =
+            validate_caller_authorization_evidence(&schema, &proof, &drifted_signed_payload)
+                .expect_err("signed caller drift must fail closed");
+        assert!(error.to_string().contains("caller-authorization drift"));
+
+        let no_authorization_schema = json!({ "caller_authorization": null });
+        let error =
+            validate_caller_authorization_binding(&no_authorization_schema, &artifact, &abi)
+                .expect_err("injected caller authorization must fail closed");
+        assert!(error.to_string().contains("caller-authorization drift"));
     }
 }

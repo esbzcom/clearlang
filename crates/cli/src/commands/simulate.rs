@@ -611,13 +611,17 @@ mod tests {
         let mut values = HashMap::new();
         let mut storage = serde_json::Map::new();
         storage.insert("owner".to_string(), json!(owner.canonical()));
-        let state_types = HashMap::from([(
-            "owner",
-            Type::Named {
-                name: "std::eth::Address".to_string(),
-                args: Vec::new(),
-            },
-        )]);
+        storage.insert("value".to_string(), json!(0));
+        let state_types = HashMap::from([
+            (
+                "owner",
+                Type::Named {
+                    name: "std::eth::Address".to_string(),
+                    args: Vec::new(),
+                },
+            ),
+            ("value", Type::U64),
+        ]);
         let body = vec![
             Instr::ContextCaller { dst: Value(0) },
             Instr::StateRead {
@@ -642,6 +646,12 @@ mod tests {
                 ty: IrType::Int,
                 n: 7,
             },
+            Instr::StateWrite {
+                contract: "ConfigRegistry".to_string(),
+                field: "value".to_string(),
+                src: Value(3),
+                ty: IrType::U64,
+            },
             Instr::Ret { val: Value(3) },
         ];
         let mut events = Vec::new();
@@ -661,8 +671,12 @@ mod tests {
         )
         .expect("owner must pass the guard");
         assert_eq!(result, SimValue::Scalar(7));
+        assert_eq!(storage["value"], json!(7));
 
         let mut values = HashMap::new();
+        let mut storage = serde_json::Map::new();
+        storage.insert("owner".to_string(), json!(owner.canonical()));
+        storage.insert("value".to_string(), json!(0));
         let mut events = Vec::new();
         let mut changes = Vec::new();
         let mut fuel = 0;
@@ -682,6 +696,9 @@ mod tests {
         )
         .expect_err("non-owner must fail the guard");
         assert!(error.message.contains("simulator contract guard failed"));
+        assert_eq!(storage["value"], json!(0));
+        assert!(changes.is_empty());
+        assert!(events.is_empty());
     }
 
     #[test]

@@ -80,7 +80,7 @@ contract platform.
 1. [x] 40.0 product, threat-model, and local-validation lock.
 2. [x] 40.1.1 local pilot-precheck CLI/report lock.
 3. [ ] 40.1.2-40.1.3 baseline pilot-precheck implementation and report-validation fixtures.
-4. [ ] 41.0-41.2 caller authorization, target correspondence, and negative matrix.
+4. [x] 41.0-41.2 caller authorization, target correspondence, and negative matrix.
 5. [ ] 42.0-42.1 testnet profile and reference registry local evidence.
 6. [ ] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
 7. [ ] 40.1.4 full pilot-precheck fixture integration, after every named prerequisite exists.
@@ -216,9 +216,10 @@ contract platform.
   observation rule, endpoint trust boundary, faucet/key handling policy, known incompatibilities,
   and a deterministic offline fixture substitute. Do not add ambient network defaults or make
   network reachability a release gate.
-  - [ ] 42.0.1 Evaluate candidate testnets against a written conformance questionnaire covering
+  - [x] 42.0.1 Evaluate candidate testnets against a written conformance questionnaire covering
     chain ID, London opcode availability, transaction envelope support, the required JSON-RPC
     methods, receipt fields, and deterministic fixture capture feasibility.
+    (`docs/design/phase-42.0.1-testnet-conformance-questionnaire.md`) `Completed: 2026-10-14`.
   - [ ] 42.0.2 Select exactly one profile and publish its immutable identifier, expected RPC
     semantics, compatible client/version observations, faucet/key policy, and endpoint trust
     boundary. A changed chain ID or incompatible method response must fail before submission.

@@ -23,6 +23,7 @@ pub(super) fn check_with_vcs_with_std_and_external_impl(
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
+    validate_caller_authorization_profile(ast)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> =
         HashMap::with_capacity(builtins.len() + external_builtins.len() + ast.funcs.len());

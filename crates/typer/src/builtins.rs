@@ -2129,6 +2129,38 @@ pub fn all_builtin_sigs() -> Vec<(String, Vec<Param>, Type, Effect)> {
             Effect::Pure,
         ),
         (
+            "std::eth::context::caller".to_string(),
+            Vec::new(),
+            Type::Named {
+                name: "std::eth::Address".to_string(),
+                args: Vec::new(),
+            },
+            Effect::Pure,
+        ),
+        (
+            "std::eth::address::equals".to_string(),
+            vec![
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "lhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::eth::Address".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+                Param {
+                    kind: ParamKind::Borrow,
+                    name: "rhs".to_string(),
+                    ty: Type::Named {
+                        name: "std::eth::Address".to_string(),
+                        args: Vec::new(),
+                    },
+                },
+            ],
+            Type::Bool,
+            Effect::Pure,
+        ),
+        (
             "std::eth::from_array".to_string(),
             vec![Param {
                 kind: ParamKind::Borrow,

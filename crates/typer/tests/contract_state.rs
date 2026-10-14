@@ -1,6 +1,8 @@
 use clg_ir::Instr;
 use clg_parser::parse;
-use clg_typer::{check, generate_vcs, type_check_only};
+use clg_typer::{
+    check, generate_vcs, type_check_only, type_check_only_with_std, StdTypeInfo, StdTypeMap,
+};
 
 #[test]
 fn contract_state_fields_must_be_persistable_and_unique() {
@@ -48,6 +50,48 @@ fn contract_state_fields_must_be_persistable_and_unique() {
     let err = type_check_only(&parse(invalid_event_field).expect("parse invalid event field"))
         .expect_err("reject non-serializable event field");
     assert!(format!("{err:#}").contains("T826"));
+}
+
+#[test]
+fn caller_aware_owner_guard_has_a_narrow_typecheck_surface() {
+    let source = r#"
+        contract ConfigRegistry version 1 {
+            state { owner: std::eth::Address; value: U64; }
+            init(owner: std::eth::Address, value: U64) {
+                state.owner = owner;
+                state.value = value;
+                0
+            }
+            mut function set_value(next: U64) -> U64
+                require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+            {
+                state.value = next;
+                next
+            }
+        }
+    "#;
+    let mut std_types = StdTypeMap::new();
+    std_types.insert(
+        "std::eth::Address".to_string(),
+        StdTypeInfo {
+            byte_len: 20,
+            align: 1,
+        },
+    );
+    type_check_only_with_std(
+        &parse(source).expect("parse caller-aware contract"),
+        &std_types,
+    )
+    .expect("type-check the locked caller-aware surface");
+
+    let invalid = source.replace(
+        "require { std::eth::address::equals(std::eth::context::caller(), state.owner) }",
+        "require { state.owner == state.owner }",
+    );
+    let error =
+        type_check_only_with_std(&parse(&invalid).expect("parse invalid guard"), &std_types)
+            .expect_err("reject non-locked address equality");
+    assert!(format!("{error:#}").contains("T834"));
 }
 
 #[test]

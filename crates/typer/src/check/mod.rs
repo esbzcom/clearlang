@@ -1,4 +1,5 @@
 mod aliases;
+mod caller_authorization;
 mod expr;
 mod fast_path;
 mod function_checks;
@@ -15,6 +16,7 @@ mod type_resolve;
 mod type_validation;
 
 use self::aliases::{build_alias_map, validate_alias_predicates};
+use self::caller_authorization::validate_caller_authorization_profile;
 pub(crate) use self::expr::{infer_expr_type, show_ty};
 use self::fast_path::fast_path_without_totality_with_std_and_external;
 use self::function_checks::{
@@ -319,6 +321,7 @@ pub fn type_check_only_with_std(ast: &Program, std_types: &StdTypeMap) -> Result
     validate_supported_types(ast, &alias_map, &type_defs, &trait_env)?;
     validate_known_types(ast, &alias_map, &type_defs, &trait_env, std_types)?;
     validate_struct_enum_resources(ast, &alias_map, &type_defs, &trait_env)?;
+    validate_caller_authorization_profile(ast)?;
     let builtins = builtin_sigs();
     let mut fns: HashMap<&str, FnSig> =
         HashMap::with_capacity(builtins.len() + external_builtins.len() + ast.funcs.len());

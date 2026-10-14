@@ -3,6 +3,18 @@ use crate::check::show_ty;
 use clg_ast::{Span, Type};
 
 impl TyperError {
+    pub fn caller_authorization_outside_profile(span: Span) -> Self {
+        Self::new(
+            "T834",
+            format!(
+                "at {}..{}: caller authorization is outside the caller-aware contract profile",
+                span.start, span.end
+            ),
+            span.start,
+            span.end,
+        )
+    }
+
     pub fn old_expression_not_allowed(span: Span) -> Self {
         Self::new(
             "T823",

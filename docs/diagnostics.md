@@ -181,6 +181,7 @@ Each `stderr` line is a standalone JSON object (NDJSON):
   | T830 | type | External-call capability is outside a contract-owned `mut` transition. |
   | T831 | type | External-call target is not a declared interface method. |
   | T832 | type | State interaction, event emission, or an additional external call follows an external call. |
+| T834 | type | Caller authorization or EVM address use is outside the locked caller-aware contract profile. |
 | T901 | type | While loops in pure functions require a variant for totality. |
 | T902 | type | Recursive call requires a decreasing measure. |
 | T903 | type | Loop variant is not decreasing. |

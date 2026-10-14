@@ -182,7 +182,7 @@ contract platform.
   EVM lowering path. The proof model must bind the caller identity used by a verified transition
   to the simulator trace and EVM target receipt. Any backend or proof configuration unable to
   establish that correspondence rejects the contract/release; no placeholder caller is accepted.
-  - [ ] 41.1.1 Add AST/parser/type-checker support and stable diagnostics for `Address`,
+  - [x] 41.1.1 Add AST/parser/type-checker support and stable diagnostics for `Address`,
     `context.caller`, equality, and the limited guard form. Reject all unlisted operations before
     IR lowering, with parser/type tests for every accepted and rejected expression shape.
   - [ ] 41.1.2 Add target-neutral IR and VC lowering with explicit caller symbols and bind them

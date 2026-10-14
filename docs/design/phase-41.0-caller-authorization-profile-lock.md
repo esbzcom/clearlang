@@ -8,20 +8,21 @@ Owner: language-and-proof-owner
 
 Define the smallest caller-authorization extension needed by the Milestone 5 configuration
 registry without creating a global address type, generic authentication framework, or implicit
-target context. The extension is a new profile; it does not reinterpret the completed Milestone 4
-scalar profile.
+target context. This is a pre-release cutover: no released consumer needs the earlier scalar-only
+target profile, so ClearLang may replace that incomplete profile rather than maintain two paths.
 
 ## Profile Decision
 
-The new profile identifier is `clg.evm-stateful-scalar-caller.v1`.
+The sole stateful EVM profile identifier remains `clg.evm-stateful-scalar.v1`.
 
-It extends `clg.evm-stateful-scalar.v1` only with an EVM-chain-scoped
-`std::eth::Address` owner field, an `std::eth::context::caller()` observation in one transition
-precondition, structural address equality, and the EVM `CALLER`/guard mapping necessary to enforce
-that precondition. Every schema, ABI, proof, artifact, campaign trace, target receipt, signature,
-assurance manifest, and release bundle must name the new profile exactly.
+It gains only an EVM-chain-scoped `std::eth::Address` owner field, an
+`std::eth::context::caller()` observation in one transition precondition, structural address
+equality, and the EVM `CALLER`/guard mapping necessary to enforce that precondition. Every schema,
+ABI, proof, artifact, campaign trace, target receipt, signature, assurance manifest, and release
+bundle must name the profile exactly.
 
-`clg.evm-stateful-scalar.v1` remains unchanged and does not gain caller semantics implicitly.
+Existing unreleased scalar-only artifacts are intentionally unsupported after this cutover. They
+must be rebuilt from source; no compatibility parser, migration, or dual target backend is added.
 
 ## Source Surface
 
@@ -165,8 +166,8 @@ new design lock and profile.
 5. Mutating the caller independently in source-derived evidence, campaign input/trace, ABI,
    artifact, target receipt, or release bundle fails identity verification and cannot yield a
    success receipt.
-6. The old scalar profile remains byte/behavior compatible and rejects caller-aware source rather
-   than silently accepting it.
+6. A scalar-only source remains valid when rebuilt, while an old artifact/evidence set cannot be
+   accepted as caller-aware evidence without a source rebuild and complete identity regeneration.
 
 ## Design Principles Check
 
@@ -184,8 +185,8 @@ new design lock and profile.
 1. The roadmap marks `41.0`, `41.0.1`, `41.0.2`, and `41.0.3` complete and references this lock.
 2. The new target-profile identifier, source shape, address encoding, VC relation, target mapping,
    receipt binding, diagnostics, and exclusions are unambiguous.
-3. The lock preserves the existing chain-package rule against global address types and leaves the
-   Milestone 4 scalar profile unchanged.
+3. The lock preserves the existing chain-package rule against global address types and records the
+   pre-release replacement of the incomplete scalar-only target profile.
 
 ## References
 

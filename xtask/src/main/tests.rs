@@ -1171,6 +1171,99 @@ fn demo() {
     }
 
     #[test]
+    fn parse_pilot_precheck_args_accepts_only_one_report_destination() {
+        let opts = parse_pilot_precheck_args(vec![
+            "--report".to_string(),
+            "tmp/pilot-precheck.json".to_string(),
+        ])
+        .expect("parse report destination");
+        assert_eq!(opts.report, PathBuf::from("tmp/pilot-precheck.json"));
+
+        for args in [
+            Vec::new(),
+            vec!["--report".to_string()],
+            vec!["--unknown".to_string()],
+            vec![
+                "--report".to_string(),
+                "one.json".to_string(),
+                "--report".to_string(),
+                "two.json".to_string(),
+            ],
+        ] {
+            assert!(parse_pilot_precheck_args(args).is_err());
+        }
+    }
+
+    #[test]
+    fn pilot_precheck_baseline_report_is_deterministic_and_validated() {
+        let root = repo_root();
+        let mut report = new_baseline_pilot_precheck_report(root.as_path()).expect("new report");
+        for gate in &mut report.gates {
+            gate.status = "passed".to_string();
+        }
+        validate_pilot_precheck_report_against_root(root.as_path(), &report)
+            .expect("valid baseline report");
+
+        let bytes_one = pretty_json_bytes(&report).expect("serialize report");
+        let bytes_two = pretty_json_bytes(&report).expect("serialize report again");
+        assert_eq!(bytes_one, bytes_two);
+
+        let dir = unique_temp_dir("pilot-precheck-report");
+        let first = dir.join("one.json");
+        let second = dir.join("two.json");
+        write_pilot_precheck_report(first.as_path(), &report).expect("write first report");
+        write_pilot_precheck_report(first.as_path(), &report).expect("replace first report");
+        write_pilot_precheck_report(second.as_path(), &report).expect("write second report");
+        assert_eq!(
+            std::fs::read(first).expect("read first report"),
+            std::fs::read(second).expect("read second report")
+        );
+        cleanup_temp_dir(dir.as_path());
+    }
+
+    #[test]
+    fn pilot_precheck_report_rejects_tampering_and_unsafe_evidence() {
+        let root = repo_root();
+        let mut report = new_baseline_pilot_precheck_report(root.as_path()).expect("new report");
+        for gate in &mut report.gates {
+            gate.status = "passed".to_string();
+        }
+
+        let mut reordered = report.clone();
+        reordered.gate_order.reverse();
+        assert!(validate_pilot_precheck_report(&reordered).is_err());
+
+        let mut unsafe_path = report.clone();
+        unsafe_path.gates[0].input_digests[0].id = "../secret".to_string();
+        assert!(validate_pilot_precheck_report(&unsafe_path).is_err());
+
+        let mut malformed_digest = report.clone();
+        malformed_digest.gates[0].evidence_digests[0].sha256 = "BAD".to_string();
+        assert!(validate_pilot_precheck_report(&malformed_digest).is_err());
+
+        let mut missing_evidence = report.clone();
+        missing_evidence.gates[0].evidence_digests.clear();
+        assert!(validate_pilot_precheck_report(&missing_evidence).is_err());
+
+        let mut substituted = report;
+        substituted.gates[0].input_digests[0].sha256 = "0".repeat(64);
+        assert!(validate_pilot_precheck_report(&substituted).is_ok());
+        assert!(validate_pilot_precheck_report_against_root(root.as_path(), &substituted).is_err());
+    }
+
+    #[test]
+    fn pilot_precheck_failure_shape_is_fail_closed() {
+        let root = repo_root();
+        let mut report = new_baseline_pilot_precheck_report(root.as_path()).expect("new report");
+        report.overall_status = "failed".to_string();
+        report.gates[0].status = "failed".to_string();
+        report.gates[0].failure_code = Some("command_failed".to_string());
+        report.gates[1].status = "not_run".to_string();
+        validate_pilot_precheck_report_against_root(root.as_path(), &report)
+            .expect("fail-fast report is valid evidence");
+    }
+
+    #[test]
     fn check_manifest_lock_consistency_accepts_matching_roots() {
         let dir = unique_temp_dir("manifest-lock-ok");
         std::fs::write(

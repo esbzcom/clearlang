@@ -79,16 +79,16 @@ contract platform.
 
 1. [x] 40.0 product, threat-model, and local-validation lock.
 2. [x] 40.1.1 local pilot-precheck CLI/report lock.
-3. [ ] 41.0-41.2 caller authorization, target correspondence, and negative matrix.
-4. [ ] 42.0-42.1 testnet profile and reference registry local evidence.
-5. [ ] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
-6. [ ] 40.1.2-40.1.3 local pilot-precheck implementation and required fixture integration, after
-   every named prerequisite exists.
-7. [ ] 40.2 local toolchain support/reproduction policy and clean-directory fixture, after the
+3. [ ] 40.1.2-40.1.3 baseline pilot-precheck implementation and report-validation fixtures.
+4. [ ] 41.0-41.2 caller authorization, target correspondence, and negative matrix.
+5. [ ] 42.0-42.1 testnet profile and reference registry local evidence.
+6. [ ] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
+7. [ ] 40.1.4 full pilot-precheck fixture integration, after every named prerequisite exists.
+8. [ ] 40.2 local toolchain support/reproduction policy and clean-directory fixture, after the
    pilot precheck exists.
-8. [ ] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
-9. [ ] 43.2 external-user walkthrough and documentation fixture.
-10. [ ] 44.0-44.2 final product documentation, two-clean-environment closure rehearsal, and
+9. [ ] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
+10. [ ] 43.2 external-user walkthrough and documentation fixture.
+11. [ ] 44.0-44.2 final product documentation, two-clean-environment closure rehearsal, and
     pilot-readiness decision.
 
 ## 40. Product and Local Assurance Gate [Planning Gate A]
@@ -112,23 +112,35 @@ contract platform.
     (`docs/design/phase-40.0-milestone-5-pilot-product-lock.md`,
     `docs/fixtures/phase-40.0/pilot-claim-terminology-checklist.json`) `Completed: 2026-10-13`.
 
-- [ ] 40.1 Add `xtask pilot-precheck`, a local-only, fail-closed aggregate gate. It must execute
-  the existing release precheck, all Milestone 4 contract-release fixtures, verifier-distribution
-  fixtures, authorization fixtures, and the reference-pilot offline replay; emit a canonical
-  versioned JSON report with command versions, input artifact digests, ordered sub-gate outcomes,
-  and no absolute host paths. Add tests that reject omitted, reordered, substituted, or malformed
-  report evidence.
+- [ ] 40.1 Add `xtask pilot-precheck`, a local-only, fail-closed staged aggregate gate. Its
+  implemented baseline executes the existing release precheck and all Milestone 4 contract-release
+  fixtures. It emits a canonical versioned JSON report with command versions, input artifact
+  digests, ordered sub-gate outcomes, no absolute host paths, and an explicit `baseline` scope.
+  Later integration appends verifier-distribution fixtures, authorization fixtures, and the
+  reference-pilot offline replay before a `full` report can claim pilot acceptance. Add tests that
+  reject omitted, reordered, substituted, or malformed report evidence.
   - [x] 40.1.1 Lock the command-line interface, report schema/version, deterministic sub-gate
     order, exit codes, report destination, and redaction policy. The report must identify tool
     versions and digests but never include secret material, endpoint credentials, or host paths.
     (`docs/design/phase-40.1.1-pilot-precheck-cli-report-lock.md`) `Completed: 2026-10-13`.
-  - [ ] 40.1.2 Implement the dispatcher as a composition of existing local commands with explicit
-    argument forwarding and fail-fast aggregation. It must distinguish a command execution
-    failure from a malformed or unverifiable sub-report. This starts only after `41.2`, `42.1`,
-    and `43.1` provide every mandatory fixture suite.
-  - [ ] 40.1.3 Add fixture tests for a complete pass, each failing sub-gate, report canonicality,
-    report tampering, missing evidence, unsafe artifact paths, and repeat-run deterministic
+  - [x] 40.1.2 Implement the baseline dispatcher as a composition of existing local commands with
+    explicit argument parsing and fail-fast aggregation. Its fixed order is `release-precheck`,
+    then `contract-release-fixtures`; it writes a `baseline`-scoped report and must not claim
+    complete pilot acceptance. It must distinguish a command execution failure from a malformed
+    or unverifiable report.
+    - [x] 40.1.2.1 Parse only `--report <FILE>`; reject a missing, repeated, or unknown argument.
+    - [x] 40.1.2.2 Run the existing `release-precheck` and
+      `cargo test -p clg-cli --test cli_it basic::contract_release_` commands in the fixed order;
+      record the failed gate and later `not_run` gates on fail-fast termination.
+    - [x] 40.1.2.3 Emit the atomic, path-redacted, versioned baseline report with fixed command
+      argv and SHA-256 identities for its checked fixture inputs. Retain the three future full
+      gate identifiers in the report so a baseline result cannot be read as full completion.
+  - [x] 40.1.3 Add deterministic baseline fixture tests for CLI parsing, pass/fail result shape,
+    report canonicality, report tampering, missing evidence, unsafe artifact paths, and repeat-run
     output. Integrate the command into the local release/pilot runbook, not as a remote gate.
+  - [ ] 40.1.4 After `41.2`, `42.1`, and `43.1` exist, append the verifier-distribution,
+    caller-authorization, and reference-pilot offline-replay fixture suites. Only that completed
+    integration may write `scope: full` and satisfy Milestone 5 pilot acceptance.
 
 - [ ] 40.2 Publish the local-toolchain support and reproduction policy for the pilot: exact Rust,
   solver, target-profile, verifier, and report-schema compatibility rules; deterministic failure

@@ -7,8 +7,9 @@ Owner: release-assurance-owner
 ## Purpose
 
 Define the one-command, local-only Milestone 5 acceptance interface before its implementation.
-The command aggregates evidence; it does not create a second release policy, contact a network,
-or allow a passing partial suite to be mistaken for pilot readiness.
+The command aggregates evidence; it does not create a second release policy or contact a network.
+It activates in two explicit scopes so a useful baseline cannot be mistaken for full pilot
+readiness.
 
 ## Command Contract
 
@@ -27,36 +28,46 @@ The command is local-only. It must not discover or contact RPC endpoints, wallet
 hosted CI, or any other network service. A live testnet observation is verified later from its
 recorded offline fixture, not created by this command.
 
-## Required Gate Order
+## Staged Gate Order
 
-The following identifiers and order are canonical:
+The baseline implementation has exactly these canonical identifiers and order:
 
 1. `release-precheck`
 2. `contract-release-fixtures`
+
+It writes `scope: "baseline"`. A passing baseline proves only that its two named local gates
+passed; it is not a Milestone 5 completion or pilot-acceptance claim.
+
+The full implementation appends the following identifiers in this canonical order:
+
 3. `verifier-distribution-fixtures`
 4. `caller-authorization-fixtures`
 5. `reference-pilot-offline-replay`
 
-Each gate is mandatory. The command must fail if a gate has not been registered with a stable,
-local invocation and expected evidence inputs. It must not replace an unavailable gate with a
-warning, a skipped result, a smoke test, an ambient artifact, or a live target request.
+It alone writes `scope: "full"`, and every listed gate is mandatory in that scope. It must fail if
+a full gate has not been registered with a stable, local invocation and expected evidence inputs.
+It must not replace an unavailable gate with a warning, a skipped result, a smoke test, an ambient
+artifact, or a live target request.
 
-`release-precheck` retains its existing fail-closed command. The other four identifiers become
-available only after `41.2`, `42.1`, and `43.1` provide their named fixture suites. Consequently,
-the implementation tasks `40.1.2` and `40.1.3` are intentionally scheduled after those
-prerequisites; this lock does not authorize a partial implementation.
+`release-precheck` retains its existing fail-closed command. The baseline uses the existing
+Milestone 4 contract-release fixture command. The remaining three identifiers become available
+only after `41.2`, `42.1`, and `43.1` provide their named fixture suites. They are declared as
+`future_required_gates` in a baseline report, not run, skipped, or represented as passed.
 
 ## Report Schema
 
 The report format is `clg.pilot-precheck-report.v1` with `schema_version: 1`. Its canonical JSON
 object fields appear in this order:
 
-1. `schema_version` — integer `1`.
-2. `kind` — exact string `clg.pilot-precheck-report.v1`.
-3. `overall_status` — `passed` or `failed`.
-4. `toolchain` — ordered, non-secret tool/version identifiers used by the gate.
-5. `gate_order` — the exact required identifier sequence.
-6. `gates` — one ordered entry per required gate.
+1. `schema_version` - integer `1`.
+2. `kind` - exact string `clg.pilot-precheck-report.v1`.
+3. `scope` - `baseline` or `full`.
+4. `overall_status` - `passed` or `failed` for the declared scope only.
+5. `toolchain` - ordered, non-secret tool/version identifiers used by the gate.
+6. `gate_order` - the exact executed-scope identifier sequence.
+7. `future_required_gates` - ordered full-only identifiers when `scope` is `baseline`; empty
+   when `scope` is `full`.
+8. `gates` - one ordered entry per executed-scope gate.
 
 Each `gates` entry contains only:
 
@@ -75,16 +86,17 @@ The report has no self-digest; its caller may hash the finished bytes. Canonical
 the fixed gate order make identical toolchain/input/result runs byte-stable.
 
 On failure, the command writes one complete report showing the failed gate and each subsequent
-gate as `not_run`, then exits non-zero. A `not_run` status necessarily makes `overall_status`
-`failed`; it is evidence of fail-fast aggregation, never success.
+executed-scope gate as `not_run`, then exits non-zero. A `not_run` status necessarily makes
+`overall_status` `failed`; it is evidence of fail-fast aggregation, never success. Full-only gates
+remain in `future_required_gates` during baseline operation rather than appearing as skipped.
 
 ## Validation and Redaction Rules
 
-Before reporting success, the implementation must reject:
+Before reporting success for its declared scope, the implementation must reject:
 
 1. missing, duplicate, unknown, or reordered gate identifiers;
 2. an omitted required gate, `not_run` result, or successful result without required evidence
-   digests;
+   digests; or a baseline report presented as `full`;
 3. unsafe evidence paths, path traversal, absolute paths, or evidence outside the designated
    fixture/output root;
 4. malformed schema versions, non-canonical JSON, non-lowercase 64-character SHA-256 digests,
@@ -93,9 +105,8 @@ Before reporting success, the implementation must reject:
 
 ## Documentation Contract
 
-The command is the required local Milestone 5 acceptance path only after all mandatory fixture
-suites exist. Until then, documentation may describe the interface as locked but must not show a
-successful invocation or call it an available gate.
+The baseline command is an available local regression gate once implemented. It is not the
+Milestone 5 acceptance path until the full fixture set exists and the report scope is `full`.
 
 When implemented, the following documents must agree on its spelling, local-only behavior, report
 schema, and required fixture suite: the Milestone 5 roadmap, pilot product contract, local
@@ -108,17 +119,19 @@ toolchain policy, verifier walkthrough, and pilot operations guide.
 - **AI-friendly:** stable identifiers, fixed ordering, versioned JSON, and redacted canonical
   values are easy for automation to produce and validate.
 - **Provably correct:** missing evidence or an unavailable prerequisite cannot be upgraded to a
-  passing result.
+  full passing result.
 - **Crypto-focused:** the command keeps verifier, caller, source, and target evidence distinct
   and prevents secrets or live network behavior from contaminating reproducible acceptance.
 
 ## Exit Criteria
 
-1. The Milestone 5 roadmap marks `40.1.1` complete and schedules the implementation after its
-   authorization, reference-pilot, and verifier prerequisites.
-2. The command interface, report schema, gate order, failure behavior, and redaction policy are
-   explicit.
-3. The lock prohibits partial success and remote/network dependence.
+1. The Milestone 5 roadmap marks `40.1.1` complete, schedules the baseline implementation now,
+   and schedules full integration after its authorization, reference-pilot, and verifier
+   prerequisites.
+2. The command interface, report schema, staged gate order, failure behavior, and redaction
+   policy are explicit.
+3. The lock distinguishes baseline success from full pilot acceptance and prohibits remote/network
+   dependence.
 
 ## References
 

@@ -30,6 +30,16 @@ Local release-precheck gate (required before strict signed publish flow):
 cargo run -p xtask -- release-precheck
 ```
 
+Milestone 5 baseline pilot-precheck (local-only release and contract-release regression evidence):
+
+```powershell
+cargo run -p xtask -- pilot-precheck --report tmp/pilot-precheck-baseline.json
+```
+
+The resulting report is explicitly `scope: "baseline"`: it covers `release-precheck` and the
+Milestone 4 contract-release fixtures only. It is not a full pilot-acceptance or production claim;
+verifier-distribution, caller-authorization, and reference-pilot replay gates are added later.
+
 Deterministic `.clear` source formatting check:
 
 ```powershell

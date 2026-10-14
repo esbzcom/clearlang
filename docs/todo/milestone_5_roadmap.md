@@ -178,7 +178,7 @@ contract platform.
     every rejected broader authorization pattern.
     (`docs/design/phase-41.0-caller-authorization-profile-lock.md`) `Completed: 2026-10-13`.
 
-- [ ] 41.1 Implement the locked source, parser, typer, IR, VC, simulator, schema, wire-ABI, and
+- [x] 41.1 Implement the locked source, parser, typer, IR, VC, simulator, schema, wire-ABI, and
   EVM lowering path. The proof model must bind the caller identity used by a verified transition
   to the simulator trace and EVM target receipt. Any backend or proof configuration unable to
   establish that correspondence rejects the contract/release; no placeholder caller is accepted.
@@ -192,7 +192,7 @@ contract platform.
     and receipts with the canonical caller identity. Add cross-layer golden fixtures and reject
     any target lacking an exact mapping.
 
-- [ ] 41.2 Add exhaustive deterministic positive and negative coverage: owner initialization,
+- [x] 41.2 Add exhaustive deterministic positive and negative coverage: owner initialization,
   authorized transition, unauthorized caller, malformed caller input, caller/source/schema/wire
   ABI/proof/target drift, replay under a different caller, and unavailable target mapping. Verify
   that failed authorization does not commit state, cannot produce a successful target receipt,
@@ -204,7 +204,7 @@ contract platform.
   - [x] 41.2.2 Create end-to-end release fixtures that mutate caller values independently in the
     source, proof, campaign input/trace, schema, ABI, target artifact, receipt, and bundle index;
     require stable fail-closed diagnostics for each mutation.
-  - [ ] 41.2.3 Add deterministic campaign seed/replay tests that demonstrate identical caller
+  - [x] 41.2.3 Add deterministic campaign seed/replay tests that demonstrate identical caller
     inputs reproduce identical outcomes and a substituted caller either changes the signed
     evidence identity or fails verification.
 

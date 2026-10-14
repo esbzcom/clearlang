@@ -72,6 +72,176 @@ fn contract_test_campaign_is_seeded_replayable_and_captures_simulator_traces() {
 }
 
 #[test]
+fn caller_aware_campaign_replays_deterministically_and_rejects_substituted_callers() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("config_registry.clear");
+    let plan = dir.path().join("caller-campaign.json");
+    let report = dir.path().join("caller-campaign.report.json");
+    let traces = dir.path().join("caller-campaign-traces");
+    let owner = "0x1111111111111111111111111111111111111111";
+    let substituted_caller = "0x2222222222222222222222222222222222222222";
+    fs::write(
+        &source,
+        r#"
+            import std::eth::{Address}
+
+            contract ConfigRegistry version 1 {
+                state { owner: std::eth::Address; value: U64; }
+                init(owner: std::eth::Address, value: U64) {
+                    state.owner = owner;
+                    state.value = value;
+                    0
+                }
+                mut function set_value(next: U64) -> U64
+                    require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+                {
+                    state.value = next;
+                    next
+                }
+            }
+        "#,
+    )
+    .expect("write caller-aware contract source");
+    fs::write(
+        &plan,
+        format!(
+            r#"{{
+                "format":"clg.contract-test-plan.v1",
+                "schema_version":1,
+                "seed":71,
+                "cases":3,
+                "function":"set_value",
+                "state":{{"owner":"{owner}","value":0}},
+                "caller":"{owner}",
+                "value":0,
+                "block_number":7,
+                "timestamp":8,
+                "gas_limit":100,
+                "memory_limit":1048576,
+                "generators":[{{"type":"u64","min":1,"max":9}}],
+                "properties":[
+                    {{"kind":"result_equals_arg","arg":0}},
+                    {{"kind":"state_field_equals_arg","field":"value","arg":0}}
+                ]
+            }}"#,
+        ),
+    )
+    .expect("write caller-aware campaign plan");
+
+    let run_campaign = |report: &Path, trace_dir: &Path| {
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "contract",
+                "test",
+                source.to_str().expect("source path"),
+                "--plan",
+                plan.to_str().expect("plan path"),
+                "--report-out",
+                report.to_str().expect("report path"),
+                "--trace-dir",
+                trace_dir.to_str().expect("trace directory path"),
+            ])
+            .assert()
+            .success();
+        fs::read(report).expect("read campaign report")
+    };
+
+    let first_report = run_campaign(&report, &traces);
+    let first_trace = fs::read(traces.join("case-0000.trace.json")).expect("read first trace");
+    let second_report = run_campaign(&report, &traces);
+    let second_trace = fs::read(traces.join("case-0000.trace.json")).expect("read replay trace");
+    assert_eq!(
+        first_report, second_report,
+        "identical caller-aware campaign inputs must reproduce byte-identical evidence"
+    );
+    assert_eq!(
+        first_trace, second_trace,
+        "identical caller-aware campaign inputs must reproduce byte-identical traces"
+    );
+
+    let report_value: Value = serde_json::from_slice(&first_report).expect("parse campaign report");
+    assert_eq!(report_value["status"], "success");
+    let trace_value: Value = serde_json::from_slice(&first_trace).expect("parse successful trace");
+    assert_eq!(trace_value["status"], "success");
+    assert_eq!(trace_value["caller"], owner);
+    assert_eq!(
+        report_value["cases"][0]["replay"]["argv"],
+        serde_json::json!([
+            "clg",
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            traces.join("case-0000.state.json").to_str().expect("state path"),
+            "--args",
+            traces.join("case-0000.args.json").to_str().expect("arguments path"),
+            "--state-out",
+            traces.join("case-0000.state-out.json").to_str().expect("state output path"),
+            "--trace-out",
+            traces.join("case-0000.trace.json").to_str().expect("trace path"),
+            "--caller",
+            owner,
+            "--value",
+            "0",
+            "--block-number",
+            "7",
+            "--timestamp",
+            "8",
+            "--gas-limit",
+            "100",
+            "--memory-limit",
+            "1048576"
+        ]),
+        "replay evidence must bind the canonical caller"
+    );
+
+    let mut substituted_plan: Value =
+        serde_json::from_slice(&fs::read(&plan).expect("read campaign plan"))
+            .expect("parse campaign plan");
+    substituted_plan["caller"] = serde_json::json!(substituted_caller);
+    fs::write(
+        &plan,
+        serde_json::to_vec(&substituted_plan).expect("serialize substituted campaign plan"),
+    )
+    .expect("write substituted campaign plan");
+    let substituted_report = dir.path().join("substituted-caller.report.json");
+    let substituted_traces = dir.path().join("substituted-caller-traces");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "contract",
+            "test",
+            source.to_str().expect("source path"),
+            "--plan",
+            plan.to_str().expect("plan path"),
+            "--report-out",
+            substituted_report.to_str().expect("report path"),
+            "--trace-dir",
+            substituted_traces.to_str().expect("trace directory path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("contract campaign failed"))
+        .stderr(predicate::str::contains("contract guard failed"));
+    assert!(
+        !substituted_traces.join("case-0000.state-out.json").exists(),
+        "an unauthorized caller must not produce committed state"
+    );
+    let substituted_trace: Value = serde_json::from_slice(
+        &fs::read(substituted_traces.join("case-0000.trace.json"))
+            .expect("read substituted caller trace"),
+    )
+    .expect("parse substituted caller trace");
+    assert_eq!(substituted_trace["status"], "failure");
+    assert_eq!(substituted_trace["caller"], substituted_caller);
+    assert_eq!(substituted_trace["state_before"], substituted_trace["state_after"]);
+    assert_eq!(substituted_trace["state_changes"], serde_json::json!([]));
+    assert_eq!(substituted_trace["events"], serde_json::json!([]));
+}
+
+#[test]
 fn contract_release_help_exposes_the_complete_evidence_contract() {
     Command::cargo_bin("clg")
         .expect("clg binary")

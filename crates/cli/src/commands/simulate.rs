@@ -699,6 +699,33 @@ mod tests {
         assert_eq!(storage["value"], json!(0));
         assert!(changes.is_empty());
         assert!(events.is_empty());
+
+        let mut values = HashMap::new();
+        let mut storage = serde_json::Map::new();
+        storage.insert("owner".to_string(), json!(owner.canonical()));
+        storage.insert("value".to_string(), json!(0));
+        let mut events = Vec::new();
+        let mut changes = Vec::new();
+        let mut fuel = 0;
+        let error = execute(
+            &body,
+            &mut values,
+            &mut storage,
+            &mut events,
+            &mut changes,
+            None,
+            &state_types,
+            &HashMap::new(),
+            &mut fuel,
+            100,
+        )
+        .expect_err("a caller-aware transition must reject an omitted caller context");
+        assert!(error
+            .message
+            .contains("simulator caller identity is required"));
+        assert_eq!(storage["value"], json!(0));
+        assert!(changes.is_empty());
+        assert!(events.is_empty());
     }
 
     #[test]

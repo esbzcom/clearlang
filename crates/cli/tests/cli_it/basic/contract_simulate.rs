@@ -336,6 +336,122 @@ fn simulate_rejects_external_calls_without_committing_partial_state() {
 }
 
 #[test]
+fn simulate_caller_guard_rejects_non_owner_and_omitted_caller_without_state_output() {
+    let dir = tempdir().expect("tempdir");
+    let source = dir.path().join("registry.clear");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    let owner = "0x1111111111111111111111111111111111111111";
+    let other = "0x2222222222222222222222222222222222222222";
+    fs::write(
+        &source,
+        r#"
+            import std::eth::{Address}
+            contract ConfigRegistry version 1 {
+                state { owner: std::eth::Address; value: U64; }
+                init(owner: std::eth::Address, value: U64) {
+                    state.owner = owner;
+                    state.value = value;
+                    0
+                }
+                mut function set_value(next: U64) -> U64
+                    require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+                { state.value = next; next }
+            }
+        "#,
+    )
+    .expect("write caller-guarded contract");
+    fs::write(&state, format!(r#"{{"owner":"{owner}","value":0}}"#))
+        .expect("write state");
+    fs::write(&args, "[7]").expect("write args");
+
+    let owner_state_out = dir.path().join("owner-state-out.json");
+    let owner_trace_out = dir.path().join("owner-trace-out.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            owner_state_out.to_str().expect("state output path"),
+            "--trace-out",
+            owner_trace_out.to_str().expect("trace output path"),
+            "--caller",
+            owner,
+        ])
+        .assert()
+        .success();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&owner_state_out).expect("owner state output"))
+            .expect("parse owner state output"),
+        serde_json::json!({"owner": owner, "value": 7})
+    );
+
+    let rejected_state_out = dir.path().join("rejected-state-out.json");
+    let rejected_trace_out = dir.path().join("rejected-trace-out.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            rejected_state_out.to_str().expect("state output path"),
+            "--trace-out",
+            rejected_trace_out.to_str().expect("trace output path"),
+            "--caller",
+            other,
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("simulator contract guard failed"));
+    assert!(!rejected_state_out.exists());
+    let rejected_trace: Value =
+        serde_json::from_slice(&fs::read(&rejected_trace_out).expect("rejected trace"))
+            .expect("parse rejected trace");
+    assert_eq!(rejected_trace["status"], "failure");
+    assert_eq!(rejected_trace["caller"], other);
+    assert_eq!(rejected_trace["state_before"], rejected_trace["state_after"]);
+    assert_eq!(rejected_trace["state_changes"], serde_json::json!([]));
+    assert_eq!(rejected_trace["events"], serde_json::json!([]));
+
+    let omitted_state_out = dir.path().join("omitted-state-out.json");
+    let omitted_trace_out = dir.path().join("omitted-trace-out.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("args path"),
+            "--state-out",
+            omitted_state_out.to_str().expect("state output path"),
+            "--trace-out",
+            omitted_trace_out.to_str().expect("trace output path"),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("canonical lowercase 0x-prefixed hex"));
+    assert!(!omitted_state_out.exists());
+    assert!(!omitted_trace_out.exists());
+}
+
+#[test]
 fn simulate_init_requires_empty_state_and_produces_initialized_state() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("counter.clear");

@@ -185,10 +185,10 @@ contract platform.
   - [x] 41.1.1 Add AST/parser/type-checker support and stable diagnostics for `Address`,
     `context.caller`, equality, and the limited guard form. Reject all unlisted operations before
     IR lowering, with parser/type tests for every accepted and rejected expression shape.
-  - [ ] 41.1.2 Add target-neutral IR and VC lowering with explicit caller symbols and bind them
+  - [x] 41.1.2 Add target-neutral IR and VC lowering with explicit caller symbols and bind them
     into canonical proof/schema artifacts. Add solver fixtures proving an owner-authorized update
     and rejecting a transition whose guard cannot be established.
-  - [ ] 41.1.3 Extend simulator, ABI/wire ABI, EVM artifact generation, deploy/invoke commands,
+  - [x] 41.1.3 Extend simulator, ABI/wire ABI, EVM artifact generation, deploy/invoke commands,
     and receipts with the canonical caller identity. Add cross-layer golden fixtures and reject
     any target lacking an exact mapping.
 
@@ -198,7 +198,7 @@ contract platform.
   that failed authorization does not commit state, cannot produce a successful target receipt,
   and cannot be represented as a successful release bundle. Include property/campaign replay
   cases with the caller identity in canonical evidence.
-  - [ ] 41.2.1 Create unit and integration matrices for authorized and unauthorized transitions,
+  - [x] 41.2.1 Create unit and integration matrices for authorized and unauthorized transitions,
     malformed/normalized addresses, omitted caller context, and state non-commit after every
     authorization failure.
   - [ ] 41.2.2 Create end-to-end release fixtures that mutate caller values independently in the

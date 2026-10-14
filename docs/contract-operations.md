@@ -10,7 +10,8 @@ For the supported surface, compatibility policy, release checklist, and known ex
 `docs/contract-product-contract.md`.
 
 The first supported executable target profile is `clg.evm-stateful-scalar.v1` through the
-explicit `clg.evm-compatible.v1` JSON-RPC adapter. It supports direct `init`, pure reads, and
+explicit `clg.evm-sepolia-pilot.v1` JSON-RPC adapter on Ethereum Sepolia (chain ID `11155111`).
+It supports direct `init`, pure reads, and
 straight-line mutable transitions over `Bool`, `U8`, `U64`, `U128`, and `Int`. See
 `docs/design/phase-30.3.3.3.0-stateful-scalar-evm-profile-lock.md` for the exact boundary.
 
@@ -104,7 +105,7 @@ limit, gas price, chain ID, artifact/evidence digests, and intended function/arg
 Illustrative deploy shape (replace every placeholder; do not copy the values as defaults):
 
 ```powershell
-clg target deploy --target-profile clg.evm-compatible.v1 --rpc-url https://rpc.example --chain-id 11155111 --sender 0x... --nonce 42 --signing-key secrets/evm-signer.json --value 0 --gas-limit 500000 --gas-price 1000000000 --artifact out/counter.evm.json --abi out/counter.evm-wire-abi.json --contract-state-schema out/counter.schema.json --proof-artifact out/counter.proof.json --signed-bundle out/counter.sig.json --args out/counter.constructor-args.json --receipt-out out/counter.deploy.receipt.json
+clg target deploy --target-profile clg.evm-sepolia-pilot.v1 --rpc-url https://rpc.example --chain-id 11155111 --sender 0x... --nonce 42 --signing-key secrets/evm-signer.json --value 0 --gas-limit 500000 --gas-price 1000000000 --artifact out/counter.evm.json --abi out/counter.evm-wire-abi.json --contract-state-schema out/counter.schema.json --proof-artifact out/counter.proof.json --signed-bundle out/counter.sig.json --args out/counter.constructor-args.json --receipt-out out/counter.deploy.receipt.json
 ```
 
 `target deploy` and `target invoke` use only legacy EIP-155 envelopes in this profile. They

@@ -11,7 +11,7 @@ use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 use super::contract_state_schema::contract_state_schema_artifact;
 
 const FORMAT: &str = "clg.evm-wire-abi.v1";
-const PROFILE: &str = "clg.evm-compatible.v1";
+const PROFILE: &str = "clg.evm-sepolia-pilot.v1";
 
 pub(super) fn write_evm_wire_abi(
     program: &Program,

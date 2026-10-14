@@ -13,7 +13,7 @@ use super::evm_wire_abi::evm_wire_abi_artifact;
 use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 
 const FORMAT: &str = "clg.evm-artifact.v1";
-const PROFILE: &str = "clg.evm-compatible.v1";
+const PROFILE: &str = "clg.evm-sepolia-pilot.v1";
 const STATIC_PROFILE: &str = "clg.evm-static-pure.v1";
 const STATEFUL_PROFILE: &str = "clg.evm-stateful-scalar.v1";
 const STORAGE_SLOT_DOMAIN: &str = "clg.evm-stateful-scalar-slot.v1\0";

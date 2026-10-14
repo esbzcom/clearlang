@@ -341,10 +341,10 @@ fn contract_release_reference_fixture_completes_release_target_and_independent_v
     ));
     Command::cargo_bin("clg")
         .expect("clg binary")
-        .args(["target", "deploy", "--target-profile", "clg.evm-compatible.v1"])
+        .args(["target", "deploy", "--target-profile", "clg.evm-sepolia-pilot.v1"])
         .args(["--rpc-url"])
         .arg(&deploy_endpoint)
-        .args(["--chain-id", "1", "--sender", "0x1a642f0e3c3af545e7acbd38b07251b3990914f1", "--nonce", "0"])
+        .args(["--chain-id", "11155111", "--sender", "0x1a642f0e3c3af545e7acbd38b07251b3990914f1", "--nonce", "0"])
         .args(["--signing-key"])
         .arg(&target_key)
         .args(["--value", "0", "--gas-limit", "100000", "--gas-price", "1", "--artifact"])
@@ -391,10 +391,10 @@ fn contract_release_reference_fixture_completes_release_target_and_independent_v
     let (invoke_endpoint, invoke_server) = mock_target_rpc(None);
     Command::cargo_bin("clg")
         .expect("clg binary")
-        .args(["target", "invoke", "--target-profile", "clg.evm-compatible.v1"])
+        .args(["target", "invoke", "--target-profile", "clg.evm-sepolia-pilot.v1"])
         .args(["--rpc-url"])
         .arg(&invoke_endpoint)
-        .args(["--chain-id", "1", "--artifact"])
+        .args(["--chain-id", "11155111", "--artifact"])
         .arg(&artifact)
         .args(["--abi"])
         .arg(&wire_abi)
@@ -1043,7 +1043,7 @@ fn mock_target_rpc(
             let (mut stream, _) = listener.accept().expect("accept target RPC request");
             let request = read_target_rpc_request(&mut stream);
             let response = match request["method"].as_str() {
-                Some("eth_chainId") => serde_json::json!("0x1"),
+                Some("eth_chainId") => serde_json::json!("0xaa36a7"),
                 Some("eth_sendRawTransaction") => {
                     let raw = request["params"][0]
                         .as_str()

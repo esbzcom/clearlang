@@ -31,7 +31,7 @@ extends it under a new lock:
 
 | Area | Inherited contract | Primary reference |
 | --- | --- | --- |
-| Target profile | `clg.evm-stateful-scalar.v1` through `clg.evm-compatible.v1`; direct initialization, pure reads, and straight-line mutable transitions over `Bool`, `U8`, `U64`, `U128`, and `Int`. | `docs/contract-product-contract.md` |
+| Target profile | `clg.evm-stateful-scalar.v1` through `clg.evm-sepolia-pilot.v1` on chain ID `11155111`; direct initialization, pure reads, and straight-line mutable transitions over `Bool`, `U8`, `U64`, `U128`, and `Int`. | `docs/contract-product-contract.md` |
 | Release evidence | Canonical, versioned schema/ABI/wire-ABI/EVM/proof/campaign/signature/assurance/receipt/release-bundle artifacts with cross-artifact identity verification. | `docs/design/phase-30.6.1-contract-release-verification-lock.md` |
 | Local workflow | `clg contract test`, `clg simulate`, `clg contract release`, and `clg contract verify-release`. | `docs/contract-product-contract.md` |
 | Explicit target actions | `clg target deploy`, `clg target call`, and `clg target invoke`; endpoint, chain ID, signer, nonce, value, gas limit, and gas price are explicit. | `docs/contract-product-contract.md` |

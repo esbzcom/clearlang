@@ -356,7 +356,7 @@ fn build_emits_deterministic_evm_wire_abi_with_selectors() {
     assert_eq!(first_bytes, fs::read(&second).expect("read second wire ABI"));
     let wire_abi: Value = serde_json::from_slice(&first_bytes).expect("parse wire ABI");
     assert_eq!(wire_abi["wire_abi"]["format"], "clg.evm-wire-abi.v1");
-    assert_eq!(wire_abi["target"]["profile"], "clg.evm-compatible.v1");
+    assert_eq!(wire_abi["target"]["profile"], "clg.evm-sepolia-pilot.v1");
     assert_eq!(wire_abi["target"]["bytecode"], "deferred");
     assert_eq!(wire_abi["functions"][0]["signature"], "deposit(uint64)");
     assert_eq!(wire_abi["functions"][0]["selector"], "0x13765838");
@@ -406,7 +406,7 @@ fn build_emits_deterministic_deployable_evm_artifact_for_static_pure_contracts()
     assert_eq!(first_bytes, fs::read(&second).expect("read second artifact"));
     let artifact: Value = serde_json::from_slice(&first_bytes).expect("parse artifact");
     assert_eq!(artifact["artifact"]["format"], "clg.evm-artifact.v1");
-    assert_eq!(artifact["target"]["profile"], "clg.evm-compatible.v1");
+    assert_eq!(artifact["target"]["profile"], "clg.evm-sepolia-pilot.v1");
     assert_eq!(artifact["execution_profile"], "clg.evm-static-pure.v1");
     assert!(artifact["bytecode"]
         .as_str()

@@ -193,7 +193,7 @@ pub fn run(
             "schema_version": 1,
             "source": source.display().to_string(),
             "target_execution_profile": "clg.evm-stateful-scalar.v1",
-            "target_profile": "clg.evm-compatible.v1",
+            "target_profile": "clg.evm-sepolia-pilot.v1",
         });
         fs::write(&paths.bundle, canonical_json_bytes(&manifest)).with_context(|| {
             format!("write contract release bundle `{}`", paths.bundle.display())
@@ -237,7 +237,7 @@ pub fn verify(
         .map_err(|err| anyhow!(err).context("parse contract release bundle"))?;
     if bundle.format != BUNDLE_FORMAT
         || bundle.schema_version != 1
-        || bundle.target_profile != "clg.evm-compatible.v1"
+        || bundle.target_profile != "clg.evm-sepolia-pilot.v1"
         || bundle.target_execution_profile != "clg.evm-stateful-scalar.v1"
         || bundle.key_id.trim().is_empty()
         || bundle.source.trim().is_empty()

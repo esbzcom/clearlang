@@ -220,9 +220,10 @@ contract platform.
     chain ID, London opcode availability, transaction envelope support, the required JSON-RPC
     methods, receipt fields, and deterministic fixture capture feasibility.
     (`docs/design/phase-42.0.1-testnet-conformance-questionnaire.md`) `Completed: 2026-10-14`.
-  - [ ] 42.0.2 Select exactly one profile and publish its immutable identifier, expected RPC
+  - [x] 42.0.2 Select exactly one profile and publish its immutable identifier, expected RPC
     semantics, compatible client/version observations, faucet/key policy, and endpoint trust
     boundary. A changed chain ID or incompatible method response must fail before submission.
+    (`docs/design/phase-42.0.2-sepolia-pilot-profile-lock.md`) `Completed: 2026-10-14`.
   - [ ] 42.0.3 Capture sanitized request/response fixtures for all supported success and failure
     paths, then prove that the existing target adapter accepts/rejects them exactly as the locked
     profile requires without contacting a live endpoint.

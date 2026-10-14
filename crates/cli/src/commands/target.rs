@@ -16,7 +16,8 @@ use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 
 mod transaction;
 
-const TARGET_PROFILE: &str = "clg.evm-compatible.v1";
+const TARGET_PROFILE: &str = "clg.evm-sepolia-pilot.v1";
+const TARGET_CHAIN_ID: u64 = 11_155_111;
 const WIRE_ABI_FORMAT: &str = "clg.evm-wire-abi.v1";
 const RECEIPT_FORMAT: &str = "clg.target-receipt.v1";
 const RECEIPT_POLL_ATTEMPTS: usize = 10;
@@ -962,8 +963,10 @@ fn preflight(target_profile: &str, rpc_url: &str, chain_id: u64) -> Result<Strin
     }) {
         bail!("RPC endpoint credentials are unsupported; use an endpoint without embedded credentials")
     }
-    if chain_id == 0 {
-        bail!("chain ID must be a non-zero explicit numeric identifier")
+    if chain_id != TARGET_CHAIN_ID {
+        bail!(
+            "target profile `{TARGET_PROFILE}` requires explicit Sepolia chain ID `{TARGET_CHAIN_ID}`; received `{chain_id}`"
+        )
     }
     Ok(rpc_url.trim_end_matches('/').to_string())
 }
@@ -1214,19 +1217,32 @@ mod tests {
 
     #[test]
     fn preflight_requires_the_locked_profile_http_endpoint_and_chain() {
-        assert!(preflight(TARGET_PROFILE, "https://rpc.example.invalid", 1).is_ok());
-        assert!(preflight("other", "https://rpc.example.invalid", 1)
-            .unwrap_err()
-            .to_string()
-            .contains("unsupported target profile"));
-        assert!(preflight(TARGET_PROFILE, "file:///tmp/rpc", 1)
-            .unwrap_err()
-            .to_string()
-            .contains("http:// or https://"));
+        assert!(preflight(
+            TARGET_PROFILE,
+            "https://rpc.example.invalid",
+            TARGET_CHAIN_ID
+        )
+        .is_ok());
+        assert!(
+            preflight("other", "https://rpc.example.invalid", TARGET_CHAIN_ID)
+                .unwrap_err()
+                .to_string()
+                .contains("unsupported target profile")
+        );
+        assert!(
+            preflight(TARGET_PROFILE, "file:///tmp/rpc", TARGET_CHAIN_ID)
+                .unwrap_err()
+                .to_string()
+                .contains("http:// or https://")
+        );
         assert!(preflight(TARGET_PROFILE, "https://rpc.example.invalid", 0)
             .unwrap_err()
             .to_string()
-            .contains("non-zero"));
+            .contains("requires explicit Sepolia chain ID"));
+        assert!(preflight(TARGET_PROFILE, "https://rpc.example.invalid", 1)
+            .unwrap_err()
+            .to_string()
+            .contains("requires explicit Sepolia chain ID"));
     }
 
     #[test]
@@ -1236,7 +1252,7 @@ mod tests {
         let server = thread::spawn(move || {
             let mut requests = Vec::new();
             for response in [
-                json!({"jsonrpc":"2.0", "id":1, "result":"0x1"}),
+                json!({"jsonrpc":"2.0", "id":1, "result":"0xaa36a7"}),
                 json!({"jsonrpc":"2.0", "id":1, "result":"0x"}),
             ] {
                 let (mut stream, _) = listener.accept().expect("accept RPC request");
@@ -1323,7 +1339,7 @@ mod tests {
         call(CallArgs {
             target_profile: TARGET_PROFILE.to_string(),
             rpc_url: format!("http://{address}"),
-            chain_id: 1,
+            chain_id: TARGET_CHAIN_ID,
             artifact,
             abi: abi_path,
             contract_state_schema,
@@ -1341,7 +1357,7 @@ mod tests {
                 .expect("parse receipt");
         assert_eq!(receipt["format"], RECEIPT_FORMAT);
         assert_eq!(receipt["command"], "call");
-        assert_eq!(receipt["chain_id"], 1);
+        assert_eq!(receipt["chain_id"], TARGET_CHAIN_ID);
         assert_eq!(receipt["result"]["status"], "success");
         let requests = server.join().expect("join mock RPC");
         assert_eq!(requests[0]["method"], "eth_chainId");
@@ -1355,7 +1371,7 @@ mod tests {
     #[test]
     fn deploy_signs_submits_constructor_data_and_writes_confirmed_receipt() {
         let (endpoint, server) = mock_rpc(3, |request| match request["method"].as_str() {
-            Some("eth_chainId") => json!("0x1"),
+            Some("eth_chainId") => json!("0xaa36a7"),
             Some("eth_sendRawTransaction") => {
                 let raw = valid_hex_bytes(request["params"][0].as_str().expect("raw transaction"))
                     .expect("valid raw transaction");
@@ -1384,7 +1400,7 @@ mod tests {
         deploy(DeployArgs {
             target_profile: TARGET_PROFILE.to_string(),
             rpc_url: endpoint,
-            chain_id: 1,
+            chain_id: TARGET_CHAIN_ID,
             sender: "0x1a642f0e3c3af545e7acbd38b07251b3990914f1".to_string(),
             nonce: 0,
             signing_key: write_signer(&dir),
@@ -1426,7 +1442,7 @@ mod tests {
     #[test]
     fn invoke_signs_submits_and_writes_confirmed_receipt() {
         let (endpoint, server) = mock_rpc(3, |request| match request["method"].as_str() {
-            Some("eth_chainId") => json!("0x1"),
+            Some("eth_chainId") => json!("0xaa36a7"),
             Some("eth_sendRawTransaction") => {
                 let raw = valid_hex_bytes(request["params"][0].as_str().expect("raw transaction"))
                     .expect("valid raw transaction");
@@ -1455,7 +1471,7 @@ mod tests {
         invoke(InvokeArgs {
             target_profile: TARGET_PROFILE.to_string(),
             rpc_url: endpoint,
-            chain_id: 1,
+            chain_id: TARGET_CHAIN_ID,
             artifact,
             abi,
             contract_state_schema,

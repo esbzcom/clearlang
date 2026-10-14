@@ -22,7 +22,7 @@ The pilot may exercise only the existing explicit target adapter:
 
 | Item | Required behavior |
 | --- | --- |
-| ClearLang target profile | `clg.evm-stateful-scalar.v1` through `clg.evm-compatible.v1` |
+| ClearLang target profile | `clg.evm-stateful-scalar.v1` through `clg.evm-sepolia-pilot.v1` |
 | Transaction envelope | Locally signed legacy EIP-155 transaction with explicit nonce, value, gas limit, and scalar `gasPrice`; EIP-1559 is not supported. |
 | EVM program | The generated caller-aware scalar artifact, including direct constructor, `CALLER` guard, `SLOAD`/`SSTORE`, and canonical event behavior. It is the concrete London-opcode profile to test, not arbitrary bytecode. |
 | JSON-RPC methods | `eth_chainId`, `eth_call`, `eth_sendRawTransaction`, and `eth_getTransactionReceipt` only. |
@@ -96,15 +96,16 @@ rejected rather than sanitized by guesswork.
 
 ## Selection Gate
 
-42.0.2 may select Sepolia only if one packet satisfies every questionnaire row and the selected
-profile locks all of the following: `11155111`, the legacy EIP-155 envelope, the four RPC
+42.0.2 selects Sepolia as `clg.evm-sepolia-pilot.v1`. 42.0.3 may capture a packet only if it
+satisfies every questionnaire row and preserves all of the following: `11155111`, the legacy
+EIP-155 envelope, the four RPC
 methods, compatible observed client/version data, the bounded receipt-observation rule, operator
 faucet/key policy, endpoint trust boundary, and known exclusions. A chain-ID mismatch or any
 different method/result fails before transaction submission.
 
-Until then, ClearLang has **no selected live testnet**, no approved endpoint, and no claim that a
-public network is compatible. The deterministic local target fixture remains the only executable
-conformance evidence.
+ClearLang has **no approved live endpoint** and no claim that a public endpoint is compatible.
+The deterministic local target fixture remains the only executable conformance evidence until
+42.0.3 captures and validates the selected profile's offline fixture packet.
 
 ## Design Principles Check
 

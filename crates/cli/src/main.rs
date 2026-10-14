@@ -398,7 +398,7 @@ enum StrictCommands {
 enum TargetCommands {
     /// Deploy an EVM-compatible contract artifact
     Deploy {
-        /// Target profile identifier (currently only clg.evm-compatible.v1)
+        /// Target profile identifier (currently only clg.evm-sepolia-pilot.v1)
         #[arg(long)]
         target_profile: String,
         /// Explicit HTTP(S) JSON-RPC endpoint; no endpoint is inferred
@@ -449,7 +449,7 @@ enum TargetCommands {
     },
     /// Execute a read-only EVM-compatible contract call without signing or submitting
     Call {
-        /// Target profile identifier (currently only clg.evm-compatible.v1)
+        /// Target profile identifier (currently only clg.evm-sepolia-pilot.v1)
         #[arg(long)]
         target_profile: String,
         /// Explicit HTTP(S) JSON-RPC endpoint; no endpoint is inferred
@@ -488,7 +488,7 @@ enum TargetCommands {
     },
     /// Sign and submit an EVM-compatible contract invocation; never falls back to simulation
     Invoke {
-        /// Target profile identifier (currently only clg.evm-compatible.v1)
+        /// Target profile identifier (currently only clg.evm-sepolia-pilot.v1)
         #[arg(long)]
         target_profile: String,
         /// Explicit HTTP(S) JSON-RPC endpoint; no endpoint is inferred

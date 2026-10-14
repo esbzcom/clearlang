@@ -4,7 +4,7 @@
 
 ClearLang's Milestone 4 contract product supports one deterministic EVM-compatible workflow for
 the `clg.evm-stateful-scalar.v1` execution profile through the
-`clg.evm-compatible.v1` target adapter.
+`clg.evm-sepolia-pilot.v1` target adapter on Ethereum Sepolia (chain ID `11155111`).
 
 The supported source surface is one contract with direct `init`, pure reads, and straight-line
 mutable transitions over `Bool`, `U8`, `U64`, `U128`, and `Int` state fields and parameters.
@@ -20,9 +20,10 @@ Primary commands:
 - `clg contract verify-release` independently verifies a release bundle from local artifacts.
 - `clg target deploy`, `clg target call`, and `clg target invoke` execute explicit target actions.
 
-Target selection, RPC endpoint, chain ID, signer, nonce, value, gas limit, and gas price are
-always explicit. No command discovers a wallet, chooses a network, estimates fees, or turns a
-local simulation into a target transaction.
+The Sepolia chain ID, RPC endpoint, signer, nonce, value, gas limit, and gas price are always
+explicit. The adapter rejects every chain ID except `11155111` before making an RPC request. No
+command discovers a wallet, chooses a network, estimates fees, or turns a local simulation into a
+target transaction.
 
 ## Compatibility policy
 

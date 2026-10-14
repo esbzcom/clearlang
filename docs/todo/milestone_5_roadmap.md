@@ -77,34 +77,40 @@ The numbered gate headings establish ownership. Execute unfinished work only in 
 the gates are deliberately narrow so a pilot result cannot be mistaken for a general-purpose
 contract platform.
 
-1. [ ] 40.0 product, threat-model, and local-validation lock.
-2. [ ] 40.1 local pilot-precheck and canonical evidence report.
-3. [ ] 40.2 independently distributed verifier contract and fixture matrix.
-4. [ ] 41.0 caller-authorization semantic and proof-model lock.
-5. [ ] 41.1 minimal caller identity, equality, and guard implementation.
-6. [ ] 41.2 simulator/EVM correspondence and authorization-negative matrix.
-7. [ ] 42.0 testnet profile and pilot operations lock.
-8. [ ] 42.1 reference configuration-registry project and local release evidence.
-9. [ ] 42.2 explicit testnet exercise, receipt binding, and evidence replay.
-10. [ ] 43.0 external-user distribution and independent-verification walkthrough.
-11. [ ] 44.0 final local closure review and pilot-readiness statement.
+1. [x] 40.0 product, threat-model, and local-validation lock.
+2. [x] 40.1.1 local pilot-precheck CLI/report lock.
+3. [ ] 41.0-41.2 caller authorization, target correspondence, and negative matrix.
+4. [ ] 42.0-42.1 testnet profile and reference registry local evidence.
+5. [ ] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
+6. [ ] 40.1.2-40.1.3 local pilot-precheck implementation and required fixture integration, after
+   every named prerequisite exists.
+7. [ ] 40.2 local toolchain support/reproduction policy and clean-directory fixture, after the
+   pilot precheck exists.
+8. [ ] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
+9. [ ] 43.2 external-user walkthrough and documentation fixture.
+10. [ ] 44.0-44.2 final product documentation, two-clean-environment closure rehearsal, and
+    pilot-readiness decision.
 
 ## 40. Product and Local Assurance Gate [Planning Gate A]
 
-- [ ] 40.0 Publish the Milestone 5 product, threat-model, pilot-user, and non-claim lock before
+- [x] 40.0 Publish the Milestone 5 product, threat-model, pilot-user, and non-claim lock before
   implementation. It must distinguish: (a) proven ClearLang source/adapter claims, (b) verified
   release-evidence claims, and (c) observed testnet behavior. It must state that testnet evidence
   does not authorize mainnet or funds custody.
-  - [ ] 40.0.1 Inventory the exact Milestone 4 commands, schemas, target profile, diagnostics,
+  (`docs/design/phase-40.0-milestone-5-pilot-product-lock.md`) `Completed: 2026-10-13`.
+  - [x] 40.0.1 Inventory the exact Milestone 4 commands, schemas, target profile, diagnostics,
     and exclusions inherited by the pilot; name their source documents and resolve any conflicting
-    wording before adding scope.
-  - [ ] 40.0.2 Define the pilot actors (release owner, deploy operator, independent verifier,
+    wording before adding scope. (`docs/design/phase-40.0-milestone-5-pilot-product-lock.md`)
+    `Completed: 2026-10-13`.
+  - [x] 40.0.2 Define the pilot actors (release owner, deploy operator, independent verifier,
     and observer), their trusted inputs, attacker capabilities, assets at risk, and response to a
     mismatch. Explicitly exclude secret-key safety, RPC honesty, and chain consensus from the
-    proof claim.
-  - [ ] 40.0.3 Write measurable acceptance and non-claim statements for source proof, bundle
+    proof claim. (`docs/design/phase-40.0-milestone-5-pilot-product-lock.md`) `Completed: 2026-10-13`.
+  - [x] 40.0.3 Write measurable acceptance and non-claim statements for source proof, bundle
     verification, local target simulation, and observed testnet actions. Add a document-drift
     test or checklist fixture that ensures all pilot docs use the same terms.
+    (`docs/design/phase-40.0-milestone-5-pilot-product-lock.md`,
+    `docs/fixtures/phase-40.0/pilot-claim-terminology-checklist.json`) `Completed: 2026-10-13`.
 
 - [ ] 40.1 Add `xtask pilot-precheck`, a local-only, fail-closed aggregate gate. It must execute
   the existing release precheck, all Milestone 4 contract-release fixtures, verifier-distribution
@@ -112,12 +118,14 @@ contract platform.
   versioned JSON report with command versions, input artifact digests, ordered sub-gate outcomes,
   and no absolute host paths. Add tests that reject omitted, reordered, substituted, or malformed
   report evidence.
-  - [ ] 40.1.1 Lock the command-line interface, report schema/version, deterministic sub-gate
+  - [x] 40.1.1 Lock the command-line interface, report schema/version, deterministic sub-gate
     order, exit codes, report destination, and redaction policy. The report must identify tool
     versions and digests but never include secret material, endpoint credentials, or host paths.
+    (`docs/design/phase-40.1.1-pilot-precheck-cli-report-lock.md`) `Completed: 2026-10-13`.
   - [ ] 40.1.2 Implement the dispatcher as a composition of existing local commands with explicit
     argument forwarding and fail-fast aggregation. It must distinguish a command execution
-    failure from a malformed or unverifiable sub-report.
+    failure from a malformed or unverifiable sub-report. This starts only after `41.2`, `42.1`,
+    and `43.1` provide every mandatory fixture suite.
   - [ ] 40.1.3 Add fixture tests for a complete pass, each failing sub-gate, report canonicality,
     report tampering, missing evidence, unsafe artifact paths, and repeat-run deterministic
     output. Integrate the command into the local release/pilot runbook, not as a remote gate.
@@ -136,21 +144,27 @@ contract platform.
 
 ## 41. Minimal Caller Authorization [Contract Gate B]
 
-- [ ] 41.0 Lock a single, target-neutral caller-authorization surface before implementation. The
-  source model may expose only an opaque `Address` identity, `context.caller`, equality, and
-  `require`-style guards needed by the pilot. Specify typing/effects, VC symbols and assumptions,
-  simulator JSON encoding, EVM calldata/context mapping, ABI/schema identity, failure/revert
-  behavior, and exact unsupported operations. Arithmetic, ordering, conversion, hashing,
-  signature verification, address construction, and arbitrary context fields remain unsupported.
-  - [ ] 41.0.1 Define the canonical `Address` representation and literal/input policy, including
+- [x] 41.0 Lock a single, target-neutral caller-authorization surface before implementation. The
+  source model exposes only chain-scoped `std::eth::Address`, `std::eth::context::caller()`,
+  structural equality, and one `require`-style owner guard needed by the pilot. Specify
+  typing/effects, VC symbols and assumptions, simulator JSON encoding, EVM calldata/context
+  mapping, ABI/schema identity, failure/revert behavior, and exact unsupported operations.
+  Arithmetic, ordering, conversion, hashing, signature verification, address construction, and
+  arbitrary context fields remain unsupported.
+  (`docs/design/phase-41.0-caller-authorization-profile-lock.md`) `Completed: 2026-10-13`.
+  - [x] 41.0.1 Define the canonical chain-scoped `std::eth::Address` representation and
+    literal/input policy, including
     byte length, normalization, display form, JSON encoding, equality semantics, and malformed
     input diagnostics. No implicit conversion from integers, strings, bytes, or keys is allowed.
-  - [ ] 41.0.2 Define `context.caller` availability, effect restrictions, `require` failure
+    (`docs/design/phase-41.0-caller-authorization-profile-lock.md`) `Completed: 2026-10-13`.
+  - [x] 41.0.2 Define `std::eth::context::caller()` availability, effect restrictions, `require` failure
     behavior, and the precise VC pre-state/post-state symbols. The model must show why an
     unauthorized transition cannot satisfy the successful transition relation.
-  - [ ] 41.0.3 Define simulator trace, state schema, proof artifact, wire ABI, EVM execution, and
+    (`docs/design/phase-41.0-caller-authorization-profile-lock.md`) `Completed: 2026-10-13`.
+  - [x] 41.0.3 Define simulator trace, state schema, proof artifact, wire ABI, EVM execution, and
     target-receipt identity bindings. Add design-level examples for accepted owner checks and for
     every rejected broader authorization pattern.
+    (`docs/design/phase-41.0-caller-authorization-profile-lock.md`) `Completed: 2026-10-13`.
 
 - [ ] 41.1 Implement the locked source, parser, typer, IR, VC, simulator, schema, wire-ABI, and
   EVM lowering path. The proof model must bind the caller identity used by a verified transition

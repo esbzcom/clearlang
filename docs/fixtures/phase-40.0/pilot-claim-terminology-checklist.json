@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "fixture": "clg.milestone-5-pilot-claim-terminology-checklist.v1",
+  "purpose": "Manual documentation-drift checklist until 44.0.3 adds an enforced consistency gate.",
+  "authoritative_lock": "docs/design/phase-40.0-milestone-5-pilot-product-lock.md",
+  "required_claim_terms": {
+    "source_proof": "checked under the named compiler, solver, and proof profile",
+    "release_evidence": "verified from bundle-local evidence and the approved public key",
+    "local_simulation": "simulated under the named local target profile",
+    "testnet_action": "observed through the explicit selected testnet endpoint"
+  },
+  "prohibited_unqualified_claims": [
+    "mainnet ready",
+    "production financial contract",
+    "custody safe",
+    "generic EVM compatible",
+    "remote CI certified",
+    "arbitrary contracts are proved safe"
+  ],
+  "required_exclusions": [
+    "target runtime and chain consensus correctness",
+    "RPC endpoint honesty and availability",
+    "operator machine and secret-key safety",
+    "cryptographic hardness and side-channel resistance",
+    "unsupported language and target features"
+  ],
+  "documents_to_review": [
+    "README.md",
+    "docs/todo/milestone_5_roadmap.md",
+    "docs/todo/general_production_readiness_path.md",
+    "docs/contract-product-contract.md",
+    "docs/contract-operations.md",
+    "docs/release-process.md"
+  ],
+  "review_rule": "A product-claim document is not accepted when it conflicts with the authoritative lock, omits a required exclusion, or uses a prohibited claim without a narrower qualified statement."
+}

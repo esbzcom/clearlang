@@ -133,6 +133,9 @@ fn evm_type(ty: &Type) -> Result<&'static str> {
         Type::Bool => Ok("bool"),
         Type::String => Ok("string"),
         Type::Bytes => Ok("bytes"),
+        Type::Named { name, args } if name == "std::eth::Address" && args.is_empty() => {
+            Ok("address")
+        }
         _ => bail!(
             "EVM wire ABI does not support ClearLang type `{}` in the first target profile",
             render_type(ty)
@@ -178,5 +181,20 @@ mod tests {
         assert_eq!(first["functions"][0]["selector"], "0x13765838");
         assert_eq!(first["events"][0]["topic0"], "0x7f2ef186ad31df7b1c02573d76e20029546e02b4fd1e8a696b110783d5834793");
         assert_eq!(first["target"]["bytecode"], "deferred");
+    }
+
+    #[test]
+    fn uses_the_evm_address_wire_type_for_the_locked_address() {
+        let program = parse(
+            r#"
+                contract ConfigRegistry version 1 {
+                    state { owner: std::eth::Address; }
+                    init(owner: std::eth::Address) { state.owner = owner; 0 }
+                }
+            "#,
+        )
+        .expect("parse address ABI fixture");
+        let wire = evm_wire_abi_artifact(&program, None).expect("emit address wire ABI");
+        assert_eq!(wire["constructor"]["inputs"][0]["evm_type"], "address");
     }
 }

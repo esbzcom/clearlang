@@ -220,7 +220,7 @@ fn storage_layout(schema: &JsonValue) -> Result<BTreeMap<String, StorageField>> 
             let name = field["name"].as_str().ok_or_else(|| anyhow!("malformed state field name"))?.to_string();
             let field_id = field["field_id"].as_str().ok_or_else(|| anyhow!("malformed state field ID"))?.to_string();
             let ty = field["type"].as_str().ok_or_else(|| anyhow!("malformed state field type"))?.to_string();
-            if !matches!(ty.as_str(), "Bool" | "U8" | "U64" | "U128" | "Int") {
+            if !matches!(ty.as_str(), "Bool" | "U8" | "U64" | "U128" | "Int" | "std::eth::Address") {
                 bail!("EVM stateful scalar profile does not support state field `{name}` of type `{ty}`")
             }
             let mut hasher = Keccak256::new();
@@ -283,6 +283,7 @@ fn ensure_scalar_events(contract: &ContractDecl) -> Result<()> {
 
 fn scalar_type(ty: &Type) -> bool {
     matches!(ty, Type::Bool | Type::U8 | Type::U64 | Type::U128 | Type::Int)
+        || matches!(ty, Type::Named { name, args } if name == "std::eth::Address" && args.is_empty())
 }
 
 fn find_lowered_function<'a>(ir: &'a IrModule, name: &str) -> Result<&'a IrFunction> {
@@ -336,11 +337,17 @@ fn compile_transition(
                 code.extend(store_value(*dst)?);
                 mappings.push(json!({ "kind": "StateRead", "field_id": field.field_id, "slot": field.slot }));
             }
-            Instr::ContextCaller { .. } => {
-                bail!("EVM stateful scalar profile has no verified mapping for canonical caller identity in function `{}`", function.name)
+            Instr::ContextCaller { dst } => {
+                code.push(0x33); // CALLER
+                code.extend(store_value(*dst)?);
+                mappings.push(json!({ "kind": "ContextCaller", "opcode": "CALLER" }));
             }
-            Instr::AddressEq { .. } => {
-                bail!("EVM stateful scalar profile has no verified mapping for canonical address equality in function `{}`", function.name)
+            Instr::AddressEq { dst, lhs, rhs } => {
+                code.extend(load_value(*lhs)?);
+                code.extend(load_value(*rhs)?);
+                code.push(0x14); // EQ
+                code.extend(store_value(*dst)?);
+                mappings.push(json!({ "kind": "AddressEq", "opcode": "EQ" }));
             }
             Instr::StateWrite { field, src, .. } => {
                 let field = storage.get(field).ok_or_else(|| anyhow!("unknown state field `{field}`"))?;
@@ -503,6 +510,7 @@ fn decode_fixed_32(value: &str) -> Result<[u8; 32]> { let bytes = hex::decode(va
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clg_ir::IrType;
     use clg_parser::parse;
     use clg_typer::check;
     use std::collections::BTreeMap;
@@ -549,6 +557,26 @@ mod tests {
             dst: Value(99), cond: Value(0), then_v: Value(0), else_v: Value(0),
         });
         assert!(evm_artifact(&program, &ir, None).unwrap_err().to_string().contains("no verified mapping"));
+    }
+
+    #[test]
+    fn maps_caller_identity_and_address_equality_to_evm_opcodes() {
+        let function = IrFunction {
+            name: "set_value".to_string(),
+            params: Vec::new(),
+            ret: Some(IrType::Bool),
+            body: vec![
+                Instr::ContextCaller { dst: Value(0) },
+                Instr::AddressEq { dst: Value(1), lhs: Value(0), rhs: Value(0) },
+                Instr::Ret { val: Value(1) },
+            ],
+        };
+        let (code, mapping) = compile_transition(&function, 0, &BTreeMap::new(), &BTreeMap::new(), false)
+            .expect("compile caller transition");
+        assert!(code.contains(&0x33), "CALLER opcode must be present");
+        assert!(code.contains(&0x14), "EQ opcode must be present");
+        assert!(mapping.iter().any(|entry| entry["kind"] == "ContextCaller"));
+        assert!(mapping.iter().any(|entry| entry["kind"] == "AddressEq"));
     }
 
     #[test]

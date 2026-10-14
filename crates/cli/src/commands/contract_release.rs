@@ -72,6 +72,7 @@ struct CampaignEvidenceIndex {
 struct CampaignEvidenceCase {
     case: u32,
     args: Value,
+    caller: String,
     replay: Value,
     files: Vec<Artifact>,
 }
@@ -445,9 +446,24 @@ fn write_campaign_evidence_index(
         .into_iter()
         .map(|name| campaign_trace_file(trace_dir, &name))
         .collect::<Result<Vec<_>>>()?;
+        let trace_path = trace_dir.join(format!("{stem}.trace.json"));
+        let trace: Value = serde_json::from_slice(
+            &fs::read(&trace_path)
+                .with_context(|| format!("read campaign trace `{}`", trace_path.display()))?,
+        )
+        .with_context(|| format!("parse campaign trace `{}`", trace_path.display()))?;
+        let caller = trace["caller"]
+            .as_str()
+            .filter(|caller| !caller.is_empty())
+            .ok_or_else(|| anyhow!("campaign trace is missing its caller identity"))?
+            .to_string();
+        if replay_caller(&replay) != Some(caller.as_str()) {
+            bail!("campaign trace caller does not match its replay command");
+        }
         indexed_cases.push(CampaignEvidenceCase {
             case: case_number as u32,
             args,
+            caller,
             replay,
             files,
         });
@@ -532,6 +548,9 @@ fn verify_campaign_evidence_index(
         {
             bail!("campaign evidence index case does not match the campaign report");
         }
+        if replay_caller(&evidence_case.replay) != Some(evidence_case.caller.as_str()) {
+            bail!("campaign evidence index caller does not match the replay command");
+        }
         let stem = format!("case-{expected_case:04}");
         let expected_files = [
             format!("{stem}.args.json"),
@@ -567,8 +586,24 @@ fn verify_campaign_evidence_index(
         if args != evidence_case.args {
             bail!("campaign evidence index arguments do not match the indexed input file");
         }
+        let trace_bytes = fs::read(trace_root.join(format!("{stem}.trace.json")))
+            .with_context(|| "read indexed campaign trace")?;
+        let trace: Value =
+            serde_json::from_slice(&trace_bytes).with_context(|| "parse indexed campaign trace")?;
+        if trace["caller"].as_str() != Some(evidence_case.caller.as_str()) {
+            bail!("campaign trace caller does not match indexed caller evidence");
+        }
     }
     Ok(())
+}
+
+fn replay_caller(replay: &Value) -> Option<&str> {
+    let argv = replay["argv"].as_array()?;
+    argv.windows(2).find_map(|pair| {
+        (pair[0].as_str() == Some("--caller"))
+            .then(|| pair[1].as_str())
+            .flatten()
+    })
 }
 
 fn campaign_trace_file(trace_dir: &Path, name: &str) -> Result<Artifact> {
@@ -1122,7 +1157,7 @@ mod tests {
         .expect("write state output");
         fs::write(
             traces.join(format!("{stem}.trace.json")),
-            br#"{"result":7,"state_after":{"total":7}}"#,
+            br#"{"caller":"clg:test:alice","result":7,"state_after":{"total":7}}"#,
         )
         .expect("write trace");
         let report_path = directory.path().join("counter.campaign.json");
@@ -1132,7 +1167,7 @@ mod tests {
                 "cases": [{
                     "args": [7],
                     "case": 0,
-                    "replay": {"argv": ["clg", "simulate", "counter.clear"]},
+                    "replay": {"argv": ["clg", "simulate", "counter.clear", "--caller", "clg:test:alice"]},
                     "status": "success",
                 }],
                 "format": "clg.contract-test-report.v1",
@@ -1189,5 +1224,36 @@ mod tests {
         assert!(err
             .to_string()
             .contains("campaign trace directory has an unsafe path"));
+    }
+
+    #[test]
+    fn campaign_evidence_index_rejects_a_substituted_caller_after_index_regeneration() {
+        let (directory, report, index_path) = campaign_evidence_fixture();
+        let traces = directory.path().join("counter.campaign-traces");
+        fs::write(
+            traces.join("case-0000.trace.json"),
+            br#"{"caller":"clg:test:mallory","result":7,"state_after":{"total":7}}"#,
+        )
+        .expect("substitute caller");
+        let report_path = directory.path().join(&report.path);
+        let error = write_campaign_evidence_index(&report_path, &traces, &index_path)
+            .expect_err("caller substitution must fail before a new index is written");
+        assert!(error
+            .to_string()
+            .contains("campaign trace caller does not match its replay command"));
+    }
+
+    #[test]
+    fn campaign_evidence_index_rejects_a_substituted_caller_in_the_bundle_index() {
+        let (directory, report, index_path) = campaign_evidence_fixture();
+        let mut index: Value = serde_json::from_slice(&fs::read(&index_path).expect("read index"))
+            .expect("parse index");
+        index["cases"][0]["caller"] = json!("clg:test:mallory");
+        fs::write(&index_path, canonical_json_bytes(&index)).expect("write substituted index");
+        let error = verify_campaign_evidence_index(directory.path(), &report, &index_path)
+            .expect_err("indexed caller substitution must fail closed");
+        assert!(error
+            .to_string()
+            .contains("campaign evidence index caller does not match the replay command"));
     }
 }

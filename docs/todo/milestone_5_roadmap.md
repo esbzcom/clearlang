@@ -201,7 +201,7 @@ contract platform.
   - [x] 41.2.1 Create unit and integration matrices for authorized and unauthorized transitions,
     malformed/normalized addresses, omitted caller context, and state non-commit after every
     authorization failure.
-  - [ ] 41.2.2 Create end-to-end release fixtures that mutate caller values independently in the
+  - [x] 41.2.2 Create end-to-end release fixtures that mutate caller values independently in the
     source, proof, campaign input/trace, schema, ABI, target artifact, receipt, and bundle index;
     require stable fail-closed diagnostics for each mutation.
   - [ ] 41.2.3 Add deterministic campaign seed/replay tests that demonstrate identical caller

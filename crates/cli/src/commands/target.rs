@@ -887,6 +887,7 @@ fn write_transaction_receipt(
             "source_graph": evidence.source_graph,
         },
         "format": RECEIPT_FORMAT,
+        "request": request,
         "request_digest": request_digest,
         "result": { "status": "success" },
         "rpc_endpoint": endpoint,
@@ -901,8 +902,40 @@ fn write_transaction_receipt(
     if let Some(function) = function {
         receipt["function"] = Value::String(function);
     }
+    validate_transaction_receipt(&receipt)?;
     fs::write(output, canonical_json_bytes(&receipt))
         .with_context(|| format!("write target receipt `{}`", output.display()))
+}
+
+fn validate_transaction_receipt(receipt: &Value) -> Result<()> {
+    if receipt["format"].as_str() != Some(RECEIPT_FORMAT)
+        || receipt["result"]["status"].as_str() != Some("success")
+    {
+        bail!("target receipt is not successful canonical evidence");
+    }
+    let request = receipt["request"]
+        .as_object()
+        .ok_or_else(|| anyhow!("target receipt is missing its canonical request object"))?;
+    let request = Value::Object(request.clone());
+    let expected_digest = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&request)));
+    if receipt["request_digest"].as_str() != Some(expected_digest.as_str()) {
+        bail!("target receipt request digest does not match its canonical request");
+    }
+    match request.get("from") {
+        Some(Value::String(sender)) => {
+            let sender = canonical_address(sender)
+                .context("target receipt request has a malformed caller address")?;
+            if receipt["caller"].as_str() != Some(sender.as_str()) {
+                bail!("target receipt caller does not match the signed request sender");
+            }
+        }
+        None | Some(Value::Null) if receipt["caller"].is_null() => {}
+        None | Some(Value::Null) => {
+            bail!("target receipt must not declare a caller when its request has no sender");
+        }
+        _ => bail!("target receipt request sender must be a canonical address string or null"),
+    }
+    Ok(())
 }
 
 fn canonical_hash(value: &str, label: &str) -> Result<String> {
@@ -1490,6 +1523,30 @@ mod tests {
             &json!("0x111111111111111111111111111111111111111G"),
         )
         .is_err());
+    }
+
+    #[test]
+    fn target_receipt_rejects_a_substituted_caller() {
+        let request = json!({
+            "from": "0x1111111111111111111111111111111111111111",
+            "to": "0x2222222222222222222222222222222222222222",
+        });
+        let request_digest = format!("sha256:{}", sha256_hex(&canonical_json_bytes(&request)));
+        let mut receipt = json!({
+            "caller": request["from"].clone(),
+            "format": RECEIPT_FORMAT,
+            "request": request.clone(),
+            "request_digest": request_digest,
+            "result": { "status": "success" },
+        });
+        validate_transaction_receipt(&receipt).expect("canonical receipt");
+
+        receipt["caller"] = json!("0x3333333333333333333333333333333333333333");
+        let error = validate_transaction_receipt(&receipt)
+            .expect_err("substituted caller must fail closed");
+        assert!(error
+            .to_string()
+            .contains("caller does not match the signed request sender"));
     }
 
     #[test]

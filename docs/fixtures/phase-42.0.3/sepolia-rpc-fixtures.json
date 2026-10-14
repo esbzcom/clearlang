@@ -1,0 +1,127 @@
+{
+  "chain_id": 11155111,
+  "format": "clg.sepolia-rpc-fixture-set.v1",
+  "notes": "Offline loopback fixtures only. $transaction_hash is resolved from the locally signed transaction or the fixture request parameter; no endpoint, credential, faucet token, or private key is recorded.",
+  "schema_version": 1,
+  "target_profile": "clg.evm-sepolia-pilot.v1",
+  "cases": [
+    {
+      "id": "call-success",
+      "outcome": "success",
+      "responses": [
+        { "method": "eth_chainId", "result": "0xaa36a7" },
+        { "method": "eth_call", "result": "0x" }
+      ]
+    },
+    {
+      "id": "deploy-success",
+      "outcome": "success",
+      "responses": [
+        { "method": "eth_chainId", "result": "0xaa36a7" },
+        { "method": "eth_sendRawTransaction", "result": "$transaction_hash" },
+        {
+          "method": "eth_getTransactionReceipt",
+          "result": {
+            "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "blockNumber": "0x2",
+            "contractAddress": "0x2222222222222222222222222222222222222222",
+            "status": "0x1",
+            "transactionHash": "$transaction_hash"
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoke-success",
+      "outcome": "success",
+      "responses": [
+        { "method": "eth_chainId", "result": "0xaa36a7" },
+        { "method": "eth_sendRawTransaction", "result": "$transaction_hash" },
+        {
+          "method": "eth_getTransactionReceipt",
+          "result": {
+            "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "blockNumber": "0x2",
+            "contractAddress": null,
+            "status": "0x1",
+            "transactionHash": "$transaction_hash"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wrong-chain",
+      "outcome": "failure",
+      "responses": [
+        { "method": "eth_chainId", "result": "0x1" }
+      ]
+    },
+    {
+      "id": "substituted-transaction-hash",
+      "outcome": "failure",
+      "responses": [
+        {
+          "method": "eth_sendRawTransaction",
+          "result": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "id": "reverted-receipt",
+      "outcome": "failure",
+      "responses": [
+        {
+          "method": "eth_getTransactionReceipt",
+          "result": {
+            "blockHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "blockNumber": "0x2",
+            "contractAddress": null,
+            "status": "0x0",
+            "transactionHash": "$transaction_hash"
+          }
+        }
+      ]
+    },
+    {
+      "id": "malformed-receipt",
+      "outcome": "failure",
+      "responses": [
+        {
+          "method": "eth_getTransactionReceipt",
+          "result": {
+            "blockHash": "not-a-hash",
+            "blockNumber": "0x2",
+            "contractAddress": null,
+            "status": "0x1",
+            "transactionHash": "$transaction_hash"
+          }
+        }
+      ]
+    },
+    {
+      "id": "unavailable-receipt",
+      "outcome": "failure",
+      "responses": [
+        { "method": "eth_getTransactionReceipt", "repeat": 10, "result": null }
+      ]
+    },
+    {
+      "id": "malformed-call-result",
+      "outcome": "failure",
+      "responses": [
+        { "method": "eth_chainId", "result": "0xaa36a7" },
+        { "method": "eth_call", "result": 7 }
+      ]
+    },
+    {
+      "id": "required-method-rpc-error",
+      "outcome": "failure",
+      "responses": [
+        {
+          "error": { "code": -32601, "message": "method not found" },
+          "method": "eth_chainId"
+        }
+      ]
+    }
+  ]
+}

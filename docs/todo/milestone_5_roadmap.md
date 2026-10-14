@@ -210,7 +210,7 @@ contract platform.
 
 ## 42. Reference Testnet Pilot [Target Gate C]
 
-- [ ] 42.0 Lock one EVM-compatible **testnet-only** profile. Select it only after local
+- [x] 42.0 Lock one EVM-compatible **testnet-only** profile. Select it only after local
   conformance tests demonstrate that its explicit RPC behavior matches the supported transaction
   envelope and London scalar profile. Record chain ID, permitted RPC methods, receipt/finality
   observation rule, endpoint trust boundary, faucet/key handling policy, known incompatibilities,
@@ -224,9 +224,11 @@ contract platform.
     semantics, compatible client/version observations, faucet/key policy, and endpoint trust
     boundary. A changed chain ID or incompatible method response must fail before submission.
     (`docs/design/phase-42.0.2-sepolia-pilot-profile-lock.md`) `Completed: 2026-10-14`.
-  - [ ] 42.0.3 Capture sanitized request/response fixtures for all supported success and failure
+  - [x] 42.0.3 Capture sanitized request/response fixtures for all supported success and failure
     paths, then prove that the existing target adapter accepts/rejects them exactly as the locked
     profile requires without contacting a live endpoint.
+    (`docs/design/phase-42.0.3-sepolia-offline-rpc-fixture-lock.md`,
+    `docs/fixtures/phase-42.0.3/sepolia-rpc-fixtures.json`) `Completed: 2026-10-14`.
 
 - [ ] 42.1 Add a versioned reference configuration-registry project. It must initialize a fixed
   owner, permit that owner alone to update a bounded scalar configuration, emit a canonical event,

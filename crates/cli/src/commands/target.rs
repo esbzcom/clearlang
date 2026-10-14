@@ -1079,6 +1079,123 @@ mod tests {
         (format!("http://{address}"), server)
     }
 
+    fn sepolia_fixture_set() -> Value {
+        let fixture: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/fixtures/phase-42.0.3/sepolia-rpc-fixtures.json"
+        )))
+        .expect("parse Sepolia RPC fixtures");
+        assert_eq!(fixture["format"], "clg.sepolia-rpc-fixture-set.v1");
+        assert_eq!(fixture["schema_version"], 1);
+        assert_eq!(fixture["target_profile"], TARGET_PROFILE);
+        assert_eq!(fixture["chain_id"], TARGET_CHAIN_ID);
+        fixture
+    }
+
+    fn sepolia_fixture_case(id: &str) -> Value {
+        sepolia_fixture_set()["cases"]
+            .as_array()
+            .expect("fixture cases")
+            .iter()
+            .find(|case| case["id"] == id)
+            .unwrap_or_else(|| panic!("missing fixture case `{id}`"))
+            .clone()
+    }
+
+    fn sepolia_fixture_steps(case: &Value) -> Vec<Value> {
+        case["responses"]
+            .as_array()
+            .expect("fixture responses")
+            .iter()
+            .flat_map(|step| {
+                let repeat = step["repeat"].as_u64().unwrap_or(1);
+                assert!((1..=RECEIPT_POLL_ATTEMPTS as u64).contains(&repeat));
+                let mut step = step.clone();
+                step.as_object_mut()
+                    .expect("fixture response object")
+                    .remove("repeat");
+                std::iter::repeat_n(step, repeat as usize)
+            })
+            .collect()
+    }
+
+    fn resolve_fixture_transaction_hash(value: &Value, transaction_hash: &str) -> Value {
+        match value {
+            Value::String(value) if value == "$transaction_hash" => {
+                Value::String(transaction_hash.to_string())
+            }
+            Value::Array(values) => Value::Array(
+                values
+                    .iter()
+                    .map(|value| resolve_fixture_transaction_hash(value, transaction_hash))
+                    .collect(),
+            ),
+            Value::Object(values) => Value::Object(
+                values
+                    .iter()
+                    .map(|(key, value)| {
+                        (
+                            key.clone(),
+                            resolve_fixture_transaction_hash(value, transaction_hash),
+                        )
+                    })
+                    .collect(),
+            ),
+            value => value.clone(),
+        }
+    }
+
+    fn mock_sepolia_fixture(case: Value) -> (String, thread::JoinHandle<Vec<Value>>) {
+        let steps = sepolia_fixture_steps(&case);
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture RPC");
+        let address = listener.local_addr().expect("fixture RPC address");
+        let server = thread::spawn(move || {
+            let mut requests = Vec::new();
+            let mut transaction_hash = None;
+            for step in steps {
+                let (mut stream, _) = listener.accept().expect("accept fixture RPC request");
+                let request = read_http_json(&mut stream);
+                assert_eq!(request["method"], step["method"], "fixture request method");
+                if request["method"] == "eth_sendRawTransaction" {
+                    let raw = valid_hex_bytes(
+                        request["params"][0]
+                            .as_str()
+                            .expect("fixture raw transaction"),
+                    )
+                    .expect("fixture raw transaction bytes");
+                    transaction_hash = Some(transaction::transaction_hash(&raw));
+                }
+                let request_hash = request["params"]
+                    .get(0)
+                    .and_then(Value::as_str)
+                    .filter(|value| value.starts_with("0x"));
+                let token_hash = transaction_hash.as_deref().or(request_hash).unwrap_or(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000",
+                );
+                let mut response = json!({ "id": 1, "jsonrpc": "2.0" });
+                if let Some(error) = step.get("error") {
+                    response["error"] = error.clone();
+                } else {
+                    response["result"] = resolve_fixture_transaction_hash(
+                        step.get("result").expect("fixture result"),
+                        token_hash,
+                    );
+                }
+                let body = canonical_json_bytes(&response);
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .expect("write fixture RPC headers");
+                stream.write_all(&body).expect("write fixture RPC body");
+                requests.push(request);
+            }
+            requests
+        });
+        (format!("http://{address}"), server)
+    }
+
     fn read_http_json(stream: &mut std::net::TcpStream) -> Value {
         let mut request = Vec::new();
         let mut buffer = [0_u8; 1024];
@@ -1243,6 +1360,169 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("requires explicit Sepolia chain ID"));
+    }
+
+    #[test]
+    fn sepolia_offline_fixture_set_is_sanitized_and_covers_the_locked_surface() {
+        let fixtures = sepolia_fixture_set();
+        let allowed_methods = [
+            "eth_chainId",
+            "eth_call",
+            "eth_sendRawTransaction",
+            "eth_getTransactionReceipt",
+        ];
+        let cases = fixtures["cases"].as_array().expect("fixture cases");
+        assert_eq!(cases.len(), 10, "fixture matrix must remain complete");
+        for case in cases {
+            assert!(matches!(
+                case["outcome"].as_str(),
+                Some("success" | "failure")
+            ));
+            for step in sepolia_fixture_steps(case) {
+                assert!(allowed_methods.contains(&step["method"].as_str().expect("method")));
+                assert!(step.get("result").is_some() ^ step.get("error").is_some());
+            }
+        }
+        let serialized = serde_json::to_string(&fixtures).expect("serialize fixtures");
+        assert!(!serialized.contains("http://"));
+        assert!(!serialized.contains("https://"));
+        assert!(!serialized.contains("private_key"));
+        assert!(!serialized.contains("authorization"));
+    }
+
+    #[test]
+    fn sepolia_offline_fixtures_accept_success_paths_and_reject_failures() {
+        let dir = tempdir().expect("tempdir");
+        let (artifact, abi_path) = write_target_inputs(
+            &dir,
+            json!({"inputs": [{"name":"initial", "evm_type":"uint64"}]}),
+            json!([{"inputs": [], "selector": "0x13765838"}]),
+        );
+        let (contract_state_schema, proof_artifact, signed_bundle) = write_evidence(&dir);
+        let call_args = dir.path().join("call-args.json");
+        let malformed_call_args = dir.path().join("call-malformed-args.json");
+        let constructor_args = dir.path().join("constructor-args.json");
+        let invoke_args = dir.path().join("invoke-args.json");
+        fs::write(&call_args, b"[]").expect("write call arguments");
+        fs::write(&malformed_call_args, b"[]").expect("write malformed call arguments");
+        fs::write(&constructor_args, br#"{"initial":7}"#).expect("write constructor arguments");
+        fs::write(&invoke_args, b"[]").expect("write invoke arguments");
+
+        let (endpoint, server) = mock_sepolia_fixture(sepolia_fixture_case("call-success"));
+        call(CallArgs {
+            target_profile: TARGET_PROFILE.to_string(),
+            rpc_url: endpoint,
+            chain_id: TARGET_CHAIN_ID,
+            artifact: artifact.clone(),
+            abi: abi_path.clone(),
+            contract_state_schema: contract_state_schema.clone(),
+            proof_artifact: proof_artifact.clone(),
+            signed_bundle: signed_bundle.clone(),
+            contract_address: "0x1111111111111111111111111111111111111111".to_string(),
+            function: "0x13765838".to_string(),
+            args: call_args,
+            receipt_out: dir.path().join("call-receipt.json"),
+        })
+        .expect("fixture call succeeds");
+        assert_eq!(server.join().expect("join call fixture").len(), 2);
+
+        let (endpoint, server) = mock_sepolia_fixture(sepolia_fixture_case("deploy-success"));
+        deploy(DeployArgs {
+            target_profile: TARGET_PROFILE.to_string(),
+            rpc_url: endpoint,
+            chain_id: TARGET_CHAIN_ID,
+            sender: "0x1a642f0e3c3af545e7acbd38b07251b3990914f1".to_string(),
+            nonce: 0,
+            signing_key: write_signer(&dir),
+            value: 0,
+            gas_limit: 100_000,
+            gas_price: 1,
+            artifact: artifact.clone(),
+            abi: abi_path.clone(),
+            contract_state_schema: contract_state_schema.clone(),
+            proof_artifact: proof_artifact.clone(),
+            signed_bundle: signed_bundle.clone(),
+            args: Some(constructor_args),
+            receipt_out: dir.path().join("deploy-receipt.json"),
+        })
+        .expect("fixture deploy succeeds");
+        assert_eq!(server.join().expect("join deploy fixture").len(), 3);
+
+        let (endpoint, server) = mock_sepolia_fixture(sepolia_fixture_case("invoke-success"));
+        invoke(InvokeArgs {
+            target_profile: TARGET_PROFILE.to_string(),
+            rpc_url: endpoint,
+            chain_id: TARGET_CHAIN_ID,
+            artifact: artifact.clone(),
+            abi: abi_path.clone(),
+            contract_state_schema: contract_state_schema.clone(),
+            proof_artifact: proof_artifact.clone(),
+            signed_bundle: signed_bundle.clone(),
+            contract_address: "0x1111111111111111111111111111111111111111".to_string(),
+            function: "0x13765838".to_string(),
+            args: invoke_args,
+            sender: "0x1a642f0e3c3af545e7acbd38b07251b3990914f1".to_string(),
+            nonce: 1,
+            signing_key: write_signer(&dir),
+            value: 0,
+            gas_limit: 100_000,
+            gas_price: 1,
+            receipt_out: dir.path().join("invoke-receipt.json"),
+        })
+        .expect("fixture invoke succeeds");
+        assert_eq!(server.join().expect("join invoke fixture").len(), 3);
+
+        let transaction_hash = "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        for id in [
+            "wrong-chain",
+            "substituted-transaction-hash",
+            "reverted-receipt",
+            "malformed-receipt",
+        ] {
+            let (endpoint, server) = mock_sepolia_fixture(sepolia_fixture_case(id));
+            let result = match id {
+                "wrong-chain" => verify_chain(&endpoint, TARGET_CHAIN_ID).map(|_| ()),
+                "substituted-transaction-hash" => submit_transaction(&endpoint, &[1]).map(|_| ()),
+                "reverted-receipt" | "malformed-receipt" => {
+                    wait_for_successful_receipt(&endpoint, transaction_hash).map(|_| ())
+                }
+                _ => unreachable!("fixture list is exhaustive"),
+            };
+            assert!(result.is_err(), "fixture `{id}` must fail closed");
+            assert_eq!(server.join().expect("join failure fixture").len(), 1);
+        }
+
+        let (endpoint, server) = mock_sepolia_fixture(sepolia_fixture_case("unavailable-receipt"));
+        assert!(wait_for_successful_receipt(&endpoint, transaction_hash).is_err());
+        assert_eq!(
+            server.join().expect("join unavailable fixture").len(),
+            RECEIPT_POLL_ATTEMPTS
+        );
+
+        let (endpoint, server) =
+            mock_sepolia_fixture(sepolia_fixture_case("malformed-call-result"));
+        let call_error = call(CallArgs {
+            target_profile: TARGET_PROFILE.to_string(),
+            rpc_url: endpoint,
+            chain_id: TARGET_CHAIN_ID,
+            artifact,
+            abi: abi_path,
+            contract_state_schema,
+            proof_artifact,
+            signed_bundle,
+            contract_address: "0x1111111111111111111111111111111111111111".to_string(),
+            function: "0x13765838".to_string(),
+            args: malformed_call_args,
+            receipt_out: dir.path().join("malformed-call-receipt.json"),
+        })
+        .expect_err("malformed call fixture must fail");
+        assert!(call_error.to_string().contains("malformed eth_call result"));
+        assert_eq!(server.join().expect("join malformed call fixture").len(), 2);
+
+        let (endpoint, server) =
+            mock_sepolia_fixture(sepolia_fixture_case("required-method-rpc-error"));
+        assert!(verify_chain(&endpoint, TARGET_CHAIN_ID).is_err());
+        assert_eq!(server.join().expect("join RPC error fixture").len(), 1);
     }
 
     #[test]

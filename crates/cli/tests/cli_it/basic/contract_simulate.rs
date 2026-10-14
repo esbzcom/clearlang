@@ -452,6 +452,83 @@ fn simulate_caller_guard_rejects_non_owner_and_omitted_caller_without_state_outp
 }
 
 #[test]
+fn reference_configuration_registry_v1_allows_only_its_owner_to_update_value() {
+    let dir = tempdir().expect("tempdir");
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/projects/reference-config-registry/v1/config_registry.clear");
+    assert!(source.is_file(), "reference registry source must be checked in");
+    let state = dir.path().join("state.json");
+    let args = dir.path().join("args.json");
+    let owner = "0x1111111111111111111111111111111111111111";
+    let other = "0x2222222222222222222222222222222222222222";
+    fs::write(&state, format!(r#"{{"owner":"{owner}","value":0}}"#)).expect("write state");
+    fs::write(&args, "[7]").expect("write arguments");
+
+    let state_out = dir.path().join("owner-state-out.json");
+    let trace_out = dir.path().join("owner-trace.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("arguments path"),
+            "--state-out",
+            state_out.to_str().expect("state output path"),
+            "--trace-out",
+            trace_out.to_str().expect("trace path"),
+            "--caller",
+            owner,
+        ])
+        .assert()
+        .success();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&state_out).expect("read owner state"))
+            .expect("parse owner state"),
+        serde_json::json!({"owner": owner, "value": 7})
+    );
+    let trace: Value =
+        serde_json::from_slice(&fs::read(&trace_out).expect("read owner trace"))
+            .expect("parse owner trace");
+    assert_eq!(trace["events"], serde_json::json!([{ "event": "ValueChanged", "args": [7] }]));
+    assert_eq!(trace["result"], 7);
+
+    let rejected_state_out = dir.path().join("rejected-state-out.json");
+    let rejected_trace_out = dir.path().join("rejected-trace.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "simulate",
+            source.to_str().expect("source path"),
+            "--function",
+            "set_value",
+            "--state",
+            state.to_str().expect("state path"),
+            "--args",
+            args.to_str().expect("arguments path"),
+            "--state-out",
+            rejected_state_out.to_str().expect("rejected state output path"),
+            "--trace-out",
+            rejected_trace_out.to_str().expect("rejected trace path"),
+            "--caller",
+            other,
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("simulator contract guard failed"));
+    assert!(!rejected_state_out.exists());
+    let rejected_trace: Value =
+        serde_json::from_slice(&fs::read(&rejected_trace_out).expect("read rejected trace"))
+            .expect("parse rejected trace");
+    assert_eq!(rejected_trace["state_before"], rejected_trace["state_after"]);
+    assert_eq!(rejected_trace["events"], serde_json::json!([]));
+}
+
+#[test]
 fn simulate_init_requires_empty_state_and_produces_initialized_state() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("counter.clear");

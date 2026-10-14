@@ -1,10 +1,21 @@
 # ClearLang Real-Case Starter Projects
 
-This folder contains three multi-file projects:
+This folder contains four multi-file projects:
 
 1. `generic/` - a non-crypto service-style project.
 2. `crypto/` - a crypto-oriented project that uses `std::crypto`.
 3. `testing/` - a Gate D planning example for unit tests + deterministic mock sets.
+4. `reference-config-registry/v1/` - the Milestone 5 caller-authorized, testnet-pilot contract.
+
+## Reference configuration registry
+
+`reference-config-registry/v1/` is the versioned, narrowly supported contract reference used by
+the Milestone 5 pilot. It fixes one owner and permits that owner alone to update a bounded `U64`
+configuration value while emitting `ValueChanged`. It has no project manifest or release inputs
+yet; those deterministic artifacts are added by task 42.1.2.
+
+See `reference-config-registry/v1/README.md` for its state, transition, invariant, and explicit
+non-goals.
 
 `generic/` and `crypto/` are designed for current CLI behavior:
 - `clg run <entry.clear>` compiles and executes from source.

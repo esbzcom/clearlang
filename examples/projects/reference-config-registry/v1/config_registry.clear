@@ -1,0 +1,27 @@
+import std::eth::{Address}
+
+contract ConfigRegistry version 1 {
+    state {
+        owner: std::eth::Address;
+        value: U64;
+    }
+
+    event ValueChanged { value: U64; }
+
+    // v1 invariant: owner is initialized once and never assigned by a transition;
+    // value is always a U64, so its complete domain is 0..=18446744073709551615.
+
+    init(owner: std::eth::Address, initial_value: U64) {
+        state.owner = owner;
+        state.value = initial_value;
+        0
+    }
+
+    mut function set_value(next: U64) -> U64
+        require { std::eth::address::equals(std::eth::context::caller(), state.owner) }
+    {
+        state.value = next;
+        emit ValueChanged(next);
+        next
+    }
+}

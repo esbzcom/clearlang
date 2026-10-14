@@ -235,8 +235,10 @@ contract platform.
   preserve a stated invariant, and provide a migration-compatible v2 scenario. Its local fixture
   must prove, campaign-test, simulate, release, independently verify, deploy/invoke through the
   mocked locked target, and verify receipts against the exact release bundle.
-  - [ ] 42.1.1 Specify v1 state, constructor inputs, owner guard, bounded configuration value,
+  - [x] 42.1.1 Specify v1 state, constructor inputs, owner guard, bounded configuration value,
     event, invariant, and all permitted transitions in the project README and source contracts.
+    (`examples/projects/reference-config-registry/v1/README.md`,
+    `examples/projects/reference-config-registry/v1/config_registry.clear`) `Completed: 2026-10-14`.
   - [ ] 42.1.2 Implement deterministic source, manifest, test plan, campaign inputs, simulator
     expected traces, release inputs, and signed public test fixtures. Keep all private keys and
     live endpoints outside the repository and fixture format.

@@ -287,9 +287,10 @@ contract platform.
     image is justified; the decision must retain one shared verification core and one canonical
     result schema. Dedicated `clg-contract-verifier` executable selected; OCI is deferred.
     (`docs/design/phase-43.0.1-verifier-delivery-form-lock.md`) `Completed: 2026-10-15`.
-  - [ ] 43.0.2 Define supported platforms, artifact names, semantic version compatibility,
+  - [x] 43.0.2 Define supported platforms, artifact names, semantic version compatibility,
     checksum/signature format, trusted public-key provisioning, offline network policy, and
     stable human/JSON output contracts.
+    (`docs/design/phase-43.0.2-verifier-compatibility-lock.md`) `Completed: 2026-10-15`.
   - [ ] 43.0.3 Define deprecation and emergency rollback rules, including how an unsupported
     verifier/schema/version rejects rather than guessing compatibility, and add a compatibility
     table to the distribution documentation.

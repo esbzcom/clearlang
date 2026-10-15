@@ -283,9 +283,10 @@ contract platform.
   executable plus a versioned OCI/container image if that adds no second verification semantics).
   Define artifact naming, platform scope, checksums, signatures, public-key/trust-policy input,
   offline operation, upgrade/deprecation policy, and reproducible invocation examples.
-  - [ ] 43.0.1 Decide whether a dedicated subcommand/binary alone is sufficient or whether an OCI
+  - [x] 43.0.1 Decide whether a dedicated subcommand/binary alone is sufficient or whether an OCI
     image is justified; the decision must retain one shared verification core and one canonical
-    result schema.
+    result schema. Dedicated `clg-contract-verifier` executable selected; OCI is deferred.
+    (`docs/design/phase-43.0.1-verifier-delivery-form-lock.md`) `Completed: 2026-10-15`.
   - [ ] 43.0.2 Define supported platforms, artifact names, semantic version compatibility,
     checksum/signature format, trusted public-key provisioning, offline network policy, and
     stable human/JSON output contracts.

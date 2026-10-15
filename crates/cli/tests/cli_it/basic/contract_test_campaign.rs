@@ -668,6 +668,12 @@ fn independent_verifier_matches_primary_verifier_canonical_result() {
     );
 
     let result: Value = serde_json::from_slice(&independent.stdout).expect("parse verifier result");
+    let canonical_result = serde_json::to_vec(&result).expect("serialize canonical verifier result");
+    assert_eq!(
+        independent.stdout,
+        [canonical_result.as_slice(), b"\n"].concat(),
+        "the verifier result must be canonical bytes for offline pilot-evidence capture"
+    );
     assert_eq!(result["format"], "clg.contract-release-verifier-result.v1");
     assert_eq!(result["schema_version"], 1);
     assert_eq!(result["status"], "verified");
@@ -742,7 +748,7 @@ fn contract_release_reference_fixture_completes_release_target_and_independent_v
         .arg(&pubkey)
         .assert()
         .success()
-        .stdout(predicate::str::contains("\"status\": \"verified\""));
+        .stdout(predicate::str::contains("\"status\":\"verified\""));
 
     let artifact = out_dir.join("counter.evm.json");
     let wire_abi = out_dir.join("counter.evm-wire-abi.json");
@@ -1465,7 +1471,7 @@ fn verify_contract_release_bundle(out_dir: &Path, stem: &str, pubkey: &Path) {
         .arg(pubkey)
         .assert()
         .success()
-        .stdout(predicate::str::contains("\"status\": \"verified\""));
+        .stdout(predicate::str::contains("\"status\":\"verified\""));
 }
 
 fn reproducible_bundle_projection(bundle: &Path) -> Value {

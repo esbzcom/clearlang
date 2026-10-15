@@ -160,10 +160,12 @@ fn write_pilot_evidence_capture_fixture(root: &Path) -> (PathBuf, PathBuf) {
         root,
         "verifier.json",
         &serde_json::json!({
-            "format": "clg.pilot-release-verifier-result.v1",
+            "bundle_sha256": bundle_digest,
+            "format": "clg.contract-release-verifier-result.v1",
             "schema_version": 1,
             "status": "verified",
-            "release_bundle_digest": bundle_digest
+            "target_profile": "clg.evm-sepolia-pilot.v1",
+            "verifier_version": "0.1.0"
         }),
     );
     let deploy_hash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";

@@ -327,8 +327,9 @@ contract platform.
     validation and ends with an explainable pass or stable failure code; show no command that
     requires a source checkout or private key.
     (`docs/release/contract-verifier-offline-walkthrough.md`) `Completed: 2026-10-15`.
-  - [ ] 43.2.2 Write a separate operator path for the local pilot precheck and testnet evidence
+  - [x] 43.2.2 Write a separate operator path for the local pilot precheck and testnet evidence
     replay, marking every externally supplied value and every action that can contact a network.
+    (`docs/release/pilot-operator-runbook.md`) `Completed: 2026-10-15`.
   - [ ] 43.2.3 Add documentation tests that execute the non-network walkthrough in a temporary
     directory and validate that referenced artifact names, commands, and result schemas remain
     current.

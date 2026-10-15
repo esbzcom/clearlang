@@ -41,10 +41,11 @@ function selector are checked against the preflight intent. `unauthorized-invoke
 different caller, a reverted (`0x0`) recorded receipt response, and no successful target receipt.
 
 `submission_intent` is the canonical `clg.pilot-exercise-preflight.v1` output from 42.2.1.
-`verifier_result` is a canonical `clg.pilot-release-verifier-result.v1` object containing only
-`schema_version: 1`, `status: "verified"`, and the exact SHA-256 digest of the release-bundle
-file. It records the outcome of the existing release verifier without treating an operator claim
-as a replacement for release verification.
+`verifier_result` is the canonical `clg.contract-release-verifier-result.v1` output from the
+existing independent release verifier. It must have `schema_version: 1`, `status: "verified"`,
+the locked target profile, a non-empty verifier version, and a `bundle_sha256` equal to the exact
+SHA-256 digest of the release-bundle file. This records the verifier's actual result rather than
+asking an operator to manufacture a smaller verification assertion.
 
 ## RPC observations and output
 

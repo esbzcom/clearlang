@@ -175,7 +175,7 @@ $VerificationOutput = & $VerifierPath --json-errors verify-release --bundle $Bun
 $VerifierExitCode = $LASTEXITCODE
 $VerificationJson = $VerificationOutput -join "`n"
 $ResultPath = Join-Path $PackageDirectory 'contract-verification-result.json'
-[System.IO.File]::WriteAllText($ResultPath, $VerificationJson + "`n", [System.Text.UTF8Encoding]::new($false))
+[System.IO.File]::WriteAllText($ResultPath, $VerificationJson, [System.Text.UTF8Encoding]::new($false))
 if ($VerifierExitCode -ne 0) {
     $Failure = $VerificationJson | ConvertFrom-Json
     if ($Failure.errors.Count -ne 1 -or $Failure.errors[0].code -cne 'C140') {

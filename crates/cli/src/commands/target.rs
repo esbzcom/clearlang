@@ -27,7 +27,7 @@ const PILOT_CAPTURE_INPUT_FORMAT: &str = "clg.pilot-evidence-capture-input.v1";
 const PILOT_EVIDENCE_FORMAT: &str = "clg.pilot-evidence.v1";
 const PILOT_REPLAY_REPORT_FORMAT: &str = "clg.pilot-evidence-replay-report.v1";
 const PILOT_RPC_OBSERVATIONS_FORMAT: &str = "clg.pilot-rpc-observations.v1";
-const PILOT_VERIFIER_RESULT_FORMAT: &str = "clg.pilot-release-verifier-result.v1";
+const CONTRACT_RELEASE_VERIFIER_RESULT_FORMAT: &str = "clg.contract-release-verifier-result.v1";
 const RECEIPT_POLL_ATTEMPTS: usize = 10;
 const RECEIPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -554,15 +554,22 @@ fn validate_pilot_verifier_result(value: &Value, bundle_digest: &str) -> Result<
         .ok_or_else(|| anyhow!("pilot release verifier result must be an object"))?;
     if keys
         != [
+            "bundle_sha256",
             "format",
-            "release_bundle_digest",
             "schema_version",
             "status",
+            "target_profile",
+            "verifier_version",
         ]
-        || value["format"].as_str() != Some(PILOT_VERIFIER_RESULT_FORMAT)
+        || value["format"].as_str() != Some(CONTRACT_RELEASE_VERIFIER_RESULT_FORMAT)
         || value["schema_version"].as_u64() != Some(1)
         || value["status"].as_str() != Some("verified")
-        || value["release_bundle_digest"].as_str() != Some(bundle_digest)
+        || value["bundle_sha256"].as_str() != Some(bundle_digest)
+        || value["target_profile"].as_str() != Some(TARGET_PROFILE)
+        || value["verifier_version"]
+            .as_str()
+            .filter(|version| !version.is_empty())
+            .is_none()
     {
         bail!("pilot release verifier result does not verify this release bundle")
     }

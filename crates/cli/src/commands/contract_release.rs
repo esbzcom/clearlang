@@ -384,17 +384,18 @@ fn verify_inner(bundle_path: &Path, pubkey: &Path, logger: Logger) -> Result<()>
         "contract_release",
         &[],
     );
+    let result = json!({
+        "bundle_sha256": format!("sha256:{}", sha256_hex(&bytes)),
+        "format": VERIFIER_RESULT_FORMAT,
+        "schema_version": 1,
+        "status": "verified",
+        "target_profile": TARGET_PROFILE,
+        "verifier_version": VERIFIER_VERSION,
+    });
     println!(
         "{}",
-        serde_json::to_string_pretty(&json!({
-            "bundle_sha256": format!("sha256:{}", sha256_hex(&bytes)),
-            "format": VERIFIER_RESULT_FORMAT,
-            "schema_version": 1,
-            "status": "verified",
-            "target_profile": TARGET_PROFILE,
-            "verifier_version": VERIFIER_VERSION,
-        }))
-        .expect("serialize verification result")
+        String::from_utf8(canonical_json_bytes(&result))
+            .expect("canonical verifier result is UTF-8")
     );
     Ok(())
 }

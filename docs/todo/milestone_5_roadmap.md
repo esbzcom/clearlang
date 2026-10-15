@@ -262,10 +262,13 @@ contract platform.
     (`clg target pilot-preflight`,
     `docs/design/phase-42.2.1-pilot-operator-input.md`,
     `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-10-14`.
-  - [ ] 42.2.2 Implement canonical pilot-evidence capture for submission intent, transaction
+  - [x] 42.2.2 Implement canonical pilot-evidence capture for submission intent, transaction
     digest, sanitized RPC observations, receipt, release-bundle digest, caller identity, and
     verifier result. Make it path-safe, secret-free, ordered, and signed only if the existing
     evidence-signing policy authorizes that use.
+    (`clg target capture-pilot-evidence`,
+    `docs/design/phase-42.2.2-pilot-evidence-capture.md`,
+    `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-10-14`.
   - [ ] 42.2.3 Implement offline replay that serves only recorded fixture responses and verifies
     the deploy, authorized invoke, and unauthorized invoke observations. Add tests for omitted,
     substituted, reordered, and cross-chain records.

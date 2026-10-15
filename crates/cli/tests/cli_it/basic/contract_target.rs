@@ -27,6 +27,358 @@ fn pilot_exercise_input() -> Value {
     })
 }
 
+fn write_canonical_pilot_json(root: &Path, relative: &str, value: &Value) -> PathBuf {
+    let path = root.join(relative);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create fixture parent");
+    }
+    fs::write(
+        &path,
+        clg_cli::commands::helpers::canonical_json_bytes(value),
+    )
+    .expect("write canonical pilot fixture");
+    path
+}
+
+fn pilot_fixture_digest(path: &Path) -> String {
+    format!(
+        "sha256:{}",
+        clg_cli::commands::helpers::sha256_hex(&fs::read(path).expect("read pilot fixture"))
+    )
+}
+
+fn pilot_preflight_record() -> Value {
+    serde_json::json!({
+        "format": "clg.pilot-exercise-preflight.v1",
+        "schema_version": 1,
+        "network": {
+            "chain_id": 11155111,
+            "rpc_url": "https://operator.example.invalid",
+            "target_profile": "clg.evm-sepolia-pilot.v1"
+        },
+        "signer": {
+            "reference": "operator/signer.reference",
+            "sender": "0x1111111111111111111111111111111111111111"
+        },
+        "deploy": {
+            "constructor_arguments": "release/constructor.json",
+            "transaction": {
+                "fee": { "kind": "legacy-eip155-gas-price", "gas_price": 3 },
+                "gas_limit": 250000,
+                "nonce": 7,
+                "value": 0
+            }
+        },
+        "invocation": {
+            "arguments": "release/invoke.json",
+            "contract_address": "0x2222222222222222222222222222222222222222",
+            "function_selector": "0x13765838",
+            "transaction": {
+                "fee": { "kind": "legacy-eip155-gas-price", "gas_price": 3 },
+                "gas_limit": 100000,
+                "nonce": 8,
+                "value": 0
+            }
+        },
+        "release_bundle": "release/bundle.json",
+        "safety": {
+            "network_contacted": false,
+            "signer_material_accessed": false,
+            "transaction_signed": false,
+            "transaction_submitted": false
+        }
+    })
+}
+
+fn pilot_target_receipt(request: Value, transaction_hash: &str, signature_digest: &str) -> Value {
+    let request_digest = format!(
+        "sha256:{}",
+        clg_cli::commands::helpers::sha256_hex(
+            &clg_cli::commands::helpers::canonical_json_bytes(&request)
+        )
+    );
+    serde_json::json!({
+        "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "block": {
+            "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "number": 10
+        },
+        "caller": request["from"],
+        "chain_id": 11155111,
+        "command": "invoke",
+        "evidence": { "signed_bundle_digest": signature_digest },
+        "format": "clg.target-receipt.v1",
+        "request": request,
+        "request_digest": request_digest,
+        "result": { "status": "success" },
+        "rpc_endpoint": "https://operator.example.invalid",
+        "schema_version": 1,
+        "target_profile": "clg.evm-sepolia-pilot.v1",
+        "transaction_hash": transaction_hash,
+        "wire_abi_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    })
+}
+
+fn pilot_rpc_observations(transaction_hash: &str, status: &str) -> Value {
+    serde_json::json!({
+        "format": "clg.pilot-rpc-observations.v1",
+        "schema_version": 1,
+        "target_profile": "clg.evm-sepolia-pilot.v1",
+        "chain_id": 11155111,
+        "exchanges": [
+            {
+                "request": { "method": "eth_chainId", "params": [] },
+                "response": { "id": 1, "jsonrpc": "2.0", "result": "0xaa36a7" }
+            },
+            {
+                "request": { "method": "eth_sendRawTransaction", "params": ["0xf86c"] },
+                "response": { "id": 1, "jsonrpc": "2.0", "result": transaction_hash }
+            },
+            {
+                "request": { "method": "eth_getTransactionReceipt", "params": [transaction_hash] },
+                "response": { "id": 1, "jsonrpc": "2.0", "result": { "status": status } }
+            }
+        ]
+    })
+}
+
+fn write_pilot_evidence_capture_fixture(root: &Path) -> (PathBuf, PathBuf) {
+    let signature_digest = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    write_canonical_pilot_json(root, "intent.json", &pilot_preflight_record());
+    let bundle = write_canonical_pilot_json(
+        root,
+        "release/bundle.json",
+        &serde_json::json!({
+            "format": "clg.contract-release-bundle.v1",
+            "schema_version": 1,
+            "target_profile": "clg.evm-sepolia-pilot.v1",
+            "artifacts": { "signature": { "sha256": signature_digest } }
+        }),
+    );
+    let bundle_digest = pilot_fixture_digest(&bundle);
+    write_canonical_pilot_json(
+        root,
+        "verifier.json",
+        &serde_json::json!({
+            "format": "clg.pilot-release-verifier-result.v1",
+            "schema_version": 1,
+            "status": "verified",
+            "release_bundle_digest": bundle_digest
+        }),
+    );
+    let deploy_hash = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    let invoke_hash = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    let denied_hash = "0xabababababababababababababababababababababababababababababababab";
+    write_canonical_pilot_json(
+        root,
+        "rpc/deploy.json",
+        &pilot_rpc_observations(deploy_hash, "0x1"),
+    );
+    write_canonical_pilot_json(
+        root,
+        "rpc/authorized.json",
+        &pilot_rpc_observations(invoke_hash, "0x1"),
+    );
+    write_canonical_pilot_json(
+        root,
+        "rpc/unauthorized.json",
+        &pilot_rpc_observations(denied_hash, "0x0"),
+    );
+    write_canonical_pilot_json(
+        root,
+        "receipts/deploy.json",
+        &pilot_target_receipt(
+            serde_json::json!({
+                "chain_id": 11155111,
+                "data": "0x6000",
+                "from": "0x1111111111111111111111111111111111111111",
+                "gas_limit": 250000,
+                "gas_price": 3,
+                "nonce": 7,
+                "to": null,
+                "value": 0
+            }),
+            deploy_hash,
+            signature_digest,
+        ),
+    );
+    write_canonical_pilot_json(
+        root,
+        "receipts/authorized.json",
+        &pilot_target_receipt(
+            serde_json::json!({
+                "chain_id": 11155111,
+                "data": "0x1376583800000000000000000000000000000000000000000000000000000000000001",
+                "from": "0x1111111111111111111111111111111111111111",
+                "gas_limit": 100000,
+                "gas_price": 3,
+                "nonce": 8,
+                "to": "0x2222222222222222222222222222222222222222",
+                "value": 0
+            }),
+            invoke_hash,
+            signature_digest,
+        ),
+    );
+    let capture = write_canonical_pilot_json(
+        root,
+        "capture.json",
+        &serde_json::json!({
+            "format": "clg.pilot-evidence-capture-input.v1",
+            "schema_version": 1,
+            "submission_intent": "intent.json",
+            "release_bundle": "release/bundle.json",
+            "verifier_result": "verifier.json",
+            "observations": [
+                {
+                    "kind": "deploy",
+                    "caller": "0x1111111111111111111111111111111111111111",
+                    "rpc_observations": "rpc/deploy.json",
+                    "receipt": "receipts/deploy.json"
+                },
+                {
+                    "kind": "authorized-invoke",
+                    "caller": "0x1111111111111111111111111111111111111111",
+                    "rpc_observations": "rpc/authorized.json",
+                    "receipt": "receipts/authorized.json"
+                },
+                {
+                    "kind": "unauthorized-invoke",
+                    "caller": "0x3333333333333333333333333333333333333333",
+                    "rpc_observations": "rpc/unauthorized.json",
+                    "receipt": null
+                }
+            ]
+        }),
+    );
+    (capture, bundle)
+}
+
+#[test]
+fn pilot_evidence_capture_binds_ordered_secret_free_offline_observations() {
+    let dir = tempdir().expect("tempdir");
+    let (capture, bundle) = write_pilot_evidence_capture_fixture(dir.path());
+    let output_path = dir.path().join("pilot-evidence.json");
+    let output = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "target",
+            "capture-pilot-evidence",
+            "--root",
+            dir.path().to_str().expect("root path"),
+            "--input",
+            capture
+                .strip_prefix(dir.path())
+                .expect("capture under root")
+                .to_str()
+                .expect("capture path"),
+            "--out",
+            output_path.to_str().expect("output path"),
+        ])
+        .output()
+        .expect("capture pilot evidence");
+    assert!(
+        output.status.success(),
+        "capture failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bytes = fs::read(&output_path).expect("read evidence");
+    assert_eq!(output.stdout, [bytes.as_slice(), b"\n"].concat());
+    let evidence: Value = serde_json::from_slice(&bytes).expect("parse evidence");
+    assert_eq!(evidence["format"], "clg.pilot-evidence.v1");
+    assert_eq!(evidence["release_bundle"]["digest"], pilot_fixture_digest(&bundle));
+    assert_eq!(evidence["observations"].as_array().expect("observations").len(), 3);
+    assert_eq!(evidence["observations"][0]["kind"], "deploy");
+    assert_eq!(evidence["observations"][1]["kind"], "authorized-invoke");
+    assert_eq!(evidence["observations"][2]["kind"], "unauthorized-invoke");
+    assert!(evidence["observations"][2]["receipt"].is_null());
+    assert_eq!(evidence["evidence_signature"]["status"], "not_authorized");
+    assert!(!String::from_utf8(bytes)
+        .expect("UTF-8 evidence")
+        .contains("operator.example.invalid"));
+}
+
+#[test]
+fn pilot_evidence_capture_rejects_identity_drift_and_secret_rpc_fields() {
+    let cases = [
+        (
+            "signature drift",
+            "receipt",
+            "pilot target receipt does not bind the reviewed identity evidence",
+        ),
+        (
+            "secret rpc field",
+            "rpc",
+            "contains forbidden secret or endpoint field `rpc_url`",
+        ),
+        (
+            "unsafe capture path",
+            "path",
+            "pilot release bundle must be a non-empty canonical relative path",
+        ),
+        (
+            "reordered observations",
+            "order",
+            "pilot evidence observations must be ordered",
+        ),
+    ];
+    for (label, tamper, expected) in cases {
+        let dir = tempdir().expect("tempdir");
+        let (capture, _) = write_pilot_evidence_capture_fixture(dir.path());
+        if tamper == "receipt" {
+            let path = dir.path().join("receipts/deploy.json");
+            let mut receipt: Value = serde_json::from_slice(&fs::read(&path).expect("read receipt"))
+                .expect("parse receipt");
+            receipt["evidence"]["signed_bundle_digest"] = serde_json::json!(
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            write_canonical_pilot_json(dir.path(), "receipts/deploy.json", &receipt);
+        } else if tamper == "rpc" {
+            let path = dir.path().join("rpc/deploy.json");
+            let mut rpc: Value = serde_json::from_slice(&fs::read(&path).expect("read rpc"))
+                .expect("parse rpc");
+            rpc["rpc_url"] = serde_json::json!("https://secret.example.invalid");
+            write_canonical_pilot_json(dir.path(), "rpc/deploy.json", &rpc);
+        } else {
+            let mut capture_value: Value =
+                serde_json::from_slice(&fs::read(&capture).expect("read capture"))
+                    .expect("parse capture");
+            if tamper == "path" {
+                capture_value["release_bundle"] = serde_json::json!("../release/bundle.json");
+            } else {
+                let observations = capture_value["observations"]
+                    .as_array_mut()
+                    .expect("capture observations");
+                observations.swap(0, 1);
+            }
+            write_canonical_pilot_json(dir.path(), "capture.json", &capture_value);
+        }
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "target",
+                "capture-pilot-evidence",
+                "--root",
+                dir.path().to_str().expect("root path"),
+                "--input",
+                capture
+                    .strip_prefix(dir.path())
+                    .expect("capture under root")
+                    .to_str()
+                    .expect("capture path"),
+                "--out",
+                dir.path().join("evidence.json").to_str().expect("output path"),
+            ])
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(expected));
+        assert!(
+            !dir.path().join("evidence.json").exists(),
+            "{label} must not create an evidence record"
+        );
+    }
+}
+
 #[test]
 fn pilot_preflight_displays_a_canonical_offline_operator_plan() {
     let dir = tempdir().expect("tempdir");

@@ -405,6 +405,18 @@ enum TargetCommands {
         #[arg(long, value_name = "FILE")]
         report_out: PathBuf,
     },
+    /// Capture and bind offline pilot observations without signing or contacting a target
+    CapturePilotEvidence {
+        /// Root directory that contains all root-relative capture inputs
+        #[arg(long, value_name = "DIR")]
+        root: PathBuf,
+        /// Pilot evidence capture input JSON, relative to --root
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// Canonical path-free pilot evidence output JSON
+        #[arg(long, value_name = "FILE")]
+        out: PathBuf,
+    },
     /// Deploy an EVM-compatible contract artifact
     Deploy {
         /// Target profile identifier (currently only clg.evm-sepolia-pilot.v1)
@@ -722,6 +734,13 @@ fn main() -> Result<()> {
         Commands::Target { command } => match command {
             TargetCommands::PilotPreflight { input, report_out } => {
                 cmd_target::pilot_preflight(cmd_target::PilotPreflightArgs { input, report_out })
+            }
+            TargetCommands::CapturePilotEvidence { root, input, out } => {
+                cmd_target::capture_pilot_evidence(cmd_target::CapturePilotEvidenceArgs {
+                    root,
+                    input,
+                    out,
+                })
             }
             TargetCommands::Deploy {
                 target_profile,

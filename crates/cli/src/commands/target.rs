@@ -23,6 +23,10 @@ const WIRE_ABI_FORMAT: &str = "clg.evm-wire-abi.v1";
 const RECEIPT_FORMAT: &str = "clg.target-receipt.v1";
 const PILOT_INPUT_FORMAT: &str = "clg.pilot-exercise-input.v1";
 const PILOT_PREFLIGHT_FORMAT: &str = "clg.pilot-exercise-preflight.v1";
+const PILOT_CAPTURE_INPUT_FORMAT: &str = "clg.pilot-evidence-capture-input.v1";
+const PILOT_EVIDENCE_FORMAT: &str = "clg.pilot-evidence.v1";
+const PILOT_RPC_OBSERVATIONS_FORMAT: &str = "clg.pilot-rpc-observations.v1";
+const PILOT_VERIFIER_RESULT_FORMAT: &str = "clg.pilot-release-verifier-result.v1";
 const RECEIPT_POLL_ATTEMPTS: usize = 10;
 const RECEIPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -94,6 +98,14 @@ pub struct PilotPreflightArgs {
     pub report_out: PathBuf,
 }
 
+/// Arguments for offline pilot-evidence capture.
+#[derive(Debug)]
+pub struct CapturePilotEvidenceArgs {
+    pub root: PathBuf,
+    pub input: String,
+    pub out: PathBuf,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PilotExerciseInput {
@@ -136,6 +148,50 @@ struct PilotInvocationInput {
 struct PilotFeeInput {
     kind: String,
     gas_price: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotEvidenceCaptureInput {
+    format: String,
+    schema_version: u64,
+    submission_intent: String,
+    release_bundle: String,
+    verifier_result: String,
+    observations: Vec<PilotEvidenceObservationInput>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotEvidenceObservationInput {
+    kind: String,
+    caller: String,
+    rpc_observations: String,
+    receipt: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotRpcObservations {
+    format: String,
+    schema_version: u64,
+    target_profile: String,
+    chain_id: u64,
+    exchanges: Vec<PilotRpcExchange>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotRpcExchange {
+    request: PilotRpcRequest,
+    response: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotRpcRequest {
+    method: String,
+    params: Value,
 }
 
 /// Validate an operator-supplied testnet plan and emit the exact values requiring review.
@@ -289,6 +345,442 @@ fn safe_relative_path(value: &str, field: &str) -> Result<String> {
         bail!("pilot {field} must be a non-empty canonical relative path")
     }
     Ok(value.to_string())
+}
+
+/// Capture ordered, offline testnet observations into a path-free evidence record.
+///
+/// Capture deliberately has no signing flags and never calls `rpc`: it only validates locally
+/// recorded files under `root`. Existing release signing policy does not authorize a signature
+/// over this operator evidence, so the output is intentionally unsigned.
+pub fn capture_pilot_evidence(args: CapturePilotEvidenceArgs) -> Result<()> {
+    let root = fs::canonicalize(&args.root)
+        .with_context(|| format!("resolve pilot evidence root `{}`", args.root.display()))?;
+    if !fs::metadata(&root)
+        .with_context(|| format!("inspect pilot evidence root `{}`", root.display()))?
+        .is_dir()
+    {
+        bail!("pilot evidence root must be a directory")
+    }
+    let (capture_bytes, capture_value) =
+        load_pilot_evidence_file(&root, &args.input, "capture input", false)?;
+    let capture: PilotEvidenceCaptureInput =
+        serde_json::from_value(capture_value).context("parse pilot evidence capture input")?;
+    let _ = capture_bytes;
+    if capture.format != PILOT_CAPTURE_INPUT_FORMAT || capture.schema_version != 1 {
+        bail!("pilot evidence capture input has an unsupported format or schema version")
+    }
+    let expected_kinds = ["deploy", "authorized-invoke", "unauthorized-invoke"];
+    if capture.observations.len() != expected_kinds.len()
+        || capture
+            .observations
+            .iter()
+            .map(|observation| observation.kind.as_str())
+            .collect::<Vec<_>>()
+            != expected_kinds
+    {
+        bail!("pilot evidence observations must be ordered as deploy, authorized-invoke, unauthorized-invoke")
+    }
+
+    let (intent_bytes, intent) =
+        load_pilot_evidence_file(&root, &capture.submission_intent, "submission intent", true)?;
+    let intent_context = validate_pilot_submission_intent(&intent)?;
+    let (bundle_bytes, bundle) =
+        load_pilot_evidence_file(&root, &capture.release_bundle, "release bundle", true)?;
+    let bundle_context = validate_pilot_release_bundle(&bundle)?;
+    if bundle_context.target_profile != intent_context.target_profile {
+        bail!("pilot release bundle target profile does not match submission intent")
+    }
+    let bundle_digest = sha256_digest(&bundle_bytes);
+    let (_verifier_bytes, verifier_result) = load_pilot_evidence_file(
+        &root,
+        &capture.verifier_result,
+        "release verifier result",
+        true,
+    )?;
+    validate_pilot_verifier_result(&verifier_result, &bundle_digest)?;
+
+    let mut observations = Vec::with_capacity(capture.observations.len());
+    for observation in &capture.observations {
+        observations.push(capture_pilot_observation(
+            &root,
+            observation,
+            &intent_context,
+            &bundle_context,
+        )?);
+    }
+    let record = json!({
+        "format": PILOT_EVIDENCE_FORMAT,
+        "schema_version": 1,
+        "submission_intent": {
+            "chain_id": intent_context.chain_id,
+            "digest": sha256_digest(&intent_bytes),
+            "sender": intent_context.sender,
+            "target_profile": intent_context.target_profile,
+        },
+        "release_bundle": {
+            "digest": bundle_digest,
+            "signature_digest": bundle_context.signature_digest,
+            "target_profile": bundle_context.target_profile,
+        },
+        "verifier_result": {
+            "release_bundle_digest": bundle_digest,
+            "status": "verified",
+        },
+        "observations": observations,
+        "evidence_signature": {
+            "status": "not_authorized",
+            "reason": "existing release signing policy does not authorize pilot-evidence signing",
+        },
+    });
+    let bytes = canonical_json_bytes(&record);
+    fs::write(&args.out, &bytes)
+        .with_context(|| format!("write pilot evidence `{}`", args.out.display()))?;
+    println!(
+        "{}",
+        String::from_utf8(bytes).expect("canonical JSON is valid UTF-8")
+    );
+    Ok(())
+}
+
+#[derive(Debug)]
+struct PilotIntentContext {
+    target_profile: String,
+    chain_id: u64,
+    sender: String,
+    deploy: Value,
+    invocation: Value,
+}
+
+#[derive(Debug)]
+struct PilotBundleContext {
+    target_profile: String,
+    signature_digest: String,
+}
+
+fn load_pilot_evidence_file(
+    root: &Path,
+    relative: &str,
+    description: &str,
+    require_canonical_json: bool,
+) -> Result<(Vec<u8>, Value)> {
+    let relative = safe_relative_path(relative, description)?;
+    let path = root.join(relative);
+    let metadata = fs::symlink_metadata(&path)
+        .with_context(|| format!("inspect pilot {description} `{}`", path.display()))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        bail!("pilot {description} must be a regular root-relative file")
+    }
+    let resolved = fs::canonicalize(&path)
+        .with_context(|| format!("resolve pilot {description} `{}`", path.display()))?;
+    if !resolved.starts_with(root) {
+        bail!("pilot {description} resolves outside the evidence root")
+    }
+    let bytes = fs::read(&resolved)
+        .with_context(|| format!("read pilot {description} `{}`", resolved.display()))?;
+    let value: Value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parse pilot {description} `{}`", resolved.display()))?;
+    if require_canonical_json && bytes != canonical_json_bytes(&value) {
+        bail!("pilot {description} must use canonical JSON encoding")
+    }
+    Ok((bytes, value))
+}
+
+fn validate_pilot_submission_intent(value: &Value) -> Result<PilotIntentContext> {
+    if value["format"].as_str() != Some(PILOT_PREFLIGHT_FORMAT)
+        || value["schema_version"].as_u64() != Some(1)
+        || value["safety"]["network_contacted"].as_bool() != Some(false)
+        || value["safety"]["signer_material_accessed"].as_bool() != Some(false)
+        || value["safety"]["transaction_signed"].as_bool() != Some(false)
+        || value["safety"]["transaction_submitted"].as_bool() != Some(false)
+    {
+        bail!("pilot submission intent is not a valid offline preflight record")
+    }
+    let target_profile = value["network"]["target_profile"]
+        .as_str()
+        .filter(|profile| *profile == TARGET_PROFILE)
+        .ok_or_else(|| anyhow!("pilot submission intent has an unsupported target profile"))?
+        .to_string();
+    let chain_id = value["network"]["chain_id"]
+        .as_u64()
+        .filter(|chain_id| *chain_id == TARGET_CHAIN_ID)
+        .ok_or_else(|| anyhow!("pilot submission intent has an unsupported chain ID"))?;
+    let sender = value["signer"]["sender"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot submission intent is missing its sender"))
+        .and_then(canonical_address)?;
+    for name in ["deploy", "invocation"] {
+        if !value[name]["transaction"].is_object() {
+            bail!("pilot submission intent is missing its {name} transaction")
+        }
+    }
+    Ok(PilotIntentContext {
+        target_profile,
+        chain_id,
+        sender,
+        deploy: value["deploy"].clone(),
+        invocation: value["invocation"].clone(),
+    })
+}
+
+fn validate_pilot_release_bundle(value: &Value) -> Result<PilotBundleContext> {
+    if value["format"].as_str() != Some("clg.contract-release-bundle.v1")
+        || value["schema_version"].as_u64() != Some(1)
+        || value["target_profile"].as_str() != Some(TARGET_PROFILE)
+    {
+        bail!("pilot release bundle has an unsupported format, schema version, or target profile")
+    }
+    let signature_digest = digest_value(
+        &value["artifacts"]["signature"]["sha256"],
+        "pilot release bundle signature",
+    )?;
+    Ok(PilotBundleContext {
+        target_profile: TARGET_PROFILE.to_string(),
+        signature_digest,
+    })
+}
+
+fn validate_pilot_verifier_result(value: &Value, bundle_digest: &str) -> Result<()> {
+    let keys = value
+        .as_object()
+        .map(|object| object.keys().map(String::as_str).collect::<Vec<_>>())
+        .ok_or_else(|| anyhow!("pilot release verifier result must be an object"))?;
+    if keys
+        != [
+            "format",
+            "release_bundle_digest",
+            "schema_version",
+            "status",
+        ]
+        || value["format"].as_str() != Some(PILOT_VERIFIER_RESULT_FORMAT)
+        || value["schema_version"].as_u64() != Some(1)
+        || value["status"].as_str() != Some("verified")
+        || value["release_bundle_digest"].as_str() != Some(bundle_digest)
+    {
+        bail!("pilot release verifier result does not verify this release bundle")
+    }
+    Ok(())
+}
+
+fn capture_pilot_observation(
+    root: &Path,
+    observation: &PilotEvidenceObservationInput,
+    intent: &PilotIntentContext,
+    bundle: &PilotBundleContext,
+) -> Result<Value> {
+    let caller = canonical_address(&observation.caller).context("pilot observation caller")?;
+    let (rpc_bytes, rpc_value) = load_pilot_evidence_file(
+        root,
+        &observation.rpc_observations,
+        "RPC observations",
+        true,
+    )?;
+    let transaction_digest = validate_pilot_rpc_observations(
+        &rpc_value,
+        &observation.kind,
+        intent.chain_id,
+        &intent.target_profile,
+    )?;
+    let receipt = match observation.kind.as_str() {
+        "deploy" | "authorized-invoke" => {
+            if caller != intent.sender {
+                bail!(
+                    "pilot {} caller does not match the reviewed sender",
+                    observation.kind
+                )
+            }
+            let receipt_path = observation.receipt.as_deref().ok_or_else(|| {
+                anyhow!(
+                    "pilot {} observation requires a canonical target receipt",
+                    observation.kind
+                )
+            })?;
+            let (receipt_bytes, receipt) =
+                load_pilot_evidence_file(root, receipt_path, "target receipt", true)?;
+            validate_pilot_receipt(
+                &receipt,
+                &observation.kind,
+                &caller,
+                &transaction_digest,
+                intent,
+                bundle,
+            )?;
+            json!({
+                "digest": sha256_digest(&receipt_bytes),
+                "request_digest": receipt["request_digest"],
+                "transaction_digest": transaction_digest,
+            })
+        }
+        "unauthorized-invoke" => {
+            if caller == intent.sender {
+                bail!("pilot unauthorized-invoke caller must differ from the reviewed sender")
+            }
+            if observation.receipt.is_some() {
+                bail!("pilot unauthorized-invoke must not claim a successful target receipt")
+            }
+            Value::Null
+        }
+        _ => bail!("unsupported pilot observation kind `{}`", observation.kind),
+    };
+    Ok(json!({
+        "caller": caller,
+        "kind": observation.kind,
+        "receipt": receipt,
+        "rpc_observations": {
+            "digest": sha256_digest(&rpc_bytes),
+            "exchanges": rpc_value["exchanges"],
+        },
+        "transaction_digest": transaction_digest,
+    }))
+}
+
+fn validate_pilot_rpc_observations(
+    value: &Value,
+    kind: &str,
+    chain_id: u64,
+    target_profile: &str,
+) -> Result<String> {
+    reject_secret_fields(value, "RPC observations")?;
+    let observations: PilotRpcObservations =
+        serde_json::from_value(value.clone()).context("parse pilot RPC observations")?;
+    if observations.format != PILOT_RPC_OBSERVATIONS_FORMAT
+        || observations.schema_version != 1
+        || observations.chain_id != chain_id
+        || observations.target_profile != target_profile
+    {
+        bail!("pilot RPC observations do not match the reviewed target")
+    }
+    if observations.exchanges.len() < 3
+        || observations.exchanges[0].request.method != "eth_chainId"
+        || observations.exchanges[1].request.method != "eth_sendRawTransaction"
+        || observations.exchanges[2..]
+            .iter()
+            .any(|exchange| exchange.request.method != "eth_getTransactionReceipt")
+        || observations
+            .exchanges
+            .iter()
+            .any(|exchange| !exchange.request.params.is_array())
+    {
+        bail!("pilot RPC observations must be ordered eth_chainId, eth_sendRawTransaction, eth_getTransactionReceipt")
+    }
+    let observed_chain = observations.exchanges[0].response["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot RPC chain-id response is missing a result"))?;
+    if parse_quantity(&Value::String(observed_chain.to_string()))? != chain_id {
+        bail!("pilot RPC chain-id response does not match the reviewed chain")
+    }
+    let transaction_digest = observations.exchanges[1].response["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot RPC submission response is missing a transaction digest"))
+        .and_then(|digest| canonical_hash(digest, "pilot RPC transaction digest"))?;
+    let receipt_status = observations
+        .exchanges
+        .last()
+        .and_then(|exchange| exchange.response["result"]["status"].as_str());
+    let expected_status = if kind == "unauthorized-invoke" {
+        "0x0"
+    } else {
+        "0x1"
+    };
+    if receipt_status != Some(expected_status) {
+        bail!("pilot RPC observations have an unexpected final receipt status")
+    }
+    Ok(transaction_digest)
+}
+
+fn validate_pilot_receipt(
+    receipt: &Value,
+    kind: &str,
+    caller: &str,
+    transaction_digest: &str,
+    intent: &PilotIntentContext,
+    bundle: &PilotBundleContext,
+) -> Result<()> {
+    validate_transaction_receipt(receipt)?;
+    if receipt["target_profile"].as_str() != Some(bundle.target_profile.as_str())
+        || receipt["chain_id"].as_u64() != Some(intent.chain_id)
+        || receipt["caller"].as_str() != Some(caller)
+        || receipt["transaction_hash"].as_str() != Some(transaction_digest)
+        || receipt["evidence"]["signed_bundle_digest"].as_str()
+            != Some(bundle.signature_digest.as_str())
+    {
+        bail!("pilot target receipt does not bind the reviewed identity evidence")
+    }
+    let request = &receipt["request"];
+    let planned = if kind == "deploy" {
+        &intent.deploy["transaction"]
+    } else {
+        &intent.invocation["transaction"]
+    };
+    for (request_key, planned_key) in [
+        ("nonce", "nonce"),
+        ("value", "value"),
+        ("gas_limit", "gas_limit"),
+    ] {
+        if request[request_key] != planned[planned_key] {
+            bail!("pilot target receipt {request_key} does not match submission intent")
+        }
+    }
+    if request["gas_price"] != planned["fee"]["gas_price"] {
+        bail!("pilot target receipt gas_price does not match submission intent")
+    }
+    if kind == "deploy" {
+        if !request["to"].is_null() {
+            bail!("pilot deploy receipt must not have a target address")
+        }
+    } else {
+        let address = intent.invocation["contract_address"]
+            .as_str()
+            .ok_or_else(|| {
+                anyhow!("pilot submission intent is missing invocation contract_address")
+            })?;
+        let selector = intent.invocation["function_selector"]
+            .as_str()
+            .ok_or_else(|| {
+                anyhow!("pilot submission intent is missing invocation function_selector")
+            })?;
+        if request["to"].as_str() != Some(address)
+            || !request["data"]
+                .as_str()
+                .is_some_and(|data| data.starts_with(selector))
+        {
+            bail!("pilot invocation receipt does not match the reviewed target or selector")
+        }
+    }
+    Ok(())
+}
+
+fn reject_secret_fields(value: &Value, description: &str) -> Result<()> {
+    let forbidden = [
+        "authorization",
+        "endpoint",
+        "password",
+        "private_key",
+        "rpc_url",
+        "secret",
+        "signer_reference",
+        "token",
+    ];
+    match value {
+        Value::Array(values) => {
+            for value in values {
+                reject_secret_fields(value, description)?;
+            }
+        }
+        Value::Object(values) => {
+            for (key, value) in values {
+                if forbidden.contains(&key.to_ascii_lowercase().as_str()) {
+                    bail!("pilot {description} contains forbidden secret or endpoint field `{key}`")
+                }
+                reject_secret_fields(value, description)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn sha256_digest(bytes: &[u8]) -> String {
+    format!("sha256:{}", sha256_hex(bytes))
 }
 
 pub fn deploy(args: DeployArgs) -> Result<()> {

@@ -323,9 +323,10 @@ contract platform.
   checksum/signature, independently verify the reference bundle, inspect the product boundary,
   and reproduce the local pilot precheck. Include a disclosure template for a pilot operator to
   report incompatible target behavior or a verification mismatch with the retained evidence.
-  - [ ] 43.2.1 Write a copy/paste offline verification path that begins with checksum/signature
+  - [x] 43.2.1 Write a copy/paste offline verification path that begins with checksum/signature
     validation and ends with an explainable pass or stable failure code; show no command that
     requires a source checkout or private key.
+    (`docs/release/contract-verifier-offline-walkthrough.md`) `Completed: 2026-10-15`.
   - [ ] 43.2.2 Write a separate operator path for the local pilot precheck and testnet evidence
     replay, marking every externally supplied value and every action that can contact a network.
   - [ ] 43.2.3 Add documentation tests that execute the non-network walkthrough in a temporary

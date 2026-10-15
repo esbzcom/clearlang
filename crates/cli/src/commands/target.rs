@@ -25,6 +25,7 @@ const PILOT_INPUT_FORMAT: &str = "clg.pilot-exercise-input.v1";
 const PILOT_PREFLIGHT_FORMAT: &str = "clg.pilot-exercise-preflight.v1";
 const PILOT_CAPTURE_INPUT_FORMAT: &str = "clg.pilot-evidence-capture-input.v1";
 const PILOT_EVIDENCE_FORMAT: &str = "clg.pilot-evidence.v1";
+const PILOT_REPLAY_REPORT_FORMAT: &str = "clg.pilot-evidence-replay-report.v1";
 const PILOT_RPC_OBSERVATIONS_FORMAT: &str = "clg.pilot-rpc-observations.v1";
 const PILOT_VERIFIER_RESULT_FORMAT: &str = "clg.pilot-release-verifier-result.v1";
 const RECEIPT_POLL_ATTEMPTS: usize = 10;
@@ -104,6 +105,13 @@ pub struct CapturePilotEvidenceArgs {
     pub root: PathBuf,
     pub input: String,
     pub out: PathBuf,
+}
+
+/// Arguments for purely local pilot-evidence replay.
+#[derive(Debug)]
+pub struct ReplayPilotEvidenceArgs {
+    pub input: PathBuf,
+    pub report_out: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -781,6 +789,244 @@ fn reject_secret_fields(value: &Value, description: &str) -> Result<()> {
 
 fn sha256_digest(bytes: &[u8]) -> String {
     format!("sha256:{}", sha256_hex(bytes))
+}
+
+/// Replay a captured pilot record against its in-memory fixtures only.
+///
+/// The command deliberately constructs no endpoint and invokes no network client. The fixture
+/// server below releases a response only for the next exact recorded request, making the replay
+/// useful both as a consistency check and as an offline test input for operators.
+pub fn replay_pilot_evidence(args: ReplayPilotEvidenceArgs) -> Result<()> {
+    let bytes = fs::read(&args.input)
+        .with_context(|| format!("read pilot evidence `{}`", args.input.display()))?;
+    let evidence: Value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parse pilot evidence `{}`", args.input.display()))?;
+    if bytes != canonical_json_bytes(&evidence) {
+        bail!("pilot evidence must use canonical JSON encoding")
+    }
+    let replayed = replay_pilot_evidence_record(&evidence)?;
+    let report = json!({
+        "format": PILOT_REPLAY_REPORT_FORMAT,
+        "schema_version": 1,
+        "status": "verified",
+        "evidence_digest": sha256_digest(&bytes),
+        "observation_order": ["deploy", "authorized-invoke", "unauthorized-invoke"],
+        "observations": replayed,
+        "safety": {
+            "network_contacted": false,
+            "responses_served_only_from_recorded_fixtures": true,
+        },
+    });
+    let report_bytes = canonical_json_bytes(&report);
+    fs::write(&args.report_out, &report_bytes)
+        .with_context(|| format!("write pilot replay report `{}`", args.report_out.display()))?;
+    println!(
+        "{}",
+        String::from_utf8(report_bytes).expect("canonical JSON is valid UTF-8")
+    );
+    Ok(())
+}
+
+fn replay_pilot_evidence_record(evidence: &Value) -> Result<Vec<Value>> {
+    reject_secret_fields(evidence, "evidence replay input")?;
+    if evidence["format"].as_str() != Some(PILOT_EVIDENCE_FORMAT)
+        || evidence["schema_version"].as_u64() != Some(1)
+        || evidence["evidence_signature"]["status"].as_str() != Some("not_authorized")
+        || evidence["verifier_result"]["status"].as_str() != Some("verified")
+    {
+        bail!("pilot evidence has an unsupported format, schema version, signature, or verifier result")
+    }
+    let target_profile = evidence["submission_intent"]["target_profile"]
+        .as_str()
+        .filter(|profile| *profile == TARGET_PROFILE)
+        .ok_or_else(|| anyhow!("pilot evidence has an unsupported submission target profile"))?;
+    let chain_id = evidence["submission_intent"]["chain_id"]
+        .as_u64()
+        .filter(|chain_id| *chain_id == TARGET_CHAIN_ID)
+        .ok_or_else(|| anyhow!("pilot evidence has an unsupported submission chain ID"))?;
+    let _sender = evidence["submission_intent"]["sender"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot evidence is missing the reviewed sender"))
+        .and_then(canonical_address)?;
+    let release_digest = digest_value(
+        &evidence["release_bundle"]["digest"],
+        "pilot release bundle",
+    )?;
+    if evidence["release_bundle"]["target_profile"].as_str() != Some(target_profile)
+        || evidence["verifier_result"]["release_bundle_digest"].as_str()
+            != Some(release_digest.as_str())
+    {
+        bail!("pilot evidence release-bundle binding is invalid")
+    }
+    let expected_kinds = ["deploy", "authorized-invoke", "unauthorized-invoke"];
+    let observations = evidence["observations"]
+        .as_array()
+        .ok_or_else(|| anyhow!("pilot evidence is missing observations"))?;
+    if observations.len() != expected_kinds.len()
+        || observations
+            .iter()
+            .map(|observation| observation["kind"].as_str())
+            .collect::<Option<Vec<_>>>()
+            .as_deref()
+            != Some(expected_kinds.as_slice())
+    {
+        bail!("pilot evidence observations are omitted, substituted, or reordered")
+    }
+    observations
+        .iter()
+        .map(|observation| replay_pilot_observation(observation, target_profile, chain_id))
+        .collect()
+}
+
+fn replay_pilot_observation(
+    observation: &Value,
+    target_profile: &str,
+    chain_id: u64,
+) -> Result<Value> {
+    let kind = observation["kind"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot replay observation is missing its kind"))?;
+    let _caller = observation["caller"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot replay observation is missing its caller"))
+        .and_then(canonical_address)?;
+    let transaction_digest = observation["transaction_digest"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot replay observation is missing its transaction digest"))
+        .and_then(|digest| canonical_hash(digest, "pilot replay transaction digest"))?;
+    let rpc = observation["rpc_observations"]
+        .as_object()
+        .ok_or_else(|| anyhow!("pilot replay observation is missing RPC fixtures"))?;
+    let fixture_digest = digest_value(
+        rpc.get("digest").unwrap_or(&Value::Null),
+        "pilot replay RPC observations",
+    )?;
+    let exchanges = rpc
+        .get("exchanges")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("pilot replay RPC observations are missing exchanges"))?;
+    let reconstructed_fixture = json!({
+        "chain_id": chain_id,
+        "exchanges": exchanges,
+        "format": PILOT_RPC_OBSERVATIONS_FORMAT,
+        "schema_version": 1,
+        "target_profile": target_profile,
+    });
+    if fixture_digest != sha256_digest(&canonical_json_bytes(&reconstructed_fixture)) {
+        bail!("pilot replay RPC observation digest does not match its recorded fixture")
+    }
+    let mut server = RecordedRpcFixture::new(exchanges);
+    let chain_response = server.serve(&json!({ "method": "eth_chainId", "params": [] }))?;
+    let observed_chain = chain_response["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot replay chain-id fixture has no result"))?;
+    if parse_quantity(&Value::String(observed_chain.to_string()))? != chain_id {
+        bail!("pilot replay fixture is for a different chain")
+    }
+    let submission_params = exchanges
+        .get(1)
+        .and_then(|exchange| exchange["request"]["params"].as_array())
+        .ok_or_else(|| anyhow!("pilot replay submission fixture has malformed parameters"))?;
+    let submission_response = server.serve(&json!({
+        "method": "eth_sendRawTransaction",
+        "params": submission_params,
+    }))?;
+    let served_transaction_digest = submission_response["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("pilot replay submission fixture has no transaction digest"))
+        .and_then(|digest| canonical_hash(digest, "pilot replay served transaction digest"))?;
+    if served_transaction_digest != transaction_digest {
+        bail!("pilot replay submission response does not match the recorded transaction digest")
+    }
+    let mut final_status = None;
+    while !server.is_exhausted() {
+        let response = server.serve(&json!({
+            "method": "eth_getTransactionReceipt",
+            "params": [transaction_digest],
+        }))?;
+        final_status = response["result"]["status"].as_str().map(str::to_string);
+    }
+    let expected_status = if kind == "unauthorized-invoke" {
+        "0x0"
+    } else {
+        "0x1"
+    };
+    if final_status.as_deref() != Some(expected_status) {
+        bail!("pilot replay fixture has an unexpected final receipt status")
+    }
+    match kind {
+        "deploy" | "authorized-invoke" => {
+            let receipt = observation["receipt"].as_object().ok_or_else(|| {
+                anyhow!("pilot replay successful observation is missing receipt identity")
+            })?;
+            for field in ["digest", "request_digest"] {
+                let _ = digest_value(
+                    receipt.get(field).unwrap_or(&Value::Null),
+                    "pilot replay receipt identity",
+                )?;
+            }
+            let _ = receipt
+                .get("transaction_digest")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    anyhow!("pilot replay receipt identity is missing transaction digest")
+                })
+                .and_then(|digest| {
+                    canonical_hash(digest, "pilot replay receipt transaction digest")
+                })?;
+            if receipt.get("transaction_digest").and_then(Value::as_str)
+                != Some(transaction_digest.as_str())
+            {
+                bail!("pilot replay receipt identity does not match its transaction")
+            }
+        }
+        "unauthorized-invoke" if observation["receipt"].is_null() => {}
+        "unauthorized-invoke" => {
+            bail!("pilot replay unauthorized invocation must not have a successful receipt")
+        }
+        _ => bail!("pilot replay observation has an unsupported kind `{kind}`"),
+    }
+    Ok(json!({
+        "exchanges_served": server.served(),
+        "final_receipt_status": expected_status,
+        "kind": kind,
+        "transaction_digest": transaction_digest,
+    }))
+}
+
+struct RecordedRpcFixture<'a> {
+    exchanges: &'a [Value],
+    next: usize,
+}
+
+impl<'a> RecordedRpcFixture<'a> {
+    fn new(exchanges: &'a [Value]) -> Self {
+        Self { exchanges, next: 0 }
+    }
+
+    fn serve(&mut self, request: &Value) -> Result<Value> {
+        let exchange = self
+            .exchanges
+            .get(self.next)
+            .ok_or_else(|| anyhow!("pilot replay made a request beyond recorded fixtures"))?;
+        if canonical_json_bytes(&exchange["request"]) != canonical_json_bytes(request) {
+            bail!("pilot replay request does not match the next recorded fixture")
+        }
+        let response = exchange["response"].clone();
+        if !response.is_object() {
+            bail!("pilot replay fixture response must be an object")
+        }
+        self.next += 1;
+        Ok(response)
+    }
+
+    fn is_exhausted(&self) -> bool {
+        self.next == self.exchanges.len()
+    }
+
+    fn served(&self) -> usize {
+        self.next
+    }
 }
 
 pub fn deploy(args: DeployArgs) -> Result<()> {

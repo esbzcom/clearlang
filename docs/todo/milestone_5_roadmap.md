@@ -269,9 +269,12 @@ contract platform.
     (`clg target capture-pilot-evidence`,
     `docs/design/phase-42.2.2-pilot-evidence-capture.md`,
     `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-10-14`.
-  - [ ] 42.2.3 Implement offline replay that serves only recorded fixture responses and verifies
+  - [x] 42.2.3 Implement offline replay that serves only recorded fixture responses and verifies
     the deploy, authorized invoke, and unauthorized invoke observations. Add tests for omitted,
     substituted, reordered, and cross-chain records.
+    (`clg target replay-pilot-evidence`,
+    `docs/design/phase-42.2.3-pilot-offline-replay.md`,
+    `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-10-14`.
 
 ## 43. Independent User Delivery [Distribution Gate D]
 

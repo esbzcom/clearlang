@@ -379,6 +379,153 @@ fn pilot_evidence_capture_rejects_identity_drift_and_secret_rpc_fields() {
     }
 }
 
+fn capture_pilot_fixture(root: &Path) -> PathBuf {
+    let (capture, _) = write_pilot_evidence_capture_fixture(root);
+    let evidence = root.join("pilot-evidence.json");
+    Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "target",
+            "capture-pilot-evidence",
+            "--root",
+            root.to_str().expect("root path"),
+            "--input",
+            capture
+                .strip_prefix(root)
+                .expect("capture under root")
+                .to_str()
+                .expect("capture path"),
+            "--out",
+            evidence.to_str().expect("evidence path"),
+        ])
+        .assert()
+        .success();
+    evidence
+}
+
+fn refresh_recorded_rpc_digest(evidence: &mut Value, observation: usize) {
+    let chain_id = evidence["submission_intent"]["chain_id"].clone();
+    let target_profile = evidence["submission_intent"]["target_profile"].clone();
+    let exchanges = evidence["observations"][observation]["rpc_observations"]["exchanges"].clone();
+    let fixture = serde_json::json!({
+        "chain_id": chain_id,
+        "exchanges": exchanges,
+        "format": "clg.pilot-rpc-observations.v1",
+        "schema_version": 1,
+        "target_profile": target_profile
+    });
+    evidence["observations"][observation]["rpc_observations"]["digest"] = serde_json::json!(
+        format!(
+            "sha256:{}",
+            clg_cli::commands::helpers::sha256_hex(
+                &clg_cli::commands::helpers::canonical_json_bytes(&fixture)
+            )
+        )
+    );
+}
+
+#[test]
+fn pilot_evidence_replay_is_offline_and_serves_only_recorded_responses() {
+    let dir = tempdir().expect("tempdir");
+    let evidence = capture_pilot_fixture(dir.path());
+    let report = dir.path().join("replay-report.json");
+    let output = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args([
+            "target",
+            "replay-pilot-evidence",
+            "--input",
+            evidence.to_str().expect("evidence path"),
+            "--report-out",
+            report.to_str().expect("report path"),
+        ])
+        .output()
+        .expect("replay pilot evidence");
+    assert!(
+        output.status.success(),
+        "replay failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let bytes = fs::read(&report).expect("read replay report");
+    assert_eq!(output.stdout, [bytes.as_slice(), b"\n"].concat());
+    let replay: Value = serde_json::from_slice(&bytes).expect("parse replay report");
+    assert_eq!(replay["format"], "clg.pilot-evidence-replay-report.v1");
+    assert_eq!(replay["status"], "verified");
+    assert_eq!(replay["observations"][0]["exchanges_served"], 3);
+    assert_eq!(replay["observations"][2]["final_receipt_status"], "0x0");
+    assert_eq!(replay["safety"]["network_contacted"], false);
+    assert_eq!(
+        replay["safety"]["responses_served_only_from_recorded_fixtures"],
+        true
+    );
+}
+
+#[test]
+fn pilot_evidence_replay_rejects_omitted_substituted_reordered_and_cross_chain_records() {
+    let cases = [
+        ("omitted", "pilot replay fixture has an unexpected final receipt status"),
+        (
+            "substituted",
+            "pilot replay submission response does not match the recorded transaction digest",
+        ),
+        (
+            "reordered",
+            "pilot evidence observations are omitted, substituted, or reordered",
+        ),
+        ("cross-chain", "pilot replay fixture is for a different chain"),
+    ];
+    for (case, expected) in cases {
+        let dir = tempdir().expect("tempdir");
+        let evidence = capture_pilot_fixture(dir.path());
+        let mut value: Value = serde_json::from_slice(&fs::read(&evidence).expect("read evidence"))
+            .expect("parse evidence");
+        match case {
+            "omitted" => {
+                value["observations"][0]["rpc_observations"]["exchanges"]
+                    .as_array_mut()
+                    .expect("exchanges")
+                    .pop();
+                refresh_recorded_rpc_digest(&mut value, 0);
+            }
+            "substituted" => {
+                value["observations"][0]["rpc_observations"]["exchanges"][1]["response"]
+                    ["result"] = serde_json::json!(
+                    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                );
+                refresh_recorded_rpc_digest(&mut value, 0);
+            }
+            "reordered" => {
+                value["observations"]
+                    .as_array_mut()
+                    .expect("observations")
+                    .swap(0, 1);
+            }
+            "cross-chain" => {
+                value["observations"][0]["rpc_observations"]["exchanges"][0]["response"]
+                    ["result"] = serde_json::json!("0x1");
+                refresh_recorded_rpc_digest(&mut value, 0);
+            }
+            _ => unreachable!("known replay tamper case"),
+        }
+        write_canonical_pilot_json(dir.path(), "pilot-evidence.json", &value);
+        let report = dir.path().join("replay-report.json");
+        Command::cargo_bin("clg")
+            .expect("clg binary")
+            .args([
+                "target",
+                "replay-pilot-evidence",
+                "--input",
+                evidence.to_str().expect("evidence path"),
+                "--report-out",
+                report.to_str().expect("report path"),
+            ])
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(expected));
+        assert!(!report.exists(), "{case} record must not produce a replay report");
+    }
+}
+
 #[test]
 fn pilot_preflight_displays_a_canonical_offline_operator_plan() {
     let dir = tempdir().expect("tempdir");

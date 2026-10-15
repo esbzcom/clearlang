@@ -417,6 +417,15 @@ enum TargetCommands {
         #[arg(long, value_name = "FILE")]
         out: PathBuf,
     },
+    /// Verify pilot evidence by replaying only its recorded RPC fixture responses
+    ReplayPilotEvidence {
+        /// Canonical pilot evidence JSON produced by capture-pilot-evidence
+        #[arg(long, value_name = "FILE")]
+        input: PathBuf,
+        /// Canonical offline replay report output JSON
+        #[arg(long, value_name = "FILE")]
+        report_out: PathBuf,
+    },
     /// Deploy an EVM-compatible contract artifact
     Deploy {
         /// Target profile identifier (currently only clg.evm-sepolia-pilot.v1)
@@ -740,6 +749,12 @@ fn main() -> Result<()> {
                     root,
                     input,
                     out,
+                })
+            }
+            TargetCommands::ReplayPilotEvidence { input, report_out } => {
+                cmd_target::replay_pilot_evidence(cmd_target::ReplayPilotEvidenceArgs {
+                    input,
+                    report_out,
                 })
             }
             TargetCommands::Deploy {

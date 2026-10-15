@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::io::{Cursor, Read};
 
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use regex::Regex;
@@ -62,6 +63,12 @@ fn main() -> Result<(), String> {
         "milestone3-binary-bundle" => emit_milestone3_binary_bundle(&root, args.collect())?,
         "milestone3-binary-bundle-verify" => {
             verify_milestone3_binary_bundle(&root, args.collect())?
+        }
+        "contract-verifier-package" => {
+            emit_contract_verifier_package(&root, args.collect())?
+        }
+        "contract-verifier-package-verify" => {
+            verify_contract_verifier_package(&root, args.collect())?
         }
         "milestone3-installer-channels" => {
             emit_milestone3_installer_channels(&root, args.collect())?
@@ -578,6 +585,678 @@ struct Milestone3InstallerChannelsManifest {
     archives: Vec<Milestone3InstallerArchive>,
     homebrew: Milestone3HomebrewChannel,
     winget: Milestone3WingetChannel,
+}
+
+const CONTRACT_VERIFIER_MANIFEST_FORMAT: &str =
+    "clg.contract-verifier-distribution-manifest.v1";
+const CONTRACT_VERIFIER_SIGNATURE_FORMAT: &str =
+    "clg.contract-verifier-distribution-signature.v1";
+const CONTRACT_VERIFIER_RESULT_FORMAT: &str = "clg.contract-release-verifier-result.v1";
+const CONTRACT_VERIFIER_EXECUTABLE: &str = "clg-contract-verifier";
+const CONTRACT_VERIFIER_PLATFORMS: [(&str, &str); 3] = [
+    ("linux-x86_64", "tar.gz"),
+    ("macos-x86_64", "tar.gz"),
+    ("windows-x86_64", "zip"),
+];
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVerifierDistributionArtifact {
+    archive: String,
+    archive_sha256: String,
+    executable: String,
+    executable_sha256: String,
+    platform: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVerifierCapabilities {
+    release_bundle_format: String,
+    result_format: String,
+    target_execution_profiles: Vec<String>,
+    target_profiles: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVerifierDistributionManifest {
+    artifacts: Vec<ContractVerifierDistributionArtifact>,
+    capabilities: ContractVerifierCapabilities,
+    format: String,
+    schema_version: u32,
+    verifier_version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVerifierDistributionSignature {
+    format: String,
+    key_id: String,
+    manifest_sha256: String,
+    schema_version: u32,
+    signature: String,
+    signature_format: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVerifierSigningKeyFile {
+    private_key: String,
+    scheme: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContractVerifierPublicKeyFile {
+    public_key: String,
+    scheme: String,
+}
+
+fn emit_contract_verifier_package(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_contract_verifier_package_args(raw_args)?;
+    if opts.out_dir.exists() {
+        return Err(format!(
+            "refusing to overwrite existing verifier package directory `{}`",
+            opts.out_dir.display()
+        ));
+    }
+    let signing_key_path = resolve_from_root(root, &opts.signing_key);
+    let signing_key = load_contract_verifier_signing_key(&signing_key_path)?;
+    fs::create_dir_all(&opts.out_dir)
+        .map_err(|e| format!("create package directory `{}`: {e}", opts.out_dir.display()))?;
+
+    let mut artifacts = Vec::with_capacity(opts.artifacts.len());
+    for (platform, supplied_path) in &opts.artifacts {
+        let source = resolve_from_root(root, supplied_path);
+        if !source.is_file() {
+            return Err(format!(
+                "verifier artifact for `{platform}` is not a file: `{}`",
+                source.display()
+            ));
+        }
+        let archive_name = contract_verifier_archive_name(&opts.version, platform)?;
+        let executable = contract_verifier_executable_name(platform)?;
+        let binary = fs::read(&source)
+            .map_err(|e| format!("read verifier artifact `{}`: {e}", source.display()))?;
+        let archive_path = opts.out_dir.join(&archive_name);
+        if platform == "windows-x86_64" {
+            create_contract_verifier_zip(&archive_path, executable, &binary)?;
+        } else {
+            create_contract_verifier_tar_gz(&archive_path, executable, &binary)?;
+        }
+        artifacts.push(ContractVerifierDistributionArtifact {
+            archive: archive_name,
+            archive_sha256: format!("sha256:{}", file_sha256_hex(&archive_path)?),
+            executable: executable.to_string(),
+            executable_sha256: format!("sha256:{}", hex::encode(Sha256::digest(&binary))),
+            platform: platform.clone(),
+        });
+    }
+    artifacts.sort_by(|left, right| left.platform.cmp(&right.platform));
+    let manifest = ContractVerifierDistributionManifest {
+        artifacts: artifacts.clone(),
+        capabilities: ContractVerifierCapabilities {
+            release_bundle_format: "clg.contract-release-bundle.v1".to_string(),
+            result_format: CONTRACT_VERIFIER_RESULT_FORMAT.to_string(),
+            target_execution_profiles: vec!["clg.evm-stateful-scalar.v1".to_string()],
+            target_profiles: vec!["clg.evm-sepolia-pilot.v1".to_string()],
+        },
+        format: CONTRACT_VERIFIER_MANIFEST_FORMAT.to_string(),
+        schema_version: 1,
+        verifier_version: opts.version.clone(),
+    };
+    let manifest_bytes = canonical_distribution_json_bytes(&manifest)?;
+    let manifest_name = format!("clg-contract-verifier-v{}-manifest.json", opts.version);
+    let manifest_path = opts.out_dir.join(&manifest_name);
+    fs::write(&manifest_path, &manifest_bytes)
+        .map_err(|e| format!("write manifest `{}`: {e}", manifest_path.display()))?;
+
+    let mut checksum_entries = artifacts
+        .iter()
+        .map(|artifact| {
+            let digest = artifact
+                .archive_sha256
+                .strip_prefix("sha256:")
+                .expect("package generator adds sha256 prefix");
+            (artifact.archive.as_str(), digest)
+        })
+        .collect::<Vec<_>>();
+    checksum_entries.sort_by(|left, right| left.0.cmp(right.0));
+    let checksum_lines = checksum_entries
+        .into_iter()
+        .map(|(archive, digest)| format!("{digest}  {archive}"))
+        .collect::<Vec<_>>();
+    let checksums_name = format!("clg-contract-verifier-v{}-checksums.txt", opts.version);
+    let checksums_path = opts.out_dir.join(&checksums_name);
+    fs::write(&checksums_path, format!("{}\n", checksum_lines.join("\n")))
+        .map_err(|e| format!("write checksums `{}`: {e}", checksums_path.display()))?;
+
+    let signature = ContractVerifierDistributionSignature {
+        format: CONTRACT_VERIFIER_SIGNATURE_FORMAT.to_string(),
+        key_id: opts.key_id.clone(),
+        manifest_sha256: format!("sha256:{}", hex::encode(Sha256::digest(&manifest_bytes))),
+        schema_version: 1,
+        signature: hex::encode(signing_key.sign(&manifest_bytes).to_bytes()),
+        signature_format: "ed25519".to_string(),
+    };
+    let signature_name = format!("clg-contract-verifier-v{}-manifest.sig.json", opts.version);
+    let signature_path = opts.out_dir.join(&signature_name);
+    fs::write(&signature_path, canonical_distribution_json_bytes(&signature)?)
+        .map_err(|e| format!("write manifest signature `{}`: {e}", signature_path.display()))?;
+
+    verify_contract_verifier_package_dir(&opts.out_dir, &signing_key.verifying_key())?;
+    println!(
+        "contract verifier package verified: {} (version={})",
+        opts.out_dir.display(),
+        opts.version
+    );
+    Ok(())
+}
+
+fn verify_contract_verifier_package(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
+    let opts = parse_contract_verifier_package_verify_args(raw_args)?;
+    let package_dir = resolve_from_root(root, &opts.package_dir);
+    let pubkey_path = resolve_from_root(root, &opts.pubkey);
+    let public_key = load_contract_verifier_public_key(&pubkey_path)?;
+    verify_contract_verifier_package_dir(&package_dir, &public_key)?;
+    println!("contract verifier package verified: {}", package_dir.display());
+    Ok(())
+}
+
+fn verify_contract_verifier_package_dir(
+    package_dir: &Path,
+    public_key: &VerifyingKey,
+) -> Result<(), String> {
+    let files = fs::read_dir(package_dir)
+        .map_err(|e| format!("read package directory `{}`: {e}", package_dir.display()))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("enumerate package directory `{}`: {e}", package_dir.display()))?;
+    let actual_names = files
+        .iter()
+        .map(|entry| {
+            if !entry
+                .file_type()
+                .map_err(|e| format!("read package entry type: {e}"))?
+                .is_file()
+            {
+                return Err("verifier package must contain flat regular files only".to_string());
+            }
+            entry
+                .file_name()
+                .into_string()
+                .map_err(|_| "verifier package file name is not UTF-8".to_string())
+        })
+        .collect::<Result<BTreeSet<_>, _>>()?;
+    let manifest_paths = files
+        .iter()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| {
+                    name.starts_with("clg-contract-verifier-v")
+                        && name.ends_with("-manifest.json")
+                })
+        })
+        .collect::<Vec<_>>();
+    if manifest_paths.len() != 1 {
+        return Err(format!(
+            "package directory `{}` must contain exactly one verifier manifest",
+            package_dir.display()
+        ));
+    }
+    let manifest_path = &manifest_paths[0];
+    let manifest_bytes = fs::read(manifest_path)
+        .map_err(|e| format!("read manifest `{}`: {e}", manifest_path.display()))?;
+    let mut manifest_value: serde_json::Value = serde_json::from_slice(&manifest_bytes)
+        .map_err(|e| format!("parse manifest `{}`: {e}", manifest_path.display()))?;
+    canonicalize_distribution_json(&mut manifest_value);
+    let canonical_manifest = serde_json::to_vec(&manifest_value)
+        .map_err(|e| format!("serialize canonical manifest: {e}"))?;
+    if manifest_bytes != canonical_manifest {
+        return Err("verifier manifest is not canonical JSON".to_string());
+    }
+    let manifest: ContractVerifierDistributionManifest = serde_json::from_value(manifest_value)
+        .map_err(|e| format!("decode verifier manifest: {e}"))?;
+    validate_contract_verifier_manifest(&manifest)?;
+    let signature_path = package_dir.join(format!(
+        "clg-contract-verifier-v{}-manifest.sig.json",
+        manifest.verifier_version
+    ));
+    let checksums_path = package_dir.join(format!(
+        "clg-contract-verifier-v{}-checksums.txt",
+        manifest.verifier_version
+    ));
+    let mut expected_names = manifest
+        .artifacts
+        .iter()
+        .map(|artifact| artifact.archive.clone())
+        .collect::<BTreeSet<_>>();
+    expected_names.insert(
+        manifest_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "verifier manifest has no UTF-8 filename".to_string())?
+            .to_string(),
+    );
+    expected_names.insert(
+        signature_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "verifier manifest signature has no UTF-8 filename".to_string())?
+            .to_string(),
+    );
+    expected_names.insert(
+        checksums_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "verifier checksum listing has no UTF-8 filename".to_string())?
+            .to_string(),
+    );
+    if actual_names != expected_names {
+        return Err("verifier package contains missing or unbound files".to_string());
+    }
+    let signature_bytes = fs::read(&signature_path)
+        .map_err(|e| format!("read manifest signature `{}`: {e}", signature_path.display()))?;
+    let signature: ContractVerifierDistributionSignature = serde_json::from_slice(&signature_bytes)
+        .map_err(|e| format!("parse manifest signature `{}`: {e}", signature_path.display()))?;
+    if signature.format != CONTRACT_VERIFIER_SIGNATURE_FORMAT
+        || signature.schema_version != 1
+        || signature.signature_format != "ed25519"
+        || signature.key_id.trim().is_empty()
+        || signature.manifest_sha256
+            != format!("sha256:{}", hex::encode(Sha256::digest(&manifest_bytes)))
+    {
+        return Err("verifier manifest signature has an unsupported format or digest".to_string());
+    }
+    let signature_bytes = hex::decode(&signature.signature)
+        .map_err(|e| format!("decode verifier manifest signature: {e}"))?;
+    let signature = Signature::try_from(signature_bytes.as_slice())
+        .map_err(|e| format!("parse verifier manifest signature: {e}"))?;
+    public_key
+        .verify(&manifest_bytes, &signature)
+        .map_err(|e| format!("verify verifier manifest signature: {e}"))?;
+
+    let checksums = fs::read_to_string(&checksums_path)
+        .map_err(|e| format!("read checksums `{}`: {e}", checksums_path.display()))?;
+    let mut expected_checksum_entries = manifest
+        .artifacts
+        .iter()
+        .map(|artifact| {
+            (
+                artifact.archive.as_str(),
+                artifact
+                    .archive_sha256
+                    .strip_prefix("sha256:")
+                    .expect("manifest validator requires sha256 prefix"),
+            )
+        })
+        .collect::<Vec<_>>();
+    expected_checksum_entries.sort_by(|left, right| left.0.cmp(right.0));
+    let expected_checksum_lines = expected_checksum_entries
+        .into_iter()
+        .map(|(archive, digest)| format!("{digest}  {archive}"))
+        .collect::<Vec<_>>();
+    if checksums
+        != format!(
+            "{}\n",
+            expected_checksum_lines.join("\n")
+        )
+    {
+        return Err("verifier checksum listing does not exactly bind the manifest archives".to_string());
+    }
+    for artifact in &manifest.artifacts {
+        let archive_path = package_dir.join(&artifact.archive);
+        if file_sha256_hex(&archive_path)? != artifact.archive_sha256[7..] {
+            return Err(format!("archive digest mismatch for `{}`", artifact.archive));
+        }
+        verify_contract_verifier_archive(&archive_path, artifact)?;
+    }
+    Ok(())
+}
+
+fn validate_contract_verifier_manifest(
+    manifest: &ContractVerifierDistributionManifest,
+) -> Result<(), String> {
+    if manifest.format != CONTRACT_VERIFIER_MANIFEST_FORMAT
+        || manifest.schema_version != 1
+        || !is_exact_semver(&manifest.verifier_version)
+        || manifest.capabilities.release_bundle_format != "clg.contract-release-bundle.v1"
+        || manifest.capabilities.result_format != CONTRACT_VERIFIER_RESULT_FORMAT
+        || manifest.capabilities.target_profiles != ["clg.evm-sepolia-pilot.v1"]
+        || manifest.capabilities.target_execution_profiles != ["clg.evm-stateful-scalar.v1"]
+    {
+        return Err("verifier manifest has an unsupported format or capability set".to_string());
+    }
+    let expected_platforms = CONTRACT_VERIFIER_PLATFORMS
+        .iter()
+        .map(|(platform, _)| *platform)
+        .collect::<Vec<_>>();
+    let actual_platforms = manifest
+        .artifacts
+        .iter()
+        .map(|artifact| artifact.platform.as_str())
+        .collect::<Vec<_>>();
+    if actual_platforms != expected_platforms {
+        return Err("verifier manifest platform records are missing, duplicated, or unsorted".to_string());
+    }
+    for artifact in &manifest.artifacts {
+        let expected_archive = contract_verifier_archive_name(&manifest.verifier_version, &artifact.platform)?;
+        let expected_executable = contract_verifier_executable_name(&artifact.platform)?;
+        if artifact.archive != expected_archive
+            || artifact.executable != expected_executable
+            || !is_prefixed_sha256(&artifact.archive_sha256)
+            || !is_prefixed_sha256(&artifact.executable_sha256)
+        {
+            return Err(format!(
+                "verifier manifest artifact for `{}` has an invalid name or digest",
+                artifact.platform
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn verify_contract_verifier_archive(
+    archive_path: &Path,
+    artifact: &ContractVerifierDistributionArtifact,
+) -> Result<(), String> {
+    let archive = fs::read(archive_path)
+        .map_err(|e| format!("read archive `{}`: {e}", archive_path.display()))?;
+    let executable = if artifact.platform == "windows-x86_64" {
+        let mut zip = zip::ZipArchive::new(Cursor::new(archive))
+            .map_err(|e| format!("parse zip archive `{}`: {e}", archive_path.display()))?;
+        if zip.len() != 1 {
+            return Err(format!("archive `{}` must contain exactly one file", artifact.archive));
+        }
+        let mut entry = zip
+            .by_index(0)
+            .map_err(|e| format!("read zip entry `{}`: {e}", artifact.archive))?;
+        if entry.name() != artifact.executable || entry.is_dir() {
+            return Err(format!("archive `{}` has an unexpected executable entry", artifact.archive));
+        }
+        let mut bytes = Vec::new();
+        entry
+            .read_to_end(&mut bytes)
+            .map_err(|e| format!("read zip executable `{}`: {e}", artifact.archive))?;
+        bytes
+    } else {
+        extract_contract_verifier_tar_gz(&archive, &artifact.executable)?
+    };
+    if format!("sha256:{}", hex::encode(Sha256::digest(&executable))) != artifact.executable_sha256 {
+        return Err(format!("archive `{}` executable digest mismatch", artifact.archive));
+    }
+    Ok(())
+}
+
+fn contract_verifier_archive_name(version: &str, platform: &str) -> Result<String, String> {
+    let extension = CONTRACT_VERIFIER_PLATFORMS
+        .iter()
+        .find_map(|(supported, extension)| (*supported == platform).then_some(*extension))
+        .ok_or_else(|| format!("unsupported verifier platform `{platform}`"))?;
+    Ok(format!("clg-contract-verifier-v{version}-{platform}.{extension}"))
+}
+
+fn contract_verifier_executable_name(platform: &str) -> Result<&'static str, String> {
+    match platform {
+        "windows-x86_64" => Ok("clg-contract-verifier.exe"),
+        "linux-x86_64" | "macos-x86_64" => Ok(CONTRACT_VERIFIER_EXECUTABLE),
+        _ => Err(format!("unsupported verifier platform `{platform}`")),
+    }
+}
+
+fn create_contract_verifier_zip(
+    archive_path: &Path,
+    executable: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
+    let file = fs::File::create(archive_path)
+        .map_err(|e| format!("create archive `{}`: {e}", archive_path.display()))?;
+    let mut zip = ZipWriter::new(file);
+    let timestamp =
+        DateTime::from_date_and_time(1980, 1, 1, 0, 0, 0).expect("valid deterministic zip time");
+    let options = FileOptions::default()
+        .compression_method(CompressionMethod::Stored)
+        .last_modified_time(timestamp)
+        .unix_permissions(0o755);
+    use std::io::Write;
+    zip.start_file(executable, options)
+        .map_err(|e| format!("start archive entry `{executable}`: {e}"))?;
+    zip.write_all(bytes)
+        .map_err(|e| format!("write archive entry `{executable}`: {e}"))?;
+    zip.finish()
+        .map_err(|e| format!("finalize archive `{}`: {e}", archive_path.display()))?;
+    Ok(())
+}
+
+fn create_contract_verifier_tar_gz(
+    archive_path: &Path,
+    executable: &str,
+    bytes: &[u8],
+) -> Result<(), String> {
+    let mut tar = Vec::new();
+    append_contract_verifier_tar_file(&mut tar, executable, bytes)?;
+    tar.extend_from_slice(&[0u8; 1024]);
+    fs::write(archive_path, gzip_stored(&tar))
+        .map_err(|e| format!("write archive `{}`: {e}", archive_path.display()))?;
+    Ok(())
+}
+
+fn append_contract_verifier_tar_file(tar: &mut Vec<u8>, name: &str, bytes: &[u8]) -> Result<(), String> {
+    if name.len() > 100 {
+        return Err("verifier executable name exceeds USTAR name field".to_string());
+    }
+    let mut header = [0u8; 512];
+    header[..name.len()].copy_from_slice(name.as_bytes());
+    write_tar_octal(&mut header[100..108], 0o755)?;
+    write_tar_octal(&mut header[108..116], 0)?;
+    write_tar_octal(&mut header[116..124], 0)?;
+    write_tar_octal(&mut header[124..136], bytes.len() as u64)?;
+    write_tar_octal(&mut header[136..148], 0)?;
+    header[148..156].fill(b' ');
+    header[156] = b'0';
+    header[257..263].copy_from_slice(b"ustar\0");
+    header[263..265].copy_from_slice(b"00");
+    let checksum = header.iter().map(|byte| u32::from(*byte)).sum::<u32>();
+    let rendered = format!("{checksum:06o}\0 ");
+    header[148..156].copy_from_slice(rendered.as_bytes());
+    tar.extend_from_slice(&header);
+    tar.extend_from_slice(bytes);
+    let padding = (512 - bytes.len() % 512) % 512;
+    tar.resize(tar.len() + padding, 0);
+    Ok(())
+}
+
+fn write_tar_octal(field: &mut [u8], value: u64) -> Result<(), String> {
+    let content_len = field.len() - 1;
+    let rendered = format!("{:0width$o}", value, width = content_len);
+    if rendered.len() != content_len {
+        return Err("tar numeric field overflow".to_string());
+    }
+    field[..content_len].copy_from_slice(rendered.as_bytes());
+    field[content_len] = 0;
+    Ok(())
+}
+
+fn gzip_stored(input: &[u8]) -> Vec<u8> {
+    let mut output = vec![0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 255];
+    if input.is_empty() {
+        output.extend_from_slice(&[1, 0, 0, 255, 255]);
+    } else {
+        for (index, chunk) in input.chunks(65_535).enumerate() {
+            let final_block = index + 1 == input.chunks(65_535).len();
+            output.push(if final_block { 1 } else { 0 });
+            let length = chunk.len() as u16;
+            output.extend_from_slice(&length.to_le_bytes());
+            output.extend_from_slice(&(!length).to_le_bytes());
+            output.extend_from_slice(chunk);
+        }
+    }
+    output.extend_from_slice(&crc32(input).to_le_bytes());
+    output.extend_from_slice(&(input.len() as u32).to_le_bytes());
+    output
+}
+
+fn extract_contract_verifier_tar_gz(archive: &[u8], expected_name: &str) -> Result<Vec<u8>, String> {
+    let tar = gunzip_stored(archive)?;
+    let mut offset = 0usize;
+    let mut executable = None;
+    while offset + 512 <= tar.len() {
+        let header = &tar[offset..offset + 512];
+        if header.iter().all(|byte| *byte == 0) {
+            if tar[offset..].iter().all(|byte| *byte == 0) {
+                break;
+            }
+            return Err("tar archive has an invalid zero block".to_string());
+        }
+        let name_end = header[..100].iter().position(|byte| *byte == 0).unwrap_or(100);
+        let name = std::str::from_utf8(&header[..name_end])
+            .map_err(|_| "tar archive entry name is not UTF-8".to_string())?;
+        let size = parse_tar_octal(&header[124..136])? as usize;
+        let data_start = offset + 512;
+        let data_end = data_start
+            .checked_add(size)
+            .ok_or_else(|| "tar archive entry size overflows".to_string())?;
+        if data_end > tar.len() || header[156] != b'0' {
+            return Err("tar archive has an invalid regular file entry".to_string());
+        }
+        if name != expected_name || executable.is_some() {
+            return Err("tar archive has an unexpected executable entry".to_string());
+        }
+        executable = Some(tar[data_start..data_end].to_vec());
+        offset = data_end + (512 - size % 512) % 512;
+    }
+    executable.ok_or_else(|| "tar archive is missing its verifier executable".to_string())
+}
+
+fn parse_tar_octal(field: &[u8]) -> Result<u64, String> {
+    let end = field.iter().position(|byte| *byte == 0).unwrap_or(field.len());
+    let rendered = std::str::from_utf8(&field[..end])
+        .map_err(|_| "tar numeric field is not UTF-8".to_string())?
+        .trim();
+    u64::from_str_radix(rendered, 8).map_err(|_| "tar numeric field is invalid".to_string())
+}
+
+fn gunzip_stored(archive: &[u8]) -> Result<Vec<u8>, String> {
+    if archive.len() < 18 || archive[..10] != [0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 255] {
+        return Err("archive is not the deterministic stored gzip form".to_string());
+    }
+    let trailer_start = archive.len() - 8;
+    let mut offset = 10usize;
+    let mut output = Vec::new();
+    loop {
+        if offset + 5 > trailer_start {
+            return Err("stored gzip data is truncated".to_string());
+        }
+        let block = archive[offset];
+        offset += 1;
+        if block & !1 != 0 {
+            return Err("gzip archive uses unsupported compression".to_string());
+        }
+        let length = u16::from_le_bytes([archive[offset], archive[offset + 1]]) as usize;
+        let inverse = u16::from_le_bytes([archive[offset + 2], archive[offset + 3]]);
+        offset += 4;
+        if inverse != !(length as u16) || offset + length > trailer_start {
+            return Err("stored gzip block length is invalid".to_string());
+        }
+        output.extend_from_slice(&archive[offset..offset + length]);
+        offset += length;
+        if block == 1 {
+            break;
+        }
+    }
+    if offset != trailer_start {
+        return Err("stored gzip archive has trailing compressed data".to_string());
+    }
+    let expected_crc = u32::from_le_bytes(archive[trailer_start..trailer_start + 4].try_into().expect("four-byte gzip crc"));
+    let expected_size = u32::from_le_bytes(archive[trailer_start + 4..].try_into().expect("four-byte gzip size"));
+    if crc32(&output) != expected_crc || output.len() as u32 != expected_size {
+        return Err("stored gzip trailer does not match decompressed bytes".to_string());
+    }
+    Ok(output)
+}
+
+fn crc32(bytes: &[u8]) -> u32 {
+    let mut crc = !0u32;
+    for byte in bytes {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            crc = if crc & 1 == 1 {
+                (crc >> 1) ^ 0xedb8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
+}
+
+fn canonical_distribution_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    let mut value = serde_json::to_value(value)
+        .map_err(|e| format!("convert JSON value for canonical encoding: {e}"))?;
+    canonicalize_distribution_json(&mut value);
+    serde_json::to_vec(&value).map_err(|e| format!("serialize canonical JSON: {e}"))
+}
+
+fn canonicalize_distribution_json(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Array(items) => {
+            for item in items {
+                canonicalize_distribution_json(item);
+            }
+        }
+        serde_json::Value::Object(entries) => {
+            let mut sorted = BTreeMap::new();
+            for (key, mut nested) in std::mem::take(entries) {
+                canonicalize_distribution_json(&mut nested);
+                sorted.insert(key, nested);
+            }
+            *entries = sorted.into_iter().collect();
+        }
+        _ => {}
+    }
+}
+
+fn load_contract_verifier_signing_key(path: &Path) -> Result<SigningKey, String> {
+    let bytes = fs::read(path).map_err(|e| format!("read signing key `{}`: {e}", path.display()))?;
+    let key: ContractVerifierSigningKeyFile = serde_json::from_slice(&bytes)
+        .map_err(|e| format!("parse signing key `{}`: {e}", path.display()))?;
+    if key.scheme != "ed25519" {
+        return Err("verifier distribution signing key must use ed25519".to_string());
+    }
+    let key_bytes = decode_fixed_hex32(&key.private_key)
+        .ok_or_else(|| "verifier distribution private key must be 32 lowercase hexadecimal bytes".to_string())?;
+    Ok(SigningKey::from_bytes(&key_bytes))
+}
+
+fn load_contract_verifier_public_key(path: &Path) -> Result<VerifyingKey, String> {
+    let bytes = fs::read(path).map_err(|e| format!("read public key `{}`: {e}", path.display()))?;
+    let key: ContractVerifierPublicKeyFile = serde_json::from_slice(&bytes)
+        .map_err(|e| format!("parse public key `{}`: {e}", path.display()))?;
+    if key.scheme != "ed25519" {
+        return Err("verifier distribution public key must use ed25519".to_string());
+    }
+    let key_bytes = decode_fixed_hex32(&key.public_key)
+        .ok_or_else(|| "verifier distribution public key must be 32 lowercase hexadecimal bytes".to_string())?;
+    VerifyingKey::from_bytes(&key_bytes)
+        .map_err(|e| format!("parse verifier distribution public key: {e}"))
+}
+
+fn is_prefixed_sha256(value: &str) -> bool {
+    value
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_digit() || (byte.is_ascii_lowercase() && byte.is_ascii_hexdigit())))
+}
+
+fn is_exact_semver(value: &str) -> bool {
+    let pieces = value.split('.').collect::<Vec<_>>();
+    pieces.len() == 3
+        && pieces.iter().all(|piece| {
+            !piece.is_empty()
+                && piece.bytes().all(|byte| byte.is_ascii_digit())
+                && (piece == &"0" || !piece.starts_with('0'))
+        })
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1187,6 +1866,135 @@ fn parse_milestone3_binary_bundle_verify_args(
     let bundle_dir =
         bundle_dir.ok_or_else(|| "missing required `--bundle-dir`".to_string())?;
     Ok(Milestone3BinaryBundleVerifyOpts { bundle_dir })
+}
+
+fn parse_contract_verifier_package_args(
+    raw_args: Vec<String>,
+) -> Result<ContractVerifierPackageOpts, String> {
+    let mut version = None;
+    let mut artifacts = Vec::new();
+    let mut signing_key = None;
+    let mut key_id = None;
+    let mut out_dir = None;
+    let mut index = 0usize;
+    while index < raw_args.len() {
+        match raw_args[index].as_str() {
+            "--version" => {
+                index += 1;
+                version = Some(
+                    raw_args
+                        .get(index)
+                        .ok_or_else(|| "missing value for `--version`".to_string())?
+                        .trim()
+                        .to_string(),
+                );
+            }
+            "--artifact" => {
+                index += 1;
+                let value = raw_args
+                    .get(index)
+                    .ok_or_else(|| "missing value for `--artifact`".to_string())?;
+                let (platform, path) = value.split_once('=').ok_or_else(|| {
+                    "`--artifact` must have PLATFORM=FILE form".to_string()
+                })?;
+                if path.trim().is_empty() {
+                    return Err("`--artifact` file path cannot be empty".to_string());
+                }
+                artifacts.push((platform.to_string(), PathBuf::from(path)));
+            }
+            "--signing-key" => {
+                index += 1;
+                signing_key = Some(PathBuf::from(
+                    raw_args
+                        .get(index)
+                        .ok_or_else(|| "missing value for `--signing-key`".to_string())?,
+                ));
+            }
+            "--key-id" => {
+                index += 1;
+                key_id = Some(
+                    raw_args
+                        .get(index)
+                        .ok_or_else(|| "missing value for `--key-id`".to_string())?
+                        .trim()
+                        .to_string(),
+                );
+            }
+            "--out-dir" => {
+                index += 1;
+                out_dir = Some(PathBuf::from(
+                    raw_args
+                        .get(index)
+                        .ok_or_else(|| "missing value for `--out-dir`".to_string())?,
+                ));
+            }
+            other => return Err(format!("unknown contract-verifier-package arg `{other}` (supported: --version, --artifact, --signing-key, --key-id, --out-dir)")),
+        }
+        index += 1;
+    }
+    let version = version.ok_or_else(|| "missing required `--version`".to_string())?;
+    if !is_exact_semver(&version) {
+        return Err(format!("invalid verifier package version `{version}`"));
+    }
+    let key_id = key_id.ok_or_else(|| "missing required `--key-id`".to_string())?;
+    if key_id.is_empty() {
+        return Err("`--key-id` cannot be empty".to_string());
+    }
+    artifacts.sort_by(|left, right| left.0.cmp(&right.0));
+    let expected_platforms = CONTRACT_VERIFIER_PLATFORMS
+        .iter()
+        .map(|(platform, _)| *platform)
+        .collect::<Vec<_>>();
+    let actual_platforms = artifacts
+        .iter()
+        .map(|(platform, _)| platform.as_str())
+        .collect::<Vec<_>>();
+    if actual_platforms != expected_platforms {
+        return Err("`--artifact` must provide exactly linux-x86_64, macos-x86_64, and windows-x86_64 once each".to_string());
+    }
+    Ok(ContractVerifierPackageOpts {
+        version,
+        artifacts,
+        signing_key: signing_key
+            .ok_or_else(|| "missing required `--signing-key`".to_string())?,
+        key_id,
+        out_dir: out_dir.ok_or_else(|| "missing required `--out-dir`".to_string())?,
+    })
+}
+
+fn parse_contract_verifier_package_verify_args(
+    raw_args: Vec<String>,
+) -> Result<ContractVerifierPackageVerifyOpts, String> {
+    let mut package_dir = None;
+    let mut pubkey = None;
+    let mut index = 0usize;
+    while index < raw_args.len() {
+        match raw_args[index].as_str() {
+            "--package-dir" => {
+                index += 1;
+                package_dir = Some(PathBuf::from(
+                    raw_args
+                        .get(index)
+                        .ok_or_else(|| "missing value for `--package-dir`".to_string())?,
+                ));
+            }
+            "--pubkey" => {
+                index += 1;
+                pubkey = Some(PathBuf::from(
+                    raw_args
+                        .get(index)
+                        .ok_or_else(|| "missing value for `--pubkey`".to_string())?,
+                ));
+            }
+            other => return Err(format!("unknown contract-verifier-package-verify arg `{other}` (supported: --package-dir, --pubkey)")),
+        }
+        index += 1;
+    }
+    Ok(ContractVerifierPackageVerifyOpts {
+        package_dir: package_dir
+            .ok_or_else(|| "missing required `--package-dir`".to_string())?,
+        pubkey: pubkey.ok_or_else(|| "missing required `--pubkey`".to_string())?,
+    })
 }
 
 fn parse_milestone3_installer_channels_args(

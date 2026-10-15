@@ -133,6 +133,12 @@ fn print_help() {
     );
     println!("  milestone3-binary-bundle-verify --bundle-dir DIR");
     println!(
+        "  contract-verifier-package --version X.Y.Z --artifact PLATFORM=FILE --artifact PLATFORM=FILE --artifact PLATFORM=FILE --signing-key FILE --key-id ID --out-dir DIR"
+    );
+    println!(
+        "  contract-verifier-package-verify --package-dir DIR --pubkey FILE"
+    );
+    println!(
         "  milestone3-installer-channels --version X.Y.Z --release-tag TAG --windows-bundle-dir DIR --linux-bundle-dir DIR --macos-bundle-dir DIR [--repo owner/name] [--out-dir DIR]"
     );
     println!(
@@ -205,6 +211,21 @@ struct Milestone3BinaryBundleOpts {
 #[derive(Clone, Debug)]
 struct Milestone3BinaryBundleVerifyOpts {
     bundle_dir: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+struct ContractVerifierPackageOpts {
+    version: String,
+    artifacts: Vec<(String, PathBuf)>,
+    signing_key: PathBuf,
+    key_id: String,
+    out_dir: PathBuf,
+}
+
+#[derive(Clone, Debug)]
+struct ContractVerifierPackageVerifyOpts {
+    package_dir: PathBuf,
+    pubkey: PathBuf,
 }
 
 #[derive(Clone, Debug)]

@@ -307,9 +307,12 @@ contract platform.
     canonical output to `clg contract verify-release` for the same inputs.
     (`clg-contract-verifier`, `docs/design/phase-43.1.1-shared-verifier-entrypoint.md`,
     `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-15`.
-  - [ ] 43.1.2 Add deterministic local packaging that emits the verifier artifact, version
+  - [x] 43.1.2 Add deterministic local packaging that emits the verifier artifact, version
     metadata, checksum, signature/provenance evidence where supported, and a manifest binding
     those files. Verify the package before declaring packaging success.
+    (`xtask contract-verifier-package`, `xtask contract-verifier-package-verify`,
+    `docs/design/phase-43.1.2-verifier-package.md`, `xtask/src/main/tests.rs`)
+    `Completed: 2026-10-15`.
   - [ ] 43.1.3 Add black-box clean-directory tests for valid bundles, every inherited and new
     tamper class, unsafe paths, wrong public key, missing evidence, unknown schemas/profiles,
     and incompatible verifier versions. Assert no network attempt occurs.

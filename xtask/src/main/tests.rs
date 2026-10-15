@@ -269,6 +269,169 @@ mod tests {
     }
 
     #[test]
+    fn contract_verifier_package_args_require_the_locked_platform_set_and_trust_inputs() {
+        let opts = parse_contract_verifier_package_args(vec![
+            "--version".to_string(),
+            "0.1.0".to_string(),
+            "--artifact".to_string(),
+            "windows-x86_64=target/windows/clg-contract-verifier.exe".to_string(),
+            "--artifact".to_string(),
+            "linux-x86_64=target/linux/clg-contract-verifier".to_string(),
+            "--artifact".to_string(),
+            "macos-x86_64=target/macos/clg-contract-verifier".to_string(),
+            "--signing-key".to_string(),
+            "keys/distribution.json".to_string(),
+            "--key-id".to_string(),
+            "distribution-2026q4".to_string(),
+            "--out-dir".to_string(),
+            "tmp/verifier-package".to_string(),
+        ])
+        .expect("parse verifier package args");
+        assert_eq!(opts.version, "0.1.0");
+        assert_eq!(opts.artifacts.len(), 3);
+        assert_eq!(opts.artifacts[0].0, "linux-x86_64");
+        assert_eq!(opts.key_id, "distribution-2026q4");
+
+        let err = parse_contract_verifier_package_args(vec![
+            "--version".to_string(),
+            "0.1.0".to_string(),
+        ])
+        .expect_err("missing package inputs must fail");
+        assert!(err.contains("missing required `--key-id`"));
+
+        let err = parse_contract_verifier_package_verify_args(vec![
+            "--package-dir".to_string(),
+            "tmp/package".to_string(),
+        ])
+        .expect_err("missing public key must fail");
+        assert!(err.contains("missing required `--pubkey`"));
+    }
+
+    #[test]
+    fn contract_verifier_package_is_deterministic_signed_and_self_verified() {
+        let root = unique_temp_dir("contract-verifier-package");
+        let binaries = root.join("binaries");
+        std::fs::create_dir_all(&binaries).expect("create binary fixture directory");
+        let linux = binaries.join("linux-verifier");
+        let macos = binaries.join("macos-verifier");
+        let windows = binaries.join("windows-verifier.exe");
+        std::fs::write(&linux, b"linux verifier bytes").expect("write linux fixture");
+        std::fs::write(&macos, b"macos verifier bytes").expect("write macos fixture");
+        std::fs::write(&windows, b"windows verifier bytes").expect("write windows fixture");
+
+        let signing_key = root.join("distribution-key.json");
+        let private_key = "3333333333333333333333333333333333333333333333333333333333333333";
+        std::fs::write(
+            &signing_key,
+            format!(r#"{{"scheme":"ed25519","private_key":"{private_key}"}}"#),
+        )
+        .expect("write signing key");
+        let signing = SigningKey::from_bytes(&[0x33; 32]);
+        let pubkey = root.join("distribution-pubkey.json");
+        std::fs::write(
+            &pubkey,
+            format!(
+                r#"{{"scheme":"ed25519","public_key":"{}"}}"#,
+                hex::encode(signing.verifying_key().to_bytes())
+            ),
+        )
+        .expect("write public key");
+
+        let first = root.join("first");
+        let second = root.join("second");
+        let package = |out_dir: &Path| {
+            emit_contract_verifier_package(
+                root.as_path(),
+                vec![
+                    "--version".to_string(),
+                    "0.1.0".to_string(),
+                    "--artifact".to_string(),
+                    format!("windows-x86_64={}", windows.display()),
+                    "--artifact".to_string(),
+                    format!("linux-x86_64={}", linux.display()),
+                    "--artifact".to_string(),
+                    format!("macos-x86_64={}", macos.display()),
+                    "--signing-key".to_string(),
+                    signing_key.display().to_string(),
+                    "--key-id".to_string(),
+                    "distribution-test-2026q4".to_string(),
+                    "--out-dir".to_string(),
+                    out_dir.display().to_string(),
+                ],
+            )
+        };
+        package(&first).expect("emit first package");
+        package(&second).expect("emit second package");
+
+        let expected_names = [
+            "clg-contract-verifier-v0.1.0-checksums.txt",
+            "clg-contract-verifier-v0.1.0-linux-x86_64.tar.gz",
+            "clg-contract-verifier-v0.1.0-macos-x86_64.tar.gz",
+            "clg-contract-verifier-v0.1.0-manifest.json",
+            "clg-contract-verifier-v0.1.0-manifest.sig.json",
+            "clg-contract-verifier-v0.1.0-windows-x86_64.zip",
+        ];
+        for name in expected_names {
+            assert_eq!(
+                std::fs::read(first.join(name)).expect("read first package member"),
+                std::fs::read(second.join(name)).expect("read second package member"),
+                "package member `{name}` must be deterministic"
+            );
+        }
+
+        verify_contract_verifier_package(
+            root.as_path(),
+            vec![
+                "--package-dir".to_string(),
+                first.display().to_string(),
+                "--pubkey".to_string(),
+                pubkey.display().to_string(),
+            ],
+        )
+        .expect("verify generated package with explicit public key");
+        let manifest: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(first.join("clg-contract-verifier-v0.1.0-manifest.json"))
+                .expect("read manifest"),
+        )
+        .expect("parse manifest");
+        assert_eq!(manifest["format"], CONTRACT_VERIFIER_MANIFEST_FORMAT);
+        assert_eq!(manifest["artifacts"].as_array().map(Vec::len), Some(3));
+
+        std::fs::write(
+            first.join("clg-contract-verifier-v0.1.0-linux-x86_64.tar.gz"),
+            b"tampered archive",
+        )
+        .expect("tamper archive");
+        let err = verify_contract_verifier_package(
+            root.as_path(),
+            vec![
+                "--package-dir".to_string(),
+                first.display().to_string(),
+                "--pubkey".to_string(),
+                pubkey.display().to_string(),
+            ],
+        )
+        .expect_err("tampered package must be rejected");
+        assert!(err.contains("archive digest mismatch"));
+
+        std::fs::write(second.join("unexpected.txt"), b"unbound file")
+            .expect("add unbound package file");
+        let err = verify_contract_verifier_package(
+            root.as_path(),
+            vec![
+                "--package-dir".to_string(),
+                second.display().to_string(),
+                "--pubkey".to_string(),
+                pubkey.display().to_string(),
+            ],
+        )
+        .expect_err("package with an unbound file must be rejected");
+        assert!(err.contains("missing or unbound files"));
+
+        cleanup_temp_dir(root.as_path());
+    }
+
+    #[test]
     fn parse_milestone3_installer_channels_args_accepts_explicit_values() {
         let opts = parse_milestone3_installer_channels_args(vec![
             "--version".to_string(),

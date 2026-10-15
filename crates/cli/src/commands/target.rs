@@ -5,11 +5,12 @@
 //! EIP-155 transactions and write receipts only after confirmed on-chain success.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::thread;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
@@ -20,6 +21,8 @@ const TARGET_PROFILE: &str = "clg.evm-sepolia-pilot.v1";
 const TARGET_CHAIN_ID: u64 = 11_155_111;
 const WIRE_ABI_FORMAT: &str = "clg.evm-wire-abi.v1";
 const RECEIPT_FORMAT: &str = "clg.target-receipt.v1";
+const PILOT_INPUT_FORMAT: &str = "clg.pilot-exercise-input.v1";
+const PILOT_PREFLIGHT_FORMAT: &str = "clg.pilot-exercise-preflight.v1";
 const RECEIPT_POLL_ATTEMPTS: usize = 10;
 const RECEIPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -79,6 +82,213 @@ pub struct InvokeArgs {
     pub gas_limit: u64,
     pub gas_price: u64,
     pub receipt_out: PathBuf,
+}
+
+/// Arguments for the offline pilot operator review step.
+///
+/// This intentionally only reads `input` and writes `report_out`. In particular, it neither
+/// dereferences the signer reference nor contacts the declared endpoint.
+#[derive(Debug)]
+pub struct PilotPreflightArgs {
+    pub input: PathBuf,
+    pub report_out: PathBuf,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotExerciseInput {
+    format: String,
+    schema_version: u64,
+    target_profile: String,
+    rpc_url: String,
+    chain_id: u64,
+    signer_reference: String,
+    sender: String,
+    deploy: PilotDeployInput,
+    invocation: PilotInvocationInput,
+    release_bundle: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotDeployInput {
+    nonce: u64,
+    value: u64,
+    gas_limit: u64,
+    fee: PilotFeeInput,
+    constructor_arguments: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotInvocationInput {
+    contract_address: String,
+    function_selector: String,
+    arguments: String,
+    nonce: u64,
+    value: u64,
+    gas_limit: u64,
+    fee: PilotFeeInput,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PilotFeeInput {
+    kind: String,
+    gas_price: u64,
+}
+
+/// Validate an operator-supplied testnet plan and emit the exact values requiring review.
+///
+/// This is deliberately a non-submitting command. A later explicit operator action must still
+/// use the reviewed values when it signs and submits the deploy or invocation.
+pub fn pilot_preflight(args: PilotPreflightArgs) -> Result<()> {
+    let bytes = fs::read(&args.input)
+        .with_context(|| format!("read pilot exercise input `{}`", args.input.display()))?;
+    let input: PilotExerciseInput = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parse pilot exercise input `{}`", args.input.display()))?;
+
+    if input.format != PILOT_INPUT_FORMAT {
+        bail!(
+            "unsupported pilot exercise input format `{}`; expected `{PILOT_INPUT_FORMAT}`",
+            input.format
+        );
+    }
+    if input.schema_version != 1 {
+        bail!(
+            "unsupported pilot exercise input schema version `{}`; expected `1`",
+            input.schema_version
+        );
+    }
+    let endpoint = preflight(&input.target_profile, &input.rpc_url, input.chain_id)?;
+    let signer_reference = safe_relative_path(&input.signer_reference, "signer_reference")?;
+    let release_bundle = safe_relative_path(&input.release_bundle, "release_bundle")?;
+    let constructor_arguments = safe_relative_path(
+        &input.deploy.constructor_arguments,
+        "deploy.constructor_arguments",
+    )?;
+    let invocation_arguments =
+        safe_relative_path(&input.invocation.arguments, "invocation.arguments")?;
+    let sender = canonical_address(&input.sender).context("invalid pilot sender")?;
+    let contract_address = canonical_address(&input.invocation.contract_address)
+        .context("invalid pilot invocation contract_address")?;
+    let function_selector = canonical_selector(&input.invocation.function_selector)?;
+    validate_pilot_transaction(input.deploy.gas_limit, &input.deploy.fee, "deploy")?;
+    validate_pilot_transaction(
+        input.invocation.gas_limit,
+        &input.invocation.fee,
+        "invocation",
+    )?;
+
+    let report = json!({
+        "format": PILOT_PREFLIGHT_FORMAT,
+        "schema_version": 1,
+        "network": {
+            "chain_id": input.chain_id,
+            "rpc_url": endpoint,
+            "target_profile": TARGET_PROFILE,
+        },
+        "signer": {
+            "reference": signer_reference,
+            "sender": sender,
+        },
+        "release_bundle": release_bundle,
+        "deploy": {
+            "constructor_arguments": constructor_arguments,
+            "transaction": pilot_transaction_value(
+                input.deploy.nonce,
+                input.deploy.value,
+                input.deploy.gas_limit,
+                &input.deploy.fee,
+            ),
+        },
+        "invocation": {
+            "arguments": invocation_arguments,
+            "contract_address": contract_address,
+            "function_selector": function_selector,
+            "transaction": pilot_transaction_value(
+                input.invocation.nonce,
+                input.invocation.value,
+                input.invocation.gas_limit,
+                &input.invocation.fee,
+            ),
+        },
+        "safety": {
+            "network_contacted": false,
+            "signer_material_accessed": false,
+            "transaction_signed": false,
+            "transaction_submitted": false,
+        },
+    });
+    let report_bytes = canonical_json_bytes(&report);
+    fs::write(&args.report_out, &report_bytes).with_context(|| {
+        format!(
+            "write pilot preflight report `{}`",
+            args.report_out.display()
+        )
+    })?;
+    println!(
+        "{}",
+        String::from_utf8(report_bytes).expect("canonical JSON is valid UTF-8")
+    );
+    Ok(())
+}
+
+fn pilot_transaction_value(nonce: u64, value: u64, gas_limit: u64, fee: &PilotFeeInput) -> Value {
+    json!({
+        "fee": { "gas_price": fee.gas_price, "kind": fee.kind },
+        "gas_limit": gas_limit,
+        "nonce": nonce,
+        "value": value,
+    })
+}
+
+fn validate_pilot_transaction(gas_limit: u64, fee: &PilotFeeInput, label: &str) -> Result<()> {
+    if gas_limit == 0 {
+        bail!("pilot {label} gas_limit must be greater than zero")
+    }
+    if fee.kind != "legacy-eip155-gas-price" {
+        bail!(
+            "unsupported pilot {label} fee kind `{}`; expected `legacy-eip155-gas-price`",
+            fee.kind
+        )
+    }
+    if fee.gas_price == 0 {
+        bail!("pilot {label} fee gas_price must be greater than zero")
+    }
+    Ok(())
+}
+
+fn canonical_selector(selector: &str) -> Result<String> {
+    let bytes = valid_hex_bytes(selector).context("pilot invocation function_selector")?;
+    if bytes.len() != 4 {
+        bail!("pilot invocation function_selector must contain exactly four bytes")
+    }
+    Ok(format!("0x{}", hex::encode(bytes)))
+}
+
+fn safe_relative_path(value: &str, field: &str) -> Result<String> {
+    if value.is_empty()
+        || value.contains('\\')
+        || value.contains(':')
+        || value
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+    {
+        bail!("pilot {field} must be a non-empty canonical relative path")
+    }
+    let path = Path::new(value);
+    if path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::Prefix(_) | Component::RootDir
+            )
+        })
+    {
+        bail!("pilot {field} must be a non-empty canonical relative path")
+    }
+    Ok(value.to_string())
 }
 
 pub fn deploy(args: DeployArgs) -> Result<()> {

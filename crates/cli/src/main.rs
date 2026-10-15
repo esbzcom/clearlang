@@ -396,6 +396,15 @@ enum StrictCommands {
 
 #[derive(Subcommand, Debug)]
 enum TargetCommands {
+    /// Validate and display an offline operator plan before any pilot transaction is signed
+    PilotPreflight {
+        /// Explicit pilot exercise input JSON; this command never contacts its endpoint
+        #[arg(long, value_name = "FILE")]
+        input: PathBuf,
+        /// Canonical review record containing every validated operator-provided value
+        #[arg(long, value_name = "FILE")]
+        report_out: PathBuf,
+    },
     /// Deploy an EVM-compatible contract artifact
     Deploy {
         /// Target profile identifier (currently only clg.evm-sepolia-pilot.v1)
@@ -711,6 +720,9 @@ fn main() -> Result<()> {
             logger.with_command("simulate"),
         ),
         Commands::Target { command } => match command {
+            TargetCommands::PilotPreflight { input, report_out } => {
+                cmd_target::pilot_preflight(cmd_target::PilotPreflightArgs { input, report_out })
+            }
             TargetCommands::Deploy {
                 target_profile,
                 rpc_url,

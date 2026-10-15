@@ -256,9 +256,12 @@ contract platform.
   then create a canonical, path-safe pilot-evidence record bound to release-bundle and receipt
   identities. Provide an offline replay verifier using recorded RPC request/response fixtures.
   The live exercise is manually initiated and never silently contacted by a local test command.
-  - [ ] 42.2.1 Define an explicit input file/schema for endpoint, chain ID, signer reference,
+  - [x] 42.2.1 Define an explicit input file/schema for endpoint, chain ID, signer reference,
     sender, nonce, gas limit, fee, constructor arguments, contract invocation, and release-bundle
     location. Validate and display every value before a transaction is signed or submitted.
+    (`clg target pilot-preflight`,
+    `docs/design/phase-42.2.1-pilot-operator-input.md`,
+    `crates/cli/tests/cli_it/basic/contract_target.rs`) `Completed: 2026-10-14`.
   - [ ] 42.2.2 Implement canonical pilot-evidence capture for submission intent, transaction
     digest, sanitized RPC observations, receipt, release-bundle digest, caller identity, and
     verifier result. Make it path-safe, secret-free, ordered, and signed only if the existing

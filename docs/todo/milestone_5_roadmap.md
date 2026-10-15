@@ -278,7 +278,7 @@ contract platform.
 
 ## 43. Independent User Delivery [Distribution Gate D]
 
-- [ ] 43.0 Lock the external verifier distribution format and compatibility contract. Prefer the
+- [x] 43.0 Lock the external verifier distribution format and compatibility contract. Prefer the
   smallest stable form that can be independently run by a non-Rust user (a dedicated verifier
   executable plus a versioned OCI/container image if that adds no second verification semantics).
   Define artifact naming, platform scope, checksums, signatures, public-key/trust-policy input,
@@ -291,9 +291,11 @@ contract platform.
     checksum/signature format, trusted public-key provisioning, offline network policy, and
     stable human/JSON output contracts.
     (`docs/design/phase-43.0.2-verifier-compatibility-lock.md`) `Completed: 2026-10-15`.
-  - [ ] 43.0.3 Define deprecation and emergency rollback rules, including how an unsupported
+  - [x] 43.0.3 Define deprecation and emergency rollback rules, including how an unsupported
     verifier/schema/version rejects rather than guessing compatibility, and add a compatibility
     table to the distribution documentation.
+    (`docs/design/phase-43.0.3-verifier-lifecycle-and-rollback-lock.md`,
+    `docs/design/phase-43.0.2-verifier-compatibility-lock.md`) `Completed: 2026-10-15`.
 
 - [ ] 43.1 Package the verifier according to the lock without duplicating the verification
   implementation. It must consume only bundle-local paths, reject unsafe paths and unsupported

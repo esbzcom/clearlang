@@ -92,6 +92,23 @@ The verifier must expose its own version and capability set before verification.
 bundle that declares a minimum verifier capability it does not support; it must never select a
 nearest schema/profile, silently downgrade a policy, or claim success on an unknown field/version.
 
+## Distribution compatibility table
+
+This table is the operator-facing compatibility decision table for an independently obtained
+verifier. It applies before and during offline verification; a version-like name alone never
+authorizes a compatibility guess.
+
+| Situation | Supported decision | Required operator action |
+| --- | --- | --- |
+| Signed manifest names the current verifier and its explicit capabilities include the bundle's exact v1 formats | Verify offline using the named artifact | Validate the archive checksum and manifest signature, then provide the explicit release public key |
+| Bundle, target profile, execution profile, result schema, or minimum verifier capability is unknown or outside the manifest capability list | Reject | Obtain a verifier whose signed manifest explicitly declares the required capability; do not retry with a renamed or nearest-looking format |
+| Verifier version is deprecated but its signed manifest explicitly supports every required v1 capability | Verification remains reproducible | Follow the deprecation notice and move to the named replacement for future work; preserve the old artifact and its verification evidence |
+| Verifier version is withdrawn or listed as affected by an emergency advisory | Reject for operational use | Stop using that artifact, retain its hashes and prior evidence, and use only the exact fixed or last-known-good artifact named by the advisory after revalidating its manifest |
+| Platform, archive, checksum, manifest, signature, or distribution key does not match this lock | Reject | Use an exact supported release artifact from the trusted release channel; do not build from source or substitute a container, mirror, or executable |
+
+Lifecycle and emergency rules are defined in
+`docs/design/phase-43.0.3-verifier-lifecycle-and-rollback-lock.md`.
+
 ## Offline and output contract
 
 Verification is offline by construction. The verifier has no endpoint, download, registry,

@@ -625,6 +625,64 @@ fn contract_release_help_exposes_the_complete_evidence_contract() {
         .success()
         .stdout(predicate::str::contains("--bundle <FILE>"))
         .stdout(predicate::str::contains("--pubkey <FILE>"));
+
+    Command::cargo_bin("clg-contract-verifier")
+        .expect("independent verifier binary")
+        .args(["verify-release", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--bundle <FILE>"))
+        .stdout(predicate::str::contains("--pubkey <FILE>"));
+}
+
+#[test]
+fn independent_verifier_matches_primary_verifier_canonical_result() {
+    let (_workspace, pubkey, out_dir) = prepared_reference_release();
+    let bundle = out_dir.join("counter.contract-release-bundle.json");
+
+    let primary = Command::cargo_bin("clg")
+        .expect("clg binary")
+        .args(["contract", "verify-release", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey)
+        .output()
+        .expect("run primary verifier");
+    assert!(primary.status.success(), "primary verifier must succeed");
+
+    let independent = Command::cargo_bin("clg-contract-verifier")
+        .expect("independent verifier binary")
+        .args(["verify-release", "--bundle"])
+        .arg(&bundle)
+        .args(["--pubkey"])
+        .arg(&pubkey)
+        .output()
+        .expect("run independent verifier");
+    assert!(
+        independent.status.success(),
+        "independent verifier must succeed"
+    );
+    assert_eq!(
+        independent.stdout, primary.stdout,
+        "both commands must render the shared verifier result byte-for-byte"
+    );
+
+    let result: Value = serde_json::from_slice(&independent.stdout).expect("parse verifier result");
+    assert_eq!(result["format"], "clg.contract-release-verifier-result.v1");
+    assert_eq!(result["schema_version"], 1);
+    assert_eq!(result["status"], "verified");
+    assert_eq!(result["target_profile"], "clg.evm-sepolia-pilot.v1");
+    assert_eq!(result["verifier_version"], env!("CARGO_PKG_VERSION"));
+    assert!(
+        result["bundle_sha256"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("sha256:")),
+        "the canonical result must bind the exact bundle bytes"
+    );
+    assert!(
+        !String::from_utf8_lossy(&independent.stdout).contains(out_dir.to_string_lossy().as_ref()),
+        "the canonical result must not leak local paths"
+    );
 }
 
 #[test]

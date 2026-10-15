@@ -12,8 +12,12 @@ use crate::commands::helpers::{canonical_json_bytes, sha256_hex};
 use crate::logging::{Logger, StageTimings};
 use crate::signing::{self, SignScope};
 
-const BUNDLE_FORMAT: &str = "clg.contract-release-bundle.v1";
+pub const BUNDLE_FORMAT: &str = "clg.contract-release-bundle.v1";
+pub const VERIFIER_RESULT_FORMAT: &str = "clg.contract-release-verifier-result.v1";
+pub const VERIFIER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const CAMPAIGN_EVIDENCE_FORMAT: &str = "clg.contract-campaign-evidence-index.v1";
+const TARGET_PROFILE: &str = "clg.evm-sepolia-pilot.v1";
+const TARGET_EXECUTION_PROFILE: &str = "clg.evm-stateful-scalar.v1";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -237,8 +241,8 @@ pub fn verify(
         .map_err(|err| anyhow!(err).context("parse contract release bundle"))?;
     if bundle.format != BUNDLE_FORMAT
         || bundle.schema_version != 1
-        || bundle.target_profile != "clg.evm-sepolia-pilot.v1"
-        || bundle.target_execution_profile != "clg.evm-stateful-scalar.v1"
+        || bundle.target_profile != TARGET_PROFILE
+        || bundle.target_execution_profile != TARGET_EXECUTION_PROFILE
         || bundle.key_id.trim().is_empty()
         || bundle.source.trim().is_empty()
     {
@@ -361,10 +365,15 @@ pub fn verify(
     );
     println!(
         "{}",
-        serde_json::to_string_pretty(
-            &json!({"schema_version":1,"status":"verified","bundle":bundle_path})
-        )
-        .expect("serialize verification")
+        serde_json::to_string_pretty(&json!({
+            "bundle_sha256": format!("sha256:{}", sha256_hex(&bytes)),
+            "format": VERIFIER_RESULT_FORMAT,
+            "schema_version": 1,
+            "status": "verified",
+            "target_profile": TARGET_PROFILE,
+            "verifier_version": VERIFIER_VERSION,
+        }))
+        .expect("serialize verification result")
     );
     Ok(())
 }

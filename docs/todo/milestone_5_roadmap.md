@@ -302,9 +302,11 @@ contract platform.
   schema/profile versions, and preserve stable machine-readable diagnostics. Add black-box tests
   from a temporary independent directory for valid verification and every Milestone 4/5 tamper
   class, including a verifier-binary/version mismatch.
-  - [ ] 43.1.1 Extract or stabilize a single verifier entrypoint and make the distributable form
+  - [x] 43.1.1 Extract or stabilize a single verifier entrypoint and make the distributable form
     invoke it without copying parsing, hashing, or policy logic. Add tests that compare its
     canonical output to `clg contract verify-release` for the same inputs.
+    (`clg-contract-verifier`, `docs/design/phase-43.1.1-shared-verifier-entrypoint.md`,
+    `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-15`.
   - [ ] 43.1.2 Add deterministic local packaging that emits the verifier artifact, version
     metadata, checksum, signature/provenance evidence where supported, and a manifest binding
     those files. Verify the package before declaring packaging success.

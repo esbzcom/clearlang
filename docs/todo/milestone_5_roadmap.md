@@ -297,7 +297,7 @@ contract platform.
     (`docs/design/phase-43.0.3-verifier-lifecycle-and-rollback-lock.md`,
     `docs/design/phase-43.0.2-verifier-compatibility-lock.md`) `Completed: 2026-10-15`.
 
-- [ ] 43.1 Package the verifier according to the lock without duplicating the verification
+- [x] 43.1 Package the verifier according to the lock without duplicating the verification
   implementation. It must consume only bundle-local paths, reject unsafe paths and unsupported
   schema/profile versions, and preserve stable machine-readable diagnostics. Add black-box tests
   from a temporary independent directory for valid verification and every Milestone 4/5 tamper
@@ -313,9 +313,11 @@ contract platform.
     (`xtask contract-verifier-package`, `xtask contract-verifier-package-verify`,
     `docs/design/phase-43.1.2-verifier-package.md`, `xtask/src/main/tests.rs`)
     `Completed: 2026-10-15`.
-  - [ ] 43.1.3 Add black-box clean-directory tests for valid bundles, every inherited and new
+  - [x] 43.1.3 Add black-box clean-directory tests for valid bundles, every inherited and new
     tamper class, unsafe paths, wrong public key, missing evidence, unknown schemas/profiles,
     and incompatible verifier versions. Assert no network attempt occurs.
+    (`docs/design/phase-43.1.3-verifier-clean-directory-matrix.md`,
+    `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-15`.
 
 - [ ] 43.2 Publish a short external-user walkthrough: obtain the verifier, validate its
   checksum/signature, independently verify the reference bundle, inspect the product boundary,

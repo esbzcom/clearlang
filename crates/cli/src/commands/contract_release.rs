@@ -25,6 +25,7 @@ struct Bundle {
     format: String,
     schema_version: u32,
     key_id: String,
+    minimum_verifier_version: Option<String>,
     target_profile: String,
     target_execution_profile: String,
     artifacts: BundleArtifacts,
@@ -188,6 +189,7 @@ pub fn run(
             },
             "format": BUNDLE_FORMAT,
             "key_id": key_id,
+            "minimum_verifier_version": VERIFIER_VERSION,
             "orchestration": [
                 { "stage": "build_prove_sign", "status": "ok" },
                 { "stage": "verify_signature", "status": "ok" },
@@ -218,24 +220,27 @@ pub fn verify(
     json_errors: bool,
     logger: Logger,
 ) -> Result<()> {
-    let failure = |message: String| -> Result<()> {
-        if json_errors {
-            return Err(crate::commands::helpers::CommandError::json(
-                crate::commands::helpers::make_single_json_error(
-                    "C140",
-                    "verify",
-                    message,
-                    &bundle_path,
-                    0,
-                    0,
-                    None,
-                ),
-            )
-            .into());
-        }
-        Err(anyhow!(message))
-    };
-    let bytes = fs::read(&bundle_path)
+    match verify_inner(&bundle_path, &pubkey, logger) {
+        Ok(()) => Ok(()),
+        Err(err) if json_errors => Err(crate::commands::helpers::CommandError::json(
+            crate::commands::helpers::make_single_json_error(
+                "C140",
+                "verify",
+                err.to_string(),
+                &bundle_path,
+                0,
+                0,
+                None,
+            ),
+        )
+        .into()),
+        Err(err) => Err(err),
+    }
+}
+
+fn verify_inner(bundle_path: &Path, pubkey: &Path, logger: Logger) -> Result<()> {
+    let failure = |message: String| -> Result<()> { Err(anyhow!(message)) };
+    let bytes = fs::read(bundle_path)
         .map_err(|err| anyhow!(err).context("read contract release bundle"))?;
     let bundle: Bundle = serde_json::from_slice(&bytes)
         .map_err(|err| anyhow!(err).context("parse contract release bundle"))?;
@@ -247,6 +252,22 @@ pub fn verify(
         || bundle.source.trim().is_empty()
     {
         return failure("unsupported or malformed contract release bundle".to_string());
+    }
+    if let Some(required) = bundle.minimum_verifier_version.as_deref() {
+        let required = parse_verifier_version(required).ok_or_else(|| {
+            anyhow!("contract release bundle has an invalid minimum verifier version")
+        })?;
+        let actual = parse_verifier_version(VERIFIER_VERSION)
+            .expect("package verifier version must be an exact semantic version");
+        if actual < required {
+            return failure(format!(
+                "contract release bundle requires verifier version {} or newer",
+                bundle
+                    .minimum_verifier_version
+                    .as_deref()
+                    .expect("checked above")
+            ));
+        }
     }
     if bundle.orchestration.len() != 4
         || bundle
@@ -334,14 +355,14 @@ pub fn verify(
     let signature = match signing::verify_signature_details(
         &artifact_path,
         &directory.join(&bundle.artifacts.signature.path),
-        &pubkey,
+        pubkey,
     ) {
         Ok(signature) => signature,
         Err(err) => return failure(format!("verify contract release signature: {err}")),
     };
     let assurance = match signing::verify_assurance_manifest(
         &directory.join(&bundle.artifacts.signed_assurance_manifest.path),
-        &pubkey,
+        pubkey,
     ) {
         Ok(assurance) => assurance,
         Err(err) => return failure(format!("verify contract release assurance manifest: {err}")),
@@ -376,6 +397,17 @@ pub fn verify(
         .expect("serialize verification result")
     );
     Ok(())
+}
+
+fn parse_verifier_version(value: &str) -> Option<(u64, u64, u64)> {
+    let mut segments = value.split('.');
+    let major = segments.next()?.parse().ok()?;
+    let minor = segments.next()?.parse().ok()?;
+    let patch = segments.next()?.parse().ok()?;
+    if segments.next().is_some() || value.split('.').any(|segment| segment.is_empty()) {
+        return None;
+    }
+    Some((major, minor, patch))
 }
 
 struct ReleasePaths {

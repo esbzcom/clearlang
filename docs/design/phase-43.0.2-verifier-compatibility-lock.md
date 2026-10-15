@@ -84,6 +84,7 @@ its version number; the signed distribution manifest's explicit capability list 
 | Release bundle | `clg.contract-release-bundle.v1`, schema `1` | Reject unknown format/version |
 | Target profile | `clg.evm-sepolia-pilot.v1` only | Reject different/unknown profile |
 | Target execution profile | `clg.evm-stateful-scalar.v1` only | Reject different/unknown profile |
+| Minimum verifier version | Optional exact SemVer `minimum_verifier_version` no greater than this verifier | Reject malformed or newer required version |
 | Bundle paths | Bundle-local regular files with safe single-component names | Reject traversal, symlink, absent, or ambient path |
 | Release public key | Explicit canonical Ed25519 public-key JSON | Reject missing/malformed/untrusted-by-operator key |
 | Machine result | `clg.contract-release-verifier-result.v1`, schema `1` | Reject unsupported requested result schema |

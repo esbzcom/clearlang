@@ -1010,6 +1010,224 @@ fn contract_release_verification_rejects_every_packaged_evidence_tamper_class() 
 }
 
 #[test]
+fn independent_verifier_clean_directory_rejects_tampering_and_never_uses_a_network() {
+    let (workspace, pubkey, release) = prepared_reference_release();
+    let independent = workspace.path().join("independent-verifier");
+    let evidence_root = independent.join("evidence");
+    let trust_root = independent.join("trust");
+    let verifier_root = independent.join("bin");
+    fs::create_dir_all(&trust_root).expect("create independent trust directory");
+    fs::create_dir_all(&verifier_root).expect("create independent verifier directory");
+    copy_release_tree(&release, &evidence_root);
+    let independent_pubkey = trust_root.join("release-public-key.json");
+    fs::copy(&pubkey, &independent_pubkey).expect("copy explicit public key");
+    let verifier = verifier_root.join(if cfg!(windows) {
+        "clg-contract-verifier.exe"
+    } else {
+        "clg-contract-verifier"
+    });
+    fs::copy(assert_cmd::cargo::cargo_bin("clg-contract-verifier"), &verifier)
+        .expect("copy independent verifier executable");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&verifier)
+            .expect("read verifier permissions")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&verifier, permissions).expect("set verifier executable bit");
+    }
+    fs::remove_file(workspace.path().join("counter.clear"))
+        .expect("remove source outside independent directory");
+
+    let bundle = evidence_root.join("counter.contract-release-bundle.json");
+    let happy = run_independent_verifier(&verifier, &independent, &bundle, &independent_pubkey, false);
+    assert!(happy.status.success(), "valid copied evidence must verify");
+    let result: Value = serde_json::from_slice(&happy.stdout).expect("parse verifier result");
+    assert_eq!(result["format"], "clg.contract-release-verifier-result.v1");
+    assert_eq!(result["status"], "verified");
+    assert!(
+        !String::from_utf8_lossy(&happy.stdout).contains(workspace.path().to_string_lossy().as_ref()),
+        "result must not expose the original workspace"
+    );
+
+    let proxy = std::net::TcpListener::bind("127.0.0.1:0").expect("bind offline proxy trap");
+    proxy.set_nonblocking(true).expect("make proxy trap nonblocking");
+    let proxy_url = format!("http://{}", proxy.local_addr().expect("proxy address"));
+    let offline = run_independent_verifier_with_proxy_trap(
+        &verifier,
+        &independent,
+        &bundle,
+        &independent_pubkey,
+        &proxy_url,
+    );
+    assert!(offline.status.success(), "verification must remain offline");
+    assert!(
+        matches!(proxy.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+        "verifier must not contact an ambient proxy"
+    );
+
+    let case_root = independent.join("tamper-cases");
+    let reject = |name: &str, tamper: &dyn Fn(&std::path::Path)| {
+        let copied = case_root.join(name);
+        copy_release_tree(&evidence_root, &copied);
+        tamper(&copied);
+        let output = run_independent_verifier(
+            &verifier,
+            &independent,
+            &copied.join("counter.contract-release-bundle.json"),
+            &independent_pubkey,
+            true,
+        );
+        assert!(!output.status.success(), "{name} must be rejected");
+        let diagnostic: Value = serde_json::from_slice(&output.stdout)
+            .unwrap_or_else(|_| panic!("{name} must emit JSON diagnostics"));
+        assert_eq!(diagnostic["errors"][0]["code"], "C140", "{name} code");
+    };
+    reject("source-graph", &|copied| {
+        let schema = copied.join("counter.schema.json");
+        rewrite_json(&schema, |value| {
+            value["source_graph"]["files"][0]["path"] = serde_json::json!("tampered.clear");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "contract_state_schema",
+            &schema,
+        );
+    });
+    reject("target-profile", &|copied| {
+        let artifact = copied.join("counter.evm.json");
+        rewrite_json(&artifact, |value| {
+            value["target"]["profile"] = serde_json::json!("clg.evm-compatible.tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "evm_artifact",
+            &artifact,
+        );
+    });
+    reject("wire-abi", &|copied| {
+        let wire = copied.join("counter.evm-wire-abi.json");
+        rewrite_json(&wire, |value| {
+            value["wire_abi"]["digest"] = serde_json::json!("sha256:tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "evm_wire_abi",
+            &wire,
+        );
+    });
+    reject("proof", &|copied| {
+        let proof = copied.join("counter.proof.json");
+        rewrite_json(&proof, |value| {
+            value["compiler_mode"] = serde_json::json!("tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "proof_artifact",
+            &proof,
+        );
+    });
+    reject("signature", &|copied| {
+        let signature = copied.join("counter.sig.json");
+        rewrite_json(&signature, |value| {
+            value["payload"]["compiler"]["version"] = serde_json::json!("tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "signature",
+            &signature,
+        );
+    });
+    reject("assurance", &|copied| {
+        let assurance = copied.join("counter.assurance.json");
+        rewrite_json(&assurance, |value| {
+            value["payload"]["build"]["compiler_mode"] = serde_json::json!("tampered");
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "signed_assurance_manifest",
+            &assurance,
+        );
+    });
+    reject("campaign-trace", &|copied| {
+        fs::write(
+            copied
+                .join("counter.campaign-traces")
+                .join("case-0000.trace.json"),
+            br#"{"status":"tampered"}"#,
+        )
+        .expect("tamper campaign trace");
+    });
+    reject("campaign-input", &|copied| {
+        fs::write(
+            copied
+                .join("counter.campaign-traces")
+                .join("case-0000.args.json"),
+            br#"[999]"#,
+        )
+        .expect("tamper campaign input");
+    });
+    reject("campaign-replay", &|copied| {
+        let report = copied.join("counter.campaign.json");
+        rewrite_json(&report, |value| {
+            value["cases"][0]["replay"]["argv"]
+                .as_array_mut()
+                .expect("replay argv")
+                .push(serde_json::json!("--tampered"));
+        });
+        update_bundle_artifact_digest(
+            &copied.join("counter.contract-release-bundle.json"),
+            "contract_test_report",
+            &report,
+        );
+    });
+    reject("unsafe-path", &|copied| {
+        rewrite_json(
+            &copied.join("counter.contract-release-bundle.json"),
+            |value| value["artifacts"]["evm_artifact"]["path"] = serde_json::json!("../counter.evm.json"),
+        );
+    });
+    reject("missing-evidence", &|copied| {
+        fs::remove_file(copied.join("counter.proof.json")).expect("remove proof evidence");
+    });
+    reject("unknown-schema", &|copied| {
+        rewrite_json(
+            &copied.join("counter.contract-release-bundle.json"),
+            |value| value["schema_version"] = serde_json::json!(2),
+        );
+    });
+    reject("unknown-profile", &|copied| {
+        rewrite_json(
+            &copied.join("counter.contract-release-bundle.json"),
+            |value| value["target_profile"] = serde_json::json!("clg.evm.unknown.v1"),
+        );
+    });
+    reject("incompatible-verifier", &|copied| {
+        rewrite_json(
+            &copied.join("counter.contract-release-bundle.json"),
+            |value| value["minimum_verifier_version"] = serde_json::json!("0.2.0"),
+        );
+    });
+    reject("malformed-minimum-verifier", &|copied| {
+        rewrite_json(
+            &copied.join("counter.contract-release-bundle.json"),
+            |value| value["minimum_verifier_version"] = serde_json::json!("not-a-version"),
+        );
+    });
+    let wrong_pubkey = trust_root.join("wrong-public-key.json");
+    fs::write(
+        &wrong_pubkey,
+        r#"{"scheme":"ed25519","public_key":"1111111111111111111111111111111111111111111111111111111111111111"}"#,
+    )
+    .expect("write wrong public key");
+    let wrong_key = run_independent_verifier(&verifier, &independent, &bundle, &wrong_pubkey, true);
+    assert!(!wrong_key.status.success(), "wrong key must be rejected");
+    let diagnostic: Value = serde_json::from_slice(&wrong_key.stdout).expect("parse wrong-key diagnostic");
+    assert_eq!(diagnostic["errors"][0]["code"], "C140");
+}
+
+#[test]
 fn contract_release_fixture_packages_supported_migration_and_rejects_reentrancy_candidate() {
     let dir = tempdir().expect("tempdir");
     let v1_source = dir.path().join("counter-v1.clear");
@@ -1272,6 +1490,47 @@ fn prepared_reference_release() -> (tempfile::TempDir, PathBuf, PathBuf) {
     let solver = write_verified_unsat_solver(&dir);
     run_reference_contract_release(&source, &plan, &key, &pubkey, &out_dir, &solver);
     (dir, pubkey, out_dir)
+}
+
+fn run_independent_verifier(
+    verifier: &Path,
+    working_directory: &Path,
+    bundle: &Path,
+    pubkey: &Path,
+    json_errors: bool,
+) -> std::process::Output {
+    let mut command = Command::new(verifier);
+    command
+        .current_dir(working_directory)
+        .args(["verify-release", "--bundle"])
+        .arg(bundle)
+        .args(["--pubkey"])
+        .arg(pubkey);
+    if json_errors {
+        command.arg("--json-errors");
+    }
+    command.output().expect("run independent verifier")
+}
+
+fn run_independent_verifier_with_proxy_trap(
+    verifier: &Path,
+    working_directory: &Path,
+    bundle: &Path,
+    pubkey: &Path,
+    proxy_url: &str,
+) -> std::process::Output {
+    let mut command = Command::new(verifier);
+    command
+        .current_dir(working_directory)
+        .env("HTTP_PROXY", proxy_url)
+        .env("HTTPS_PROXY", proxy_url)
+        .env("ALL_PROXY", proxy_url)
+        .env("NO_PROXY", "")
+        .args(["verify-release", "--bundle"])
+        .arg(bundle)
+        .args(["--pubkey"])
+        .arg(pubkey);
+    command.output().expect("run independent verifier with proxy trap")
 }
 
 fn copy_release_tree(source: &Path, destination: &Path) {

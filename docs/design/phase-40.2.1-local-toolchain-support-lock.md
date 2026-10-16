@@ -48,9 +48,10 @@ substitute for a report from this matrix.
 ## Required local tools
 
 `rust-toolchain.toml` pins Rust and Cargo to `1.89.0` and requires the `clippy` and `rustfmt`
-components. The host-native linker in the table is required to compile the workspace. Cargo must
-honor the checked-in `Cargo.lock`; no lockfile update, dependency fetch, `--locked` bypass, or
-ambient executable is accepted as part of the acceptance run.
+components. The host-native linker in the table is required to compile the workspace. The
+version-controlled `Cargo.lock` is part of the approved checkout and Cargo must honor it; no
+lockfile update, dependency fetch, `--locked` bypass, or ambient executable is accepted as part
+of the acceptance run.
 
 The solver is bundled rather than installed from the host `PATH`. Its identity is Z3 `4.16.0`,
 with the deterministic options and time limits in

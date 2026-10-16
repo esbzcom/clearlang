@@ -1455,6 +1455,7 @@ fn demo() {
     fn pilot_local_toolchain_support_lock_is_complete_and_pinned() {
         const POLICY: &str = include_str!("../../../docs/design/phase-40.2.1-local-toolchain-support-lock.md");
         const TOOLCHAIN: &str = include_str!("../../../rust-toolchain.toml");
+        const LOCKFILE: &str = include_str!("../../../Cargo.lock");
         for required in [
             "cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
             "windows-x64",
@@ -1477,6 +1478,9 @@ fn demo() {
         }
         assert!(TOOLCHAIN.contains("channel = \"1.89.0\""));
         assert!(TOOLCHAIN.contains("components = [\"clippy\", \"rustfmt\"]"));
+        assert!(POLICY.contains("version-controlled `Cargo.lock`"));
+        assert!(LOCKFILE.contains("name = \"keccak\""));
+        assert!(LOCKFILE.contains("version = \"0.1.5\""));
     }
 
     #[test]

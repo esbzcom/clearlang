@@ -48,6 +48,10 @@ contract. For upgrades, incompatibilities, or rollback, follow the linked
 [`Phase 40.2.2 evidence compatibility and rollback lock`](design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md);
 never relabel or edit a retained report.
 
+Use the [clean-directory reproduction fixture](fixtures/phase-40.2.3/pilot-precheck-clean-directory-reproduction.md)
+to validate a successful report's schema and source-bound digest projection in a fresh output
+directory.
+
 Deterministic `.clear` source formatting check:
 
 ```powershell

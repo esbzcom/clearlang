@@ -84,7 +84,7 @@ contract platform.
 5. [x] 42.0-42.1 testnet profile and reference registry local evidence.
 6. [x] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
 7. [x] 40.1.4 full pilot-precheck fixture integration, after every named prerequisite exists.
-8. [ ] 40.2 local toolchain support/reproduction policy and clean-directory fixture, after the
+8. [x] 40.2 local toolchain support/reproduction policy and clean-directory fixture, after the
    pilot precheck exists.
 9. [x] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
 10. [x] 43.2 external-user walkthrough and documentation fixture.
@@ -143,10 +143,13 @@ contract platform.
     (`xtask/src/main/core/dispatch_and_drift.rs`, `xtask/src/main/tests.rs`)
     `Completed: 2026-10-15`.
 
-- [ ] 40.2 Publish the local-toolchain support and reproduction policy for the pilot: exact Rust,
+- [x] 40.2 Publish the local-toolchain support and reproduction policy for the pilot: exact Rust,
   solver, target-profile, verifier, and report-schema compatibility rules; deterministic failure
   diagnostics; and an explicit policy for supported versus informational remote automation. The
   documentation must name the exact one-command local acceptance path.
+  (`rust-toolchain.toml`, `docs/design/phase-40.2.1-local-toolchain-support-lock.md`,
+  `docs/design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md`,
+  `docs/fixtures/phase-40.2.3/`) `Completed: 2026-10-16`.
   - [x] 40.2.1 Record the supported local operating-system/architecture matrix, Rust toolchain,
     bundled solver identity, required external tools, and target/verifier/report schema versions.
     Pin the Rust toolchain used by local acceptance and reject an unlisted host or version rather
@@ -158,8 +161,9 @@ contract platform.
     diagnostic; it may not silently reinterpret evidence.
     (`docs/design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md`)
     `Completed: 2026-10-15`.
-  - [ ] 40.2.3 Create a clean-directory reproduction fixture that follows the published commands
+  - [x] 40.2.3 Create a clean-directory reproduction fixture that follows the published commands
     and validates the resulting report against its schema and expected digest projection.
+    (`docs/fixtures/phase-40.2.3/`, `xtask/src/main/tests.rs`) `Completed: 2026-10-16`.
 
 ## 41. Minimal Caller Authorization [Contract Gate B]
 

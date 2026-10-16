@@ -2,7 +2,48 @@
 mod tests {
     use super::*;
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    use serde::{Deserialize, Serialize};
     use std::sync::{Mutex, OnceLock};
+
+    #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+    struct PilotPrecheckDigestProjection {
+        schema_version: u32,
+        kind: String,
+        report_schema_version: u32,
+        report_kind: String,
+        scope: String,
+        gate_order: Vec<String>,
+        gates: Vec<PilotPrecheckDigestProjectionGate>,
+    }
+
+    #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+    struct PilotPrecheckDigestProjectionGate {
+        id: String,
+        input_digests: Vec<PilotPrecheckDigest>,
+        evidence_digests: Vec<PilotPrecheckDigest>,
+    }
+
+    fn pilot_precheck_digest_projection(
+        report: &PilotPrecheckReport,
+    ) -> PilotPrecheckDigestProjection {
+        PilotPrecheckDigestProjection {
+            schema_version: 1,
+            kind: "clg.pilot-precheck-digest-projection.v1".to_string(),
+            report_schema_version: report.schema_version,
+            report_kind: report.kind.clone(),
+            scope: report.scope.clone(),
+            gate_order: report.gate_order.clone(),
+            gates: report
+                .gates
+                .iter()
+                .map(|gate| PilotPrecheckDigestProjectionGate {
+                    id: gate.id.clone(),
+                    input_digests: gate.input_digests.clone(),
+                    evidence_digests: gate.evidence_digests.clone(),
+                })
+                .collect(),
+        }
+    }
 
     #[test]
     fn parse_std_core_args_uses_defaults() {
@@ -1404,6 +1445,79 @@ fn demo() {
                 "pilot evidence compatibility lock is missing `{required}`"
             );
         }
+    }
+
+    #[test]
+    fn pilot_precheck_clean_directory_fixture_validates_schema_and_digest_projection() {
+        const REPRODUCTION: &str = include_str!(
+            "../../../docs/fixtures/phase-40.2.3/pilot-precheck-clean-directory-reproduction.md"
+        );
+        const SCRIPT: &str = include_str!(
+            "../../../docs/fixtures/phase-40.2.3/pilot-precheck-clean-directory-reproduction.ps1"
+        );
+        let root = repo_root();
+        let projection_path = root
+            .join("docs")
+            .join("fixtures")
+            .join("phase-40.2.3")
+            .join("pilot-precheck-digest-projection.v1.json");
+        let expected_bytes = std::fs::read(&projection_path).expect("read digest projection");
+        let expected: PilotPrecheckDigestProjection =
+            serde_json::from_slice(&expected_bytes).expect("parse digest projection");
+
+        let report = new_full_pilot_precheck_report(root.as_path()).expect("new full report");
+        let actual = pilot_precheck_digest_projection(&report);
+        assert_eq!(actual, expected, "digest projection must bind current fixture inputs");
+        assert_eq!(
+            pretty_json_bytes(&expected).expect("serialize digest projection"),
+            expected_bytes,
+            "digest projection must use canonical JSON bytes"
+        );
+        assert!(
+            REPRODUCTION.contains("fail-closed report is still retained as diagnostic evidence"),
+            "clean-directory reproduction fixture must retain failed reports as diagnostic evidence"
+        );
+        for required in [
+            "cargo run --offline -p xtask -- pilot-precheck --report $Report",
+            "pilot-precheck-digest-projection.v1.json",
+            "clean report directory contains unexpected entries",
+        ] {
+            assert!(
+                SCRIPT.contains(required),
+                "runnable clean-directory fixture is missing `{required}`"
+            );
+        }
+
+        let mut successful = report;
+        for gate in &mut successful.gates {
+            gate.status = "passed".to_string();
+        }
+        validate_pilot_precheck_report_against_root(root.as_path(), &successful)
+            .expect("successful report validates against checkout");
+
+        let clean_dir = unique_temp_dir("pilot-precheck-clean-directory");
+        let report_path = clean_dir.join("pilot-precheck-full.json");
+        write_pilot_precheck_report(report_path.as_path(), &successful)
+            .expect("write clean-directory report");
+        let persisted: PilotPrecheckReport = serde_json::from_slice(
+            &std::fs::read(&report_path).expect("read clean-directory report"),
+        )
+        .expect("parse clean-directory report");
+        validate_pilot_precheck_report_against_root(root.as_path(), &persisted)
+            .expect("persisted report validates against checkout");
+        assert_eq!(
+            pilot_precheck_digest_projection(&persisted),
+            expected,
+            "persisted report must retain the locked digest projection"
+        );
+        assert_eq!(
+            std::fs::read_dir(&clean_dir)
+                .expect("read clean directory")
+                .count(),
+            1,
+            "clean directory must contain only the report"
+        );
+        cleanup_temp_dir(clean_dir.as_path());
     }
 
     #[test]

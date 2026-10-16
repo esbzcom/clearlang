@@ -82,9 +82,13 @@
       "wave": "wave2",
       "rationale": "Chain-target adapters should version independently after the helper and codec package surfaces are stabilized.",
       "modules": [
-        "std::eth"
+        "std::eth",
+        "std::eth::address",
+        "std::eth::context"
       ],
       "symbols": [
+        "std::eth::address::equals",
+        "std::eth::context::caller",
         "std::eth::from_array",
         "std::eth::from_bytes"
       ]

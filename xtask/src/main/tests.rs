@@ -1144,6 +1144,36 @@ fn demo() {
             "std::bytes::equals_ct",
             &external_intrinsic_symbols,
         ));
+        for path in [
+            "crates/typer/src/check/caller_authorization.rs",
+            "crates/typer/src/lower/calls.rs",
+            "crates/typer/src/vc/generate.rs",
+            "crates/typer/src/vc/refinements/smt.rs",
+            "crates/cli/src/commands/build/contract_state_schema.rs",
+            "crates/cli/src/commands/build/evm_artifact.rs",
+            "crates/cli/src/commands/build/evm_wire_abi.rs",
+            "crates/cli/src/commands/simulate.rs",
+        ] {
+            assert!(is_authorized_external_package_compiler_reference(
+                path,
+                "std::eth::Address",
+                &external_intrinsic_symbols,
+            ));
+        }
+        for path in [
+            "crates/typer/src/check/caller_authorization.rs",
+            "crates/typer/src/lower/calls.rs",
+            "crates/typer/src/vc/generate.rs",
+            "crates/cli/src/commands/build/contract_state_schema.rs",
+        ] {
+            for symbol in ["std::eth::address::equals", "std::eth::context::caller"] {
+                assert!(is_authorized_external_package_compiler_reference(
+                    path,
+                    symbol,
+                    &external_intrinsic_symbols,
+                ));
+            }
+        }
         assert!(!is_authorized_external_package_compiler_reference(
             "crates/codegen-wasm/src/ir/mod.rs",
             "std::contract::address::from_bytes",
@@ -1152,6 +1182,21 @@ fn demo() {
         assert!(!is_authorized_external_package_compiler_reference(
             "crates/cli/src/commands/modules/verified_std_abi.rs",
             "std::str::len",
+            &external_intrinsic_symbols,
+        ));
+        assert!(!is_authorized_external_package_compiler_reference(
+            "crates/typer/src/check/expr/calls/collections.rs",
+            "std::eth::Address",
+            &external_intrinsic_symbols,
+        ));
+        assert!(!is_authorized_external_package_compiler_reference(
+            "crates/typer/src/check/caller_authorization.rs",
+            "std::eth::from_bytes",
+            &external_intrinsic_symbols,
+        ));
+        assert!(!is_authorized_external_package_compiler_reference(
+            "crates/cli/src/commands/simulate.rs",
+            "std::eth::context::caller",
             &external_intrinsic_symbols,
         ));
     }

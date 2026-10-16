@@ -1497,6 +1497,41 @@ fn is_authorized_external_package_compiler_reference(
     symbol: &str,
     external_intrinsic_symbols: &BTreeSet<String>,
 ) -> bool {
+    // `std::eth` remains an external package candidate.  The locked
+    // caller-aware contract profile is the deliberately narrow exception:
+    // its opaque address representation must be shared by checking,
+    // lowering, proof generation, schemas, artifacts, and simulation.  Keep
+    // this list exact so the rest of the adapter surface cannot become an
+    // accidental compiler dependency.
+    if symbol == "std::eth::Address"
+        && matches!(
+            path,
+            "crates/typer/src/check/caller_authorization.rs"
+                | "crates/typer/src/lower/calls.rs"
+                | "crates/typer/src/vc/generate.rs"
+                | "crates/typer/src/vc/refinements/smt.rs"
+                | "crates/cli/src/commands/build/contract_state_schema.rs"
+                | "crates/cli/src/commands/build/evm_artifact.rs"
+                | "crates/cli/src/commands/build/evm_wire_abi.rs"
+                | "crates/cli/src/commands/simulate.rs"
+        )
+    {
+        return true;
+    }
+
+    if matches!(
+        symbol,
+        "std::eth::address::equals" | "std::eth::context::caller"
+    ) && matches!(
+        path,
+        "crates/typer/src/check/caller_authorization.rs"
+            | "crates/typer/src/lower/calls.rs"
+            | "crates/typer/src/vc/generate.rs"
+            | "crates/cli/src/commands/build/contract_state_schema.rs"
+    ) {
+        return true;
+    }
+
     match path {
         "crates/typer/src/builtins.rs" => true,
         "crates/typer/src/check/intrinsics.rs" => {
@@ -1650,7 +1685,11 @@ fn phase27_std_symbol_classification(module: &str) -> (&'static str, &'static st
             "external_std_package_candidate",
             "Pure helper and convenience APIs should evolve outside the compiler once signatures and deterministic behavior are enforced through the verified ABI boundary.",
         ),
-        "std::cosmos" | "std::eth" | "std::solana" => (
+        "std::cosmos"
+        | "std::eth"
+        | "std::eth::address"
+        | "std::eth::context"
+        | "std::solana" => (
             "external_std_package_candidate",
             "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
         ),
@@ -1758,7 +1797,7 @@ fn phase27_external_package_plan_entry(module: &str) -> ExternalStdPackagePlanSh
             rationale:
                 "Contract-domain helpers belong outside the compiler, but follow the pure helper wave because migration touches domain semantics and package naming more broadly.",
         },
-        "std::eth" => ExternalStdPackagePlanShape {
+        "std::eth" | "std::eth::address" | "std::eth::context" => ExternalStdPackagePlanShape {
             package_id: "std::eth",
             package_class: "chain_adapter",
             wave: "wave2",

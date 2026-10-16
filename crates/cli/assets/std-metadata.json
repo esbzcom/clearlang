@@ -445,6 +445,24 @@
       ]
     },
     {
+      "path": "std::eth::address",
+      "exports": [
+        {
+          "name": "equals",
+          "kind": "value"
+        }
+      ]
+    },
+    {
+      "path": "std::eth::context",
+      "exports": [
+        {
+          "name": "caller",
+          "kind": "value"
+        }
+      ]
+    },
+    {
       "path": "std::host",
       "exports": [
         {

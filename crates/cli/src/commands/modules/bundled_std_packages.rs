@@ -362,6 +362,8 @@ mod tests {
             "std::decode_error",
             "std::decoder",
             "std::eth",
+            "std::eth::address",
+            "std::eth::context",
             "std::encode_error",
             "std::encoder",
             "std::slice",
@@ -434,7 +436,10 @@ mod tests {
 
     #[test]
     fn bundled_std_eth_modules_follow_phase27_plan() {
-        let expected: BTreeSet<String> = ["std::eth"].into_iter().map(str::to_string).collect();
+        let expected: BTreeSet<String> = ["std::eth", "std::eth::address", "std::eth::context"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
         assert_eq!(
             bundled_std_eth_modules(),
             &expected,

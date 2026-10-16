@@ -201,6 +201,8 @@ Allowed values:
 |---|---|---|---|---|
 | `std::chain::<target>::*` | no | no | deferred | Deferred-by-default namespace family. |
 | `std::eth::{from_bytes,from_array}` | yes | yes | no | Current compatibility target namespace. |
+| `std::eth::address::equals` | yes | yes | yes | Locked caller-aware profile equality over the opaque 20-byte identity representation. |
+| `std::eth::context::caller` | yes | yes | yes | Locked caller-aware profile context observation; accepted only in its one permitted guard shape. |
 | `std::solana::{from_bytes,from_array}` | yes | yes | no | Current compatibility target namespace. |
 | `std::cosmos::{from_bytes,from_array}` | yes | yes | no | Current compatibility target namespace. |
 

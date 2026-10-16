@@ -411,6 +411,20 @@
       "capability": "std::env::time"
     },
     {
+      "symbol": "std::eth::address::equals",
+      "module_class": "pure_std",
+      "arity": 2,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
+      "symbol": "std::eth::context::caller",
+      "module_class": "pure_std",
+      "arity": 0,
+      "effect": "pure",
+      "route": "package_import"
+    },
+    {
       "symbol": "std::eth::from_array",
       "module_class": "pure_std",
       "arity": 1,

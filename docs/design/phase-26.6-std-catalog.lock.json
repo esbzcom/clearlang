@@ -651,6 +651,32 @@
       ]
     },
     {
+      "path": "std::eth::address",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "equals",
+          "kind": "value",
+          "arity": 2,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
+      "path": "std::eth::context",
+      "module_class": "pure_std",
+      "exports": [
+        {
+          "name": "caller",
+          "kind": "value",
+          "arity": 0,
+          "effect": "pure",
+          "route": "package_import"
+        }
+      ]
+    },
+    {
       "path": "std::host",
       "module_class": "pure_std",
       "exports": [

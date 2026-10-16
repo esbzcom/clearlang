@@ -4,7 +4,7 @@
   "generated_at": "2026-05-31",
   "summary": {
     "verified_std_abi": 80,
-    "external_std_package_candidate": 97
+    "external_std_package_candidate": 99
   },
   "modules": [
     {
@@ -211,6 +211,22 @@
         "Address",
         "from_array",
         "from_bytes"
+      ]
+    },
+    {
+      "module": "std::eth::address",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "exports": [
+        "equals"
+      ]
+    },
+    {
+      "module": "std::eth::context",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler.",
+      "exports": [
+        "caller"
       ]
     },
     {
@@ -1200,6 +1216,26 @@
       "symbol": "std::eth::from_bytes",
       "module": "std::eth",
       "export": "from_bytes",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::eth::address::equals",
+      "module": "std::eth::address",
+      "export": "equals",
+      "kind": "value",
+      "route": "package_import",
+      "effect": "pure",
+      "classification": "external_std_package_candidate",
+      "rationale": "Chain-target adapters belong above the stable ABI layer and should version independently from the language/compiler."
+    },
+    {
+      "symbol": "std::eth::context::caller",
+      "module": "std::eth::context",
+      "export": "caller",
       "kind": "value",
       "route": "package_import",
       "effect": "pure",

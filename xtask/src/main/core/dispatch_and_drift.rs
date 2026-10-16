@@ -2712,6 +2712,8 @@ fn run_clg_test_schema_gate(root: &Path) -> Result<(), String> {
         .arg("run")
         .arg("-p")
         .arg("clg-cli")
+        .arg("--bin")
+        .arg("clg")
         .arg("--")
         .arg("test")
         .arg(&project_root)

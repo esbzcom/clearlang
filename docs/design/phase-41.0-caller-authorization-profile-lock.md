@@ -76,6 +76,18 @@ diagnostic: caller authorization is outside the caller-aware contract profile. U
 placement or operation uses the same diagnostic rather than falling back to bytes, strings, or
 integers.
 
+## Compiler-Boundary Exception
+
+`std::eth` remains an external-package candidate in the standard-library architecture. The
+caller-aware profile permits only the opaque `std::eth::Address` representation to be
+compiler-known, and only in these eight implementation locations: profile checking, call
+lowering, VC generation, SMT refinement encoding, state-schema generation, EVM artifact
+generation, EVM wire-ABI generation, and simulation. The `context::caller` and `address::equals`
+operations are compiler-known only at the four sites that validate, lower, model, or record the
+single permitted guard. The architecture conformance check encodes these path-and-symbol
+allowlists exactly. It rejects every other Ethereum-adapter compiler reference until this locked
+profile is deliberately amended.
+
 ## Canonical Address Representation
 
 An EVM address is exactly 20 bytes. Its external JSON and CLI spelling is exactly:

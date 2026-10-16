@@ -1358,14 +1358,26 @@ fn demo() {
     }
 
     #[test]
-    fn pilot_precheck_baseline_report_is_deterministic_and_validated() {
+    fn pilot_precheck_full_report_is_deterministic_and_validated() {
         let root = repo_root();
-        let mut report = new_baseline_pilot_precheck_report(root.as_path()).expect("new report");
+        let mut report = new_full_pilot_precheck_report(root.as_path()).expect("new report");
         for gate in &mut report.gates {
             gate.status = "passed".to_string();
         }
         validate_pilot_precheck_report_against_root(root.as_path(), &report)
-            .expect("valid baseline report");
+            .expect("valid full report");
+        assert_eq!(report.scope, "full");
+        assert!(report.future_required_gates.is_empty());
+        assert_eq!(
+            report.gate_order,
+            vec![
+                "release-precheck",
+                "contract-release-fixtures",
+                "verifier-distribution-fixtures",
+                "caller-authorization-fixtures",
+                "reference-pilot-offline-replay",
+            ]
+        );
 
         let bytes_one = pretty_json_bytes(&report).expect("serialize report");
         let bytes_two = pretty_json_bytes(&report).expect("serialize report again");
@@ -1387,7 +1399,7 @@ fn demo() {
     #[test]
     fn pilot_precheck_report_rejects_tampering_and_unsafe_evidence() {
         let root = repo_root();
-        let mut report = new_baseline_pilot_precheck_report(root.as_path()).expect("new report");
+        let mut report = new_full_pilot_precheck_report(root.as_path()).expect("new report");
         for gate in &mut report.gates {
             gate.status = "passed".to_string();
         }
@@ -1417,7 +1429,7 @@ fn demo() {
     #[test]
     fn pilot_precheck_failure_shape_is_fail_closed() {
         let root = repo_root();
-        let mut report = new_baseline_pilot_precheck_report(root.as_path()).expect("new report");
+        let mut report = new_full_pilot_precheck_report(root.as_path()).expect("new report");
         report.overall_status = "failed".to_string();
         report.gates[0].status = "failed".to_string();
         report.gates[0].failure_code = Some("command_failed".to_string());

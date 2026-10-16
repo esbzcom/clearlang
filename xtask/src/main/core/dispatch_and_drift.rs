@@ -122,10 +122,10 @@ fn run_release_precheck(root: &Path) -> Result<(), String> {
 }
 
 const PILOT_PRECHECK_KIND: &str = "clg.pilot-precheck-report.v1";
-const PILOT_PRECHECK_SCOPE_BASELINE: &str = "baseline";
-const PILOT_PRECHECK_BASELINE_GATES: [&str; 2] =
-    ["release-precheck", "contract-release-fixtures"];
-const PILOT_PRECHECK_FUTURE_GATES: [&str; 3] = [
+const PILOT_PRECHECK_SCOPE_FULL: &str = "full";
+const PILOT_PRECHECK_GATES: [&str; 5] = [
+    "release-precheck",
+    "contract-release-fixtures",
     "verifier-distribution-fixtures",
     "caller-authorization-fixtures",
     "reference-pilot-offline-replay",
@@ -173,7 +173,7 @@ struct PilotPrecheckReport {
 
 fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
     let opts = parse_pilot_precheck_args(raw_args)?;
-    let mut report = new_baseline_pilot_precheck_report(root)?;
+    let mut report = new_full_pilot_precheck_report(root)?;
 
     for index in 0..report.gates.len() {
         let gate_id = report.gates[index].id.clone();
@@ -188,6 +188,31 @@ fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> 
                     "--test",
                     "cli_it",
                     "basic::contract_release_",
+                ],
+            ),
+            "verifier-distribution-fixtures" => {
+                cargo_cmd(root, &["test", "--workspace", "verifier"])
+            }
+            "caller-authorization-fixtures" => cargo_cmd(
+                root,
+                &[
+                    "test",
+                    "-p",
+                    "clg-cli",
+                    "--test",
+                    "cli_it",
+                    "basic::caller_aware_",
+                ],
+            ),
+            "reference-pilot-offline-replay" => cargo_cmd(
+                root,
+                &[
+                    "test",
+                    "-p",
+                    "clg-cli",
+                    "--test",
+                    "cli_it",
+                    "basic::pilot_evidence_replay_",
                 ],
             ),
             _ => Err(format!("unregistered pilot-precheck gate `{gate_id}`")),
@@ -238,30 +263,27 @@ fn parse_pilot_precheck_args(raw_args: Vec<String>) -> Result<PilotPrecheckOpts,
     Ok(PilotPrecheckOpts { report })
 }
 
-fn new_baseline_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, String> {
+fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, String> {
     Ok(PilotPrecheckReport {
         schema_version: 1,
         kind: PILOT_PRECHECK_KIND.to_string(),
-        scope: PILOT_PRECHECK_SCOPE_BASELINE.to_string(),
+        scope: PILOT_PRECHECK_SCOPE_FULL.to_string(),
         overall_status: "passed".to_string(),
         toolchain: vec![PilotPrecheckTool {
             name: "xtask".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         }],
-        gate_order: PILOT_PRECHECK_BASELINE_GATES
+        gate_order: PILOT_PRECHECK_GATES
             .iter()
             .map(|gate| (*gate).to_string())
             .collect(),
-        future_required_gates: PILOT_PRECHECK_FUTURE_GATES
-            .iter()
-            .map(|gate| (*gate).to_string())
-            .collect(),
+        future_required_gates: Vec::new(),
         gates: vec![
             new_pilot_precheck_gate(
                 root,
                 "release-precheck",
                 &["cargo", "run", "-p", "xtask", "--", "release-precheck"],
-                "Cargo.lock",
+                &["Cargo.lock"],
             )?,
             new_pilot_precheck_gate(
                 root,
@@ -275,7 +297,44 @@ fn new_baseline_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport
                     "cli_it",
                     "basic::contract_release_",
                 ],
-                "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+                &["crates/cli/tests/cli_it/basic/contract_test_campaign.rs"],
+            )?,
+            new_pilot_precheck_gate(
+                root,
+                "verifier-distribution-fixtures",
+                &["cargo", "test", "--workspace", "verifier"],
+                &[
+                    "xtask/src/main/tests.rs",
+                    "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+                ],
+            )?,
+            new_pilot_precheck_gate(
+                root,
+                "caller-authorization-fixtures",
+                &[
+                    "cargo",
+                    "test",
+                    "-p",
+                    "clg-cli",
+                    "--test",
+                    "cli_it",
+                    "basic::caller_aware_",
+                ],
+                &["crates/cli/tests/cli_it/basic/contract_test_campaign.rs"],
+            )?,
+            new_pilot_precheck_gate(
+                root,
+                "reference-pilot-offline-replay",
+                &[
+                    "cargo",
+                    "test",
+                    "-p",
+                    "clg-cli",
+                    "--test",
+                    "cli_it",
+                    "basic::pilot_evidence_replay_",
+                ],
+                &["crates/cli/tests/cli_it/basic/contract_target.rs"],
             )?,
         ],
     })
@@ -285,18 +344,23 @@ fn new_pilot_precheck_gate(
     root: &Path,
     id: &str,
     command: &[&str],
-    checked_input: &str,
+    checked_inputs: &[&str],
 ) -> Result<PilotPrecheckGateReport, String> {
-    let digest = PilotPrecheckDigest {
-        id: checked_input.to_string(),
-        sha256: file_sha256_hex(&root.join(checked_input))?,
-    };
+    let digests = checked_inputs
+        .iter()
+        .map(|checked_input| {
+            Ok(PilotPrecheckDigest {
+                id: (*checked_input).to_string(),
+                sha256: file_sha256_hex(&root.join(checked_input))?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     Ok(PilotPrecheckGateReport {
         id: id.to_string(),
         status: "not_run".to_string(),
         command: command.iter().map(|arg| (*arg).to_string()).collect(),
-        input_digests: vec![digest.clone()],
-        evidence_digests: vec![digest],
+        input_digests: digests.clone(),
+        evidence_digests: digests,
         failure_code: None,
     })
 }
@@ -305,22 +369,18 @@ fn validate_pilot_precheck_report(report: &PilotPrecheckReport) -> Result<(), St
     if report.schema_version != 1 || report.kind != PILOT_PRECHECK_KIND {
         return Err("invalid pilot-precheck report schema".to_string());
     }
-    if report.scope != PILOT_PRECHECK_SCOPE_BASELINE {
-        return Err("only the baseline pilot-precheck scope is implemented".to_string());
+    if report.scope != PILOT_PRECHECK_SCOPE_FULL {
+        return Err("pilot-precheck report must use the full scope".to_string());
     }
-    let expected_order = PILOT_PRECHECK_BASELINE_GATES
+    let expected_order = PILOT_PRECHECK_GATES
         .iter()
         .map(|gate| (*gate).to_string())
         .collect::<Vec<_>>();
     if report.gate_order != expected_order {
         return Err("pilot-precheck gate order is missing, substituted, or reordered".to_string());
     }
-    let expected_future = PILOT_PRECHECK_FUTURE_GATES
-        .iter()
-        .map(|gate| (*gate).to_string())
-        .collect::<Vec<_>>();
-    if report.future_required_gates != expected_future {
-        return Err("pilot-precheck future gate order is missing, substituted, or reordered".to_string());
+    if !report.future_required_gates.is_empty() {
+        return Err("full pilot-precheck report must not declare future required gates".to_string());
     }
     if report.gates.len() != expected_order.len()
         || report
@@ -379,7 +439,7 @@ fn validate_pilot_precheck_report_against_root(
     report: &PilotPrecheckReport,
 ) -> Result<(), String> {
     validate_pilot_precheck_report(report)?;
-    let expected = new_baseline_pilot_precheck_report(root)?;
+    let expected = new_full_pilot_precheck_report(root)?;
     for (actual, expected) in report.gates.iter().zip(expected.gates.iter()) {
         if actual.input_digests != expected.input_digests
             || actual.evidence_digests != expected.evidence_digests

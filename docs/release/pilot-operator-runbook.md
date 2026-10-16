@@ -47,24 +47,24 @@ incidental registry/network fetch from being mistaken for local acceptance.
 # [LOCAL / NO NETWORK]
 $env:CARGO_NET_OFFLINE = 'true'
 try {
-    cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-baseline.json
+    cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
     if ($LASTEXITCODE -ne 0) { throw 'STOP: pilot precheck failed' }
 }
 finally {
     Remove-Item Env:CARGO_NET_OFFLINE -ErrorAction SilentlyContinue
 }
-$Precheck = Get-Content out/pilot-precheck-baseline.json -Raw | ConvertFrom-Json
+$Precheck = Get-Content out/pilot-precheck-full.json -Raw | ConvertFrom-Json
 if ($Precheck.kind -cne 'clg.pilot-precheck-report.v1' -or
-    $Precheck.scope -cne 'baseline' -or
+    $Precheck.scope -cne 'full' -or
     $Precheck.overall_status -cne 'passed') {
-    throw 'STOP: pilot precheck did not produce a passing baseline report'
+    throw 'STOP: pilot precheck did not produce a passing full report'
 }
 ```
 
-Retain the report unchanged. At this milestone the implemented report scope is **`baseline`**,
-covering only `release-precheck` and `contract-release-fixtures`; it is not full pilot acceptance.
-Do not relabel it as `full` or treat it as authorization for a live action. Full integration is a
-separate roadmap task.
+Retain the report unchanged. Its **`full`** scope covers the fixed local release-precheck,
+contract-release, verifier-distribution, caller-authorization, and reference-pilot replay gates.
+It is evidence for the bounded testnet pilot only; it does not authorize a live action by itself
+and does not make a production, mainnet, or custody claim.
 
 ## 2. Review the offline release evidence and operator plan
 

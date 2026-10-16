@@ -118,7 +118,7 @@ fn print_help() {
         "  release-precheck - cargo fmt --check + clippy -D warnings + test + clg test schema gate"
     );
     println!(
-        "  pilot-precheck --report FILE - baseline local release and contract-release fixture gate"
+        "  pilot-precheck --report FILE - full local pilot fixture gate"
     );
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");

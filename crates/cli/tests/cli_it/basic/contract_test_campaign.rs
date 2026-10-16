@@ -78,6 +78,12 @@ fn reference_configuration_registry_v1_public_fixture_replays_without_secrets() 
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/projects/reference-config-registry/v1");
     let source = project.join("config_registry.clear");
+    assert!(
+        !fs::read(&source)
+            .expect("read public reference contract source")
+            .contains(&b'\r'),
+        "public reference source must retain LF byte offsets used by its canonical traces"
+    );
     let manifest: Value = serde_json::from_slice(
         &fs::read(project.join("fixture-manifest.json")).expect("read fixture manifest"),
     )

@@ -53,7 +53,7 @@ version-controlled `Cargo.lock` is part of the approved checkout and Cargo must 
 lockfile update, dependency fetch, `--locked` bypass, or ambient executable is accepted as part
 of the acceptance run.
 
-The solver is bundled rather than installed from the host `PATH`. Its identity is Z3 `4.16.0`,
+The solver is bundled in the approved checkout rather than installed from the host `PATH`. Its identity is Z3 `4.16.0`,
 with the deterministic options and time limits in
 `docs/design/phase-25.1.4-solver-profile.lock.json`. Each bundled executable requires its adjacent
 SHA-256 and detached Ed25519 signature as governed by

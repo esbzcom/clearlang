@@ -1,2 +1,3 @@
 docs/fixtures/phase-25.4/manifest-lock-consistency/clg.lock.json text eol=lf
 docs/fixtures/phase-25.4/manifest-lock-consistency/clg.resolved-graph.json text eol=lf
+*.clear text eol=lf

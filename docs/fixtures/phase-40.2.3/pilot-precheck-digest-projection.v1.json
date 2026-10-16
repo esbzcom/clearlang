@@ -32,13 +32,13 @@
       "input_digests": [
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
-          "sha256": "e4ce6ea912b56794477a072305d46207489bde1ab8f8bf1fb6fe1700b38c0c5d"
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
         }
       ],
       "evidence_digests": [
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
-          "sha256": "e4ce6ea912b56794477a072305d46207489bde1ab8f8bf1fb6fe1700b38c0c5d"
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
         }
       ]
     },
@@ -51,7 +51,7 @@
         },
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
-          "sha256": "e4ce6ea912b56794477a072305d46207489bde1ab8f8bf1fb6fe1700b38c0c5d"
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
         }
       ],
       "evidence_digests": [
@@ -61,7 +61,7 @@
         },
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
-          "sha256": "e4ce6ea912b56794477a072305d46207489bde1ab8f8bf1fb6fe1700b38c0c5d"
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
         }
       ]
     },
@@ -70,13 +70,13 @@
       "input_digests": [
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
-          "sha256": "e4ce6ea912b56794477a072305d46207489bde1ab8f8bf1fb6fe1700b38c0c5d"
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
         }
       ],
       "evidence_digests": [
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
-          "sha256": "e4ce6ea912b56794477a072305d46207489bde1ab8f8bf1fb6fe1700b38c0c5d"
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
         }
       ]
     },

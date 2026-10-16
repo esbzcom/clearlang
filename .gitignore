@@ -23,5 +23,11 @@ target
 #.idea/
 tmp/
 out.wasm
-tools/proof/z3/
+tools/proof/z3/*
+!tools/proof/z3/linux/
+!tools/proof/z3/macos/
+!tools/proof/z3/windows/
+!tools/proof/z3/windows/z3.exe
+!tools/proof/z3/windows/z3.exe.sha256
+!tools/proof/z3/windows/z3.exe.sig
 examples/projects/generic/out/

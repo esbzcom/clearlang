@@ -375,9 +375,10 @@ contract platform.
   with the distributed verifier, replay every required offline fixture, and record canonical
   evidence plus a human-readable result. A live testnet observation may be attached, but cannot
   substitute for any local acceptance evidence.
-  - [ ] 44.1.1 Create a clean local workspace with only documented tools and public fixtures;
+  - [x] 44.1.1 Create a clean local workspace with only documented tools and public fixtures;
     build the verifier and reference project without relying on untracked artifacts or user-level
     project configuration.
+    (`docs/evidence/phase-44.1.1-clean-checkout-rehearsal.md`) `Completed: 2026-10-16`.
   - [ ] 44.1.2 Execute the full local evidence chain in order: release precheck, pilot precheck,
     reference release, independent verification, authorization/tamper matrix, and offline target
     replay. Preserve the canonical report and its digest projection.

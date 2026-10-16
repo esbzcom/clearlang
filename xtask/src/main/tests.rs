@@ -1358,6 +1358,34 @@ fn demo() {
     }
 
     #[test]
+    fn pilot_local_toolchain_support_lock_is_complete_and_pinned() {
+        const POLICY: &str = include_str!("../../../docs/design/phase-40.2.1-local-toolchain-support-lock.md");
+        const TOOLCHAIN: &str = include_str!("../../../rust-toolchain.toml");
+        for required in [
+            "cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
+            "windows-x64",
+            "linux-x64-glibc-2.39",
+            "macos-x64-15.7.3",
+            "x86_64-pc-windows-msvc",
+            "x86_64-unknown-linux-gnu",
+            "x86_64-apple-darwin",
+            "Z3 `4.16.0`",
+            "clg.evm-sepolia-pilot.v1",
+            "clg.evm-stateful-scalar.v1",
+            "clg.contract-release-verifier-result.v1",
+            "clg.pilot-precheck-report.v1",
+            "Remote automation is informational only.",
+        ] {
+            assert!(
+                POLICY.contains(required),
+                "pilot local toolchain support lock is missing `{required}`"
+            );
+        }
+        assert!(TOOLCHAIN.contains("channel = \"1.89.0\""));
+        assert!(TOOLCHAIN.contains("components = [\"clippy\", \"rustfmt\"]"));
+    }
+
+    #[test]
     fn pilot_precheck_full_report_is_deterministic_and_validated() {
         let root = repo_root();
         let mut report = new_full_pilot_precheck_report(root.as_path()).expect("new report");

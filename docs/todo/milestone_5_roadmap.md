@@ -147,8 +147,12 @@ contract platform.
   solver, target-profile, verifier, and report-schema compatibility rules; deterministic failure
   diagnostics; and an explicit policy for supported versus informational remote automation. The
   documentation must name the exact one-command local acceptance path.
-  - [ ] 40.2.1 Record the supported local operating-system/architecture matrix, Rust toolchain,
+  - [x] 40.2.1 Record the supported local operating-system/architecture matrix, Rust toolchain,
     bundled solver identity, required external tools, and target/verifier/report schema versions.
+    Pin the Rust toolchain used by local acceptance and reject an unlisted host or version rather
+    than inferring compatibility.
+    (`rust-toolchain.toml`, `docs/design/phase-40.2.1-local-toolchain-support-lock.md`)
+    `Completed: 2026-10-15`.
   - [ ] 40.2.2 Specify upgrade, incompatibility, and rollback behavior: a changed toolchain or
     schema must either reproduce accepted evidence or fail with an actionable deterministic
     diagnostic; it may not silently reinterpret evidence.

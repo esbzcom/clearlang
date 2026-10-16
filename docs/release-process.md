@@ -41,6 +41,11 @@ contract-release, verifier-distribution, caller-authorization, and reference-pil
 fixture gates. It is local pilot-acceptance evidence only; it is not a production, mainnet, or
 remote-CI claim.
 
+Run it only from a host and Rust/solver environment listed in the
+[`Phase 40.2.1 local toolchain support lock`](design/phase-40.2.1-local-toolchain-support-lock.md).
+The exact offline command and compatibility set in that lock are part of the pilot evidence
+contract.
+
 Deterministic `.clear` source formatting check:
 
 ```powershell

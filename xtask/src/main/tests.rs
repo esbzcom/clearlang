@@ -45,6 +45,14 @@ mod tests {
         }
     }
 
+    fn normalized_document_text(input: &str) -> String {
+        input
+            .replace("**", "")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
     #[test]
     fn parse_std_core_args_uses_defaults() {
         let opts = parse_std_core_args(Vec::new()).expect("parse args");
@@ -1445,6 +1453,70 @@ fn demo() {
                 "pilot evidence compatibility lock is missing `{required}`"
             );
         }
+    }
+
+    #[test]
+    fn milestone_five_pilot_documents_keep_the_bounded_product_contract() {
+        const ROADMAP: &str = include_str!("../../../docs/todo/milestone_5_roadmap.md");
+        const PRODUCT: &str = include_str!(
+            "../../../docs/release/milestone_5_pilot_product_contract.md"
+        );
+        const RELEASE_PROCESS: &str = include_str!("../../../docs/release-process.md");
+        const VERIFIER: &str = include_str!(
+            "../../../docs/release/contract-verifier-offline-walkthrough.md"
+        );
+        const RUNBOOK: &str = include_str!("../../../docs/release/pilot-operator-runbook.md");
+        const INCIDENT: &str = include_str!(
+            "../../../docs/release/milestone_5_pilot_incident_and_rollback.md"
+        );
+        const BOUNDARY: &str = "locally validated, testnet-only pilot";
+        const EXCLUSIONS: &str =
+            "must not be described as generic EVM support, remote-CI certification, mainnet readiness, or custody safety";
+
+        for (name, document) in [
+            ("roadmap", ROADMAP),
+            ("product contract", PRODUCT),
+            ("release process", RELEASE_PROCESS),
+            ("verifier walkthrough", VERIFIER),
+            ("pilot runbook", RUNBOOK),
+            ("incident guide", INCIDENT),
+        ] {
+            let normalized = normalized_document_text(document);
+            assert!(normalized.contains(BOUNDARY), "{name} is missing pilot boundary");
+            assert!(
+                normalized.contains(EXCLUSIONS),
+                "{name} is missing bounded-pilot exclusions"
+            );
+        }
+
+        for required in [
+            "cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
+            "clg.evm-sepolia-pilot.v1",
+            "clg.evm-stateful-scalar.v1",
+            "clg.contract-release-verifier-result.v1",
+            "clg.pilot-precheck-report.v1",
+            "No command may infer an endpoint, chain ID, signer, nonce, fee, gas policy",
+        ] {
+            assert!(
+                PRODUCT.contains(required),
+                "product contract is missing required locked value `{required}`"
+            );
+        }
+        for required in [
+            "## Failed release verification",
+            "## Wrong-chain submission attempt",
+            "## Unexpected receipt or target behavior",
+            "## Leaked or suspected leaked test key",
+            "## Discovered artifact or evidence mismatch",
+            "chain-side remediation",
+        ] {
+            assert!(
+                INCIDENT.contains(required),
+                "incident guide is missing required procedure `{required}`"
+            );
+        }
+        assert!(ROADMAP.contains("- [x] 44.0 Publish the final Milestone 5 product contract"));
+        assert!(ROADMAP.contains("- [x] 44.0.3 Add document consistency checks"));
     }
 
     #[test]

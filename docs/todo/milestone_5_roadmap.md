@@ -348,19 +348,27 @@ contract platform.
 
 ## 44. Pilot Closure [Release Gate E]
 
-- [ ] 44.0 Publish the final Milestone 5 product contract, testnet-pilot operations guide,
+- [x] 44.0 Publish the final Milestone 5 product contract, testnet-pilot operations guide,
   compatibility policy, verifier input schema, incident/rollback guidance, and known exclusions.
   They must consistently say that the product is a locally validated, testnet-only pilot and must
   not claim generic EVM support, remote-CI certification, mainnet readiness, or custody safety.
-  - [ ] 44.0.1 Consolidate the supported commands, source/target profile, local gate, testnet
+  It must not be described as generic EVM support, remote-CI certification, mainnet readiness, or
+  custody safety.
+  (`docs/release/milestone_5_pilot_product_contract.md`,
+  `docs/release/milestone_5_pilot_incident_and_rollback.md`, `xtask/src/main/tests.rs`)
+  `Completed: 2026-10-16`.
+  - [x] 44.0.1 Consolidate the supported commands, source/target profile, local gate, testnet
     boundary, verifier trust inputs, operational responsibilities, and known exclusions into one
     product-contract document.
-  - [ ] 44.0.2 Write incident and rollback procedures for failed verification, wrong-chain
+    (`docs/release/milestone_5_pilot_product_contract.md`) `Completed: 2026-10-16`.
+  - [x] 44.0.2 Write incident and rollback procedures for failed verification, wrong-chain
     submission attempt, unexpected receipt, leaked test key, and a discovered artifact mismatch;
     distinguish evidence preservation from any chain-side remediation.
-  - [ ] 44.0.3 Add document consistency checks over the roadmap, product contract, release
+    (`docs/release/milestone_5_pilot_incident_and_rollback.md`) `Completed: 2026-10-16`.
+  - [x] 44.0.3 Add document consistency checks over the roadmap, product contract, release
     process, verifier guide, and pilot runbook so their version identifiers, commands, and
     supported/non-supported claims cannot drift silently.
+    (`xtask/src/main/tests.rs`) `Completed: 2026-10-16`.
 
 - [ ] 44.1 Perform a clean-checkout local closure rehearsal on the reference project. Generate
   the release bundle, run `xtask pilot-precheck`, verify the bundle from an independent directory

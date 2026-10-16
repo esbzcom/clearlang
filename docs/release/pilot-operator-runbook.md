@@ -6,8 +6,8 @@ explicit testnet submissions. The only supported target is
 `clg.evm-sepolia-pilot.v1` on Sepolia chain ID `11155111`.
 
 Do not begin a live action until the release owner has approved the exact release bundle and every
-value in the operator plan. This pilot is testnet-only and must not carry value, custody, mainnet,
-or production claims.
+value in the operator plan. This is a **locally validated, testnet-only pilot**. It must not be
+described as generic EVM support, remote-CI certification, mainnet readiness, or custody safety.
 
 ## Labels and external inputs
 
@@ -252,6 +252,8 @@ file contents.
 
 ## References
 
+- `docs/release/milestone_5_pilot_product_contract.md`
+- `docs/release/milestone_5_pilot_incident_and_rollback.md`
 - `docs/release/contract-verifier-offline-walkthrough.md`
 - `docs/design/phase-40.1.1-pilot-precheck-cli-report-lock.md`
 - `docs/design/phase-42.0.2-sepolia-pilot-profile-lock.md`

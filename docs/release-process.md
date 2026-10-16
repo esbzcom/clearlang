@@ -9,6 +9,11 @@ Primary user path is `clg strict init` + `clg release`; manual `build`/`verify` 
 - Signing + verification gates
 - Publishable release artifacts
 
+For Milestone 5, this is a **locally validated, testnet-only pilot**. It must not be described as
+generic EVM support, remote-CI certification, mainnet readiness, or custody safety. The canonical
+product boundary and operator roles are in
+[`milestone_5_pilot_product_contract.md`](release/milestone_5_pilot_product_contract.md).
+
 Phase 25.6 policy lock:
 - GA artifact scope is distributable `clg` binaries (release bundles remain assurance evidence).
 - GA baseline targets are Windows + Linux + macOS.

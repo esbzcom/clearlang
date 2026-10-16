@@ -214,11 +214,14 @@ extracted binary for any other purpose.
 
 This verifier checks only `clg.contract-release-bundle.v1` evidence for the
 `clg.evm-sepolia-pilot.v1` / `clg.evm-stateful-scalar.v1` pilot profile. It has no wallet, signer,
-RPC, deployment, telemetry, plugin, or network-discovery behavior. It does not validate a live
-chain result and must not be presented as general EVM, mainnet, custody, or production assurance.
+RPC, deployment, telemetry, plugin, or network-discovery behavior. It is part of a **locally
+validated, testnet-only pilot** and must not be described as generic EVM support, remote-CI
+certification, mainnet readiness, or custody safety. It does not validate a live chain result.
 
 ## References
 
+- `docs/release/milestone_5_pilot_product_contract.md`
+- `docs/release/milestone_5_pilot_incident_and_rollback.md`
 - `docs/design/phase-43.0.1-verifier-delivery-form-lock.md`
 - `docs/design/phase-43.0.2-verifier-compatibility-lock.md`
 - `docs/design/phase-43.0.3-verifier-lifecycle-and-rollback-lock.md`

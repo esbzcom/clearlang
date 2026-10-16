@@ -79,15 +79,15 @@ contract platform.
 
 1. [x] 40.0 product, threat-model, and local-validation lock.
 2. [x] 40.1.1 local pilot-precheck CLI/report lock.
-3. [ ] 40.1.2-40.1.3 baseline pilot-precheck implementation and report-validation fixtures.
+3. [x] 40.1.2-40.1.3 baseline pilot-precheck implementation and report-validation fixtures.
 4. [x] 41.0-41.2 caller authorization, target correspondence, and negative matrix.
-5. [ ] 42.0-42.1 testnet profile and reference registry local evidence.
-6. [ ] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
+5. [x] 42.0-42.1 testnet profile and reference registry local evidence.
+6. [x] 43.0-43.1 distributed verifier contract, packaging, and fixture matrix.
 7. [ ] 40.1.4 full pilot-precheck fixture integration, after every named prerequisite exists.
 8. [ ] 40.2 local toolchain support/reproduction policy and clean-directory fixture, after the
    pilot precheck exists.
-9. [ ] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
-10. [ ] 43.2 external-user walkthrough and documentation fixture.
+9. [x] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
+10. [x] 43.2 external-user walkthrough and documentation fixture.
 11. [ ] 44.0-44.2 final product documentation, two-clean-environment closure rehearsal, and
     pilot-readiness decision.
 
@@ -250,7 +250,7 @@ contract platform.
     (`examples/projects/reference-config-registry/v2/`,
     `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-14`.
 
-- [ ] 42.2 Add an explicit operator command/runbook for the testnet exercise. It must require
+- [x] 42.2 Add an explicit operator command/runbook for the testnet exercise. It must require
   operator-provided endpoint, chain ID, signer key, sender, nonce, gas limit, fee, constructor
   inputs, and release bundle; capture deploy and authorized/unauthorized invocation observations;
   then create a canonical, path-safe pilot-evidence record bound to release-bundle and receipt
@@ -319,7 +319,7 @@ contract platform.
     (`docs/design/phase-43.1.3-verifier-clean-directory-matrix.md`,
     `crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-15`.
 
-- [ ] 43.2 Publish a short external-user walkthrough: obtain the verifier, validate its
+- [x] 43.2 Publish a short external-user walkthrough: obtain the verifier, validate its
   checksum/signature, independently verify the reference bundle, inspect the product boundary,
   and reproduce the local pilot precheck. Include a disclosure template for a pilot operator to
   report incompatible target behavior or a verification mismatch with the retained evidence.
@@ -330,9 +330,10 @@ contract platform.
   - [x] 43.2.2 Write a separate operator path for the local pilot precheck and testnet evidence
     replay, marking every externally supplied value and every action that can contact a network.
     (`docs/release/pilot-operator-runbook.md`) `Completed: 2026-10-15`.
-  - [ ] 43.2.3 Add documentation tests that execute the non-network walkthrough in a temporary
+  - [x] 43.2.3 Add documentation tests that execute the non-network walkthrough in a temporary
     directory and validate that referenced artifact names, commands, and result schemas remain
     current.
+    (`crates/cli/tests/cli_it/basic/contract_test_campaign.rs`) `Completed: 2026-10-15`.
 
 ## 44. Pilot Closure [Release Gate E]
 

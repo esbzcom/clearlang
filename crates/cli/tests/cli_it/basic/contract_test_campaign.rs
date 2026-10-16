@@ -692,6 +692,100 @@ fn independent_verifier_matches_primary_verifier_canonical_result() {
 }
 
 #[test]
+fn published_offline_verifier_walkthrough_is_current_and_reproducible_without_network() {
+    const WALKTHROUGH: &str = include_str!("../../../../../docs/release/contract-verifier-offline-walkthrough.md");
+    for required in [
+        "clg-contract-verifier-v$Version-windows-x86_64.zip",
+        "clg-contract-verifier-v$Version-linux-x86_64.tar.gz",
+        "clg-contract-verifier-v$Version-macos-x86_64.tar.gz",
+        "clg-contract-verifier-v$Version-checksums.txt",
+        "clg-contract-verifier-v$Version-manifest.json",
+        "clg-contract-verifier-v$Version-manifest.sig.json",
+        "clg.contract-verifier-distribution-manifest.v1",
+        "clg.contract-verifier-distribution-signature.v1",
+        "clg.contract-release-verifier-result.v1",
+        "--json-errors verify-release --bundle $BundlePath --pubkey $ReleasePublicKeyPath",
+        "It never invokes the verifier until those checks pass.",
+        "REJECTED: C140",
+    ] {
+        assert!(
+            WALKTHROUGH.contains(required),
+            "offline verifier walkthrough is missing required current contract `{required}`"
+        );
+    }
+
+    let (workspace, pubkey, release) = prepared_reference_release();
+    let independent = tempdir().expect("independent walkthrough directory");
+    let evidence_root = independent.path().join("received-contract-release");
+    let verifier_root = independent.path().join("received-verifier-package");
+    fs::create_dir_all(&verifier_root).expect("create independent verifier package directory");
+    copy_release_tree(&release, &evidence_root);
+    let independent_pubkey = independent.path().join("release-public-key.json");
+    fs::copy(&pubkey, &independent_pubkey).expect("copy explicit release public key");
+    let verifier = verifier_root.join(if cfg!(windows) {
+        "clg-contract-verifier.exe"
+    } else {
+        "clg-contract-verifier"
+    });
+    fs::copy(assert_cmd::cargo::cargo_bin("clg-contract-verifier"), &verifier)
+        .expect("copy independent verifier executable");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&verifier)
+            .expect("read verifier permissions")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&verifier, permissions).expect("set verifier executable bit");
+    }
+    fs::remove_file(workspace.path().join("counter.clear"))
+        .expect("remove source outside independent walkthrough directory");
+
+    let proxy = std::net::TcpListener::bind("127.0.0.1:0").expect("bind offline proxy trap");
+    proxy.set_nonblocking(true).expect("make proxy trap nonblocking");
+    let proxy_url = format!("http://{}", proxy.local_addr().expect("proxy address"));
+    let output = Command::new(&verifier)
+        .current_dir(independent.path())
+        .env("HTTP_PROXY", &proxy_url)
+        .env("HTTPS_PROXY", &proxy_url)
+        .env("ALL_PROXY", &proxy_url)
+        .env("NO_PROXY", "")
+        .args(["--json-errors", "verify-release", "--bundle"])
+        .arg(evidence_root.join("counter.contract-release-bundle.json"))
+        .args(["--pubkey"])
+        .arg(&independent_pubkey)
+        .output()
+        .expect("run documented independent verifier command");
+    assert!(
+        output.status.success(),
+        "documented offline verifier command must succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        matches!(proxy.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+        "documented offline verifier command must not contact an ambient proxy"
+    );
+
+    let retained = independent
+        .path()
+        .join("contract-verification-result.json");
+    let canonical_output = output
+        .stdout
+        .strip_suffix(b"\n")
+        .expect("verifier stdout has its terminal newline");
+    fs::write(&retained, canonical_output).expect("retain canonical walkthrough result");
+    let result: Value = serde_json::from_slice(canonical_output).expect("parse verifier result");
+    assert_eq!(result["format"], "clg.contract-release-verifier-result.v1");
+    assert_eq!(result["schema_version"], 1);
+    assert_eq!(result["status"], "verified");
+    assert_eq!(
+        fs::read(&retained).expect("read retained walkthrough result"),
+        serde_json::to_vec(&result).expect("serialize canonical walkthrough result"),
+        "the walkthrough retention step must leave canonical JSON bytes without a trailing newline"
+    );
+}
+
+#[test]
 fn contract_release_reference_fixture_completes_release_target_and_independent_verification() {
     let dir = tempdir().expect("tempdir");
     let source = dir.path().join("counter.clear");

@@ -80,9 +80,9 @@ the approved checkout; it is not invoked by the acceptance command.
 
 The local precheck report records its own `xtask` version and evidence digests; it is not a general
 host-attestation format. The host/toolchain contract above is checked before running it. The
-upgrade, incompatibility, and rollback decision procedure is deliberately deferred to 40.2.2;
-until then, an unlisted version or platform is rejected for pilot acceptance rather than inferred
-compatible.
+upgrade, incompatibility, and rollback decision procedure is locked in
+`phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md`; an unlisted version or platform
+is rejected for pilot acceptance rather than inferred compatible.
 
 ## Remote-automation boundary
 

@@ -153,9 +153,11 @@ contract platform.
     than inferring compatibility.
     (`rust-toolchain.toml`, `docs/design/phase-40.2.1-local-toolchain-support-lock.md`)
     `Completed: 2026-10-15`.
-  - [ ] 40.2.2 Specify upgrade, incompatibility, and rollback behavior: a changed toolchain or
+  - [x] 40.2.2 Specify upgrade, incompatibility, and rollback behavior: a changed toolchain or
     schema must either reproduce accepted evidence or fail with an actionable deterministic
     diagnostic; it may not silently reinterpret evidence.
+    (`docs/design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md`)
+    `Completed: 2026-10-15`.
   - [ ] 40.2.3 Create a clean-directory reproduction fixture that follows the published commands
     and validates the resulting report against its schema and expected digest projection.
 

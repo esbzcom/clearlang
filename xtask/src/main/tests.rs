@@ -1386,6 +1386,27 @@ fn demo() {
     }
 
     #[test]
+    fn pilot_evidence_compatibility_and_rollback_lock_is_fail_closed() {
+        const POLICY: &str = include_str!(
+            "../../../docs/design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md"
+        );
+        for required in [
+            "or it is rejected with an actionable deterministic explanation",
+            "Reproduce; do not reuse the old acceptance report",
+            "Remote output is informational and has no acceptance authority.",
+            "falling back to a nearby version is not an action",
+            "new committed compatibility lock",
+            "never silently selected as the rollback target",
+            "rollback decision remains local and explicit.",
+        ] {
+            assert!(
+                POLICY.contains(required),
+                "pilot evidence compatibility lock is missing `{required}`"
+            );
+        }
+    }
+
+    #[test]
     fn pilot_precheck_full_report_is_deterministic_and_validated() {
         let root = repo_root();
         let mut report = new_full_pilot_precheck_report(root.as_path()).expect("new report");

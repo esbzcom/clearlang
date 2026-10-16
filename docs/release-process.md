@@ -44,7 +44,9 @@ remote-CI claim.
 Run it only from a host and Rust/solver environment listed in the
 [`Phase 40.2.1 local toolchain support lock`](design/phase-40.2.1-local-toolchain-support-lock.md).
 The exact offline command and compatibility set in that lock are part of the pilot evidence
-contract.
+contract. For upgrades, incompatibilities, or rollback, follow the linked
+[`Phase 40.2.2 evidence compatibility and rollback lock`](design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md);
+never relabel or edit a retained report.
 
 Deterministic `.clear` source formatting check:
 

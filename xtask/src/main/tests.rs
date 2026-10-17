@@ -1592,10 +1592,13 @@ fn demo() {
     }
 
     #[test]
-    fn milestone_six_ethereum_mainnet_profile_keeps_qualified_claims_and_no_target_authority() {
+    fn milestone_six_safe_owner_profile_keeps_qualified_claims_and_no_target_authority() {
         const ROADMAP: &str = include_str!("../../../docs/todo/milestone_6_roadmap.md");
-        const LOCK: &str = include_str!(
+        const DIRECT_LOCK: &str = include_str!(
             "../../../docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md"
+        );
+        const SAFE_AMENDMENT: &str = include_str!(
+            "../../../docs/design/phase-50.2-safe-owner-amendment.md"
         );
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-50.2/ethereum-mainnet-claim-terminology-fixtures.json"
@@ -1608,19 +1611,26 @@ fn demo() {
             fixture["kind"],
             "clg.ethereum-mainnet-claim-terminology-fixtures.v1"
         );
-        assert_eq!(fixture["target_profile"], "clg.evm-ethereum-mainnet-registry.v1");
+        assert_eq!(
+            fixture["authoritative_lock"],
+            "docs/design/phase-50.2-safe-owner-amendment.md"
+        );
+        assert_eq!(
+            fixture["target_profile"],
+            "clg.evm-ethereum-mainnet-safe-registry.v1"
+        );
         assert_eq!(fixture["chain_id"], 1);
 
         let cases = fixture["cases"].as_array().expect("fixture cases array");
         assert_eq!(
             cases.iter().filter(|case| case["outcome"] == "accept").count(),
-            5,
-            "fixture must retain all five qualified evidence-layer claims"
+            6,
+            "fixture must retain all six qualified evidence-layer claims"
         );
         assert_eq!(
             cases.iter().filter(|case| case["outcome"] == "reject").count(),
-            4,
-            "fixture must retain bare production/mainnet/verified/proved rejections"
+            5,
+            "fixture must retain bare production/mainnet/verified/proved/Safe rejections"
         );
         for (id, evidence_layer) in [
             ("qualified-source-proof", "source_proof"),
@@ -1628,6 +1638,7 @@ fn demo() {
             ("qualified-local-replay", "local_replay"),
             ("qualified-target-observation", "target_observation"),
             ("qualified-production-profile", "production_profile"),
+            ("qualified-safe-governance", "safe_governance"),
         ] {
             assert!(
                 cases.iter().any(|case| {
@@ -1643,6 +1654,7 @@ fn demo() {
             "bare-mainnet-ready",
             "bare-verified",
             "bare-proved-safe",
+            "bare-multisig-safe",
         ] {
             assert!(
                 cases.iter().any(|case| case["id"] == id && case["outcome"] == "reject"),
@@ -1651,28 +1663,32 @@ fn demo() {
         }
 
         for required in [
-            "`clg.evm-ethereum-mainnet-registry.v1`",
-            "Locally signed legacy EIP-155 transaction only",
-            "Exactly `0x0`",
-            "Poll no more often than once per **60 seconds**",
-            "at least **12 blocks**",
-            "After the first qualified finalized observation, retain two",
-            "additional observations at 60-second intervals.",
-            "Automatic replacement, cancellation, fee bumping,",
+            "`clg.evm-ethereum-mainnet-safe-registry.v1`",
+            "Safe Smart Account v1.4.1",
+            "threshold of two",
+            "Exactly three separately held, hardware-backed Ethereum signing keys",
+            "`operation` | `CALL` only; `DELEGATECALL` is prohibited",
+            "transaction value is exactly zero",
+            "12-block",
+            "two post-finality observations",
         ] {
             assert!(
-                LOCK.contains(required),
-                "Ethereum Mainnet target lock is missing `{required}`"
+                SAFE_AMENDMENT.contains(required),
+                "Safe-owner amendment is missing `{required}`"
             );
         }
         assert!(
-            normalized_document_text(LOCK).contains(
-                "This document authorizes no endpoint contact, signer use, transaction construction, deployment, invocation, or mainnet submission."
+            DIRECT_LOCK.contains("Status: Superseded before target action"),
+            "direct-owner profile must be retained as a superseded record"
+        );
+        assert!(
+            normalized_document_text(SAFE_AMENDMENT).contains(
+                "It authorizes no Safe deployment, Safe configuration, endpoint contact, signer use, transaction construction, registry deployment, invocation, or mainnet submission."
             ),
-            "Ethereum Mainnet target lock must retain its no-target-action boundary"
+            "Safe-owner amendment must retain its no-target-action boundary"
         );
         assert!(ROADMAP.contains("- [x] 50.2 Publish the named-mainnet profile"));
-        assert!(ROADMAP.contains("- [x] 50.2.4 Add terminology and documentation-consistency fixtures"));
+        assert!(ROADMAP.contains("- [x] 50.2.5 Record the 2-of-3 Safe owner decision"));
     }
 
     #[test]

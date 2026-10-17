@@ -2,15 +2,17 @@
 
 Date: 2026-10-17
 
-Status: Locked for Gate A planning and local fixture validation only. This
-document authorizes no endpoint contact, signer use, transaction construction,
-deployment, invocation, or mainnet submission.
+Status: Superseded before target action by
+[`phase-50.2-safe-owner-amendment.md`](phase-50.2-safe-owner-amendment.md).
+It is retained as the direct-owner policy record and authorizes no endpoint
+contact, signer use, transaction construction, deployment, invocation, or
+mainnet submission.
 
 Owner: target-runtime-owner and product-and-runtime-owner
 
 ## Decision
 
-The sole Milestone 6 target profile is
+The former Milestone 6 target profile was
 `clg.evm-ethereum-mainnet-registry.v1`:
 
 | Field | Locked value |
@@ -146,7 +148,7 @@ The fixture is validated locally by the `xtask` document-consistency test. It
 does not convert a documentation fixture, source proof, verifier result,
 endpoint observation, or finality observation into a production claim.
 
-## Non-Claims and Exit Criteria
+## Supersession and Non-Claims
 
 This lock does not implement a mainnet target adapter, contact an endpoint,
 select a provider, approve an endpoint, provision a signer, set a fee cap,
@@ -155,9 +157,9 @@ add EIP-1559, automatic fee/nonce selection, arbitrary Ethereum clients,
 generic EVM compatibility, generic multi-chain support, or any language,
 standard-library, proof, IR, code-generation, or verifier feature.
 
-Phase 50.2 exits when this lock and its terminology fixture are locally
-validated and the roadmap records the single profile. Gate A then permits only
-the local policy work of Gate B; it still permits no target action.
+This direct-owner profile no longer satisfies Phase 50.2. The Safe-owner
+amendment replaces its action envelope and must be validated before Gate A
+closes. Neither record permits a target action.
 
 ## References
 

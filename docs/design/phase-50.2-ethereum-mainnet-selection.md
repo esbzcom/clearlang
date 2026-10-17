@@ -2,8 +2,8 @@
 
 Date: 2026-10-17
 
-Status: Selection consumed by the Phase 50.2 target-profile lock. This
-decision and its successor authorize documentation and local fixture work only.
+Status: Selection retained; direct-owner policy superseded by the Safe-owner
+amendment. These decisions authorize documentation and local fixture work only.
 They authorize no RPC contact, signer use, transaction construction,
 deployment, invocation, or mainnet submission.
 
@@ -33,11 +33,10 @@ networks are less safe or unsuitable for other products.
 
 ## Completed by the Phase 50.2 Lock
 
-The target-profile lock now names and locally validates the transaction and
-invocation envelope, permitted RPC surface, endpoint-authentication boundary,
-client-observation policy, confirmation/finality/reorganization rules,
-fee/nonce/value policy, and claim-language fixtures. See
-[`phase-50.2-ethereum-mainnet-target-profile-lock.md`](phase-50.2-ethereum-mainnet-target-profile-lock.md).
+The direct-owner target-profile lock is retained for traceability but has been
+superseded before target action. The current policy uses an existing 2-of-3
+Safe Smart Account as the immutable registry owner; see
+[`phase-50.2-safe-owner-amendment.md`](phase-50.2-safe-owner-amendment.md).
 
 The lock does not select an endpoint, provision a signer, approve concrete
 constructor inputs, or make an observation. Those are later gate inputs. Only

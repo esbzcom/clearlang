@@ -229,11 +229,11 @@ Language-Feature Decision process below before any pack can declare it.
 ### First target decision
 
 Milestone 6 selects **Ethereum Mainnet**, chain ID `1`, as its only production
-target. The selection is documented in
-[`phase-50.2-ethereum-mainnet-selection.md`](phase-50.2-ethereum-mainnet-selection.md).
-It is a planning and policy decision only: the remaining target-profile lock,
-security gates, and explicit launch approval are still required before any
-mainnet submission.
+target. The current policy uses a 2-of-3 Safe Smart Account as the immutable
+owner of the Configuration Registry Profile; it is documented in
+[`phase-50.2-safe-owner-amendment.md`](phase-50.2-safe-owner-amendment.md).
+It is a planning and policy decision only: security gates and explicit launch
+approval are still required before any mainnet submission.
 
 ## Real Use Case: Public Configuration-Revision Beacon
 

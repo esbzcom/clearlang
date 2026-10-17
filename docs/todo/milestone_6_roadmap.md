@@ -115,7 +115,7 @@ action until every prerequisite explicitly says so.
 
 1. [x] 50.0 product, claim, actor, and pilot-integrity lock.
 2. [x] 50.1 clean v2 pilot-evidence reproduction and compatibility decision.
-3. [x] 50.2 named-mainnet profile and terminology-drift lock.
+3. [x] 50.2 Safe-owner mainnet profile amendment and terminology-drift lock.
 4. [ ] 51.0-51.1 operator authority, transaction-request, and secret-retention
    locks.
 5. [ ] 51.2-51.3 fail-closed policy implementation and adversarial fixture
@@ -196,31 +196,39 @@ submits no transaction.
     `Completed: 2026-10-17`.
 
 - [x] 50.2 Publish the named-mainnet profile and claim-terminology lock after
-  50.1 passes. Ethereum Mainnet is the selected one-chain target; the complete
-  Gate A policy is recorded in
-  [`docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md`](../design/phase-50.2-ethereum-mainnet-target-profile-lock.md).
-  It authorizes no target action. `Completed: 2026-10-17`.
+  50.1 passes. Ethereum Mainnet remains the one-chain target, but the former
+  direct-owner profile is superseded before target action by the 2-of-3 Safe
+  owner amendment:
+  [`docs/design/phase-50.2-safe-owner-amendment.md`](../design/phase-50.2-safe-owner-amendment.md).
+  Gate A remains local-only and authorizes no target action.
+  `Completed: 2026-10-17`.
   - [x] 50.2.1 Select exactly one chain: **Ethereum Mainnet**, chain ID `1`.
     The target-policy lock fixes the transaction type, required RPC methods,
     endpoint authentication boundary, and client/version observation policy.
     An unspecified or multiple-chain profile is invalid.
     `Completed: 2026-10-17`.
-  - [x] 50.2.2 Define confirmation depth, finality condition, observation
+  - [x] 50.2.2 Revalidate confirmation depth, finality condition, observation
     interval, reorganization detection window, and the required response to a
-    conflicting, missing, replaced, or reverted transaction.
-    (`docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md`)
+    conflicting, missing, replaced, reverted, or Safe-execution transaction.
+    (`docs/design/phase-50.2-safe-owner-amendment.md`)
     `Completed: 2026-10-17`.
-  - [x] 50.2.3 Define the allowed deployment and invocation envelope: exact
+  - [x] 50.2.3 Revalidate the allowed deployment and invocation envelope:
+    exact
     registry source/profile, constructor inputs, caller roles, gas/fee/nonce
-    policy, value prohibition, and exposure cap. Every value must be supplied
-    or approved explicitly.
-    (`docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md`)
+    policy, value prohibition, Safe owner/threshold identity, and exposure cap.
+    Every value and Safe configuration input must be supplied or approved
+    explicitly. (`docs/design/phase-50.2-safe-owner-amendment.md`)
     `Completed: 2026-10-17`.
-  - [x] 50.2.4 Add terminology and documentation-consistency fixtures that
+  - [x] 50.2.4 Revise terminology and documentation-consistency fixtures to
     reject unqualified `production`, `mainnet`, `verified`, and `proved`
-    claims and ensure all approved claims point to their evidence layer.
+    claims, distinguish Safe threshold evidence from source/release evidence,
+    and ensure all approved claims point to their evidence layer.
     (`docs/fixtures/phase-50.2/ethereum-mainnet-claim-terminology-fixtures.json`,
     `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
+  - [x] 50.2.5 Record the 2-of-3 Safe owner decision and explicitly supersede
+    the direct-owner profile before target action.
+    (`docs/design/phase-50.2-safe-owner-amendment.md`)
+    `Completed: 2026-10-17`.
 
 ### 51. Operator Authority and Deployment Controls [Security Gate B]
 
@@ -497,7 +505,8 @@ distinct high-risk program.
 
 ## First Task
 
-**50.2 - finish the Ethereum Mainnet profile and claim-terminology lock.**
-Chain selection is complete for Ethereum Mainnet, chain ID `1`. The remaining
-task is to define its exact transaction, observation, finality,
-fee/nonce/value, and terminology policy before any target action.
+**51.0 - publish the Safe-aware operator-authority and signer-policy lock.**
+The Ethereum Mainnet Safe-owner target profile is locally locked. The next
+task is to formalize the Safe identity/configuration evidence, hardware-custody
+roles, deployer/executor separation, rotation/revocation, and stop policy;
+this still authorizes no target action.

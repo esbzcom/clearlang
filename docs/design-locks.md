@@ -8,7 +8,8 @@ This document tracks the current design-lock references.
 ## Future Architecture (Not Yet a Capability or Release Lock)
 - `docs/design/verified-profile-packs.md` - terminology and trust boundary for post-Milestone-6 Verified Profiles and Profile Packs.
 - `docs/design/phase-50.2-ethereum-mainnet-selection.md` - selected Milestone 6 target; planning-only Ethereum Mainnet decision with no target-action authority.
-- `docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md` - Ethereum Mainnet registry target policy, finality/observation rules, and terminology-fixture boundary; no target-action authority.
+- `docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md` - superseded direct-owner Ethereum Mainnet policy record; no target-action authority.
+- `docs/design/phase-50.2-safe-owner-amendment.md` - current 2-of-3 Safe-owner amendment; supersedes the direct-owner target policy before target action.
 
 ## Milestone 6 Production Profile
 - `docs/design/phase-50.0-milestone-6-production-profile-lock.md`

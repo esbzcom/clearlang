@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "kind": "clg.ethereum-mainnet-claim-terminology-fixtures.v1",
-  "authoritative_lock": "docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md",
-  "target_profile": "clg.evm-ethereum-mainnet-registry.v1",
+  "authoritative_lock": "docs/design/phase-50.2-safe-owner-amendment.md",
+  "target_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
   "chain_id": 1,
   "purpose": "Offline positive and negative claim-language fixtures; no endpoint, signer, or target action is involved.",
   "required_qualifiers": {
@@ -10,7 +10,8 @@
     "release_verification": ["independent verifier", "bundle-local evidence", "approved public key"],
     "local_replay": ["named local profile", "recorded input"],
     "target_observation": ["Ethereum Mainnet", "explicit endpoint", "observation"],
-    "production_profile": ["Configuration Registry Profile", "Ethereum Mainnet", "operator policy", "exposure limit"]
+    "production_profile": ["Configuration Registry Profile", "Ethereum Mainnet", "operator policy", "exposure limit"],
+    "safe_governance": ["Safe", "2-of-3", "named owner set", "approved Safe transaction"]
   },
   "cases": [
     {
@@ -44,6 +45,12 @@
       "evidence_layer": "production_profile"
     },
     {
+      "id": "qualified-safe-governance",
+      "outcome": "accept",
+      "claim": "The named Safe 2-of-3 owner set approved the named Safe transaction for the registry operation.",
+      "evidence_layer": "safe_governance"
+    },
+    {
       "id": "bare-production-ready",
       "outcome": "reject",
       "claim": "ClearLang is production-ready.",
@@ -66,6 +73,12 @@
       "outcome": "reject",
       "claim": "The contract is proved safe.",
       "reason": "Missing the named proof obligations and excludes unmodeled host, chain, and cryptographic assumptions."
+    },
+    {
+      "id": "bare-multisig-safe",
+      "outcome": "reject",
+      "claim": "The multisig makes the contract safe.",
+      "reason": "A Safe threshold controls only the named owner action; it does not establish source proof, release correspondence, endpoint honesty, finality, or generic contract safety."
     }
   ]
 }

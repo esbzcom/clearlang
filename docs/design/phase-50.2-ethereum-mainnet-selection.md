@@ -2,10 +2,10 @@
 
 Date: 2026-10-17
 
-Status: Selected for the Milestone 6 target-profile lock. This decision
-authorizes documentation and local policy/fixture work only. It authorizes no
-RPC contact, signer use, transaction construction, deployment, invocation, or
-mainnet submission.
+Status: Selection consumed by the Phase 50.2 target-profile lock. This
+decision and its successor authorize documentation and local fixture work only.
+They authorize no RPC contact, signer use, transaction construction,
+deployment, invocation, or mainnet submission.
 
 ## Decision
 
@@ -31,22 +31,18 @@ networks are less safe or unsuitable for other products.
 | Later networks | They require independently versioned Target Profile Packs and their own full evidence/approval sequence. They are not implied by Ethereum compatibility. |
 | Authority | This record changes no signer, endpoint, transaction, fee, nonce, client, or launch authority. |
 
-## Still Required Before Phase 50.2 Closes
+## Completed by the Phase 50.2 Lock
 
-This selection deliberately does **not** lock transaction or observation
-semantics. The final Ethereum target profile must still name, review, and test:
+The target-profile lock now names and locally validates the transaction and
+invocation envelope, permitted RPC surface, endpoint-authentication boundary,
+client-observation policy, confirmation/finality/reorganization rules,
+fee/nonce/value policy, and claim-language fixtures. See
+[`phase-50.2-ethereum-mainnet-target-profile-lock.md`](phase-50.2-ethereum-mainnet-target-profile-lock.md).
 
-1. the approved transaction type and exact constructor/invocation encoding;
-2. the minimum RPC method set, endpoint authentication boundary, and supported
-   client/version observations;
-3. confirmation depth, Ethereum finality condition, observation interval,
-   reorganization window, and failure response;
-4. gas, fee, nonce, sender, replacement/cancellation, and zero-value policy;
-5. terminology fixtures that bind each qualified claim to its evidence layer.
-
-Those inputs belong to the remaining Phase 50.2 tasks and later security and
-launch gates. Only Phase 54.4, after an explicit Phase 54.3 approval, may
-submit the one permitted limited mainnet action.
+The lock does not select an endpoint, provision a signer, approve concrete
+constructor inputs, or make an observation. Those are later gate inputs. Only
+Phase 54.4, after an explicit Phase 54.3 approval, may submit the one
+permitted limited mainnet action.
 
 ## Future Extension Rule
 

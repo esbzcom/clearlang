@@ -64,7 +64,8 @@ The product does not support arbitrary EVM bytecode or clients, multiple chain t
 transactions, automatic nonce/fee selection, proxy/delegate calls, fallback dispatch, value
 transfer, external calls/callbacks, reentrancy execution, dynamic ABI values, collections,
 `U256`, branches or loops that mutate state, remote signing, wallet discovery, transaction
-replacement, confirmation-depth policy, or automatic deployment upgrade/rollback.
+replacement, unprofiled or automatic confirmation-depth policy, or automatic deployment
+upgrade/rollback.
 
 The proof claim excludes cryptographic hardness, constant-time or side-channel behavior, and
 target-runtime implementation correctness unless separately modeled and verified. Unsupported

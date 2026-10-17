@@ -115,7 +115,7 @@ action until every prerequisite explicitly says so.
 
 1. [x] 50.0 product, claim, actor, and pilot-integrity lock.
 2. [x] 50.1 clean v2 pilot-evidence reproduction and compatibility decision.
-3. [ ] 50.2 named-mainnet profile and terminology-drift lock.
+3. [x] 50.2 named-mainnet profile and terminology-drift lock.
 4. [ ] 51.0-51.1 operator authority, transaction-request, and secret-retention
    locks.
 5. [ ] 51.2-51.3 fail-closed policy implementation and adversarial fixture
@@ -195,27 +195,32 @@ submits no transaction.
     was not taken. (`docs/evidence/phase-50.1-clean-v2-reproduction.md`)
     `Completed: 2026-10-17`.
 
-- [ ] 50.2 Publish the named-mainnet profile and claim-terminology lock after
-  50.1 passes. Ethereum Mainnet is the selected one-chain target; selection is
-  recorded in
-  [`docs/design/phase-50.2-ethereum-mainnet-selection.md`](../design/phase-50.2-ethereum-mainnet-selection.md).
-  It authorizes no target action and does not complete this phase.
+- [x] 50.2 Publish the named-mainnet profile and claim-terminology lock after
+  50.1 passes. Ethereum Mainnet is the selected one-chain target; the complete
+  Gate A policy is recorded in
+  [`docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md`](../design/phase-50.2-ethereum-mainnet-target-profile-lock.md).
+  It authorizes no target action. `Completed: 2026-10-17`.
   - [x] 50.2.1 Select exactly one chain: **Ethereum Mainnet**, chain ID `1`.
-    The selection record defines the remaining required lock inputs—transaction
-    type,
-    required RPC methods, endpoint authentication boundary, and supported
-    client/version observations. An unspecified or multiple-chain profile is
-    invalid. `Completed: 2026-10-17`.
-  - [ ] 50.2.2 Define confirmation depth, finality condition, observation
+    The target-policy lock fixes the transaction type, required RPC methods,
+    endpoint authentication boundary, and client/version observation policy.
+    An unspecified or multiple-chain profile is invalid.
+    `Completed: 2026-10-17`.
+  - [x] 50.2.2 Define confirmation depth, finality condition, observation
     interval, reorganization detection window, and the required response to a
     conflicting, missing, replaced, or reverted transaction.
-  - [ ] 50.2.3 Define the allowed deployment and invocation envelope: exact
+    (`docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md`)
+    `Completed: 2026-10-17`.
+  - [x] 50.2.3 Define the allowed deployment and invocation envelope: exact
     registry source/profile, constructor inputs, caller roles, gas/fee/nonce
     policy, value prohibition, and exposure cap. Every value must be supplied
     or approved explicitly.
-  - [ ] 50.2.4 Add terminology and documentation-consistency fixtures that
+    (`docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md`)
+    `Completed: 2026-10-17`.
+  - [x] 50.2.4 Add terminology and documentation-consistency fixtures that
     reject unqualified `production`, `mainnet`, `verified`, and `proved`
     claims and ensure all approved claims point to their evidence layer.
+    (`docs/fixtures/phase-50.2/ethereum-mainnet-claim-terminology-fixtures.json`,
+    `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
 ### 51. Operator Authority and Deployment Controls [Security Gate B]
 

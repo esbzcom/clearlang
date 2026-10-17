@@ -1592,6 +1592,90 @@ fn demo() {
     }
 
     #[test]
+    fn milestone_six_ethereum_mainnet_profile_keeps_qualified_claims_and_no_target_authority() {
+        const ROADMAP: &str = include_str!("../../../docs/todo/milestone_6_roadmap.md");
+        const LOCK: &str = include_str!(
+            "../../../docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md"
+        );
+        const FIXTURE: &str = include_str!(
+            "../../../docs/fixtures/phase-50.2/ethereum-mainnet-claim-terminology-fixtures.json"
+        );
+
+        let fixture: serde_json::Value =
+            serde_json::from_str(FIXTURE).expect("parse Ethereum claim terminology fixture");
+        assert_eq!(fixture["schema_version"], 1);
+        assert_eq!(
+            fixture["kind"],
+            "clg.ethereum-mainnet-claim-terminology-fixtures.v1"
+        );
+        assert_eq!(fixture["target_profile"], "clg.evm-ethereum-mainnet-registry.v1");
+        assert_eq!(fixture["chain_id"], 1);
+
+        let cases = fixture["cases"].as_array().expect("fixture cases array");
+        assert_eq!(
+            cases.iter().filter(|case| case["outcome"] == "accept").count(),
+            5,
+            "fixture must retain all five qualified evidence-layer claims"
+        );
+        assert_eq!(
+            cases.iter().filter(|case| case["outcome"] == "reject").count(),
+            4,
+            "fixture must retain bare production/mainnet/verified/proved rejections"
+        );
+        for (id, evidence_layer) in [
+            ("qualified-source-proof", "source_proof"),
+            ("qualified-release-verification", "release_verification"),
+            ("qualified-local-replay", "local_replay"),
+            ("qualified-target-observation", "target_observation"),
+            ("qualified-production-profile", "production_profile"),
+        ] {
+            assert!(
+                cases.iter().any(|case| {
+                    case["id"] == id
+                        && case["outcome"] == "accept"
+                        && case["evidence_layer"] == evidence_layer
+                }),
+                "fixture is missing qualified `{id}` case"
+            );
+        }
+        for id in [
+            "bare-production-ready",
+            "bare-mainnet-ready",
+            "bare-verified",
+            "bare-proved-safe",
+        ] {
+            assert!(
+                cases.iter().any(|case| case["id"] == id && case["outcome"] == "reject"),
+                "fixture is missing rejected `{id}` case"
+            );
+        }
+
+        for required in [
+            "`clg.evm-ethereum-mainnet-registry.v1`",
+            "Locally signed legacy EIP-155 transaction only",
+            "Exactly `0x0`",
+            "Poll no more often than once per **60 seconds**",
+            "at least **12 blocks**",
+            "After the first qualified finalized observation, retain two",
+            "additional observations at 60-second intervals.",
+            "Automatic replacement, cancellation, fee bumping,",
+        ] {
+            assert!(
+                LOCK.contains(required),
+                "Ethereum Mainnet target lock is missing `{required}`"
+            );
+        }
+        assert!(
+            normalized_document_text(LOCK).contains(
+                "This document authorizes no endpoint contact, signer use, transaction construction, deployment, invocation, or mainnet submission."
+            ),
+            "Ethereum Mainnet target lock must retain its no-target-action boundary"
+        );
+        assert!(ROADMAP.contains("- [x] 50.2 Publish the named-mainnet profile"));
+        assert!(ROADMAP.contains("- [x] 50.2.4 Add terminology and documentation-consistency fixtures"));
+    }
+
+    #[test]
     fn pilot_precheck_clean_directory_fixture_validates_schema_and_digest_projection() {
         const REPRODUCTION: &str = include_str!(
             "../../../docs/fixtures/phase-40.2.3/pilot-precheck-clean-directory-reproduction.md"

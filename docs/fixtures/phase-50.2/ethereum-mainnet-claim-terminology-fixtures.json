@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "kind": "clg.ethereum-mainnet-claim-terminology-fixtures.v1",
+  "authoritative_lock": "docs/design/phase-50.2-ethereum-mainnet-target-profile-lock.md",
+  "target_profile": "clg.evm-ethereum-mainnet-registry.v1",
+  "chain_id": 1,
+  "purpose": "Offline positive and negative claim-language fixtures; no endpoint, signer, or target action is involved.",
+  "required_qualifiers": {
+    "source_proof": ["named compiler", "solver", "proof profile"],
+    "release_verification": ["independent verifier", "bundle-local evidence", "approved public key"],
+    "local_replay": ["named local profile", "recorded input"],
+    "target_observation": ["Ethereum Mainnet", "explicit endpoint", "observation"],
+    "production_profile": ["Configuration Registry Profile", "Ethereum Mainnet", "operator policy", "exposure limit"]
+  },
+  "cases": [
+    {
+      "id": "qualified-source-proof",
+      "outcome": "accept",
+      "claim": "The named source obligations were checked under the named compiler, solver, and proof profile.",
+      "evidence_layer": "source_proof"
+    },
+    {
+      "id": "qualified-release-verification",
+      "outcome": "accept",
+      "claim": "The independent verifier accepted bundle-local evidence under the approved public key.",
+      "evidence_layer": "release_verification"
+    },
+    {
+      "id": "qualified-local-replay",
+      "outcome": "accept",
+      "claim": "The recorded input replayed under the named local profile.",
+      "evidence_layer": "local_replay"
+    },
+    {
+      "id": "qualified-target-observation",
+      "outcome": "accept",
+      "claim": "The explicit endpoint returned an Ethereum Mainnet target observation matching the recorded request.",
+      "evidence_layer": "target_observation"
+    },
+    {
+      "id": "qualified-production-profile",
+      "outcome": "accept",
+      "claim": "Production-ready for the named Configuration Registry Profile on Ethereum Mainnet under the named operator policy and exposure limit only.",
+      "evidence_layer": "production_profile"
+    },
+    {
+      "id": "bare-production-ready",
+      "outcome": "reject",
+      "claim": "ClearLang is production-ready.",
+      "reason": "Missing product profile, chain, operator policy, exposure limit, and final evidence decision."
+    },
+    {
+      "id": "bare-mainnet-ready",
+      "outcome": "reject",
+      "claim": "The contract is mainnet-ready.",
+      "reason": "Missing named profile, chain, evidence layer, and explicit launch decision."
+    },
+    {
+      "id": "bare-verified",
+      "outcome": "reject",
+      "claim": "The contract is verified.",
+      "reason": "Does not distinguish source proof, release verification, target observation, or production decision."
+    },
+    {
+      "id": "bare-proved-safe",
+      "outcome": "reject",
+      "claim": "The contract is proved safe.",
+      "reason": "Missing the named proof obligations and excludes unmodeled host, chain, and cryptographic assumptions."
+    }
+  ]
+}

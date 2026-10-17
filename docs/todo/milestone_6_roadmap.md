@@ -287,17 +287,22 @@ contact a target.
     `xtask/src/main/tests.rs`)
     `Completed: 2026-10-17`.
 
-- [ ] 51.3 Add the operator-control adversarial matrix and runbook.
-  - [ ] 51.3.1 Add positive fixtures for the separately approved direct
+- [x] 51.3 Add the operator-control adversarial matrix and offline runbook.
+  - [x] 51.3.1 Add positive fixtures for the separately approved direct
     deployment and Safe-executed zero-value registry revision only.
-  - [ ] 51.3.2 Add negative fixtures for wrong chain, wrong signer, inadequate
-    approval, expired request, nonce collision, under/over fee policy,
-    nonzero value, wrong Safe/owner set/threshold, non-`CALL` operation,
+  - [x] 51.3.2 Add negative fixtures for wrong chain, wrong signer, inadequate
+    approval, expired request, internally inconsistent nonce, closed fee
+    envelope, nonzero value, and explicitly classify live nonce-collision or
+    dynamic-market-fee questions as later target-observation work;
+    reject wrong Safe/owner set/threshold, non-`CALL` operation,
     arbitrary calldata, policy drift, cross-environment reuse, key rotation,
     unsafe paths, and secret leakage.
-  - [ ] 51.3.3 Publish a short operator runbook covering preparation, two-party
+  - [x] 51.3.3 Publish a short operator runbook covering preparation, two-party
     handoff where required, abort, evidence preservation, and compromise
     response. Documentation tests must exercise its local/offline steps.
+    (`docs/fixtures/phase-51.3/safe-operator-control-adversarial-matrix.json`,
+    `docs/release/safe-registry-operator-runbook.md`, `xtask/src/main/tests.rs`)
+    `Completed: 2026-10-17`.
 
 ### 52. Mainnet Correspondence and Operational Evidence [Target Gate C]
 
@@ -525,10 +530,10 @@ distinct high-risk program.
 
 ## First Task
 
-**51.3 - add the operator-control adversarial matrix and offline runbook.**
-The validator now recognizes only the locked action/evidence records and emits
-deterministic secret-free acceptance or rejection reports without contacting a
-target. The next task is to expand the corpus into the full adversarial matrix
-and publish an offline operator runbook for preparation, two-owner handoff,
-abort, evidence preservation, and compromise response. It must not access a
-wallet, sign, or submit a transaction.
+**52.0 - publish the deployment-correspondence and target-observation lock.**
+Security Gate B is locally complete: the Safe-aware environment policy,
+request/evidence contract, fail-closed offline validator, adversarial matrix,
+and offline runbook are all locked. The next task is to define—not perform—the
+exact source-to-target identity chain and target-observation evidence required
+for the later target gate. It authorizes no RPC contact, Safe setup, signing,
+deployment, invocation, or mainnet claim.

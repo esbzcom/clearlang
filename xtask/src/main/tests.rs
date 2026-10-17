@@ -1710,6 +1710,72 @@ fn demo() {
     }
 
     #[test]
+    fn milestone_six_operator_control_matrix_and_runbook_are_offline_and_complete() {
+        const MATRIX: &str = include_str!("../../../docs/fixtures/phase-51.3/safe-operator-control-adversarial-matrix.json");
+        const RUNBOOK: &str = include_str!("../../../docs/release/safe-registry-operator-runbook.md");
+        let matrix: serde_json::Value = serde_json::from_str(MATRIX).expect("parse matrix");
+        assert_eq!(
+            matrix["format"].as_str(),
+            Some("clg.safe-operator-control-adversarial-matrix.v1")
+        );
+        assert_eq!(matrix["schema_version"].as_u64(), Some(1));
+        assert_eq!(matrix["scope"].as_str(), Some("offline_only"));
+        assert_eq!(
+            matrix["positive_cases"].as_array().expect("positive cases").len(),
+            2
+        );
+        let names = matrix["rejection_cases"]
+            .as_array()
+            .expect("rejection cases")
+            .iter()
+            .filter_map(|entry| entry["name"].as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "wrong_chain",
+            "wrong_signer_or_approval_record",
+            "inadequate_owner_approval",
+            "expired_request_or_approval",
+            "safe_nonce_inconsistent",
+            "unsupported_fee_envelope",
+            "zero_fee",
+            "nonzero_value",
+            "safe_version_owner_set_or_threshold_drift",
+            "non_call_operation",
+            "arbitrary_or_malformed_calldata",
+            "release_or_policy_digest_drift",
+            "owner_rotation_or_safe_governance_change",
+            "unsafe_path",
+            "secret_marker",
+        ] {
+            assert!(names.contains(required), "matrix missing {required}");
+        }
+        assert_eq!(
+            matrix["observation_deferred_cases"]
+                .as_array()
+                .expect("deferred cases")
+                .len(),
+            2
+        );
+        let runbook = normalized_document_text(RUNBOOK);
+        for required in [
+            "Offline Preparation",
+            "Two-Owner Handoff",
+            "Abort and Stop",
+            "Compromise Response",
+            "Evidence Retention",
+            "Offline Drill",
+            "safe-policy-validate",
+            "does not authorize",
+            "break-glass key",
+        ] {
+            assert!(runbook.contains(required), "runbook missing {required}");
+        }
+        for forbidden in ["eth_sendrawtransaction", "eth_sendtransaction", "sign a transaction"] {
+            assert!(!runbook.to_ascii_lowercase().contains(forbidden));
+        }
+    }
+
+    #[test]
     fn pilot_precheck_report_destination_is_new_and_safe() {
         let root = repo_root();
         let accepted = root.join("out").join("pilot-precheck-test-report.json");

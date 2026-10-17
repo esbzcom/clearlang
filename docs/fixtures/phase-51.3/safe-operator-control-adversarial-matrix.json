@@ -1,0 +1,135 @@
+{
+  "format": "clg.safe-operator-control-adversarial-matrix.v1",
+  "schema_version": 1,
+  "scope": "offline_only",
+  "positive_cases": [
+    {
+      "name": "approved_direct_zero_value_registry_deployment",
+      "action_kind": "registry_deploy",
+      "expected_status": "accepted"
+    },
+    {
+      "name": "approved_safe_zero_value_registry_revision",
+      "action_kind": "safe_registry_set_value",
+      "expected_status": "accepted"
+    }
+  ],
+  "rejection_cases": [
+    {
+      "name": "wrong_chain",
+      "layer": "record",
+      "mutation": "target.chain_id=11155111",
+      "expected_rejection": "M6B002"
+    },
+    {
+      "name": "wrong_or_reused_environment_approval",
+      "layer": "record",
+      "mutation": "evidence.environment=development",
+      "expected_rejection": "M6B002"
+    },
+    {
+      "name": "wrong_signer_or_approval_record",
+      "layer": "record",
+      "mutation": "approval.owner_address=non_owner",
+      "expected_rejection": "M6B004"
+    },
+    {
+      "name": "inadequate_owner_approval",
+      "layer": "record",
+      "mutation": "evidence.approvals=one_owner",
+      "expected_rejection": "M6B005"
+    },
+    {
+      "name": "expired_request_or_approval",
+      "layer": "record",
+      "mutation": "expires_at<=created_at",
+      "expected_rejection": "M6B004"
+    },
+    {
+      "name": "safe_nonce_inconsistent",
+      "layer": "record",
+      "mutation": "safe_transaction.safe_nonce!=safe_identity.safe_nonce",
+      "expected_rejection": "M6B007"
+    },
+    {
+      "name": "unsupported_fee_envelope",
+      "layer": "record",
+      "mutation": "fee.kind=eip1559",
+      "expected_rejection": "M6B006_or_M6B007"
+    },
+    {
+      "name": "zero_fee",
+      "layer": "record",
+      "mutation": "fee.gas_price_wei=0",
+      "expected_rejection": "M6B006_or_M6B007"
+    },
+    {
+      "name": "nonzero_value",
+      "layer": "record",
+      "mutation": "value_wei=1",
+      "expected_rejection": "M6B006_or_M6B007"
+    },
+    {
+      "name": "safe_version_owner_set_or_threshold_drift",
+      "layer": "record",
+      "mutation": "safe_identity.threshold=1",
+      "expected_rejection": "M6B005"
+    },
+    {
+      "name": "non_call_operation",
+      "layer": "record",
+      "mutation": "safe_transaction.operation=DELEGATECALL",
+      "expected_rejection": "M6B007"
+    },
+    {
+      "name": "arbitrary_or_malformed_calldata",
+      "layer": "record",
+      "mutation": "safe_transaction.set_value_calldata=arbitrary",
+      "expected_rejection": "M6B007"
+    },
+    {
+      "name": "release_or_policy_digest_drift",
+      "layer": "record",
+      "mutation": "release.bundle_sha256=substituted",
+      "expected_rejection": "M6B004"
+    },
+    {
+      "name": "owner_rotation_or_safe_governance_change",
+      "layer": "record",
+      "mutation": "safe_identity.owners=changed",
+      "expected_rejection": "M6B005"
+    },
+    {
+      "name": "unsafe_path",
+      "layer": "record",
+      "mutation": "signature_bundle_path=../secret",
+      "expected_rejection": "M6B003"
+    },
+    {
+      "name": "secret_marker",
+      "layer": "record",
+      "mutation": "artifact_contains=private_key",
+      "expected_rejection": "M6B003"
+    }
+  ],
+  "observation_deferred_cases": [
+    {
+      "name": "live_eoa_or_safe_nonce_collision",
+      "reason": "A target-state claim requires the later target-observation gate; this validator only rejects an internally inconsistent record."
+    },
+    {
+      "name": "fee_price_outside_a_live_market_or_organization_cap",
+      "reason": "This profile locks explicit legacy fee fields, not market advice or an unapproved dynamic fee oracle."
+    }
+  ],
+  "prohibited_content": [
+    "private_key",
+    "seed_phrase",
+    "keystore",
+    "rpc_credential",
+    "live_safe_address",
+    "raw_signature",
+    "deployable_calldata"
+  ]
+}
+

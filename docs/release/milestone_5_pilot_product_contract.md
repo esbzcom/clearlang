@@ -81,6 +81,7 @@ never a result to edit into acceptance.
 - [Pilot operator runbook](pilot-operator-runbook.md)
 - [Offline contract-verifier walkthrough](contract-verifier-offline-walkthrough.md)
 - [Pilot incident and rollback guide](milestone_5_pilot_incident_and_rollback.md)
+- [Milestone 5 pilot closure decision](milestone_5_pilot_closure_decision.md)
 - [Local toolchain support lock](../design/phase-40.2.1-local-toolchain-support-lock.md)
 - [Evidence compatibility and rollback lock](../design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md)
 - [Verifier compatibility lock](../design/phase-43.0.2-verifier-compatibility-lock.md)

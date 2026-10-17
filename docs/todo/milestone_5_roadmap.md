@@ -88,7 +88,7 @@ contract platform.
    pilot precheck exists.
 9. [x] 42.2 explicit live testnet exercise, receipt binding, and offline evidence replay.
 10. [x] 43.2 external-user walkthrough and documentation fixture.
-11. [ ] 44.0-44.2 final product documentation, two-clean-environment closure rehearsal, and
+11. [x] 44.0-44.2 final product documentation, two-clean-environment closure rehearsal, and
     pilot-readiness decision.
 
 ## 40. Product and Local Assurance Gate [Planning Gate A]
@@ -389,7 +389,7 @@ contract platform.
   Parent completed: `docs/evidence/phase-44.1.2-full-local-evidence-chain.md` and
   `docs/evidence/phase-44.1.3-second-clean-rehearsal.md` `Completed: 2026-10-16`.
 
-- [ ] 44.2 Conduct final pilot-readiness review. Mark Milestone 5 complete only when every
+- [x] 44.2 Conduct final pilot-readiness review. Mark Milestone 5 complete only when every
   local acceptance item passes, the external verifier walkthrough is reproducible by a second
   operator or clean local environment, and the published documents accurately match the bounded
   implementation. Any mainnet, token/custody, richer crypto, external-call, or broader language
@@ -403,9 +403,13 @@ contract platform.
     outputs as pilot evidence.
     (`docs/evidence/phase-44.2.2-second-environment-verifier-walkthrough.md`)
     `Completed: 2026-10-16`.
-  - [ ] 44.2.3 Publish the closure decision, exact verified versions/digests, pilot boundary,
+  - [x] 44.2.3 Publish the closure decision, exact verified versions/digests, pilot boundary,
     unresolved risks, and follow-on candidate list. Do not mark completion if any statement
     exceeds the locally verified scope.
+    (`docs/release/milestone_5_pilot_closure_decision.md`) `Completed: 2026-10-16`.
+  Parent completed: `docs/evidence/phase-44.2.1-local-acceptance-review.md`,
+  `docs/evidence/phase-44.2.2-second-environment-verifier-walkthrough.md`, and
+  `docs/release/milestone_5_pilot_closure_decision.md` `Completed: 2026-10-16`.
 
 ## Deferred Follow-On Candidates
 

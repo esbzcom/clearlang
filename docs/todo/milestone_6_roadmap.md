@@ -236,45 +236,59 @@ submits no transaction.
 locally against canonical records. Gate B may simulate actions but must not
 contact a target.
 
-- [ ] 51.0 Publish the operator-authority and signer-policy lock.
-  - [ ] 51.0.1 Specify the approved signer/governance model, required
+- [x] 51.0 Publish the Safe-aware operator-authority, signer-policy, and
+  environment-isolation lock.
+  - [x] 51.0.1 Specify the approved signer/governance model, required
     approval threshold, least-privilege roles, separation of duties, and the
     non-secret proof that an action had the required approval.
-  - [ ] 51.0.2 Specify provisioning, rotation, revocation, compromise response,
+  - [x] 51.0.2 Specify provisioning, rotation, revocation, compromise response,
     and break-glass policy. No private key format, seed, endpoint credential,
     or recovery secret may become a ClearLang artifact.
-  - [ ] 51.0.3 Specify the operational stop, pause, and immutable-contract
+  - [x] 51.0.3 Specify the operational stop, pause, and immutable-contract
     remediation policy. Where the profile has no on-chain pause capability,
     document the actual off-chain stop action rather than implying one exists.
+  - [x] 51.0.4 Define separate development, pilot/staging, and production
+    security domains. Lock non-reuse of keys, recovery material, Safe accounts,
+    endpoint credentials, request identifiers, nonce records, and approvals;
+    require explicit environment/profile binding.
+    (`docs/design/phase-51.0-safe-operator-and-environment-policy.md`)
+    `Completed: 2026-10-17`.
 
 - [ ] 51.1 Lock the canonical transaction-request and policy-evidence format.
-  - [ ] 51.1.1 Define versioned, path-safe request records for deploy, invoke,
-    cancellation, and replacement actions. Bind every request to the named
-    chain/profile, release bundle, signer policy, source of approval, nonce,
-    gas limit, fee fields, expiry, and zero-value requirement.
+  - [ ] 51.1.1 Define versioned, path-safe request records for the single direct
+    deployment and the distinct Safe-executed registry revision. Bind every
+    request to one named environment, chain/profile, release bundle, signer
+    policy, approval reference, nonce, gas limit, fee fields, expiry, and
+    zero-value requirement; no record may encode a generic arbitrary call.
   - [ ] 51.1.2 Define exact rejection diagnostics for missing, repeated,
     substituted, stale, cross-chain, over-cap, nonzero-value, or
-    policy-incompatible inputs.
+    policy-incompatible inputs, including wrong environment, Safe identity,
+    owner set, threshold, Safe nonce, inner target, `CALL` operation, or ABI
+    calldata.
   - [ ] 51.1.3 Define redaction and retention rules for request, approval, log,
     and evidence artifacts. Include secret-scanning fixtures for private-key
-    markers, endpoint credentials, absolute paths, and environment leakage.
+    markers, endpoint credentials, absolute paths, environment leakage, and
+    cross-environment approval reuse.
 
 - [ ] 51.2 Implement fail-closed transaction-policy validation using the
   locked records.
   - [ ] 51.2.1 Add strict CLI argument and request-schema validation; reject
-    implicit network, account, nonce, fee, value, and signer discovery.
+    implicit environment, network, account, Safe configuration, nonce, fee,
+    value, and signer discovery.
   - [ ] 51.2.2 Bind accepted requests and approval evidence to the release
-    bundle and registry profile before an adapter may submit a transaction.
+    bundle, registry profile, and environment before an adapter may submit a
+    transaction. Enforce the Safe-specific deployment and invocation shapes.
   - [ ] 51.2.3 Emit deterministic, secret-free acceptance/rejection reports
     whose digest can be included in later correspondence evidence.
 
 - [ ] 51.3 Add the operator-control adversarial matrix and runbook.
-  - [ ] 51.3.1 Add positive fixtures for authorized deployment/invocation and
-    policy-approved cancellation or replacement.
+  - [ ] 51.3.1 Add positive fixtures for the separately approved direct
+    deployment and Safe-executed zero-value registry revision only.
   - [ ] 51.3.2 Add negative fixtures for wrong chain, wrong signer, inadequate
     approval, expired request, nonce collision, under/over fee policy,
-    nonzero value, policy drift, key rotation, unsafe paths, and secret
-    leakage.
+    nonzero value, wrong Safe/owner set/threshold, non-`CALL` operation,
+    arbitrary calldata, policy drift, cross-environment reuse, key rotation,
+    unsafe paths, and secret leakage.
   - [ ] 51.3.3 Publish a short operator runbook covering preparation, two-party
     handoff where required, abort, evidence preservation, and compromise
     response. Documentation tests must exercise its local/offline steps.
@@ -505,8 +519,11 @@ distinct high-risk program.
 
 ## First Task
 
-**51.0 - publish the Safe-aware operator-authority and signer-policy lock.**
-The Ethereum Mainnet Safe-owner target profile is locally locked. The next
-task is to formalize the Safe identity/configuration evidence, hardware-custody
-roles, deployer/executor separation, rotation/revocation, and stop policy;
-this still authorizes no target action.
+**51.1 - lock the canonical, offline transaction-request and policy-evidence
+format.** The Safe-aware signer, custody, stop, and environment-isolation
+policy is now locked. The next task is to define versioned, path-safe records
+for only two action shapes: one direct zero-value deployment to an
+already-established Safe owner, and one Safe-executed zero-value
+`set_value(next)` revision. The design must bind each record to exactly one
+environment, profile, release, approval, nonce, and expiry, and must authorize
+no target action.

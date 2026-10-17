@@ -68,7 +68,7 @@ Every request has these fields:
 | target | profile 'clg.evm-ethereum-mainnet-safe-registry.v1', chain_id '1', and explicit credential-free submission_endpoint |
 | created_at / expires_at | UTC timestamps as described above |
 | release | path-safe bundle and verifier-result paths, each bound to its SHA-256 digest |
-| policy | path-safe operator-policy path and digests for that policy and the Safe-owner amendment |
+| policy | path-safe operator-policy and Safe-owner-amendment paths, each bound to its SHA-256 digest |
 | action | exactly one closed action object defined below |
 
 The release and policy fields bind exact review inputs, not a branch, tag, URL,

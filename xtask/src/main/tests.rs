@@ -1452,6 +1452,264 @@ fn demo() {
     }
 
     #[test]
+    fn safe_policy_validator_accepts_only_the_locked_deployment_shape() {
+        let root = unique_temp_dir("safe-policy-validator");
+        let artifact_root = root.join("artifacts");
+        std::fs::create_dir_all(artifact_root.join("release")).expect("create release root");
+        std::fs::create_dir_all(artifact_root.join("policy")).expect("create policy root");
+        std::fs::create_dir_all(artifact_root.join("approvals")).expect("create approval root");
+
+        let bundle = b"bundle";
+        let verifier = b"verifier";
+        let operator_policy = b"operator-policy";
+        let safe_amendment = b"safe-amendment";
+        std::fs::write(artifact_root.join("release/bundle.json"), bundle).expect("write bundle");
+        std::fs::write(artifact_root.join("release/verifier.json"), verifier).expect("write verifier");
+        std::fs::write(artifact_root.join("policy/operator.json"), operator_policy).expect("write policy");
+        std::fs::write(artifact_root.join("policy/safe-amendment.json"), safe_amendment).expect("write amendment");
+
+        let owners = vec![
+            "0x1111111111111111111111111111111111111111".to_string(),
+            "0x2222222222222222222222222222222222222222".to_string(),
+            "0x3333333333333333333333333333333333333333".to_string(),
+        ];
+        let safe_identity = SafeIdentity {
+            safe_address: "0x4444444444444444444444444444444444444444".to_string(),
+            safe_version: "1.4.1".to_string(),
+            proxy_runtime_code_sha256: "a".repeat(64),
+            singleton_address: "0x5555555555555555555555555555555555555555".to_string(),
+            singleton_runtime_code_sha256: "b".repeat(64),
+            owners: owners.clone(),
+            threshold: "2".to_string(),
+            safe_nonce: "0".to_string(),
+            modules: Vec::new(),
+            guard: None,
+            fallback_handler: None,
+        };
+        let mut creation = vec![0xaa, 0xbb, 0xcc, 0xdd];
+        creation.extend_from_slice(&[0; 12]);
+        creation.extend_from_slice(&hex::decode(&safe_identity.safe_address[2..]).expect("safe bytes"));
+        creation.extend_from_slice(&[0; 24]);
+        creation.extend_from_slice(&7_u64.to_be_bytes());
+        let request = SafePolicyRequest {
+            format: SAFE_POLICY_REQUEST_FORMAT.to_string(),
+            schema_version: 1,
+            request_id: format!("clgreq-{}", "c".repeat(64)),
+            environment: "production".to_string(),
+            target: SafePolicyTarget {
+                profile: SAFE_POLICY_PROFILE.to_string(),
+                chain_id: "1".to_string(),
+                submission_endpoint: "https://operator.example".to_string(),
+            },
+            created_at: "2030-01-02T03:04:05Z".to_string(),
+            expires_at: "2030-01-03T03:04:05Z".to_string(),
+            release: SafePolicyRelease {
+                bundle_path: "release/bundle.json".to_string(),
+                bundle_sha256: safe_policy_sha256_hex(bundle),
+                verifier_result_path: "release/verifier.json".to_string(),
+                verifier_result_sha256: safe_policy_sha256_hex(verifier),
+            },
+            policy: SafePolicyBinding {
+                operator_policy_path: "policy/operator.json".to_string(),
+                operator_policy_sha256: safe_policy_sha256_hex(operator_policy),
+                safe_owner_amendment_path: "policy/safe-amendment.json".to_string(),
+                safe_owner_amendment_sha256: safe_policy_sha256_hex(safe_amendment),
+            },
+            action: SafePolicyAction::RegistryDeploy(RegistryDeployAction {
+                deployment_sender: "0x6666666666666666666666666666666666666666".to_string(),
+                deployment_nonce: "0".to_string(),
+                value_wei: "0".to_string(),
+                gas_limit: "250000".to_string(),
+                fee: SafeFee {
+                    kind: "legacy-eip155-gas-price".to_string(),
+                    gas_price_wei: "1".to_string(),
+                },
+                creation_calldata: format!("0x{}", hex::encode(&creation)),
+                creation_calldata_sha256: safe_policy_sha256_hex(&creation),
+                constructor: RegistryConstructor {
+                    owner_safe_address: safe_identity.safe_address.clone(),
+                    initial_value_u64: "7".to_string(),
+                },
+                safe_identity: safe_identity.clone(),
+            }),
+        };
+        let request_bytes = canonical_json_bytes(&request).expect("canonical request");
+        let request_digest = safe_policy_sha256_hex(&request_bytes);
+        let request_path = root.join("request.json");
+        std::fs::write(&request_path, &request_bytes).expect("write request");
+
+        let mut approvals = Vec::new();
+        for (index, owner) in owners.iter().take(2).enumerate() {
+            let approval = SafeOwnerApproval {
+                format: SAFE_POLICY_APPROVAL_FORMAT.to_string(),
+                schema_version: 1,
+                transaction_request_sha256: request_digest.clone(),
+                environment: "production".to_string(),
+                target_profile: SAFE_POLICY_PROFILE.to_string(),
+                chain_id: "1".to_string(),
+                release_bundle_sha256: request.release.bundle_sha256.clone(),
+                operator_policy_sha256: request.policy.operator_policy_sha256.clone(),
+                action_kind: "registry_deploy".to_string(),
+                owner_address: owner.clone(),
+                approved_at: "2030-01-02T03:04:05Z".to_string(),
+                expires_at: "2030-01-03T03:04:05Z".to_string(),
+            };
+            let bytes = canonical_json_bytes(&approval).expect("canonical approval");
+            let path = format!("approvals/owner-{}.json", index + 1);
+            std::fs::write(artifact_root.join(&path), &bytes).expect("write approval");
+            approvals.push(SafeEvidenceApproval {
+                owner_address: owner.clone(),
+                approval_record_path: path,
+                approval_record_sha256: safe_policy_sha256_hex(&bytes),
+                approved_at: approval.approved_at,
+                expires_at: approval.expires_at,
+            });
+        }
+        let evidence = SafePolicyEvidence {
+            format: SAFE_POLICY_EVIDENCE_FORMAT.to_string(),
+            schema_version: 1,
+            transaction_request_sha256: request_digest,
+            environment: "production".to_string(),
+            target_profile: SAFE_POLICY_PROFILE.to_string(),
+            chain_id: "1".to_string(),
+            release_bundle_sha256: request.release.bundle_sha256.clone(),
+            operator_policy_sha256: request.policy.operator_policy_sha256.clone(),
+            approval_kind: "safe_owner_deployment_consent".to_string(),
+            required_owner_count: "2".to_string(),
+            frozen_owner_set_sha256: safe_policy_sha256_hex(
+                &serde_json::to_vec(&owners).expect("serialize owners"),
+            ),
+            approvals,
+            review_disposition: "approved".to_string(),
+        };
+        let evidence_path = root.join("evidence.json");
+        std::fs::write(
+            &evidence_path,
+            canonical_json_bytes(&evidence).expect("canonical evidence"),
+        )
+        .expect("write evidence");
+
+        assert_eq!(
+            validate_safe_policy_files(&request_path, &evidence_path, &artifact_root),
+            Ok((
+                safe_policy_sha256_hex(&request_bytes),
+                safe_policy_sha256_hex(
+                    &canonical_json_bytes(&evidence).expect("canonical evidence digest"),
+                ),
+                "registry_deploy"
+            ))
+        );
+        let accepted_report_path = root.join("accepted-report.json");
+        run_safe_policy_validate(
+            repo_root().as_path(),
+            vec![
+                "--request".to_string(),
+                request_path.to_string_lossy().into_owned(),
+                "--evidence".to_string(),
+                evidence_path.to_string_lossy().into_owned(),
+                "--artifact-root".to_string(),
+                artifact_root.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                accepted_report_path.to_string_lossy().into_owned(),
+            ],
+        )
+        .expect("accepted request writes report");
+        let accepted_report: SafePolicyValidationReport = serde_json::from_slice(
+            &std::fs::read(&accepted_report_path).expect("read accepted report"),
+        )
+        .expect("parse accepted report");
+        assert_eq!(accepted_report.status, "accepted");
+        assert!(accepted_report.rejection_code.is_none());
+
+        let mut unsafe_request = request;
+        let SafePolicyAction::RegistryDeploy(action) = &mut unsafe_request.action else {
+            panic!("expected deployment action");
+        };
+        action.value_wei = "1".to_string();
+        std::fs::write(
+            &request_path,
+            canonical_json_bytes(&unsafe_request).expect("canonical unsafe request"),
+        )
+        .expect("write unsafe request");
+        assert_eq!(
+            validate_safe_policy_files(&request_path, &evidence_path, &artifact_root)
+                .expect_err("nonzero deployment value must reject")
+                .code,
+            "M6B006"
+        );
+        let rejected_report_path = root.join("rejected-report.json");
+        assert!(run_safe_policy_validate(
+            repo_root().as_path(),
+            vec![
+                "--request".to_string(),
+                request_path.to_string_lossy().into_owned(),
+                "--evidence".to_string(),
+                evidence_path.to_string_lossy().into_owned(),
+                "--artifact-root".to_string(),
+                artifact_root.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                rejected_report_path.to_string_lossy().into_owned(),
+            ],
+        )
+        .is_err());
+        let rejected_report: SafePolicyValidationReport = serde_json::from_slice(
+            &std::fs::read(&rejected_report_path).expect("read rejected report"),
+        )
+        .expect("parse rejected report");
+        assert_eq!(rejected_report.status, "rejected");
+        assert_eq!(rejected_report.rejection_code.as_deref(), Some("M6B006"));
+
+        let signature_bundle = SafeSignatureBundle {
+            format: SAFE_SIGNATURE_BUNDLE_FORMAT.to_string(),
+            schema_version: 1,
+            safe_tx_digest: format!("0x{}", "d".repeat(64)),
+            signer_addresses: owners[..2].to_vec(),
+        };
+        let signature_bundle_bytes = canonical_json_bytes(&signature_bundle)
+            .expect("canonical signature bundle");
+        std::fs::write(
+            artifact_root.join("approvals/safe-signatures.json"),
+            &signature_bundle_bytes,
+        )
+        .expect("write signature bundle");
+        let mut set_value_calldata = vec![0x13, 0x76, 0x58, 0x38];
+        set_value_calldata.extend_from_slice(&[0; 24]);
+        set_value_calldata.extend_from_slice(&9_u64.to_be_bytes());
+        let mut revision = SafeRegistryRevisionAction {
+            executor_sender: "0x7777777777777777777777777777777777777777".to_string(),
+            executor_nonce: "3".to_string(),
+            outer_value_wei: "0".to_string(),
+            outer_gas_limit: "100000".to_string(),
+            outer_fee: SafeFee {
+                kind: "legacy-eip155-gas-price".to_string(),
+                gas_price_wei: "1".to_string(),
+            },
+            safe_identity,
+            safe_transaction: SafeTransaction {
+                safe_nonce: "0".to_string(),
+                to: "0x8888888888888888888888888888888888888888".to_string(),
+                value_wei: "0".to_string(),
+                operation: "CALL".to_string(),
+                set_value_next_u64: "9".to_string(),
+                set_value_calldata: format!("0x{}", hex::encode(&set_value_calldata)),
+                set_value_calldata_sha256: safe_policy_sha256_hex(&set_value_calldata),
+                safe_tx_digest: signature_bundle.safe_tx_digest,
+                signature_bundle_path: "approvals/safe-signatures.json".to_string(),
+                signature_bundle_sha256: safe_policy_sha256_hex(&signature_bundle_bytes),
+            },
+        };
+        assert!(validate_safe_registry_revision(&revision, &artifact_root).is_ok());
+        revision.safe_transaction.operation = "DELEGATECALL".to_string();
+        assert_eq!(
+            validate_safe_registry_revision(&revision, &artifact_root)
+                .expect_err("delegatecall must reject")
+                .code,
+            "M6B007"
+        );
+        cleanup_temp_dir(root.as_path());
+    }
+
+    #[test]
     fn pilot_precheck_report_destination_is_new_and_safe() {
         let root = repo_root();
         let accepted = root.join("out").join("pilot-precheck-test-report.json");

@@ -47,7 +47,7 @@
       "input_digests": [
         {
           "id": "xtask/src/main/tests.rs",
-          "sha256": "6b3611ee7d1f0e0de522a6c27e97b240d60f2b1cfc36092dd8a61b5aa694ace7"
+          "sha256": "449a462ea6b027c1b5f5dff030dbce67d8b041b0dd7eb0fe2310978bf248b0b7"
         },
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
@@ -57,7 +57,7 @@
       "evidence_digests": [
         {
           "id": "xtask/src/main/tests.rs",
-          "sha256": "6b3611ee7d1f0e0de522a6c27e97b240d60f2b1cfc36092dd8a61b5aa694ace7"
+          "sha256": "449a462ea6b027c1b5f5dff030dbce67d8b041b0dd7eb0fe2310978bf248b0b7"
         },
         {
           "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",

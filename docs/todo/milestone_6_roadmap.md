@@ -273,16 +273,19 @@ contact a target.
     `docs/fixtures/phase-51.1/safe-transaction-request-fixtures.json`)
     `Completed: 2026-10-17`.
 
-- [ ] 51.2 Implement fail-closed transaction-policy validation using the
+- [x] 51.2 Implement fail-closed offline transaction-policy validation using the
   locked records.
-  - [ ] 51.2.1 Add strict CLI argument and request-schema validation; reject
+  - [x] 51.2.1 Add strict CLI argument and request-schema validation; reject
     implicit environment, network, account, Safe configuration, nonce, fee,
     value, and signer discovery.
-  - [ ] 51.2.2 Bind accepted requests and approval evidence to the release
+  - [x] 51.2.2 Bind accepted requests and approval evidence to the release
     bundle, registry profile, and environment before an adapter may submit a
     transaction. Enforce the Safe-specific deployment and invocation shapes.
-  - [ ] 51.2.3 Emit deterministic, secret-free acceptance/rejection reports
+  - [x] 51.2.3 Emit deterministic, secret-free acceptance/rejection reports
     whose digest can be included in later correspondence evidence.
+    (`xtask safe-policy-validate`; `xtask/src/main/core/safe_transaction_policy.rs`;
+    `xtask/src/main/tests.rs`)
+    `Completed: 2026-10-17`.
 
 - [ ] 51.3 Add the operator-control adversarial matrix and runbook.
   - [ ] 51.3.1 Add positive fixtures for the separately approved direct
@@ -522,10 +525,10 @@ distinct high-risk program.
 
 ## First Task
 
-**51.2 - implement the fail-closed offline transaction-policy validator.**
-The action/evidence contract now permits exactly one direct zero-value registry
-deployment and one Safe-executed zero-value `set_value(next)` revision on the
-named production profile. The next task is to parse only those records, enforce
-their environment/release/Safe/action bindings and stable diagnostics against
-the fixture corpus, and write deterministic secret-free reports. It must not
-contact a target, access a wallet, sign, or submit a transaction.
+**51.3 - add the operator-control adversarial matrix and offline runbook.**
+The validator now recognizes only the locked action/evidence records and emits
+deterministic secret-free acceptance or rejection reports without contacting a
+target. The next task is to expand the corpus into the full adversarial matrix
+and publish an offline operator runbook for preparation, two-owner handoff,
+abort, evidence preservation, and compromise response. It must not access a
+wallet, sign, or submit a transaction.

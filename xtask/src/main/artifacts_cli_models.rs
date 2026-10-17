@@ -120,6 +120,9 @@ fn print_help() {
     println!(
         "  pilot-precheck --report FILE - full local pilot fixture gate"
     );
+    println!(
+        "  safe-policy-validate --request FILE --evidence FILE --artifact-root DIR --report FILE - offline Safe policy validation"
+    );
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");

@@ -41,6 +41,7 @@ fn main() -> Result<(), String> {
         "test" => cargo_cmd(&root, &["test", "--workspace"])?,
         "release-precheck" => run_release_precheck(&root)?,
         "pilot-precheck" => run_pilot_precheck(&root, args.collect())?,
+        "safe-policy-validate" => run_safe_policy_validate(&root, args.collect())?,
         "validate" => validate_samples(&root)?,
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,

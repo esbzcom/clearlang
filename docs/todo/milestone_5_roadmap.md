@@ -398,9 +398,11 @@ contract platform.
     coverage, and documentation-drift results against every acceptance item; record any waived
     item as a blocker rather than a completion exception.
     (`docs/evidence/phase-44.2.1-local-acceptance-review.md`) `Completed: 2026-10-16`.
-  - [ ] 44.2.2 Obtain a second-operator or second-clean-environment reproduction of the public
+  - [x] 44.2.2 Obtain a second-operator or second-clean-environment reproduction of the public
     verifier walkthrough and local closure rehearsal, then retain only non-secret reproducible
     outputs as pilot evidence.
+    (`docs/evidence/phase-44.2.2-second-environment-verifier-walkthrough.md`)
+    `Completed: 2026-10-16`.
   - [ ] 44.2.3 Publish the closure decision, exact verified versions/digests, pilot boundary,
     unresolved risks, and follow-on candidate list. Do not mark completion if any statement
     exceeds the locally verified scope.

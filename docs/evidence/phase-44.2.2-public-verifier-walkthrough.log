@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized] target(s) in 0.44s
+     Running tests\cli_it.rs (target\debug\deps\cli_it-7ed9fc1c9770f6cd.exe)
+
+running 1 test
+test basic::published_offline_verifier_walkthrough_is_current_and_reproducible_without_network ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 269 filtered out; finished in 1.02s

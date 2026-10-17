@@ -1776,6 +1776,59 @@ fn demo() {
     }
 
     #[test]
+    fn milestone_six_target_observation_lock_keeps_safe_correspondence_fail_closed() {
+        const FIXTURES: &str = include_str!(
+            "../../../docs/fixtures/phase-52.0/safe-target-observation-lock-fixtures.json"
+        );
+        const LOCK: &str = include_str!(
+            "../../../docs/design/phase-52.0-safe-registry-correspondence-lock.md"
+        );
+        let fixtures: serde_json::Value = serde_json::from_str(FIXTURES).expect("parse fixtures");
+        assert_eq!(
+            fixtures["format"].as_str(),
+            Some("clg.safe-target-observation-lock-fixtures.v1")
+        );
+        assert_eq!(
+            fixtures["target_profile"].as_str(),
+            Some("clg.evm-ethereum-mainnet-safe-registry.v1")
+        );
+        assert_eq!(fixtures["chain_id"].as_str(), Some("1"));
+        assert_eq!(
+            fixtures["identity_chain"]
+                .as_array()
+                .expect("identity chain")
+                .len(),
+            11
+        );
+        assert_eq!(
+            fixtures["independent_observer_rule"]["required_observers"].as_u64(),
+            Some(2)
+        );
+        assert_eq!(
+            fixtures["independent_observer_rule"]["majority_vote"].as_str(),
+            Some("prohibited")
+        );
+        for entry in fixtures["status_cases"].as_array().expect("status cases") {
+            assert_eq!(entry["accepted"].as_bool(), Some(false));
+        }
+        let lock = normalized_document_text(LOCK);
+        for required in [
+            "Safe identity",
+            "ValueChanged(next)",
+            "Keccak-256(RLP([sender, nonce]))",
+            "12 blocks",
+            "two additional observations",
+            "preservation-and-stop",
+            "authorizes no RPC contact",
+        ] {
+            assert!(lock.contains(required), "observation lock missing {required}");
+        }
+        for forbidden in ["eth_sendrawtransaction", "eth_sendtransaction"] {
+            assert!(!lock.to_ascii_lowercase().contains(forbidden));
+        }
+    }
+
+    #[test]
     fn pilot_precheck_report_destination_is_new_and_safe() {
         let root = repo_root();
         let accepted = root.join("out").join("pilot-precheck-test-report.json");

@@ -1,0 +1,95 @@
+{
+  "format": "clg.safe-target-observation-lock-fixtures.v1",
+  "schema_version": 1,
+  "target_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
+  "chain_id": "1",
+  "identity_chain": [
+    "source_profile_proof",
+    "state_schema_abi",
+    "evm_artifacts",
+    "release_verification",
+    "operator_request_evidence",
+    "safe_identity",
+    "signed_action_identity",
+    "target_transaction_identity",
+    "receipt_and_address",
+    "final_state_event",
+    "independent_confirmation"
+  ],
+  "required_deployment_checks": [
+    "creation_calldata_and_constructor",
+    "constructor_owner_equals_safe",
+    "create_address_from_sender_and_nonce",
+    "successful_receipt",
+    "runtime_code_digest",
+    "schema_defined_initial_storage",
+    "qualified_finality"
+  ],
+  "required_revision_checks": [
+    "safe_exec_transaction_binding",
+    "zero_value_call_only",
+    "safe_configuration_identity",
+    "value_changed_event",
+    "schema_defined_final_storage",
+    "runtime_code_digest",
+    "qualified_finality"
+  ],
+  "status_cases": [
+    {
+      "status": "missing_receipt",
+      "accepted": false,
+      "action": "stop"
+    },
+    {
+      "status": "pending_receipt",
+      "accepted": false,
+      "action": "stop"
+    },
+    {
+      "status": "reverted_receipt",
+      "accepted": false,
+      "action": "stop"
+    },
+    {
+      "status": "replaced_or_conflicting",
+      "accepted": false,
+      "action": "stop"
+    },
+    {
+      "status": "target_mismatch",
+      "accepted": false,
+      "action": "stop"
+    },
+    {
+      "status": "awaiting_finality",
+      "accepted": false,
+      "action": "continue_fixed_window_only"
+    },
+    {
+      "status": "qualified_finality_observation",
+      "accepted": false,
+      "action": "retain_two_further_observations"
+    },
+    {
+      "status": "observer_disagreement_or_reorg",
+      "accepted": false,
+      "action": "stop"
+    }
+  ],
+  "independent_observer_rule": {
+    "required_observers": 2,
+    "agreement": "exact_identity_equality",
+    "disagreement": "preservation_and_stop",
+    "majority_vote": "prohibited"
+  },
+  "retention_prohibitions": [
+    "private_key",
+    "seed_phrase",
+    "recovery_material",
+    "endpoint_credential",
+    "authorization_header",
+    "absolute_path",
+    "device_location"
+  ]
+}
+

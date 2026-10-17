@@ -310,20 +310,23 @@ contact a target.
 tamper-resistant; the public-testnet soak has an explicit eligibility decision.
 Only the explicit testnet exercises in 52.5 may contact a target.
 
-- [ ] 52.0 Publish the deployment-correspondence and target-observation lock.
-  - [ ] 52.0.1 Define the canonical identity chain from source/profile, proof,
+- [x] 52.0 Publish the deployment-correspondence and target-observation lock.
+  - [x] 52.0.1 Define the canonical identity chain from source/profile, proof,
     state schema, ABI, EVM creation/runtime bytecode, constructor inputs,
     release bundle, approved request, transaction hash, contract address,
     receipt, and storage observations.
-  - [ ] 52.0.2 Define address-derivation and constructor-input checks, runtime
+  - [x] 52.0.2 Define address-derivation and constructor-input checks, runtime
     bytecode comparison, init/state-schema checks, and the exact storage/event
     observations required before a deployment may be accepted.
-  - [ ] 52.0.3 Define an independent-client/differential observation policy and
+  - [x] 52.0.3 Define an independent-client/differential observation policy and
     response to disagreement. One RPC response is evidence of observation,
     never proof of chain or client correctness.
-  - [ ] 52.0.4 Define finality/reorganization evidence and the deterministic
+  - [x] 52.0.4 Define finality/reorganization evidence and the deterministic
     status for missing, pending, reverted, replaced, conflicting, or late
     receipts.
+    (`docs/design/phase-52.0-safe-registry-correspondence-lock.md`,
+    `docs/fixtures/phase-52.0/safe-target-observation-lock-fixtures.json`,
+    `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
 - [ ] 52.1 Define the versioned production evidence and replay schemas.
   - [ ] 52.1.1 Specify canonical, secret-free evidence records for deployment,
@@ -530,10 +533,10 @@ distinct high-risk program.
 
 ## First Task
 
-**52.0 - publish the deployment-correspondence and target-observation lock.**
-Security Gate B is locally complete: the Safe-aware environment policy,
-request/evidence contract, fail-closed offline validator, adversarial matrix,
-and offline runbook are all locked. The next task is to define—not perform—the
-exact source-to-target identity chain and target-observation evidence required
-for the later target gate. It authorizes no RPC contact, Safe setup, signing,
-deployment, invocation, or mainnet claim.
+**52.1 - define versioned production evidence and offline replay schemas.**
+The Safe-aware correspondence and observation lock now fixes the identity
+chain, observation surface, finality rule, and stop statuses. The next task is
+to specify canonical secret-free evidence records and stable replay results
+that bind every identity without trusting an ambient checkout, endpoint, or
+wallet. It authorizes no endpoint contact, signing, deployment, invocation,
+or mainnet claim.

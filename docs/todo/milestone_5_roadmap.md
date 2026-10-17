@@ -379,9 +379,10 @@ contract platform.
     build the verifier and reference project without relying on untracked artifacts or user-level
     project configuration.
     (`docs/evidence/phase-44.1.1-clean-checkout-rehearsal.md`) `Completed: 2026-10-16`.
-  - [ ] 44.1.2 Execute the full local evidence chain in order: release precheck, pilot precheck,
+  - [x] 44.1.2 Execute the full local evidence chain in order: release precheck, pilot precheck,
     reference release, independent verification, authorization/tamper matrix, and offline target
     replay. Preserve the canonical report and its digest projection.
+    (`docs/evidence/phase-44.1.2-full-local-evidence-chain.md`) `Completed: 2026-10-16`.
   - [ ] 44.1.3 Repeat the closure rehearsal in a second clean directory or by a second operator,
     compare canonical reports, and investigate any difference before proceeding to closure.
 

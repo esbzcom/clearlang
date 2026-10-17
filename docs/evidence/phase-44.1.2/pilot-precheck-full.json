@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "kind": "clg.pilot-precheck-report.v1",
+  "scope": "full",
+  "overall_status": "passed",
+  "toolchain": [
+    {
+      "name": "xtask",
+      "version": "0.1.0"
+    }
+  ],
+  "gate_order": [
+    "release-precheck",
+    "contract-release-fixtures",
+    "verifier-distribution-fixtures",
+    "caller-authorization-fixtures",
+    "reference-pilot-offline-replay"
+  ],
+  "future_required_gates": [],
+  "gates": [
+    {
+      "id": "release-precheck",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "run",
+        "-p",
+        "xtask",
+        "--",
+        "release-precheck"
+      ],
+      "input_digests": [
+        {
+          "id": "Cargo.lock",
+          "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "Cargo.lock",
+          "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+        }
+      ]
+    },
+    {
+      "id": "contract-release-fixtures",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "clg-cli",
+        "--test",
+        "cli_it",
+        "basic::contract_release_"
+      ],
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "verifier-distribution-fixtures",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "verifier"
+      ],
+      "input_digests": [
+        {
+          "id": "xtask/src/main/tests.rs",
+          "sha256": "394384df2e3bc455e887af0a277bcfcc22deb38468c26545e9f988a3ccde9602"
+        },
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "xtask/src/main/tests.rs",
+          "sha256": "394384df2e3bc455e887af0a277bcfcc22deb38468c26545e9f988a3ccde9602"
+        },
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "caller-authorization-fixtures",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "clg-cli",
+        "--test",
+        "cli_it",
+        "basic::caller_aware_"
+      ],
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "reference-pilot-offline-replay",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "clg-cli",
+        "--test",
+        "cli_it",
+        "basic::pilot_evidence_replay_"
+      ],
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+          "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+          "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+        }
+      ]
+    }
+  ]
+}

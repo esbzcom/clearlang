@@ -3,3 +3,4 @@ docs/fixtures/phase-25.4/manifest-lock-consistency/clg.resolved-graph.json text 
 *.clear text eol=lf
 Cargo.lock text eol=lf
 docs/fixtures/phase-40.2.3/pilot-precheck-digest-projection.v1.json text eol=lf
+docs/evidence/phase-44.1.2/pilot-precheck-full.json text eol=lf

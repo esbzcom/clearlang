@@ -1,0 +1,100 @@
+{
+  "format": "clg.safe-transaction-request-fixture-corpus.v1",
+  "schema_version": 1,
+  "purpose": "Offline Phase 51.1 schema and diagnostic contract; fixture data is deliberately non-deployable.",
+  "positive_shapes": [
+    {
+      "name": "approved_direct_registry_deployment_shape",
+      "request_format": "clg.safe-transaction-request.v1",
+      "action_kind": "registry_deploy",
+      "environment": "production",
+      "target_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
+      "chain_id": "1",
+      "approval_kind": "safe_owner_deployment_consent",
+      "required_owner_count": "2",
+      "required_rules": [
+        "zero_value",
+        "legacy_eip155",
+        "separate_deployment_sender",
+        "three_sorted_safe_owners",
+        "safe_threshold_two",
+        "safe_v1_4_1",
+        "no_modules_guard_or_fallback",
+        "constructor_owner_equals_safe"
+      ]
+    },
+    {
+      "name": "approved_safe_registry_revision_shape",
+      "request_format": "clg.safe-transaction-request.v1",
+      "action_kind": "safe_registry_set_value",
+      "environment": "production",
+      "target_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
+      "chain_id": "1",
+      "approval_kind": "safe_exec_transaction",
+      "required_owner_count": "2",
+      "required_rules": [
+        "zero_inner_and_outer_value",
+        "legacy_eip155_outer_envelope",
+        "separate_executor_sender",
+        "safe_nonce_is_explicit",
+        "call_only",
+        "canonical_set_value_selector_0x13765838",
+        "signature_bundle_binds_safe_digest",
+        "two_distinct_frozen_owner_approvals"
+      ]
+    }
+  ],
+  "negative_cases": [
+    {
+      "name": "development_approval_reused_for_production",
+      "mutation": "policy_evidence.environment=development",
+      "expected_rejection": "M6B002"
+    },
+    {
+      "name": "pilot_profile_substituted",
+      "mutation": "request.target.profile=clg.evm-sepolia-pilot.v1",
+      "expected_rejection": "M6B002"
+    },
+    {
+      "name": "endpoint_embeds_credential",
+      "mutation": "request.target.submission_endpoint=https://token@example.invalid",
+      "expected_rejection": "M6B003"
+    },
+    {
+      "name": "unsafe_signature_bundle_path",
+      "mutation": "action.safe_transaction.signature_bundle_path=../approvals/safe-signatures.json",
+      "expected_rejection": "M6B003"
+    },
+    {
+      "name": "wrong_safe_threshold",
+      "mutation": "action.safe_identity.threshold=1",
+      "expected_rejection": "M6B005"
+    },
+    {
+      "name": "nonzero_deployment_value",
+      "mutation": "action.value_wei=1",
+      "expected_rejection": "M6B006"
+    },
+    {
+      "name": "delegatecall_registry_revision",
+      "mutation": "action.safe_transaction.operation=DELEGATECALL",
+      "expected_rejection": "M6B007"
+    },
+    {
+      "name": "arbitrary_safe_call",
+      "mutation": "action.kind=safe_generic_call",
+      "expected_rejection": "M6B008"
+    }
+  ],
+  "prohibited_fixture_content": [
+    "private_key",
+    "seed_phrase",
+    "keystore",
+    "rpc_credential",
+    "absolute_path",
+    "live_safe_address",
+    "raw_signature",
+    "deployable_creation_calldata"
+  ]
+}
+

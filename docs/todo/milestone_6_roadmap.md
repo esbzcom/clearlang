@@ -254,21 +254,24 @@ contact a target.
     (`docs/design/phase-51.0-safe-operator-and-environment-policy.md`)
     `Completed: 2026-10-17`.
 
-- [ ] 51.1 Lock the canonical transaction-request and policy-evidence format.
-  - [ ] 51.1.1 Define versioned, path-safe request records for the single direct
+- [x] 51.1 Lock the canonical transaction-request and policy-evidence format.
+  - [x] 51.1.1 Define versioned, path-safe request records for the single direct
     deployment and the distinct Safe-executed registry revision. Bind every
     request to one named environment, chain/profile, release bundle, signer
     policy, approval reference, nonce, gas limit, fee fields, expiry, and
     zero-value requirement; no record may encode a generic arbitrary call.
-  - [ ] 51.1.2 Define exact rejection diagnostics for missing, repeated,
+  - [x] 51.1.2 Define exact rejection diagnostics for missing, repeated,
     substituted, stale, cross-chain, over-cap, nonzero-value, or
     policy-incompatible inputs, including wrong environment, Safe identity,
     owner set, threshold, Safe nonce, inner target, `CALL` operation, or ABI
     calldata.
-  - [ ] 51.1.3 Define redaction and retention rules for request, approval, log,
+  - [x] 51.1.3 Define redaction and retention rules for request, approval, log,
     and evidence artifacts. Include secret-scanning fixtures for private-key
     markers, endpoint credentials, absolute paths, environment leakage, and
     cross-environment approval reuse.
+    (`docs/design/phase-51.1-safe-transaction-request-format.md`,
+    `docs/fixtures/phase-51.1/safe-transaction-request-fixtures.json`)
+    `Completed: 2026-10-17`.
 
 - [ ] 51.2 Implement fail-closed transaction-policy validation using the
   locked records.
@@ -519,11 +522,10 @@ distinct high-risk program.
 
 ## First Task
 
-**51.1 - lock the canonical, offline transaction-request and policy-evidence
-format.** The Safe-aware signer, custody, stop, and environment-isolation
-policy is now locked. The next task is to define versioned, path-safe records
-for only two action shapes: one direct zero-value deployment to an
-already-established Safe owner, and one Safe-executed zero-value
-`set_value(next)` revision. The design must bind each record to exactly one
-environment, profile, release, approval, nonce, and expiry, and must authorize
-no target action.
+**51.2 - implement the fail-closed offline transaction-policy validator.**
+The action/evidence contract now permits exactly one direct zero-value registry
+deployment and one Safe-executed zero-value `set_value(next)` revision on the
+named production profile. The next task is to parse only those records, enforce
+their environment/release/Safe/action bindings and stable diagnostics against
+the fixture corpus, and write deterministic secret-free reports. It must not
+contact a target, access a wallet, sign, or submit a transaction.

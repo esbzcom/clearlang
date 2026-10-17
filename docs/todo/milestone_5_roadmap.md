@@ -394,9 +394,10 @@ contract platform.
   operator or clean local environment, and the published documents accurately match the bounded
   implementation. Any mainnet, token/custody, richer crypto, external-call, or broader language
   request starts a new design lock rather than extending this milestone implicitly.
-  - [ ] 44.2.1 Review the local evidence report, independent-verifier results, reference fixture
+  - [x] 44.2.1 Review the local evidence report, independent-verifier results, reference fixture
     coverage, and documentation-drift results against every acceptance item; record any waived
     item as a blocker rather than a completion exception.
+    (`docs/evidence/phase-44.2.1-local-acceptance-review.md`) `Completed: 2026-10-16`.
   - [ ] 44.2.2 Obtain a second-operator or second-clean-environment reproduction of the public
     verifier walkthrough and local closure rehearsal, then retain only non-secret reproducible
     outputs as pilot evidence.

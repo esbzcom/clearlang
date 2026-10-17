@@ -1,0 +1,99 @@
+{
+  "schema_version": 2,
+  "kind": "clg.pilot-precheck-digest-projection.v2",
+  "report_schema_version": 2,
+  "report_kind": "clg.pilot-precheck-report.v2",
+  "scope": "full",
+  "gate_order": [
+    "release-precheck",
+    "contract-release-fixtures",
+    "verifier-distribution-fixtures",
+    "caller-authorization-fixtures",
+    "reference-pilot-offline-replay"
+  ],
+  "gates": [
+    {
+      "id": "release-precheck",
+      "input_digests": [
+        {
+          "id": "Cargo.lock",
+          "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "Cargo.lock",
+          "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+        }
+      ]
+    },
+    {
+      "id": "contract-release-fixtures",
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "verifier-distribution-fixtures",
+      "input_digests": [
+        {
+          "id": "xtask/src/main/tests.rs",
+          "sha256": "108d6d287adf9b98f8476ec34ffa82b53d18986a9a82467bbee4dc33cd41fb5f"
+        },
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "xtask/src/main/tests.rs",
+          "sha256": "108d6d287adf9b98f8476ec34ffa82b53d18986a9a82467bbee4dc33cd41fb5f"
+        },
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "caller-authorization-fixtures",
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "reference-pilot-offline-replay",
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+          "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+          "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+        }
+      ]
+    }
+  ]
+}

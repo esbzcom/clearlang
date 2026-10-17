@@ -18,6 +18,14 @@ Milestone-oriented index (primary planning entrypoint):
 - Scope: stateful contract semantics, one complete initial chain target (EVM), release-grade crypto boundaries, bounded runtime operation, and contract developer tooling.
 - Details: [`docs/todo/milestone_4_roadmap.md`](todo/milestone_4_roadmap.md)
 
+## Milestone 5 - Pilot-Ready Verified Contract Product (40-44)
+- Scope: a locally validated, testnet-only, proof-carrying configuration-registry pilot with caller authorization, independently runnable bundle verification, and reproducible offline evidence.
+- Details: [`docs/todo/milestone_5_roadmap.md`](todo/milestone_5_roadmap.md)
+
+## Milestone 6 - Mainnet Readiness for One Registry Profile (50-54)
+- Scope: promote only the existing bounded configuration-registry profile to one selected mainnet, with explicit operator controls, deployment correspondence, reproducible production evidence, independent assurance, and a controlled low-value launch decision.
+- Details: [`docs/todo/milestone_6_roadmap.md`](todo/milestone_6_roadmap.md)
+
 ## Legacy Gate Markers (Test Compatibility)
 - [x] 25.2.1 Gate C policy lock
 - [x] 25.2.2 Gate C UX design lock

@@ -50,8 +50,11 @@ This stage produces a credible pilot, not a mainnet, financial, or generic EVM c
 
 ### Stage 2 — Milestone 6: Mainnet Readiness for One Profile
 
-Promote only the Stage 1 registry profile to one selected mainnet. Keep the source profile and
-business use case unchanged while hardening the real deployment boundary.
+Promote only the Stage 1 registry profile to one selected mainnet. Ethereum
+Mainnet (chain ID `1`) is the selected Milestone 6 target; the decision is
+planning-only until its remaining policy and launch gates close. Keep the
+source profile and business use case unchanged while hardening the real
+deployment boundary.
 
 Required work:
 
@@ -86,6 +89,12 @@ Required work:
 - support/version matrix for compiler, verifier, solver, operating systems, and target clients;
 - deterministic local `production-precheck`, with canonical evidence report and clean-environment
   reproduction requirement;
+- a declarative Verified Profile/Profile Pack manifest and resolver, first exercised with the
+  existing configuration-registry profile and prohibited from adding compiler semantics or
+  executable plugins;
+- separately signed, one-chain Target Profile Packs: each new EVM network must bind its own
+  chain identity, target semantics, finality/observation rules, fixtures, and approval sequence;
+  it must not inherit Ethereum authorization or create a generic EVM claim;
 - verifier and release distribution lifecycle: signing, checksums, compatibility, rollback, CVE
   response, and deprecation policy;
 - differential execution and receipt-validation fixtures against independent EVM clients for every
@@ -185,7 +194,8 @@ Use exact labels in documentation and release evidence:
 
 ## Next Action
 
-Complete Milestone 5 task `40.0` first. After its testnet pilot closes, create the Milestone 6
-roadmap from Stage 2 for the exact registry profile and selected mainnet; do not begin later stages
-preemptively.
+Milestone 5 engineering scope has closed, and Phase 50.1 has recorded the required clean
+`clg.pilot-precheck-report.v2` reproduction for its exact committed inputs. Milestone 6 must now
+lock exactly one mainnet profile before any target action; a compatibility-relevant input change
+requires a new approved reproduction. Do not begin later stages preemptively.
 

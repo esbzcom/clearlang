@@ -11,6 +11,18 @@ generic EVM compatibility. A live Sepolia exercise remains an explicit operator 
 [pilot operator runbook](pilot-operator-runbook.md), with separately reviewed inputs and
 authorization.
 
+## Phase 50.1 Supersession Note
+
+On 2026-10-17, the pending clean v2 local reproduction completed successfully
+from a detached clean checkout at
+`79dcc75a8d7d629acb33ed06c804101f94915464`. Its retained full report, digest
+projection, checksum, and validation record are in
+[`docs/evidence/phase-50.1-clean-v2-reproduction.md`](../evidence/phase-50.1-clean-v2-reproduction.md).
+This resolves only the v2-reproduction prerequisite recorded by this historical
+closure decision. It does not authorize a testnet/mainnet transaction, select a
+chain, or change the pilot's bounded product claim. Any compatibility-relevant
+input change still requires a new approved reproduction.
+
 ## Verified Identity Set
 
 | Element | Exact verified value |
@@ -43,11 +55,11 @@ authorization.
    `docs/evidence/phase-44.2.1-local-acceptance-review.md`.
 
 The retained v1 reports remain historical milestone evidence only. They do not satisfy the v2
-acceptance contract. A newly committed clean checkout must reproduce the complete v2 local
-precheck before any further testnet action; historical reports must never be edited or
-reinterpreted. Any change to the revision, `Cargo.lock`, Rust/Cargo version, supported host,
-solver bytes or trust material, target/profile, verifier capability, or report schema likewise
-requires a new run under an approved compatibility lock.
+acceptance contract. The clean v2 reproduction recorded in the Phase 50.1 supersession note
+satisfies that pending prerequisite for its exact committed inputs; historical reports must never
+be edited or reinterpreted. Any change to the revision, `Cargo.lock`, Rust/Cargo version,
+supported host, solver bytes or trust material, target/profile, verifier capability, or report
+schema likewise requires a new run under an approved compatibility lock.
 
 ## Unresolved Risks and Explicit Exclusions
 

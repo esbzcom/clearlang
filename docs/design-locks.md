@@ -5,6 +5,13 @@ This document tracks the current design-lock references.
 ## General
 - Phase design docs are in `docs/design/`.
 
+## Future Architecture (Not Yet a Capability or Release Lock)
+- `docs/design/verified-profile-packs.md` - terminology and trust boundary for post-Milestone-6 Verified Profiles and Profile Packs.
+- `docs/design/phase-50.2-ethereum-mainnet-selection.md` - selected Milestone 6 target; planning-only Ethereum Mainnet decision with no target-action authority.
+
+## Milestone 6 Production Profile
+- `docs/design/phase-50.0-milestone-6-production-profile-lock.md`
+
 ## Phase 20-24 Milestone Design Root
 - `docs/design/phase-20.0-std-packaging-runtime-linking.md`
 

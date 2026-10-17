@@ -1,0 +1,249 @@
+{
+  "schema_version": 2,
+  "kind": "clg.pilot-precheck-report.v2",
+  "scope": "full",
+  "overall_status": "passed",
+  "identity": {
+    "repository": {
+      "commit": "79dcc75a8d7d629acb33ed06c804101f94915464",
+      "tree": "e494d2bbe4041aa15949e5f9fff3d6de3839dfad"
+    },
+    "compatibility_digests": [
+      {
+        "id": "Cargo.lock",
+        "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+      },
+      {
+        "id": "rust-toolchain.toml",
+        "sha256": "bf21bb773c4768232ffaedde19ccdbed21a2a304d10c10882ba6526d7325bbe0"
+      },
+      {
+        "id": "xtask/src/main/core/dispatch_and_drift.rs",
+        "sha256": "07973caa72a6b04714e11ec8d3e1ed79a6ba8560a98df03d28f5557320bcd087"
+      },
+      {
+        "id": "xtask/src/main/artifacts_cli_models.rs",
+        "sha256": "7c69e43b7449ebb4176db070e1acd21df65bcc85938fd5f01fc5dc9589727f71"
+      },
+      {
+        "id": "xtask/src/main/tests.rs",
+        "sha256": "108d6d287adf9b98f8476ec34ffa82b53d18986a9a82467bbee4dc33cd41fb5f"
+      },
+      {
+        "id": "crates/cli/tests/cli_it/basic.rs",
+        "sha256": "18e8852409eab1e73e87e409ad632c4a6fd2f22b8195bf967afb7ca7b9e9b991"
+      },
+      {
+        "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+        "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+      },
+      {
+        "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+        "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+      },
+      {
+        "id": "docs/design/phase-25.1.4-solver-profile.lock.json",
+        "sha256": "7dff88fb2f48cc5bd74f15d5c68bcce1ece3ec3777c966a2e6b282d136b0a7a8"
+      },
+      {
+        "id": "docs/design/phase-25.1.16-solver-supply-chain.lock.json",
+        "sha256": "461d30679c83855145c8ed1504c9ef3e170b0e8334f3ed344092752cec83867d"
+      },
+      {
+        "id": "docs/design/phase-40.2.1-local-toolchain-support-lock.md",
+        "sha256": "f39900703c0ebe11416624d91b07719dc972021f7a21cd447cbd6133b1576726"
+      },
+      {
+        "id": "docs/design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md",
+        "sha256": "e62707202fb72a2b3eef7c9465c785b63d1c1a3f7cdee294040289b69ed9134b"
+      },
+      {
+        "id": "docs/design/phase-43.0.2-verifier-compatibility-lock.md",
+        "sha256": "367c803141eff4aa4a3090097baaa445a3b03680219b0f47f821b1e88c62f8b6"
+      },
+      {
+        "id": "tools/proof/z3/windows/z3.exe",
+        "sha256": "469de2006052e73177412986ae947e82e102984d467ef5430aca8c84e1adb23e"
+      },
+      {
+        "id": "tools/proof/z3/windows/z3.exe.sha256",
+        "sha256": "b149b22dc3f36ccbc5410babf088162c340b0f4539af6da258efc72d4754e997"
+      },
+      {
+        "id": "tools/proof/z3/windows/z3.exe.sig",
+        "sha256": "95392b777e325322c81bb609a63ca13a31c431e7ccbb6142778e9069f83668de"
+      }
+    ]
+  },
+  "toolchain": [
+    {
+      "name": "cargo",
+      "version": "cargo 1.89.0 (c24e10642 2025-06-23)"
+    },
+    {
+      "name": "clippy",
+      "version": "clippy 0.1.89 (29483883ee 2025-08-04)"
+    },
+    {
+      "name": "rustc",
+      "version": "rustc 1.89.0 (29483883e 2025-08-04)"
+    },
+    {
+      "name": "rustfmt",
+      "version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)"
+    },
+    {
+      "name": "xtask",
+      "version": "0.1.0"
+    }
+  ],
+  "gate_order": [
+    "release-precheck",
+    "contract-release-fixtures",
+    "verifier-distribution-fixtures",
+    "caller-authorization-fixtures",
+    "reference-pilot-offline-replay"
+  ],
+  "future_required_gates": [],
+  "gates": [
+    {
+      "id": "release-precheck",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "--offline",
+        "--locked",
+        "run",
+        "-p",
+        "xtask",
+        "--",
+        "release-precheck"
+      ],
+      "input_digests": [
+        {
+          "id": "Cargo.lock",
+          "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "Cargo.lock",
+          "sha256": "6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"
+        }
+      ]
+    },
+    {
+      "id": "contract-release-fixtures",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "--offline",
+        "--locked",
+        "test",
+        "-p",
+        "clg-cli",
+        "--test",
+        "cli_it",
+        "basic::contract_release_"
+      ],
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "verifier-distribution-fixtures",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "--offline",
+        "--locked",
+        "test",
+        "--workspace",
+        "verifier"
+      ],
+      "input_digests": [
+        {
+          "id": "xtask/src/main/tests.rs",
+          "sha256": "108d6d287adf9b98f8476ec34ffa82b53d18986a9a82467bbee4dc33cd41fb5f"
+        },
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "xtask/src/main/tests.rs",
+          "sha256": "108d6d287adf9b98f8476ec34ffa82b53d18986a9a82467bbee4dc33cd41fb5f"
+        },
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "caller-authorization-fixtures",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "--offline",
+        "--locked",
+        "test",
+        "-p",
+        "clg-cli",
+        "--test",
+        "cli_it",
+        "basic::caller_aware_"
+      ],
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+          "sha256": "226bb30523623e11c1abdbac7fc1138a674f66380d65f4c1c1d83ddc07e94c88"
+        }
+      ]
+    },
+    {
+      "id": "reference-pilot-offline-replay",
+      "status": "passed",
+      "command": [
+        "cargo",
+        "--offline",
+        "--locked",
+        "test",
+        "-p",
+        "clg-cli",
+        "--test",
+        "cli_it",
+        "basic::pilot_evidence_replay_"
+      ],
+      "input_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+          "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+        }
+      ],
+      "evidence_digests": [
+        {
+          "id": "crates/cli/tests/cli_it/basic/contract_target.rs",
+          "sha256": "d9702f7d2951b97cc8f13afb1d80ccb9618208ef321640d2a6d6633dde29be48"
+        }
+      ]
+    }
+  ]
+}

@@ -370,7 +370,7 @@ contract platform.
     supported/non-supported claims cannot drift silently.
     (`xtask/src/main/tests.rs`) `Completed: 2026-10-16`.
 
-- [ ] 44.1 Perform a clean-checkout local closure rehearsal on the reference project. Generate
+- [x] 44.1 Perform a clean-checkout local closure rehearsal on the reference project. Generate
   the release bundle, run `xtask pilot-precheck`, verify the bundle from an independent directory
   with the distributed verifier, replay every required offline fixture, and record canonical
   evidence plus a human-readable result. A live testnet observation may be attached, but cannot
@@ -383,8 +383,11 @@ contract platform.
     reference release, independent verification, authorization/tamper matrix, and offline target
     replay. Preserve the canonical report and its digest projection.
     (`docs/evidence/phase-44.1.2-full-local-evidence-chain.md`) `Completed: 2026-10-16`.
-  - [ ] 44.1.3 Repeat the closure rehearsal in a second clean directory or by a second operator,
+  - [x] 44.1.3 Repeat the closure rehearsal in a second clean directory or by a second operator,
     compare canonical reports, and investigate any difference before proceeding to closure.
+    (`docs/evidence/phase-44.1.3-second-clean-rehearsal.md`) `Completed: 2026-10-16`.
+  Parent completed: `docs/evidence/phase-44.1.2-full-local-evidence-chain.md` and
+  `docs/evidence/phase-44.1.3-second-clean-rehearsal.md` `Completed: 2026-10-16`.
 
 - [ ] 44.2 Conduct final pilot-readiness review. Mark Milestone 5 complete only when every
   local acceptance item passes, the external verifier walkthrough is reproducible by a second

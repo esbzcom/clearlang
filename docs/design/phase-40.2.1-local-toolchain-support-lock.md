@@ -16,11 +16,14 @@ host, solver, schema, or remote automation result as equivalent.
 From an approved checkout with its locked Cargo dependencies already available locally, run:
 
 ```text
-cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
+cargo run --offline --locked -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
 ```
 
-`CARGO_NET_OFFLINE=true` is equivalent. The command must run from the checkout root, use the
-checked-in `Cargo.lock`, and retain the emitted report unchanged. An offline dependency cache is
+`CARGO_NET_OFFLINE=true` is set by the command for every child Cargo process; it is safe to set it
+for the outer command too. The command also enforces `--locked` for every child Cargo process. It
+must run from a clean, committed checkout root, use the checked-in `Cargo.lock`, and retain the
+emitted report unchanged. The report destination must be new; the command refuses to overwrite a
+previous report. An offline dependency cache is
 a prerequisite; an offline failure to resolve a missing crate is a setup failure, not permission
 to contact a registry during acceptance.
 
@@ -48,7 +51,8 @@ substitute for a report from this matrix.
 ## Required local tools
 
 `rust-toolchain.toml` pins Rust and Cargo to `1.89.0` and requires the `clippy` and `rustfmt`
-components. The host-native linker in the table is required to compile the workspace. The
+components. The precheck records their non-secret version strings and rejects a Cargo/Rust
+`1.89.0`, Clippy `0.1.89`, or Rustfmt `1.8.0-stable` mismatch. The host-native linker in the table is required to compile the workspace. The
 version-controlled `Cargo.lock` is part of the approved checkout and Cargo must honor it; no
 lockfile update, dependency fetch, `--locked` bypass, or ambient executable is accepted as part
 of the acceptance run.
@@ -61,8 +65,8 @@ SHA-256 and detached Ed25519 signature as governed by
 wrong-version, or untrusted solver must fail closed; it must not fall back to an arbitrary host Z3.
 
 No RPC endpoint, wallet, private key, Docker/OCI runtime, Node.js, package manager, cloud account,
-or remote CI service is required or accepted by the local precheck. Git is needed only to obtain
-the approved checkout; it is not invoked by the acceptance command.
+or remote CI service is required or accepted by the local precheck. Git is invoked locally, without
+network access, to reject a dirty checkout and record its exact commit/tree identity.
 
 ## Locked compatibility set
 
@@ -77,10 +81,10 @@ the approved checkout; it is not invoked by the acceptance command.
 | Release bundle | `clg.contract-release-bundle.v1`, schema `1` |
 | Independent verifier line | `0.1.x`, with capabilities declared by its signed manifest |
 | Verifier result | `clg.contract-release-verifier-result.v1`, schema `1` |
-| Pilot-precheck report | `clg.pilot-precheck-report.v1`, schema `1`, `scope: "full"` |
+| Pilot-precheck report | `clg.pilot-precheck-report.v2`, schema `2`, `scope: "full"` |
 
-The local precheck report records its own `xtask` version and evidence digests; it is not a general
-host-attestation format. The host/toolchain contract above is checked before running it. The
+The local precheck report records its exact clean checkout, compatibility-input digests, and
+non-secret Cargo/Rust/component/`xtask` versions; it is not a general host-attestation format. The host/toolchain contract above is checked before running it. The
 upgrade, incompatibility, and rollback decision procedure is locked in
 `phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md`; an unlisted version or platform
 is rejected for pilot acceptance rather than inferred compatible.

@@ -2,12 +2,12 @@
 $Repo = (Get-Location).Path
 $Clean = Join-Path ([System.IO.Path]::GetTempPath()) ("clg-pilot-precheck-" + [guid]::NewGuid())
 $Report = Join-Path $Clean 'pilot-precheck-full.json'
-$ProjectionPath = Join-Path $Repo 'docs/fixtures/phase-40.2.3/pilot-precheck-digest-projection.v1.json'
+$ProjectionPath = Join-Path $Repo 'docs/fixtures/phase-40.2.3/pilot-precheck-digest-projection.v2.json'
 New-Item -ItemType Directory -Path $Clean -ErrorAction Stop | Out-Null
 
 $env:CARGO_NET_OFFLINE = 'true'
 try {
-    cargo run --offline -p xtask -- pilot-precheck --report $Report
+    cargo run --offline --locked -p xtask -- pilot-precheck --report $Report
     if ($LASTEXITCODE -ne 0) { throw 'STOP: pilot-precheck failed; retain its report and do not validate it as acceptance evidence' }
 }
 finally {

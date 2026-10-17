@@ -16,11 +16,13 @@ claimed.
 The supported invocation is:
 
 ```powershell
-cargo run -p xtask -- pilot-precheck --report <FILE>
+cargo run --offline --locked -p xtask -- pilot-precheck --report <FILE>
 ```
 
 `--report <FILE>` is required. It identifies the destination only and is never serialized into the
-report. The command creates the parent directory when it is safe to do so, writes the final report
+report. The command requires a clean committed checkout and a new report destination: a
+checkout-relative destination must be under `out/` or `tmp/`; an external absolute destination is
+also allowed. It refuses to overwrite any existing file, creates the parent directory when it is safe to do so, writes the final report
 atomically, and exits non-zero for any failed, omitted, malformed, substituted, or out-of-order
 gate. It accepts no option that skips, reorders, retries, or replaces a required gate.
 
@@ -50,30 +52,33 @@ report has an empty `future_required_gates` list.
 
 ## Report Schema
 
-The report format is `clg.pilot-precheck-report.v1` with `schema_version: 1`. Its canonical JSON
+The report format is `clg.pilot-precheck-report.v2` with `schema_version: 2`. Its canonical JSON
 object fields appear in this order:
 
-1. `schema_version` - integer `1`.
-2. `kind` - exact string `clg.pilot-precheck-report.v1`.
+1. `schema_version` - integer `2`.
+2. `kind` - exact string `clg.pilot-precheck-report.v2`.
 3. `scope` - exact string `full`.
 4. `overall_status` - `passed` or `failed` for the declared scope only.
-5. `toolchain` - ordered, non-secret tool/version identifiers used by the gate.
-6. `gate_order` - the exact executed-scope identifier sequence.
-7. `future_required_gates` - empty for the completed full scope.
-8. `gates` - one ordered entry per executed-scope gate.
+5. `identity` - exact committed Git revision/tree and ordered SHA-256 compatibility inputs,
+   including the checked-in toolchain, runner, fixtures, policy locks, and solver bundles/sidecars.
+6. `toolchain` - ordered, non-secret Cargo, Rust, component, and `xtask` versions used by the gate.
+7. `gate_order` - the exact executed-scope identifier sequence.
+8. `future_required_gates` - empty for the completed full scope.
+9. `gates` - one ordered entry per executed-scope gate.
 
 Each `gates` entry contains only:
 
 - `id`: one required gate identifier;
 - `status`: `passed`, `failed`, or `not_run`;
-- `command`: canonical argv tokens without an absolute path, credentials, or environment values;
+- `command`: exact executed canonical Cargo argv tokens without an absolute path, credentials, or
+  environment values. Every nested Cargo invocation includes `--offline --locked`;
 - `input_digests`: ordered artifact identifiers and SHA-256 digests supplied or verified by the
   gate;
 - `evidence_digests`: ordered artifact identifiers and SHA-256 digests emitted or checked by the
   gate; and
 - `failure_code`: a stable non-secret error code when `status` is `failed`, otherwise omitted.
 
-No report field may contain an absolute path, current directory, hostname, username, timestamp,
+The report rejects unknown fields. No report field may contain an absolute path, current directory, hostname, username, timestamp,
 duration, process identifier, endpoint, key, signature secret, nonce, fee, or environment value.
 The report has no self-digest; its caller may hash the finished bytes. Canonical serialization and
 the fixed gate order make identical toolchain/input/result runs byte-stable.
@@ -91,8 +96,9 @@ Before reporting success for its declared scope, the implementation must reject:
    result without required evidence digests;
 3. unsafe evidence paths, path traversal, absolute paths, or evidence outside the designated
    fixture/output root;
-4. malformed schema versions, non-canonical JSON, non-lowercase 64-character SHA-256 digests,
-   substituted input/evidence digests, or a report containing forbidden host/secret fields;
+4. malformed schema versions, non-canonical JSON, non-hex or non-lowercase 64-character SHA-256
+   digests, substituted checkout/toolchain/input/evidence identities, or a report containing
+   forbidden host/secret or unknown fields;
 5. attempts to execute a gate through a network-target command or to retry a failed gate.
 
 ## Documentation Contract
@@ -121,8 +127,8 @@ toolchain policy, verifier walkthrough, and pilot operations guide.
    reference-pilot, and verifier fixture suites are registered in the fixed full order.
 2. The command interface, report schema, staged gate order, failure behavior, and redaction
    policy are explicit.
-3. A passing full report is impossible when any required gate is absent or non-passing, and the
-   command prohibits remote/network dependence.
+3. A passing full report is impossible when any required gate is absent or non-passing, the
+   checkout is not clean and committed, or a nested command could bypass offline/lockfile mode.
 
 ## References
 

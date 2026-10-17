@@ -17,8 +17,8 @@ mainnet migration, automatic update, dependency resolution, or a general evidenc
 ## Evidence identity and immutability
 
 An accepted local evidence set consists of the canonical
-`clg.pilot-precheck-report.v1` report, the exact checkout revision and `Cargo.lock` from which it
-was generated, its named input/evidence digests, and the retained release bundle/verifier evidence
+`clg.pilot-precheck-report.v2` report, its recorded exact clean checkout revision/tree,
+compatibility-input digests, named input/evidence digests, and the retained release bundle/verifier evidence
 named by the report's fixture outputs. The report is retained byte-for-byte; it is not edited to
 change a version, digest, status, scope, gate order, or path after execution.
 
@@ -42,7 +42,7 @@ similar host, or compatible-looking JSON field does not extend this set.
 
 The required diagnostic is the decision and the exact mismatched identity from this table—for
 example `unsupported host: linux-aarch64`, `solver version mismatch: expected 4.16.0`, or
-`pilot-precheck schema mismatch: expected clg.pilot-precheck-report.v1 schema 1`. Diagnostics
+`pilot-precheck schema mismatch: expected clg.pilot-precheck-report.v2 schema 2`. Diagnostics
 must be deterministic, non-secret, and must not contain absolute paths, hostnames, credentials,
 or values from a network endpoint. They must direct an operator to one of the listed actions;
 falling back to a nearby version is not an action.

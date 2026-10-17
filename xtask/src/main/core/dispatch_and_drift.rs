@@ -97,7 +97,33 @@ fn repo_root() -> PathBuf {
 }
 
 fn cargo_cmd(root: &Path, args: &[&str]) -> Result<(), String> {
-    run(Command::new("cargo").args(args).current_dir(root))
+    run(&mut cargo_command(root, args))
+}
+
+fn cargo_command(root: &Path, args: &[&str]) -> Command {
+    let mut command = Command::new("cargo");
+    if env::var_os("CLG_PILOT_PRECHECK").is_some() {
+        command
+            .args(["--offline", "--locked"])
+            .env("CARGO_NET_OFFLINE", "true");
+    }
+    command.args(args).current_dir(root);
+    command
+}
+
+fn pilot_cargo_cmd(root: &Path, args: &[&str]) -> Result<(), String> {
+    run(&mut pilot_cargo_command(root, args))
+}
+
+fn pilot_cargo_command(root: &Path, args: &[&str]) -> Command {
+    let mut command = Command::new("cargo");
+    command
+        .args(["--offline", "--locked"])
+        .args(args)
+        .current_dir(root)
+        .env("CARGO_NET_OFFLINE", "true")
+        .env("CLG_PILOT_PRECHECK", "1");
+    command
 }
 
 fn run_release_precheck(root: &Path) -> Result<(), String> {
@@ -121,7 +147,7 @@ fn run_release_precheck(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-const PILOT_PRECHECK_KIND: &str = "clg.pilot-precheck-report.v1";
+const PILOT_PRECHECK_KIND: &str = "clg.pilot-precheck-report.v2";
 const PILOT_PRECHECK_SCOPE_FULL: &str = "full";
 const PILOT_PRECHECK_GATES: [&str; 5] = [
     "release-precheck",
@@ -137,18 +163,21 @@ struct PilotPrecheckOpts {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct PilotPrecheckDigest {
     id: String,
     sha256: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct PilotPrecheckTool {
     name: String,
     version: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct PilotPrecheckGateReport {
     id: String,
     status: String,
@@ -160,11 +189,27 @@ struct PilotPrecheckGateReport {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct PilotPrecheckRepositoryIdentity {
+    commit: String,
+    tree: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct PilotPrecheckIdentity {
+    repository: PilotPrecheckRepositoryIdentity,
+    compatibility_digests: Vec<PilotPrecheckDigest>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct PilotPrecheckReport {
     schema_version: u32,
     kind: String,
     scope: String,
     overall_status: String,
+    identity: PilotPrecheckIdentity,
     toolchain: Vec<PilotPrecheckTool>,
     gate_order: Vec<String>,
     future_required_gates: Vec<String>,
@@ -173,13 +218,18 @@ struct PilotPrecheckReport {
 
 fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
     let opts = parse_pilot_precheck_args(raw_args)?;
+    validate_pilot_precheck_report_destination(root, &opts.report)?;
+    ensure_clean_pilot_checkout(root)?;
     let mut report = new_full_pilot_precheck_report(root)?;
+    validate_pilot_precheck_environment(&report.toolchain)?;
 
     for index in 0..report.gates.len() {
         let gate_id = report.gates[index].id.clone();
         let outcome = match gate_id.as_str() {
-            "release-precheck" => run_release_precheck(root),
-            "contract-release-fixtures" => cargo_cmd(
+            "release-precheck" => {
+                pilot_cargo_cmd(root, &["run", "-p", "xtask", "--", "release-precheck"])
+            }
+            "contract-release-fixtures" => pilot_cargo_cmd(
                 root,
                 &[
                     "test",
@@ -191,9 +241,9 @@ fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> 
                 ],
             ),
             "verifier-distribution-fixtures" => {
-                cargo_cmd(root, &["test", "--workspace", "verifier"])
+                pilot_cargo_cmd(root, &["test", "--workspace", "verifier"])
             }
-            "caller-authorization-fixtures" => cargo_cmd(
+            "caller-authorization-fixtures" => pilot_cargo_cmd(
                 root,
                 &[
                     "test",
@@ -204,7 +254,7 @@ fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> 
                     "basic::caller_aware_",
                 ],
             ),
-            "reference-pilot-offline-replay" => cargo_cmd(
+            "reference-pilot-offline-replay" => pilot_cargo_cmd(
                 root,
                 &[
                     "test",
@@ -221,6 +271,7 @@ fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> 
             report.gates[index].status = "failed".to_string();
             report.gates[index].failure_code = Some("command_failed".to_string());
             report.overall_status = "failed".to_string();
+            ensure_clean_pilot_checkout(root)?;
             validate_pilot_precheck_report_against_root(root, &report)?;
             write_pilot_precheck_report(&opts.report, &report)?;
             return Err(format!(
@@ -230,8 +281,46 @@ fn run_pilot_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), String> 
         report.gates[index].status = "passed".to_string();
     }
 
+    ensure_clean_pilot_checkout(root)?;
     validate_pilot_precheck_report_against_root(root, &report)?;
     write_pilot_precheck_report(&opts.report, &report)
+}
+
+fn validate_pilot_precheck_report_destination(root: &Path, report: &Path) -> Result<(), String> {
+    let resolved = if report.is_absolute() {
+        report.to_path_buf()
+    } else {
+        root.join(report)
+    };
+    if resolved.exists() {
+        return Err(format!(
+            "pilot-precheck refuses to overwrite existing report `{}`",
+            report.display()
+        ));
+    }
+    let within_root = resolved.strip_prefix(root).ok();
+    if let Some(relative) = within_root {
+        let mut components = relative.components();
+        let allowed_root = matches!(components.next(), Some(std::path::Component::Normal(component)) if component == "out" || component == "tmp");
+        if !allowed_root
+            || components.any(|component| matches!(component, std::path::Component::ParentDir))
+        {
+            return Err(format!(
+                "pilot-precheck report must be a new file under `out/` or `tmp/`, not `{}`",
+                report.display()
+            ));
+        }
+    } else if !report.is_absolute()
+        || report
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(format!(
+            "pilot-precheck report path is unsafe: `{}`",
+            report.display()
+        ));
+    }
+    Ok(())
 }
 
 fn parse_pilot_precheck_args(raw_args: Vec<String>) -> Result<PilotPrecheckOpts, String> {
@@ -265,14 +354,12 @@ fn parse_pilot_precheck_args(raw_args: Vec<String>) -> Result<PilotPrecheckOpts,
 
 fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, String> {
     Ok(PilotPrecheckReport {
-        schema_version: 1,
+        schema_version: 2,
         kind: PILOT_PRECHECK_KIND.to_string(),
         scope: PILOT_PRECHECK_SCOPE_FULL.to_string(),
         overall_status: "passed".to_string(),
-        toolchain: vec![PilotPrecheckTool {
-            name: "xtask".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-        }],
+        identity: new_pilot_precheck_identity(root)?,
+        toolchain: new_pilot_precheck_toolchain(root)?,
         gate_order: PILOT_PRECHECK_GATES
             .iter()
             .map(|gate| (*gate).to_string())
@@ -282,7 +369,7 @@ fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, St
             new_pilot_precheck_gate(
                 root,
                 "release-precheck",
-                &["cargo", "run", "-p", "xtask", "--", "release-precheck"],
+                &["cargo", "--offline", "--locked", "run", "-p", "xtask", "--", "release-precheck"],
                 &["Cargo.lock"],
             )?,
             new_pilot_precheck_gate(
@@ -290,6 +377,8 @@ fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, St
                 "contract-release-fixtures",
                 &[
                     "cargo",
+                    "--offline",
+                    "--locked",
                     "test",
                     "-p",
                     "clg-cli",
@@ -302,7 +391,7 @@ fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, St
             new_pilot_precheck_gate(
                 root,
                 "verifier-distribution-fixtures",
-                &["cargo", "test", "--workspace", "verifier"],
+                &["cargo", "--offline", "--locked", "test", "--workspace", "verifier"],
                 &[
                     "xtask/src/main/tests.rs",
                     "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
@@ -313,6 +402,8 @@ fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, St
                 "caller-authorization-fixtures",
                 &[
                     "cargo",
+                    "--offline",
+                    "--locked",
                     "test",
                     "-p",
                     "clg-cli",
@@ -327,6 +418,8 @@ fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, St
                 "reference-pilot-offline-replay",
                 &[
                     "cargo",
+                    "--offline",
+                    "--locked",
                     "test",
                     "-p",
                     "clg-cli",
@@ -338,6 +431,168 @@ fn new_full_pilot_precheck_report(root: &Path) -> Result<PilotPrecheckReport, St
             )?,
         ],
     })
+}
+
+const PILOT_PRECHECK_COMPATIBILITY_INPUTS: &[&str] = &[
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "xtask/src/main/core/dispatch_and_drift.rs",
+    "xtask/src/main/artifacts_cli_models.rs",
+    "xtask/src/main/tests.rs",
+    "crates/cli/tests/cli_it/basic.rs",
+    "crates/cli/tests/cli_it/basic/contract_test_campaign.rs",
+    "crates/cli/tests/cli_it/basic/contract_target.rs",
+    "docs/design/phase-25.1.4-solver-profile.lock.json",
+    "docs/design/phase-25.1.16-solver-supply-chain.lock.json",
+    "docs/design/phase-40.2.1-local-toolchain-support-lock.md",
+    "docs/design/phase-40.2.2-local-evidence-compatibility-and-rollback-lock.md",
+    "docs/design/phase-43.0.2-verifier-compatibility-lock.md",
+];
+
+fn new_pilot_precheck_identity(root: &Path) -> Result<PilotPrecheckIdentity, String> {
+    let compatibility_digests = PILOT_PRECHECK_COMPATIBILITY_INPUTS
+        .iter()
+        .chain(active_pilot_solver_inputs()?.iter())
+        .map(|path| {
+            Ok(PilotPrecheckDigest {
+                id: (*path).to_string(),
+                sha256: file_sha256_hex(&root.join(path))?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(PilotPrecheckIdentity {
+        repository: PilotPrecheckRepositoryIdentity {
+            commit: git_output(root, &["rev-parse", "HEAD"] )?,
+            tree: git_output(root, &["rev-parse", "HEAD^{tree}"])?,
+        },
+        compatibility_digests,
+    })
+}
+
+fn active_pilot_solver_inputs() -> Result<&'static [&'static str], String> {
+    if env::consts::ARCH != "x86_64" {
+        return Err(format!(
+            "unsupported pilot-precheck architecture: {}",
+            env::consts::ARCH
+        ));
+    }
+    match env::consts::OS {
+        "windows" => Ok(&[
+            "tools/proof/z3/windows/z3.exe",
+            "tools/proof/z3/windows/z3.exe.sha256",
+            "tools/proof/z3/windows/z3.exe.sig",
+        ]),
+        "linux" => Ok(&[
+            "tools/proof/z3/linux/z3",
+            "tools/proof/z3/linux/z3.sha256",
+            "tools/proof/z3/linux/z3.sig",
+        ]),
+        "macos" => Ok(&[
+            "tools/proof/z3/macos/z3",
+            "tools/proof/z3/macos/z3.sha256",
+            "tools/proof/z3/macos/z3.sig",
+        ]),
+        other => Err(format!("unsupported pilot-precheck host: {other}")),
+    }
+}
+
+fn new_pilot_precheck_toolchain(root: &Path) -> Result<Vec<PilotPrecheckTool>, String> {
+    Ok(vec![
+        PilotPrecheckTool {
+            name: "cargo".to_string(),
+            version: command_output(root, pilot_cargo_command(root, &["--version"]), "cargo")?,
+        },
+        PilotPrecheckTool {
+            name: "clippy".to_string(),
+            version: cargo_subcommand_version(root, "clippy")?,
+        },
+        PilotPrecheckTool {
+            name: "rustc".to_string(),
+            version: command_output(root, version_command("rustc"), "rustc")?,
+        },
+        PilotPrecheckTool {
+            name: "rustfmt".to_string(),
+            version: command_output(root, version_command("rustfmt"), "rustfmt")?,
+        },
+        PilotPrecheckTool {
+            name: "xtask".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        },
+    ])
+}
+
+fn validate_pilot_precheck_environment(toolchain: &[PilotPrecheckTool]) -> Result<(), String> {
+    active_pilot_solver_inputs()?;
+    for (required, expected_version) in [
+        ("cargo", "1.89.0"),
+        ("clippy", "0.1.89"),
+        ("rustc", "1.89.0"),
+        ("rustfmt", "1.8.0-stable"),
+    ] {
+        let Some(tool) = toolchain.iter().find(|tool| tool.name == required) else {
+            return Err(format!("pilot-precheck is missing required tool `{required}`"));
+        };
+        if !tool.version.contains(expected_version) {
+            return Err(format!(
+                "unsupported pilot-precheck {required} version: expected {expected_version}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn version_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    command.arg("--version");
+    command
+}
+
+fn cargo_subcommand_version(root: &Path, subcommand: &str) -> Result<String, String> {
+    command_output(
+        root,
+        pilot_cargo_command(root, &[subcommand, "--version"]),
+        "cargo",
+    )
+}
+
+fn command_output(root: &Path, mut command: Command, program: &str) -> Result<String, String> {
+    let output = command
+        .current_dir(root)
+        .output()
+        .map_err(|error| format!("run `{program}` for pilot-precheck identity: {error}"))?;
+    if !output.status.success() {
+        return Err(format!("`{program}` failed while collecting pilot-precheck identity"));
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|error| format!("decode `{program}` version output: {error}"))
+        .map(|value| value.trim().to_string())
+}
+
+fn git_output(root: &Path, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(root)
+        .output()
+        .map_err(|error| format!("run git for pilot-precheck identity: {error}"))?;
+    if !output.status.success() {
+        return Err("git could not resolve the pilot-precheck checkout identity".to_string());
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|error| format!("decode git pilot-precheck identity: {error}"))
+        .map(|value| value.trim().to_string())
+}
+
+fn ensure_clean_pilot_checkout(root: &Path) -> Result<(), String> {
+    let status = git_output(root, &["status", "--porcelain=v1", "--untracked-files=all"])?;
+    validate_clean_pilot_checkout_status(&status)
+}
+
+fn validate_clean_pilot_checkout_status(status: &str) -> Result<(), String> {
+    if status.is_empty() {
+        Ok(())
+    } else {
+        Err("pilot-precheck requires a clean committed checkout; commit or remove local changes before acceptance".to_string())
+    }
 }
 
 fn new_pilot_precheck_gate(
@@ -366,7 +621,7 @@ fn new_pilot_precheck_gate(
 }
 
 fn validate_pilot_precheck_report(report: &PilotPrecheckReport) -> Result<(), String> {
-    if report.schema_version != 1 || report.kind != PILOT_PRECHECK_KIND {
+    if report.schema_version != 2 || report.kind != PILOT_PRECHECK_KIND {
         return Err("invalid pilot-precheck report schema".to_string());
     }
     if report.scope != PILOT_PRECHECK_SCOPE_FULL {
@@ -391,14 +646,25 @@ fn validate_pilot_precheck_report(report: &PilotPrecheckReport) -> Result<(), St
     {
         return Err("pilot-precheck gate results are missing, substituted, or reordered".to_string());
     }
-    if report.toolchain.is_empty()
-        || report
-            .toolchain
-            .iter()
-            .any(|tool| tool.name.is_empty() || tool.version.is_empty())
-    {
+    if report.toolchain.is_empty() {
         return Err("pilot-precheck report has invalid toolchain identity".to_string());
     }
+    let mut tool_names = BTreeSet::new();
+    for tool in &report.toolchain {
+        if tool.name.is_empty() || tool.version.is_empty() || !tool_names.insert(&tool.name) {
+            return Err("pilot-precheck report has invalid toolchain identity".to_string());
+        }
+    }
+    if !is_git_object_id(&report.identity.repository.commit)
+        || !is_git_object_id(&report.identity.repository.tree)
+    {
+        return Err("pilot-precheck report has invalid repository identity".to_string());
+    }
+    validate_pilot_precheck_digests(
+        &report.identity.compatibility_digests,
+        "identity",
+        "compatibility",
+    )?;
 
     let has_failed = report.gates.iter().any(|gate| gate.status == "failed");
     let has_not_run = report.gates.iter().any(|gate| gate.status == "not_run");
@@ -440,6 +706,9 @@ fn validate_pilot_precheck_report_against_root(
 ) -> Result<(), String> {
     validate_pilot_precheck_report(report)?;
     let expected = new_full_pilot_precheck_report(root)?;
+    if report.identity != expected.identity || report.toolchain != expected.toolchain {
+        return Err("pilot-precheck report has substituted checkout or toolchain identity".to_string());
+    }
     for (actual, expected) in report.gates.iter().zip(expected.gates.iter()) {
         if actual.input_digests != expected.input_digests
             || actual.evidence_digests != expected.evidence_digests
@@ -462,17 +731,15 @@ fn validate_pilot_precheck_digests(
     if digests.is_empty() {
         return Err(format!("pilot-precheck gate `{gate_id}` has no {kind} digests"));
     }
+    let mut ids = BTreeSet::new();
     for digest in digests {
         let path = Path::new(&digest.id);
         if digest.id.is_empty()
             || path.is_absolute()
             || digest.id.contains("..")
             || digest.id.contains('\\')
-            || !digest
-                .sha256
-                .chars()
-                .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit())
-            || digest.sha256.len() != 64
+            || !is_lower_hex_64(&digest.sha256)
+            || !ids.insert(&digest.id)
         {
             return Err(format!(
                 "pilot-precheck gate `{gate_id}` has unsafe or malformed {kind} digest"
@@ -480,6 +747,22 @@ fn validate_pilot_precheck_digests(
         }
     }
     Ok(())
+}
+
+fn is_lower_hex_64(value: &str) -> bool {
+    is_lower_hex(value, 64)
+}
+
+fn is_git_object_id(value: &str) -> bool {
+    (value.len() == 40 || value.len() == 64) && value.bytes().all(is_lower_hex_byte)
+}
+
+fn is_lower_hex(value: &str, length: usize) -> bool {
+    value.len() == length && value.bytes().all(is_lower_hex_byte)
+}
+
+fn is_lower_hex_byte(byte: u8) -> bool {
+    byte.is_ascii_digit() || (byte.is_ascii_lowercase() && byte.is_ascii_hexdigit())
 }
 
 fn write_pilot_precheck_report(path: &Path, report: &PilotPrecheckReport) -> Result<(), String> {
@@ -1304,9 +1587,7 @@ fn load_contract_verifier_public_key(path: &Path) -> Result<VerifyingKey, String
 }
 
 fn is_prefixed_sha256(value: &str) -> bool {
-    value
-        .strip_prefix("sha256:")
-        .is_some_and(|digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_digit() || (byte.is_ascii_lowercase() && byte.is_ascii_hexdigit())))
+    value.strip_prefix("sha256:").is_some_and(is_lower_hex_64)
 }
 
 fn is_exact_semver(value: &str) -> bool {

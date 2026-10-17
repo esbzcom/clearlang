@@ -22,12 +22,15 @@ general-purpose contract runtime, or financial-product approval.
 The required local acceptance command is:
 
 ```text
-cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
+cargo run --offline --locked -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
 ```
+
+The report destination must be new. Retain an existing report unchanged and use a new name for a
+later reproduction.
 
 It runs only under the exact local host/toolchain/solver contract in
 [`phase-40.2.1-local-toolchain-support-lock.md`](../design/phase-40.2.1-local-toolchain-support-lock.md).
-A passing `clg.pilot-precheck-report.v1` report with `scope: "full"` is required before an
+A passing `clg.pilot-precheck-report.v2` report with `scope: "full"` is required before an
 operator considers an explicit testnet action. Remote automation is informational only and cannot
 replace a local report.
 
@@ -51,7 +54,7 @@ is authoritative for verifier compatibility. The fixed v1 interfaces are:
 | Release bundle | `clg.contract-release-bundle.v1`, schema `1` |
 | Pilot target / execution profile | `clg.evm-sepolia-pilot.v1` / `clg.evm-stateful-scalar.v1` |
 | Verifier result | `clg.contract-release-verifier-result.v1`, schema `1` |
-| Pilot precheck | `clg.pilot-precheck-report.v1`, schema `1`, `scope: "full"` |
+| Pilot precheck | `clg.pilot-precheck-report.v2`, schema `2`, `scope: "full"` |
 | Verifier trust inputs | Exact archive, checksum listing, signed distribution manifest, externally trusted distribution public key/key ID, and explicit release public key |
 
 The verifier has no source checkout, wallet, signer, RPC, telemetry, plugin, or network-discovery

@@ -16,8 +16,8 @@ cargo test --offline -p clg-cli --test cli_it basic::published_offline_verifier_
 ```
 
 Exit status was `0`. The non-secret result transcript is retained in
-`phase-44.2.2-public-verifier-walkthrough.log`; its original clean-run log SHA-256 was
-`be6665df94affff8f5641f6b4d6c133dceb4166b35f3321c1be03c5678b9d6858`.
+`phase-44.2.2-public-verifier-walkthrough.log`; the retained versioned transcript SHA-256 is
+`0cc5ee3db89e97a45dc77dc4fc5dd23d5b449febd45c7e368309ae3034827406`.
 
 ## What the Reproduction Checks
 

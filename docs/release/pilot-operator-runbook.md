@@ -47,14 +47,16 @@ incidental registry/network fetch from being mistaken for local acceptance.
 # [LOCAL / NO NETWORK]
 $env:CARGO_NET_OFFLINE = 'true'
 try {
-    cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
+    # Use a new report name on each reproduction; existing reports are never overwritten.
+    cargo run --offline --locked -p xtask -- pilot-precheck --report out/pilot-precheck-full.json
     if ($LASTEXITCODE -ne 0) { throw 'STOP: pilot precheck failed' }
 }
 finally {
     Remove-Item Env:CARGO_NET_OFFLINE -ErrorAction SilentlyContinue
 }
 $Precheck = Get-Content out/pilot-precheck-full.json -Raw | ConvertFrom-Json
-if ($Precheck.kind -cne 'clg.pilot-precheck-report.v1' -or
+if ($Precheck.kind -cne 'clg.pilot-precheck-report.v2' -or
+    $Precheck.schema_version -ne 2 -or
     $Precheck.scope -cne 'full' -or
     $Precheck.overall_status -cne 'passed') {
     throw 'STOP: pilot precheck did not produce a passing full report'

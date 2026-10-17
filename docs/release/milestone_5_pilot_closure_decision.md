@@ -1,7 +1,8 @@
 # Milestone 5 Pilot Closure Decision
 
 Date: 2026-10-16
-Decision: **Milestone 5 is complete as a locally validated, testnet-only pilot.**
+Decision: **Milestone 5 engineering scope is complete as a locally validated, testnet-only
+pilot; current pilot acceptance is pending one clean v2 reproduction.**
 
 This decision closes the engineering milestone for the bounded proof-carrying,
 caller-authorized configuration-registry workflow. It does not approve a live transaction, certify
@@ -22,18 +23,18 @@ authorization.
 | CLI / independent verifier line | `0.1.0` / `0.1.x` |
 | Release bundle | `clg.contract-release-bundle.v1`, schema `1` |
 | Verifier result | `clg.contract-release-verifier-result.v1`, schema `1` |
-| Pilot report | `clg.pilot-precheck-report.v1`, schema `1`, `scope: "full"` |
+| Current pilot report contract | `clg.pilot-precheck-report.v2`, schema `2`, `scope: "full"` |
 | Target / execution profile | `clg.evm-sepolia-pilot.v1` / `clg.evm-stateful-scalar.v1` |
-| Canonical first and second report SHA-256 | `fed40ee8b5054747c6416815a8324f44c585cba18096aef7635a978312d18d87` |
-| Second-environment walkthrough log SHA-256 | `be6665df94affff8f5641f6b4d6c133dceb4166b35f3321c1be03c5678b9d6858` |
+| Historical v1 first and second report SHA-256 | `fed40ee8b5054747c6416815a8324f44c585cba18096aef7635a978312d18d87` |
+| Retained versioned walkthrough transcript SHA-256 | `0cc5ee3db89e97a45dc77dc4fc5dd23d5b449febd45c7e368309ae3034827406` |
 
 ## Evidence Accepted
 
-1. The first clean-checkout full report passed all five ordered gates: release precheck,
+1. The first clean-checkout **historical v1** full report passed all five ordered gates: release precheck,
    contract-release fixtures, verifier-distribution fixtures, caller-authorization fixtures, and
    reference-pilot offline replay. Its retained report and digest are in
    `docs/evidence/phase-44.1.2/`.
-2. The second clean-checkout report passed the same five gates and is byte-for-byte identical to
+2. The second clean-checkout **historical v1** report passed the same five gates and is byte-for-byte identical to
    the first. Its retained report and comparison are in `docs/evidence/phase-44.1.3/`.
 3. The published offline verifier walkthrough was reproduced in the second clean environment with
    proxy access trapped; it passed without network contact. Its non-secret transcript and witness
@@ -41,10 +42,12 @@ authorization.
 4. The local acceptance review found no waived local item. It is retained in
    `docs/evidence/phase-44.2.1-local-acceptance-review.md`.
 
-Any change to the revision, `Cargo.lock`, Rust/Cargo version, supported host, solver bytes or
-trust material, target/profile, verifier capability, or v1 schema invalidates this decision for a
-new run. The operator must create an approved compatibility lock and reproduce the complete local
-precheck; historical reports must never be edited or reinterpreted.
+The retained v1 reports remain historical milestone evidence only. They do not satisfy the v2
+acceptance contract. A newly committed clean checkout must reproduce the complete v2 local
+precheck before any further testnet action; historical reports must never be edited or
+reinterpreted. Any change to the revision, `Cargo.lock`, Rust/Cargo version, supported host,
+solver bytes or trust material, target/profile, verifier capability, or report schema likewise
+requires a new run under an approved compatibility lock.
 
 ## Unresolved Risks and Explicit Exclusions
 
@@ -61,6 +64,9 @@ precheck; historical reports must never be edited or reinterpreted.
 
 These are boundaries and follow-on risks, not waived acceptance criteria. Any request to cross one
 requires a new design lock and its own local evidence before implementation.
+
+This is a locally validated, testnet-only pilot and must not be described as generic EVM support,
+remote-CI certification, mainnet readiness, or custody safety.
 
 ## Follow-On Candidates
 

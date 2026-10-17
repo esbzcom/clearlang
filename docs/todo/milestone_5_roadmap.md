@@ -115,9 +115,10 @@ contract platform.
 - [x] 40.1 Add `xtask pilot-precheck`, a local-only, fail-closed staged aggregate gate. Its full
   implementation executes the release precheck, contract-release, verifier-distribution,
   caller-authorization, and reference-pilot offline-replay fixtures in a fixed order. It emits a
-  canonical versioned `full` report with command versions, input artifact digests, ordered
-  sub-gate outcomes, and no absolute host paths. Add tests that reject omitted, reordered,
-  substituted, or malformed report evidence.
+  canonical versioned `full` report with clean checkout/tree identity, command versions,
+  compatibility and input artifact digests, ordered sub-gate outcomes, and no absolute host paths.
+  Every child Cargo command must enforce offline/locked mode. Add tests that reject omitted,
+  reordered, substituted, malformed, or unknown-field report evidence.
   - [x] 40.1.1 Lock the command-line interface, report schema/version, deterministic sub-gate
     order, exit codes, report destination, and redaction policy. The report must identify tool
     versions and digests but never include secret material, endpoint credentials, or host paths.

@@ -27,8 +27,8 @@ mod tests {
         report: &PilotPrecheckReport,
     ) -> PilotPrecheckDigestProjection {
         PilotPrecheckDigestProjection {
-            schema_version: 1,
-            kind: "clg.pilot-precheck-digest-projection.v1".to_string(),
+            schema_version: 2,
+            kind: "clg.pilot-precheck-digest-projection.v2".to_string(),
             report_schema_version: report.schema_version,
             report_kind: report.kind.clone(),
             scope: report.scope.clone(),
@@ -1452,12 +1452,31 @@ fn demo() {
     }
 
     #[test]
+    fn pilot_precheck_report_destination_is_new_and_safe() {
+        let root = repo_root();
+        let accepted = root.join("out").join("pilot-precheck-test-report.json");
+        assert!(validate_pilot_precheck_report_destination(root.as_path(), &accepted).is_ok());
+        assert!(validate_pilot_precheck_report_destination(root.as_path(), &root.join("Cargo.toml"))
+            .is_err());
+        assert!(validate_pilot_precheck_report_destination(
+            root.as_path(),
+            Path::new("../pilot-precheck-report.json")
+        )
+        .is_err());
+        assert!(validate_pilot_precheck_report_destination(
+            root.as_path(),
+            &root.join("docs").join("pilot-precheck-report.json")
+        )
+        .is_err());
+    }
+
+    #[test]
     fn pilot_local_toolchain_support_lock_is_complete_and_pinned() {
         const POLICY: &str = include_str!("../../../docs/design/phase-40.2.1-local-toolchain-support-lock.md");
         const TOOLCHAIN: &str = include_str!("../../../rust-toolchain.toml");
         const LOCKFILE: &str = include_str!("../../../Cargo.lock");
         for required in [
-            "cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
+            "cargo run --offline --locked -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
             "windows-x64",
             "linux-x64-glibc-2.39",
             "macos-x64-15.7.3",
@@ -1468,7 +1487,7 @@ fn demo() {
             "clg.evm-sepolia-pilot.v1",
             "clg.evm-stateful-scalar.v1",
             "clg.contract-release-verifier-result.v1",
-            "clg.pilot-precheck-report.v1",
+            "clg.pilot-precheck-report.v2",
             "Remote automation is informational only.",
         ] {
             assert!(
@@ -1518,6 +1537,9 @@ fn demo() {
         const INCIDENT: &str = include_str!(
             "../../../docs/release/milestone_5_pilot_incident_and_rollback.md"
         );
+        const CLOSURE: &str = include_str!(
+            "../../../docs/release/milestone_5_pilot_closure_decision.md"
+        );
         const BOUNDARY: &str = "locally validated, testnet-only pilot";
         const EXCLUSIONS: &str =
             "must not be described as generic EVM support, remote-CI certification, mainnet readiness, or custody safety";
@@ -1529,6 +1551,7 @@ fn demo() {
             ("verifier walkthrough", VERIFIER),
             ("pilot runbook", RUNBOOK),
             ("incident guide", INCIDENT),
+            ("closure decision", CLOSURE),
         ] {
             let normalized = normalized_document_text(document);
             assert!(normalized.contains(BOUNDARY), "{name} is missing pilot boundary");
@@ -1539,11 +1562,11 @@ fn demo() {
         }
 
         for required in [
-            "cargo run --offline -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
+            "cargo run --offline --locked -p xtask -- pilot-precheck --report out/pilot-precheck-full.json",
             "clg.evm-sepolia-pilot.v1",
             "clg.evm-stateful-scalar.v1",
             "clg.contract-release-verifier-result.v1",
-            "clg.pilot-precheck-report.v1",
+            "clg.pilot-precheck-report.v2",
             "No command may infer an endpoint, chain ID, signer, nonce, fee, gas policy",
         ] {
             assert!(
@@ -1581,7 +1604,7 @@ fn demo() {
             .join("docs")
             .join("fixtures")
             .join("phase-40.2.3")
-            .join("pilot-precheck-digest-projection.v1.json");
+            .join("pilot-precheck-digest-projection.v2.json");
         let expected_bytes = std::fs::read(&projection_path).expect("read digest projection");
         let expected: PilotPrecheckDigestProjection =
             serde_json::from_slice(&expected_bytes).expect("parse digest projection");
@@ -1599,8 +1622,8 @@ fn demo() {
             "clean-directory reproduction fixture must retain failed reports as diagnostic evidence"
         );
         for required in [
-            "cargo run --offline -p xtask -- pilot-precheck --report $Report",
-            "pilot-precheck-digest-projection.v1.json",
+            "cargo run --offline --locked -p xtask -- pilot-precheck --report $Report",
+            "pilot-precheck-digest-projection.v2.json",
             "clean report directory contains unexpected entries",
         ] {
             assert!(
@@ -1651,6 +1674,16 @@ fn demo() {
         validate_pilot_precheck_report_against_root(root.as_path(), &report)
             .expect("valid full report");
         assert_eq!(report.scope, "full");
+        assert_eq!(report.schema_version, 2);
+        assert_eq!(report.kind, "clg.pilot-precheck-report.v2");
+        assert_eq!(
+            report
+                .toolchain
+                .iter()
+                .map(|tool| tool.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["cargo", "clippy", "rustc", "rustfmt", "xtask"]
+        );
         assert!(report.future_required_gates.is_empty());
         assert_eq!(
             report.gate_order,
@@ -1700,6 +1733,21 @@ fn demo() {
         malformed_digest.gates[0].evidence_digests[0].sha256 = "BAD".to_string();
         assert!(validate_pilot_precheck_report(&malformed_digest).is_err());
 
+        let mut non_hex_digest = report.clone();
+        non_hex_digest.gates[0].evidence_digests[0].sha256 = "z".repeat(64);
+        assert!(validate_pilot_precheck_report(&non_hex_digest).is_err());
+
+        let mut duplicate_identity = report.clone();
+        duplicate_identity
+            .identity
+            .compatibility_digests
+            .push(duplicate_identity.identity.compatibility_digests[0].clone());
+        assert!(validate_pilot_precheck_report(&duplicate_identity).is_err());
+
+        let mut duplicate_tool = report.clone();
+        duplicate_tool.toolchain.push(duplicate_tool.toolchain[0].clone());
+        assert!(validate_pilot_precheck_report(&duplicate_tool).is_err());
+
         let mut missing_evidence = report.clone();
         missing_evidence.gates[0].evidence_digests.clear();
         assert!(validate_pilot_precheck_report(&missing_evidence).is_err());
@@ -1708,6 +1756,62 @@ fn demo() {
         substituted.gates[0].input_digests[0].sha256 = "0".repeat(64);
         assert!(validate_pilot_precheck_report(&substituted).is_ok());
         assert!(validate_pilot_precheck_report_against_root(root.as_path(), &substituted).is_err());
+    }
+
+    #[test]
+    fn pilot_precheck_schema_rejects_unknown_fields_and_substituted_identity() {
+        let root = repo_root();
+        let mut report = new_full_pilot_precheck_report(root.as_path()).expect("new report");
+        for gate in &mut report.gates {
+            gate.status = "passed".to_string();
+        }
+
+        let mut encoded = serde_json::to_value(&report).expect("serialize report");
+        encoded["hostname"] = serde_json::Value::String("forbidden".to_string());
+        assert!(serde_json::from_value::<PilotPrecheckReport>(encoded).is_err());
+
+        report.identity.repository.commit = "0".repeat(40);
+        assert!(validate_pilot_precheck_report(&report).is_ok());
+        assert!(validate_pilot_precheck_report_against_root(root.as_path(), &report).is_err());
+    }
+
+    #[test]
+    fn pilot_precheck_child_cargo_commands_are_offline_and_locked() {
+        let root = repo_root();
+        let command = pilot_cargo_command(root.as_path(), &["test", "--workspace"]);
+        let args = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(args, vec!["--offline", "--locked", "test", "--workspace"]);
+        assert!(command.get_envs().any(|(key, value)| {
+            key == "CARGO_NET_OFFLINE" && value.is_some_and(|value| value == "true")
+        }));
+        assert!(command.get_envs().any(|(key, value)| {
+            key == "CLG_PILOT_PRECHECK" && value.is_some_and(|value| value == "1")
+        }));
+    }
+
+    #[test]
+    fn pilot_precheck_requires_a_clean_committed_checkout() {
+        validate_clean_pilot_checkout_status("").expect("clean checkout is accepted");
+        let error = validate_clean_pilot_checkout_status(" M xtask/src/main.rs\n")
+            .expect_err("dirty checkout is rejected");
+        assert!(error.contains("clean committed checkout"));
+    }
+
+    #[test]
+    fn pilot_precheck_rejects_an_unlocked_toolchain_version() {
+        let root = repo_root();
+        let mut toolchain = new_pilot_precheck_toolchain(root.as_path()).expect("collect toolchain");
+        validate_pilot_precheck_environment(&toolchain).expect("locked toolchain is accepted");
+        toolchain
+            .iter_mut()
+            .find(|tool| tool.name == "cargo")
+            .expect("cargo tool identity")
+            .version = "cargo 0.0.0".to_string();
+        assert!(validate_pilot_precheck_environment(&toolchain).is_err());
+        assert!(new_pilot_precheck_identity(root.as_path()).is_ok());
     }
 
     #[test]

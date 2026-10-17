@@ -3,7 +3,7 @@
 Run this fixture from the approved checkout root on a host listed in the Phase 40.2.1 support
 lock. It writes the report into a newly created, otherwise empty output directory, then checks the
 report's schema, full scope, passing status, fixed gate sequence, and every source-bound digest
-against `pilot-precheck-digest-projection.v1.json`.
+against `pilot-precheck-digest-projection.v2.json`.
 
 The runnable fixture is
 [`pilot-precheck-clean-directory-reproduction.ps1`](pilot-precheck-clean-directory-reproduction.ps1).
@@ -14,12 +14,12 @@ Its body is reproduced below for review:
 $Repo = (Get-Location).Path
 $Clean = Join-Path ([System.IO.Path]::GetTempPath()) ("clg-pilot-precheck-" + [guid]::NewGuid())
 $Report = Join-Path $Clean 'pilot-precheck-full.json'
-$ProjectionPath = Join-Path $Repo 'docs/fixtures/phase-40.2.3/pilot-precheck-digest-projection.v1.json'
+$ProjectionPath = Join-Path $Repo 'docs/fixtures/phase-40.2.3/pilot-precheck-digest-projection.v2.json'
 New-Item -ItemType Directory -Path $Clean -ErrorAction Stop | Out-Null
 
 $env:CARGO_NET_OFFLINE = 'true'
 try {
-    cargo run --offline -p xtask -- pilot-precheck --report $Report
+    cargo run --offline --locked -p xtask -- pilot-precheck --report $Report
     if ($LASTEXITCODE -ne 0) { throw 'STOP: pilot-precheck failed; retain its report and do not validate it as acceptance evidence' }
 }
 finally {

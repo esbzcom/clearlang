@@ -1949,6 +1949,51 @@ fn demo() {
     }
 
     #[test]
+    fn safe_independent_observation_matrix_requires_diversity_and_stop_on_disagreement() {
+        const MATRIX: &str = include_str!(
+            "../../../docs/fixtures/phase-52.4/safe-registry-independent-observation-matrix.json"
+        );
+        let matrix: serde_json::Value = serde_json::from_str(MATRIX).expect("parse observation matrix");
+        assert_eq!(
+            matrix["format"].as_str(),
+            Some("clg.safe-registry-independent-observation-matrix.v1")
+        );
+        assert_eq!(matrix["schema_version"].as_u64(), Some(1));
+        assert_eq!(matrix["scope"].as_str(), Some("offline_only"));
+        assert_eq!(matrix["minimum_observers"].as_u64(), Some(2));
+        let agreement = matrix["agreement_cases"]
+            .as_array()
+            .expect("agreement cases")
+            .iter()
+            .filter_map(|entry| entry.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "runtime_bytecode",
+            "storage",
+            "value_changed_event",
+            "receipt_block_and_confirmation",
+            "finalized_head",
+            "reorganization_window",
+        ] {
+            assert!(agreement.contains(required), "missing agreement case {required}");
+        }
+        for case in matrix["disagreement_cases"].as_array().expect("disagreement cases") {
+            assert_eq!(case["expected_status"].as_str(), Some("unaccepted"));
+            assert_eq!(case["expected_diagnostic"].as_str(), Some("M6C006"));
+            assert_eq!(case["required_action"].as_str(), Some("preserve_and_stop"));
+        }
+        let prohibited = matrix["prohibited_responses"]
+            .as_array()
+            .expect("prohibited responses")
+            .iter()
+            .filter_map(|entry| entry.as_str())
+            .collect::<BTreeSet<_>>();
+        for response in ["majority_vote", "automatic_retry", "production_acceptance"] {
+            assert!(prohibited.contains(response), "response must remain prohibited: {response}");
+        }
+    }
+
+    #[test]
     fn safe_evidence_capture_and_replay_are_local_and_fail_closed() {
         let root = unique_temp_dir("safe-evidence-capture");
         std::fs::create_dir_all(root.join("records")).expect("create record directory");
@@ -2180,6 +2225,16 @@ fn demo() {
             .observer_id
             .clone();
         assert_eq!(replay_error("disagreement.json", &disagreement), "M6C006");
+        let mut same_client_family = evidence.clone();
+        same_client_family.observations[0].independent_observer.client_family = same_client_family
+            .observations[0]
+            .primary_observer
+            .client_family
+            .clone();
+        assert_eq!(
+            replay_error("same-client-family.json", &same_client_family),
+            "M6C006"
+        );
         let mut reorganization = evidence.clone();
         reorganization.observations[2].status = "observer_disagreement_or_reorg".to_string();
         assert_eq!(replay_error("reorganization.json", &reorganization), "M6C006");

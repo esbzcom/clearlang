@@ -498,7 +498,9 @@ fn validate_safe_evidence_observation(observation: &SafeEvidenceObservation) -> 
     }
     validate_safe_observer(&observation.primary_observer, "primary")?;
     validate_safe_observer(&observation.independent_observer, "independent")?;
-    if observation.primary_observer.observer_id == observation.independent_observer.observer_id {
+    if observation.primary_observer.observer_id == observation.independent_observer.observer_id
+        || observation.primary_observer.client_family == observation.independent_observer.client_family
+    {
         return Err(SafeEvidenceError::new("M6C006"));
     }
     Ok(())

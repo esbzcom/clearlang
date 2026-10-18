@@ -1,0 +1,42 @@
+{
+  "format": "clg.safe-registry-independent-observation-matrix.v1",
+  "schema_version": 1,
+  "scope": "offline_only",
+  "target_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
+  "minimum_observers": 2,
+  "observer_requirements": [
+    {
+      "role": "primary",
+      "operator_relation": "submission_observer",
+      "client_family_relation": "different_from_independent",
+      "required_metadata": ["observer_id", "client_family", "client_version", "exchange_digests"]
+    },
+    {
+      "role": "independent",
+      "operator_relation": "separately_operated_verification_observer",
+      "client_family_relation": "different_from_primary",
+      "required_metadata": ["observer_id", "client_family", "client_version", "exchange_digests"]
+    }
+  ],
+  "agreement_cases": [
+    "chain_id",
+    "transaction_and_receipt",
+    "receipt_block_and_confirmation",
+    "runtime_bytecode",
+    "storage",
+    "value_changed_event",
+    "safe_configuration",
+    "finalized_head",
+    "reorganization_window"
+  ],
+  "disagreement_cases": [
+    {"name":"same_observer_identifier","mutation":"primary.observer_id=independent.observer_id","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"},
+    {"name":"same_client_family","mutation":"primary.client_family=independent.client_family","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"},
+    {"name":"bytecode_disagreement","mutation":"runtime_bytecode_digest_differs","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"},
+    {"name":"receipt_or_log_disagreement","mutation":"receipt_or_value_changed_event_differs","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"},
+    {"name":"storage_disagreement","mutation":"schema_defined_storage_differs","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"},
+    {"name":"confirmation_or_finality_disagreement","mutation":"block_or_finalized_head_differs","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"},
+    {"name":"detected_reorganization","mutation":"later_block_or_receipt_identity_differs","expected_status":"unaccepted","expected_diagnostic":"M6C006","required_action":"preserve_and_stop"}
+  ],
+  "prohibited_responses": ["majority_vote", "automatic_retry", "automatic_resubmission", "automatic_replacement", "production_acceptance"]
+}

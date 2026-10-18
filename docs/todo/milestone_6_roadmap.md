@@ -369,14 +369,18 @@ Only the explicit testnet exercises in 52.5 may contact a target.
     `xtask/src/main/core/safe_registry_evidence.rs`, `xtask/src/main/tests.rs`)
     `Completed: 2026-10-17`.
 
-- [ ] 52.4 Build the independent-observation fixture matrix.
-  - [ ] 52.4.1 Select the minimum independent clients or recorded compatible
+- [x] 52.4 Build the independent-observation fixture matrix.
+  - [x] 52.4.1 Select the minimum independent clients or recorded compatible
     client observations required by the 50.2 lock; document why each is in
     scope and what it cannot establish.
-  - [ ] 52.4.2 Add deterministic agreement and disagreement fixtures for
+  - [x] 52.4.2 Add deterministic agreement and disagreement fixtures for
     bytecode, receipt, log, storage, confirmation, and finality observations.
-  - [ ] 52.4.3 Require disagreement to produce a preservation-and-stop result,
+  - [x] 52.4.3 Require disagreement to produce a preservation-and-stop result,
     not a majority vote or automatic retry.
+    (`docs/design/phase-52.4-independent-observation-matrix.md`,
+    `docs/fixtures/phase-52.4/safe-registry-independent-observation-matrix.json`,
+    `xtask/src/main/core/safe_registry_evidence.rs`, `xtask/src/main/tests.rs`)
+    `Completed: 2026-10-17`.
 
 - [ ] 52.5 Run the public-testnet soak using the unchanged registry profile
   and production-shaped controls.
@@ -543,10 +547,8 @@ distinct high-risk program.
 
 ## First Task
 
-**52.4 - build the independent-observation fixture matrix.** Replay now binds
-evidence to an explicit, separately retained identity anchor and rejects both
-structural and valid-digest substitutions without contacting a network. The
-next task is to define the minimum independently operated client set and add
-agreement/disagreement fixtures for bytecode, receipt, event, storage,
-confirmation, and finality. It authorizes no endpoint, signer, deployment,
-invocation, or mainnet claim.
+**52.5 - prepare the public-testnet soak decision package.** The independent
+observation matrix now locks two differently operated client families and a
+preservation-and-stop response to disagreement. The next task is to define the
+testnet-soak inputs, exercise matrix, evidence-retention package, and decision
+record; it does not authorize endpoint contact, signing, or target action.

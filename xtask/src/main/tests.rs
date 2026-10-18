@@ -2077,6 +2077,47 @@ fn demo() {
     }
 
     #[test]
+    fn production_support_policy_is_pinned_and_fail_closed() {
+        const FIXTURE: &str = include_str!(
+            "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"
+        );
+        const POLICY: &str = include_str!(
+            "../../../docs/design/phase-53.1-production-support-compatibility-policy.md"
+        );
+        let fixture: serde_json::Value = serde_json::from_str(FIXTURE).expect("parse support fixture");
+        assert_eq!(
+            fixture["format"].as_str(),
+            Some("clg.production-support-compatibility-fixture.v1")
+        );
+        assert_eq!(fixture["toolchain"]["rust_cargo"].as_str(), Some("1.89.0"));
+        assert_eq!(fixture["toolchain"]["solver"]["family"].as_str(), Some("z3"));
+        assert_eq!(fixture["toolchain"]["solver"]["version"].as_str(), Some("4.16.0"));
+        assert_eq!(fixture["target"]["chain_id"].as_str(), Some("1"));
+        assert_eq!(fixture["target"]["safe_version"].as_str(), Some("1.4.1"));
+        assert_eq!(fixture["observation"]["required_observers"].as_u64(), Some(2));
+        assert_eq!(fixture["retention"]["minimum_years"].as_u64(), Some(7));
+        let prohibited = fixture["prohibited_compatibility"]
+            .as_array()
+            .expect("prohibited compatibility")
+            .iter()
+            .filter_map(|entry| entry.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in ["automatic_upgrade", "downgrade", "fallback"] {
+            assert!(prohibited.contains(required), "must reject {required}");
+        }
+        let policy = normalized_document_text(POLICY);
+        for required in [
+            "candidate support surface",
+            "14-day maximum advisory-age policy",
+            "at least seven years",
+            "No automatic",
+            "does not permit transaction cancellation",
+        ] {
+            assert!(policy.contains(required), "support policy missing {required}");
+        }
+    }
+
+    #[test]
     fn safe_evidence_capture_and_replay_are_local_and_fail_closed() {
         let root = unique_temp_dir("safe-evidence-capture");
         std::fs::create_dir_all(root.join("records")).expect("create record directory");

@@ -1,0 +1,13 @@
+{
+  "format": "clg.production-support-compatibility-fixture.v1",
+  "schema_version": 1,
+  "toolchain": {"rust_cargo":"1.89.0", "solver":{"family":"z3","version":"4.16.0"}},
+  "hosts": ["windows-x64", "linux-x64-glibc-2.39", "macos-x64-15.7.3"],
+  "target": {"profile":"clg.evm-ethereum-mainnet-safe-registry.v1", "chain_id":"1", "safe_version":"1.4.1", "outer_transaction":"legacy-eip155", "value_wei":"0"},
+  "verifier": {"line":"0.1.x", "capability":"explicit_production_format_support_required"},
+  "observation": {"required_observers":2, "distinct_client_families":true, "exact_version_is_candidate_input":true},
+  "change_response": ["block", "preserve_secret_free_evidence", "new_candidate_required"],
+  "retention": {"minimum_years":7, "public_subset":"secret_free_only"},
+  "prohibited_compatibility": ["automatic_upgrade", "version_alias", "downgrade", "fallback", "automatic_retry"],
+  "prohibited_content": ["private_key", "seed_phrase", "endpoint_url", "endpoint_credential", "raw_signature", "absolute_path", "device_serial"]
+}

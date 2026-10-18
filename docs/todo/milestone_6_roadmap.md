@@ -420,15 +420,18 @@ candidate; it does not approve or submit a mainnet transaction.
     `docs/fixtures/phase-53.0/production-precheck-report-fixture.json`,
     `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
-- [ ] 53.1 Publish the production support, compatibility, and response policy.
-  - [ ] 53.1.1 Define the supported compiler, solver, verifier, operating
+- [x] 53.1 Publish the production support, compatibility, and response policy.
+  - [x] 53.1.1 Define the supported compiler, solver, verifier, operating
     system/architecture, chain profile, transaction format, and client
     observation matrix.
-  - [ ] 53.1.2 Define upgrade, deprecation, vulnerability/CVE, emergency
+  - [x] 53.1.2 Define upgrade, deprecation, vulnerability/CVE, emergency
     rollback, and evidence-compatibility behavior. Unknown or expired versions
     must reject rather than inherit an earlier approval.
-  - [ ] 53.1.3 Define the minimal public artifacts and long-term retention
+  - [x] 53.1.3 Define the minimal public artifacts and long-term retention
     period for a production-profile verification record.
+    (`docs/design/phase-53.1-production-support-compatibility-policy.md`,
+    `docs/fixtures/phase-53.1/production-support-compatibility-fixture.json`,
+    `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
 - [ ] 53.2 Implement `production-precheck` as a strict composition of locked
   local gates.
@@ -555,8 +558,7 @@ distinct high-risk program.
 
 ## First Task
 
-**53.1 - define production support and compatibility policy.** The precheck
-contract is now fixed and reports the currently unavailable testnet-soak gate
-as `blocked`; it never turns that state into approval. The next task selects
-the supported local toolchain, profile/transaction, and observation-client
-compatibility matrix, including upgrade and retention policy.
+**53.2 - implement the offline production-precheck.** The support policy now
+pins the candidate compatibility surface and blocks unknown or changed inputs.
+The next task composes the fixed local gates into the atomic canonical report;
+the unstarted soak must remain a `blocked` result.

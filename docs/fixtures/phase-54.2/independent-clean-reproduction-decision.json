@@ -1,0 +1,13 @@
+{
+  "format": "clg.independent-clean-reproduction-decision.v1",
+  "schema_version": 1,
+  "status": "not_started",
+  "launch_effect": "not_approved",
+  "candidate": {"profile":"clg.evm-ethereum-mainnet-safe-registry.v1", "chain_id":"1"},
+  "required_independent_inputs": ["production_verifier_package", "distribution_trust_policy", "candidate_release_evidence_bundle", "public_release_key", "review_handoff", "review_findings_disposition", "secret_free_replay_precheck_inputs"],
+  "required_offline_checks": ["verify_release", "safe_policy_validate", "safe_evidence_replay", "production_precheck", "phase_53_4_documentation_fixture", "canonical_report_digest_comparison"],
+  "blockers": ["production_verifier_unavailable", "public_testnet_soak_not_started", "independent_review_not_commissioned", "independent_review_findings_not_started", "production_precheck_M6D005"],
+  "prohibited_fallbacks": ["source_checkout", "cargo_build", "sepolia_verifier", "profile_substitution", "network_fetch", "report_normalization", "report_merge", "hand_edit"],
+  "prohibited_content": ["private_key", "seed_phrase", "wallet", "endpoint", "production_request", "raw_safe_signature", "absolute_path"],
+  "non_claims": ["reproduction_completed", "review_approved", "production_ready", "mainnet_action_authorized"]
+}

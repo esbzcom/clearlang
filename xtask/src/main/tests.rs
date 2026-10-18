@@ -2395,6 +2395,61 @@ fn demo() {
     }
 
     #[test]
+    fn independent_clean_reproduction_decision_requires_real_production_inputs() {
+        const DECISION: &str = include_str!(
+            "../../../docs/fixtures/phase-54.2/independent-clean-reproduction-decision.json"
+        );
+        const CONTRACT: &str = include_str!(
+            "../../../docs/design/phase-54.2-independent-clean-environment-reproduction.md"
+        );
+        let decision: serde_json::Value = serde_json::from_str(DECISION).expect("parse reproduction decision");
+        assert_eq!(
+            decision["format"].as_str(),
+            Some("clg.independent-clean-reproduction-decision.v1")
+        );
+        assert_eq!(decision["schema_version"].as_u64(), Some(1));
+        assert_eq!(decision["status"].as_str(), Some("not_started"));
+        assert_eq!(decision["launch_effect"].as_str(), Some("not_approved"));
+        assert_eq!(
+            decision["candidate"]["profile"].as_str(),
+            Some("clg.evm-ethereum-mainnet-safe-registry.v1")
+        );
+        assert_eq!(decision["candidate"]["chain_id"].as_str(), Some("1"));
+        let blockers = decision["blockers"]
+            .as_array()
+            .expect("reproduction blockers")
+            .iter()
+            .filter_map(|blocker| blocker.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "production_verifier_unavailable",
+            "public_testnet_soak_not_started",
+            "independent_review_not_commissioned",
+            "production_precheck_M6D005",
+        ] {
+            assert!(blockers.contains(required), "missing reproduction blocker {required}");
+        }
+        let fallbacks = decision["prohibited_fallbacks"]
+            .as_array()
+            .expect("prohibited fallbacks")
+            .iter()
+            .filter_map(|fallback| fallback.as_str())
+            .collect::<BTreeSet<_>>();
+        for forbidden in ["source_checkout", "cargo_build", "sepolia_verifier", "network_fetch"] {
+            assert!(fallbacks.contains(forbidden), "fallback must remain prohibited: {forbidden}");
+        }
+        let contract = normalized_document_text(CONTRACT);
+        for required in [
+            "new local directory",
+            "source build",
+            "Any difference",
+            "does not bypass",
+        ] {
+            assert!(contract.contains(required), "reproduction contract missing {required}");
+        }
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

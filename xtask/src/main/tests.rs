@@ -2077,6 +2077,32 @@ fn demo() {
     }
 
     #[test]
+    fn production_precheck_report_is_canonical_and_blocks_unstarted_soak() {
+        let opts = parse_production_precheck_args(vec![
+            "--report".to_string(),
+            "out/production-precheck.json".to_string(),
+        ])
+        .expect("parse production precheck args");
+        assert_eq!(opts.report, PathBuf::from("out/production-precheck.json"));
+        assert!(parse_production_precheck_args(vec!["--skip".to_string()]).is_err());
+
+        let root = repo_root();
+        let mut report = new_production_precheck_report(root.as_path())
+            .expect("build production precheck report");
+        for gate in report.gates.iter_mut().take(4) {
+            gate.status = "passed".to_string();
+        }
+        report.gates[4].status = "blocked".to_string();
+        report.gates[4].diagnostic = Some("M6D005".to_string());
+        report.gates[5].status = "not_run".to_string();
+        report.overall_status = "blocked".to_string();
+        validate_production_precheck_report_against_root(root.as_path(), &report)
+            .expect("validate blocked production precheck report");
+        assert_eq!(report.gate_e.independent_review, "not_run");
+        assert_eq!(report.gate_e.launch_decision, "not_run");
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

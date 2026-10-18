@@ -4,3 +4,4 @@ include!("core/dispatch_and_drift.rs");
 include!("core/artifacts_and_vendor.rs");
 include!("core/safe_transaction_policy.rs");
 include!("core/safe_registry_evidence.rs");
+include!("core/production_precheck.rs");

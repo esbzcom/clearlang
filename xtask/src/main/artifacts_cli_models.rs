@@ -121,6 +121,9 @@ fn print_help() {
         "  pilot-precheck --report FILE - full local pilot fixture gate"
     );
     println!(
+        "  production-precheck --report FILE - offline production candidate-evidence gate"
+    );
+    println!(
         "  safe-policy-validate --request FILE --evidence FILE --artifact-root DIR --report FILE - offline Safe policy validation"
     );
     println!(

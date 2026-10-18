@@ -2299,6 +2299,57 @@ fn demo() {
     }
 
     #[test]
+    fn independent_review_handoff_is_secret_free_frozen_and_not_commissioned() {
+        const FIXTURE: &str = include_str!(
+            "../../../docs/fixtures/phase-54.0/independent-review-handoff-fixture.json"
+        );
+        const SCOPE: &str = include_str!(
+            "../../../docs/design/phase-54.0-independent-review-commissioning-lock.md"
+        );
+        let fixture: serde_json::Value = serde_json::from_str(FIXTURE).expect("parse review handoff fixture");
+        assert_eq!(
+            fixture["format"].as_str(),
+            Some("clg.independent-review-handoff-fixture.v1")
+        );
+        assert_eq!(fixture["schema_version"].as_u64(), Some(1));
+        assert_eq!(fixture["status"].as_str(), Some("not_commissioned"));
+        assert_eq!(
+            fixture["candidate_profile"].as_str(),
+            Some("clg.evm-ethereum-mainnet-safe-registry.v1")
+        );
+        assert_eq!(fixture["chain_id"].as_str(), Some("1"));
+        let artifacts = fixture["artifacts"].as_array().expect("handoff artifacts");
+        assert_eq!(artifacts.len(), 8);
+        for artifact in artifacts {
+            assert!(artifact["id"].as_str().is_some_and(|id| !id.contains("..") && !id.contains('\\')));
+            assert!(artifact["sha256"].as_str().is_some_and(is_lower_hex_64));
+        }
+        let blockers = fixture["blockers"]
+            .as_array()
+            .expect("review blockers")
+            .iter()
+            .filter_map(|blocker| blocker.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "production_verifier_unavailable",
+            "public_testnet_soak_not_started",
+            "independent_review_not_commissioned",
+        ] {
+            assert!(blockers.contains(required), "missing review blocker {required}");
+        }
+        let scope = normalized_document_text(SCOPE);
+        for required in [
+            "not_commissioned",
+            "unresolved critical or high finding",
+            "30 calendar days",
+            "not approved",
+            "private key",
+        ] {
+            assert!(scope.contains(required), "review scope missing {required}");
+        }
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

@@ -1,0 +1,25 @@
+{
+  "format": "clg.independent-review-handoff-fixture.v1",
+  "schema_version": 1,
+  "status": "not_commissioned",
+  "candidate_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
+  "chain_id": "1",
+  "repository": {
+    "commit": "e46d0dcfbdfda2991fbd44c20b35d5a220e9e279",
+    "tree": "0e6e74bcfd54b3b1f39eb1fee8286b5ac0a03713"
+  },
+  "artifacts": [
+    {"id":"Cargo.lock","sha256":"6a50f62920ff103f68e25f08923e932686ce188c5e8ed63d58e80a00315c9bf2"},
+    {"id":"xtask/src/main/core/production_precheck.rs","sha256":"706603b5f367c6e254dd57c379e445ca606f214df247f3072a862aa4467ba674"},
+    {"id":"xtask/src/main/core/safe_registry_evidence.rs","sha256":"7f77f723e51617da62addd4b2e8c0bde7d7254486cb022c82d0b84547a9577c7"},
+    {"id":"docs/design/phase-50.2-safe-owner-amendment.md","sha256":"f7c43a50e9311ec7c4258f0cc71f1f8953f867989ebcbd2c12726b8d847eda2f"},
+    {"id":"docs/design/phase-51.0-safe-operator-and-environment-policy.md","sha256":"12f6a03249ba3a74174a217d86676168ac9bab676df2bcc7859a8e642b92a925"},
+    {"id":"docs/design/phase-52.1-safe-registry-evidence-replay-schemas.md","sha256":"c57ee192ffca54ba1d2a4f94c479cdfebe8c28580573009de76cdad482e03207"},
+    {"id":"docs/design/phase-53.1-production-support-compatibility-policy.md","sha256":"70ce5d1ae224847c0fa3d5174ad02a30c4c8055d7b20c38efbc47878f5772c71"},
+    {"id":"docs/release/safe-registry-operator-runbook.md","sha256":"026d8efb57659272c44eb75440367b6e51e1f720e09e14b9417d49331ed46fb8"}
+  ],
+  "required_review_boundary": ["compiler_to_target_correspondence", "reference_registry", "verifier_and_trust_policy", "safe_governance", "policy_and_evidence_tools", "incident_and_operator_runbooks"],
+  "blockers": ["production_verifier_unavailable", "public_testnet_soak_not_started", "independent_review_not_commissioned"],
+  "prohibited_handoff_content": ["private_key", "seed_phrase", "recovery_material", "endpoint_credential", "raw_safe_signature", "wallet_export", "absolute_path", "production_transaction_request"],
+  "non_claims": ["review_completed", "production_ready", "launch_approved", "mainnet_action_authorized"]
+}

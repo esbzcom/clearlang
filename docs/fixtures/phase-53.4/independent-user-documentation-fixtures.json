@@ -1,0 +1,23 @@
+{
+  "format": "clg.independent-user-documentation-fixture.v1",
+  "schema_version": 1,
+  "scope": "offline_only",
+  "verifier": {
+    "walkthrough": "docs/release/production-verifier-offline-walkthrough.md",
+    "command": ["clg-contract-verifier", "--json-errors", "verify-release", "--bundle", "<BUNDLE>", "--pubkey", "<PUBLIC_RELEASE_KEY>"],
+    "required_future_result": {"target_profile":"clg.evm-ethereum-mainnet-safe-registry.v1", "chain_id":"1", "status":"verified"},
+    "current_status": "blocked_unsupported_profile_version"
+  },
+  "operator": {
+    "walkthrough": "docs/release/production-safe-registry-operator-walkthrough.md",
+    "commands": [
+      ["cargo", "run", "--offline", "--locked", "-p", "xtask", "--", "safe-policy-validate"],
+      ["cargo", "run", "--offline", "--locked", "-p", "xtask", "--", "production-precheck", "--report", "<REPORT>"]
+    ],
+    "current_precheck_status": "blocked",
+    "current_precheck_diagnostic": "M6D005"
+  },
+  "prohibited_inputs": ["source_checkout", "private_key", "seed_phrase", "wallet", "endpoint", "network", "mainnet_submission"],
+  "retention": {"minimum_years":7, "secret_free_only":true},
+  "non_claims": ["production_ready", "launch_approved", "safe_signature_valid", "target_state_verified"]
+}

@@ -2226,6 +2226,79 @@ fn demo() {
     }
 
     #[test]
+    fn independent_user_documentation_keeps_the_production_verifier_boundary_explicit() {
+        const FIXTURE: &str = include_str!(
+            "../../../docs/fixtures/phase-53.4/independent-user-documentation-fixtures.json"
+        );
+        const LOCK: &str = include_str!(
+            "../../../docs/design/phase-53.4-independent-user-documentation-lock.md"
+        );
+        const VERIFIER: &str = include_str!(
+            "../../../docs/release/production-verifier-offline-walkthrough.md"
+        );
+        const OPERATOR: &str = include_str!(
+            "../../../docs/release/production-safe-registry-operator-walkthrough.md"
+        );
+        let fixture: serde_json::Value = serde_json::from_str(FIXTURE).expect("parse documentation fixture");
+        assert_eq!(
+            fixture["format"].as_str(),
+            Some("clg.independent-user-documentation-fixture.v1")
+        );
+        assert_eq!(fixture["scope"].as_str(), Some("offline_only"));
+        assert_eq!(
+            fixture["verifier"]["required_future_result"]["target_profile"].as_str(),
+            Some("clg.evm-ethereum-mainnet-safe-registry.v1")
+        );
+        assert_eq!(
+            fixture["verifier"]["current_status"].as_str(),
+            Some("blocked_unsupported_profile_version")
+        );
+        assert_eq!(fixture["operator"]["current_precheck_status"].as_str(), Some("blocked"));
+        assert_eq!(
+            fixture["operator"]["current_precheck_diagnostic"].as_str(),
+            Some("M6D005")
+        );
+        assert_eq!(fixture["retention"]["minimum_years"].as_u64(), Some(7));
+        assert_eq!(fixture["retention"]["secret_free_only"].as_bool(), Some(true));
+        let commands = fixture["operator"]["commands"].as_array().expect("operator commands");
+        assert_eq!(commands.len(), 2);
+        for command in commands {
+            let joined = command
+                .as_array()
+                .expect("command tokens")
+                .iter()
+                .filter_map(|token| token.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert!(joined.contains("--offline --locked"), "command must be offline and locked");
+        }
+
+        let lock = normalized_document_text(LOCK);
+        for required in ["not a production-profile verifier", "not interchangeable", "no source checkout"] {
+            assert!(lock.contains(required), "documentation lock missing {required}");
+        }
+        let verifier = normalized_document_text(VERIFIER);
+        for required in [
+            "source checkout",
+            "private key",
+            "unsupported profile/version",
+            "must reject a mainnet Safe-registry candidate",
+            "does not authorize",
+        ] {
+            assert!(verifier.contains(required), "verifier walkthrough missing {required}");
+        }
+        let operator = normalized_document_text(OPERATOR);
+        for required in [
+            "M6D005",
+            "separately authorized Phase 52.5 public-testnet soak",
+            "at least seven years",
+            "No current document authorizes a mainnet action",
+        ] {
+            assert!(operator.contains(required), "operator walkthrough missing {required}");
+        }
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

@@ -454,14 +454,18 @@ candidate; it does not approve or submit a mainnet transaction.
   - [ ] 53.3.3 Test every inherited and new Gate B/C failure maps to a stable
     report result and blocks any production acceptance statement.
 
-- [ ] 53.4 Publish and test independent-user documentation.
-  - [ ] 53.4.1 Write a verifier walkthrough that starts from the distributed
+- [x] 53.4 Publish and test independent-user documentation.
+  (`docs/design/phase-53.4-independent-user-documentation-lock.md`,
+  `docs/release/production-verifier-offline-walkthrough.md`,
+  `docs/release/production-safe-registry-operator-walkthrough.md`,
+  `docs/fixtures/phase-53.4/`) `Completed: 2026-10-18`.
+  - [x] 53.4.1 Write a verifier walkthrough that starts from the distributed
     verifier, public key/trust policy, and release/evidence package, with no
     source checkout, private key, or network requirement for verification.
-  - [ ] 53.4.2 Write an operator walkthrough that identifies every supplied
+  - [x] 53.4.2 Write an operator walkthrough that identifies every supplied
     value, approval handoff, optional network action, abort condition, and
     evidence-retention step.
-  - [ ] 53.4.3 Execute the offline documentation paths from a temporary
+  - [x] 53.4.3 Execute the offline documentation paths from a temporary
     independent directory and retain fixture assertions that artifact names,
     commands, schemas, and output statuses have not drifted.
 

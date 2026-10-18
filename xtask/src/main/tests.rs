@@ -1994,6 +1994,47 @@ fn demo() {
     }
 
     #[test]
+    fn safe_public_testnet_soak_package_is_not_started_and_secret_free() {
+        const FIXTURE: &str = include_str!(
+            "../../../docs/fixtures/phase-52.5/safe-registry-public-testnet-soak-decision-fixture.json"
+        );
+        const PACKAGE: &str = include_str!(
+            "../../../docs/design/phase-52.5-public-testnet-soak-decision-package.md"
+        );
+        let fixture: serde_json::Value = serde_json::from_str(FIXTURE).expect("parse soak fixture");
+        assert_eq!(
+            fixture["format"].as_str(),
+            Some("clg.safe-registry-public-testnet-soak-decision.v1")
+        );
+        assert_eq!(fixture["status"].as_str(), Some("not_started"));
+        assert_eq!(fixture["environment"].as_str(), Some("staging"));
+        assert_eq!(
+            fixture["scope"].as_str(),
+            Some("preparation_only_no_network")
+        );
+        assert_eq!(fixture["exercises"].as_array().expect("exercises").len(), 5);
+        let evidence = fixture["required_evidence"]
+            .as_array()
+            .expect("required evidence")
+            .iter()
+            .filter_map(|entry| entry.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in ["target_evidence", "identity_anchor", "offline_replay_report"] {
+            assert!(evidence.contains(required), "missing soak evidence {required}");
+        }
+        let package = normalized_document_text(PACKAGE);
+        for required in [
+            "separate staging security domain",
+            "not_started",
+            "not a production",
+            "separate pre-execution authorization",
+            "no endpoint contact",
+        ] {
+            assert!(package.contains(required), "soak package missing {required}");
+        }
+    }
+
+    #[test]
     fn safe_evidence_capture_and_replay_are_local_and_fail_closed() {
         let root = unique_temp_dir("safe-evidence-capture");
         std::fs::create_dir_all(root.join("records")).expect("create record directory");

@@ -384,6 +384,11 @@ Only the explicit testnet exercises in 52.5 may contact a target.
 
 - [ ] 52.5 Run the public-testnet soak using the unchanged registry profile
   and production-shaped controls.
+  - [x] 52.5.0 Publish the no-network soak decision package, required external
+    inputs, exercises, evidence-retention contract, and non-claim boundary.
+    (`docs/design/phase-52.5-public-testnet-soak-decision-package.md`,
+    `docs/fixtures/phase-52.5/safe-registry-public-testnet-soak-decision-fixture.json`)
+    `Completed: 2026-10-17`.
   - [ ] 52.5.1 Execute approved deploy, authorized update, expected
     unauthorized update, wrong-chain prevention, and interrupted-operation
     exercises with explicit inputs.
@@ -547,8 +552,7 @@ distinct high-risk program.
 
 ## First Task
 
-**52.5 - prepare the public-testnet soak decision package.** The independent
-observation matrix now locks two differently operated client families and a
-preservation-and-stop response to disagreement. The next task is to define the
-testnet-soak inputs, exercise matrix, evidence-retention package, and decision
-record; it does not authorize endpoint contact, signing, or target action.
+**52.5.1 - execute the separately approved public-testnet soak.** The decision
+package is ready but deliberately `not_started`. Execution requires the named
+external staging inputs and per-exercise authorization; no endpoint contact,
+signing, or target action is authorized by this roadmap alone.

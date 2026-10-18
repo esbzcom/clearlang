@@ -1,0 +1,28 @@
+{
+  "format": "clg.safe-registry-public-testnet-soak-decision.v1",
+  "schema_version": 1,
+  "scope": "preparation_only_no_network",
+  "status": "not_started",
+  "environment": "staging",
+  "required_external_inputs": [
+    "staging_target_profile_and_chain_id",
+    "approved_endpoint_secret_boundary",
+    "staging_safe_and_owner_evidence",
+    "explicit_deployer_executor_and_nonces",
+    "verified_release_and_identity_anchor",
+    "per_exercise_authorization",
+    "fee_value_limits",
+    "duration"
+  ],
+  "exercises": [
+    {"id":"wrong_chain_prevention","target_transaction":false,"required_outcome":"local_rejection_no_submission"},
+    {"id":"zero_value_registry_deployment","target_transaction":true,"required_outcome":"separately_authorized_observed_or_stopped"},
+    {"id":"safe_authorized_set_value","target_transaction":true,"required_outcome":"separately_authorized_observed_or_stopped"},
+    {"id":"expected_unauthorized_invocation","target_transaction":true,"required_outcome":"no_successful_transition_or_event"},
+    {"id":"interrupted_operation","target_transaction":false,"required_outcome":"preserve_and_stop_no_automatic_retry"}
+  ],
+  "required_evidence": ["capture_input", "target_evidence", "identity_anchor", "offline_replay_report", "primary_observation", "independent_observation"],
+  "not_eligible_conditions": ["missing_replay", "observer_disagreement", "reorganization", "unexpected_unauthorized_success", "missing_interrupted_stop_record", "secret_or_path_violation"],
+  "prohibited_content": ["endpoint_url", "endpoint_credential", "private_key", "seed_phrase", "raw_signature", "absolute_path", "device_location"],
+  "non_claims": ["production_ready", "mainnet_ready", "safe_authorized", "launch_approved"]
+}

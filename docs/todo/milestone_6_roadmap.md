@@ -512,14 +512,17 @@ reproduces. Only 54.4 may submit a mainnet transaction.
   - [ ] 54.2.3 Compare canonical reports and digest projections. Any difference
     is investigated as a blocker rather than normalized or merged.
 
-- [ ] 54.3 Publish the pre-launch decision before any mainnet submission.
-  - [ ] 54.3.1 Record the exact profile/chain, compiler and verifier versions,
+- [x] 54.3 Publish the pre-launch decision before any mainnet submission.
+  (`docs/design/phase-54.3-pre-launch-decision-contract.md`,
+  `docs/fixtures/phase-54.3/pre-launch-decision.json`)
+  `Completed: 2026-10-18` — decision: `not_approved`.
+  - [x] 54.3.1 Record the exact profile/chain, compiler and verifier versions,
     signer policy, exposure cap, monitoring/incident owners, evidence digests,
     review disposition, stop/rollback conditions, unresolved risks, and
     exclusions.
-  - [ ] 54.3.2 State an unambiguous `approved` or `not approved` outcome. A
+  - [x] 54.3.2 State an unambiguous `approved` or `not approved` outcome. A
     conditional or incomplete record is `not approved`.
-  - [ ] 54.3.3 If not approved, preserve the evidence and stop. Do not create a
+  - [x] 54.3.3 If not approved, preserve the evidence and stop. Do not create a
     mainnet action or describe the profile as production-ready.
 
 - [ ] 54.4 Execute one limited mainnet launch only after a 54.3 approval.

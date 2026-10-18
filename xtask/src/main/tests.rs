@@ -2450,6 +2450,74 @@ fn demo() {
     }
 
     #[test]
+    fn pre_launch_decision_is_explicitly_not_approved_with_live_blockers() {
+        const DECISION: &str = include_str!(
+            "../../../docs/fixtures/phase-54.3/pre-launch-decision.json"
+        );
+        const CONTRACT: &str = include_str!(
+            "../../../docs/design/phase-54.3-pre-launch-decision-contract.md"
+        );
+        let decision: serde_json::Value = serde_json::from_str(DECISION).expect("parse pre-launch decision");
+        assert_eq!(decision["format"].as_str(), Some("clg.pre-launch-decision.v1"));
+        assert_eq!(decision["schema_version"].as_u64(), Some(1));
+        assert_eq!(decision["decision"].as_str(), Some("not_approved"));
+        assert_eq!(decision["candidate"]["chain_id"].as_str(), Some("1"));
+        assert_eq!(decision["candidate"]["asset_exposure_wei"].as_str(), Some("0"));
+        assert_eq!(decision["support_snapshot"]["rust_cargo"].as_str(), Some("1.89.0"));
+        assert_eq!(decision["support_snapshot"]["solver"].as_str(), Some("z3-4.16.0"));
+        assert_eq!(
+            decision["support_snapshot"]["verifier"]["status"].as_str(),
+            Some("not_distributed_for_production_profile")
+        );
+        assert!(decision["support_snapshot"]["verifier"]["supported_version"].is_null());
+        assert_eq!(decision["support_snapshot"]["safe"]["version"].as_str(), Some("1.4.1"));
+        assert_eq!(decision["support_snapshot"]["safe"]["threshold"].as_str(), Some("2-of-3"));
+        assert_eq!(
+            decision["operational_state"]["monitoring_owner"].as_str(),
+            Some("not_assigned_no_launch_permitted")
+        );
+        let inputs = decision["bound_inputs"].as_array().expect("bound inputs");
+        assert_eq!(inputs.len(), 3);
+        for input in inputs {
+            assert!(input["id"].as_str().is_some_and(|id| !id.contains("..") && !id.contains('\\')));
+            assert!(input["sha256"].as_str().is_some_and(is_lower_hex_64));
+        }
+        let blockers = decision["blockers"]
+            .as_array()
+            .expect("launch blockers")
+            .iter()
+            .filter_map(|blocker| blocker.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "production_verifier_unavailable",
+            "public_testnet_soak_not_started",
+            "production_precheck_M6D005",
+            "independent_review_not_commissioned",
+            "independent_clean_reproduction_not_started",
+        ] {
+            assert!(blockers.contains(required), "missing launch blocker {required}");
+        }
+        let prohibited = decision["prohibited_actions"]
+            .as_array()
+            .expect("prohibited actions")
+            .iter()
+            .filter_map(|action| action.as_str())
+            .collect::<BTreeSet<_>>();
+        for action in ["signing", "submission", "broadcast", "deployment", "invocation"] {
+            assert!(prohibited.contains(action), "action must be prohibited: {action}");
+        }
+        let contract = normalized_document_text(CONTRACT);
+        for required in [
+            "Current decision is `not approved`",
+            "before Phase 54.4",
+            "does not close Milestone 6",
+            "no mainnet transaction",
+        ] {
+            assert!(contract.contains(required), "pre-launch contract missing {required}");
+        }
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

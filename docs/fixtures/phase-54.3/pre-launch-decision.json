@@ -1,0 +1,26 @@
+{
+  "format": "clg.pre-launch-decision.v1",
+  "schema_version": 1,
+  "decision": "not_approved",
+  "candidate": {"profile":"clg.evm-ethereum-mainnet-safe-registry.v1", "chain_id":"1", "asset_exposure_wei":"0"},
+  "support_snapshot": {
+    "rust_cargo":"1.89.0",
+    "solver":"z3-4.16.0",
+    "verifier":{"status":"not_distributed_for_production_profile", "supported_version":null},
+    "safe":{"version":"1.4.1", "threshold":"2-of-3", "transaction_value_wei":"0"}
+  },
+  "operational_state": {
+    "monitoring_owner":"not_assigned_no_launch_permitted",
+    "incident_owner":"defined_by_phase_51_policy_no_launch_permitted",
+    "reviewer":"not_commissioned"
+  },
+  "bound_inputs": [
+    {"id":"docs/fixtures/phase-54.0/independent-review-handoff-fixture.json","sha256":"b0080a7d14721e484b3b099375a1ab344e38809e7a3701bf74373b75a7096963"},
+    {"id":"docs/fixtures/phase-54.1/independent-review-findings-template.json","sha256":"21ea46d5ecb7b09d90d89ae4a8097006ff8cba058cbd4969b02e3072c51876d3"},
+    {"id":"docs/fixtures/phase-54.2/independent-clean-reproduction-decision.json","sha256":"77b7786d8722344bbbabe7ad8cf057ce4bb027b2dfa76783b1aad1f905154993"}
+  ],
+  "blockers": ["production_verifier_unavailable", "public_testnet_soak_not_started", "production_precheck_M6D005", "independent_review_not_commissioned", "independent_review_findings_not_started", "independent_clean_reproduction_not_started"],
+  "stop_conditions": ["any_bound_identity_changes", "any_blocker_remains", "any_critical_or_high_finding_is_unresolved", "any_production_precheck_result_is_not_passed"],
+  "prohibited_actions": ["mainnet_transaction_construction", "signing", "submission", "broadcast", "replacement", "deployment", "invocation"],
+  "non_claims": ["launch_approved", "production_ready", "mainnet_ready", "review_completed", "independent_reproduction_completed"]
+}

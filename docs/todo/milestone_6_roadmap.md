@@ -404,18 +404,21 @@ Only the explicit testnet exercises in 52.5 may contact a target.
 candidate-evidence report from a clean environment. Gate D validates a launch
 candidate; it does not approve or submit a mainnet transaction.
 
-- [ ] 53.0 Lock `xtask production-precheck` and its report contract.
-  - [ ] 53.0.1 Define the CLI, fixed gate order, fail-fast behavior, report
+- [x] 53.0 Lock `xtask production-precheck` and its report contract.
+  - [x] 53.0.1 Define the CLI, fixed gate order, fail-fast behavior, report
     location, exit codes, redaction rules, and rule that no gate implicitly
     contacts a network.
-  - [ ] 53.0.2 Define the versioned canonical report schema and bind it to the
+  - [x] 53.0.2 Define the versioned canonical report schema and bind it to the
     exact 50.2 profile lock, 51 policy, release bundle, correspondence evidence,
     replay result, and support matrix. The independent-review disposition and
     launch decision are Gate E inputs and must be represented as `not_run` or
     absent from the candidate report rather than inferred.
-  - [ ] 53.0.3 Define the required status vocabulary (`passed`, `failed`,
+  - [x] 53.0.3 Define the required status vocabulary (`passed`, `failed`,
     `blocked`, `not_run`) and diagnostics for invalid reports, unknown
     sub-gates, reordered evidence, and unsupported versions.
+    (`docs/design/phase-53.0-production-precheck-report-lock.md`,
+    `docs/fixtures/phase-53.0/production-precheck-report-fixture.json`,
+    `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
 - [ ] 53.1 Publish the production support, compatibility, and response policy.
   - [ ] 53.1.1 Define the supported compiler, solver, verifier, operating
@@ -552,7 +555,8 @@ distinct high-risk program.
 
 ## First Task
 
-**52.5.1 - execute the separately approved public-testnet soak.** The decision
-package is ready but deliberately `not_started`. Execution requires the named
-external staging inputs and per-exercise authorization; no endpoint contact,
-signing, or target action is authorized by this roadmap alone.
+**53.1 - define production support and compatibility policy.** The precheck
+contract is now fixed and reports the currently unavailable testnet-soak gate
+as `blocked`; it never turns that state into approval. The next task selects
+the supported local toolchain, profile/transaction, and observation-client
+compatibility matrix, including upgrade and retention policy.

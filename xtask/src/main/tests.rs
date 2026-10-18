@@ -2035,6 +2035,48 @@ fn demo() {
     }
 
     #[test]
+    fn production_precheck_contract_is_offline_fixed_and_defers_gate_e() {
+        const FIXTURE: &str = include_str!(
+            "../../../docs/fixtures/phase-53.0/production-precheck-report-fixture.json"
+        );
+        const LOCK: &str = include_str!(
+            "../../../docs/design/phase-53.0-production-precheck-report-lock.md"
+        );
+        let fixture: serde_json::Value = serde_json::from_str(FIXTURE).expect("parse precheck fixture");
+        assert_eq!(
+            fixture["report_kind"].as_str(),
+            Some("clg.production-precheck-report.v1")
+        );
+        assert_eq!(fixture["report_schema_version"].as_u64(), Some(1));
+        assert_eq!(fixture["scope"].as_str(), Some("candidate_evidence"));
+        assert_eq!(
+            fixture["gate_order"].as_array().expect("gate order").len(),
+            6
+        );
+        let statuses = fixture["statuses"]
+            .as_array()
+            .expect("statuses")
+            .iter()
+            .filter_map(|entry| entry.as_str())
+            .collect::<BTreeSet<_>>();
+        for status in ["passed", "failed", "blocked", "not_run"] {
+            assert!(statuses.contains(status), "missing precheck status {status}");
+        }
+        assert_eq!(fixture["gate_e"]["independent_review"].as_str(), Some("not_run"));
+        assert_eq!(fixture["gate_e"]["launch_decision"].as_str(), Some("not_run"));
+        let lock = normalized_document_text(LOCK);
+        for required in [
+            "--offline --locked",
+            "no gate may open a network connection",
+            "public-testnet-soak-decision",
+            "M6D005",
+            "Gate E",
+        ] {
+            assert!(lock.contains(required), "precheck lock missing {required}");
+        }
+    }
+
+    #[test]
     fn safe_evidence_capture_and_replay_are_local_and_fail_closed() {
         let root = unique_temp_dir("safe-evidence-capture");
         std::fs::create_dir_all(root.join("records")).expect("create record directory");

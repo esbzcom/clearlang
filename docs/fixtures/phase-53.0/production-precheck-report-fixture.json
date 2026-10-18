@@ -1,0 +1,15 @@
+{
+  "format": "clg.production-precheck-report-fixture.v1",
+  "schema_version": 1,
+  "command": ["cargo", "run", "--offline", "--locked", "-p", "xtask", "--", "production-precheck", "--report", "<FILE>"],
+  "report_kind": "clg.production-precheck-report.v1",
+  "report_schema_version": 1,
+  "scope": "candidate_evidence",
+  "gate_order": ["release-identity", "safe-operator-policy", "safe-evidence-anchor-replay", "independent-observation-policy", "public-testnet-soak-decision", "production-support-policy"],
+  "statuses": ["passed", "failed", "blocked", "not_run"],
+  "diagnostics": ["M6D001", "M6D002", "M6D003", "M6D004", "M6D005"],
+  "gate_e": {"independent_review":"not_run", "launch_decision":"not_run"},
+  "prohibited_arguments": ["endpoint", "key", "wallet", "target", "transaction", "approval", "skip", "retry"],
+  "prohibited_report_content": ["endpoint_url", "endpoint_credential", "private_key", "seed_phrase", "absolute_path", "hostname", "username", "timestamp", "process_id"],
+  "non_claims": ["production_ready", "mainnet_ready", "launch_approved"]
+}

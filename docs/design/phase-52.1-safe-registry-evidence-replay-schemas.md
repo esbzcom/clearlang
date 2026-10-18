@@ -8,11 +8,12 @@ deployment, invocation, or mainnet claim.
 
 ## Record Families
 
-Phase 52 uses two closed, versioned JSON record families:
+Phase 52 uses three closed, versioned JSON record families:
 
 | Record | Format | Purpose |
 | --- | --- | --- |
 | Target evidence | clg.safe-registry-target-evidence.v1 | A canonical, secret-free binding of already recorded target observations to the Phase 52.0 identity chain. |
+| Identity anchor | clg.safe-registry-identity-anchor.v1 | A separately retained, canonical, secret-free expected identity envelope from the independently verified signed release. |
 | Replay report | clg.safe-registry-evidence-replay-report.v1 | The deterministic result of replaying one complete target-evidence record without a network, endpoint, wallet, or signer. |
 
 Both use schema_version 1, canonical UTF-8 JSON, reject unknown/duplicate fields,
@@ -38,6 +39,23 @@ Every target-evidence record includes one exact identity object:
 The record must not contain an endpoint URL, credential, authorization header,
 private key, seed, recovery data, raw wallet export, absolute path, device
 location, or ambient checkout identity.
+
+## Offline Identity Anchor
+
+Replay receives one separate identity-anchor file. It contains the exact target
+and identity envelope expected by the independently verified signed release,
+plus the verified release-bundle, verifier-result, and verifier-identity
+digests and the approved release-key identifier. It is canonical, secret-free,
+has no endpoint or local path, and its release-bundle digest must equal the
+identity envelope release digest.
+
+The verifier operator obtains the anchor through the existing offline signed
+contract-release verification chain and retains it separately from target
+evidence. The anchor is an explicit trust input, not a new signature format or
+signing capability: replay verifies only canonical form and exact equality to
+the evidence. The operator remains responsible for independently verifying the
+anchor's signed-release provenance and release public key before replay. A
+missing, malformed, unknown-version, or nonmatching anchor fails closed.
 
 ## Observation Kinds
 
@@ -99,9 +117,10 @@ replace either production action.
 
 ## Replay Contract
 
-Future replay accepts exactly one completed target-evidence file and a report
-destination. It accepts no RPC URL, network selector, key, wallet, endpoint,
-request override, or action selection. It reconstructs the recorded
+Future replay accepts exactly one completed target-evidence file, one explicit
+separate identity anchor, and a report destination. It accepts no RPC URL,
+network selector, private/wallet key, endpoint, request override, or action
+selection. It reconstructs the recorded
 comparisons from canonical identities and retained exchange forms, recomputes
 all digests, and verifies ordering, Safe/action constraints, receipt/block
 links, finality sequence, and two-observer agreement without opening a socket.
@@ -112,6 +131,7 @@ A replay report contains:
 | --- | --- |
 | format / schema_version | clg.safe-registry-evidence-replay-report.v1 and 1 |
 | evidence_sha256 | Digest of the exact evidence input |
+| identity_anchor_sha256 | Digest of the exact separately retained identity anchor, copied only after exact validation |
 | target_profile / chain_id | Copied only after exact validation |
 | status / diagnostic | One closed pair from the table below |
 | observation_results | Ordered id/kind/result list with no endpoint or secret |
@@ -141,9 +161,9 @@ kinds, allowed replay status/diagnostic pairs, and the non-secret retention
 boundary. Phase 52.2 must implement exactly this contract; Phase 52.3 supplies
 the corresponding tamper corpus. That corpus also records the hard boundary:
 a different but syntactically valid identity digest cannot be detected from an
-unsigned self-contained evidence file alone. It must be compared to a separate
-trusted identity anchor before it can produce M6C003; that later anchor must
-remain offline, secret-free, and outside the evidence file being replayed.
+unsigned self-contained evidence file alone. Replay therefore requires a
+separate trusted identity anchor that remains offline, secret-free, and outside
+the evidence file being replayed.
 
 ## References
 

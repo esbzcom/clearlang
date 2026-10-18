@@ -1875,6 +1875,9 @@ fn demo() {
         let schema = normalized_document_text(SCHEMA);
         for required in [
             "canonical UTF-8 JSON",
+            "clg.safe-registry-identity-anchor.v1",
+            "one explicit separate identity anchor",
+            "identity_anchor_sha256",
             "evidence_signature is always status not_authorized",
             "network_contacted | Exactly false",
             "Unknown status or diagnostic values reject",
@@ -2050,11 +2053,29 @@ fn demo() {
         )
         .expect("capture evidence");
         let replay_path = root.join("replay.json");
+        let anchor_path = root.join("identity-anchor.json");
+        let anchor = SafeEvidenceIdentityAnchor {
+            format: SAFE_IDENTITY_ANCHOR_FORMAT.to_string(),
+            schema_version: 1,
+            target: input.target.clone(),
+            identity: input.identity.clone(),
+            verified_release_bundle_sha256: input.identity.release_bundle_sha256.clone(),
+            verifier_result_sha256: "7".repeat(64),
+            verifier_identity_sha256: "8".repeat(64),
+            trusted_release_key_id: "fixture-release-key".to_string(),
+        };
+        std::fs::write(
+            &anchor_path,
+            canonical_json_bytes(&anchor).expect("canonical identity anchor"),
+        )
+        .expect("write identity anchor");
         run_safe_evidence_replay(
             repo_root().as_path(),
             vec![
                 "--input".to_string(),
                 evidence_path.to_string_lossy().into_owned(),
+                "--anchor".to_string(),
+                anchor_path.to_string_lossy().into_owned(),
                 "--report-out".to_string(),
                 replay_path.to_string_lossy().into_owned(),
             ],
@@ -2066,6 +2087,12 @@ fn demo() {
         .expect("parse replay report");
         assert_eq!(replay.status, "replayed");
         assert_eq!(replay.diagnostic, "M6C000");
+        assert_eq!(
+            replay.identity_anchor_sha256,
+            Some(safe_policy_sha256_hex(
+                &std::fs::read(&anchor_path).expect("read identity anchor"),
+            ))
+        );
         assert!(!replay.network_contacted);
         assert_eq!(replay.production_claim, "not_established");
 
@@ -2073,6 +2100,20 @@ fn demo() {
             &std::fs::read(&evidence_path).expect("read evidence"),
         )
         .expect("parse evidence");
+        let mut mismatched_anchor = anchor.clone();
+        mismatched_anchor.identity.source_profile_proof_sha256 = "9".repeat(64);
+        let mismatched_anchor_path = root.join("mismatched-identity-anchor.json");
+        std::fs::write(
+            &mismatched_anchor_path,
+            canonical_json_bytes(&mismatched_anchor).expect("canonical mismatched anchor"),
+        )
+        .expect("write mismatched anchor");
+        assert_eq!(
+            replay_safe_target_evidence(&evidence_path, &mismatched_anchor_path)
+                .expect_err("mismatched anchor must reject")
+                .code,
+            "M6C003"
+        );
         let replay_error = |name: &str, candidate: &SafeTargetEvidence| {
             let path = root.join(name);
             std::fs::write(
@@ -2080,7 +2121,7 @@ fn demo() {
                 canonical_json_bytes(candidate).expect("canonical tamper evidence"),
             )
             .expect("write tamper evidence");
-            replay_safe_target_evidence(&path)
+            replay_safe_target_evidence(&path, &anchor_path)
                 .expect_err("tampered evidence must reject")
                 .code
         };
@@ -2091,6 +2132,12 @@ fn demo() {
         malformed_identity.identity.release_bundle_sha256 = "g".repeat(64);
         assert_eq!(
             replay_error("malformed-identity.json", &malformed_identity),
+            "M6C003"
+        );
+        let mut substituted_identity = evidence.clone();
+        substituted_identity.identity.release_bundle_sha256 = "9".repeat(64);
+        assert_eq!(
+            replay_error("substituted-identity.json", &substituted_identity),
             "M6C003"
         );
         let mut missing_reorganization = evidence.clone();
@@ -2176,6 +2223,8 @@ fn demo() {
             vec![
                 "--input".to_string(),
                 evidence_path.to_string_lossy().into_owned(),
+                "--anchor".to_string(),
+                anchor_path.to_string_lossy().into_owned(),
                 "--report-out".to_string(),
                 rejected_replay_path.to_string_lossy().into_owned(),
             ],

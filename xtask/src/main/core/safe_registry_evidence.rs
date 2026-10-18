@@ -1,6 +1,7 @@
 const SAFE_EVIDENCE_CAPTURE_INPUT_FORMAT: &str = "clg.safe-registry-evidence-capture-input.v1";
 const SAFE_EVIDENCE_OBSERVATION_FORMAT: &str = "clg.safe-registry-observation-input.v1";
 const SAFE_TARGET_EVIDENCE_FORMAT: &str = "clg.safe-registry-target-evidence.v1";
+const SAFE_IDENTITY_ANCHOR_FORMAT: &str = "clg.safe-registry-identity-anchor.v1";
 const SAFE_REPLAY_REPORT_FORMAT: &str = "clg.safe-registry-evidence-replay-report.v1";
 const SAFE_EVIDENCE_PROFILE: &str = "clg.evm-ethereum-mainnet-safe-registry.v1";
 
@@ -14,6 +15,7 @@ struct SafeEvidenceCaptureOpts {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SafeEvidenceReplayOpts {
     input: PathBuf,
+    anchor: PathBuf,
     report_out: PathBuf,
 }
 
@@ -108,6 +110,19 @@ struct SafeTargetEvidence {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+struct SafeEvidenceIdentityAnchor {
+    format: String,
+    schema_version: u32,
+    target: SafeEvidenceTarget,
+    identity: SafeEvidenceIdentity,
+    verified_release_bundle_sha256: String,
+    verifier_result_sha256: String,
+    verifier_identity_sha256: String,
+    trusted_release_key_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct SafeReplayObservationResult {
     id: String,
     kind: String,
@@ -120,6 +135,7 @@ struct SafeReplayReport {
     format: String,
     schema_version: u32,
     evidence_sha256: Option<String>,
+    identity_anchor_sha256: Option<String>,
     target_profile: Option<String>,
     chain_id: Option<String>,
     status: String,
@@ -155,16 +171,18 @@ fn run_safe_evidence_capture(root: &Path, raw_args: Vec<String>) -> Result<(), S
 fn run_safe_evidence_replay(root: &Path, raw_args: Vec<String>) -> Result<(), String> {
     let opts = parse_safe_evidence_replay_args(raw_args)?;
     let input_path = resolve_root_path(root, &opts.input)?;
+    let anchor_path = resolve_root_path(root, &opts.anchor)?;
     let report_path = resolve_root_path(root, &opts.report_out)?;
     if report_path.exists() {
         return Err("safe-evidence-replay refuses to overwrite an existing report".to_string());
     }
-    let outcome = replay_safe_target_evidence(&input_path);
+    let outcome = replay_safe_target_evidence(&input_path, &anchor_path);
     let report = match &outcome {
-        Ok((digest, target, results)) => SafeReplayReport {
+        Ok((digest, anchor_digest, target, results)) => SafeReplayReport {
             format: SAFE_REPLAY_REPORT_FORMAT.to_string(),
             schema_version: 1,
             evidence_sha256: Some(digest.clone()),
+            identity_anchor_sha256: Some(anchor_digest.clone()),
             target_profile: Some(target.profile.clone()),
             chain_id: Some(target.chain_id.clone()),
             status: "replayed".to_string(),
@@ -177,6 +195,7 @@ fn run_safe_evidence_replay(root: &Path, raw_args: Vec<String>) -> Result<(), St
             format: SAFE_REPLAY_REPORT_FORMAT.to_string(),
             schema_version: 1,
             evidence_sha256: None,
+            identity_anchor_sha256: None,
             target_profile: None,
             chain_id: None,
             status: if matches!(error.code, "M6C005" | "M6C006" | "M6C007") {
@@ -222,11 +241,13 @@ fn parse_safe_evidence_capture_args(raw_args: Vec<String>) -> Result<SafeEvidenc
 
 fn parse_safe_evidence_replay_args(raw_args: Vec<String>) -> Result<SafeEvidenceReplayOpts, String> {
     let mut input = None;
+    let mut anchor = None;
     let mut report_out = None;
     let mut index = 0usize;
     while index < raw_args.len() {
         let slot = match raw_args[index].as_str() {
             "--input" => &mut input,
+            "--anchor" => &mut anchor,
             "--report-out" => &mut report_out,
             other => return Err(format!("unknown safe-evidence-replay arg '{other}'")),
         };
@@ -239,6 +260,7 @@ fn parse_safe_evidence_replay_args(raw_args: Vec<String>) -> Result<SafeEvidence
     }
     Ok(SafeEvidenceReplayOpts {
         input: input.ok_or_else(|| "missing required --input".to_string())?,
+        anchor: anchor.ok_or_else(|| "missing required --anchor".to_string())?,
         report_out: report_out.ok_or_else(|| "missing required --report-out".to_string())?,
     })
 }
@@ -307,7 +329,19 @@ fn capture_safe_target_evidence(root: &Path, input_path: &Path) -> Result<SafeTa
 
 fn replay_safe_target_evidence(
     input_path: &Path,
-) -> Result<(String, SafeEvidenceTarget, Vec<SafeReplayObservationResult>), SafeEvidenceError> {
+    anchor_path: &Path,
+) -> Result<(String, String, SafeEvidenceTarget, Vec<SafeReplayObservationResult>), SafeEvidenceError> {
+    let anchor_bytes = fs::read(anchor_path).map_err(|_| SafeEvidenceError::new("M6C001"))?;
+    reject_secret_markers(&anchor_bytes).map_err(|_| SafeEvidenceError::new("M6C001"))?;
+    let anchor: SafeEvidenceIdentityAnchor =
+        serde_json::from_slice(&anchor_bytes).map_err(|_| SafeEvidenceError::new("M6C001"))?;
+    if canonical_json_bytes(&anchor)
+        .map_err(|_| SafeEvidenceError::new("M6C001"))?
+        != anchor_bytes
+    {
+        return Err(SafeEvidenceError::new("M6C001"));
+    }
+    validate_safe_evidence_identity_anchor(&anchor)?;
     let bytes = fs::read(input_path).map_err(|_| SafeEvidenceError::new("M6C001"))?;
     reject_secret_markers(&bytes).map_err(|_| SafeEvidenceError::new("M6C001"))?;
     let evidence: SafeTargetEvidence =
@@ -323,6 +357,9 @@ fn replay_safe_target_evidence(
     }
     validate_safe_evidence_target(&evidence.target)?;
     validate_safe_evidence_identity(&evidence.identity)?;
+    if evidence.target != anchor.target || evidence.identity != anchor.identity {
+        return Err(SafeEvidenceError::new("M6C003"));
+    }
     if evidence.capture.source != "recorded_local_observations"
         || !evidence.capture.secret_free
         || evidence.correspondence_status != "captured"
@@ -390,7 +427,29 @@ fn replay_safe_target_evidence(
             return Err(SafeEvidenceError::new("M6C004"));
         }
     }
-    Ok((safe_policy_sha256_hex(&bytes), evidence.target, results))
+    Ok((
+        safe_policy_sha256_hex(&bytes),
+        safe_policy_sha256_hex(&anchor_bytes),
+        evidence.target,
+        results,
+    ))
+}
+
+fn validate_safe_evidence_identity_anchor(anchor: &SafeEvidenceIdentityAnchor) -> Result<(), SafeEvidenceError> {
+    if anchor.format != SAFE_IDENTITY_ANCHOR_FORMAT || anchor.schema_version != 1 {
+        return Err(SafeEvidenceError::new("M6C002"));
+    }
+    validate_safe_evidence_target(&anchor.target)?;
+    validate_safe_evidence_identity(&anchor.identity)?;
+    if !is_sha256(&anchor.verified_release_bundle_sha256)
+        || !is_sha256(&anchor.verifier_result_sha256)
+        || !is_sha256(&anchor.verifier_identity_sha256)
+        || anchor.trusted_release_key_id.is_empty()
+        || anchor.verified_release_bundle_sha256 != anchor.identity.release_bundle_sha256
+    {
+        return Err(SafeEvidenceError::new("M6C003"));
+    }
+    Ok(())
 }
 
 fn validate_safe_evidence_target(target: &SafeEvidenceTarget) -> Result<(), SafeEvidenceError> {

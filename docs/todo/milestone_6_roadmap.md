@@ -354,8 +354,8 @@ Only the explicit testnet exercises in 52.5 may contact a target.
     `xtask/src/main/core/safe_registry_evidence.rs`, `xtask/src/main/tests.rs`)
     `Completed: 2026-10-17`.
 
-- [ ] 52.3 Add correspondence and replay tamper fixtures.
-  - [ ] 52.3.1 Add the separate offline, secret-free trusted identity anchor
+- [x] 52.3 Add correspondence and replay tamper fixtures.
+  - [x] 52.3.1 Add the separate offline, secret-free trusted identity anchor
     needed to reject a different-but-valid source, bundle, approval,
     constructor, creation/runtime bytecode, schema, or Safe identity digest;
     an unsigned self-contained evidence file cannot establish that comparison.
@@ -367,7 +367,7 @@ Only the explicit testnet exercises in 52.5 may contact a target.
     final deployment evidence.
     (`docs/fixtures/phase-52.3/safe-registry-evidence-replay-tamper-matrix.json`,
     `xtask/src/main/core/safe_registry_evidence.rs`, `xtask/src/main/tests.rs`)
-    `Partially completed: 2026-10-17`.
+    `Completed: 2026-10-17`.
 
 - [ ] 52.4 Build the independent-observation fixture matrix.
   - [ ] 52.4.1 Select the minimum independent clients or recorded compatible
@@ -543,11 +543,10 @@ distinct high-risk program.
 
 ## First Task
 
-**52.3.1 - add the offline trusted identity anchor.** The tamper corpus now
-rejects self-contained structural, observation, receipt, and reorganization
-failures without contacting a network. The remaining task is to define and
-implement a separately retained, secret-free anchor for different-but-valid
-source, release, policy, artifact, schema, and Safe identity digest
-substitutions; then bind that anchor to the replay report before proceeding to
-the Phase 52.4 independent-observation matrix. It authorizes no endpoint,
-signer, deployment, invocation, or mainnet claim.
+**52.4 - build the independent-observation fixture matrix.** Replay now binds
+evidence to an explicit, separately retained identity anchor and rejects both
+structural and valid-digest substitutions without contacting a network. The
+next task is to define the minimum independently operated client set and add
+agreement/disagreement fixtures for bytecode, receipt, event, storage,
+confirmation, and finality. It authorizes no endpoint, signer, deployment,
+invocation, or mainnet claim.

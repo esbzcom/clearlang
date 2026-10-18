@@ -127,7 +127,7 @@ fn print_help() {
         "  safe-evidence-capture --root DIR --input FILE --out FILE - capture local Safe observation evidence"
     );
     println!(
-        "  safe-evidence-replay --input FILE --report-out FILE - replay Safe evidence without a network"
+        "  safe-evidence-replay --input FILE --anchor FILE --report-out FILE - replay Safe evidence without a network"
     );
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");

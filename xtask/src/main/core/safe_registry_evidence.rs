@@ -334,6 +334,7 @@ fn replay_safe_target_evidence(
     let mut previous = None;
     let mut action_kinds = BTreeMap::new();
     let mut observation_kinds_by_subject = BTreeMap::<String, BTreeSet<String>>::new();
+    let mut last_captured_at_by_subject = BTreeMap::new();
     let mut results = Vec::new();
     for observation in &evidence.observations {
         if previous.as_ref().is_some_and(|last: &String| last >= &observation.id) {
@@ -341,6 +342,16 @@ fn replay_safe_target_evidence(
         }
         previous = Some(observation.id.clone());
         validate_safe_evidence_observation(observation)?;
+        if last_captured_at_by_subject
+            .get(&observation.subject_action_id)
+            .is_some_and(|last: &String| last > &observation.captured_at)
+        {
+            return Err(SafeEvidenceError::new("M6C005"));
+        }
+        last_captured_at_by_subject.insert(
+            observation.subject_action_id.clone(),
+            observation.captured_at.clone(),
+        );
         observation_kinds_by_subject
             .entry(observation.subject_action_id.clone())
             .or_default()
@@ -416,8 +427,14 @@ fn validate_safe_evidence_observation(observation: &SafeEvidenceObservation) -> 
         || !is_prefixed_hex(&observation.block_hash, 32)
         || !matches!(observation.kind.as_str(), "deployment" | "safe_authorized_revision" | "expected_unauthorized_invocation" | "confirmation" | "reorganization_observation")
         || !matches!(observation.status.as_str(), "qualified_finality_observation" | "missing_receipt" | "pending_receipt" | "reverted_receipt" | "replaced_or_conflicting" | "observer_disagreement_or_reorg")
-        || observation.comparison_result != "match"
     {
+        return Err(SafeEvidenceError::new("M6C004"));
+    }
+    if observation.kind == "expected_unauthorized_invocation" {
+        if observation.comparison_result != "expected_no_transition" {
+            return Err(SafeEvidenceError::new("M6C007"));
+        }
+    } else if observation.comparison_result != "match" {
         return Err(SafeEvidenceError::new("M6C004"));
     }
     validate_safe_observer(&observation.primary_observer, "primary")?;

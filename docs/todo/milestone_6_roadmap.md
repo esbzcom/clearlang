@@ -355,15 +355,19 @@ Only the explicit testnet exercises in 52.5 may contact a target.
     `Completed: 2026-10-17`.
 
 - [ ] 52.3 Add correspondence and replay tamper fixtures.
-  - [ ] 52.3.1 Cover substituted source, profile, bundle, approval, constructor,
-    creation/runtime bytecode, address, schema, receipt, event, storage, and
-    client observation identities.
-  - [ ] 52.3.2 Cover omitted, duplicated, reordered, path-traversal,
+  - [ ] 52.3.1 Add the separate offline, secret-free trusted identity anchor
+    needed to reject a different-but-valid source, bundle, approval,
+    constructor, creation/runtime bytecode, schema, or Safe identity digest;
+    an unsigned self-contained evidence file cannot establish that comparison.
+  - [x] 52.3.2 Cover omitted, duplicated, reordered, path-traversal,
     cross-chain, stale, secret-bearing, unknown-version, and malformed
-    evidence records.
-  - [ ] 52.3.3 Cover pending/reverted/replaced/conflicting receipt and
+    evidence records with the local capture/replay corpus.
+  - [x] 52.3.3 Cover pending/reverted/replaced/conflicting receipt and
     reorganization scenarios, asserting no scenario is emitted as accepted
     final deployment evidence.
+    (`docs/fixtures/phase-52.3/safe-registry-evidence-replay-tamper-matrix.json`,
+    `xtask/src/main/core/safe_registry_evidence.rs`, `xtask/src/main/tests.rs`)
+    `Partially completed: 2026-10-17`.
 
 - [ ] 52.4 Build the independent-observation fixture matrix.
   - [ ] 52.4.1 Select the minimum independent clients or recorded compatible
@@ -539,9 +543,11 @@ distinct high-risk program.
 
 ## First Task
 
-**52.3 - add the correspondence and replay tamper matrix.** The local capture
-and replay commands now produce canonical evidence and a secret-free replay
-report without contacting a network. The next task is to exercise substituted,
-missing, reordered, malformed, cross-chain, secret-bearing, receipt-state, and
-reorganization evidence failures against those commands. It authorizes no
-endpoint, signer, deployment, invocation, or mainnet claim.
+**52.3.1 - add the offline trusted identity anchor.** The tamper corpus now
+rejects self-contained structural, observation, receipt, and reorganization
+failures without contacting a network. The remaining task is to define and
+implement a separately retained, secret-free anchor for different-but-valid
+source, release, policy, artifact, schema, and Safe identity digest
+substitutions; then bind that anchor to the replay report before proceeding to
+the Phase 52.4 independent-observation matrix. It authorizes no endpoint,
+signer, deployment, invocation, or mainnet claim.

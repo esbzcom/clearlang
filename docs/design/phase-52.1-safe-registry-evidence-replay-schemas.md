@@ -57,6 +57,10 @@ a closed status. Deployment and revision observations additionally bind the
 transaction hash, sender, nonce, legacy envelope fields, zero value, input
 digest, receipt, and target address. A revision binds its Safe typed digest,
 signature-bundle digest, inner CALL details, and ABI-decoded event value.
+For deployment, revision, confirmation, and reorganization observations,
+comparison_result is exactly match. An expected unauthorized invocation uses
+exactly expected_no_transition; match for that kind means a successful
+transition was observed and is M6C007.
 
 ## Sanitized Exchange Form
 
@@ -135,7 +139,11 @@ final, verified, proved, safe, or production-ready.
 The companion fixture contract locks the required fields, five observation
 kinds, allowed replay status/diagnostic pairs, and the non-secret retention
 boundary. Phase 52.2 must implement exactly this contract; Phase 52.3 supplies
-the corresponding tamper corpus.
+the corresponding tamper corpus. That corpus also records the hard boundary:
+a different but syntactically valid identity digest cannot be detected from an
+unsigned self-contained evidence file alone. It must be compared to a separate
+trusted identity anchor before it can produce M6C003; that later anchor must
+remain offline, secret-free, and outside the evidence file being replayed.
 
 ## References
 

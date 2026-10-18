@@ -1885,6 +1885,67 @@ fn demo() {
     }
 
     #[test]
+    fn safe_evidence_replay_tamper_matrix_is_complete_and_never_accepts_a_target() {
+        const MATRIX: &str = include_str!(
+            "../../../docs/fixtures/phase-52.3/safe-registry-evidence-replay-tamper-matrix.json"
+        );
+        let matrix: serde_json::Value = serde_json::from_str(MATRIX).expect("parse tamper matrix");
+        assert_eq!(
+            matrix["format"].as_str(),
+            Some("clg.safe-registry-evidence-replay-tamper-matrix.v1")
+        );
+        assert_eq!(matrix["schema_version"].as_u64(), Some(1));
+        assert_eq!(matrix["scope"].as_str(), Some("offline_only"));
+        assert_eq!(
+            matrix["acceptance_boundary"].as_str(),
+            Some("no_case_establishes_deployment_or_production_acceptance")
+        );
+        assert_eq!(
+            matrix["trusted_identity_anchor_requirement"].as_str(),
+            Some("valid_digest_substitution_requires_a_separate_offline_secret_free_anchor")
+        );
+        let cases = matrix["cases"].as_array().expect("tamper cases");
+        let names = cases
+            .iter()
+            .filter_map(|entry| entry["name"].as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "substituted_source_profile",
+            "substituted_target_profile",
+            "substituted_release_bundle",
+            "substituted_approval_policy",
+            "substituted_constructor_layout",
+            "substituted_creation_or_runtime_bytecode",
+            "substituted_derived_or_registry_address",
+            "substituted_state_or_event_schema",
+            "substituted_receipt_or_event",
+            "substituted_storage_or_client_observation",
+            "omitted_confirmation_or_reorganization",
+            "duplicated_observation_id",
+            "reordered_observations",
+            "path_traversal_capture_reference",
+            "cross_chain_target",
+            "stale_observation_sequence",
+            "secret_bearing_evidence",
+            "unknown_schema_or_version",
+            "malformed_evidence",
+            "missing_receipt",
+            "pending_receipt",
+            "reverted_receipt",
+            "replaced_or_conflicting_receipt",
+            "observer_disagreement",
+            "detected_reorganization",
+            "unauthorized_successful_transition",
+        ] {
+            assert!(names.contains(required), "tamper matrix missing {required}");
+        }
+        for case in cases {
+            assert_ne!(case["expected_status"].as_str(), Some("accepted"));
+            assert_ne!(case["expected_status"].as_str(), Some("replayed"));
+        }
+    }
+
+    #[test]
     fn safe_evidence_capture_and_replay_are_local_and_fail_closed() {
         let root = unique_temp_dir("safe-evidence-capture");
         std::fs::create_dir_all(root.join("records")).expect("create record directory");
@@ -2008,10 +2069,101 @@ fn demo() {
         assert!(!replay.network_contacted);
         assert_eq!(replay.production_claim, "not_established");
 
-        let mut evidence: SafeTargetEvidence = serde_json::from_slice(
+        let evidence: SafeTargetEvidence = serde_json::from_slice(
             &std::fs::read(&evidence_path).expect("read evidence"),
         )
         .expect("parse evidence");
+        let replay_error = |name: &str, candidate: &SafeTargetEvidence| {
+            let path = root.join(name);
+            std::fs::write(
+                &path,
+                canonical_json_bytes(candidate).expect("canonical tamper evidence"),
+            )
+            .expect("write tamper evidence");
+            replay_safe_target_evidence(&path)
+                .expect_err("tampered evidence must reject")
+                .code
+        };
+        let mut wrong_profile = evidence.clone();
+        wrong_profile.target.profile = "clg.other-profile.v1".to_string();
+        assert_eq!(replay_error("wrong-profile.json", &wrong_profile), "M6C002");
+        let mut malformed_identity = evidence.clone();
+        malformed_identity.identity.release_bundle_sha256 = "g".repeat(64);
+        assert_eq!(
+            replay_error("malformed-identity.json", &malformed_identity),
+            "M6C003"
+        );
+        let mut missing_reorganization = evidence.clone();
+        missing_reorganization.observations.pop();
+        assert_eq!(
+            replay_error("missing-reorganization.json", &missing_reorganization),
+            "M6C004"
+        );
+        let mut duplicate_id = evidence.clone();
+        duplicate_id.observations[1].id = duplicate_id.observations[0].id.clone();
+        assert_eq!(replay_error("duplicate-id.json", &duplicate_id), "M6C001");
+        let mut reordered = evidence.clone();
+        reordered.observations.reverse();
+        assert_eq!(replay_error("reordered.json", &reordered), "M6C001");
+        let mut secret_bearing = evidence.clone();
+        secret_bearing.observations[0].primary_observer.client_version = "private_key".to_string();
+        assert_eq!(
+            replay_error("secret-bearing.json", &secret_bearing),
+            "M6C001"
+        );
+        let mut stale = evidence.clone();
+        stale.observations[1].captured_at = "2030-01-02T03:04:04Z".to_string();
+        assert_eq!(replay_error("stale.json", &stale), "M6C005");
+        for status in [
+            "missing_receipt",
+            "pending_receipt",
+            "reverted_receipt",
+            "replaced_or_conflicting",
+        ] {
+            let mut receipt_failure = evidence.clone();
+            receipt_failure.observations[0].status = status.to_string();
+            assert_eq!(
+                replay_error(&format!("{status}.json"), &receipt_failure),
+                "M6C005"
+            );
+        }
+        let mut disagreement = evidence.clone();
+        disagreement.observations[0].independent_observer.observer_id = disagreement.observations[0]
+            .primary_observer
+            .observer_id
+            .clone();
+        assert_eq!(replay_error("disagreement.json", &disagreement), "M6C006");
+        let mut reorganization = evidence.clone();
+        reorganization.observations[2].status = "observer_disagreement_or_reorg".to_string();
+        assert_eq!(replay_error("reorganization.json", &reorganization), "M6C006");
+        let mut unauthorized_success = evidence.clone();
+        unauthorized_success.observations[0].kind = "expected_unauthorized_invocation".to_string();
+        assert_eq!(
+            replay_error("unauthorized-success.json", &unauthorized_success),
+            "M6C007"
+        );
+
+        let mut unsafe_path_input = input.clone();
+        unsafe_path_input.observations[0].record_path = "../outside.json".to_string();
+        std::fs::write(
+            root.join("capture-path-traversal.json"),
+            canonical_json_bytes(&unsafe_path_input).expect("canonical unsafe capture input"),
+        )
+        .expect("write unsafe capture input");
+        assert!(run_safe_evidence_capture(
+            repo_root().as_path(),
+            vec![
+                "--root".to_string(),
+                root.to_string_lossy().into_owned(),
+                "--input".to_string(),
+                "capture-path-traversal.json".to_string(),
+                "--out".to_string(),
+                "path-traversal-output.json".to_string(),
+            ],
+        )
+        .is_err());
+
+        let mut evidence = evidence;
         evidence.observations[0].status = "pending_receipt".to_string();
         std::fs::write(
             &evidence_path,

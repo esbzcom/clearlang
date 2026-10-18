@@ -1829,6 +1829,62 @@ fn demo() {
     }
 
     #[test]
+    fn milestone_six_evidence_replay_schema_is_secret_free_and_offline_only() {
+        const FIXTURES: &str = include_str!(
+            "../../../docs/fixtures/phase-52.1/safe-registry-evidence-schema-fixtures.json"
+        );
+        const SCHEMA: &str = include_str!(
+            "../../../docs/design/phase-52.1-safe-registry-evidence-replay-schemas.md"
+        );
+        let fixtures: serde_json::Value = serde_json::from_str(FIXTURES).expect("parse fixtures");
+        assert_eq!(
+            fixtures["format"].as_str(),
+            Some("clg.safe-registry-evidence-schema-fixtures.v1")
+        );
+        assert_eq!(
+            fixtures["target_evidence_format"].as_str(),
+            Some("clg.safe-registry-target-evidence.v1")
+        );
+        assert_eq!(
+            fixtures["replay_report_format"].as_str(),
+            Some("clg.safe-registry-evidence-replay-report.v1")
+        );
+        assert_eq!(
+            fixtures["observation_kinds"].as_array().expect("observation kinds").len(),
+            5
+        );
+        let statuses = fixtures["replay_statuses"].as_array().expect("replay statuses");
+        assert_eq!(statuses.len(), 8);
+        for entry in statuses {
+            assert_eq!(entry["production_claim"].as_str(), Some("not_established"));
+        }
+        let invariants = fixtures["replay_invariants"]
+            .as_array()
+            .expect("replay invariants")
+            .iter()
+            .filter_map(|entry| entry.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "network_contacted_false",
+            "no_endpoint_wallet_key_or_override_input",
+            "unknown_versions_fail_closed",
+            "two_observer_agreement_required",
+        ] {
+            assert!(invariants.contains(required), "missing replay invariant {required}");
+        }
+        let schema = normalized_document_text(SCHEMA);
+        for required in [
+            "canonical UTF-8 JSON",
+            "evidence_signature is always status not_authorized",
+            "network_contacted | Exactly false",
+            "Unknown status or diagnostic values reject",
+            "No status means deployed",
+        ] {
+            assert!(schema.contains(required), "evidence schema missing {required}");
+        }
+    }
+
+    #[test]
     fn pilot_precheck_report_destination_is_new_and_safe() {
         let root = repo_root();
         let accepted = root.join("out").join("pilot-precheck-test-report.json");

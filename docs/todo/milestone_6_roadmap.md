@@ -328,15 +328,18 @@ Only the explicit testnet exercises in 52.5 may contact a target.
     `docs/fixtures/phase-52.0/safe-target-observation-lock-fixtures.json`,
     `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
-- [ ] 52.1 Define the versioned production evidence and replay schemas.
-  - [ ] 52.1.1 Specify canonical, secret-free evidence records for deployment,
+- [x] 52.1 Define the versioned production evidence and offline replay schemas.
+  - [x] 52.1.1 Specify canonical, secret-free evidence records for deployment,
     authorized invocation, expected unauthorized invocation, confirmation, and
     reorganization observation.
-  - [ ] 52.1.2 Bind records to all identities from 52.0, including observer
+  - [x] 52.1.2 Bind records to all identities from 52.0, including observer
     client identity and sanitized request/response digests, without trusting an
     ambient checkout, endpoint, or wallet.
-  - [ ] 52.1.3 Define stable replay result statuses and diagnostics; unknown
+  - [x] 52.1.3 Define stable replay result statuses and diagnostics; unknown
     record/schema/profile/client-policy versions must fail closed.
+    (`docs/design/phase-52.1-safe-registry-evidence-replay-schemas.md`,
+    `docs/fixtures/phase-52.1/safe-registry-evidence-schema-fixtures.json`,
+    `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
 - [ ] 52.2 Implement deterministic evidence capture and offline replay.
   - [ ] 52.2.1 Capture only the locked response fields, normalize ordering and
@@ -533,10 +536,10 @@ distinct high-risk program.
 
 ## First Task
 
-**52.1 - define versioned production evidence and offline replay schemas.**
-The Safe-aware correspondence and observation lock now fixes the identity
-chain, observation surface, finality rule, and stop statuses. The next task is
-to specify canonical secret-free evidence records and stable replay results
-that bind every identity without trusting an ambient checkout, endpoint, or
-wallet. It authorizes no endpoint contact, signing, deployment, invocation,
-or mainnet claim.
+**52.2 - implement deterministic evidence capture and offline replay.**
+The Safe-aware evidence and replay schemas now define the complete identity
+envelope, permitted observation kinds, retention boundary, and fail-closed
+status vocabulary. The next task is to implement canonical local capture and
+offline replay against those schemas, including secret/path redaction and
+atomic reports. It must not contact an endpoint, access a wallet, sign,
+deploy, invoke, or make a mainnet claim.

@@ -1,0 +1,86 @@
+{
+  "format": "clg.safe-registry-evidence-schema-fixtures.v1",
+  "schema_version": 1,
+  "target_evidence_format": "clg.safe-registry-target-evidence.v1",
+  "replay_report_format": "clg.safe-registry-evidence-replay-report.v1",
+  "target_profile": "clg.evm-ethereum-mainnet-safe-registry.v1",
+  "chain_id": "1",
+  "required_identity_fields": [
+    "source_profile_proof",
+    "state_schema_abi",
+    "evm_artifact",
+    "release",
+    "policy",
+    "safe_identity",
+    "observer_policy"
+  ],
+  "observation_kinds": [
+    "deployment",
+    "safe_authorized_revision",
+    "expected_unauthorized_invocation",
+    "confirmation",
+    "reorganization_observation"
+  ],
+  "replay_statuses": [
+    {
+      "status": "replayed",
+      "diagnostic": "M6C000",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "rejected",
+      "diagnostic": "M6C001",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "rejected",
+      "diagnostic": "M6C002",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "rejected",
+      "diagnostic": "M6C003",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "rejected",
+      "diagnostic": "M6C004",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "unaccepted",
+      "diagnostic": "M6C005",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "unaccepted",
+      "diagnostic": "M6C006",
+      "production_claim": "not_established"
+    },
+    {
+      "status": "unaccepted",
+      "diagnostic": "M6C007",
+      "production_claim": "not_established"
+    }
+  ],
+  "replay_invariants": [
+    "network_contacted_false",
+    "one_completed_evidence_input",
+    "no_endpoint_wallet_key_or_override_input",
+    "ordered_observations",
+    "unknown_versions_fail_closed",
+    "two_observer_agreement_required"
+  ],
+  "prohibited_record_content": [
+    "endpoint_url",
+    "endpoint_credential",
+    "authorization_header",
+    "private_key",
+    "seed_phrase",
+    "recovery_material",
+    "wallet_export",
+    "absolute_path",
+    "device_location"
+  ]
+}
+

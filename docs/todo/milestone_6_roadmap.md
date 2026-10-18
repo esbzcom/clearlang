@@ -341,15 +341,18 @@ Only the explicit testnet exercises in 52.5 may contact a target.
     `docs/fixtures/phase-52.1/safe-registry-evidence-schema-fixtures.json`,
     `xtask/src/main/tests.rs`) `Completed: 2026-10-17`.
 
-- [ ] 52.2 Implement deterministic evidence capture and offline replay.
-  - [ ] 52.2.1 Capture only the locked response fields, normalize ordering and
+- [x] 52.2 Implement deterministic local evidence capture and offline replay.
+  - [x] 52.2.1 Capture only the locked response fields, normalize ordering and
     paths, redact secrets, and write evidence atomically.
-  - [ ] 52.2.2 Replay recorded responses without network access and compare
+  - [x] 52.2.2 Replay recorded responses without network access and compare
     deploy/invoke/authorization/finality observations to the locked identity
     chain.
-  - [ ] 52.2.3 Emit a canonical replay report suitable for the later
+  - [x] 52.2.3 Emit a canonical replay report suitable for the later
     production-precheck; distinguish malformed evidence from an observed
     target mismatch.
+    (`xtask safe-evidence-capture`, `xtask safe-evidence-replay`,
+    `xtask/src/main/core/safe_registry_evidence.rs`, `xtask/src/main/tests.rs`)
+    `Completed: 2026-10-17`.
 
 - [ ] 52.3 Add correspondence and replay tamper fixtures.
   - [ ] 52.3.1 Cover substituted source, profile, bundle, approval, constructor,
@@ -536,10 +539,9 @@ distinct high-risk program.
 
 ## First Task
 
-**52.2 - implement deterministic evidence capture and offline replay.**
-The Safe-aware evidence and replay schemas now define the complete identity
-envelope, permitted observation kinds, retention boundary, and fail-closed
-status vocabulary. The next task is to implement canonical local capture and
-offline replay against those schemas, including secret/path redaction and
-atomic reports. It must not contact an endpoint, access a wallet, sign,
-deploy, invoke, or make a mainnet claim.
+**52.3 - add the correspondence and replay tamper matrix.** The local capture
+and replay commands now produce canonical evidence and a secret-free replay
+report without contacting a network. The next task is to exercise substituted,
+missing, reordered, malformed, cross-chain, secret-bearing, receipt-state, and
+reorganization evidence failures against those commands. It authorizes no
+endpoint, signer, deployment, invocation, or mainnet claim.

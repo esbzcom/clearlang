@@ -123,6 +123,12 @@ fn print_help() {
     println!(
         "  safe-policy-validate --request FILE --evidence FILE --artifact-root DIR --report FILE - offline Safe policy validation"
     );
+    println!(
+        "  safe-evidence-capture --root DIR --input FILE --out FILE - capture local Safe observation evidence"
+    );
+    println!(
+        "  safe-evidence-replay --input FILE --report-out FILE - replay Safe evidence without a network"
+    );
     println!("  validate   - build samples and run wasm-tools validate");
     println!("  emit-vcs   - build a small contract sample with --emit-vcs");
     println!("  std-core-artifact [--version X.Y.Z] [--out-dir DIR]");

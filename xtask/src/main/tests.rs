@@ -1885,6 +1885,161 @@ fn demo() {
     }
 
     #[test]
+    fn safe_evidence_capture_and_replay_are_local_and_fail_closed() {
+        let root = unique_temp_dir("safe-evidence-capture");
+        std::fs::create_dir_all(root.join("records")).expect("create record directory");
+        let identity = SafeEvidenceIdentity {
+            source_profile_proof_sha256: "a".repeat(64),
+            state_schema_abi_sha256: "b".repeat(64),
+            evm_artifact_sha256: "c".repeat(64),
+            release_bundle_sha256: "d".repeat(64),
+            policy_sha256: "e".repeat(64),
+            safe_identity_sha256: "f".repeat(64),
+            observer_policy_version: "1".to_string(),
+        };
+        let observation = SafeEvidenceObservation {
+            format: SAFE_EVIDENCE_OBSERVATION_FORMAT.to_string(),
+            schema_version: 1,
+            id: "01-deployment-finality".to_string(),
+            kind: "deployment".to_string(),
+            subject_action_id: "deploy-1".to_string(),
+            captured_at: "2030-01-02T03:04:05Z".to_string(),
+            primary_observer: SafeObserver {
+                observer_id: "submission-observer".to_string(),
+                observer_class: "primary".to_string(),
+                client_family: "fixture-client-a".to_string(),
+                client_version: "1".to_string(),
+                exchange_digests: vec!["1".repeat(64)],
+            },
+            independent_observer: SafeObserver {
+                observer_id: "verification-observer".to_string(),
+                observer_class: "independent".to_string(),
+                client_family: "fixture-client-b".to_string(),
+                client_version: "1".to_string(),
+                exchange_digests: vec!["2".repeat(64)],
+            },
+            block_number: "12".to_string(),
+            block_hash: format!("0x{}", "a".repeat(64)),
+            status: "qualified_finality_observation".to_string(),
+            comparison_result: "match".to_string(),
+        };
+        let confirmation = SafeEvidenceObservation {
+            id: "02-confirmation".to_string(),
+            kind: "confirmation".to_string(),
+            ..observation.clone()
+        };
+        let reorganization_observation = SafeEvidenceObservation {
+            id: "03-reorganization-observation".to_string(),
+            kind: "reorganization_observation".to_string(),
+            ..observation.clone()
+        };
+        for (path, record) in [
+            ("records/deployment.json", &observation),
+            ("records/confirmation.json", &confirmation),
+            (
+                "records/reorganization-observation.json",
+                &reorganization_observation,
+            ),
+        ] {
+            std::fs::write(
+                root.join(path),
+                canonical_json_bytes(record).expect("canonical observation"),
+            )
+            .expect("write observation");
+        }
+        let input = SafeEvidenceCaptureInput {
+            format: SAFE_EVIDENCE_CAPTURE_INPUT_FORMAT.to_string(),
+            schema_version: 1,
+            target: SafeEvidenceTarget {
+                profile: SAFE_EVIDENCE_PROFILE.to_string(),
+                chain_id: "1".to_string(),
+            },
+            identity,
+            observations: vec![
+                SafeEvidenceCaptureRef {
+                    id: observation.id.clone(),
+                    record_path: "records/deployment.json".to_string(),
+                },
+                SafeEvidenceCaptureRef {
+                    id: confirmation.id.clone(),
+                    record_path: "records/confirmation.json".to_string(),
+                },
+                SafeEvidenceCaptureRef {
+                    id: reorganization_observation.id.clone(),
+                    record_path: "records/reorganization-observation.json".to_string(),
+                },
+            ],
+        };
+        std::fs::write(
+            root.join("capture.json"),
+            canonical_json_bytes(&input).expect("canonical capture input"),
+        )
+        .expect("write capture input");
+        let evidence_path = root.join("evidence.json");
+        run_safe_evidence_capture(
+            repo_root().as_path(),
+            vec![
+                "--root".to_string(),
+                root.to_string_lossy().into_owned(),
+                "--input".to_string(),
+                "capture.json".to_string(),
+                "--out".to_string(),
+                "evidence.json".to_string(),
+            ],
+        )
+        .expect("capture evidence");
+        let replay_path = root.join("replay.json");
+        run_safe_evidence_replay(
+            repo_root().as_path(),
+            vec![
+                "--input".to_string(),
+                evidence_path.to_string_lossy().into_owned(),
+                "--report-out".to_string(),
+                replay_path.to_string_lossy().into_owned(),
+            ],
+        )
+        .expect("replay evidence");
+        let replay: SafeReplayReport = serde_json::from_slice(
+            &std::fs::read(&replay_path).expect("read replay report"),
+        )
+        .expect("parse replay report");
+        assert_eq!(replay.status, "replayed");
+        assert_eq!(replay.diagnostic, "M6C000");
+        assert!(!replay.network_contacted);
+        assert_eq!(replay.production_claim, "not_established");
+
+        let mut evidence: SafeTargetEvidence = serde_json::from_slice(
+            &std::fs::read(&evidence_path).expect("read evidence"),
+        )
+        .expect("parse evidence");
+        evidence.observations[0].status = "pending_receipt".to_string();
+        std::fs::write(
+            &evidence_path,
+            canonical_json_bytes(&evidence).expect("canonical pending evidence"),
+        )
+        .expect("write pending evidence");
+        let rejected_replay_path = root.join("replay-rejected.json");
+        assert!(run_safe_evidence_replay(
+            repo_root().as_path(),
+            vec![
+                "--input".to_string(),
+                evidence_path.to_string_lossy().into_owned(),
+                "--report-out".to_string(),
+                rejected_replay_path.to_string_lossy().into_owned(),
+            ],
+        )
+        .is_err());
+        let rejected: SafeReplayReport = serde_json::from_slice(
+            &std::fs::read(&rejected_replay_path).expect("read rejected replay"),
+        )
+        .expect("parse rejected replay");
+        assert_eq!(rejected.status, "unaccepted");
+        assert_eq!(rejected.diagnostic, "M6C005");
+        assert!(!rejected.network_contacted);
+        cleanup_temp_dir(root.as_path());
+    }
+
+    #[test]
     fn pilot_precheck_report_destination_is_new_and_safe() {
         let root = repo_root();
         let accepted = root.join("out").join("pilot-precheck-test-report.json");

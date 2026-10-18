@@ -42,6 +42,8 @@ fn main() -> Result<(), String> {
         "release-precheck" => run_release_precheck(&root)?,
         "pilot-precheck" => run_pilot_precheck(&root, args.collect())?,
         "safe-policy-validate" => run_safe_policy_validate(&root, args.collect())?,
+        "safe-evidence-capture" => run_safe_evidence_capture(&root, args.collect())?,
+        "safe-evidence-replay" => run_safe_evidence_replay(&root, args.collect())?,
         "validate" => validate_samples(&root)?,
         "emit-vcs" => emit_vcs_sample(&root)?,
         "std-core-artifact" => emit_std_core_artifact(&root, args.collect())?,

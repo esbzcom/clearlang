@@ -2350,6 +2350,51 @@ fn demo() {
     }
 
     #[test]
+    fn independent_review_findings_template_stays_unstarted_and_blocks_launch() {
+        const TEMPLATE: &str = include_str!(
+            "../../../docs/fixtures/phase-54.1/independent-review-findings-template.json"
+        );
+        const CONTRACT: &str = include_str!(
+            "../../../docs/design/phase-54.1-independent-review-findings-disposition.md"
+        );
+        let template: serde_json::Value = serde_json::from_str(TEMPLATE).expect("parse findings template");
+        assert_eq!(
+            template["format"].as_str(),
+            Some("clg.independent-review-findings.v1")
+        );
+        assert_eq!(template["schema_version"].as_u64(), Some(1));
+        assert_eq!(template["status"].as_str(), Some("not_started"));
+        assert!(template["reviewer"].is_null());
+        assert!(template["conflict_disclosure"].is_null());
+        assert_eq!(template["findings"].as_array().map(Vec::len), Some(0));
+        assert_eq!(template["launch_effect"].as_str(), Some("not_approved"));
+        assert!(template["handoff"]["sha256"].as_str().is_some_and(is_lower_hex_64));
+        let blockers = template["blockers"]
+            .as_array()
+            .expect("findings blockers")
+            .iter()
+            .filter_map(|blocker| blocker.as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "independent_review_not_commissioned",
+            "production_verifier_unavailable",
+            "public_testnet_soak_not_started",
+            "production_precheck_M6D005",
+        ] {
+            assert!(blockers.contains(required), "missing findings blocker {required}");
+        }
+        let contract = normalized_document_text(CONTRACT);
+        for required in [
+            "unresolved critical/high",
+            "not approved",
+            "not_started",
+            "cannot override a failed proof",
+        ] {
+            assert!(contract.contains(required), "findings contract missing {required}");
+        }
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

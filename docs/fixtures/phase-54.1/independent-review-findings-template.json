@@ -1,0 +1,19 @@
+{
+  "format": "clg.independent-review-findings.v1",
+  "schema_version": 1,
+  "status": "not_started",
+  "handoff": {
+    "path": "docs/fixtures/phase-54.0/independent-review-handoff-fixture.json",
+    "sha256": "b0080a7d14721e484b3b099375a1ab344e38809e7a3701bf74373b75a7096963"
+  },
+  "reviewer": null,
+  "conflict_disclosure": null,
+  "findings": [],
+  "finding_required_fields": ["id", "severity", "affected_identity", "description", "owner", "remediation_state", "remediation_evidence", "retest_state", "disposition"],
+  "severity_values": ["critical", "high", "medium", "low", "informational"],
+  "disposition_values": ["open", "remediated_pending_retest", "remediated", "not_approved", "invalid_with_reviewer_rationale"],
+  "launch_effect": "not_approved",
+  "blockers": ["independent_review_not_commissioned", "production_verifier_unavailable", "public_testnet_soak_not_started", "production_precheck_M6D005"],
+  "prohibited_content": ["private_key", "seed_phrase", "recovery_material", "endpoint_credential", "raw_safe_signature", "wallet_export", "absolute_path", "production_transaction_request"],
+  "non_claims": ["findings_complete", "review_approved", "production_ready", "mainnet_action_authorized"]
+}

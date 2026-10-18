@@ -2103,6 +2103,129 @@ fn demo() {
     }
 
     #[test]
+    fn production_precheck_validation_rejects_fail_fast_and_diagnostic_tampering() {
+        let root = repo_root();
+        let mut report = new_production_precheck_report(root.as_path())
+            .expect("build production precheck report");
+        for gate in report.gates.iter_mut().take(4) {
+            gate.status = "passed".to_string();
+        }
+        report.gates[4].status = "blocked".to_string();
+        report.gates[4].diagnostic = Some("M6D005".to_string());
+        report.gates[5].status = "not_run".to_string();
+        report.overall_status = "blocked".to_string();
+
+        validate_production_precheck_report_against_root(root.as_path(), &report)
+            .expect("known blocked report is valid");
+
+        let mut later_gate_ran = report.clone();
+        later_gate_ran.gates[5].status = "passed".to_string();
+        assert!(validate_production_precheck_report(&later_gate_ran).is_err());
+
+        let mut missing_terminal_diagnostic = report.clone();
+        missing_terminal_diagnostic.gates[4].diagnostic = None;
+        assert!(validate_production_precheck_report(&missing_terminal_diagnostic).is_err());
+
+        let mut unknown_diagnostic = report.clone();
+        unknown_diagnostic.gates[4].diagnostic = Some("M6D999".to_string());
+        assert!(validate_production_precheck_report(&unknown_diagnostic).is_err());
+
+        let mut premature_not_run = report;
+        premature_not_run.gates[2].status = "not_run".to_string();
+        premature_not_run.gates[2].diagnostic = None;
+        assert!(validate_production_precheck_report(&premature_not_run).is_err());
+    }
+
+    #[test]
+    fn production_precheck_validation_rejects_identity_order_path_and_content_tampering() {
+        let root = repo_root();
+        let mut report = new_production_precheck_report(root.as_path())
+            .expect("build production precheck report");
+        for gate in report.gates.iter_mut().take(4) {
+            gate.status = "passed".to_string();
+        }
+        report.gates[4].status = "blocked".to_string();
+        report.gates[4].diagnostic = Some("M6D005".to_string());
+        report.gates[5].status = "not_run".to_string();
+        report.overall_status = "blocked".to_string();
+
+        let mut reordered = report.clone();
+        reordered.gates.swap(0, 1);
+        assert!(validate_production_precheck_report(&reordered).is_err());
+
+        let mut duplicated = report.clone();
+        duplicated.gates[5].id = duplicated.gates[4].id.clone();
+        assert!(validate_production_precheck_report(&duplicated).is_err());
+
+        let mut unsafe_path = report.clone();
+        unsafe_path.identity[0].id = "../outside.json".to_string();
+        assert!(validate_production_precheck_report(&unsafe_path).is_err());
+
+        let mut secret_bearing = report.clone();
+        secret_bearing.gates[0].command.push("private_key".to_string());
+        assert!(validate_production_precheck_report(&secret_bearing).is_err());
+
+        let mut unsupported_version = report.clone();
+        unsupported_version.schema_version = 2;
+        assert!(validate_production_precheck_report(&unsupported_version).is_err());
+
+        let mut cross_profile = report.clone();
+        cross_profile.candidate_profile = "clg.evm-ethereum-mainnet-safe-registry.v1:11155111".to_string();
+        assert!(validate_production_precheck_report(&cross_profile).is_err());
+
+        let mut substituted_digest = report;
+        substituted_digest.identity[0].sha256 = "0".repeat(64);
+        assert!(validate_production_precheck_report_against_root(root.as_path(), &substituted_digest).is_err());
+    }
+
+    #[test]
+    fn production_precheck_tamper_matrix_is_complete_and_fail_closed() {
+        const MATRIX: &str = include_str!(
+            "../../../docs/fixtures/phase-53.3/production-precheck-tamper-matrix.json"
+        );
+        let matrix: serde_json::Value = serde_json::from_str(MATRIX).expect("parse tamper matrix");
+        assert_eq!(
+            matrix["format"].as_str(),
+            Some("clg.production-precheck-tamper-matrix.v1")
+        );
+        assert_eq!(matrix["schema_version"].as_u64(), Some(1));
+        assert_eq!(matrix["scope"].as_str(), Some("offline_only"));
+        let cases = matrix["cases"].as_array().expect("tamper cases");
+        assert_eq!(cases.len(), 10);
+        let names = cases
+            .iter()
+            .filter_map(|case| case["name"].as_str())
+            .collect::<BTreeSet<_>>();
+        for required in [
+            "reordered_or_duplicated_gate",
+            "later_gate_after_terminal_result",
+            "unsafe_or_secret_bearing_input",
+            "substituted_or_cross_profile_identity",
+            "stale_or_mismatched_release_evidence",
+            "unsupported_support_matrix",
+            "unavailable_public_soak",
+        ] {
+            assert!(names.contains(required), "missing tamper case {required}");
+        }
+        for case in cases {
+            assert!(
+                matches!(
+                    case["expected_status"].as_str(),
+                    Some("rejected") | Some("blocked")
+                ),
+                "tamper matrix must fail closed"
+            );
+            assert!(
+                matches!(
+                    case["expected_diagnostic"].as_str(),
+                    Some("M6D001" | "M6D002" | "M6D003" | "M6D004" | "M6D005")
+                ),
+                "tamper matrix must use a stable diagnostic"
+            );
+        }
+    }
+
+    #[test]
     fn production_support_policy_is_pinned_and_fail_closed() {
         const FIXTURE: &str = include_str!(
             "../../../docs/fixtures/phase-53.1/production-support-compatibility-fixture.json"

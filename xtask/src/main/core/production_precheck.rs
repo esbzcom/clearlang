@@ -88,13 +88,13 @@ fn run_production_precheck(root: &Path, raw_args: Vec<String>) -> Result<(), Str
                 }
                 report.overall_status = "blocked".to_string();
                 validate_production_precheck_report_against_root(root, &report)?;
-                write_production_precheck_report(&opts.report, &report)?;
+                write_production_precheck_report(root, &opts.report, &report)?;
                 return Err(format!("production-precheck gate `{id}` blocked; report written"));
             }
         }
     }
     validate_production_precheck_report_against_root(root, &report)?;
-    write_production_precheck_report(&opts.report, &report)
+    write_production_precheck_report(root, &opts.report, &report)
 }
 
 fn parse_production_precheck_args(raw_args: Vec<String>) -> Result<ProductionPrecheckOpts, String> {
@@ -230,8 +230,8 @@ fn validate_production_precheck_report(report: &ProductionPrecheckReport) -> Res
         return Err("M6D002 invalid production candidate profile or Gate E state".to_string());
     }
     validate_production_precheck_digests(&report.identity)?;
-    let mut saw_blocked = false;
-    let mut saw_failed = false;
+    validate_production_precheck_secret_free(report)?;
+    let mut terminal_status = None;
     for gate in &report.gates {
         if !matches!(gate.status.as_str(), "passed" | "failed" | "blocked" | "not_run") {
             return Err("M6D001 invalid production-precheck gate status".to_string());
@@ -241,18 +241,67 @@ fn validate_production_precheck_report(report: &ProductionPrecheckReport) -> Res
         }
         validate_production_precheck_digests(&gate.input_digests)?;
         validate_production_precheck_digests(&gate.evidence_digests)?;
-        if gate.status == "blocked" && gate.diagnostic.is_none() {
-            return Err("M6D001 blocked production-precheck gate lacks diagnostic".to_string());
+        match (terminal_status.as_deref(), gate.status.as_str()) {
+            (None, "passed") if gate.diagnostic.is_none() => {}
+            (None, "failed" | "blocked") => {
+                let diagnostic = gate.diagnostic.as_deref().ok_or_else(|| {
+                    "M6D001 terminal production-precheck gate lacks diagnostic".to_string()
+                })?;
+                if !matches!(diagnostic, "M6D001" | "M6D002" | "M6D003" | "M6D004" | "M6D005") {
+                    return Err("M6D001 unknown production-precheck diagnostic".to_string());
+                }
+                terminal_status = Some(gate.status.clone());
+            }
+            (Some(_), "not_run") if gate.diagnostic.is_none() => {}
+            _ => {
+                return Err(
+                    "M6D001 production-precheck statuses must be fail-fast with later gates not_run"
+                        .to_string(),
+                );
+            }
         }
-        if gate.status != "blocked" && gate.diagnostic.is_some() {
-            return Err("M6D001 non-blocked production-precheck gate has diagnostic".to_string());
-        }
-        saw_blocked |= gate.status == "blocked";
-        saw_failed |= gate.status == "failed";
     }
-    let expected_status = if saw_failed { "failed" } else if saw_blocked { "blocked" } else { "passed" };
+    let expected_status = terminal_status.as_deref().unwrap_or("passed");
     if report.overall_status != expected_status {
         return Err("M6D001 invalid production-precheck overall status".to_string());
+    }
+    Ok(())
+}
+
+fn validate_production_precheck_secret_free(report: &ProductionPrecheckReport) -> Result<(), String> {
+    const PROHIBITED: &[&str] = &[
+        "endpoint_url",
+        "endpoint_credential",
+        "private_key",
+        "seed_phrase",
+        "absolute_path",
+        "hostname",
+        "username",
+        "timestamp",
+        "process_id",
+    ];
+    let mut values = vec![report.candidate_profile.as_str()];
+    for digest in &report.identity {
+        values.extend([digest.id.as_str(), digest.sha256.as_str()]);
+    }
+    for tool in &report.toolchain {
+        values.extend([tool.name.as_str(), tool.version.as_str()]);
+    }
+    for gate in &report.gates {
+        values.push(gate.id.as_str());
+        values.extend(gate.command.iter().map(String::as_str));
+        for digest in gate.input_digests.iter().chain(&gate.evidence_digests) {
+            values.extend([digest.id.as_str(), digest.sha256.as_str()]);
+        }
+        if let Some(diagnostic) = gate.diagnostic.as_deref() {
+            values.push(diagnostic);
+        }
+    }
+    if values.iter().any(|value| {
+        let normalized = value.to_ascii_lowercase();
+        PROHIBITED.iter().any(|term| normalized.contains(term))
+    }) {
+        return Err("M6D001 secret-bearing production-precheck report".to_string());
     }
     Ok(())
 }
@@ -276,7 +325,11 @@ fn validate_production_precheck_digests(digests: &[ProductionPrecheckDigest]) ->
     Ok(())
 }
 
-fn write_production_precheck_report(path: &Path, report: &ProductionPrecheckReport) -> Result<(), String> {
+fn write_production_precheck_report(
+    root: &Path,
+    path: &Path,
+    report: &ProductionPrecheckReport,
+) -> Result<(), String> {
     let bytes = pretty_json_bytes(report)?;
     let parent = path.parent().ok_or_else(|| "production-precheck report has no parent".to_string())?;
     fs::create_dir_all(parent).map_err(|error| format!("create production-precheck output: {error}"))?;
@@ -284,6 +337,14 @@ fn write_production_precheck_report(path: &Path, report: &ProductionPrecheckRepo
     if temporary.exists() {
         return Err("production-precheck temporary report exists".to_string());
     }
-    fs::write(&temporary, bytes).map_err(|error| format!("write production-precheck report: {error}"))?;
-    fs::rename(&temporary, path).map_err(|error| format!("publish production-precheck report: {error}"))
+    fs::write(&temporary, &bytes)
+        .map_err(|error| format!("write production-precheck report: {error}"))?;
+    fs::rename(&temporary, path).map_err(|error| format!("publish production-precheck report: {error}"))?;
+    let persisted = fs::read(path).map_err(|error| format!("read production-precheck report: {error}"))?;
+    if persisted != bytes {
+        return Err("M6D001 production-precheck report changed during publish".to_string());
+    }
+    let persisted_report: ProductionPrecheckReport = serde_json::from_slice(&persisted)
+        .map_err(|error| format!("M6D001 parse published production-precheck report: {error}"))?;
+    validate_production_precheck_report_against_root(root, &persisted_report)
 }

@@ -1,0 +1,18 @@
+{
+  "format": "clg.production-precheck-tamper-matrix.v1",
+  "schema_version": 1,
+  "scope": "offline_only",
+  "acceptance_boundary": "no_case_establishes_production_or_launch_acceptance",
+  "cases": [
+    {"name":"missing_report_argument","mutation":"omit --report","expected_status":"rejected","expected_diagnostic":"M6D001"},
+    {"name":"unknown_or_duplicate_argument","mutation":"add --skip or duplicate --report","expected_status":"rejected","expected_diagnostic":"M6D001"},
+    {"name":"reordered_or_duplicated_gate","mutation":"reorder or duplicate gate_order/gates[].id","expected_status":"rejected","expected_diagnostic":"M6D001"},
+    {"name":"later_gate_after_terminal_result","mutation":"set a post-terminal gate to passed","expected_status":"rejected","expected_diagnostic":"M6D001"},
+    {"name":"missing_or_unknown_terminal_diagnostic","mutation":"remove or replace terminal diagnostic","expected_status":"rejected","expected_diagnostic":"M6D001"},
+    {"name":"unsafe_or_secret_bearing_input","mutation":"use path traversal, absolute path, or credential-bearing value","expected_status":"rejected","expected_diagnostic":"M6D001"},
+    {"name":"substituted_or_cross_profile_identity","mutation":"replace profile/policy/replay digest or candidate profile","expected_status":"rejected","expected_diagnostic":"M6D002"},
+    {"name":"stale_or_mismatched_release_evidence","mutation":"replace release, anchor, or replay evidence digest","expected_status":"rejected","expected_diagnostic":"M6D003"},
+    {"name":"unsupported_support_matrix","mutation":"replace support policy with an unsupported matrix","expected_status":"rejected","expected_diagnostic":"M6D004"},
+    {"name":"unavailable_public_soak","mutation":"leave soak status other than eligible_for_gate_d","expected_status":"blocked","expected_diagnostic":"M6D005"}
+  ]
+}
